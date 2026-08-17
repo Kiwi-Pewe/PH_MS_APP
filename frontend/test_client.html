@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PH_MS_APP — Test Client</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    background: #1b1d23;
+    color: #e8e8ec;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .card {
+    background: #24262e;
+    border: 1px solid #33353f;
+    border-radius: 10px;
+    padding: 28px;
+    width: 380px;
+  }
+  h1 {
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    color: #9a9cab;
+    text-transform: uppercase;
+    margin: 0 0 20px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: #9a9cab;
+    margin-bottom: 6px;
+  }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    background: #1b1d23;
+    border: 1px solid #3a3d49;
+    border-radius: 6px;
+    color: #e8e8ec;
+    font-size: 14px;
+    margin-bottom: 14px;
+  }
+  input:focus { outline: none; border-color: #6c7bff; }
+  button {
+    width: 100%;
+    padding: 11px;
+    background: #6c7bff;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: #5867e8; }
+  #status {
+    font-size: 12px;
+    color: #6c7bff;
+    margin-top: 10px;
+    min-height: 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="card" id="login-card">
+  <h1>Connect</h1>
+  <label for="server-address">Server Address</label>
+  <input type="text" id="server-address" placeholder="e.g. 192.168.1.182:8000" value="127.0.0.1:8000">
+  <label for="account-id">Account ID</label>
+  <input type="number" id="account-id" placeholder="e.g. 1">
+  <button onclick="connect()">Connect</button>
+  <div id="status"></div>
+</div>
+
+<div class="card" id="chat-card" style="display:none; width:420px;">
+  <h1>Connected as <span id="my-id"></span></h1>
+  <label for="receiver-id">Send to (Account ID)</label>
+  <input type="number" id="receiver-id" placeholder="e.g. 2">
+  <label for="content">Message</label>
+  <input type="text" id="content" placeholder="Type a message">
+  <button onclick="sendMessage()">Send</button>
+  <div id="log" style="margin-top:16px; max-height:240px; overflow-y:auto; font-size:13px; line-height:1.6;"></div>
+</div>
+
+<script>
+let ws = null;
+let myId = null;
+
+function connect() {
+  const idInput = document.getElementById("account-id");
+  const addressInput = document.getElementById("server-address");
+  myId = idInput.value;
+  const address = addressInput.value;
+  const status = document.getElementById("status");
+
+  if (!myId) {
+    status.textContent = "Enter an account ID first.";
+    return;
+  }
+  if (!address) {
+    status.textContent = "Enter a server address first.";
+    return;
+  }
+
+  status.textContent = "Connecting...";
+
+  ws = new WebSocket(`ws://${address}/ws/${myId}`);
+
+  ws.onopen = () => {
+    document.getElementById("login-card").style.display = "none";
+    document.getElementById("chat-card").style.display = "block";
+    document.getElementById("my-id").textContent = myId;
+  };
+
+  ws.onclose = () => {
+    status.textContent = "Disconnected.";
+    document.getElementById("chat-card").style.display = "none";
+    document.getElementById("login-card").style.display = "block";
+  };
+
+  ws.onerror = () => {
+    status.textContent = "Connection failed. Is the server running?";
+  };
+
+  ws.onmessage = (event) => {
+    logLine(event.data, "incoming");
+  };
+}
+
+function sendMessage() {
+  const receiverId = document.getElementById("receiver-id").value;
+  const contentInput = document.getElementById("content");
+  const content = contentInput.value;
+
+  if (!receiverId || !content) return;
+
+  ws.send(JSON.stringify({
+    type: "message",
+    receiver_id: parseInt(receiverId),
+    content: content
+  }));
+
+  logLine(`You -> ${receiverId}: ${content}`, "outgoing");
+  contentInput.value = "";
+}
+
+function logLine(text, kind) {
+  const log = document.getElementById("log");
+  const line = document.createElement("div");
+  line.textContent = text;
+  line.style.color = kind === "outgoing" ? "#9a9cab" : "#e8e8ec";
+  line.style.marginBottom = "6px";
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+</script>
+
+</body>
+</html>

@@ -69,13 +69,33 @@
 <body>
 
 <div class="card" id="login-card">
-  <h1>Connect</h1>
+  <h1>Login</h1>
   <label for="server-address">Server Address</label>
   <input type="text" id="server-address" placeholder="e.g. 192.168.1.182:8000" value="127.0.0.1:8000">
-  <label for="account-id">Account ID</label>
-  <input type="number" id="account-id" placeholder="e.g. 1">
-  <button onclick="connect()">Connect</button>
+  <label for="login-username">Username</label>
+  <input type="text" id="login-username" placeholder="e.g. kiwi">
+  <label for="login-password">Password</label>
+  <input type="password" id="login-password" placeholder="Password">
+  <button onclick="login()">Log In</button>
   <div id="status"></div>
+  <div style="margin-top:14px; font-size:13px; color:#9a9cab;">
+    No account? <a href="#" onclick="showRegister(); return false;" style="color:#6c7bff;">Register</a>
+  </div>
+</div>
+
+<div class="card" id="register-card" style="display:none;">
+  <h1>Register</h1>
+  <label for="server-address-register">Server Address</label>
+  <input type="text" id="server-address-register" placeholder="e.g. 192.168.1.182:8000" value="127.0.0.1:8000">
+  <label for="register-username">Username</label>
+  <input type="text" id="register-username" placeholder="e.g. kiwi">
+  <label for="register-password">Password</label>
+  <input type="password" id="register-password" placeholder="Password">
+  <button onclick="register()">Register</button>
+  <div id="register-status"></div>
+  <div style="margin-top:14px; font-size:13px; color:#9a9cab;">
+    Already have an account? <a href="#" onclick="showLogin(); return false;" style="color:#6c7bff;">Log In</a>
+  </div>
 </div>
 
 <div class="card" id="chat-card" style="display:none; width:420px;">
@@ -86,51 +106,148 @@
   <input type="text" id="content" placeholder="Type a message">
   <button onclick="sendMessage()">Send</button>
   <div id="log" style="margin-top:16px; max-height:240px; overflow-y:auto; font-size:13px; line-height:1.6;"></div>
+  <button onclick="logout()" style="margin-top:16px; background:#3a3d49;">Log Out</button>
 </div>
 
 <script>
 let ws = null;
 let myId = null;
+let serverAddress = null;
 
-function connect() {
-  const idInput = document.getElementById("account-id");
-  const addressInput = document.getElementById("server-address");
-  myId = idInput.value;
-  const address = addressInput.value;
+window.addEventListener("load", () => {
+  serverAddress = window.location.host;
+  connectSocket(true);
+});
+
+function showRegister() {
+  document.getElementById("login-card").style.display = "none";
+  document.getElementById("register-card").style.display = "block";
+}
+
+function showLogin() {
+  document.getElementById("register-card").style.display = "none";
+  document.getElementById("login-card").style.display = "block";
+}
+
+async function register() {
+  const address = document.getElementById("server-address-register").value;
+  const username = document.getElementById("register-username").value;
+  const password = document.getElementById("register-password").value;
+  const status = document.getElementById("register-status");
+
+  if (!address || !username || !password) {
+    status.textContent = "Fill in all fields.";
+    return;
+  }
+
+  status.textContent = "Registering...";
+
+  try {
+    const response = await fetch(`http://${address}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      status.textContent = err.detail || "Registration failed.";
+      return;
+    }
+
+    status.textContent = "Account created. You can log in now.";
+  } catch (e) {
+    status.textContent = "Could not reach server.";
+  }
+}
+
+async function login() {
+  const address = document.getElementById("server-address").value;
+  const username = document.getElementById("login-username").value;
+  const password = document.getElementById("login-password").value;
   const status = document.getElementById("status");
 
-  if (!myId) {
-    status.textContent = "Enter an account ID first.";
-    return;
-  }
-  if (!address) {
-    status.textContent = "Enter a server address first.";
+  if (!address || !username || !password) {
+    status.textContent = "Fill in all fields.";
     return;
   }
 
-  status.textContent = "Connecting...";
+  status.textContent = "Logging in...";
 
-  ws = new WebSocket(`ws://${address}/ws/${myId}`);
+  try {
+    const response = await fetch(`http://${address}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ username, password })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      status.textContent = err.detail || "Login failed.";
+      return;
+    }
+
+    const user = await response.json();
+    myId = user.id;
+    serverAddress = address;
+    status.textContent = "";
+    connectSocket();
+  } catch (e) {
+    status.textContent = "Could not reach server.";
+  }
+}
+
+function connectSocket(isAutoAttempt = false) {
+  const status = document.getElementById("status");
+  if (!isAutoAttempt) status.textContent = "Connecting...";
+
+  ws = new WebSocket(`ws://${serverAddress}/ws`);
 
   ws.onopen = () => {
+    status.textContent = "";
     document.getElementById("login-card").style.display = "none";
+    document.getElementById("register-card").style.display = "none";
     document.getElementById("chat-card").style.display = "block";
-    document.getElementById("my-id").textContent = myId;
+    document.getElementById("my-id").textContent = myId || "(existing session)";
   };
 
   ws.onclose = () => {
-    status.textContent = "Disconnected.";
+    ws = null;
     document.getElementById("chat-card").style.display = "none";
     document.getElementById("login-card").style.display = "block";
+    // On an auto-login attempt, a close just means there's no valid session yet — not a real error.
+    status.textContent = isAutoAttempt ? "" : "Disconnected.";
   };
 
   ws.onerror = () => {
-    status.textContent = "Connection failed. Is the server running?";
+    if (!isAutoAttempt) {
+      status.textContent = "Connection failed. Are you logged in and is the server running?";
+    }
   };
 
   ws.onmessage = (event) => {
     logLine(event.data, "incoming");
   };
+}
+
+async function logout() {
+  try {
+    await fetch(`http://${serverAddress}/logout`, {
+      method: "POST",
+      credentials: "include"
+    });
+  } catch (e) {
+    // Even if this fails (e.g. server unreachable), still tear down the local connection below.
+  }
+
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+  document.getElementById("log").innerHTML = "";
+  document.getElementById("status").textContent = "Logged out.";
+  myId = null;
 }
 
 function sendMessage() {

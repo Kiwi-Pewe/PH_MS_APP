@@ -29,7 +29,6 @@ def validate_session(session_id, database: Session):
     return user_account
 
 def get_current_user(session_id: str = Cookie(None), database: Session = Depends(get_db)):
-    """Dependency for normal HTTP routes — raises 401 if the session is missing/invalid/expired."""
 
     user_account = validate_session(session_id, database)
     if not user_account:

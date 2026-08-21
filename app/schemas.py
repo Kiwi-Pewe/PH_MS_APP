@@ -17,3 +17,15 @@ class Message_schema(BaseModel):
 class Session_logger(BaseModel):
     session_id: str
     account_id: int
+
+class Friend_user(BaseModel):
+    user_id_2: int | None = None
+    username: str | None = None
+
+class Block_schema(BaseModel):
+    blocked_user: int
+    
+class Conversations(BaseModel):
+
+    user_1:int
+    user_2: int

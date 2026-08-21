@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PH_MS_APP — Admin Panel</title>
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div class="card" id="chat-card">
+  <h1>Connected as <span id="my-id"></span></h1>
+  <label for="receiver-id">Target Account ID</label>
+  <input type="number" id="receiver-id" placeholder="e.g. 2">
+
+  <label for="friend-username">Username to Add/Accept</label>
+  <input type="text" id="friend-username" placeholder="e.g. kiwi">
+  <div style="display:flex; gap:8px; margin-bottom:14px;">
+    <button onclick="sendFriendRequest()" style="background:#3a3d49;">Add/Accept Friend</button>
+    <button onclick="removeFriend()" style="background:#3a3d49;">Remove Friend</button>
+  </div>
+  <div style="display:flex; gap:8px; margin-bottom:14px;">
+    <button onclick="blockUser()" style="background:#3a3d49;">Block</button>
+    <button onclick="unblockUser()" style="background:#3a3d49;">Unblock</button>
+  </div>
+  <button onclick="loadConversation()" style="margin-bottom:14px;">Load Conversation</button>
+
+  <label for="content">Message</label>
+  <input type="text" id="content" placeholder="Type a message">
+  <button onclick="sendMessage()">Send</button>
+
+  <div id="friend-status"></div>
+  <div id="log"></div>
+  <button onclick="logout()" style="margin-top:16px; background:#3a3d49;">Log Out</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

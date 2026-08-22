@@ -14,7 +14,7 @@ app = FastAPI()
 Base.metadata.create_all(engine)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["null"],
+    allow_origins=["https://oneira.cc"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,6 +47,8 @@ def login_account(account: Account_login, response: Response, database : Session
         database.commit()
         database.refresh(new_session_id)
         response.set_cookie(
+        samesite="none",
+        secure=True,
         key='session_id',
         value= new_id,
         httponly=True,
@@ -56,6 +58,8 @@ def login_account(account: Account_login, response: Response, database : Session
         existing_session_id.last_active = datetime.now()
         database.commit()
         response.set_cookie(
+        samesite="none",
+        secure=True,
         key='session_id',
         value= existing_session_id.session_id,
         httponly=True,
@@ -71,7 +75,7 @@ def logout_account(response:Response, session_id: str = Cookie(None), database: 
     if existing_session:
         database.delete(existing_session)
         database.commit()
-        response.delete_cookie(key="session_id")
+        response.delete_cookie(key="session_id", samesite="none", secure=True)
     return
 
 @app.post("/register", status_code = 201)

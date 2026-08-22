@@ -5,12 +5,12 @@ let serverAddress = null;
 let openConversationWith = null;
 
 window.addEventListener("load", () => {
-  serverAddress = window.location.host;
+  serverAddress = API_HOST;
   connectSocket();
 });
 
 function connectSocket() {
-  ws = new WebSocket(`ws://${serverAddress}/ws`);
+  ws = new WebSocket(`wss://${serverAddress}/ws`);
 
   ws.onopen = () => {
     document.getElementById("my-id").textContent = myId || "(existing session)";
@@ -45,7 +45,7 @@ function connectSocket() {
 
 async function logout() {
   try {
-    await fetch(`http://${serverAddress}/logout`, { method: "POST", credentials: "include" });
+    await fetch(`https://${serverAddress}/logout`, { method: "POST", credentials: "include" });
   } catch (e) { /* tear down locally regardless */ }
   if (ws) { ws.close(); ws = null; }
   window.location.href = "../login.html";
@@ -68,7 +68,7 @@ function sendMessage() {
 async function apiPost(path, body) {
   const status = document.getElementById("friend-status");
   try {
-    const response = await fetch(`http://${serverAddress}${path}`, {
+    const response = await fetch(`https://${serverAddress}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -125,7 +125,7 @@ async function loadConversation() {
   const status = document.getElementById("friend-status");
 
   try {
-    const response = await fetch(`http://${serverAddress}/messages/${targetId}`, { credentials: "include" });
+    const response = await fetch(`https://${serverAddress}/messages/${targetId}`, { credentials: "include" });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       status.textContent = err.detail || `Failed to load conversation (${response.status}).`;

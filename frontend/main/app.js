@@ -5,14 +5,14 @@ let openConversationWith = null;
 let conversationList = [];
 
 window.addEventListener("load", () => {
-  serverAddress = window.location.host;
+  serverAddress = API_HOST;
   const params = new URLSearchParams(window.location.search);
   myUsername = params.get("user");
   connectSocket();
 });
 
 function connectSocket() {
-  ws = new WebSocket(`ws://${serverAddress}/ws`);
+  ws = new WebSocket(`wss://${serverAddress}/ws`);
 
   ws.onopen = () => enterApp();
 
@@ -48,7 +48,7 @@ function avatarLetter(username) {
 
 async function logout() {
   try {
-    await fetch(`http://${serverAddress}/logout`, { method: "POST", credentials: "include" });
+    await fetch(`https://${serverAddress}/logout`, { method: "POST", credentials: "include" });
   } catch (e) { /* tear down locally regardless */ }
   if (ws) { ws.close(); ws = null; }
   window.location.href = "../login.html";
@@ -66,7 +66,7 @@ async function sendFriendRequestFromMain() {
   if (!username) { status.textContent = "Enter a username first."; return; }
   status.textContent = "Sending...";
   try {
-    const response = await fetch(`http://${serverAddress}/friend_user`, {
+    const response = await fetch(`https://${serverAddress}/friend_user`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -86,7 +86,7 @@ async function sendFriendRequestFromMain() {
 
 async function refreshFriendsView() {
   try {
-    const response = await fetch(`http://${serverAddress}/get_friends`, { credentials: "include" });
+    const response = await fetch(`https://${serverAddress}/get_friends`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
     renderPendingRequests(data.pending_requests || []);
@@ -152,7 +152,7 @@ async function respondToRequest(req, accept) {
   const path = accept ? "/friend_user" : "/unfriend_user";
   const body = accept ? { username: req.username } : { user_id_2: req.id };
   try {
-    await fetch(`http://${serverAddress}${path}`, {
+    await fetch(`https://${serverAddress}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -180,7 +180,7 @@ document.querySelectorAll("#secondary-nav .nav-item").forEach(btn => {
 });
 
 function loadConversations() {
-  fetch(`http://${serverAddress}/conversation_history`, { credentials: "include" })
+  fetch(`https://${serverAddress}/conversation_history`, { credentials: "include" })
     .then(response => response.ok ? response.json() : { conversations: [] })
     .then(data => {
       // Seed unread counts from the DB on load, so messages that arrived
@@ -291,7 +291,7 @@ async function openDirectMessage(id, username) {
   chatMessages.innerHTML = "";
 
   try {
-    const response = await fetch(`http://${serverAddress}/messages/${id}`, { credentials: "include" });
+    const response = await fetch(`https://${serverAddress}/messages/${id}`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
     data.messages.forEach(msg => {

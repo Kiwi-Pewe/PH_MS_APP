@@ -8,14 +8,13 @@ function showLogin() {
 }
 
 async function register() {
-  const address = document.getElementById("server-address-register").value;
   const username = document.getElementById("register-username").value;
   const password = document.getElementById("register-password").value;
   const status = document.getElementById("register-status");
-  if (!address || !username || !password) { status.textContent = "Fill in all fields."; return; }
+  if (!username || !password) { status.textContent = "Fill in all fields."; return; }
   status.textContent = "Registering...";
   try {
-    const response = await fetch(`http://${address}/register`, {
+    const response = await fetch(`https://${API_HOST}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password })
@@ -32,14 +31,13 @@ async function register() {
 }
 
 async function login() {
-  const address = document.getElementById("server-address").value;
   const username = document.getElementById("login-username").value;
   const password = document.getElementById("login-password").value;
   const status = document.getElementById("status");
-  if (!address || !username || !password) { status.textContent = "Fill in all fields."; return; }
+  if (!username || !password) { status.textContent = "Fill in all fields."; return; }
   status.textContent = "Logging in...";
   try {
-    const response = await fetch(`http://${address}/login`, {
+    const response = await fetch(`https://${API_HOST}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",

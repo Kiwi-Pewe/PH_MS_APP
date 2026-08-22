@@ -9,6 +9,7 @@ from app.schemas import Account_register, Account_login, Message_schema, Block_s
 from app.database import get_db, Base, engine 
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
 from datetime import datetime
+import asyncio
 
 app = FastAPI()
 Base.metadata.create_all(engine)
@@ -268,6 +269,11 @@ def remove_user(friends: Friend_user, database: Session = Depends(get_db), curre
         raise HTTPException(status_code= 404, detail="Friend not found.")
     return
 
+async def heartbeat(socket):
+    while True:
+        await(asyncio.sleep(45))
+        await socket.send_json({"type": "ping"})
+
 @app.websocket("/ws")
 async def connect_user(socket: WebSocket, session_id: str = Cookie(None), database: Session = Depends(get_db)):
 
@@ -278,7 +284,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
 
     await socket.accept()
     active_connections[current_user.id] = socket
-
+    heartbeat_task = asyncio.create_task(heartbeat(socket))
     try:
         while True:
             data = await socket.receive_json()
@@ -304,3 +310,4 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
             
     except WebSocketDisconnect:
         del active_connections[current_user.id]
+        heartbeat_task.cancel()

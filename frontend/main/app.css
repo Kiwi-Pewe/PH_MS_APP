@@ -127,7 +127,8 @@
 #composer { flex: 0 0 auto; padding: 16px; border-top: 1px solid var(--border); }
 #composer .box { display: flex; align-items: flex-end; gap: 6px; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 6px; }
 #composer textarea {
-  flex: 1; background: transparent; border: none; color: var(--text); font-size: 14px;
+  flex: 1; width: 100%; min-width: 0; box-sizing: border-box;
+  background: transparent; border: none; color: var(--text); font-size: 14px;
   font-family: inherit; padding: 8px 6px; resize: none; overflow-y: auto;
   line-height: 1.4; max-height: calc(1.4em * 5); /* caps growth at 5 lines, then scrolls */
 }

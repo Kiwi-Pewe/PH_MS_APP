@@ -2,6 +2,7 @@ let serverAddress = null;
 let ws = null;
 let myUsername = null;
 let openConversationWith = null;
+let openConversationUsername = null;
 let conversationList = [];
 
 // Messages currently shown in the open conversation, in send order.
@@ -306,6 +307,8 @@ async function openDirectMessage(id, username) {
   switchMainView("chat");
   document.getElementById("chat-header-title").textContent = username;
   document.getElementById("chat-header-actions").style.display = "flex";
+  openConversationUsername = username;
+  enableComposer();
   ensureConversationPresent(id, username);
   clearUnread(id);
 
@@ -341,6 +344,10 @@ async function openDirectMessage(id, username) {
 function renderMessages() {
   const wrap = document.getElementById("chat-messages");
   wrap.innerHTML = "";
+
+  if (openConversationWith !== null) {
+    wrap.appendChild(buildConversationStartCard(openConversationWith, openConversationUsername));
+  }
 
   let openCluster = null; // { isMine, lastTime, bubbleEl }
 
@@ -411,6 +418,110 @@ function formatClusterTime(date) {
   if (ageMs < 24 * 60 * 60 * 1000) return timeStr;
   const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
   return `${dateStr} \u00b7 ${timeStr}`;
+}
+
+// Sits once at the very top of message history — signals "you've reached
+// the start, nothing more to load" and hosts Remove Friend / Block.
+// Rebuilt fresh on every renderMessages() call, same as the clusters
+// below it, so it always reflects openConversationWith/Username correctly
+// even right after switching conversations.
+function buildConversationStartCard(id, username) {
+  const card = document.createElement("div");
+  card.className = "convo-start-card";
+
+  const avatar = document.createElement("div");
+  avatar.className = "convo-start-avatar";
+  avatar.textContent = avatarLetter(username);
+
+  const name = document.createElement("div");
+  name.className = "convo-start-name";
+  name.textContent = username;
+
+  const meta = document.createElement("div");
+  meta.className = "convo-start-meta"; // placeholder line — mutual-servers-style info, later
+
+  const desc = document.createElement("div");
+  desc.className = "convo-start-desc";
+  desc.textContent = `This is the beginning of your direct message history with ${username}.`;
+
+  const actions = document.createElement("div");
+  actions.className = "convo-start-actions";
+
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "icon-btn";
+  removeBtn.textContent = "Remove Friend";
+  removeBtn.onclick = () => handleRemoveFriend(id, username, actions);
+
+  const blockBtn = document.createElement("button");
+  blockBtn.className = "danger-btn";
+  blockBtn.textContent = "Block";
+  blockBtn.onclick = () => handleBlockUser(id, username, actions);
+
+  actions.appendChild(removeBtn);
+  actions.appendChild(blockBtn);
+
+  card.appendChild(avatar);
+  card.appendChild(name);
+  card.appendChild(meta);
+  card.appendChild(desc);
+  card.appendChild(actions);
+  return card;
+}
+
+async function handleRemoveFriend(id, username, actionsEl) {
+  try {
+    const response = await fetch(`https://${serverAddress}/unfriend_user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ user_id_2: id })
+    });
+    if (!response.ok) return;
+    actionsEl.innerHTML = "";
+    const status = document.createElement("div");
+    status.className = "convo-start-status";
+    status.textContent = `You are no longer friends with ${username}.`;
+    actionsEl.appendChild(status);
+    disableComposer(`You can't message ${username} \u2014 you're no longer friends.`);
+  } catch (e) { /* leave the buttons as-is on failure */ }
+}
+
+async function handleBlockUser(id, username, actionsEl) {
+  try {
+    const response = await fetch(`https://${serverAddress}/block`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ blocked_user: id })
+    });
+    if (!response.ok) return;
+    actionsEl.innerHTML = "";
+    const status = document.createElement("div");
+    status.className = "convo-start-status";
+    status.textContent = `You have blocked ${username}.`;
+    actionsEl.appendChild(status);
+    disableComposer(`You can't message ${username} \u2014 blocked.`);
+  } catch (e) { /* leave the buttons as-is on failure */ }
+}
+
+// Read-only mode for the composer — used after Remove Friend/Block, since
+// the backend's own friend-check would reject a send anyway; this just
+// makes that plain up front instead of letting the user type into a
+// message that's guaranteed to fail.
+function disableComposer(message) {
+  document.getElementById("composer-input").disabled = true;
+  document.getElementById("composer-input").placeholder = message;
+  document.getElementById("composer-send-btn").disabled = true;
+  document.getElementById("composer-plus-btn").disabled = true;
+  document.getElementById("composer-emoji-btn").disabled = true;
+}
+
+function enableComposer() {
+  document.getElementById("composer-input").disabled = false;
+  document.getElementById("composer-input").placeholder = "Type a message";
+  document.getElementById("composer-send-btn").disabled = false;
+  document.getElementById("composer-plus-btn").disabled = false;
+  document.getElementById("composer-emoji-btn").disabled = false;
 }
 
 function sendChatMessage() {

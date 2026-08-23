@@ -133,6 +133,9 @@
   line-height: 1.4; max-height: calc(1.4em * 5); /* caps growth at 5 lines, then scrolls */
 }
 #composer textarea:focus { outline: none; }
+#composer textarea:disabled { color: var(--text-dim); cursor: not-allowed; }
+#composer button:disabled, .composer-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+#composer button:disabled:hover { background: var(--accent); } /* don't hover-highlight while disabled */
 #composer button {
   height: 36px; padding: 0 16px; border-radius: 6px;
   display: flex; align-items: center; justify-content: center; align-self: flex-end;
@@ -152,6 +155,26 @@
 .composer-icon-btn:hover { color: var(--text); background: var(--rail); }
 
 #user-list { display: none; width: 220px; border-left: 1px solid var(--border); background: var(--panel); }
+
+/* Sits once at the very top of message history — signals "you've
+   reached the start, nothing more to load" and hosts quick actions.
+   Rebuilt on every renderMessages() call along with the rest of the
+   list, same reflow-from-scratch approach as the clusters below it. */
+.convo-start-card { text-align: center; padding: 24px 16px 28px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.convo-start-avatar {
+  width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 12px;
+  background: #3b3e4a; border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; font-weight: 700; color: #cfd1e0; text-transform: uppercase;
+}
+.convo-start-name { font-size: 20px; font-weight: 700; color: var(--text); }
+.convo-start-meta { min-height: 16px; margin: 4px 0 12px; font-size: 12px; color: var(--text-dim); } /* placeholder line for mutual-servers-style info, later */
+.convo-start-desc { font-size: 14px; color: var(--text-dim); margin-bottom: 16px; }
+.convo-start-actions { display: flex; gap: 8px; justify-content: center; }
+.convo-start-actions .icon-btn { border: 1px solid var(--border); }
+.convo-start-actions .danger-btn { background: transparent; border: 1px solid var(--danger); color: var(--danger); font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px; }
+.convo-start-actions .danger-btn:hover { background: var(--danger); color: #fff; }
+.convo-start-status { font-size: 12px; color: var(--text-dim); font-style: italic; }
 
 .msg-cluster {
   display: flex;

@@ -295,6 +295,7 @@ function resetChatView() {
   document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
   switchMainView("chat");
   document.getElementById("chat-header-title").textContent = "No conversation selected";
+  document.getElementById("chat-header-actions").style.display = "none";
   document.getElementById("chat-messages").style.display = "none";
   document.getElementById("chat-empty").style.display = "flex";
 }
@@ -304,6 +305,7 @@ async function openDirectMessage(id, username) {
   document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
   switchMainView("chat");
   document.getElementById("chat-header-title").textContent = username;
+  document.getElementById("chat-header-actions").style.display = "flex";
   ensureConversationPresent(id, username);
   clearUnread(id);
 
@@ -425,10 +427,24 @@ function sendChatMessage() {
   renderMessages();
   bumpConversation(openConversationWith, document.getElementById("chat-header-title").textContent, false);
   input.value = "";
+  autoGrowComposer(); // shrink back down after clearing
 }
 
+// Grows the composer textarea to fit its content, up to 5 lines, then
+// leaves it fixed height and lets the textarea's own scrollbar take over.
+function autoGrowComposer() {
+  const el = document.getElementById("composer-input");
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+
+document.getElementById("composer-input").addEventListener("input", autoGrowComposer);
+
 document.getElementById("composer-input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendChatMessage();
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault(); // stop the textarea's default newline insertion
+    sendChatMessage();
+  }
 });
 
 document.querySelectorAll(".settings-nav-item").forEach(btn => {

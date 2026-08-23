@@ -52,7 +52,16 @@
     <div id="main-panel">
 
       <div class="main-view active" id="view-chat">
-        <div class="view-header"><span id="chat-header-title">No conversation selected</span></div>
+        <div class="view-header">
+          <span id="chat-header-title">No conversation selected</span>
+          <!-- Hidden while no conversation is open; openDirectMessage/
+               resetChatView toggle this alongside the rest of the panel. -->
+          <div class="header-actions" id="chat-header-actions" style="display:none;">
+            <button class="icon-btn" title="Call (coming soon)">Call</button>
+            <button class="icon-btn" title="Pinned messages (coming soon)">Pins</button>
+            <button class="icon-btn" title="Chat settings (coming soon)">&#8942;</button>
+          </div>
+        </div>
         <div id="chat-body">
           <div id="chat-empty">
             <div class="badge">DM</div>
@@ -65,7 +74,9 @@
         </div>
         <div id="composer">
           <div class="box">
-            <input type="text" id="composer-input" placeholder="Type a message">
+            <button class="composer-icon-btn" id="composer-plus-btn" title="Options (coming soon)">+</button>
+            <textarea id="composer-input" placeholder="Type a message" rows="1"></textarea>
+            <button class="composer-icon-btn" id="composer-emoji-btn" title="Emoji (coming soon)">&#9786;</button>
             <button onclick="sendChatMessage()">Send</button>
           </div>
         </div>

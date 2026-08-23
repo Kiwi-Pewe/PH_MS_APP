@@ -10,6 +10,11 @@
   --accent-hover: #5867e8;
   --online: #3ba55d;
   --danger: #ed4245;
+
+  /* Global multiplier for message elements (avatar, name, timestamp,
+     bubble text) — a future settings slider only ever needs to change
+     this one number; every element below is sized relative to it. */
+  --message-scale: 1;
 }
 
 * { box-sizing: border-box; }

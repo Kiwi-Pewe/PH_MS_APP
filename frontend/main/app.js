@@ -4,6 +4,19 @@ let myUsername = null;
 let openConversationWith = null;
 let conversationList = [];
 
+// Messages currently shown in the open conversation, in send order.
+// Kept in memory and fully re-rendered into clusters on every change
+// (small lists, ~25 messages) rather than patched in place — this is
+// deliberate: a future edit/delete needs to be able to reflow cluster
+// boundaries (e.g. deleting the first message in a cluster hands the
+// header to the next one), which only works cleanly if render always
+// recomputes clusters from the live list rather than trusting old DOM.
+let currentMessages = [];
+
+// A same-sender gap this long or longer forces a new cluster/bubble,
+// even without a sender change in between.
+const CLUSTER_GAP_MINUTES = 5;
+
 window.addEventListener("load", () => {
   serverAddress = API_HOST;
   const params = new URLSearchParams(window.location.search);
@@ -28,7 +41,17 @@ function connectSocket() {
     if (data.type === "message") {
       bumpConversation(data.sender_id, data.username, data.sender_id !== openConversationWith);
       if (data.sender_id === openConversationWith) {
-        appendChatMessage(data.username, data.content, false);
+        // Backend doesn't send a timestamp on the live push yet (only on
+        // the history fetch) — fall back to "now" so clustering still
+        // works; recommend adding a real one server-side for accuracy
+        // across devices with clock drift.
+        currentMessages.push({
+          isMine: false,
+          username: data.username,
+          content: data.content,
+          time: data.timestamp ? new Date(data.timestamp) : new Date()
+        });
+        renderMessages();
       }
     }
   };
@@ -288,28 +311,104 @@ async function openDirectMessage(id, username) {
   const chatMessages = document.getElementById("chat-messages");
   chatEmpty.style.display = "none";
   chatMessages.style.display = "block";
-  chatMessages.innerHTML = "";
+  currentMessages = [];
 
   try {
     const response = await fetch(`https://${serverAddress}/messages/${id}`, { credentials: "include" });
-    if (!response.ok) return;
+    if (!response.ok) { renderMessages(); return; }
     const data = await response.json();
-    data.messages.forEach(msg => {
+    currentMessages = data.messages.map(msg => {
       const isMine = msg.sender_id !== id;
-      appendChatMessage(isMine ? myUsername : username, msg.content, isMine);
+      return {
+        isMine,
+        username: isMine ? myUsername : username,
+        content: msg.content,
+        // History rows always have a real server timestamp.
+        time: new Date(msg.timestamp)
+      };
     });
-  } catch (e) { /* leave empty on failure */ }
+    renderMessages();
+  } catch (e) { renderMessages(); /* leave empty on failure */ }
 }
 
-function appendChatMessage(who, content, isMine) {
+// A cluster is one avatar + one name + one timestamp, holding one or more
+// messages from the same sender sent close together in time (see
+// CLUSTER_GAP_MINUTES). This is intentionally recomputed from scratch on
+// every call rather than incrementally patched — see the comment on
+// currentMessages above for why that matters once edit/delete exist.
+function renderMessages() {
   const wrap = document.getElementById("chat-messages");
-  const line = document.createElement("div");
-  line.className = "chat-message" + (isMine ? " outgoing" : "");
-  line.innerHTML = `<span class="who"></span><span class="content"></span>`;
-  line.querySelector(".who").textContent = `${who}:`;
-  line.querySelector(".content").textContent = content;
-  wrap.appendChild(line);
+  wrap.innerHTML = "";
+
+  let openCluster = null; // { isMine, lastTime, bubbleEl }
+
+  currentMessages.forEach(msg => {
+    const sameSenderAsLast = openCluster && openCluster.isMine === msg.isMine;
+    const withinGap = openCluster &&
+      (msg.time - openCluster.lastTime) <= CLUSTER_GAP_MINUTES * 60 * 1000;
+
+    if (!(sameSenderAsLast && withinGap)) {
+      openCluster = startNewCluster(wrap, msg);
+    } else {
+      const line = document.createElement("div");
+      line.className = "bubble-line";
+      line.textContent = msg.content;
+      openCluster.bubbleEl.appendChild(line);
+    }
+
+    openCluster.lastTime = msg.time;
+  });
+
   wrap.scrollTop = wrap.scrollHeight;
+}
+
+function startNewCluster(wrap, msg) {
+  const cluster = document.createElement("div");
+  cluster.className = "msg-cluster " + (msg.isMine ? "self" : "other");
+
+  const avatar = document.createElement("div");
+  avatar.className = "cluster-avatar";
+  avatar.textContent = avatarLetter(msg.username);
+
+  const body = document.createElement("div");
+  body.className = "cluster-body";
+
+  const header = document.createElement("div");
+  header.className = "cluster-header";
+  const name = document.createElement("span");
+  name.className = "cluster-name";
+  name.textContent = msg.username;
+  const time = document.createElement("span");
+  time.className = "cluster-time";
+  time.textContent = formatClusterTime(msg.time);
+  header.appendChild(name);
+  header.appendChild(time);
+
+  const bubble = document.createElement("div");
+  bubble.className = "cluster-bubble";
+  const firstLine = document.createElement("div");
+  firstLine.className = "bubble-line";
+  firstLine.textContent = msg.content;
+  bubble.appendChild(firstLine);
+
+  body.appendChild(header);
+  body.appendChild(bubble);
+  cluster.appendChild(avatar);
+  cluster.appendChild(body);
+  wrap.appendChild(cluster);
+
+  return { isMine: msg.isMine, lastTime: msg.time, bubbleEl: bubble };
+}
+
+// "24 hours old" is relative to the moment this renders, not the calendar
+// date — a message from 11 PM last night is 2 hours old at 1 AM, and
+// should NOT show a date yet just because it crossed midnight.
+function formatClusterTime(date) {
+  const ageMs = Date.now() - date.getTime();
+  const timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (ageMs < 24 * 60 * 60 * 1000) return timeStr;
+  const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
+  return `${dateStr} \u00b7 ${timeStr}`;
 }
 
 function sendChatMessage() {
@@ -317,7 +416,13 @@ function sendChatMessage() {
   const content = input.value.trim();
   if (!content || openConversationWith === null || !ws) return;
   ws.send(JSON.stringify({ type: "message", receiver_id: openConversationWith, content }));
-  appendChatMessage(myUsername || "You", content, true);
+  currentMessages.push({
+    isMine: true,
+    username: myUsername || "You",
+    content,
+    time: new Date() // optimistic local echo — no round trip to wait on
+  });
+  renderMessages();
   bumpConversation(openConversationWith, document.getElementById("chat-header-title").textContent, false);
   input.value = "";
 }

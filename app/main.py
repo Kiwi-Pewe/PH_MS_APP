@@ -127,12 +127,12 @@ def send_message(message: Message_schema, database: Session = Depends(get_db), c
     new_message = Message(sender_id = current_user.id, 
     receiver_id = message.receiver_id,
     content = message.content,
-    read = False
+    read = False,
     )
     database.add(new_message)
     database.commit()
     database.refresh(new_message)
-    return
+    return new_message
 
 @app.get("/messages/{user_id}")
 def get_conversation(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -296,7 +296,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 content= data["content"])
 
                 try:
-                    send_message(message=new_message, database=database, current_user=current_user)
+                    new_message = send_message(message=new_message, database=database, current_user=current_user)
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
@@ -306,7 +306,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     "type": "message",
                     "username": current_user.username,
                     "sender_id": current_user.id,
-                    "content": data["content"]})
+                    "content": data["content"],
+                    "timestamp": str(new_message.timestamp)})
             
     except WebSocketDisconnect:
         del active_connections[current_user.id]

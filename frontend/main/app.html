@@ -58,7 +58,10 @@
             <div class="badge">DM</div>
             <p>Select a conversation from the list on the left to start chatting.</p>
           </div>
-          <div id="chat-messages" style="display:none;"></div>
+          <!-- "self-right" here is the default; when the future settings
+               toggle for message side exists, this is the single class it
+               will flip. -->
+          <div id="chat-messages" class="self-right" style="display:none;"></div>
         </div>
         <div id="composer">
           <div class="box">

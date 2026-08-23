@@ -133,15 +133,20 @@
   line-height: 1.4; max-height: calc(1.4em * 5); /* caps growth at 5 lines, then scrolls */
 }
 #composer textarea:focus { outline: none; }
-#composer button { background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; padding: 0 16px; border-radius: 6px; align-self: center; }
+#composer button {
+  height: 36px; padding: 0 16px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; align-self: flex-end;
+  background: var(--accent); color: #fff; font-size: 13px; font-weight: 600;
+}
 #composer button:hover { background: var(--accent-hover); }
 
 /* + and emoji-face buttons flanking the textarea — inert placeholders for
    now (file upload / emoji picker land later), styled as quiet icon
-   buttons rather than primary actions like Send. */
+   buttons rather than primary actions like Send. Matches Send's height
+   so all three sit flush along the same bottom edge. */
 .composer-icon-btn {
   background: transparent; color: var(--text-dim); font-size: 18px; font-weight: 600;
-  width: 32px; height: 32px; flex: 0 0 auto; border-radius: 6px;
+  width: 36px; height: 36px; flex: 0 0 auto; border-radius: 6px;
   display: flex; align-items: center; justify-content: center; align-self: flex-end;
 }
 .composer-icon-btn:hover { color: var(--text); background: var(--rail); }

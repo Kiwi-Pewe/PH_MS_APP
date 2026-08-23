@@ -14,6 +14,11 @@ let conversationList = [];
 // recomputes clusters from the live list rather than trusting old DOM.
 let currentMessages = [];
 
+// Per-conversation pagination state — reset whenever openDirectMessage
+// switches to a different conversation.
+let hasMoreHistory = true;
+let isLoadingMore = false;
+
 // A same-sender gap this long or longer forces a new cluster/bubble,
 // even without a sender change in between.
 const CLUSTER_GAP_MINUTES = 5;
@@ -317,6 +322,8 @@ async function openDirectMessage(id, username) {
   chatEmpty.style.display = "none";
   chatMessages.style.display = "block";
   currentMessages = [];
+  hasMoreHistory = true;
+  isLoadingMore = false;
 
   try {
     const response = await fetch(`https://${serverAddress}/messages/${id}`, { credentials: "include" });
@@ -325,6 +332,7 @@ async function openDirectMessage(id, username) {
     currentMessages = data.messages.map(msg => {
       const isMine = msg.sender_id !== id;
       return {
+        id: msg.id,
         isMine,
         username: isMine ? myUsername : username,
         content: msg.content,
@@ -332,8 +340,51 @@ async function openDirectMessage(id, username) {
         time: new Date(msg.timestamp)
       };
     });
+    if (currentMessages.length < 25) hasMoreHistory = false;
     renderMessages();
   } catch (e) { renderMessages(); /* leave empty on failure */ }
+}
+
+// Triggered when the user scrolls to the top of currently-loaded history.
+// Uses the oldest loaded message's real database id as a cursor — see
+// the backend route's before_id parameter. Scroll position is preserved
+// afterward so prepending older messages doesn't visually jump the view.
+async function loadOlderMessages() {
+  if (isLoadingMore || !hasMoreHistory || currentMessages.length === 0) return;
+  const oldest = currentMessages[0];
+  if (!oldest.id) return; // no real cursor to anchor on (shouldn't normally happen)
+  isLoadingMore = true;
+
+  const chatBody = document.getElementById("chat-body");
+  const prevScrollHeight = chatBody.scrollHeight;
+  const prevScrollTop = chatBody.scrollTop;
+
+  try {
+    const response = await fetch(
+      `https://${serverAddress}/messages/${openConversationWith}?before_id=${oldest.id}`,
+      { credentials: "include" }
+    );
+    if (!response.ok) return;
+    const data = await response.json();
+    const older = data.messages.map(msg => {
+      const isMine = msg.sender_id !== openConversationWith;
+      return {
+        id: msg.id,
+        isMine,
+        username: isMine ? myUsername : openConversationUsername,
+        content: msg.content,
+        time: new Date(msg.timestamp)
+      };
+    });
+    if (older.length < 25) hasMoreHistory = false;
+    currentMessages = older.concat(currentMessages);
+    renderMessages({ preserveScroll: true });
+    // Restore the same relative viewing position rather than jumping to
+    // the very top or snapping back to the bottom.
+    chatBody.scrollTop = chatBody.scrollHeight - prevScrollHeight + prevScrollTop;
+  } catch (e) { /* leave state as-is on failure */ }
+
+  isLoadingMore = false;
 }
 
 // A cluster is one avatar + one name + one timestamp, holding one or more
@@ -341,7 +392,14 @@ async function openDirectMessage(id, username) {
 // CLUSTER_GAP_MINUTES). This is intentionally recomputed from scratch on
 // every call rather than incrementally patched — see the comment on
 // currentMessages above for why that matters once edit/delete exist.
-function renderMessages() {
+//
+// opts.preserveScroll: true when called from loadOlderMessages(), which
+// manages scroll position itself afterward (restoring the user's exact
+// viewing spot). Every other caller (initial load, send, receive) wants
+// the default behavior: snap to the bottom, since #chat-body is the
+// element that actually scrolls — NOT #chat-messages, which has no
+// overflow of its own.
+function renderMessages(opts = {}) {
   const wrap = document.getElementById("chat-messages");
   wrap.innerHTML = "";
 
@@ -368,7 +426,15 @@ function renderMessages() {
     openCluster.lastTime = msg.time;
   });
 
-  wrap.scrollTop = wrap.scrollHeight;
+  // #chat-body is the actual scrolling element (overflow-y: auto lives
+  // there, not on #chat-messages) — this was previously targeting the
+  // wrong element and silently doing nothing; CSS's justify-content:
+  // flex-end was masking that by coincidence. loadOlderMessages()
+  // manages scroll position itself, so skip this when preserving.
+  if (!opts.preserveScroll) {
+    const chatBody = document.getElementById("chat-body");
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
 }
 
 function startNewCluster(wrap, msg) {
@@ -578,4 +644,12 @@ document.getElementById("home-icon").addEventListener("click", () => {
   document.querySelectorAll(".rail-icon").forEach(i => i.classList.remove("active"));
   document.getElementById("home-icon").classList.add("active");
   resetChatView();
+});
+
+// Scroll-to-top triggers loading older history. Threshold of 40px rather
+// than exactly 0 so it fires a moment before the user hits the hard
+// edge — feels less abrupt than waiting for scrollTop to hit zero.
+document.getElementById("chat-body").addEventListener("scroll", () => {
+  const chatBody = document.getElementById("chat-body");
+  if (chatBody.scrollTop < 40) loadOlderMessages();
 });

@@ -135,9 +135,17 @@ def send_message(message: Message_schema, database: Session = Depends(get_db), c
     return new_message
 
 @app.get("/messages/{user_id}")
-def get_conversation(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    History = database.query(Message).filter(or_((Message.sender_id == current_user.id) & (Message.receiver_id == user_id),
-    (Message.sender_id == user_id) & (Message.receiver_id == current_user.id))).order_by(Message.timestamp.desc()).limit(25).all()
+def get_conversation(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None):
+
+    if before_id:
+        History = database.query(Message).filter(or_(
+        (Message.sender_id == current_user.id) & (Message.receiver_id == user_id),
+        (Message.sender_id == user_id) & (Message.receiver_id == current_user.id)
+        )).filter(Message.id < before_id).order_by(Message.timestamp.desc()).limit(25).all()
+    else:
+        History = database.query(Message).filter(or_((Message.sender_id == current_user.id) & (Message.receiver_id == user_id),
+        (Message.sender_id == user_id) & (Message.receiver_id == current_user.id))).order_by(Message.timestamp.desc()).limit(25).all()
+
 
     target_user = database.query(UserInfo).filter(UserInfo.id == user_id).first()
     if not target_user:

@@ -31,11 +31,21 @@ window.addEventListener("load", () => {
 });
 
 function connectSocket() {
-  ws = new WebSocket(`wss://${serverAddress}/ws`);
+  const wsUrl = `wss://${serverAddress}/ws`;
+  console.log("[DEBUG] connectSocket() called, connecting to:", wsUrl);
+  ws = new WebSocket(wsUrl);
 
-  ws.onopen = () => enterApp();
+  ws.onopen = () => {
+    console.log("[DEBUG] ws.onopen fired");
+    enterApp();
+  };
 
-  ws.onclose = () => {
+  ws.onerror = (event) => {
+    console.log("[DEBUG] ws.onerror fired:", event);
+  };
+
+  ws.onclose = (event) => {
+    console.log("[DEBUG] ws.onclose fired. code:", event.code, "reason:", event.reason, "wasClean:", event.wasClean);
     ws = null;
     window.location.href = "../login.html";
   };

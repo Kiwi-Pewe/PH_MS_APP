@@ -31,23 +31,28 @@ window.addEventListener("load", () => {
 });
 
 function connectSocket() {
-  const wsUrl = `wss://${serverAddress}/ws`;
-  console.log("[DEBUG] connectSocket() called, connecting to:", wsUrl);
-  ws = new WebSocket(wsUrl);
+  ws = new WebSocket(`wss://${serverAddress}/ws`);
+
+  // True only once this socket has successfully opened. A page-unload
+  // (refresh, tab close, navigating away) tears down the socket and fires
+  // onclose too, but that's not a rejected session — it's just this page
+  // dying. If we already opened once, the incoming page load will run its
+  // own connectSocket() and settle the question for itself, so there's
+  // nothing to redirect for here. Only a close that happens BEFORE we
+  // ever opened means the server actually refused the connection (e.g.
+  // an expired/invalid session cookie) — that's the real "go to login" case.
+  let hasOpened = false;
 
   ws.onopen = () => {
-    console.log("[DEBUG] ws.onopen fired");
+    hasOpened = true;
     enterApp();
   };
 
-  ws.onerror = (event) => {
-    console.log("[DEBUG] ws.onerror fired:", event);
-  };
-
-  ws.onclose = (event) => {
-    console.log("[DEBUG] ws.onclose fired. code:", event.code, "reason:", event.reason, "wasClean:", event.wasClean);
+  ws.onclose = () => {
     ws = null;
-    window.location.href = "../login.html";
+    if (!hasOpened) {
+      window.location.href = "../login.html";
+    }
   };
 
   ws.onmessage = (event) => {

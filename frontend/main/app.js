@@ -109,6 +109,50 @@ function avatarLetter(username) {
   return (username || "?").charAt(0).toUpperCase();
 }
 
+// ---- Context menus (message + profile) ----
+// The generic open/close/positioning engine lives in
+// shared/context-menu.js and knows nothing about messages or friends —
+// these two functions gather the real data for a click and decide what
+// each option does. Every option is an inert placeholder for now
+// (per the design discussion — functionality comes later) EXCEPT
+// "Message", which just reuses the existing openDirectMessage() the
+// app already has, since that's zero new behavior, not a new feature.
+
+function showMessageContextMenu(e, msg) {
+  e.preventDefault();
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: avatarLetter(msg.username),
+    title: msg.username,
+    timestamp: formatClusterTime(msg.time),
+    subtitle: truncateForContextMenu(msg.content)
+  }, [
+    msg.isMine && { label: "Edit Message", onSelect: () => console.log("Edit message — not implemented yet") },
+    { label: "Reply", onSelect: () => console.log("Reply — not implemented yet") },
+    { label: "Pin", onSelect: () => console.log("Pin — not implemented yet") },
+    msg.isMine && { label: "Delete Message", danger: true, onSelect: () => console.log("Delete message — not implemented yet") }
+  ]);
+}
+
+function showProfileContextMenu(e, id, username, isSelf) {
+  e.preventDefault();
+  const options = isSelf ? [
+    { label: "Profile", onSelect: () => console.log("View own profile — not implemented yet") },
+    { label: "Settings", onSelect: () => console.log("Open settings from context menu — not implemented yet") }
+  ] : [
+    { label: "Profile", onSelect: () => console.log("View profile — not implemented yet") },
+    { label: "Unfriend", onSelect: () => console.log("Unfriend — not implemented yet") },
+    { label: "Mute", onSelect: () => console.log("Mute — not implemented yet") },
+    { label: "Message", onSelect: () => openDirectMessage(id, username) },
+    { label: "Invite", onSelect: () => console.log("Invite — not implemented yet") },
+    { label: "Block", danger: true, onSelect: () => console.log("Block — not implemented yet") }
+  ];
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: avatarLetter(username),
+    title: username,
+    subtitle: "{Status}"
+  }, options);
+}
+
 async function logout() {
   try {
     await fetch(`https://${serverAddress}/logout`, { method: "POST", credentials: "include" });
@@ -172,6 +216,7 @@ function renderFriendList(kind, list) {
     row.querySelector(".avatar-dot").textContent = avatarLetter(friend.username);
     row.querySelector(".who").textContent = friend.username;
     row.addEventListener("click", () => openDirectMessage(friend.id, friend.username));
+    row.addEventListener("contextmenu", (e) => showProfileContextMenu(e, friend.id, friend.username, false));
     rows.appendChild(row);
   });
 }
@@ -276,6 +321,7 @@ function renderConversationList() {
       badge.style.display = "flex";
     }
     row.addEventListener("click", () => openDirectMessage(convo.id, convo.username));
+    row.addEventListener("contextmenu", (e) => showProfileContextMenu(e, convo.id, convo.username, false));
     row.querySelector(".dm-close").addEventListener("click", (e) => {
       e.stopPropagation();
       closeConversation(convo.id);
@@ -325,12 +371,16 @@ function updateHomeBadge() {
 }
 
 async function closeConversation(id) {
-  // The server is the source of truth for "closed" now — only update the
-  // local sidebar once it's confirmed the flag actually got set. If this
-  // fails silently and we hid it locally anyway, a refresh would just
-  // bring it right back (since conversation_history would still return
-  // it), which is confusing — better to leave it visible and let the
-  // user retry than to show a state the backend doesn't agree with.
+  // Optimistic update: hide it immediately so the click feels instant,
+  // then confirm with the server in the background. We keep a copy of
+  // the removed entry so we can put it back if the request fails —
+  // otherwise a failed close would silently disagree with the backend
+  // until the next refresh, which is a confusing way to find out.
+  const removedConvo = conversationList.find(c => c.id === id);
+  conversationList = conversationList.filter(c => c.id !== id);
+  if (openConversationWith === id) resetChatView();
+  renderConversationList();
+
   try {
     const response = await fetch(`https://${serverAddress}/conversation/${id}/close`, {
       method: "POST",
@@ -338,13 +388,12 @@ async function closeConversation(id) {
     });
     if (!response.ok) throw new Error("Failed to close conversation");
   } catch (e) {
-    console.error("Failed to close conversation:", e);
-    return;
+    console.error("Failed to close conversation, restoring it:", e);
+    if (removedConvo && !conversationList.some(c => c.id === id)) {
+      conversationList.push(removedConvo);
+      renderConversationList();
+    }
   }
-
-  conversationList = conversationList.filter(c => c.id !== id);
-  if (openConversationWith === id) resetChatView();
-  renderConversationList();
 }
 
 function resetChatView() {
@@ -471,6 +520,7 @@ function renderMessages(opts = {}) {
       const line = document.createElement("div");
       line.className = "bubble-line";
       line.textContent = msg.content;
+      line.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
       openCluster.bubbleEl.appendChild(line);
     }
 
@@ -495,6 +545,7 @@ function startNewCluster(wrap, msg) {
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
   avatar.textContent = avatarLetter(msg.username);
+  avatar.addEventListener("contextmenu", (e) => showProfileContextMenu(e, openConversationWith, msg.username, msg.isMine));
 
   const body = document.createElement("div");
   body.className = "cluster-body";
@@ -504,6 +555,7 @@ function startNewCluster(wrap, msg) {
   const name = document.createElement("span");
   name.className = "cluster-name";
   name.textContent = msg.username;
+  name.addEventListener("contextmenu", (e) => showProfileContextMenu(e, openConversationWith, msg.username, msg.isMine));
   const time = document.createElement("span");
   time.className = "cluster-time";
   time.textContent = formatClusterTime(msg.time);
@@ -515,6 +567,7 @@ function startNewCluster(wrap, msg) {
   const firstLine = document.createElement("div");
   firstLine.className = "bubble-line";
   firstLine.textContent = msg.content;
+  firstLine.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
   bubble.appendChild(firstLine);
 
   body.appendChild(header);

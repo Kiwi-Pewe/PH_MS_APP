@@ -166,8 +166,8 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
 def conversation_history(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
     convo_history = database.query(Conversations).filter(or_(Conversations.user_1 == current_user.id, Conversations.user_2 == current_user.id),
-    and_(Conversations.user_1 == current_user.id, Conversations.closed_by_user_1 == False),
-    and_(Conversations.user_2 == current_user.id, Conversations.closed_by_user_2 == False)
+    or_(and_(Conversations.user_1 == current_user.id, Conversations.closed_by_user_1 == False),
+    and_(Conversations.user_2 == current_user.id, Conversations.closed_by_user_2 == False))
     ).order_by(Conversations.last_message_at.desc()).all()
 
     conversations_out = []
@@ -196,8 +196,6 @@ def close_conversation(other_user_id: int, database: Session = Depends(get_db), 
     else:
         active_convo.closed_by_user_2 = True
         database.commit()
-
-
 
 @app.post("/block")
 def block_account(block_user: Block_schema, database: Session= Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

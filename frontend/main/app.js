@@ -25,9 +25,28 @@ const CLUSTER_GAP_MINUTES = 5;
 
 window.addEventListener("load", () => {
   serverAddress = API_HOST;
-  const params = new URLSearchParams(window.location.search);
-  myUsername = params.get("user");
-  connectSocket();
+
+  // Identity now comes from the verified session (via /whoami), not the
+  // ?user= URL param — that param was just trusted client-side text and
+  // could be wrong, stale, or edited by hand. /whoami asks the server,
+  // which checks the real session cookie, so this is the actual source
+  // of truth for "who am I." credentials: "include" is required here
+  // since api.oneira.cc is a different origin from oneira.cc, so the
+  // session cookie won't be sent unless we explicitly ask for it.
+  fetch(`https://${serverAddress}/whoami`, { credentials: "include" })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Not logged in");
+      }
+      return response.json();
+    })
+    .then((data) => {
+      myUsername = data.username;
+      connectSocket();
+    })
+    .catch(() => {
+      window.location.href = "../login.html";
+    });
 });
 
 function connectSocket() {

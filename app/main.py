@@ -282,6 +282,10 @@ async def heartbeat(socket):
         await(asyncio.sleep(45))
         await socket.send_json({"type": "ping"})
 
+@app.get("/whoami")
+def self_identity(current_user: UserInfo = Depends(get_current_user)):
+    return {"username": current_user.username}
+
 @app.websocket("/ws")
 async def connect_user(socket: WebSocket, session_id: str = Cookie(None), database: Session = Depends(get_db)):
 

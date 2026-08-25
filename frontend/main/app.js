@@ -324,7 +324,24 @@ function updateHomeBadge() {
   }
 }
 
-function closeConversation(id) {
+async function closeConversation(id) {
+  // The server is the source of truth for "closed" now — only update the
+  // local sidebar once it's confirmed the flag actually got set. If this
+  // fails silently and we hid it locally anyway, a refresh would just
+  // bring it right back (since conversation_history would still return
+  // it), which is confusing — better to leave it visible and let the
+  // user retry than to show a state the backend doesn't agree with.
+  try {
+    const response = await fetch(`https://${serverAddress}/conversation/${id}/close`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Failed to close conversation");
+  } catch (e) {
+    console.error("Failed to close conversation:", e);
+    return;
+  }
+
   conversationList = conversationList.filter(c => c.id !== id);
   if (openConversationWith === id) resetChatView();
   renderConversationList();

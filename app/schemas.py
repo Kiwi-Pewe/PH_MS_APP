@@ -26,6 +26,6 @@ class Block_schema(BaseModel):
     blocked_user: int
     
 class Conversations(BaseModel):
-
     user_1:int
     user_2: int
+

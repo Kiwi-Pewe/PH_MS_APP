@@ -117,13 +117,16 @@ def send_message(message: Message_schema, database: Session = Depends(get_db), c
     active_convo = convo_exists or mirrored_convo
 
     if not active_convo:
-        new_convo = Conversations(user_1 = current_user.id, user_2 = message.receiver_id, last_message_at = datetime.now())
+        new_convo = Conversations(user_1 = current_user.id, user_2 = message.receiver_id, last_message_at = datetime.now()) 
         database.add(new_convo)
         database.commit()
         database.refresh(new_convo)
+        active_convo = new_convo
     else:
         active_convo.last_message_at = datetime.now()
 
+    active_convo.closed_by_user_1 = False
+    active_convo.closed_by_user_2 = False
     new_message = Message(sender_id = current_user.id, 
     receiver_id = message.receiver_id,
     content = message.content,
@@ -132,6 +135,7 @@ def send_message(message: Message_schema, database: Session = Depends(get_db), c
     database.add(new_message)
     database.commit()
     database.refresh(new_message)
+
     return new_message
 
 @app.get("/messages/{user_id}")
@@ -161,17 +165,39 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
 @app.get("/conversation_history")
 def conversation_history(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
-    convo_history = database.query(Conversations).filter(or_(Conversations.user_1 == current_user.id, Conversations.user_2 == current_user.id)).order_by(Conversations.last_message_at.desc()).all()
+    convo_history = database.query(Conversations).filter(or_(Conversations.user_1 == current_user.id, Conversations.user_2 == current_user.id),
+    and_(Conversations.user_1 == current_user.id, Conversations.closed_by_user_1 == False),
+    and_(Conversations.user_2 == current_user.id, Conversations.closed_by_user_2 == False)
+    ).order_by(Conversations.last_message_at.desc()).all()
 
     conversations_out = []
     for convo in convo_history:
         other_id = convo.user_2 if convo.user_1 == current_user.id else convo.user_1
         other_account = database.query(UserInfo).filter(UserInfo.id == other_id).first()
         message_status = database.query(Message).filter(Message.sender_id == other_id, Message.receiver_id == current_user.id, Message.read == False).count()
-
         conversations_out.append({"id": other_id, "username": other_account.username, "unread_count": message_status})
 
     return {"conversations": conversations_out}
+
+@app.post("/conversation/{other_user_id}/close")
+def close_conversation(other_user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+
+    convo = database.query(Conversations).filter(Conversations.user_1 == current_user.id, Conversations.user_2 == other_user_id).first()
+    mirrored_convo = database.query(Conversations).filter(Conversations.user_1 == other_user_id, Conversations.user_2 == current_user.id).first()
+
+    active_convo = convo or mirrored_convo
+
+    if not active_convo:
+        raise HTTPException(status_code= 404, detail= "No conversation found.")
+
+    if active_convo.user_1 == current_user.id:
+        active_convo.closed_by_user_1 = True
+        database.commit()
+    else:
+        active_convo.closed_by_user_2 = True
+        database.commit()
+
+
 
 @app.post("/block")
 def block_account(block_user: Block_schema, database: Session= Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

@@ -51,3 +51,5 @@ class Conversations(Base):
     user_1 = Column(Integer, ForeignKey("users.id"))
     user_2 = Column(Integer, ForeignKey("users.id"))
     last_message_at = Column(DateTime)
+    closed_by_user_1 = Column(Boolean, default=False)
+    closed_by_user_2 = Column(Boolean, default=False)

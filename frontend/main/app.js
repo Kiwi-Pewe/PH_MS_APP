@@ -140,17 +140,67 @@ function showProfileContextMenu(e, id, username, isSelf) {
     { label: "Settings", onSelect: () => console.log("Open settings from context menu — not implemented yet") }
   ] : [
     { label: "Profile", onSelect: () => console.log("View profile — not implemented yet") },
-    { label: "Unfriend", onSelect: () => console.log("Unfriend — not implemented yet") },
+    { label: "Unfriend", onSelect: () => unfriendFromContextMenu(id, username) },
     { label: "Mute", onSelect: () => console.log("Mute — not implemented yet") },
     { label: "Message", onSelect: () => openDirectMessage(id, username) },
     { label: "Invite", onSelect: () => console.log("Invite — not implemented yet") },
-    { label: "Block", danger: true, onSelect: () => console.log("Block — not implemented yet") }
+    { label: "Block", danger: true, onSelect: () => blockFromContextMenu(id, username) }
   ];
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(username),
     title: username,
     subtitle: "{Status}"
   }, options);
+}
+
+// Unfriending/blocking someone you currently have open should also back
+// you out of that conversation — you're about to lose the ability to
+// message them (block removes the friendship server-side too), so
+// leaving the chat window sitting open on a now-invalid relationship
+// would be confusing. Both refresh the friends list and DM sidebar
+// afterward so the UI reflects the change immediately rather than
+// waiting for the next full reload.
+
+async function unfriendFromContextMenu(id, username) {
+  try {
+    const response = await fetch(`https://${serverAddress}/unfriend_user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ user_id_2: id })
+    });
+    if (!response.ok) {
+      console.error(`Failed to unfriend ${username}: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to unfriend, network error:", e);
+    return;
+  }
+  if (openConversationWith === id) resetChatView();
+  refreshFriendsView();
+  loadConversations();
+}
+
+async function blockFromContextMenu(id, username) {
+  try {
+    const response = await fetch(`https://${serverAddress}/block`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ blocked_user: id })
+    });
+    if (!response.ok) {
+      console.error(`Failed to block ${username}: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to block, network error:", e);
+    return;
+  }
+  if (openConversationWith === id) resetChatView();
+  refreshFriendsView();
+  loadConversations();
 }
 
 async function logout() {

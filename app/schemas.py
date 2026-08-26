@@ -19,6 +19,7 @@ class Session_logger(BaseModel):
     account_id: int
 
 class Friend_user(BaseModel):
+    user_id_1: int | None= None
     user_id_2: int | None = None
     username: str | None = None
 

@@ -250,7 +250,7 @@
 .bubble-line .edited-tag { color: var(--text-dim); font-size: calc(12px * var(--message-scale)); margin-left: 6px; }
 .msg-cluster.self .bubble-line .edited-tag { color: rgba(255,255,255,0.7); }
 
-.dm-item .who { flex: 1; font-size: 13px; font-weight: 600; }
+.dm-item .who { font-size: 13px; font-weight: 600; }
 .dm-item .dm-close { opacity: 0; background: transparent; color: var(--text-dim); font-size: 14px; padding: 2px 6px; border-radius: 4px; }
 .dm-item:hover .dm-close { opacity: 1; }
 .dm-item .dm-close:hover { background: var(--rail); color: var(--text); }
@@ -259,3 +259,34 @@
   display: none; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
   min-width: 16px; height: 16px; border-radius: 8px; align-items: center; justify-content: center; padding: 0 4px;
 }
+
+/* Text column for a DM/party row — name plus the subtitle line below it
+   (status placeholder for a person, member count for a party). Needs
+   its own flex column since .who and .dm-subtitle previously sat
+   directly in the row; min-width: 0 is required for the ellipsis rules
+   below to actually take effect inside a flex child. */
+.dm-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dm-item-text .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-subtitle { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Party creation modal ---- */
+#party-modal-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+#party-modal {
+  width: 420px; max-height: 70vh;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#party-modal .view-header { flex: 0 0 auto; }
+#party-modal .view-body { flex: 1 1 auto; }
+#party-modal-footer {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+}
+#party-modal-footer span { font-size: 12px; color: var(--text-dim); }
+#party-modal-friend-rows .friend-row input[type=checkbox] { width: 16px; height: 16px; }
+#party-modal-friend-rows .friend-row input[type=checkbox]:disabled { opacity: 0.4; cursor: not-allowed; }

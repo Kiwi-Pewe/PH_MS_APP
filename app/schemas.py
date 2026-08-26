@@ -30,3 +30,11 @@ class Conversations(BaseModel):
     user_1:int
     user_2: int
 
+class Party_create(BaseModel):
+    party_name: str
+    member_ids: list[int]
+
+class Party_message_schema(BaseModel):
+    sender_id: int
+    party_id: int
+    content: str

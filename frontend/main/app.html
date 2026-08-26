@@ -30,6 +30,7 @@
       <div id="secondary-nav">
         <button class="nav-item" data-view="friends">Friends<span class="pending-badge" id="pending-badge">0</span></button>
         <button class="nav-item" data-view="inventory">Inventory</button>
+        <button class="nav-item" id="create-party-btn">Create Party</button>
         <button class="nav-item" data-view="settings">Settings</button>
       </div>
 
@@ -135,10 +136,33 @@
     <div id="user-list"></div>
 
   </div>
+
+  <!-- Party creation ("party screen"). Hidden by default; toggled by
+       create-party-btn. Closes via the X button or an outside click,
+       same behavior as the context menu, but this is a distinct piece
+       of UI (a modal, not a context menu) so it isn't built on top of
+       context-menu.js. -->
+  <div id="party-modal-overlay" style="display:none;">
+    <div id="party-modal">
+      <div class="view-header">
+        <span>Create Party</span>
+        <button class="icon-btn" id="party-modal-close" title="Close">&times;</button>
+      </div>
+      <div class="view-body">
+        <div class="empty-note" id="party-modal-empty-note">You have no friends to invite yet.</div>
+        <div id="party-modal-friend-rows"></div>
+      </div>
+      <div id="party-modal-footer">
+        <span id="party-modal-count">0 / 9 selected</span>
+        <button class="pill-btn" id="party-modal-create-btn">Create Party</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=1"></script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

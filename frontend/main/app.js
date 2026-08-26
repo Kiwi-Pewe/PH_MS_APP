@@ -211,6 +211,104 @@ async function logout() {
   window.location.href = "../login.html";
 }
 
+// ---- Party creation modal ----
+// Max 9 selectable here since the creator themselves is the 10th member
+// (the roadmap's party cap is 10 total). Re-fetches the friends list
+// fresh every time the modal opens rather than reusing whatever's
+// cached from the Friends view, so it can't show stale invite options.
+
+let selectedPartyMembers = new Set();
+const MAX_PARTY_INVITES = 9;
+
+document.getElementById("create-party-btn").addEventListener("click", openPartyModal);
+document.getElementById("party-modal-close").addEventListener("click", closePartyModal);
+document.getElementById("party-modal-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "party-modal-overlay") closePartyModal();
+});
+document.getElementById("party-modal-create-btn").addEventListener("click", submitCreateParty);
+
+async function openPartyModal() {
+  selectedPartyMembers = new Set();
+  updatePartyModalCount();
+  document.getElementById("party-modal-overlay").style.display = "flex";
+
+  const rows = document.getElementById("party-modal-friend-rows");
+  rows.innerHTML = "";
+
+  try {
+    const response = await fetch(`https://${serverAddress}/get_friends`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    const allFriends = [...(data.online_friends || []), ...(data.offline_friends || [])];
+
+    document.getElementById("party-modal-empty-note").style.display = allFriends.length === 0 ? "block" : "none";
+
+    allFriends.forEach(friend => {
+      const row = document.createElement("div");
+      row.className = "friend-row";
+      row.innerHTML = `<div class="avatar-dot"></div><div class="who"></div><input type="checkbox">`;
+      row.querySelector(".avatar-dot").textContent = avatarLetter(friend.username);
+      row.querySelector(".who").textContent = friend.username;
+      const checkbox = row.querySelector("input");
+      checkbox.addEventListener("change", () => togglePartyMember(friend.id, checkbox));
+      rows.appendChild(row);
+    });
+  } catch (e) {
+    console.error("Failed to load friends for party creation:", e);
+  }
+}
+
+function togglePartyMember(id, checkbox) {
+  if (checkbox.checked) {
+    if (selectedPartyMembers.size >= MAX_PARTY_INVITES) {
+      // Cap enforced here, not just visually — every OTHER unchecked box
+      // gets disabled below once the cap is hit, but this still guards
+      // the one that was already mid-click when the limit was reached.
+      checkbox.checked = false;
+      return;
+    }
+    selectedPartyMembers.add(id);
+  } else {
+    selectedPartyMembers.delete(id);
+  }
+  updatePartyModalCount();
+}
+
+function updatePartyModalCount() {
+  document.getElementById("party-modal-count").textContent = `${selectedPartyMembers.size} / ${MAX_PARTY_INVITES} selected`;
+  const atCap = selectedPartyMembers.size >= MAX_PARTY_INVITES;
+  document.querySelectorAll("#party-modal-friend-rows input[type=checkbox]").forEach(box => {
+    if (!box.checked) box.disabled = atCap;
+  });
+}
+
+function closePartyModal() {
+  document.getElementById("party-modal-overlay").style.display = "none";
+}
+
+async function submitCreateParty() {
+  try {
+    const response = await fetch(`https://${serverAddress}/create_party`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        party_name: `${myUsername}'s Party`,
+        member_ids: Array.from(selectedPartyMembers)
+      })
+    });
+    if (!response.ok) {
+      console.error(`Failed to create party: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to create party, network error:", e);
+    return;
+  }
+  closePartyModal();
+  loadConversations();
+}
+
 document.getElementById("add-friend-toggle").addEventListener("click", () => {
   const bar = document.getElementById("add-friend-bar");
   bar.style.display = bar.style.display === "flex" ? "none" : "flex";
@@ -338,20 +436,41 @@ document.querySelectorAll("#secondary-nav .nav-item").forEach(btn => {
 });
 
 function loadConversations() {
-  fetch(`https://${serverAddress}/conversation_history`, { credentials: "include" })
-    .then(response => response.ok ? response.json() : { conversations: [] })
-    .then(data => {
-      // Seed unread counts from the DB on load, so messages that arrived
-      // while offline (or before this page loaded) still show correctly —
-      // bumpConversation only handles counts that arrive while connected.
-      conversationList = (data.conversations || []).map(c => ({
-        id: c.id,
-        username: c.username,
-        unread: c.unread_count || 0
-      }));
-      renderConversationList();
-    })
-    .catch(() => { /* leave sidebar empty on failure */ });
+  // DMs and parties live in completely separate backend tables, so this
+  // is two independent fetches — merged into one array afterward so the
+  // sidebar can interleave them by recency, the same way Discord does.
+  // Both endpoints hand back a real timestamp (last_message_at /
+  // last_activity) specifically so this merge has something honest to
+  // sort by, rather than guessing at an order.
+  Promise.all([
+    fetch(`https://${serverAddress}/conversation_history`, { credentials: "include" })
+      .then(response => response.ok ? response.json() : { conversations: [] })
+      .catch(() => ({ conversations: [] })),
+    fetch(`https://${serverAddress}/get_parties`, { credentials: "include" })
+      .then(response => response.ok ? response.json() : { parties: [] })
+      .catch(() => ({ parties: [] }))
+  ]).then(([dmData, partyData]) => {
+    // Seed unread counts from the DB on load, so messages that arrived
+    // while offline (or before this page loaded) still show correctly —
+    // bumpConversation only handles counts that arrive while connected.
+    const dms = (dmData.conversations || []).map(c => ({
+      type: "dm",
+      id: c.id,
+      username: c.username,
+      unread: c.unread_count || 0,
+      timestamp: c.last_message_at
+    }));
+    const parties = (partyData.parties || []).map(p => ({
+      type: "party",
+      id: p.id,
+      name: p.name,
+      memberCount: p.member_count,
+      unread: 0,
+      timestamp: p.last_activity
+    }));
+    conversationList = dms.concat(parties).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    renderConversationList();
+  });
 }
 
 function renderConversationList() {
@@ -361,17 +480,30 @@ function renderConversationList() {
   rows.innerHTML = "";
   conversationList.forEach(convo => {
     const row = document.createElement("div");
+    const displayName = convo.type === "party" ? convo.name : convo.username;
+    const subtitle = convo.type === "party" ? `${convo.memberCount} Members` : "{Status}";
+
     row.className = "dm-item" + (convo.id === openConversationWith ? " active" : "");
-    row.innerHTML = `<div class="avatar-dot"></div><div class="who"></div><span class="dm-unread-badge"></span><button class="dm-close" title="Close">&times;</button>`;
-    row.querySelector(".avatar-dot").textContent = avatarLetter(convo.username);
-    row.querySelector(".who").textContent = convo.username;
+    row.innerHTML = `<div class="avatar-dot"></div><div class="dm-item-text"><div class="who"></div><div class="dm-subtitle"></div></div><span class="dm-unread-badge"></span><button class="dm-close" title="Close">&times;</button>`;
+    row.querySelector(".avatar-dot").textContent = avatarLetter(displayName);
+    row.querySelector(".who").textContent = displayName;
+    row.querySelector(".dm-subtitle").textContent = subtitle;
     if (convo.unread > 0) {
       const badge = row.querySelector(".dm-unread-badge");
       badge.textContent = convo.unread;
       badge.style.display = "flex";
     }
-    row.addEventListener("click", () => openDirectMessage(convo.id, convo.username));
-    row.addEventListener("contextmenu", (e) => showProfileContextMenu(e, convo.id, convo.username, false));
+
+    if (convo.type === "party") {
+      // Party messaging/right-click menus don't exist yet — this pass is
+      // visibility-only, so clicking a party row is an inert placeholder
+      // for now rather than a half-built chat view.
+      row.addEventListener("click", () => console.log(`Open party ${convo.id} — not implemented yet`));
+    } else {
+      row.addEventListener("click", () => openDirectMessage(convo.id, convo.username));
+      row.addEventListener("contextmenu", (e) => showProfileContextMenu(e, convo.id, convo.username, false));
+    }
+
     row.querySelector(".dm-close").addEventListener("click", (e) => {
       e.stopPropagation();
       closeConversation(convo.id);
@@ -387,7 +519,7 @@ function renderConversationList() {
 function bumpConversation(id, username, incrementUnread) {
   let entry = conversationList.find(c => c.id === id);
   conversationList = conversationList.filter(c => c.id !== id);
-  if (!entry) entry = { id, username, unread: 0 };
+  if (!entry) entry = { type: "dm", id, username, unread: 0 };
   if (incrementUnread) entry.unread = (entry.unread || 0) + 1;
   conversationList.unshift(entry);
   renderConversationList();
@@ -397,7 +529,7 @@ function bumpConversation(id, username, incrementUnread) {
 // reorder the sidebar — only actual message activity does that.
 function ensureConversationPresent(id, username) {
   if (!conversationList.some(c => c.id === id)) {
-    conversationList.unshift({ id, username, unread: 0 });
+    conversationList.unshift({ type: "dm", id, username, unread: 0 });
   }
   renderConversationList();
 }

@@ -4,12 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
-from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations
-from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user
+from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages
+from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema
 from app.database import get_db, Base, engine 
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
 from datetime import datetime
 import asyncio
+import random
 
 app = FastAPI()
 Base.metadata.create_all(engine)
@@ -175,7 +176,7 @@ def conversation_history(database: Session = Depends(get_db), current_user: User
         other_id = convo.user_2 if convo.user_1 == current_user.id else convo.user_1
         other_account = database.query(UserInfo).filter(UserInfo.id == other_id).first()
         message_status = database.query(Message).filter(Message.sender_id == other_id, Message.receiver_id == current_user.id, Message.read == False).count()
-        conversations_out.append({"id": other_id, "username": other_account.username, "unread_count": message_status})
+        conversations_out.append({"type": "dm", "id": other_id, "username": other_account.username, "unread_count": message_status, "last_message_at": str(convo.last_message_at)})
 
     return {"conversations": conversations_out}
 
@@ -236,7 +237,9 @@ async def add_user(friends: Friend_user, database: Session = Depends(get_db), cu
     if current_user.id == friend_exists.id:
         raise HTTPException(status_code=409, detail="Cannot friend yourself")
 
-    is_blocked = database.query(Block_user).filter(Block_user.initiated_by == friend_exists.id, Block_user.blocked_user == current_user.id).first()
+    blocked_1 = database.query(Block_user).filter(Block_user.initiated_by == friend_exists.id, Block_user.blocked_user == current_user.id).first()
+    blocked_2 = database.query(Block_user).filter(Block_user.initiated_by == current_user.id, Block_user.blocked_user == friend_exists.id).first()
+    is_blocked = blocked_1 or blocked_2
     if is_blocked:
         raise HTTPException(status_code=400, detail="User is blocked from sending request")
 
@@ -300,6 +303,45 @@ def remove_user(friends: Friend_user, database: Session = Depends(get_db), curre
     else:
         raise HTTPException(status_code= 404, detail="Friend not found.")
     return
+
+@app.post("/create_party")
+def create_party(party: Party_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+
+    while True:
+        potential_id = random.randint(1000,9999)
+        id_check = database.query(Parties).filter(Parties.party_id == potential_id).first()
+        if not id_check:
+            break
+
+    new_party = Parties(party_id = potential_id, 
+    party_name = party.party_name,
+    user_id = current_user.id,
+    created_by_id = current_user.id
+    )
+    database.add(new_party)
+    for user in party.member_ids:
+        if not user == current_user.id:
+            invited = Parties(party_id = potential_id, 
+            party_name = party.party_name,
+            user_id = user,
+            created_by_id = current_user.id
+            )
+            database.add(invited)
+    database.commit()   
+
+@app.get("/get_parties")
+def get_parties(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+
+    my_party_ids = database.query(Parties.party_id).filter(Parties.user_id == current_user.id).all()
+
+    parties_out = []
+    for (party_id,) in my_party_ids:
+        party_info = database.query(Parties).filter(Parties.party_id == party_id).first()
+        member_count = database.query(Parties).filter(Parties.party_id == party_id).count()
+        parties_out.append({"type": "party", "id": party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(party_info.last_activity)})
+
+    return {"parties": parties_out}
+    
 
 async def heartbeat(socket):
     while True:

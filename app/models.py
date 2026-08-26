@@ -39,7 +39,7 @@ class Friend_request(Base):
 
 class Block_user(Base):
     __tablename__ = "blocked"
-
+ 
     id = Column(Integer,primary_key= True)
     initiated_by = Column(Integer, ForeignKey("users.id"))
     blocked_user = Column(Integer, ForeignKey("users.id"))
@@ -53,3 +53,21 @@ class Conversations(Base):
     last_message_at = Column(DateTime)
     closed_by_user_1 = Column(Boolean, default=False)
     closed_by_user_2 = Column(Boolean, default=False)
+
+class Parties(Base):
+    __tablename__ = "parties"
+    id = Column(Integer, primary_key=True)
+    party_id = Column(Integer)
+    party_name = Column(String)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    created_by_id = Column(Integer, ForeignKey("users.id"))
+    last_activity = Column(DateTime, server_default=func.now())
+    joined_at = Column(DateTime, server_default=func.now())
+
+class Party_messages(Base):
+    __tablename__ = "party_messages"
+    id = Column(Integer, primary_key=True)
+    party_id = Column(Integer, ForeignKey("parties.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    timestamp = Column(DateTime, server_default=func.now())

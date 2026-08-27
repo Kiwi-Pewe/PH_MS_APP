@@ -397,7 +397,6 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
     message_history.reverse()
     return {"party_name": target_party.party_name, "party_id": party_id, "session_username": current_user.username, "messages": message_history}
 
-
 async def heartbeat(socket):
     while True:
         await(asyncio.sleep(45))
@@ -453,7 +452,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
-                all_members = database.query(Parties).filter(Parties.party_id == data["party_id"]).all()
+                all_members = database.query(Parties).filter(Parties.party_id == data["party_id"]).all()   
 
                 for party_card in all_members:
                     if party_card.user_id != current_user.id:
@@ -462,6 +461,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                                 "type": "party_message",
                                 "party_name": party_card.party_name,
                                 "party_id": party_card.party_id,
+                                "sender_id": current_user.id,
+                                "username": current_user.username,
                                 "content": data["content"],
                                 "timestamp": str(new_party_message.timestamp)
                             })                

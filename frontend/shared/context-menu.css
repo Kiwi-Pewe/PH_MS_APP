@@ -1,6 +1,9 @@
 /* Generic right-click context menu — shared across every page/feature.
    Uses the same design tokens as the rest of the app (tokens.css) so it
-   never needs its own color palette. */
+   never needs its own color palette. This is a "sub-menu" (a pop-up
+   that doesn't take over the main screen), so its border/hover accents
+   deliberately use --accent-submenu instead of the main --accent — a
+   quiet visual cue distinguishing it from main-screen UI. */
 
 .context-menu {
   position: fixed;
@@ -8,7 +11,7 @@
   min-width: 220px;
   max-width: 280px;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 1px solid var(--accent-submenu);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -78,7 +81,8 @@
 }
 
 .context-menu-item:hover {
-  background: var(--panel-alt);
+  background: var(--accent-submenu);
+  color: #fff;
 }
 
 .context-menu-item.danger {

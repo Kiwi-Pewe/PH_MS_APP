@@ -791,7 +791,15 @@ function renderMessages(opts = {}) {
   let openCluster = null; // { isMine, lastTime, bubbleEl }
 
   currentMessages.forEach(msg => {
-    const sameSenderAsLast = openCluster && openCluster.isMine === msg.isMine;
+    // isMine alone used to be enough to identify "same sender as last" —
+    // true for a DM, since there's only ever one possible "not me"
+    // person. In a party there can be 9, so two different other people
+    // messaging back to back within the gap window would otherwise
+    // wrongly merge into one bubble. username is always populated for
+    // every message (self included) and uniquely identifies the actual
+    // sender, so it's the real clustering key; isMine still decides
+    // left/right layout.
+    const sameSenderAsLast = openCluster && openCluster.isMine === msg.isMine && openCluster.username === msg.username;
     const withinGap = openCluster &&
       (msg.time - openCluster.lastTime) <= CLUSTER_GAP_MINUTES * 60 * 1000;
 
@@ -857,7 +865,7 @@ function startNewCluster(wrap, msg) {
   cluster.appendChild(body);
   wrap.appendChild(cluster);
 
-  return { isMine: msg.isMine, lastTime: msg.time, bubbleEl: bubble };
+  return { isMine: msg.isMine, username: msg.username, lastTime: msg.time, bubbleEl: bubble };
 }
 
 // "24 hours old" is relative to the moment this renders, not the calendar

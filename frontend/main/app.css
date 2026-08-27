@@ -270,6 +270,8 @@
 .dm-subtitle { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- Party creation modal ---- */
+/* A sub-menu (pop-up, not a main screen) — border uses --accent-submenu
+   to match the context menu's treatment, same reasoning as there. */
 #party-modal-overlay {
   position: fixed; inset: 0; z-index: 900;
   background: rgba(0, 0, 0, 0.6);
@@ -277,7 +279,7 @@
 }
 #party-modal {
   width: 420px; max-height: 70vh;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
   display: flex; flex-direction: column; overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 }

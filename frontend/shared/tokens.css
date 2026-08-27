@@ -1,13 +1,34 @@
 :root {
-  --bg: #14151a;
-  --rail: #1b1d23;
-  --panel: #1e2029;
-  --panel-alt: #24262e;
-  --border: #2c2e38;
-  --text: #e8e8ec;
-  --text-dim: #9a9cab;
-  --accent: #6c7bff;
-  --accent-hover: #5867e8;
+  /* Midnight Purple — default theme. These are just CSS variable
+     values; every stylesheet in the app already reads colors through
+     var(--x) rather than hardcoding them, so this is the ONLY file
+     that ever needs to change to reskin the whole app. A future
+     "custom theme" settings screen is just writing different values
+     into these same variable names at runtime — no structural change
+     needed anywhere else. */
+  --bg: #0f0a1a;
+  --rail: #150f22;
+  --panel: #1c1430;
+  --panel-alt: #251c3d;
+  --border: #362a4d;
+  --text: #ece7f7;
+  --text-dim: #a89bc4;
+  --accent: #8b5cf6;
+  --accent-hover: #7c3aed;
+
+  /* Sub-menu accent (magenta) — reserved specifically for pop-up UI
+     that does NOT take over the main screen: the right-click context
+     menu, the party creation modal, and any future pop-up of that
+     kind. Main screens (chat, friends list, settings) keep using
+     --accent instead. This is a visual "you're in a layered pop-up"
+     cue, distinct from the primary action color used everywhere else. */
+  --accent-submenu: #d946ef;
+  --accent-submenu-hover: #c026d3;
+
+  /* Left as-is on purpose: online/danger are semantic status colors
+     (green = online, red = destructive action), not decorative ones —
+     changing them risks losing the at-a-glance meaning people already
+     associate with those colors, independent of the overall theme. */
   --online: #3ba55d;
   --danger: #ed4245;
 

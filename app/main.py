@@ -342,6 +342,61 @@ def get_parties(database: Session = Depends(get_db), current_user: UserInfo = De
 
     return {"parties": parties_out}
     
+@app.post("/send_party_message")
+def message_party(party_msg: Party_message_schema, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+
+    in_Party = database.query(Parties).filter(Parties.user_id == current_user.id, Parties.party_id == party_msg.party_id).first()
+
+    if not in_Party:
+        raise HTTPException(status_code=404, detail="Party not found.")
+
+    new_party_msg = Party_messages(
+        party_id = party_msg.party_id,
+        sender_id = current_user.id,
+        content = party_msg.content,
+    )
+    database.add(new_party_msg)
+
+    all_members = database.query(Parties).filter(Parties.party_id == party_msg.party_id).update(
+        {"last_activity": datetime.now()}
+    )
+    database.commit()
+    database.refresh(new_party_msg)
+
+    return new_party_msg
+
+@app.get("/get_party_messages/{party_id}")
+def get_party_messages(party_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None):
+
+    target_party = database.query(Parties).filter(Parties.party_id == party_id, Parties.user_id == current_user.id).first()
+    if not target_party:
+        raise HTTPException(status_code=404, detail="User not in party")
+
+    if before_id:
+        party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id, Party_messages.id < before_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
+    else:
+        party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
+
+    all_members = database.query(Parties).filter(Parties.party_id == party_id).all()
+    member_ids = [member.user_id for member in all_members]
+
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(member_ids)).all()
+    username_lookup = {account.id: account.username for account in accounts}
+
+    message_history = []
+
+    for message in party_history:
+        message_history.append({
+            "id": message.id,
+            "sender_id": message.sender_id,
+            "username": username_lookup[message.sender_id],
+            "content": message.content,
+            "timestamp": str(message.timestamp)
+        })
+
+    message_history.reverse()
+    return {"party_name": target_party.party_name, "party_id": party_id, "session_username": current_user.username, "messages": message_history}
+
 
 async def heartbeat(socket):
     while True:
@@ -386,6 +441,30 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     "sender_id": current_user.id,
                     "content": data["content"],
                     "timestamp": str(new_message.timestamp)})
+            elif data["type"] == "party_message":
+                new_party_message = Party_message_schema(
+                    sender_id= current_user.id,
+                    party_id= data["party_id"],
+                    content= data["content"] 
+                )
+
+                try:
+                    new_party_message = message_party(party_msg= new_party_message,database=database, current_user=current_user)
+                except HTTPException as e:
+                    await socket.send_json({"type": "error", "detail": e.detail})
+                    continue
+                all_members = database.query(Parties).filter(Parties.party_id == data["party_id"]).all()
+
+                for party_card in all_members:
+                    if party_card.user_id != current_user.id:
+                        if party_card.user_id in active_connections:
+                            await active_connections[party_card.user_id].send_json({
+                                "type": "party_message",
+                                "party_name": party_card.party_name,
+                                "party_id": party_card.party_id,
+                                "content": data["content"],
+                                "timestamp": str(new_party_message.timestamp)
+                            })                
             
     except WebSocketDisconnect:
         del active_connections[current_user.id]

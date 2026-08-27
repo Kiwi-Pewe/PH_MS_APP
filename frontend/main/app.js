@@ -1,8 +1,17 @@
 let serverAddress = null;
 let ws = null;
 let myUsername = null;
-let openConversationWith = null;
-let openConversationUsername = null;
+
+// The single open chat, whatever kind it is. type is "dm" or "party";
+// id's meaning depends on type (a DM partner's user id, or a party's
+// party_id) — those two number spaces can coincidentally collide, so
+// EVERY comparison against "is this the open chat" must check type AND
+// id together, never id alone. name is whatever the header/start-card
+// should display (a username or a party name).
+let openChatType = null;
+let openChatId = null;
+let openChatName = null;
+
 let conversationList = [];
 
 // Messages currently shown in the open conversation, in send order.
@@ -78,15 +87,33 @@ function connectSocket() {
     let data;
     try { data = JSON.parse(event.data); } catch (e) { return; }
     if (data.type === "friend_request") refreshFriendsView();
+
     if (data.type === "message") {
-      bumpConversation(data.sender_id, data.username, data.sender_id !== openConversationWith);
-      if (data.sender_id === openConversationWith) {
+      const isOpen = openChatType === "dm" && openChatId === data.sender_id;
+      bumpConversation("dm", data.sender_id, data.username, !isOpen);
+      if (isOpen) {
         // Backend doesn't send a timestamp on the live push yet (only on
         // the history fetch) — fall back to "now" so clustering still
         // works; recommend adding a real one server-side for accuracy
         // across devices with clock drift.
         currentMessages.push({
           isMine: false,
+          senderId: data.sender_id,
+          username: data.username,
+          content: data.content,
+          time: data.timestamp ? new Date(data.timestamp) : new Date()
+        });
+        renderMessages();
+      }
+    }
+
+    if (data.type === "party_message") {
+      const isOpen = openChatType === "party" && openChatId === data.party_id;
+      bumpConversation("party", data.party_id, data.party_name, !isOpen);
+      if (isOpen) {
+        currentMessages.push({
+          isMine: false,
+          senderId: data.sender_id,
           username: data.username,
           content: data.content,
           time: data.timestamp ? new Date(data.timestamp) : new Date()
@@ -177,7 +204,7 @@ async function unfriendFromContextMenu(id, username) {
     console.error("Failed to unfriend, network error:", e);
     return;
   }
-  if (openConversationWith === id) resetChatView();
+  if (openChatType === "dm" && openChatId === id) resetChatView();
   refreshFriendsView();
   loadConversations();
 }
@@ -198,7 +225,7 @@ async function blockFromContextMenu(id, username) {
     console.error("Failed to block, network error:", e);
     return;
   }
-  if (openConversationWith === id) resetChatView();
+  if (openChatType === "dm" && openChatId === id) resetChatView();
   refreshFriendsView();
   loadConversations();
 }
@@ -482,9 +509,10 @@ function renderConversationList() {
     const row = document.createElement("div");
     const displayName = convo.type === "party" ? convo.name : convo.username;
     const subtitle = convo.type === "party" ? `${convo.memberCount} Members` : "{Status}";
+    const isActive = convo.type === openChatType && convo.id === openChatId;
 
-    row.className = "dm-item" + (convo.id === openConversationWith ? " active" : "");
-    row.innerHTML = `<div class="avatar-dot"></div><div class="dm-item-text"><div class="who"></div><div class="dm-subtitle"></div></div><span class="dm-unread-badge"></span><button class="dm-close" title="Close">&times;</button>`;
+    row.className = "dm-item" + (isActive ? " active" : "");
+    row.innerHTML = `<div class="avatar-dot"></div><div class="dm-item-text"><div class="who"></div><div class="dm-subtitle"></div></div><span class="dm-unread-badge"></span>`;
     row.querySelector(".avatar-dot").textContent = avatarLetter(displayName);
     row.querySelector(".who").textContent = displayName;
     row.querySelector(".dm-subtitle").textContent = subtitle;
@@ -495,19 +523,26 @@ function renderConversationList() {
     }
 
     if (convo.type === "party") {
-      // Party messaging/right-click menus don't exist yet — this pass is
-      // visibility-only, so clicking a party row is an inert placeholder
-      // for now rather than a half-built chat view.
-      row.addEventListener("click", () => console.log(`Open party ${convo.id} — not implemented yet`));
+      // Right-click menus for parties don't exist yet (no design pass
+      // done for them), and there's no "leave party" endpoint yet either
+      // — so no context menu and no close (×) button on party rows for
+      // now, unlike DM rows which have both.
+      row.addEventListener("click", () => openParty(convo.id, convo.name));
     } else {
       row.addEventListener("click", () => openDirectMessage(convo.id, convo.username));
       row.addEventListener("contextmenu", (e) => showProfileContextMenu(e, convo.id, convo.username, false));
+
+      const closeBtn = document.createElement("button");
+      closeBtn.className = "dm-close";
+      closeBtn.title = "Close";
+      closeBtn.innerHTML = "&times;";
+      closeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeConversation("dm", convo.id);
+      });
+      row.appendChild(closeBtn);
     }
 
-    row.querySelector(".dm-close").addEventListener("click", (e) => {
-      e.stopPropagation();
-      closeConversation(convo.id);
-    });
     rows.appendChild(row);
   });
 
@@ -516,26 +551,38 @@ function renderConversationList() {
 
 // Sending or receiving a message bumps a conversation to the top — the
 // only two things that count as "interacting with" it per the design call.
-function bumpConversation(id, username, incrementUnread) {
-  let entry = conversationList.find(c => c.id === id);
-  conversationList = conversationList.filter(c => c.id !== id);
-  if (!entry) entry = { type: "dm", id, username, unread: 0 };
+// type+id together identify the entry, since a DM partner's id and a
+// party's id can coincidentally collide — id alone is never enough.
+function bumpConversation(type, id, name, incrementUnread) {
+  let entry = conversationList.find(c => c.type === type && c.id === id);
+  conversationList = conversationList.filter(c => !(c.type === type && c.id === id));
+  if (!entry) {
+    // memberCount defaults to 0 here — this fallback only fires if a
+    // party message arrives for a party not already in the sidebar,
+    // which shouldn't normally happen (get_parties loads it up front),
+    // but a wrong member count is a cosmetic gap, not a crash.
+    entry = type === "party"
+      ? { type, id, name, memberCount: 0, unread: 0 }
+      : { type, id, username: name, unread: 0 };
+  }
   if (incrementUnread) entry.unread = (entry.unread || 0) + 1;
   conversationList.unshift(entry);
   renderConversationList();
 }
 
 // Opening a conversation (click, or a freshly accepted friend) must NOT
-// reorder the sidebar — only actual message activity does that.
+// reorder the sidebar — only actual message activity does that. DM-only:
+// parties are always already present once created, since there's no
+// per-user "close" for them yet.
 function ensureConversationPresent(id, username) {
-  if (!conversationList.some(c => c.id === id)) {
+  if (!conversationList.some(c => c.type === "dm" && c.id === id)) {
     conversationList.unshift({ type: "dm", id, username, unread: 0 });
   }
   renderConversationList();
 }
 
-function clearUnread(id) {
-  const entry = conversationList.find(c => c.id === id);
+function clearUnread(type, id) {
+  const entry = conversationList.find(c => c.type === type && c.id === id);
   if (entry) entry.unread = 0;
   renderConversationList();
 }
@@ -543,8 +590,8 @@ function clearUnread(id) {
 function updateHomeBadge() {
   const badge = document.getElementById("home-unread-badge");
   const total = conversationList.reduce((sum, c) => sum + (c.unread || 0), 0);
-  const dmFocused = document.getElementById("view-chat").classList.contains("active") && openConversationWith !== null;
-  if (total > 0 && !dmFocused) {
+  const chatFocused = document.getElementById("view-chat").classList.contains("active") && openChatId !== null;
+  if (total > 0 && !chatFocused) {
     badge.textContent = total;
     badge.style.display = "flex";
   } else {
@@ -552,15 +599,16 @@ function updateHomeBadge() {
   }
 }
 
-async function closeConversation(id) {
+async function closeConversation(type, id) {
   // Optimistic update: hide it immediately so the click feels instant,
   // then confirm with the server in the background. We keep a copy of
   // the removed entry so we can put it back if the request fails —
   // otherwise a failed close would silently disagree with the backend
   // until the next refresh, which is a confusing way to find out.
-  const removedConvo = conversationList.find(c => c.id === id);
-  conversationList = conversationList.filter(c => c.id !== id);
-  if (openConversationWith === id) resetChatView();
+  // DM-only for now — no equivalent "leave party" endpoint exists yet.
+  const removedConvo = conversationList.find(c => c.type === type && c.id === id);
+  conversationList = conversationList.filter(c => !(c.type === type && c.id === id));
+  if (openChatType === type && openChatId === id) resetChatView();
   renderConversationList();
 
   try {
@@ -571,7 +619,7 @@ async function closeConversation(id) {
     if (!response.ok) throw new Error("Failed to close conversation");
   } catch (e) {
     console.error("Failed to close conversation, restoring it:", e);
-    if (removedConvo && !conversationList.some(c => c.id === id)) {
+    if (removedConvo && !conversationList.some(c => c.type === type && c.id === id)) {
       conversationList.push(removedConvo);
       renderConversationList();
     }
@@ -579,7 +627,9 @@ async function closeConversation(id) {
 }
 
 function resetChatView() {
-  openConversationWith = null;
+  openChatType = null;
+  openChatId = null;
+  openChatName = null;
   document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
   switchMainView("chat");
   document.getElementById("chat-header-title").textContent = "No conversation selected";
@@ -589,15 +639,16 @@ function resetChatView() {
 }
 
 async function openDirectMessage(id, username) {
-  openConversationWith = id;
+  openChatType = "dm";
+  openChatId = id;
+  openChatName = username;
   document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
   switchMainView("chat");
   document.getElementById("chat-header-title").textContent = username;
   document.getElementById("chat-header-actions").style.display = "flex";
-  openConversationUsername = username;
   enableComposer();
   ensureConversationPresent(id, username);
-  clearUnread(id);
+  clearUnread("dm", id);
 
   const chatEmpty = document.getElementById("chat-empty");
   const chatMessages = document.getElementById("chat-messages");
@@ -616,6 +667,7 @@ async function openDirectMessage(id, username) {
       return {
         id: msg.id,
         isMine,
+        senderId: msg.sender_id,
         username: isMine ? myUsername : username,
         content: msg.content,
         // History rows always have a real server timestamp.
@@ -625,6 +677,48 @@ async function openDirectMessage(id, username) {
     if (currentMessages.length < 25) hasMoreHistory = false;
     renderMessages();
   } catch (e) { renderMessages(); /* leave empty on failure */ }
+}
+
+// Opening a party mirrors openDirectMessage exactly, just pointed at the
+// party endpoints — this is the "universal chat window" design in
+// practice: everything downstream (rendering, clustering, composer)
+// works off openChatType/openChatId/currentMessages, and doesn't care
+// which of these two functions populated them.
+async function openParty(id, name) {
+  openChatType = "party";
+  openChatId = id;
+  openChatName = name;
+  document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
+  switchMainView("chat");
+  document.getElementById("chat-header-title").textContent = name;
+  // No party-specific header actions (Remove Friend/Block make no sense
+  // for a group) exist yet — hidden until that design pass happens.
+  document.getElementById("chat-header-actions").style.display = "none";
+  enableComposer();
+
+  const chatEmpty = document.getElementById("chat-empty");
+  const chatMessages = document.getElementById("chat-messages");
+  chatEmpty.style.display = "none";
+  chatMessages.style.display = "block";
+  currentMessages = [];
+  hasMoreHistory = true;
+  isLoadingMore = false;
+
+  try {
+    const response = await fetch(`https://${serverAddress}/get_party_messages/${id}`, { credentials: "include" });
+    if (!response.ok) { renderMessages(); return; }
+    const data = await response.json();
+    currentMessages = data.messages.map(msg => ({
+      id: msg.id,
+      isMine: msg.username === myUsername,
+      senderId: msg.sender_id,
+      username: msg.username,
+      content: msg.content,
+      time: new Date(msg.timestamp)
+    }));
+    if (currentMessages.length < 25) hasMoreHistory = false;
+    renderMessages();
+  } catch (e) { renderMessages(); }
 }
 
 // Triggered when the user scrolls to the top of currently-loaded history.
@@ -642,18 +736,19 @@ async function loadOlderMessages() {
   const prevScrollTop = chatBody.scrollTop;
 
   try {
-    const response = await fetch(
-      `https://${serverAddress}/messages/${openConversationWith}?before_id=${oldest.id}`,
-      { credentials: "include" }
-    );
+    const url = openChatType === "party"
+      ? `https://${serverAddress}/get_party_messages/${openChatId}?before_id=${oldest.id}`
+      : `https://${serverAddress}/messages/${openChatId}?before_id=${oldest.id}`;
+    const response = await fetch(url, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
     const older = data.messages.map(msg => {
-      const isMine = msg.sender_id !== openConversationWith;
+      const isMine = openChatType === "party" ? msg.username === myUsername : msg.sender_id !== openChatId;
       return {
         id: msg.id,
         isMine,
-        username: isMine ? myUsername : openConversationUsername,
+        senderId: msg.sender_id,
+        username: isMine ? myUsername : (openChatType === "party" ? msg.username : openChatName),
         content: msg.content,
         time: new Date(msg.timestamp)
       };
@@ -685,8 +780,12 @@ function renderMessages(opts = {}) {
   const wrap = document.getElementById("chat-messages");
   wrap.innerHTML = "";
 
-  if (openConversationWith !== null) {
-    wrap.appendChild(buildConversationStartCard(openConversationWith, openConversationUsername));
+  if (openChatId !== null) {
+    wrap.appendChild(
+      openChatType === "party"
+        ? buildPartyStartCard(openChatName)
+        : buildConversationStartCard(openChatId, openChatName)
+    );
   }
 
   let openCluster = null; // { isMine, lastTime, bubbleEl }
@@ -727,7 +826,7 @@ function startNewCluster(wrap, msg) {
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
   avatar.textContent = avatarLetter(msg.username);
-  avatar.addEventListener("contextmenu", (e) => showProfileContextMenu(e, openConversationWith, msg.username, msg.isMine));
+  avatar.addEventListener("contextmenu", (e) => showProfileContextMenu(e, msg.senderId, msg.username, msg.isMine));
 
   const body = document.createElement("div");
   body.className = "cluster-body";
@@ -737,7 +836,7 @@ function startNewCluster(wrap, msg) {
   const name = document.createElement("span");
   name.className = "cluster-name";
   name.textContent = msg.username;
-  name.addEventListener("contextmenu", (e) => showProfileContextMenu(e, openConversationWith, msg.username, msg.isMine));
+  name.addEventListener("contextmenu", (e) => showProfileContextMenu(e, msg.senderId, msg.username, msg.isMine));
   const time = document.createElement("span");
   time.className = "cluster-time";
   time.textContent = formatClusterTime(msg.time);
@@ -775,7 +874,7 @@ function formatClusterTime(date) {
 // Sits once at the very top of message history — signals "you've reached
 // the start, nothing more to load" and hosts Remove Friend / Block.
 // Rebuilt fresh on every renderMessages() call, same as the clusters
-// below it, so it always reflects openConversationWith/Username correctly
+// below it, so it always reflects openChatId/openChatName correctly
 // even right after switching conversations.
 function buildConversationStartCard(id, username) {
   const card = document.createElement("div");
@@ -817,6 +916,32 @@ function buildConversationStartCard(id, username) {
   card.appendChild(meta);
   card.appendChild(desc);
   card.appendChild(actions);
+  return card;
+}
+
+// Party equivalent of the card above. Deliberately minimal — no
+// Remove Friend/Block (neither applies to a group), and no party
+// settings/rename/invite actions yet since none of that exists on the
+// backend yet. Revisit once party settings are designed.
+function buildPartyStartCard(name) {
+  const card = document.createElement("div");
+  card.className = "convo-start-card";
+
+  const avatar = document.createElement("div");
+  avatar.className = "convo-start-avatar";
+  avatar.textContent = avatarLetter(name);
+
+  const nameEl = document.createElement("div");
+  nameEl.className = "convo-start-name";
+  nameEl.textContent = name;
+
+  const desc = document.createElement("div");
+  desc.className = "convo-start-desc";
+  desc.textContent = `This is the beginning of ${name}.`;
+
+  card.appendChild(avatar);
+  card.appendChild(nameEl);
+  card.appendChild(desc);
   return card;
 }
 
@@ -879,8 +1004,13 @@ function enableComposer() {
 function sendChatMessage() {
   const input = document.getElementById("composer-input");
   const content = input.value.trim();
-  if (!content || openConversationWith === null || !ws) return;
-  ws.send(JSON.stringify({ type: "message", receiver_id: openConversationWith, content }));
+  if (!content || openChatId === null || !ws) return;
+
+  const payload = openChatType === "party"
+    ? { type: "party_message", party_id: openChatId, content }
+    : { type: "message", receiver_id: openChatId, content };
+  ws.send(JSON.stringify(payload));
+
   currentMessages.push({
     isMine: true,
     username: myUsername || "You",
@@ -888,7 +1018,7 @@ function sendChatMessage() {
     time: new Date() // optimistic local echo — no round trip to wait on
   });
   renderMessages();
-  bumpConversation(openConversationWith, document.getElementById("chat-header-title").textContent, false);
+  bumpConversation(openChatType, openChatId, openChatName, false);
   input.value = "";
   autoGrowComposer(); // shrink back down after clearing
 }

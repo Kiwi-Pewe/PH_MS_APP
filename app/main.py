@@ -338,7 +338,7 @@ def get_parties(database: Session = Depends(get_db), current_user: UserInfo = De
     for (party_id,) in my_party_ids:
         party_info = database.query(Parties).filter(Parties.party_id == party_id).first()
         member_count = database.query(Parties).filter(Parties.party_id == party_id).count()
-        parties_out.append({"type": "party", "id": party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(party_info.last_activity)})
+        parties_out.append({"type": "party", "id": party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(party_info.joined_at)})
 
     return {"parties": parties_out}
     
@@ -377,10 +377,8 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
     else:
         party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
 
-    all_members = database.query(Parties).filter(Parties.party_id == party_id).all()
-    member_ids = [member.user_id for member in all_members]
-
-    accounts = database.query(UserInfo).filter(UserInfo.id.in_(member_ids)).all()
+    sender_ids = list({message.sender_id for message in party_history})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
 
     message_history = []
@@ -396,6 +394,27 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
 
     message_history.reverse()
     return {"party_name": target_party.party_name, "party_id": party_id, "session_username": current_user.username, "messages": message_history}
+
+@app.post("/leave_party")
+async def leave_party(party_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+
+    party_to_leave = database.query(Parties).filter(Parties.party_id == party_id, Parties.user_id == current_user.id).first()
+
+    if not party_to_leave:
+        raise HTTPException(status_code=404, detail="No party with user_id found")
+
+    server_message = Party_messages(
+        party_id = party_id,
+        sender_id = None,
+        content = f"{current_user.username} has left the party.",
+    )
+
+    database.add(server_message)
+    database.delete(party_to_leave)
+    database.commit()
+    database.refresh(server_message)
+
+    return {"success": True, "message": server_message}
 
 async def heartbeat(socket):
     while True:
@@ -466,7 +485,31 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                                 "content": data["content"],
                                 "timestamp": str(new_party_message.timestamp)
                             })                
-            
+            elif data["type"] == "leave_party":
+                    
+                try:
+                    leave_notice = await leave_party(party_id= data["party_id"], database= database, current_user= current_user)
+                except HTTPException as e:
+                    await socket.send_json({"type": "error", "detail": e.detail})
+                    continue
+                remaining_members = database.query(Parties).filter(Parties.party_id == data["party_id"]).all()
+
+                if remaining_members:
+                    account_ids = list({account.user_id for account in remaining_members})
+
+                    for id in account_ids:
+                        if id in active_connections:
+                            await active_connections[id].send_json({
+                                "type": "party_message",
+                                "party_name": remaining_members[0].party_name,
+                                "party_id": data["party_id"],
+                                "sender_id": None,
+                                "username": "",
+                                "content": leave_notice["message"].content,
+                                "timestamp": str(leave_notice["message"].timestamp)
+                            })
+
+
     except WebSocketDisconnect:
         del active_connections[current_user.id]
         heartbeat_task.cancel()

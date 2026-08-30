@@ -180,6 +180,38 @@ function showProfileContextMenu(e, id, username, isSelf) {
   }, options);
 }
 
+// Party rows get their own menu, not the profile one — right-clicking a
+// party isn't right-clicking a person. Reference area mirrors the
+// sidebar's own subtitle line ("N Members") for consistency. Leave Party
+// is the only real action so far; the others stay inert placeholders
+// until party settings actually exist.
+function showPartyContextMenu(e, id, name, memberCount) {
+  e.preventDefault();
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: avatarLetter(name),
+    title: name,
+    subtitle: `${memberCount} Members`
+  }, [
+    { label: "Party Info", onSelect: () => console.log("Party info — not implemented yet") },
+    { label: "Mute", onSelect: () => console.log("Mute — not implemented yet") },
+    { label: "Leave Party", danger: true, onSelect: () => leavePartyFromContextMenu(id, name) }
+  ]);
+}
+
+// Sends the leave request over the socket — leave_party is a live,
+// broadcast-driven action (see /ws's "leave_party" branch), not a plain
+// HTTP round-trip like closeConversation, so there's no response object
+// to await here. The backend deletes the membership row synchronously
+// as part of handling that packet, so the local teardown below is safe
+// to do right away rather than waiting on any ack.
+function leavePartyFromContextMenu(id, name) {
+  if (!ws) return;
+  ws.send(JSON.stringify({ type: "leave_party", party_id: id }));
+  if (openChatType === "party" && openChatId === id) resetChatView();
+  conversationList = conversationList.filter(c => !(c.type === "party" && c.id === id));
+  renderConversationList();
+}
+
 // Unfriending/blocking someone you currently have open should also back
 // you out of that conversation — you're about to lose the ability to
 // message them (block removes the friendship server-side too), so
@@ -523,11 +555,12 @@ function renderConversationList() {
     }
 
     if (convo.type === "party") {
-      // Right-click menus for parties don't exist yet (no design pass
-      // done for them), and there's no "leave party" endpoint yet either
-      // — so no context menu and no close (×) button on party rows for
-      // now, unlike DM rows which have both.
+      // No close (×) button on party rows — "closing" a party isn't a
+      // real concept the way closing a DM is; leaving is the equivalent
+      // action, and it lives in the context menu instead, matching how
+      // Discord treats a group differently from a DM in this respect.
       row.addEventListener("click", () => openParty(convo.id, convo.name));
+      row.addEventListener("contextmenu", (e) => showPartyContextMenu(e, convo.id, convo.name, convo.memberCount));
     } else {
       row.addEventListener("click", () => openDirectMessage(convo.id, convo.username));
       row.addEventListener("contextmenu", (e) => showProfileContextMenu(e, convo.id, convo.username, false));

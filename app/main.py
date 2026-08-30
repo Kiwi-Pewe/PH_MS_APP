@@ -358,7 +358,7 @@ def message_party(party_msg: Party_message_schema, database: Session = Depends(g
     database.add(new_party_msg)
 
     all_members = database.query(Parties).filter(Parties.party_id == party_msg.party_id).update(
-        {"last_activity": datetime.now()}
+        {"joined_at": datetime.now()}
     )
     database.commit()
     database.refresh(new_party_msg)
@@ -387,7 +387,7 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
         message_history.append({
             "id": message.id,
             "sender_id": message.sender_id,
-            "username": username_lookup[message.sender_id],
+            "username": "" if message.sender_id == None else username_lookup[message.sender_id],
             "content": message.content,
             "timestamp": str(message.timestamp)
         })

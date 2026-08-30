@@ -824,6 +824,20 @@ function renderMessages(opts = {}) {
   let openCluster = null; // { isMine, lastTime, bubbleEl }
 
   currentMessages.forEach(msg => {
+    // No sender means this is a system notice (leave-party today, more
+    // kinds later), not a real chat message — it always renders as a
+    // full-width divider, never a cluster/bubble, regardless of who's
+    // above or below it. openCluster is reset to null afterward so the
+    // NEXT real message always starts a fresh cluster rather than
+    // silently merging into whatever cluster was open before the
+    // divider — a system notice breaking up two same-sender messages
+    // should visually separate them, not be invisible to the grouping.
+    if (msg.senderId === null) {
+      wrap.appendChild(buildSystemDivider(msg));
+      openCluster = null;
+      return;
+    }
+
     // isMine alone used to be enough to identify "same sender as last" —
     // true for a DM, since there's only ever one possible "not me"
     // person. In a party there can be 9, so two different other people
@@ -858,6 +872,18 @@ function renderMessages(opts = {}) {
     const chatBody = document.getElementById("chat-body");
     chatBody.scrollTop = chatBody.scrollHeight;
   }
+}
+
+// One-line, no avatar, no bubble — just the finished sentence centered
+// in the divider. Nothing here needs msg.username/msg.senderId at all,
+// since the content string is already the complete, self-contained
+// message (see leave_party on the backend) — there's no "sender" to
+// attribute this to, by design.
+function buildSystemDivider(msg) {
+  const divider = document.createElement("div");
+  divider.className = "system-divider";
+  divider.textContent = msg.content;
+  return divider;
 }
 
 function startNewCluster(wrap, msg) {

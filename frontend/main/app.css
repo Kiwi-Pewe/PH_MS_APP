@@ -250,6 +250,22 @@
 .bubble-line .edited-tag { color: var(--text-dim); font-size: calc(12px * var(--message-scale)); margin-left: 6px; }
 .msg-cluster.self .bubble-line .edited-tag { color: rgba(255,255,255,0.7); }
 
+/* System divider — full-width line with its text centered on top,
+   Discord's date-divider trick (two flex:1 lines flanking the text,
+   rather than a line running underneath it). Any message with
+   sender_id === null renders as one of these instead of a normal
+   cluster/bubble — currently just "leave party" notices, but the
+   backend's NULL-sender convention is deliberately generic, so this is
+   the one rendering path for every future system message too. */
+.system-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 10px 0 14px;
+  color: var(--text-dim); font-size: calc(12px * var(--message-scale));
+}
+.system-divider::before, .system-divider::after {
+  content: ""; flex: 1 1 auto; height: 1px; background: var(--border);
+}
+
 .dm-item .who { font-size: 13px; font-weight: 600; }
 .dm-item .dm-close { opacity: 0; background: transparent; color: var(--text-dim); font-size: 14px; padding: 2px 6px; border-radius: 4px; }
 .dm-item:hover .dm-close { opacity: 1; }

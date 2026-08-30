@@ -62,6 +62,7 @@ class Parties(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     created_by_id = Column(Integer, ForeignKey("users.id"))
     joined_at = Column(DateTime, server_default=func.now())
+    last_activity = Column(DateTime, server_default=func.now())
 
 class Party_messages(Base):
     __tablename__ = "party_messages"

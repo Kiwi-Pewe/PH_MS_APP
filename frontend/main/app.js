@@ -728,6 +728,7 @@ async function openParty(id, name) {
   // for a group) exist yet — hidden until that design pass happens.
   document.getElementById("chat-header-actions").style.display = "none";
   enableComposer();
+  clearUnread("party", id);
 
   const chatEmpty = document.getElementById("chat-empty");
   const chatMessages = document.getElementById("chat-messages");

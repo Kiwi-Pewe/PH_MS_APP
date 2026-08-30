@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages
 from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema
 from app.database import get_db, Base, engine 
@@ -338,7 +338,11 @@ def get_parties(database: Session = Depends(get_db), current_user: UserInfo = De
     for (party_id,) in my_party_ids:
         party_info = database.query(Parties).filter(Parties.party_id == party_id).first()
         member_count = database.query(Parties).filter(Parties.party_id == party_id).count()
-        parties_out.append({"type": "party", "id": party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(party_info.joined_at)})
+
+        latest_message_time = database.query(func.max(Party_messages.timestamp)).filter(Party_messages.party_id == party_id).scalar()
+        sort_timestamp = latest_message_time if latest_message_time else party_info.joined_at
+
+        parties_out.append({"type": "party", "id": party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(sort_timestamp)})
 
     return {"parties": parties_out}
     
@@ -357,8 +361,8 @@ def message_party(party_msg: Party_message_schema, database: Session = Depends(g
     )
     database.add(new_party_msg)
 
-    all_members = database.query(Parties).filter(Parties.party_id == party_msg.party_id).update(
-        {"joined_at": datetime.now()}
+    database.query(Parties).filter(Parties.party_id == party_msg.party_id, Parties.user_id == current_user.id).update(
+        {"last_activity": datetime.now()}
     )
     database.commit()
     database.refresh(new_party_msg)
@@ -371,6 +375,12 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
     target_party = database.query(Parties).filter(Parties.party_id == party_id, Parties.user_id == current_user.id).first()
     if not target_party:
         raise HTTPException(status_code=404, detail="User not in party")
+
+    if not before_id:
+        database.query(Parties).filter(Parties.party_id == party_id, Parties.user_id == current_user.id).update(
+            {"last_activity": datetime.now()}
+        )
+        database.commit()
 
     if before_id:
         party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id, Party_messages.id < before_id).order_by(Party_messages.timestamp.desc()).limit(25).all()

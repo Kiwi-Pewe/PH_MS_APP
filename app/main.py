@@ -336,13 +336,19 @@ def get_parties(database: Session = Depends(get_db), current_user: UserInfo = De
 
     parties_out = []
     for (party_id,) in my_party_ids:
-        party_info = database.query(Parties).filter(Parties.party_id == party_id).first()
+        party_info = database.query(Parties).filter(Parties.party_id == party_id, Parties.user_id == current_user.id).first()
         member_count = database.query(Parties).filter(Parties.party_id == party_id).count()
 
         latest_message_time = database.query(func.max(Party_messages.timestamp)).filter(Party_messages.party_id == party_id).scalar()
         sort_timestamp = latest_message_time if latest_message_time else party_info.joined_at
 
-        parties_out.append({"type": "party", "id": party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(sort_timestamp)})
+        unread_count = database.query(Party_messages).filter(
+            Party_messages.party_id == party_id,
+            Party_messages.timestamp > party_info.last_activity,
+            Party_messages.sender_id != current_user.id
+        ).count()
+
+        parties_out.append({"type": "party", "id": party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(sort_timestamp), "unread_count": unread_count})
 
     return {"parties": parties_out}
     

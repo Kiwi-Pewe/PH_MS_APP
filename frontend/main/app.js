@@ -524,7 +524,7 @@ function loadConversations() {
       id: p.id,
       name: p.name,
       memberCount: p.member_count,
-      unread: 0,
+      unread: p.unread_count || 0,
       timestamp: p.last_activity
     }));
     conversationList = dms.concat(parties).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));

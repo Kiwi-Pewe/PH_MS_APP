@@ -4,8 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
-from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages
-from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema
+from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members
+from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create
 from app.database import get_db, Base, engine 
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
 from datetime import datetime
@@ -368,7 +368,7 @@ def message_party(party_msg: Party_message_schema, database: Session = Depends(g
     database.add(new_party_msg)
 
     database.query(Parties).filter(Parties.party_id == party_msg.party_id, Parties.user_id == current_user.id).update(
-        {"last_activity": datetime.now()}
+    {"last_activity": datetime.utcnow()}
     )
     database.commit()
     database.refresh(new_party_msg)
@@ -384,9 +384,9 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
 
     if not before_id:
         database.query(Parties).filter(Parties.party_id == party_id, Parties.user_id == current_user.id).update(
-            {"last_activity": datetime.now()}
-        )
-        database.commit()
+        {"last_activity": datetime.utcnow()}
+    )
+    database.commit()
 
     if before_id:
         party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id, Party_messages.id < before_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
@@ -431,6 +431,44 @@ async def leave_party(party_id: int, database: Session = Depends(get_db), curren
     database.refresh(server_message)
 
     return {"success": True, "message": server_message}
+
+@app.post("/create_server")
+def create_server(server_name: Server_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server_id_chars = "234679ACDEFGHJKLMNPQRTUVWXYZ"
+
+    while True:
+        test_id = "".join(random.choices(server_id_chars, k=10))
+        id_check = database.query(Servers).filter(Servers.id == test_id).first()
+        if not id_check: break
+
+    new_server = Servers(
+        id = test_id,
+        name = server_name.name,
+        owner_id = current_user.id
+    )
+    database.add(new_server)
+
+    highest_position = database.query(func.max(Server_members.position)).filter(Server_members.user_id == current_user.id).scalar()
+
+    new_member = Server_members(
+        server_id = test_id,
+        user_id = current_user.id,
+        position = 100 if highest_position == None else highest_position + 100,
+    )
+    database.add(new_member)
+    database.commit()
+
+@app.get("/get_servers")
+def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+
+    user_servers = database.query(Server_members).filter(Server_members.user_id == current_user.id).order_by(Server_members.position).all()
+
+    server_list = []
+    for server in user_servers:
+        server_info = database.query(Servers).filter(Servers.id == server.server_id).first()
+        server_list.append({"type": "server", "id": server_info.id, "name": server_info.name,  "position": server.position})
+
+    return {"servers": server_list}
 
 async def heartbeat(socket):
     while True:

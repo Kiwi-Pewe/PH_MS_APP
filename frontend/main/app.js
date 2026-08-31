@@ -14,6 +14,19 @@ let openChatName = null;
 
 let conversationList = [];
 
+// The user's servers, in position order — comes straight from
+// GET /get_servers, which already sorts server-side by the stored
+// gap-based position column. Unlike conversationList, this array is
+// NEVER reordered client-side by activity; it only changes on a fresh
+// load or (later) an explicit drag-and-drop reorder.
+let serverList = [];
+
+// Which rail icon is currently visually selected — "home" or a server's
+// id. Selection is purely cosmetic for now (per this session's scope:
+// servers have no functioning view yet), so this only ever drives the
+// .active class, nothing else.
+let selectedRailIcon = "home";
+
 // Messages currently shown in the open conversation, in send order.
 // Kept in memory and fully re-rendered into clusters on every change
 // (small lists, ~25 messages) rather than patched in place — this is
@@ -130,10 +143,24 @@ function enterApp() {
   document.getElementById("footer-avatar-letter").textContent = avatarLetter(myUsername);
   refreshFriendsView();
   loadConversations();
+  loadServers();
 }
 
 function avatarLetter(username) {
   return (username || "?").charAt(0).toUpperCase();
+}
+
+// Server icons show initials rather than a single letter — the default
+// name shape ("{username}'s server") is always two words, so two
+// letters actually distinguishes servers from each other at a glance
+// the way one letter couldn't. Falls back to a single letter for a
+// one-word name, same as avatarLetter above.
+function serverAvatarLetters(name) {
+  const words = (name || "?").trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+  }
+  return (words[0] || "?").charAt(0).toUpperCase();
 }
 
 // ---- Context menus (message + profile) ----
@@ -268,6 +295,97 @@ async function logout() {
   } catch (e) { /* tear down locally regardless */ }
   if (ws) { ws.close(); ws = null; }
   window.location.href = "../login.html";
+}
+
+// ---- Server rail (list + create) ----
+// Servers are a separate concept from the DM/party sidebar entirely —
+// per Session 9's plan they'll eventually replace #secondary-panel when
+// you're inside one, not live alongside it, so this is deliberately its
+// own load/render pair rather than folded into loadConversations().
+
+async function loadServers() {
+  try {
+    const response = await fetch(`https://${serverAddress}/get_servers`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    // Already sorted by position server-side — no client-side sort here,
+    // since (unlike conversationList) this order is never activity-driven.
+    serverList = data.servers || [];
+    renderServerList();
+  } catch (e) { /* leave last render in place */ }
+}
+
+function renderServerList() {
+  const container = document.getElementById("server-list");
+  container.innerHTML = "";
+  serverList.forEach(server => {
+    const icon = document.createElement("div");
+    icon.className = "rail-icon server-icon" + (selectedRailIcon === server.id ? " active" : "");
+    icon.title = server.name;
+    icon.textContent = serverAvatarLetters(server.name);
+    // Selection-only for now — no in-server view exists yet (Session 9
+    // scope: servers just need to exist, be visible, and persist).
+    icon.addEventListener("click", () => selectRailIcon(server.id, icon));
+    container.appendChild(icon);
+  });
+}
+
+// Shared by home-icon and every server icon — swaps which rail icon
+// shows the .active treatment. Purely cosmetic right now; the actual
+// view-switching side of clicking Home still lives in resetChatView()
+// via the home-icon listener below, untouched by this function.
+function selectRailIcon(id, iconEl) {
+  selectedRailIcon = id;
+  document.querySelectorAll(".rail-icon").forEach(i => i.classList.remove("active"));
+  iconEl.classList.add("active");
+}
+
+// ---- Server creation modal ----
+// Simpler than the party modal — name-only, no member checklist, since
+// a server starts with just its owner (invites deferred, per Session 9).
+
+document.getElementById("create-server-btn").addEventListener("click", openServerModal);
+document.getElementById("server-modal-close").addEventListener("click", closeServerModal);
+document.getElementById("server-modal-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "server-modal-overlay") closeServerModal();
+});
+document.getElementById("server-modal-create-btn").addEventListener("click", submitCreateServer);
+
+function openServerModal() {
+  const input = document.getElementById("server-name-input");
+  input.value = `${myUsername}'s server`;
+  document.getElementById("server-modal-overlay").style.display = "flex";
+  input.focus();
+  input.select();
+}
+
+function closeServerModal() {
+  document.getElementById("server-modal-overlay").style.display = "none";
+}
+
+async function submitCreateServer() {
+  const input = document.getElementById("server-name-input");
+  // Falls back to the same default shown as a placeholder value, in the
+  // rare case someone clears the field entirely rather than editing it.
+  const name = input.value.trim() || `${myUsername}'s server`;
+
+  try {
+    const response = await fetch(`https://${serverAddress}/create_server`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name })
+    });
+    if (!response.ok) {
+      console.error(`Failed to create server: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to create server, network error:", e);
+    return;
+  }
+  closeServerModal();
+  loadServers();
 }
 
 // ---- Party creation modal ----
@@ -1125,8 +1243,7 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
 });
 
 document.getElementById("home-icon").addEventListener("click", () => {
-  document.querySelectorAll(".rail-icon").forEach(i => i.classList.remove("active"));
-  document.getElementById("home-icon").classList.add("active");
+  selectRailIcon("home", document.getElementById("home-icon"));
   resetChatView();
 });
 

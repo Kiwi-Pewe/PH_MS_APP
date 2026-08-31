@@ -38,3 +38,6 @@ class Party_message_schema(BaseModel):
     sender_id: int
     party_id: int
     content: str
+
+class Server_create(BaseModel):
+    name: str

@@ -71,3 +71,18 @@ class Party_messages(Base):
     sender_id = Column(Integer, ForeignKey("users.id"))
     content = Column(String)
     timestamp = Column(DateTime, server_default=func.now())
+
+class Servers(Base):
+    __tablename__ = "servers"
+    id = Column(String(10), primary_key=True)  # 10-char code, doubles as PK
+    name = Column(String)
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+
+class Server_members(Base):
+    __tablename__ = "server_members"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    joined_at = Column(DateTime, server_default=func.now())
+    position = Column(Integer) 

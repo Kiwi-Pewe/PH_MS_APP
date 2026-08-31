@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=1">
-<link rel="stylesheet" href="app.css?v=6">
+<link rel="stylesheet" href="app.css?v=7">
 </head>
 <body>
 
@@ -24,6 +24,15 @@
     <div id="server-rail">
       <div class="rail-icon active" id="home-icon" title="Home">Home<span class="icon-badge" id="home-unread-badge">0</span></div>
       <div class="rail-divider"></div>
+      <!-- Populated by loadServers()/renderServerList(). Sits in its own
+           scrolling region so a long server list never pushes
+           create-server-btn below, off the visible rail — see app.css. -->
+      <div id="server-list"></div>
+      <!-- Pinned to the very bottom of the rail, symmetrical with Home
+           at the top, per Session 9's design call. Opens the creation
+           modal — a sub-menu pop-up, styled with the same
+           --accent-submenu treatment as the party modal. -->
+      <div class="rail-icon create-server-icon" id="create-server-btn" title="Create Server">+</div>
     </div>
 
     <div id="secondary-panel">
@@ -159,10 +168,32 @@
     </div>
   </div>
 
+  <!-- Server creation modal. Name-only, per Session 9's design call —
+       unlike parties, there's no member checklist here since a server
+       starts with just its owner (invites come later, deferred same as
+       parties'). Same overlay/close/outside-click pattern as the party
+       modal, kept as its own dedicated block rather than a shared
+       generic modal, matching how the party modal was already built. -->
+  <div id="server-modal-overlay" style="display:none;">
+    <div id="server-modal">
+      <div class="view-header">
+        <span>Create Server</span>
+        <button class="icon-btn" id="server-modal-close" title="Close">&times;</button>
+      </div>
+      <div class="view-body">
+        <label class="server-modal-label" for="server-name-input">Server name</label>
+        <input type="text" id="server-name-input" class="server-name-input" maxlength="100">
+      </div>
+      <div id="server-modal-footer">
+        <button class="pill-btn" id="server-modal-create-btn">Create Server</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=1"></script>
-<script src="app.js?v=12"></script>
+<script src="app.js?v=13"></script>
 </body>
 </html>

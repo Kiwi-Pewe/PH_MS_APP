@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
-from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members
+from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels
 from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create
 from app.database import get_db, Base, engine 
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
@@ -456,6 +456,39 @@ def create_server(server_name: Server_create, database: Session = Depends(get_db
         position = 100 if highest_position == None else highest_position + 100,
     )
     database.add(new_member)
+
+    text_category = Server_categories(
+        server_id = test_id,
+        name = "Text Channels",
+        position = 100,
+    )
+    database.add(text_category)
+    database.flush() 
+
+    text_channel = Server_channels(
+        category_id = text_category.id,
+        name = "general",
+        channel_type = "text",
+        position = 100,
+    )
+    database.add(text_channel)
+
+    voice_category = Server_categories(
+        server_id = test_id,
+        name = "Voice Channels",
+        position = 200,
+    )
+    database.add(voice_category)
+    database.flush() 
+
+    voice_channel = Server_channels(
+        category_id = voice_category.id,
+        name = "General",
+        channel_type = "voice",
+        position = 100,
+    )
+    database.add(voice_channel)
+
     database.commit()
 
 @app.get("/get_servers")
@@ -470,6 +503,28 @@ def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo
 
     return {"servers": server_list}
 
+@app.get("/get_server_contents/{server_id}")
+def get_server_contents(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+
+    in_server = database.query(Server_members).filter(Server_members.server_id == server_id, Server_members.user_id == current_user.id).first()
+
+    if not in_server:
+        raise HTTPException(status_code=404, detail="Server membership not found")
+
+    all_categories = database.query(Server_categories).filter(Server_categories.server_id == server_id).order_by(Server_categories.position).all()
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    server_info = []
+    for category in all_categories:
+        channel_info = []
+        all_channels = database.query(Server_channels).filter(Server_channels.category_id == category.id).order_by(Server_channels.position).all()
+
+        for channel in all_channels:
+            channel_info.append({"id": channel.id ,"category_id": channel.category_id, "name": channel.name, "channel_type": channel.channel_type, "position": channel.position})
+
+        server_info.append({"id": category.id, "name": category.name, "position": category.position, "channels": channel_info})
+        
+    return {"type": "server", "categories": server_info, "owner": server.owner_id}
+
 async def heartbeat(socket):
     while True:
         await(asyncio.sleep(45))
@@ -477,7 +532,7 @@ async def heartbeat(socket):
 
 @app.get("/whoami")
 def self_identity(current_user: UserInfo = Depends(get_current_user)):
-    return {"username": current_user.username}
+    return {"username": current_user.username, "id": current_user.id}
 
 @app.websocket("/ws")
 async def connect_user(socket: WebSocket, session_id: str = Cookie(None), database: Session = Depends(get_db)):

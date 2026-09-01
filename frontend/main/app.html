@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=1">
-<link rel="stylesheet" href="app.css?v=7">
+<link rel="stylesheet" href="app.css?v=8">
 </head>
 <body>
 
@@ -36,17 +36,31 @@
     </div>
 
     <div id="secondary-panel">
-      <div id="secondary-nav">
-        <button class="nav-item" data-view="friends">Friends<span class="pending-badge" id="pending-badge">0</span></button>
-        <button class="nav-item" data-view="inventory">Inventory</button>
-        <button class="nav-item" id="create-party-btn">Create Party</button>
-        <button class="nav-item" data-view="settings">Settings</button>
+      <!-- Only one of these two is visible at a time. openServer()/the
+           home-icon handler toggle which one shows — see app.js. -->
+      <div id="dm-sidebar-view">
+        <div id="secondary-nav">
+          <button class="nav-item" data-view="friends">Friends<span class="pending-badge" id="pending-badge">0</span></button>
+          <button class="nav-item" data-view="inventory">Inventory</button>
+          <button class="nav-item" id="create-party-btn">Create Party</button>
+          <button class="nav-item" data-view="settings">Settings</button>
+        </div>
+
+        <div id="secondary-body">
+          <h3>Direct Messages</h3>
+          <div class="empty-note" id="dm-empty-note">No open conversations.</div>
+          <div id="dm-rows"></div>
+        </div>
       </div>
 
-      <div id="secondary-body">
-        <h3>Direct Messages</h3>
-        <div class="empty-note" id="dm-empty-note">No open conversations.</div>
-        <div id="dm-rows"></div>
+      <!-- Populated by renderServerSidebar(). Hidden until a server is
+           opened. No dropdown menu on the server name yet (no
+           settings/leave features exist) — just the name for now. -->
+      <div id="server-sidebar-view" style="display:none;">
+        <div id="server-sidebar-header"><span id="server-sidebar-name"></span></div>
+        <div id="server-sidebar-body">
+          <div id="category-list"></div>
+        </div>
       </div>
 
       <div id="account-footer">
@@ -74,7 +88,7 @@
           </div>
         </div>
         <div id="chat-body">
-          <div id="chat-empty">
+          <div id="chat-empty" class="centered-empty-state">
             <div class="badge">DM</div>
             <p>Select a conversation from the list on the left to start chatting.</p>
           </div>
@@ -89,6 +103,24 @@
             <textarea id="composer-input" placeholder="Type a message" rows="1"></textarea>
             <button class="composer-icon-btn" id="composer-emoji-btn" title="Emoji (coming soon)">&#9786;</button>
             <button onclick="sendChatMessage()" id="composer-send-btn">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Server channel view. Read-only per this session's scope —
+           sending messages inside a channel is the next step, not this
+           one. Same centered-welcome treatment as the 1:1 DM empty
+           state, per this session's design call, not offset like a
+           real chat feed would eventually be. -->
+      <div class="main-view" id="view-channel">
+        <div class="view-header">
+          <span id="channel-header-title">No channel selected</span>
+        </div>
+        <div id="channel-body">
+          <div id="channel-empty" class="centered-empty-state">
+            <div class="badge" id="channel-empty-badge">#</div>
+            <p class="welcome-title" id="channel-welcome-title"></p>
+            <p class="welcome-sub" id="channel-welcome-sub"></p>
           </div>
         </div>
       </div>
@@ -194,6 +226,6 @@
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=1"></script>
-<script src="app.js?v=13"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>

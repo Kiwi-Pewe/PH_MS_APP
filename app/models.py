@@ -86,3 +86,18 @@ class Server_members(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     joined_at = Column(DateTime, server_default=func.now())
     position = Column(Integer) 
+
+class Server_categories(Base):
+    __tablename__ = "server_categories"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    name = Column(String)
+    position = Column(Integer)
+
+class Server_channels(Base):
+    __tablename__ = "server_channels"
+    id = Column(Integer, primary_key=True)
+    category_id = Column(Integer, ForeignKey("server_categories.id"))
+    name = Column(String)
+    channel_type = Column(String)
+    position = Column(Integer)

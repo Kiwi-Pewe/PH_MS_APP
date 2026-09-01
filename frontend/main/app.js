@@ -1,6 +1,7 @@
 let serverAddress = null;
 let ws = null;
 let myUsername = null;
+let myUserId = null; // from /whoami — needed to compare against a server's owner_id
 
 // The single open chat, whatever kind it is. type is "dm" or "party";
 // id's meaning depends on type (a DM partner's user id, or a party's
@@ -26,6 +27,16 @@ let serverList = [];
 // servers have no functioning view yet), so this only ever drives the
 // .active class, nothing else.
 let selectedRailIcon = "home";
+
+// The currently-open server and channel, if any. Cleared whenever Home
+// is clicked. currentChannelId/Type/Name mirror openChatType/Id/Name's
+// role for DMs/parties — the single source of truth for "what's showing
+// in the main panel right now" while inside a server.
+let currentServerId = null;
+let currentServerOwnerId = null;
+let currentChannelId = null;
+let currentChannelType = null;
+let currentChannelName = null;
 
 // Messages currently shown in the open conversation, in send order.
 // Kept in memory and fully re-rendered into clusters on every change
@@ -64,6 +75,7 @@ window.addEventListener("load", () => {
     })
     .then((data) => {
       myUsername = data.username;
+      myUserId = data.id;
       connectSocket();
     })
     .catch(() => {
@@ -323,9 +335,7 @@ function renderServerList() {
     icon.className = "rail-icon server-icon" + (selectedRailIcon === server.id ? " active" : "");
     icon.title = server.name;
     icon.textContent = serverAvatarLetters(server.name);
-    // Selection-only for now — no in-server view exists yet (Session 9
-    // scope: servers just need to exist, be visible, and persist).
-    icon.addEventListener("click", () => selectRailIcon(server.id, icon));
+    icon.addEventListener("click", () => openServer(server.id, icon));
     container.appendChild(icon);
   });
 }
@@ -338,6 +348,132 @@ function selectRailIcon(id, iconEl) {
   selectedRailIcon = id;
   document.querySelectorAll(".rail-icon").forEach(i => i.classList.remove("active"));
   iconEl.classList.add("active");
+}
+
+// Fetches a server's categories/channels and swaps the whole screen
+// into "inside a server" mode: the DM sidebar is replaced by the
+// category/channel list, and the main panel switches to the channel
+// view. Sending messages isn't built yet (next step, not this one) —
+// today's goal is purely making a server's contents viewable.
+async function openServer(serverId, iconEl) {
+  selectRailIcon(serverId, iconEl);
+
+  let data;
+  try {
+    const response = await fetch(`https://${serverAddress}/get_server_contents/${serverId}`, { credentials: "include" });
+    if (!response.ok) return; // not a member, or the server no longer exists
+    data = await response.json();
+  } catch (e) {
+    return; // leave whatever was showing in place
+  }
+
+  currentServerId = serverId;
+  currentServerOwnerId = data.owner;
+
+  document.getElementById("dm-sidebar-view").style.display = "none";
+  document.getElementById("server-sidebar-view").style.display = "flex";
+
+  const serverMeta = serverList.find(s => s.id === serverId);
+  document.getElementById("server-sidebar-name").textContent = serverMeta ? serverMeta.name : "";
+
+  renderServerSidebar(data);
+
+  // Auto-selects the first channel found, same as Discord's default
+  // entry behavior. Remembering the LAST channel you were actually
+  // viewing is a real planned feature (added to Server_members once
+  // built) but is explicitly deferred — see Handoff.md.
+  const firstChannel = data.categories.flatMap(c => c.channels)[0];
+  if (firstChannel) {
+    selectChannel(firstChannel);
+  } else {
+    currentChannelId = null;
+    switchMainView("channel");
+    document.getElementById("channel-header-title").textContent = "No channels yet";
+  }
+}
+
+function renderServerSidebar(data) {
+  const list = document.getElementById("category-list");
+  list.innerHTML = "";
+  // Owner-only for now — there's no admin/role tier to extend this to
+  // yet (roles are explicitly deferred, per Handoff.md).
+  const isOwner = data.owner === myUserId;
+
+  data.categories.forEach(category => {
+    const block = document.createElement("div");
+    block.className = "category-block";
+
+    const header = document.createElement("div");
+    header.className = "category-header";
+
+    const arrow = document.createElement("span");
+    arrow.className = "category-arrow";
+    arrow.textContent = "\u25BE"; // ▾
+    header.appendChild(arrow);
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "category-name";
+    nameEl.textContent = category.name;
+    header.appendChild(nameEl);
+
+    if (isOwner) {
+      const addBtn = document.createElement("button");
+      addBtn.className = "category-add-btn";
+      addBtn.title = "Create Channel (coming soon)";
+      addBtn.textContent = "+";
+      // Visible for reference only — actual channel creation is a
+      // separate future feature, not part of today's scope.
+      addBtn.addEventListener("click", (e) => e.stopPropagation());
+      header.appendChild(addBtn);
+    }
+
+    const channelsEl = document.createElement("div");
+    channelsEl.className = "category-channels";
+    category.channels.forEach(channel => {
+      const row = document.createElement("div");
+      row.className = "channel-row";
+      row.dataset.channelId = channel.id;
+
+      const icon = document.createElement("span");
+      icon.className = "channel-icon";
+      icon.textContent = channel.channel_type === "voice" ? "\u{1F50A}" : "#";
+      row.appendChild(icon);
+
+      const label = document.createElement("span");
+      label.className = "channel-label";
+      label.textContent = channel.name;
+      row.appendChild(label);
+
+      row.addEventListener("click", () => selectChannel(channel, row));
+      channelsEl.appendChild(row);
+    });
+
+    // Dropdown collapse/expand — purely visual, does not persist across
+    // a refresh (this session's explicit scope call).
+    header.addEventListener("click", () => block.classList.toggle("collapsed"));
+
+    block.appendChild(header);
+    block.appendChild(channelsEl);
+    list.appendChild(block);
+  });
+}
+
+function selectChannel(channel, rowEl) {
+  currentChannelId = channel.id;
+  currentChannelType = channel.channel_type;
+  currentChannelName = channel.name;
+
+  document.querySelectorAll(".channel-row").forEach(r => r.classList.remove("active"));
+  const activeRow = rowEl || document.querySelector(`.channel-row[data-channel-id="${channel.id}"]`);
+  if (activeRow) activeRow.classList.add("active");
+
+  switchMainView("channel");
+  const isVoice = channel.channel_type === "voice";
+  const label = isVoice ? channel.name : `#${channel.name}`;
+  document.getElementById("channel-header-title").textContent = label;
+  document.getElementById("channel-empty-badge").textContent = isVoice ? "\u{1F50A}" : "#";
+  document.getElementById("channel-welcome-title").textContent = `Welcome to ${label}!`;
+  document.getElementById("channel-welcome-sub").textContent = `This is the start of the ${label} channel.`;
 }
 
 // ---- Server creation modal ----
@@ -1244,6 +1380,20 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
 
 document.getElementById("home-icon").addEventListener("click", () => {
   selectRailIcon("home", document.getElementById("home-icon"));
+
+  // Reverses everything openServer() does. Remembering the last DM/party
+  // you had open (so Home could restore it instead of resetting) is a
+  // real planned QOL feature, but explicitly deferred — see Handoff.md —
+  // so today Home always lands back on the blank "no conversation
+  // selected" state, same as it did before servers existed.
+  currentServerId = null;
+  currentServerOwnerId = null;
+  currentChannelId = null;
+  currentChannelType = null;
+  currentChannelName = null;
+  document.getElementById("server-sidebar-view").style.display = "none";
+  document.getElementById("dm-sidebar-view").style.display = "flex";
+
   resetChatView();
 });
 

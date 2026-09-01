@@ -41,3 +41,8 @@ class Party_message_schema(BaseModel):
 
 class Server_create(BaseModel):
     name: str
+
+class Server_message(BaseModel):
+    sender_id: int
+    channel_id: int
+    content: str

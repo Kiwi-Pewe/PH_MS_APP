@@ -52,6 +52,16 @@ let currentMessages = [];
 let hasMoreHistory = true;
 let isLoadingMore = false;
 
+// Channel messaging mirrors the DM/party pagination state above, kept as
+// its own separate set of variables (not folded into currentMessages/
+// hasMoreHistory) since a server channel and the DM/party chat window are
+// two different main-views that can each be showing their own history at
+// once — see view-chat vs. view-channel. Reset whenever selectChannel
+// switches to a different channel.
+let currentChannelMessages = [];
+let channelHasMoreHistory = true;
+let channelIsLoadingMore = false;
+
 // A same-sender gap this long or longer forces a new cluster/bubble,
 // even without a sender change in between.
 const CLUSTER_GAP_MINUTES = 5;
@@ -144,6 +154,28 @@ function connectSocket() {
           time: data.timestamp ? new Date(data.timestamp) : new Date()
         });
         renderMessages();
+      }
+    }
+
+    // The backend never broadcasts this back to the sender (see
+    // message_server_channel's /ws branch), so isMine is always false
+    // here — no need to guard against double-adding our own message.
+    // Unlike DMs/parties, there's no sidebar/rail unread signal to bump
+    // yet if the channel isn't open — per-channel unread tracking was
+    // deliberately deferred (see Handoff.md), so a message arriving in a
+    // channel you're not currently viewing produces no visible signal
+    // today.
+    if (data.type === "channel_message") {
+      const isOpen = currentChannelId === data.channel_id;
+      if (isOpen) {
+        currentChannelMessages.push({
+          senderId: data.sender_id,
+          isMine: false,
+          username: data.username,
+          content: data.content,
+          time: data.timestamp ? new Date(data.timestamp) : new Date()
+        });
+        renderChannelMessages();
       }
     }
   };
@@ -389,6 +421,12 @@ async function openServer(serverId, iconEl) {
     currentChannelId = null;
     switchMainView("channel");
     document.getElementById("channel-header-title").textContent = "No channels yet";
+    document.getElementById("channel-messages").style.display = "none";
+    document.getElementById("channel-empty").style.display = "flex";
+    document.getElementById("channel-empty-badge").textContent = "#";
+    document.getElementById("channel-welcome-title").textContent = "";
+    document.getElementById("channel-welcome-sub").textContent = "";
+    disableChannelComposer("No channel selected.");
   }
 }
 
@@ -458,7 +496,13 @@ function renderServerSidebar(data) {
   });
 }
 
-function selectChannel(channel, rowEl) {
+// Voice channels fall back to the same read-only centered-welcome state
+// this used to show for every channel, since there's no voice UI or
+// voice message history yet (WebRTC is last on the roadmap). Text
+// channels now load and render real history and enable the composer —
+// this function is async for that reason, matching openDirectMessage/
+// openParty's shape exactly.
+async function selectChannel(channel, rowEl) {
   currentChannelId = channel.id;
   currentChannelType = channel.channel_type;
   currentChannelName = channel.name;
@@ -471,9 +515,43 @@ function selectChannel(channel, rowEl) {
   const isVoice = channel.channel_type === "voice";
   const label = isVoice ? channel.name : `#${channel.name}`;
   document.getElementById("channel-header-title").textContent = label;
-  document.getElementById("channel-empty-badge").textContent = isVoice ? "\u{1F50A}" : "#";
-  document.getElementById("channel-welcome-title").textContent = `Welcome to ${label}!`;
-  document.getElementById("channel-welcome-sub").textContent = `This is the start of the ${label} channel.`;
+
+  const channelEmpty = document.getElementById("channel-empty");
+  const channelMessages = document.getElementById("channel-messages");
+
+  if (isVoice) {
+    channelMessages.style.display = "none";
+    channelEmpty.style.display = "flex";
+    document.getElementById("channel-empty-badge").textContent = "\u{1F50A}";
+    document.getElementById("channel-welcome-title").textContent = `Welcome to ${label}!`;
+    document.getElementById("channel-welcome-sub").textContent = "Voice channels aren't supported yet \u2014 text channels are today's focus.";
+    disableChannelComposer("Voice channels can't receive text messages yet.");
+    return;
+  }
+
+  enableChannelComposer(label);
+  channelEmpty.style.display = "none";
+  channelMessages.style.display = "block";
+  currentChannelMessages = [];
+  channelHasMoreHistory = true;
+  channelIsLoadingMore = false;
+
+  try {
+    const response = await fetch(`https://${serverAddress}/get_channel_history/${channel.id}`, { credentials: "include" });
+    if (!response.ok) { renderChannelMessages(); return; }
+    const data = await response.json();
+    currentChannelMessages = data.messages.map(msg => ({
+      id: msg.id,
+      isMine: msg.sender_id === myUserId,
+      senderId: msg.sender_id,
+      username: msg.username,
+      content: msg.content,
+      // History rows always have a real server timestamp.
+      time: new Date(msg.timestamp)
+    }));
+    if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
+    renderChannelMessages();
+  } catch (e) { renderChannelMessages(); /* leave empty on failure */ }
 }
 
 // ---- Server creation modal ----
@@ -1064,21 +1142,17 @@ async function loadOlderMessages() {
 // the default behavior: snap to the bottom, since #chat-body is the
 // element that actually scrolls — NOT #chat-messages, which has no
 // overflow of its own.
-function renderMessages(opts = {}) {
-  const wrap = document.getElementById("chat-messages");
-  wrap.innerHTML = "";
-
-  if (openChatId !== null) {
-    wrap.appendChild(
-      openChatType === "party"
-        ? buildPartyStartCard(openChatName)
-        : buildConversationStartCard(openChatId, openChatName)
-    );
-  }
-
+// Shared by renderMessages (DMs/parties) and renderChannelMessages
+// (server channels) — the actual cluster-building loop doesn't care
+// which kind of conversation it's rendering, only the container element
+// and the message array. Pulled out specifically so channel messaging
+// gets the exact same clustering/system-divider behavior for free,
+// rather than a second hand-copied implementation that could drift out
+// of sync with this one over time.
+function renderClusteredMessages(wrap, messages) {
   let openCluster = null; // { isMine, lastTime, bubbleEl }
 
-  currentMessages.forEach(msg => {
+  messages.forEach(msg => {
     // No sender means this is a system notice (leave-party today, more
     // kinds later), not a real chat message — it always renders as a
     // full-width divider, never a cluster/bubble, regardless of who's
@@ -1095,12 +1169,12 @@ function renderMessages(opts = {}) {
 
     // isMine alone used to be enough to identify "same sender as last" —
     // true for a DM, since there's only ever one possible "not me"
-    // person. In a party there can be 9, so two different other people
-    // messaging back to back within the gap window would otherwise
-    // wrongly merge into one bubble. username is always populated for
-    // every message (self included) and uniquely identifies the actual
-    // sender, so it's the real clustering key; isMine still decides
-    // left/right layout.
+    // person. In a party (or a server channel, same reasoning) there can
+    // be many other senders, so two different other people messaging
+    // back to back within the gap window would otherwise wrongly merge
+    // into one bubble. username is always populated for every message
+    // (self included) and uniquely identifies the actual sender, so it's
+    // the real clustering key; isMine still decides left/right layout.
     const sameSenderAsLast = openCluster && openCluster.isMine === msg.isMine && openCluster.username === msg.username;
     const withinGap = openCluster &&
       (msg.time - openCluster.lastTime) <= CLUSTER_GAP_MINUTES * 60 * 1000;
@@ -1117,6 +1191,21 @@ function renderMessages(opts = {}) {
 
     openCluster.lastTime = msg.time;
   });
+}
+
+function renderMessages(opts = {}) {
+  const wrap = document.getElementById("chat-messages");
+  wrap.innerHTML = "";
+
+  if (openChatId !== null) {
+    wrap.appendChild(
+      openChatType === "party"
+        ? buildPartyStartCard(openChatName)
+        : buildConversationStartCard(openChatId, openChatName)
+    );
+  }
+
+  renderClusteredMessages(wrap, currentMessages);
 
   // #chat-body is the actual scrolling element (overflow-y: auto lives
   // there, not on #chat-messages) — this was previously targeting the
@@ -1126,6 +1215,27 @@ function renderMessages(opts = {}) {
   if (!opts.preserveScroll) {
     const chatBody = document.getElementById("chat-body");
     chatBody.scrollTop = chatBody.scrollHeight;
+  }
+}
+
+// Channel equivalent of renderMessages — same shape, pointed at
+// #channel-messages/currentChannelMessages/#channel-body instead. No
+// openChatType branch needed here since every channel gets the same
+// start card (buildChannelStartCard), unlike DMs vs. parties which each
+// get their own.
+function renderChannelMessages(opts = {}) {
+  const wrap = document.getElementById("channel-messages");
+  wrap.innerHTML = "";
+
+  if (currentChannelId !== null) {
+    wrap.appendChild(buildChannelStartCard(currentChannelName));
+  }
+
+  renderClusteredMessages(wrap, currentChannelMessages);
+
+  if (!opts.preserveScroll) {
+    const channelBody = document.getElementById("channel-body");
+    channelBody.scrollTop = channelBody.scrollHeight;
   }
 }
 
@@ -1267,6 +1377,33 @@ function buildPartyStartCard(name) {
   return card;
 }
 
+// Channel equivalent of the two start cards above. Every channel gets
+// this same generic card — no Remove Friend/Block (doesn't apply) and no
+// per-channel settings/pin actions yet (none of that exists on the
+// backend). "#" reuses the same avatar-circle treatment as a person's
+// initial, just with a static glyph instead of a computed letter.
+function buildChannelStartCard(name) {
+  const card = document.createElement("div");
+  card.className = "convo-start-card";
+
+  const avatar = document.createElement("div");
+  avatar.className = "convo-start-avatar";
+  avatar.textContent = "#";
+
+  const nameEl = document.createElement("div");
+  nameEl.className = "convo-start-name";
+  nameEl.textContent = `#${name}`;
+
+  const desc = document.createElement("div");
+  desc.className = "convo-start-desc";
+  desc.textContent = `This is the start of #${name}. Welcome!`;
+
+  card.appendChild(avatar);
+  card.appendChild(nameEl);
+  card.appendChild(desc);
+  return card;
+}
+
 async function handleRemoveFriend(id, username, actionsEl) {
   try {
     const response = await fetch(`https://${serverAddress}/unfriend_user`, {
@@ -1323,6 +1460,26 @@ function enableComposer() {
   document.getElementById("composer-emoji-btn").disabled = false;
 }
 
+// Channel equivalents of disableComposer/enableComposer above, targeting
+// #channel-composer's own elements. label is the already-computed
+// "#channel-name" (or the bare voice channel name) string selectChannel
+// builds, reused here so the placeholder always matches the header.
+function disableChannelComposer(message) {
+  document.getElementById("channel-composer-input").disabled = true;
+  document.getElementById("channel-composer-input").placeholder = message;
+  document.getElementById("channel-composer-send-btn").disabled = true;
+  document.getElementById("channel-composer-plus-btn").disabled = true;
+  document.getElementById("channel-composer-emoji-btn").disabled = true;
+}
+
+function enableChannelComposer(label) {
+  document.getElementById("channel-composer-input").disabled = false;
+  document.getElementById("channel-composer-input").placeholder = `Message ${label}`;
+  document.getElementById("channel-composer-send-btn").disabled = false;
+  document.getElementById("channel-composer-plus-btn").disabled = false;
+  document.getElementById("channel-composer-emoji-btn").disabled = false;
+}
+
 function sendChatMessage() {
   const input = document.getElementById("composer-input");
   const content = input.value.trim();
@@ -1359,6 +1516,46 @@ document.getElementById("composer-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault(); // stop the textarea's default newline insertion
     sendChatMessage();
+  }
+});
+
+// Channel equivalent of sendChatMessage — same optimistic-echo shape,
+// pointed at #channel-composer-input/currentChannelId/
+// currentChannelMessages instead. sender_id isn't sent in the payload:
+// the backend fills that in from the verified session itself (see
+// message_server_channel), matching the same "never trust the client for
+// identity" rule WebSocket identity already follows elsewhere.
+function sendChannelMessage() {
+  const input = document.getElementById("channel-composer-input");
+  const content = input.value.trim();
+  if (!content || currentChannelId === null || !ws) return;
+
+  ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content }));
+
+  currentChannelMessages.push({
+    senderId: myUserId,
+    isMine: true,
+    username: myUsername || "You",
+    content,
+    time: new Date() // optimistic local echo — no round trip to wait on
+  });
+  renderChannelMessages();
+  input.value = "";
+  autoGrowChannelComposer();
+}
+
+function autoGrowChannelComposer() {
+  const el = document.getElementById("channel-composer-input");
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+
+document.getElementById("channel-composer-input").addEventListener("input", autoGrowChannelComposer);
+
+document.getElementById("channel-composer-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendChannelMessage();
   }
 });
 
@@ -1403,4 +1600,44 @@ document.getElementById("home-icon").addEventListener("click", () => {
 document.getElementById("chat-body").addEventListener("scroll", () => {
   const chatBody = document.getElementById("chat-body");
   if (chatBody.scrollTop < 40) loadOlderMessages();
+});
+
+// Channel equivalent of loadOlderMessages — same cursor-based pagination
+// (oldest loaded message's real id, via before_id) and same scroll-
+// position preservation, pointed at get_channel_history/#channel-body/
+// currentChannelMessages instead.
+async function loadOlderChannelMessages() {
+  if (channelIsLoadingMore || !channelHasMoreHistory || currentChannelMessages.length === 0) return;
+  const oldest = currentChannelMessages[0];
+  if (!oldest.id) return; // no real cursor to anchor on (shouldn't normally happen)
+  channelIsLoadingMore = true;
+
+  const channelBody = document.getElementById("channel-body");
+  const prevScrollHeight = channelBody.scrollHeight;
+  const prevScrollTop = channelBody.scrollTop;
+
+  try {
+    const response = await fetch(`https://${serverAddress}/get_channel_history/${currentChannelId}?before_id=${oldest.id}`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    const older = data.messages.map(msg => ({
+      id: msg.id,
+      isMine: msg.sender_id === myUserId,
+      senderId: msg.sender_id,
+      username: msg.username,
+      content: msg.content,
+      time: new Date(msg.timestamp)
+    }));
+    if (older.length < 25) channelHasMoreHistory = false;
+    currentChannelMessages = older.concat(currentChannelMessages);
+    renderChannelMessages({ preserveScroll: true });
+    channelBody.scrollTop = channelBody.scrollHeight - prevScrollHeight + prevScrollTop;
+  } catch (e) { /* leave state as-is on failure */ }
+
+  channelIsLoadingMore = false;
+}
+
+document.getElementById("channel-body").addEventListener("scroll", () => {
+  const channelBody = document.getElementById("channel-body");
+  if (channelBody.scrollTop < 40) loadOlderChannelMessages();
 });

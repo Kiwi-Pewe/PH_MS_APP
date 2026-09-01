@@ -4,8 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
-from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels
-from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create
+from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages
+from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message
 from app.database import get_db, Base, engine 
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
 from datetime import datetime
@@ -525,6 +525,63 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         
     return {"type": "server", "categories": server_info, "owner": server.owner_id}
 
+@app.post("/message_server_channel")
+def message_server_channel(server_msg: Server_message, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel = database.query(Server_channels).filter(Server_channels.id == server_msg.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+
+    if not is_member:
+        raise HTTPException(status_code=404, detail= "Server membership not found.")
+
+    new_message = Channel_messages(
+        sender_id= current_user.id,
+        channel_id = channel.id,
+        content= server_msg.content
+    )
+    database.add(new_message)
+    database.commit()
+    database.refresh(new_message)
+    return new_message    
+
+@app.get("/get_channel_history/{channel_id}")
+def get_channel_history(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None):
+
+    target_channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not target_channel:
+        raise HTTPException(status_code= 404, detail="Channel not found.")
+
+    category = database.query(Server_categories).filter(Server_categories.id == target_channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+
+    if not is_member:
+        raise HTTPException(status_code= 404, detail="Server membership not found")
+
+    if before_id:
+        channel_history = database.query(Channel_messages).filter(Channel_messages.channel_id == channel_id, Channel_messages.id < before_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()
+    else:
+        channel_history = database.query(Channel_messages).filter(Channel_messages.channel_id == channel_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()
+
+    sender_ids = list({message.sender_id for message in channel_history})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
+    username_lookup = {account.id: account.username for account in accounts}
+
+    message_history = []
+
+    for message in channel_history:
+        message_history.append({
+            "id": message.id,
+            "sender_id": message.sender_id,
+            "username": "" if message.sender_id == None else username_lookup[message.sender_id],
+            "content": message.content,
+            "timestamp": str(message.timestamp)
+        })
+
+    message_history.reverse()
+    return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "messages": message_history}
+
 async def heartbeat(socket):
     while True:
         await(asyncio.sleep(45))
@@ -617,6 +674,34 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                                 "content": leave_notice["message"].content,
                                 "timestamp": str(leave_notice["message"].timestamp)
                             })
+            elif data["type"] == "channel_message":
+                new_server_msg = Server_message(
+                    sender_id= current_user.id,
+                    channel_id= data["channel_id"],
+                    content = data["content"]
+                )
+
+                try:
+                    new_server_msg = message_server_channel(server_msg= new_server_msg, database=database, current_user=current_user)
+                except HTTPException as e:
+                    await socket.send_json({"type": "error", "detail": e.detail})
+                    continue
+
+                channel = database.query(Server_channels).filter(Server_channels.id == data["channel_id"]).first()
+                category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+                server = database.query(Servers).filter(Servers.id == category.server_id).first()
+
+                all_members = database.query(Server_members).filter(Server_members.server_id == server.id).all()
+                for member in all_members:
+                    if member.user_id != current_user.id and member.user_id in active_connections:
+                        await active_connections[member.user_id].send_json({
+                            "type": "channel_message",
+                            "channel_id": channel.id,
+                            "sender_id": current_user.id,
+                            "username": current_user.username,
+                            "content": data["content"],
+                            "timestamp": str(new_server_msg.timestamp) 
+                        })
 
 
     except WebSocketDisconnect:

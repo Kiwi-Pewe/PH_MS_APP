@@ -101,3 +101,11 @@ class Server_channels(Base):
     name = Column(String)
     channel_type = Column(String)
     position = Column(Integer)
+
+class Channel_messages(Base):
+    __tablename__ = "channel_messages"
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer,ForeignKey("server_channels.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    timestamp = Column(DateTime, server_default=func.now())

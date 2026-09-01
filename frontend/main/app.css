@@ -202,7 +202,12 @@
    growth direction). #chat-messages uses margin-top: auto instead to
    get the same "hug the bottom when short" effect without that bug. */
 #chat-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; }
-#chat-messages { margin-top: auto; }
+/* #channel-messages joins every #chat-messages rule below rather than
+   getting its own duplicate block — the two are meant to behave
+   identically (same clustering, same self-right layout), same reasoning
+   as .centered-empty-state being a single shared class instead of two
+   near-duplicate ID blocks that could quietly drift apart. */
+#chat-messages, #channel-messages { margin-top: auto; }
 /* Shared by the DM empty state and the channel welcome state — both are
    meant to look identical (centered, not offset), per this session's
    design call, so this is a real shared class rather than two
@@ -218,24 +223,28 @@
 
 #channel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; }
 
-#composer { flex: 0 0 auto; padding: 16px; border-top: 1px solid var(--border); }
-#composer .box { display: flex; align-items: flex-end; gap: 6px; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 6px; }
-#composer textarea {
+/* #channel-composer joins every #composer rule below — same reasoning
+   as #channel-messages joining #chat-messages above: identical behavior,
+   separate element only because both views coexist in the DOM and ids
+   must be unique. */
+#composer, #channel-composer { flex: 0 0 auto; padding: 16px; border-top: 1px solid var(--border); }
+#composer .box, #channel-composer .box { display: flex; align-items: flex-end; gap: 6px; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 6px; }
+#composer textarea, #channel-composer textarea {
   flex: 1; width: 100%; min-width: 0; box-sizing: border-box;
   background: transparent; border: none; color: var(--text); font-size: 14px;
   font-family: inherit; padding: 8px 6px; resize: none; overflow-y: auto;
   line-height: 1.4; max-height: calc(1.4em * 5); /* caps growth at 5 lines, then scrolls */
 }
-#composer textarea:focus { outline: none; }
-#composer textarea:disabled { color: var(--text-dim); cursor: not-allowed; }
-#composer button:disabled, .composer-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-#composer button:disabled:hover { background: var(--accent); } /* don't hover-highlight while disabled */
-#composer button {
+#composer textarea:focus, #channel-composer textarea:focus { outline: none; }
+#composer textarea:disabled, #channel-composer textarea:disabled { color: var(--text-dim); cursor: not-allowed; }
+#composer button:disabled, #channel-composer button:disabled, .composer-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+#composer button:disabled:hover, #channel-composer button:disabled:hover { background: var(--accent); } /* don't hover-highlight while disabled */
+#composer button, #channel-composer button {
   height: 36px; padding: 0 16px; border-radius: 6px;
   display: flex; align-items: center; justify-content: center; align-self: flex-end;
   background: var(--accent); color: #fff; font-size: 13px; font-weight: 600;
 }
-#composer button:hover { background: var(--accent-hover); }
+#composer button:hover, #channel-composer button:hover { background: var(--accent-hover); }
 
 /* + and emoji-face buttons flanking the textarea — inert placeholders for
    now (file upload / emoji picker land later), styled as quiet icon
@@ -284,8 +293,10 @@
 /* Self direction is controlled entirely by the parent's modifier class
    (#chat-messages.self-right / a future .self-left) so the eventual
    settings toggle only ever has to flip one class, not rewrite layout. */
-#chat-messages.self-right .msg-cluster.self { flex-direction: row-reverse; }
-#chat-messages:not(.self-right) .msg-cluster.self { flex-direction: row; }
+#chat-messages.self-right .msg-cluster.self,
+#channel-messages.self-right .msg-cluster.self { flex-direction: row-reverse; }
+#chat-messages:not(.self-right) .msg-cluster.self,
+#channel-messages:not(.self-right) .msg-cluster.self { flex-direction: row; }
 
 .cluster-avatar {
   width: calc(40px * var(--message-scale)); height: calc(40px * var(--message-scale));
@@ -296,8 +307,10 @@
 }
 
 .cluster-body { display: flex; flex-direction: column; min-width: 0; max-width: 70%; }
-#chat-messages.self-right .msg-cluster.self .cluster-body { align-items: flex-end; }
-#chat-messages:not(.self-right) .msg-cluster.self .cluster-body { align-items: flex-start; }
+#chat-messages.self-right .msg-cluster.self .cluster-body,
+#channel-messages.self-right .msg-cluster.self .cluster-body { align-items: flex-end; }
+#chat-messages:not(.self-right) .msg-cluster.self .cluster-body,
+#channel-messages:not(.self-right) .msg-cluster.self .cluster-body { align-items: flex-start; }
 .msg-cluster.other .cluster-body { align-items: flex-start; }
 
 .cluster-header { display: flex; align-items: baseline; gap: 7px; margin-bottom: 4px; font-size: calc(13px * var(--message-scale)); }
@@ -324,8 +337,10 @@
    as the layout direction above, so a future side-swap setting flips
    both at once instead of needing a second toggle. */
 .msg-cluster.other .bubble-line { text-align: left; }
-#chat-messages.self-right .msg-cluster.self .bubble-line { text-align: right; }
-#chat-messages:not(.self-right) .msg-cluster.self .bubble-line { text-align: left; }
+#chat-messages.self-right .msg-cluster.self .bubble-line,
+#channel-messages.self-right .msg-cluster.self .bubble-line { text-align: right; }
+#chat-messages:not(.self-right) .msg-cluster.self .bubble-line,
+#channel-messages:not(.self-right) .msg-cluster.self .bubble-line { text-align: left; }
 
 .bubble-line .edited-tag { color: var(--text-dim); font-size: calc(12px * var(--message-scale)); margin-left: 6px; }
 .msg-cluster.self .bubble-line .edited-tag { color: rgba(255,255,255,0.7); }

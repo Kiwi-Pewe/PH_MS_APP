@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=1">
-<link rel="stylesheet" href="app.css?v=8">
+<link rel="stylesheet" href="app.css?v=9">
 </head>
 <body>
 
@@ -107,20 +107,39 @@
         </div>
       </div>
 
-      <!-- Server channel view. Read-only per this session's scope —
-           sending messages inside a channel is the next step, not this
-           one. Same centered-welcome treatment as the 1:1 DM empty
-           state, per this session's design call, not offset like a
-           real chat feed would eventually be. -->
+      <!-- Server channel view. Text channels now support real send/
+           receive/history (see selectChannel/sendChannelMessage/the
+           channel_message branch in app.js) — voice channels still fall
+           back to the read-only centered-welcome state, since there's no
+           voice UI yet. -->
       <div class="main-view" id="view-channel">
         <div class="view-header">
           <span id="channel-header-title">No channel selected</span>
         </div>
         <div id="channel-body">
+          <!-- Shown only when no real text channel is selected (a server
+               with zero channels, or a voice channel — no text history
+               exists for either yet). Once a text channel loads, this
+               hides and #channel-messages takes over, mirroring
+               #chat-empty/#chat-messages' toggle for DMs/parties. -->
           <div id="channel-empty" class="centered-empty-state">
             <div class="badge" id="channel-empty-badge">#</div>
             <p class="welcome-title" id="channel-welcome-title"></p>
             <p class="welcome-sub" id="channel-welcome-sub"></p>
+          </div>
+          <div id="channel-messages" class="self-right" style="display:none;"></div>
+        </div>
+        <!-- Separate element from #composer, not reused — both views can
+             exist in the DOM at once and ids must be unique. Mirrors
+             #composer's structure exactly; disableChannelComposer() gates
+             this for voice channels, same as disableComposer() does for
+             DMs after a block. -->
+        <div id="channel-composer">
+          <div class="box">
+            <button class="composer-icon-btn" id="channel-composer-plus-btn" title="Options (coming soon)">+</button>
+            <textarea id="channel-composer-input" placeholder="Type a message" rows="1"></textarea>
+            <button class="composer-icon-btn" id="channel-composer-emoji-btn" title="Emoji (coming soon)">&#9786;</button>
+            <button onclick="sendChannelMessage()" id="channel-composer-send-btn">Send</button>
           </div>
         </div>
       </div>
@@ -226,6 +245,6 @@
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=1"></script>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>

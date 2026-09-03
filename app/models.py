@@ -19,7 +19,6 @@ class Message(Base):
     timestamp = Column(DateTime, server_default=func.now())
     read = Column(Boolean, default= False)
 
-
 class Active_Sessions(Base):
     __tablename__ = "sessions"
 
@@ -56,11 +55,16 @@ class Conversations(Base):
 
 class Parties(Base):
     __tablename__ = "parties"
-    id = Column(Integer, primary_key=True)
-    party_id = Column(Integer)
+    id = Column(Integer, primary_key=True) 
     party_name = Column(String)
-    user_id = Column(Integer, ForeignKey("users.id"))
     created_by_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+
+class Party_members(Base):
+    __tablename__ = "party_members"
+    id = Column(Integer, primary_key=True)
+    party_id = Column(Integer, ForeignKey("parties.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
     joined_at = Column(DateTime, server_default=func.now())
     last_activity = Column(DateTime, server_default=func.now())
 
@@ -109,3 +113,14 @@ class Channel_messages(Base):
     sender_id = Column(Integer, ForeignKey("users.id"))
     content = Column(String)
     timestamp = Column(DateTime, server_default=func.now())
+
+class Invite_model(Base):
+    __tablename__ = "invites"
+    id = Column(Integer, primary_key=True)
+    code = Column(String(8), unique= True)
+    type = Column(String)
+    creator_id = Column(Integer, ForeignKey("users.id"))
+    server_id = Column(String(10), ForeignKey("servers.id"), nullable= True)
+    party_id = Column(Integer, ForeignKey("parties.id"), nullable= True)
+    use_count = Column(Integer, default= 0)
+    created_at = Column(DateTime, server_default=func.now())

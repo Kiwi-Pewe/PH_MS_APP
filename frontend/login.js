@@ -49,7 +49,16 @@ async function login() {
       return;
     }
     const user = await response.json();
-    window.location.href = `main/app.html?user=${encodeURIComponent(user.username)}`;
+    // If we arrived here via invite.html's "Log In to Join" (see
+    // invite.js), redirect carries us straight back to the same invite
+    // rather than dropping into the generic app screen — otherwise
+    // logging in would mean re-finding the link by hand. redirect is
+    // always our own site's absolute path (e.g. "/invite/ABC12345"),
+    // never a full external URL, so this is safe to hand straight to
+    // location.href without further validation.
+    const params = new URLSearchParams(window.location.search);
+    const redirectTarget = params.get("redirect");
+    window.location.href = redirectTarget || `main/app.html?user=${encodeURIComponent(user.username)}`;
   } catch (e) {
     status.textContent = "Could not reach server.";
   }

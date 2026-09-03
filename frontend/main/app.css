@@ -432,3 +432,68 @@
   flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end;
   padding: 12px 16px; border-top: 1px solid var(--border);
 }
+
+/* ---- Invite panel ---- */
+/* Same overlay/box treatment as the other two modals (border uses
+   --accent-submenu, same pop-up cue). #invite-link-row holds the
+   generated code as a read-only input (so it's trivially select-all-
+   copyable even if the Copy button's clipboard call fails) plus the
+   actual Copy button; the friend list below reuses the exact same
+   .friend-row markup/styling the party modal already uses. */
+#invite-modal-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+#invite-modal {
+  width: 420px; max-height: 70vh;
+  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#invite-modal .view-header { flex: 0 0 auto; }
+#invite-modal .view-body { flex: 1 1 auto; overflow-y: auto; }
+#invite-link-row { display: flex; gap: 8px; margin-bottom: 4px; }
+#invite-link-display {
+  flex: 1; min-width: 0; background: var(--panel-alt); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px;
+}
+#invite-link-display:focus { outline: none; border-color: var(--accent-submenu); }
+#invite-copy-status { font-size: 12px; color: var(--online); min-height: 16px; margin-bottom: 10px; }
+#invite-modal-footer {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+}
+#invite-modal-footer span { font-size: 12px; color: var(--text-dim); }
+
+/* ---- In-chat invite card ---- */
+/* Rendered underneath a message bubble-line whenever its content is
+   exactly an invite link (see INVITE_LINK_REGEX in app.js) — the raw
+   link text itself is left untouched above this, matching how a normal
+   chat client unfurls a pasted link rather than replacing it. Sized
+   narrower than the party/server invite mockups' full standalone-page
+   treatment, since this has to sit comfortably inside a message bubble. */
+.invite-card {
+  margin-top: 6px; width: 260px;
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.invite-card-header { display: flex; align-items: center; gap: 10px; }
+.invite-card-badge {
+  width: 40px; height: 40px; border-radius: 10px; flex: 0 0 auto;
+  background: var(--accent); color: #fff; font-weight: 700; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.invite-card-name { font-weight: 600; font-size: 14px; }
+.invite-card-subtitle { font-size: 12px; color: var(--text-dim); }
+.invite-card-btn {
+  padding: 8px; border-radius: 6px; text-align: center;
+  background: var(--online); color: #fff; font-size: 13px; font-weight: 600;
+}
+.invite-card-btn:hover { filter: brightness(1.1); }
+.invite-card-btn:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+/* Matches mockup 3's flat, dark "no longer usable" treatment — distinct
+   from the normal card, not just a disabled version of it. */
+.invite-card.invalid { border-color: var(--danger); }
+.invite-card.invalid .invite-card-badge { background: var(--danger); }
+.invite-card-invalid-text { color: var(--danger); font-size: 13px; font-weight: 600; }

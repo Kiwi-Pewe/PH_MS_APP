@@ -1,0 +1,57 @@
+body { display: flex; align-items: center; justify-content: center; }
+
+/* Full mockup-style treatment (banner + icon + info + button), unlike
+   the compact card that renders inline inside a chat bubble (app.css's
+   .invite-card) — this page has the room to match the 3-section layout
+   from the reference screenshots directly: banner/icon on top, info in
+   the middle, the join action taking up most of the bottom. */
+#invite-card {
+  width: 380px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; position: relative;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+#invite-banner {
+  height: 90px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-submenu));
+}
+
+#invite-icon-badge {
+  position: absolute; top: 55px; left: 20px;
+  width: 70px; height: 70px; border-radius: 16px;
+  background: var(--panel-alt); border: 4px solid var(--panel);
+  color: var(--text); font-size: 22px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+#invite-body { padding: 44px 20px 20px; }
+
+#invite-loading { color: var(--text-dim); font-size: 14px; }
+
+.invite-name { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.invite-subtitle { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; }
+.invite-subtitle .dot { color: var(--online); }
+
+.invite-action-btn {
+  width: 100%; padding: 12px; border-radius: 6px;
+  background: var(--online); color: #fff; font-size: 14px; font-weight: 700;
+  text-align: center;
+}
+.invite-action-btn:hover { filter: brightness(1.1); }
+.invite-action-btn:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+
+/* Invalid state replaces the whole card content, including the banner —
+   matches mockup 3's flat, single-tone treatment rather than trying to
+   force an "invalid" state into the same banner+icon shape a real
+   invite gets. */
+#invite-card.invalid #invite-banner,
+#invite-card.invalid #invite-icon-badge { display: none; }
+#invite-card.invalid #invite-body { padding: 24px 20px; display: flex; gap: 12px; align-items: flex-start; }
+.invite-invalid-icon {
+  width: 40px; height: 40px; border-radius: 8px; flex: 0 0 auto;
+  background: var(--danger); color: #fff; font-size: 18px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.invite-invalid-title { color: var(--danger); font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+.invite-invalid-sub { color: var(--text-dim); font-size: 13px; }

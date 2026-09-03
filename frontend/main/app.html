@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=1">
-<link rel="stylesheet" href="app.css?v=9">
+<link rel="stylesheet" href="app.css?v=10">
 </head>
 <body>
 
@@ -241,10 +241,39 @@
     </div>
   </div>
 
+  <!-- Invite panel — shared by both servers and parties (openInviteModal
+       takes the type so one panel handles both), reached via each's own
+       context menu (see showServerContextMenu/showPartyContextMenu in
+       app.js). Same overlay/box/--accent-submenu treatment as the other
+       two modals. The generated code always comes from create_invite's
+       reuse-if-valid logic, so reopening this for the same target within
+       24 hours shows the same link rather than minting a new one. -->
+  <div id="invite-modal-overlay" style="display:none;">
+    <div id="invite-modal">
+      <div class="view-header">
+        <span id="invite-modal-title">Invite People</span>
+        <button class="icon-btn" id="invite-modal-close" title="Close">&times;</button>
+      </div>
+      <div class="view-body">
+        <div id="invite-link-row">
+          <input type="text" id="invite-link-display" readonly>
+          <button class="pill-btn" id="invite-copy-btn">Copy</button>
+        </div>
+        <div id="invite-copy-status"></div>
+        <div class="empty-note" id="invite-modal-empty-note">You have no friends to send this to yet.</div>
+        <div id="invite-modal-friend-rows"></div>
+      </div>
+      <div id="invite-modal-footer">
+        <span id="invite-modal-count">0 selected</span>
+        <button class="pill-btn" id="invite-modal-send-btn">Send</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=1"></script>
-<script src="app.js?v=15"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>

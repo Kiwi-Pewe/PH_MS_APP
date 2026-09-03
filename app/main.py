@@ -4,11 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
-from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages
-from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message
-from app.database import get_db, Base, engine 
+from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Party_members, Invite_model
+from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite
+from app.database import get_db, Base, engine, SessionLocal
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 import random
 
@@ -308,67 +308,68 @@ def remove_user(friends: Friend_user, database: Session = Depends(get_db), curre
 def create_party(party: Party_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
     while True:
-        potential_id = random.randint(1000,9999)
-        id_check = database.query(Parties).filter(Parties.party_id == potential_id).first()
+        potential_id = random.randint(1000, 9999)
+        id_check = database.query(Parties).filter(Parties.id == potential_id).first()
         if not id_check:
             break
 
-    new_party = Parties(party_id = potential_id, 
-    party_name = party.party_name,
-    user_id = current_user.id,
-    created_by_id = current_user.id
+    new_party = Parties(
+        id=potential_id,
+        party_name=party.party_name,
+        created_by_id=current_user.id
     )
     database.add(new_party)
+
+    owner_member = Party_members(party_id=potential_id, user_id=current_user.id)
+    database.add(owner_member)
+
     for user in party.member_ids:
         if not user == current_user.id:
-            invited = Parties(party_id = potential_id, 
-            party_name = party.party_name,
-            user_id = user,
-            created_by_id = current_user.id
-            )
-            database.add(invited)
-    database.commit()   
+            invited_member = Party_members(party_id=potential_id, user_id=user)
+            database.add(invited_member)
+
+    database.commit()
 
 @app.get("/get_parties")
 def get_parties(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
-    my_party_ids = database.query(Parties.party_id).filter(Parties.user_id == current_user.id).all()
+    my_memberships = database.query(Party_members).filter(Party_members.user_id == current_user.id).all()
 
     parties_out = []
-    for (party_id,) in my_party_ids:
-        party_info = database.query(Parties).filter(Parties.party_id == party_id, Parties.user_id == current_user.id).first()
-        member_count = database.query(Parties).filter(Parties.party_id == party_id).count()
+    for membership in my_memberships:
+        party_info = database.query(Parties).filter(Parties.id == membership.party_id).first()
+        member_count = database.query(Party_members).filter(Party_members.party_id == membership.party_id).count()
 
-        latest_message_time = database.query(func.max(Party_messages.timestamp)).filter(Party_messages.party_id == party_id).scalar()
-        sort_timestamp = latest_message_time if latest_message_time else party_info.joined_at
+        latest_message_time = database.query(func.max(Party_messages.timestamp)).filter(Party_messages.party_id == membership.party_id).scalar()
+        sort_timestamp = latest_message_time if latest_message_time else membership.joined_at
 
         unread_count = database.query(Party_messages).filter(
-            Party_messages.party_id == party_id,
-            Party_messages.timestamp > party_info.last_activity,
+            Party_messages.party_id == membership.party_id,
+            Party_messages.timestamp > membership.last_activity,
             Party_messages.sender_id != current_user.id
         ).count()
 
-        parties_out.append({"type": "party", "id": party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(sort_timestamp), "unread_count": unread_count})
+        parties_out.append({"type": "party", "id": membership.party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(sort_timestamp), "unread_count": unread_count})
 
     return {"parties": parties_out}
     
 @app.post("/send_party_message")
 def message_party(party_msg: Party_message_schema, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
-    in_Party = database.query(Parties).filter(Parties.user_id == current_user.id, Parties.party_id == party_msg.party_id).first()
+    in_Party = database.query(Party_members).filter(Party_members.user_id == current_user.id, Party_members.party_id == party_msg.party_id).first()
 
     if not in_Party:
         raise HTTPException(status_code=404, detail="Party not found.")
 
     new_party_msg = Party_messages(
-        party_id = party_msg.party_id,
-        sender_id = current_user.id,
-        content = party_msg.content,
+        party_id=party_msg.party_id,
+        sender_id=current_user.id,
+        content=party_msg.content,
     )
     database.add(new_party_msg)
 
-    database.query(Parties).filter(Parties.party_id == party_msg.party_id, Parties.user_id == current_user.id).update(
-    {"last_activity": datetime.utcnow()}
+    database.query(Party_members).filter(Party_members.party_id == party_msg.party_id, Party_members.user_id == current_user.id).update(
+        {"last_activity": datetime.utcnow()}
     )
     database.commit()
     database.refresh(new_party_msg)
@@ -378,14 +379,16 @@ def message_party(party_msg: Party_message_schema, database: Session = Depends(g
 @app.get("/get_party_messages/{party_id}")
 def get_party_messages(party_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None):
 
-    target_party = database.query(Parties).filter(Parties.party_id == party_id, Parties.user_id == current_user.id).first()
-    if not target_party:
+    target_membership = database.query(Party_members).filter(Party_members.party_id == party_id, Party_members.user_id == current_user.id).first()
+    if not target_membership:
         raise HTTPException(status_code=404, detail="User not in party")
 
+    party_info = database.query(Parties).filter(Parties.id == party_id).first()
+
     if not before_id:
-        database.query(Parties).filter(Parties.party_id == party_id, Parties.user_id == current_user.id).update(
-        {"last_activity": datetime.utcnow()}
-    )
+        database.query(Party_members).filter(Party_members.party_id == party_id, Party_members.user_id == current_user.id).update(
+            {"last_activity": datetime.utcnow()}
+        )
     database.commit()
 
     if before_id:
@@ -409,24 +412,32 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
         })
 
     message_history.reverse()
-    return {"party_name": target_party.party_name, "party_id": party_id, "session_username": current_user.username, "messages": message_history}
+    return {"party_name": party_info.party_name, "party_id": party_id, "session_username": current_user.username, "messages": message_history}
 
 @app.post("/leave_party")
 async def leave_party(party_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
-    party_to_leave = database.query(Parties).filter(Parties.party_id == party_id, Parties.user_id == current_user.id).first()
+    membership_to_leave = database.query(Party_members).filter(Party_members.party_id == party_id, Party_members.user_id == current_user.id).first()
 
-    if not party_to_leave:
+    if not membership_to_leave:
         raise HTTPException(status_code=404, detail="No party with user_id found")
 
     server_message = Party_messages(
-        party_id = party_id,
-        sender_id = None,
-        content = f"{current_user.username} has left the party.",
+        party_id=party_id,
+        sender_id=None,
+        content=f"{current_user.username} has left the party.",
     )
-
     database.add(server_message)
-    database.delete(party_to_leave)
+    database.delete(membership_to_leave)
+    database.flush() 
+
+    remaining_count = database.query(Party_members).filter(Party_members.party_id == party_id).count()
+    if remaining_count == 0:
+        database.query(Party_messages).filter(Party_messages.party_id == party_id).delete()
+        empty_party = database.query(Parties).filter(Parties.id == party_id).first()
+        if empty_party:
+            database.delete(empty_party)
+
     database.commit()
     database.refresh(server_message)
 
@@ -582,6 +593,154 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
     message_history.reverse()
     return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "messages": message_history}
 
+@app.post("/accept_invite")
+def accept_invite(code: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    invite = database.query(Invite_model).filter(Invite_model.code == code).first()
+    if not invite or not is_invite_valid(invite):
+        raise HTTPException(status_code=404, detail= "Invite not found")
+
+    if invite.type == "server":
+        server = database.query(Servers).filter(Servers.id == invite.server_id).first()
+        is_member = database.query(Server_members).filter(Server_members.server_id == invite.server_id, Server_members.user_id == current_user.id).first()
+        if is_member:
+            return {"type": "server", "id": invite.server_id, "server_name": server.name, "position": is_member.position}
+        
+        highest_position = database.query(func.max(Server_members.position)).filter(Server_members.user_id == current_user.id).scalar()
+        new_member = Server_members(
+            server_id = invite.server_id,
+            user_id = current_user.id,
+            position = 100 if highest_position == None else highest_position + 100,
+        )
+        database.add(new_member)
+
+        category = database.query(Server_categories).filter(Server_categories.server_id == invite.server_id).order_by(Server_categories.position).first()
+        channel = database.query(Server_channels).filter(Server_channels.category_id == category.id).order_by(Server_channels.position).first()
+        
+        join_message = Channel_messages(
+            sender_id = None,
+            channel_id = channel.id,
+            content = f"{current_user.username} has joined the server"
+        )
+        database.add(join_message)
+        database.commit()
+        return {"type": "server", "id": invite.server_id, "server_name": server.name, "position": new_member.position,}
+
+    elif invite.type == "party":
+        party = database.query(Parties).filter(Parties.id == invite.party_id).first()
+        is_member = database.query(Party_members).filter(Party_members.party_id == invite.party_id, Party_members.user_id == current_user.id).first()
+        if is_member:
+            return {"type": "party", "party_name": party.party_name, "party_id": invite.party_id}
+        member_count = database.query(Party_members).filter(Party_members.party_id == invite.party_id).count()
+        if member_count == 10:
+            return{"type": "party", "id": invite.party_id, "party_name": party.party_name,"full": True}
+
+        new_member = Party_members(
+            party_id = invite.party_id,
+            user_id = current_user.id
+        )
+        invite.use_count += 1
+        database.add(new_member)
+        join_message = Party_messages(
+            sender_id= None,
+            party_id= invite.party_id,
+            content = f"{current_user.username} has joined the party."
+        )
+        database.add(join_message)
+        database.commit()
+        return {"type": "party", "id": invite.party_id, "party_name": party.party_name}
+        
+@app.post("/create_invite")
+def create_invite(type: Invite, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+
+    if type.type == "server":
+        is_member = database.query(Server_members).filter(Server_members.server_id == type.server_id, Server_members.user_id == current_user.id).first()
+
+        if not is_member:
+            raise HTTPException(status_code=404, detail="Server membership not found")
+
+        previous_invite = database.query(Invite_model).filter(Invite_model.server_id == type.server_id, Invite_model.creator_id == current_user.id).first()
+
+        if previous_invite:
+            if datetime.utcnow() - previous_invite.created_at < timedelta(hours=24):
+                return {"invite_code": previous_invite.code}
+            else:
+                database.delete(previous_invite)
+                database.commit()
+    elif type.type == "party":
+        is_member = database.query(Party_members).filter(Party_members.party_id == type.party_id, Party_members.user_id == current_user.id).first()
+
+        if not is_member:
+            raise HTTPException(status_code=404, detail="Party membership not found")
+
+        previous_invite = database.query(Invite_model).filter(Invite_model.party_id == type.party_id, Invite_model.creator_id == current_user.id).first()
+
+        if previous_invite:
+            if datetime.utcnow() - previous_invite.created_at < timedelta(hours=24):
+                return {"invite_code": previous_invite.code}
+            else:
+                database.delete(previous_invite)
+                database.commit()
+    elif type.type not in ("server", "party"):
+        raise HTTPException(status_code= 400, detail="Invalid invite type")
+
+    valid_code_characters = "234679ACDEFGHJKLMNPQRTUVWXYZ"
+    while True:
+        new_code = "".join(random.choices(valid_code_characters, k=8))
+        check_code = database.query(Invite_model).filter(Invite_model.code == new_code).first()
+        if not check_code: break
+
+    invite_card = Invite_model(
+        code = new_code,
+        type = type.type,
+        creator_id = current_user.id,
+        server_id = type.server_id,
+        party_id = type.party_id,
+    )
+
+    database.add(invite_card)
+    database.commit()
+    return {"invite_code": new_code}
+
+@app.get("/invite/{code}")
+def get_invite_info(code: str, database: Session = Depends(get_db)):
+    invite = database.query(Invite_model).filter(Invite_model.code == code).first()
+    if not invite or not is_invite_valid(invite):
+        return {"valid": False}
+
+    if invite.type == "party":
+        party_info= database.query(Parties).filter(Parties.id == invite.party_id).first()
+        all_members = database.query(Party_members).filter(Party_members.party_id == invite.party_id).count()
+        return {"type": "party","party_name": party_info.party_name, "full": True if all_members >= 10 else  False}
+    elif invite.type == "server":
+        server_info = database.query(Servers).filter(Servers.id == invite.server_id).first()
+        total_members = database.query(Server_members).filter(Server_members.server_id == invite.server_id).count()
+        all_members = database.query(Server_members).filter(Server_members.server_id == invite.server_id).all()
+
+        active = 0
+        for members in all_members:
+            if members.user_id in active_connections:
+                active += 1
+        return{"type": "server", "server_name": server_info.name, "active_users": active, "total_users": total_members}
+
+def is_invite_valid(invite: Invite_model):
+    return datetime.utcnow() - invite.created_at < timedelta(hours=24) and invite.use_count < 10
+
+async def check_invites():
+    while True:
+        await asyncio.sleep(1800)
+        database = SessionLocal()
+        all_invites = database.query(Invite_model).all()
+
+        for invite in all_invites:
+            if is_invite_valid(invite) == False:
+                database.delete(invite)
+        database.commit()
+        database.close()
+
+@app.on_event("startup")
+async def interval_tasks():
+    asyncio.create_task(check_invites())
+
 async def heartbeat(socket):
     while True:
         await(asyncio.sleep(45))
@@ -637,20 +796,20 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
-                all_members = database.query(Parties).filter(Parties.party_id == data["party_id"]).all()   
+                party_info = database.query(Parties).filter(Parties.id == data["party_id"]).first()
+                all_members = database.query(Party_members).filter(Party_members.party_id == data["party_id"]).all()
 
-                for party_card in all_members:
-                    if party_card.user_id != current_user.id:
-                        if party_card.user_id in active_connections:
-                            await active_connections[party_card.user_id].send_json({
-                                "type": "party_message",
-                                "party_name": party_card.party_name,
-                                "party_id": party_card.party_id,
-                                "sender_id": current_user.id,
-                                "username": current_user.username,
-                                "content": data["content"],
-                                "timestamp": str(new_party_message.timestamp)
-                            })                
+                for member in all_members:
+                    if member.user_id != current_user.id and member.user_id in active_connections:
+                        await active_connections[member.user_id].send_json({
+                            "type": "party_message",
+                            "party_name": party_info.party_name,
+                            "party_id": data["party_id"],
+                            "sender_id": current_user.id,
+                            "username": current_user.username,
+                            "content": data["content"],
+                            "timestamp": str(new_party_message.timestamp)
+                        })            
             elif data["type"] == "leave_party":
                     
                 try:
@@ -658,16 +817,17 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
-                remaining_members = database.query(Parties).filter(Parties.party_id == data["party_id"]).all()
+                remaining_members = database.query(Party_members).filter(Party_members.party_id == data["party_id"]).all()
 
                 if remaining_members:
-                    account_ids = list({account.user_id for account in remaining_members})
+                    party_info = database.query(Parties).filter(Parties.id == data["party_id"]).first()
+                    account_ids = list({member.user_id for member in remaining_members})
 
                     for id in account_ids:
                         if id in active_connections:
                             await active_connections[id].send_json({
                                 "type": "party_message",
-                                "party_name": remaining_members[0].party_name,
+                                "party_name": party_info.party_name,
                                 "party_id": data["party_id"],
                                 "sender_id": None,
                                 "username": "",

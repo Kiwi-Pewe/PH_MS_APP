@@ -46,3 +46,8 @@ class Server_message(BaseModel):
     sender_id: int
     channel_id: int
     content: str
+
+class Invite(BaseModel):
+    type: str
+    server_id: str | None = None
+    party_id: int | None = None

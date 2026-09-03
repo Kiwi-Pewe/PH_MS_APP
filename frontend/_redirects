@@ -1,0 +1,5 @@
+# Rewrites (200 = serve this file's content, keep the URL bar as-is) —
+# not a redirect (which would change the visible address). Any request
+# under /invite/ANYTHING serves invite.html, which reads the code back
+# out of window.location.pathname itself (see invite.js).
+/invite/* /invite.html 200

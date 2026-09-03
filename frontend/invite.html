@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Oneira — Invite</title>
+<link rel="stylesheet" href="shared/tokens.css?v=6">
+<link rel="stylesheet" href="invite.css?v=1">
+</head>
+<body>
+
+<!-- This page has to work for a visitor with NO session at all (someone
+     who got the link outside the app entirely — see invite.js), so
+     nothing here can assume a logged-in identity the way every page
+     inside main/ does. The actual URL is the pretty /invite/{code}
+     form; Cloudflare Pages' _redirects file rewrites that path to this
+     file while keeping the address bar showing /invite/{code} — see
+     the repo root _redirects. -->
+<div id="invite-card">
+  <div id="invite-banner"></div>
+  <div id="invite-icon-badge"></div>
+  <div id="invite-body">
+    <div id="invite-loading">Loading invite...</div>
+  </div>
+</div>
+
+<script src="shared/config.js"></script>
+<script src="invite.js"></script>
+</body>
+</html>

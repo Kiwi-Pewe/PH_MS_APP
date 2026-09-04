@@ -665,7 +665,7 @@ async function selectChannel(channel, rowEl) {
 
   switchMainView("channel");
   const isVoice = channel.channel_type === "voice";
-  const isAnnouncement = channel.channel_type === "announcement";
+  const isAnnouncement = channel.channel_type === "announcements";
   const label = isVoice ? channel.name : `#${channel.name}`;
   document.getElementById("channel-header-title").textContent = label;
 

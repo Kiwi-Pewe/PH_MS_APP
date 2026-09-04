@@ -486,6 +486,65 @@
   padding: 12px 16px; border-top: 1px solid var(--border);
 }
 
+/* ---- Channel creation modal ---- */
+/* Same overlay/box treatment as the category modal, plus the type-
+   picker accordion. Only one .accordion-group carries .open at a time
+   (see app.js's click handler) — collapsed by default, nothing
+   expanded on modal open, matching "nothing pre-selected" for the
+   radios themselves. */
+#channel-modal-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+#channel-modal {
+  width: 460px; max-height: 82vh;
+  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#channel-modal .view-header { flex: 0 0 auto; }
+#channel-modal .view-body { flex: 1 1 auto; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.channel-type-label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+
+.channel-type-accordion { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 18px; }
+.accordion-group + .accordion-group { border-top: 1px solid var(--border); }
+.accordion-header {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  background: var(--panel-alt); color: var(--text); font-size: 13px; font-weight: 600;
+  padding: 10px 12px; text-align: left;
+}
+.accordion-header:hover { background: var(--border); }
+.accordion-caret { display: inline-block; color: var(--text-dim); font-size: 11px; transition: transform 0.15s ease; }
+.accordion-group.open .accordion-caret { transform: rotate(180deg); }
+.accordion-panel { display: none; padding: 4px 0; }
+.accordion-group.open .accordion-panel { display: block; }
+
+.channel-type-option { display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; cursor: pointer; }
+.channel-type-option:hover { background: var(--panel-alt); }
+.channel-type-option input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+.channel-type-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.channel-type-desc { font-size: 11.5px; color: var(--text-dim); }
+.channel-type-option input:checked ~ .channel-type-name { color: var(--accent-submenu); }
+.channel-type-option:has(input:checked) { background: rgba(217, 70, 239, 0.1); }
+
+/* Deferred types (Events/Calendar, Tournaments, Watch Party) — visible
+   so the eventual menu shape is clear, but not interactive. The
+   "(Coming Soon)" <em> is a plain inline tag here, not a separate
+   badge component — cheap to upgrade later if it needs to look more
+   distinct. */
+.channel-type-option.disabled { cursor: not-allowed; opacity: 0.45; }
+.channel-type-option.disabled:hover { background: none; }
+.channel-type-option.disabled .channel-type-name em { font-style: normal; font-weight: 500; }
+
+.channel-type-accordion + .server-modal-label { margin-top: 4px; }
+#channel-modal-footer {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+}
+#channel-modal-create-btn:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+#channel-modal-create-btn:disabled:hover { background: var(--border); }
+
 /* ---- Invite panel ---- */
 /* Same overlay/box treatment as the other two modals (border uses
    --accent-submenu, same pop-up cue). #invite-link-row holds the

@@ -576,11 +576,12 @@ function renderServerSidebar(data) {
     if (isOwner) {
       const addBtn = document.createElement("button");
       addBtn.className = "category-add-btn";
-      addBtn.title = "Create Channel (coming soon)";
+      addBtn.title = "Create Channel";
       addBtn.textContent = "+";
-      // Visible for reference only — actual channel creation is a
-      // separate future feature, not part of today's scope.
-      addBtn.addEventListener("click", (e) => e.stopPropagation());
+      addBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openChannelModal(category.id);
+      });
       header.appendChild(addBtn);
     }
 
@@ -804,6 +805,115 @@ async function refreshServerSidebar() {
   }
   currentServerOwnerId = data.owner;
   renderServerSidebar(data);
+}
+
+// ---- Channel creation modal ----
+// Reached via the "+" button next to a category's name (see
+// renderServerSidebar above — that button just stopped propagation and
+// did nothing until this session). Same overlay/close/outside-click/
+// Cancel pattern as the category modal. Two things this modal has that
+// the category one doesn't: the accordion type-picker, and a
+// disabled-until-valid Create button (category creation only needed a
+// name; this needs a name AND a selected type).
+//
+// Accordion behavior: clicking a header toggles .open on its own
+// .accordion-group and removes it from every other group, so only one
+// panel is ever expanded — wired once here since the accordion's DOM
+// is static markup in app.html, not rebuilt per open like the category/
+// channel LIST is.
+document.querySelectorAll("#channel-type-accordion .accordion-header").forEach(header => {
+  header.addEventListener("click", () => {
+    const group = header.closest(".accordion-group");
+    const wasOpen = group.classList.contains("open");
+    document.querySelectorAll("#channel-type-accordion .accordion-group").forEach(g => g.classList.remove("open"));
+    if (!wasOpen) group.classList.add("open");
+  });
+});
+
+// Re-checked on every radio change and every keystroke in the name
+// field — either one alone leaves Create disabled. Disabled radios
+// (the "Coming Soon" types) never fire "change" from a user click since
+// the browser blocks interaction with them entirely, so this never
+// needs to special-case them.
+function updateChannelModalCreateState() {
+  const selected = document.querySelector('input[name="channel-type"]:checked');
+  const name = document.getElementById("channel-name-input").value.trim();
+  document.getElementById("channel-modal-create-btn").disabled = !selected || !name;
+}
+document.querySelectorAll('input[name="channel-type"]').forEach(radio => {
+  radio.addEventListener("change", updateChannelModalCreateState);
+});
+document.getElementById("channel-name-input").addEventListener("input", updateChannelModalCreateState);
+
+document.getElementById("channel-modal-close").addEventListener("click", closeChannelModal);
+document.getElementById("channel-modal-cancel-btn").addEventListener("click", closeChannelModal);
+document.getElementById("channel-modal-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "channel-modal-overlay") closeChannelModal();
+});
+document.getElementById("channel-modal-create-btn").addEventListener("click", submitCreateChannel);
+
+// Which category a newly-created channel belongs to — set by
+// openChannelModal(categoryId), read by submitCreateChannel(). Module-
+// level rather than a data attribute on the modal since nothing else
+// needs to query it from the DOM.
+let channelModalCategoryId = null;
+
+function openChannelModal(categoryId) {
+  channelModalCategoryId = categoryId;
+  document.getElementById("channel-name-input").value = "";
+  document.getElementById("channel-private-toggle").checked = false;
+  document.querySelectorAll('input[name="channel-type"]').forEach(radio => { radio.checked = false; });
+  document.querySelectorAll("#channel-type-accordion .accordion-group").forEach(g => g.classList.remove("open"));
+  updateChannelModalCreateState();
+  document.getElementById("channel-modal-overlay").style.display = "flex";
+}
+
+function closeChannelModal() {
+  document.getElementById("channel-modal-overlay").style.display = "none";
+}
+
+// BACKEND CONTRACT NEEDED — not yet built, Kiwi to write:
+//   POST /create_channel
+//   body: { category_id, name, channel_type, is_private }
+//   Expected to insert a row into Server_channels (using the
+//   is_private column added alongside categories' this session) at the
+//   next gap-based position within that category, and return any 2xx
+//   status on success. Same "don't trust the response body, just
+//   refetch" pattern as submitCreateCategory() above — the exact
+//   success payload shape doesn't matter yet.
+//
+// NOTE: creating any of these types today just makes an entry in the
+// channel list — none of them render real functionality yet (a blank
+// "you are here" placeholder page is the plan, per this session's
+// scope, but that page itself isn't built in this pass either).
+async function submitCreateChannel() {
+  const selected = document.querySelector('input[name="channel-type"]:checked');
+  const name = document.getElementById("channel-name-input").value.trim();
+  if (!selected || !name) return; // Create button should already be disabled in this case
+  const isPrivate = document.getElementById("channel-private-toggle").checked;
+
+  try {
+    const response = await fetch(`https://${serverAddress}/create_channel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        category_id: channelModalCategoryId,
+        name,
+        channel_type: selected.value,
+        is_private: isPrivate
+      })
+    });
+    if (!response.ok) {
+      console.error(`Failed to create channel: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to create channel, network error:", e);
+    return;
+  }
+  closeChannelModal();
+  refreshServerSidebar();
 }
 
 // ---- Party creation modal ----

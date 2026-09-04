@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=1">
-<link rel="stylesheet" href="app.css?v=11">
+<link rel="stylesheet" href="app.css?v=12">
 </head>
 <body>
 
@@ -284,6 +284,139 @@
     </div>
   </div>
 
+  <!-- Channel creation modal. Reached via the "+" button next to a
+       category's name (see renderServerSidebar in app.js — that button
+       was inert/reference-only until this session). Same overlay/box/
+       Cancel-button treatment as the category modal. The type picker is
+       four accordion groups (only one open at a time — see the JS
+       toggle logic) rather than one flat list, since we have more than
+       double Discord's three built-in types. Deferred types
+       (Events/Calendar, Tournaments, Watch Party) appear greyed out
+       with a disabled radio and a "(Coming Soon)" tag rather than being
+       hidden entirely — see this session's design discussion. Group
+       names ("Organization", "Planning & Events") are acknowledged
+       placeholders, not final. Nothing is pre-selected on open; Create
+       Channel stays disabled until a real (non-disabled) type AND a
+       name are both present — see updateChannelModalCreateState(). -->
+  <div id="channel-modal-overlay" style="display:none;">
+    <div id="channel-modal">
+      <div class="view-header">
+        <span>Create Channel</span>
+        <button class="icon-btn" id="channel-modal-close" title="Close">&times;</button>
+      </div>
+      <div class="view-body">
+        <div class="channel-type-label">Channel Type</div>
+        <div class="channel-type-accordion" id="channel-type-accordion">
+
+          <div class="accordion-group">
+            <button type="button" class="accordion-header">
+              <span>Text Channels</span>
+              <span class="accordion-caret">&#9662;</span>
+            </button>
+            <div class="accordion-panel">
+              <label class="channel-type-option">
+                <input type="radio" name="channel-type" value="text">
+                <span class="channel-type-name"># Text</span>
+                <span class="channel-type-desc">Send messages, images, GIFs, and links</span>
+              </label>
+              <label class="channel-type-option">
+                <input type="radio" name="channel-type" value="doc">
+                <span class="channel-type-name">&#128196; Doc</span>
+                <span class="channel-type-desc">A single document page — no chat, just a reference/welcome page</span>
+              </label>
+              <label class="channel-type-option">
+                <input type="radio" name="channel-type" value="forum">
+                <span class="channel-type-name">&#129525; Forums</span>
+                <span class="channel-type-desc">Reddit-style threaded discussions</span>
+              </label>
+              <label class="channel-type-option">
+                <input type="radio" name="channel-type" value="announcements">
+                <span class="channel-type-name">&#128227; Announcements</span>
+                <span class="channel-type-desc">Owners/admins post freely, everyone else reads</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="accordion-group">
+            <button type="button" class="accordion-header">
+              <span>Voice Channels</span>
+              <span class="accordion-caret">&#9662;</span>
+            </button>
+            <div class="accordion-panel">
+              <label class="channel-type-option">
+                <input type="radio" name="channel-type" value="voice">
+                <span class="channel-type-name">&#128266; Voice</span>
+                <span class="channel-type-desc">Talk together, with camera/screen share</span>
+              </label>
+              <label class="channel-type-option disabled">
+                <input type="radio" name="channel-type" value="tournaments" disabled>
+                <span class="channel-type-name">&#127942; Tournaments <em>(Coming Soon)</em></span>
+                <span class="channel-type-desc">Bracket-based tournaments tied to a voice channel</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="accordion-group">
+            <button type="button" class="accordion-header">
+              <span>Organization</span>
+              <span class="accordion-caret">&#9662;</span>
+            </button>
+            <div class="accordion-panel">
+              <label class="channel-type-option">
+                <input type="radio" name="channel-type" value="lists">
+                <span class="channel-type-name">&#9745; Lists/Tasks</span>
+                <span class="channel-type-desc">A checklist/task-board channel</span>
+              </label>
+              <label class="channel-type-option">
+                <input type="radio" name="channel-type" value="media">
+                <span class="channel-type-name">&#128444; Media</span>
+                <span class="channel-type-desc">Gallery for images/video, plus posts auto-surfaced from elsewhere in the server</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="accordion-group">
+            <button type="button" class="accordion-header">
+              <span>Planning &amp; Events</span>
+              <span class="accordion-caret">&#9662;</span>
+            </button>
+            <div class="accordion-panel">
+              <label class="channel-type-option disabled">
+                <input type="radio" name="channel-type" value="events" disabled>
+                <span class="channel-type-name">&#128197; Events/Calendar <em>(Coming Soon)</em></span>
+                <span class="channel-type-desc">A monthly calendar view for scheduling ahead</span>
+              </label>
+              <label class="channel-type-option disabled">
+                <input type="radio" name="channel-type" value="watchparty" disabled>
+                <span class="channel-type-name">&#127916; Watch Party <em>(Coming Soon)</em></span>
+                <span class="channel-type-desc">A shared space for watching video together</span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+        <label class="server-modal-label" for="channel-name-input">Channel Name</label>
+        <input type="text" id="channel-name-input" class="server-name-input" maxlength="100" placeholder="new-channel">
+
+        <div class="private-toggle-row">
+          <div class="private-toggle-label">
+            <span>Private Channel</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="channel-private-toggle">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <p class="private-toggle-desc">Only you (the owner) will be able to view this channel. Member/role-based access is coming once roles exist.</p>
+        </div>
+      </div>
+      <div id="channel-modal-footer">
+        <button class="ghost-btn" id="channel-modal-cancel-btn">Cancel</button>
+        <button class="pill-btn" id="channel-modal-create-btn" disabled>Create Channel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Invite panel — shared by both servers and parties (openInviteModal
        takes the type so one panel handles both), reached via each's own
        context menu (see showServerContextMenu/showPartyContextMenu in
@@ -317,6 +450,6 @@
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=1"></script>
-<script src="app.js?v=17"></script>
+<script src="app.js?v=18"></script>
 </body>
 </html>

@@ -97,7 +97,8 @@ class Server_categories(Base):
     server_id = Column(String(10), ForeignKey("servers.id"))
     name = Column(String)
     position = Column(Integer)
-
+    is_private = Column(Boolean, default=False)
+    
 class Server_channels(Base):
     __tablename__ = "server_channels"
     id = Column(Integer, primary_key=True)
@@ -105,6 +106,7 @@ class Server_channels(Base):
     name = Column(String)
     channel_type = Column(String)
     position = Column(Integer)
+    is_private = Column(Boolean, default=False)
 
 class Channel_messages(Base):
     __tablename__ = "channel_messages"

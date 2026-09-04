@@ -196,6 +196,14 @@ function enterApp() {
   loadConversations();
   loadServers();
   handleJoinDeepLink();
+
+  // Blank-space context menu for the category/channel panel — wired up
+  // ONCE here, not inside renderServerSidebar(), since #server-sidebar-
+  // body is static markup that already exists at page load and never
+  // gets rebuilt on each render (only its #category-list child does).
+  // Category/channel-name right-clicks call e.stopPropagation() in their
+  // own handlers, so this only ever fires for genuine blank space.
+  document.getElementById("server-sidebar-body").addEventListener("contextmenu", showServerAreaContextMenu);
 }
 
 // Handles arriving here fresh from invite.html after already accepting
@@ -315,6 +323,66 @@ function showServerContextMenu(e, id, name) {
   }, [
     { label: "Invite People", onSelect: () => openInviteModal("server", id, name) }
   ]);
+}
+
+// Right-clicking BLANK SPACE in the category/channel panel — no
+// reference area, since nothing specific was clicked. "Create Category"
+// only actually does anything for the server owner (roles don't exist
+// yet, so owner is the only tier that can act) — still shown either way
+// per this session's "the menu itself is useful to everyone eventually"
+// call (Hide/Mute/notification-style options land here later too).
+// Wired up once, in enterApp(), against #server-sidebar-body — NOT
+// re-attached on every renderServerSidebar() call, since blank space
+// itself never changes shape between renders.
+function showServerAreaContextMenu(e) {
+  e.preventDefault();
+  const isOwner = currentServerOwnerId === myUserId;
+  openContextMenu(e.clientX, e.clientY, null, [
+    { label: "Create Category", onSelect: () => console.log(isOwner ? "Create Category — not implemented yet" : "Not permitted yet — owner only") },
+    { label: "Server Settings", onSelect: () => console.log("Server Settings — not implemented yet") }
+  ]);
+}
+
+// Right-clicking an EXISTING category's name. Edit/Delete are owner-only
+// for now (same tier as the "+" create-channel button and the blank-
+// space menu above) and simply don't appear for anyone else — they'll
+// be joined by Hide/Mute/Notification Settings later, which WILL apply
+// to every member, which is why this menu still opens for non-owners
+// even though it has nothing to show them yet. Delete never deletes
+// immediately — it's meant to open a confirmation sub-menu once that's
+// built (see Handoff.md); for now it's still an inert stub like every
+// other new option in this pass.
+function showCategoryContextMenu(e, category, isOwner) {
+  e.preventDefault();
+  e.stopPropagation();
+  const options = isOwner ? [
+    { label: "Edit Category", onSelect: () => console.log("Edit Category — not implemented yet") },
+    { label: "Delete Category", danger: true, onSelect: () => console.log("Delete Category — confirmation sub-menu not implemented yet") }
+  ] : [];
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: "\u{1F4C1}",
+    title: category.name,
+    subtitle: category.is_private ? "Private Category" : "Category"
+  }, options);
+}
+
+// Right-clicking an EXISTING channel's name/row. Mirrors
+// showCategoryContextMenu exactly, one level down — same owner-only
+// gate, same Delete-needs-confirmation caveat, same "opens for everyone,
+// has nothing yet for non-owners" reasoning.
+function showChannelContextMenu(e, channel, isOwner) {
+  e.preventDefault();
+  e.stopPropagation();
+  const options = isOwner ? [
+    { label: "Edit Channel", onSelect: () => console.log("Edit Channel — not implemented yet") },
+    { label: "Delete Channel", danger: true, onSelect: () => console.log("Delete Channel — confirmation sub-menu not implemented yet") }
+  ] : [];
+  const typeLabel = channel.channel_type === "voice" ? "Voice Channel" : "Text Channel";
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: channel.channel_type === "voice" ? "\u{1F50A}" : "#",
+    title: channel.name,
+    subtitle: channel.is_private ? `Private ${typeLabel}` : typeLabel
+  }, options);
 }
 
 // Sends the leave request over the socket — leave_party is a live,
@@ -502,6 +570,7 @@ function renderServerSidebar(data) {
     const nameEl = document.createElement("span");
     nameEl.className = "category-name";
     nameEl.textContent = category.name;
+    nameEl.addEventListener("contextmenu", (e) => showCategoryContextMenu(e, category, isOwner));
     header.appendChild(nameEl);
 
     if (isOwner) {
@@ -533,6 +602,7 @@ function renderServerSidebar(data) {
       row.appendChild(label);
 
       row.addEventListener("click", () => selectChannel(channel, row));
+      row.addEventListener("contextmenu", (e) => showChannelContextMenu(e, channel, isOwner));
       channelsEl.appendChild(row);
     });
 

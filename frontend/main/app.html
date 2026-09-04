@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=1">
-<link rel="stylesheet" href="app.css?v=10">
+<link rel="stylesheet" href="app.css?v=11">
 </head>
 <body>
 
@@ -241,6 +241,49 @@
     </div>
   </div>
 
+  <!-- Category creation modal. Reached via "Create Category" in the
+       blank-space context menu inside a server's category/channel panel
+       (see showServerAreaContextMenu in app.js). Same overlay/box/
+       --accent-submenu treatment as the other pop-up modals, plus a
+       Cancel button alongside the primary action — matching the Discord
+       reference screenshots this was modeled on, unlike the other three
+       modals which only close via X. The Private Category toggle is the
+       first real use of the shared .toggle-switch styling (see app.css);
+       the eventual channel-creation modal's own Private Channel toggle
+       will reuse the exact same classes rather than duplicating them. -->
+  <div id="category-modal-overlay" style="display:none;">
+    <div id="category-modal">
+      <div class="view-header">
+        <span>Create Category</span>
+        <button class="icon-btn" id="category-modal-close" title="Close">&times;</button>
+      </div>
+      <div class="view-body">
+        <label class="server-modal-label" for="category-name-input">Category Name</label>
+        <input type="text" id="category-name-input" class="server-name-input" maxlength="100" placeholder="New Category">
+
+        <div class="private-toggle-row">
+          <div class="private-toggle-label">
+            <span>Private Category</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="category-private-toggle">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <!-- Wording deliberately doesn't say "selected members and
+               roles" (Discord's own copy) since roles don't exist yet —
+               see Handoff.md. Owner-only is the honest current behavior;
+               this line should get REVISED, not just quietly outdated,
+               once roles ship. -->
+          <p class="private-toggle-desc">Only you (the owner) will be able to view this category. Channels placed in a private category are hidden regardless of their own setting. Member/role-based access is coming once roles exist.</p>
+        </div>
+      </div>
+      <div id="category-modal-footer">
+        <button class="ghost-btn" id="category-modal-cancel-btn">Cancel</button>
+        <button class="pill-btn" id="category-modal-create-btn">Create Category</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Invite panel — shared by both servers and parties (openInviteModal
        takes the type so one panel handles both), reached via each's own
        context menu (see showServerContextMenu/showPartyContextMenu in
@@ -274,6 +317,6 @@
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=1"></script>
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>

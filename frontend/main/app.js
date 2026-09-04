@@ -338,7 +338,7 @@ function showServerAreaContextMenu(e) {
   e.preventDefault();
   const isOwner = currentServerOwnerId === myUserId;
   openContextMenu(e.clientX, e.clientY, null, [
-    { label: "Create Category", onSelect: () => console.log(isOwner ? "Create Category — not implemented yet" : "Not permitted yet — owner only") },
+    { label: "Create Category", onSelect: () => { if (isOwner) openCategoryModal(); } },
     { label: "Server Settings", onSelect: () => console.log("Server Settings — not implemented yet") }
   ]);
 }
@@ -720,6 +720,90 @@ async function submitCreateServer() {
   }
   closeServerModal();
   loadServers();
+}
+
+// ---- Category creation modal ----
+// Reached via "Create Category" in the blank-space context menu (see
+// showServerAreaContextMenu above). Same overlay/close/outside-click
+// pattern as the server modal, plus a Cancel button — the first modal
+// in the app to have one — and the new Private Category toggle, the
+// first real use of .toggle-switch (see app.css).
+//
+// BACKEND CONTRACT NEEDED — not yet built, this is Kiwi's to write:
+//   POST /create_category
+//   body: { server_id, name, is_private }
+//   Expected to insert a row into Server_categories (using the
+//   is_private column added this session) at the next gap-based
+//   position for that server, and return any 2xx status on success.
+// This function only checks response.ok — it doesn't read the response
+// body at all, since refreshServerSidebar() re-fetches the full server
+// contents from get_server_contents afterward rather than trusting
+// whatever this endpoint returns. So the exact success payload shape
+// doesn't need to be nailed down yet, just the request contract above.
+document.getElementById("category-modal-close").addEventListener("click", closeCategoryModal);
+document.getElementById("category-modal-cancel-btn").addEventListener("click", closeCategoryModal);
+document.getElementById("category-modal-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "category-modal-overlay") closeCategoryModal();
+});
+document.getElementById("category-modal-create-btn").addEventListener("click", submitCreateCategory);
+
+function openCategoryModal() {
+  const input = document.getElementById("category-name-input");
+  input.value = "";
+  document.getElementById("category-private-toggle").checked = false;
+  document.getElementById("category-modal-overlay").style.display = "flex";
+  input.focus();
+}
+
+function closeCategoryModal() {
+  document.getElementById("category-modal-overlay").style.display = "none";
+}
+
+async function submitCreateCategory() {
+  const input = document.getElementById("category-name-input");
+  // Falls back to the same default shown as the placeholder, in the
+  // rare case someone clears the field entirely — same pattern as
+  // submitCreateServer() above.
+  const name = input.value.trim() || "New Category";
+  const isPrivate = document.getElementById("category-private-toggle").checked;
+
+  try {
+    const response = await fetch(`https://${serverAddress}/create_category`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ server_id: currentServerId, name, is_private: isPrivate })
+    });
+    if (!response.ok) {
+      console.error(`Failed to create category: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to create category, network error:", e);
+    return;
+  }
+  closeCategoryModal();
+  refreshServerSidebar();
+}
+
+// Re-fetches the CURRENT server's categories/channels and re-renders
+// the sidebar in place — unlike openServer(), it doesn't touch rail-
+// icon selection or auto-select a channel, so whatever's currently
+// open in the main panel stays put. Used after creating a category
+// (and, later, a channel) so the new item appears immediately without
+// resetting the view. No-ops if no server is currently open.
+async function refreshServerSidebar() {
+  if (!currentServerId) return;
+  let data;
+  try {
+    const response = await fetch(`https://${serverAddress}/get_server_contents/${currentServerId}`, { credentials: "include" });
+    if (!response.ok) return;
+    data = await response.json();
+  } catch (e) {
+    return;
+  }
+  currentServerOwnerId = data.owner;
+  renderServerSidebar(data);
 }
 
 // ---- Party creation modal ----

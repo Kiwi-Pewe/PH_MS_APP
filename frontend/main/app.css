@@ -433,6 +433,59 @@
   padding: 12px 16px; border-top: 1px solid var(--border);
 }
 
+/* ---- Shared toggle switch + ghost button ---- */
+/* Generic, not category-specific — the upcoming channel-creation
+   modal's Private Channel toggle reuses these same three classes
+   rather than duplicating the CSS. Checked state uses --accent-submenu
+   (not --accent) since every toggle so far only exists inside a
+   pop-up modal, matching that family's accent color. */
+.toggle-switch { position: relative; display: inline-block; cursor: pointer; line-height: 0; }
+.toggle-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  display: inline-block; width: 36px; height: 20px;
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px;
+  position: relative; transition: background 0.15s ease, border-color 0.15s ease;
+}
+.toggle-thumb {
+  position: absolute; top: 1px; left: 1px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--text-dim);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.toggle-switch input:checked + .toggle-track { background: var(--accent-submenu); border-color: var(--accent-submenu); }
+.toggle-switch input:checked + .toggle-track .toggle-thumb { transform: translateX(16px); background: #fff; }
+
+/* Cancel-style secondary button — every earlier modal only had a
+   primary action + the X, so this is the first Cancel button in the
+   app. Kept generic (not category-modal-specific) for the same reuse
+   reason as the toggle above. */
+.ghost-btn { background: transparent; border: 1px solid var(--border); color: var(--text); font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 6px; }
+.ghost-btn:hover { background: var(--panel-alt); }
+
+/* ---- Category creation modal ---- */
+/* Same overlay/box treatment as the server modal. Reused
+   .server-modal-label/.server-name-input classes rather than adding
+   category-specific duplicates of the exact same styling. */
+#category-modal-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+#category-modal {
+  width: 420px;
+  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#category-modal .view-header { flex: 0 0 auto; }
+#category-modal .view-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
+.private-toggle-row { margin-top: 18px; }
+.private-toggle-label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; }
+.private-toggle-desc { margin-top: 8px; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+#category-modal-footer {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+}
+
 /* ---- Invite panel ---- */
 /* Same overlay/box treatment as the other two modals (border uses
    --accent-submenu, same pop-up cue). #invite-link-row holds the

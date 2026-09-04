@@ -665,11 +665,29 @@ async function selectChannel(channel, rowEl) {
 
   switchMainView("channel");
   const isVoice = channel.channel_type === "voice";
+  const isAnnouncement = channel.channel_type === "announcement";
   const label = isVoice ? channel.name : `#${channel.name}`;
   document.getElementById("channel-header-title").textContent = label;
 
   const channelEmpty = document.getElementById("channel-empty");
   const channelMessages = document.getElementById("channel-messages");
+  const channelComposer = document.getElementById("channel-composer");
+  const announcementsView = document.getElementById("announcements-view");
+
+  // Announcements gets its own view entirely — composer-on-top, card-
+  // style posts — rather than sharing #channel-body/#channel-composer's
+  // clustered-message layout. Visual pass only right now (see
+  // Handoff.md): this just shows the static placeholder markup already
+  // in app.html, it doesn't fetch or render real posts yet.
+  if (isAnnouncement) {
+    channelEmpty.style.display = "none";
+    channelMessages.style.display = "none";
+    channelComposer.style.display = "none";
+    announcementsView.style.display = "flex";
+    return;
+  }
+  announcementsView.style.display = "none";
+  channelComposer.style.display = "block";
 
   if (isVoice) {
     channelMessages.style.display = "none";

@@ -142,6 +142,68 @@
             <button onclick="sendChannelMessage()" id="channel-composer-send-btn">Send</button>
           </div>
         </div>
+
+        <!-- Announcements channel type — visual layout only so far (see
+             Handoff.md, "Announcements channel" design log). Composer
+             sits at the TOP here, opposite every other channel type,
+             and posts render as self-contained cards rather than a
+             clustered message feed — deliberate, confirmed
+             Announcements-specific layout, not a bug. Hidden by
+             default; selectChannel() toggles this on/off against
+             #channel-body/#channel-composer based on channel_type.
+             Posts below are hardcoded placeholder content for this
+             visual pass only — nothing here is wired to real data yet. -->
+        <div id="announcements-view" style="display:none;">
+          <div class="announce-composer-bar" id="announcements-composer-bar">
+            <div class="cluster-avatar">?</div>
+            <div class="announce-composer-placeholder">Post an announcement</div>
+          </div>
+          <div id="announcements-posts">
+            <div class="announce-post">
+              <div class="announce-post-top">
+                <div class="cluster-avatar">K</div>
+                <div class="announce-post-meta">
+                  <div class="announce-post-name">Kiwi</div>
+                  <div class="announce-post-role">Owner</div>
+                </div>
+                <button class="announce-post-menu-btn" title="More (coming soon)">&#8942;</button>
+              </div>
+              <div class="announce-post-title">Server rules updated</div>
+              <div class="announce-post-body">Took a pass at the rules channel to make a few things clearer — nothing major changed, just easier to read now.</div>
+              <div class="announce-post-date">2 hours ago</div>
+              <div class="announce-divider"></div>
+              <div class="announce-post-footer">
+                <button class="announce-comments-btn">3 comments</button>
+                <div class="announce-footer-divider"></div>
+                <div class="announce-reactions">
+                  <button class="announce-add-reaction-btn" title="React (coming soon)">+</button>
+                </div>
+              </div>
+            </div>
+            <div class="announce-post">
+              <div class="announce-post-top">
+                <div class="cluster-avatar">K</div>
+                <div class="announce-post-meta">
+                  <div class="announce-post-name">Kiwi</div>
+                  <div class="announce-post-role">Owner</div>
+                </div>
+                <button class="announce-post-menu-btn" title="More (coming soon)">&#8942;</button>
+              </div>
+              <div class="announce-post-title">Welcome to the server!</div>
+              <div class="announce-post-body">Glad to have you here. Check out the categories on the left to get started, and feel free to introduce yourself in general.</div>
+              <div class="announce-post-date">1 day ago</div>
+              <div class="announce-divider"></div>
+              <div class="announce-post-footer">
+                <button class="announce-comments-btn">0 comments</button>
+                <div class="announce-footer-divider"></div>
+                <div class="announce-reactions">
+                  <button class="announce-add-reaction-btn" title="React (coming soon)">+</button>
+                </div>
+              </div>
+            </div>
+            <div class="announce-end-marker">You're up to date!</div>
+          </div>
+        </div>
       </div>
 
       <div class="main-view" id="view-friends">

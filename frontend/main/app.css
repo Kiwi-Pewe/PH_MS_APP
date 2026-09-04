@@ -257,6 +257,73 @@
 }
 .composer-icon-btn:hover { color: var(--text); background: var(--rail); }
 
+/* ---- Announcements channel ---- */
+/* Deliberately its own layout, not a variant of the clustered chat feed
+   above — composer at the TOP (post-first, scroll-down-for-older),
+   posts as self-contained cards rather than message bubbles. Reuses
+   .cluster-avatar for the avatar circles (same sizing/scale as every
+   other avatar in the app) but everything else here is new, since
+   nothing about a titled post with comments/reactions maps onto the
+   existing bubble shape. Visual pass only for now — see Handoff.md's
+   "Announcements channel" design log for the full build-order plan
+   (layout now, creation/persistence/deletion in later passes). */
+#announcements-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+.announce-composer-bar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+  margin: 16px; padding: 10px 14px;
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+}
+.announce-composer-placeholder { color: var(--text-dim); font-size: 14px; }
+
+#announcements-posts { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+.announce-post {
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 16px;
+  padding: 16px; display: flex; flex-direction: column;
+}
+
+.announce-post-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.announce-post-meta { flex: 1 1 auto; min-width: 0; }
+.announce-post-name { font-weight: 700; font-size: 14px; color: var(--text); }
+.announce-post-role { font-size: 12px; color: var(--text-dim); }
+.announce-post-menu-btn {
+  background: transparent; color: var(--text-dim); font-size: 16px; font-weight: 700;
+  width: 28px; height: 28px; flex: 0 0 auto; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.announce-post-menu-btn:hover { color: var(--text); background: var(--rail); }
+
+.announce-post-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.announce-post-body { font-size: 14px; line-height: 1.5; color: var(--text); white-space: pre-wrap; word-wrap: break-word; }
+.announce-post-date { font-size: 12px; color: var(--text-dim); margin-top: 10px; }
+
+/* Inset from both edges rather than full-width — a deliberate, quieter
+   separator than the hard #border-colored rules used elsewhere (e.g.
+   between server list items), matching the reference design's own
+   center-anchored dividers. */
+.announce-divider { height: 1px; background: var(--border); margin: 14px 8%; }
+
+.announce-post-footer { display: flex; align-items: center; gap: 12px; }
+.announce-comments-btn {
+  background: transparent; color: var(--text-dim); font-size: 13px; font-weight: 600;
+  padding: 4px 0;
+}
+.announce-comments-btn:hover { color: var(--text); }
+/* Short, vertically centered — never touches the footer's own top/bottom
+   edge — same "inset, not edge-to-edge" divider language as
+   .announce-divider above, just rotated for a horizontal footer row. */
+.announce-footer-divider { width: 1px; height: 16px; background: var(--border); flex: 0 0 auto; }
+.announce-reactions { display: flex; align-items: center; gap: 6px; }
+.announce-add-reaction-btn {
+  background: transparent; color: var(--text-dim); font-size: 15px; font-weight: 700;
+  width: 26px; height: 26px; border-radius: 6px; border: 1px dashed var(--border);
+  display: flex; align-items: center; justify-content: center;
+}
+.announce-add-reaction-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+.announce-end-marker { text-align: center; color: var(--text-dim); font-size: 13px; padding: 8px 0 4px; }
+
 #user-list { display: none; width: 220px; border-left: 1px solid var(--border); background: var(--panel); }
 
 /* Sits once at the very top of message history — signals "you've

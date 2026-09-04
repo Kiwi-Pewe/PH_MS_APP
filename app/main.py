@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
 from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Party_members, Invite_model
-from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite
+from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite, Category_create, Channel_create
 from app.database import get_db, Base, engine, SessionLocal
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
 from datetime import datetime, timedelta
@@ -524,16 +524,20 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
 
     all_categories = database.query(Server_categories).filter(Server_categories.server_id == server_id).order_by(Server_categories.position).all()
     server = database.query(Servers).filter(Servers.id == server_id).first()
+    is_owner = server.owner_id == current_user.id
     server_info = []
+
     for category in all_categories:
         channel_info = []
-        all_channels = database.query(Server_channels).filter(Server_channels.category_id == category.id).order_by(Server_channels.position).all()
+        if category.is_private == False or is_owner:
+            all_channels = database.query(Server_channels).filter(Server_channels.category_id == category.id).order_by(Server_channels.position).all()
 
-        for channel in all_channels:
-            channel_info.append({"id": channel.id ,"category_id": channel.category_id, "name": channel.name, "channel_type": channel.channel_type, "position": channel.position})
+            for channel in all_channels:
+                if channel.is_private == False or is_owner:
+                    channel_info.append({"id": channel.id, "category_id": channel.category_id, "name": channel.name, "channel_type": channel.channel_type, "position": channel.position, "is_private": channel.is_private})
 
-        server_info.append({"id": category.id, "name": category.name, "position": category.position, "channels": channel_info})
-        
+            server_info.append({"id": category.id, "name": category.name, "position": category.position, "is_private": category.is_private, "channels": channel_info})
+            
     return {"type": "server", "categories": server_info, "owner": server.owner_id}
 
 @app.post("/message_server_channel")
@@ -721,6 +725,68 @@ def get_invite_info(code: str, database: Session = Depends(get_db)):
             if members.user_id in active_connections:
                 active += 1
         return{"type": "server", "server_name": server_info.name, "active_users": active, "total_users": total_members}
+
+@app.post("/create_category")
+async def create_category(category_info: Category_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = database.query(Servers).filter(Servers.id == category_info.server_id).first()
+    if not server or not server.owner_id == current_user.id:
+        raise HTTPException(status_code= 403, detail= "Server or owner doesnt match")
+    
+    highest_position = database.query(func.max(Server_categories.position)).filter(Server_categories.server_id == category_info.server_id).scalar()
+
+    new_category = Server_categories(
+        server_id = server.id,
+        name = category_info.name,
+        position = 100 if highest_position == None else highest_position + 100,
+        is_private = category_info.is_private
+    )
+    database.add(new_category)
+    database.commit()
+    database.refresh(new_category)
+    payload = {
+        "type": "category_created",
+        "server_id": server.id,
+        "category": {"id": new_category.id, "name": new_category.name, "position": new_category.position, "is_private": new_category.is_private, "channels": []}
+    }
+    await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    return "success"
+
+@app.post("/create_channel")
+async def create_channel(channel_info: Channel_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    category = database.query(Server_categories).filter(Server_categories.id == channel_info.category_id).first()
+    if not category:
+        raise HTTPException (status_code= 404, detail= "Category not found")
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+
+    if not server.owner_id == current_user.id:
+        raise HTTPException(status_code= 403, detail="Owner doesn't match")
+
+    highest_position = database.query(func.max(Server_channels.position)).filter(Server_channels.category_id == channel_info.category_id).scalar()
+
+    new_channel = Server_channels(
+        category_id = category.id,
+        name = channel_info.name,
+        channel_type = channel_info.channel_type,
+        position = 100 if highest_position == None else highest_position + 100,
+        is_private = channel_info.is_private
+    )
+    database.add(new_channel)
+    database.commit()
+    database.refresh(new_channel)
+    payload = {
+        "type": "channel_created",
+        "server_id": server.id,
+        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "category_id": new_channel.category_id}
+    }
+    await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    return "success"
+
+async def server_broadcast(server_id, payload, database, exclude_user_id=None):
+    all_members = database.query(Server_members).filter(Server_members.server_id == server_id).all()
+
+    for member in all_members:
+        if member.user_id != exclude_user_id and member.user_id in active_connections:
+            await active_connections[member.user_id].send_json(payload)
 
 def is_invite_valid(invite: Invite_model):
     return datetime.utcnow() - invite.created_at < timedelta(hours=24) and invite.use_count < 10

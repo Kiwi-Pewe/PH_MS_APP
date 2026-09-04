@@ -98,7 +98,7 @@ class Server_categories(Base):
     name = Column(String)
     position = Column(Integer)
     is_private = Column(Boolean, default=False)
-    
+
 class Server_channels(Base):
     __tablename__ = "server_channels"
     id = Column(Integer, primary_key=True)
@@ -126,3 +126,4 @@ class Invite_model(Base):
     party_id = Column(Integer, ForeignKey("parties.id"), nullable= True)
     use_count = Column(Integer, default= 0)
     created_at = Column(DateTime, server_default=func.now())
+

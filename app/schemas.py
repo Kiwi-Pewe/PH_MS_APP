@@ -51,3 +51,14 @@ class Invite(BaseModel):
     type: str
     server_id: str | None = None
     party_id: int | None = None
+
+class Category_create(BaseModel):
+    server_id: str
+    name: str
+    is_private: bool = False
+
+class Channel_create(BaseModel):
+    category_id: int
+    name: str
+    channel_type: str
+    is_private: bool = False

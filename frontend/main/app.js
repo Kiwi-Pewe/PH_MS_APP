@@ -34,6 +34,12 @@ let selectedRailIcon = "home";
 // in the main panel right now" while inside a server.
 let currentServerId = null;
 let currentServerOwnerId = null;
+// The full get_server_contents payload for whichever server is currently
+// open — kept around (not just currentServerId/OwnerId) so a live
+// category_created/channel_created push can patch it in place and
+// re-render, instead of re-fetching the whole server just to add one
+// item to the sidebar.
+let currentServerData = null;
 let currentChannelId = null;
 let currentChannelType = null;
 let currentChannelName = null;
@@ -183,6 +189,30 @@ function connectSocket() {
           time: data.timestamp ? new Date(data.timestamp) : new Date()
         });
         renderChannelMessages();
+      }
+    }
+
+    // Server-wide structural pushes (create_category/create_channel on
+    // the backend). Only patch currentServerData if we're actually
+    // looking at the server this event is about — no point rebuilding a
+    // sidebar that isn't even on screen, and currentServerData wouldn't
+    // match this event's shape otherwise anyway. The sender themself
+    // never receives these (see server_broadcast's exclude_user_id), so
+    // there's no need to guard against double-adding our own creation.
+    if (data.type === "category_created") {
+      if (currentServerId === data.server_id && currentServerData) {
+        currentServerData.categories.push(data.category);
+        renderServerSidebar(currentServerData);
+      }
+    }
+
+    if (data.type === "channel_created") {
+      if (currentServerId === data.server_id && currentServerData) {
+        const category = currentServerData.categories.find(c => c.id === data.channel.category_id);
+        if (category) {
+          category.channels.push(data.channel);
+          renderServerSidebar(currentServerData);
+        }
       }
     }
   };
@@ -519,6 +549,7 @@ async function openServer(serverId, iconEl) {
 
   currentServerId = serverId;
   currentServerOwnerId = data.owner;
+  currentServerData = data;
 
   document.getElementById("dm-sidebar-view").style.display = "none";
   document.getElementById("server-sidebar-view").style.display = "flex";

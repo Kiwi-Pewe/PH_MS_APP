@@ -671,6 +671,7 @@ async function selectChannel(channel, rowEl) {
 
   const channelEmpty = document.getElementById("channel-empty");
   const channelMessages = document.getElementById("channel-messages");
+  const channelBody = document.getElementById("channel-body");
   const channelComposer = document.getElementById("channel-composer");
   const announcementsView = document.getElementById("announcements-view");
 
@@ -680,13 +681,13 @@ async function selectChannel(channel, rowEl) {
   // Handoff.md): this just shows the static placeholder markup already
   // in app.html, it doesn't fetch or render real posts yet.
   if (isAnnouncement) {
-    channelEmpty.style.display = "none";
-    channelMessages.style.display = "none";
+    channelBody.style.display = "none";
     channelComposer.style.display = "none";
     announcementsView.style.display = "flex";
     return;
   }
   announcementsView.style.display = "none";
+  channelBody.style.display = "flex";
   channelComposer.style.display = "block";
 
   if (isVoice) {

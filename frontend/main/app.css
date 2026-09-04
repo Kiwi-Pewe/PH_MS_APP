@@ -298,22 +298,15 @@
 .announce-post-body { font-size: 14px; line-height: 1.5; color: var(--text); white-space: pre-wrap; word-wrap: break-word; }
 .announce-post-date { font-size: 12px; color: var(--text-dim); margin-top: 10px; }
 
-/* Inset from both edges rather than full-width — a deliberate, quieter
-   separator than the hard #border-colored rules used elsewhere (e.g.
-   between server list items), matching the reference design's own
-   center-anchored dividers. */
-.announce-divider { height: 1px; background: var(--border); margin: 14px 8%; }
+/* Full-width within the post's own padding — deliberately edge-to-edge
+   against the content above it (title/body's left edge, the 3-dot
+   menu's right edge), not inset from the card's own border. Reused
+   between EVERY section of the post (content/reactions/comments), not
+   just once, since reactions and comments are now stacked as their own
+   separate rows rather than a single combined footer. */
+.announce-divider { height: 1px; background: var(--border); margin: 14px 0; }
 
-.announce-post-footer { display: flex; align-items: center; gap: 12px; }
-.announce-comments-btn {
-  background: transparent; color: var(--text-dim); font-size: 13px; font-weight: 600;
-  padding: 4px 0;
-}
-.announce-comments-btn:hover { color: var(--text); }
-/* Short, vertically centered — never touches the footer's own top/bottom
-   edge — same "inset, not edge-to-edge" divider language as
-   .announce-divider above, just rotated for a horizontal footer row. */
-.announce-footer-divider { width: 1px; height: 16px; background: var(--border); flex: 0 0 auto; }
+.announce-reactions-row { display: flex; align-items: center; }
 .announce-reactions { display: flex; align-items: center; gap: 6px; }
 .announce-add-reaction-btn {
   background: transparent; color: var(--text-dim); font-size: 15px; font-weight: 700;
@@ -321,6 +314,13 @@
   display: flex; align-items: center; justify-content: center;
 }
 .announce-add-reaction-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+.announce-comments-row { display: flex; align-items: center; }
+.announce-comments-btn {
+  background: transparent; color: var(--text-dim); font-size: 13px; font-weight: 600;
+  padding: 4px 0;
+}
+.announce-comments-btn:hover { color: var(--text); }
 
 .announce-end-marker { text-align: center; color: var(--text-dim); font-size: 13px; padding: 8px 0 4px; }
 

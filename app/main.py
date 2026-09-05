@@ -809,6 +809,41 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body}
 
+@app.get("/get_announcement/{channel_id}")
+def get_announcement_posts(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id = None):
+    correct_channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not correct_channel or not correct_channel.channel_type == "announcements":
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    category = database.query(Server_categories).filter(Server_categories.id == correct_channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
+
+    if not is_member:
+        raise HTTPException(status_code=404, detail="Membership not found")
+
+    if before_id:
+        post_history = database.query(Announcement_post).filter(Announcement_post.channel_id == channel_id, Announcement_post.id < before_id).order_by(Announcement_post.created_at.desc()).limit(25).all()
+    else:
+        post_history = database.query(Announcement_post).filter(Announcement_post.channel_id == channel_id).order_by(Announcement_post.created_at.desc()).limit(25).all()
+
+    sender_ids = list({post.sender_id for post in post_history})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
+    username_lookup = {account.id: account.username for account in accounts}
+
+    recent_post = []
+    for post in post_history:
+        recent_post.append({
+            "id": post.id,
+            "sender_id": post.sender_id,
+            "username": username_lookup[post.sender_id],
+            "title": post.title,
+            "body": post.body,
+            "created_at": str(post.created_at)
+        })
+    return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "posts": recent_post}
+
+
 async def server_broadcast(server_id, payload, database, exclude_user_id=None):
     all_members = database.query(Server_members).filter(Server_members.server_id == server_id).all()
 

@@ -68,6 +68,14 @@ let currentChannelMessages = [];
 let channelHasMoreHistory = true;
 let channelIsLoadingMore = false;
 
+// Announcements equivalent of the above — same cursor-based pagination
+// shape, but since posts are newest-first (composer at the TOP, scroll
+// DOWN for older), "more history" is loaded from the bottom, opposite
+// of channel messages. Reset by selectChannel on every channel switch.
+let currentAnnouncementPosts = [];
+let announcementHasMoreHistory = true;
+let announcementIsLoadingMore = false;
+
 // A same-sender gap this long or longer forces a new cluster/bubble,
 // even without a sender change in between.
 const CLUSTER_GAP_MINUTES = 5;
@@ -224,7 +232,7 @@ function connectSocket() {
     // so no risk of double-rendering their own post.
     if (data.type === "announcement_created") {
       if (currentChannelId === data.post.channel_id) {
-        renderAnnouncementPost(data.post, /*prepend=*/true);
+        prependNewAnnouncementPost(data.post);
       }
     }
   };
@@ -689,11 +697,9 @@ async function selectChannel(channel, rowEl) {
 
   // Announcements gets its own view entirely — composer-on-top, card-
   // style posts — rather than sharing #channel-body/#channel-composer's
-  // clustered-message layout. Real creation is wired (see
-  // showAnnounceComposerEditing/submitCreateAnnouncement below) but
-  // there's no persistence/fetch-on-load yet, so every channel switch
-  // resets to empty — this is NOT a bug, it's the confirmed next build
-  // step per Handoff.md, just not this one.
+  // clustered-message layout. Persistence is real now (loadAnnouncementPosts
+  // fetches get_announcement on every open, same as loadChannelHistory
+  // does for plain chat) — no more resetting to an empty placeholder.
   if (isAnnouncement) {
     channelBody.style.display = "none";
     channelComposer.style.display = "none";
@@ -704,7 +710,7 @@ async function selectChannel(channel, rowEl) {
     // than shown greyed-out, per Kiwi's call when this was designed.
     document.getElementById("announce-new-post-btn").style.display =
       (myUserId === currentServerOwnerId) ? "inline-flex" : "none";
-    document.getElementById("announcements-posts").innerHTML = '<div class="announce-end-marker">You\'re up to date!</div>';
+    loadAnnouncementPosts(channel.id);
     return;
   }
   announcementsView.style.display = "none";
@@ -1046,21 +1052,22 @@ async function submitCreateAnnouncement() {
   // own immediate view is a deliberate, temporary stand-in until the
   // persistence pass adds a real fetch-on-load and can supply the
   // authoritative timestamp instead.
-  renderAnnouncementPost({
+  prependNewAnnouncementPost({
     id: post.id, title: post.title, body: post.body,
     created_at: new Date().toISOString(), username: myUsername
-  }, /*prepend=*/true);
+  });
 }
 
-// Shared between the creator's own immediate render (above) and the
-// announcement_created broadcast handler (in ws.onmessage) — one shape,
-// one function, so the two can never visually drift apart. Built with
-// createElement/textContent throughout, not innerHTML with concatenated
-// strings, matching how renderClusteredMessages handles message content
-// — post title/body/username are user-supplied text, never HTML.
-function renderAnnouncementPost(post, prepend) {
-  const container = document.getElementById("announcements-posts");
-
+// Shared between a freshly-created post, the announcement_created
+// broadcast handler, and now the real fetch-on-load/pagination path
+// below — one shape, one function, so none of them can visually drift
+// apart. Pure: builds and returns a card, doesn't touch the DOM or
+// currentAnnouncementPosts itself — callers decide where it goes.
+// Built with createElement/textContent throughout, not innerHTML with
+// concatenated strings, matching how renderClusteredMessages handles
+// message content — post title/body/username are user-supplied text,
+// never HTML.
+function buildAnnouncementPostCard(post) {
   const card = document.createElement("div");
   card.className = "announce-post";
 
@@ -1123,7 +1130,10 @@ function renderAnnouncementPost(post, prepend) {
   commentsRow.className = "announce-comments-row";
   const commentsBtn = document.createElement("button");
   commentsBtn.className = "announce-comments-btn";
-  commentsBtn.textContent = "0 comments";
+  // get_announcement_posts doesn't return comment_count yet — harmless
+  // right now since comments don't exist to count, but worth adding to
+  // that route's response once the comments table/routes get built.
+  commentsBtn.textContent = `${post.comment_count || 0} comments`;
   commentsRow.appendChild(commentsBtn);
 
   card.appendChild(top);
@@ -1134,13 +1144,96 @@ function renderAnnouncementPost(post, prepend) {
   card.appendChild(reactionsRow);
   card.appendChild(dividerMid);
   card.appendChild(commentsRow);
+  return card;
+}
 
-  if (prepend && container.firstChild) {
+// A brand-new post — either just created by this user, or pushed live
+// via the announcement_created broadcast. Updates the source-of-truth
+// array AND the DOM, since a live post needs to be accounted for by
+// later pagination (loadOlderAnnouncementPosts anchors on the OLDEST
+// loaded post's id, which this doesn't change, but currentAnnouncementPosts
+// needs to stay a true reflection of what's on screen regardless).
+function prependNewAnnouncementPost(post) {
+  currentAnnouncementPosts.unshift(post);
+  const container = document.getElementById("announcements-posts");
+  const card = buildAnnouncementPostCard(post);
+  if (container.firstChild) {
     container.insertBefore(card, container.firstChild);
   } else {
     container.appendChild(card);
   }
 }
+
+// Removes any existing end marker before possibly re-adding one — safe
+// to call after every load/append so it never ends up duplicated or
+// stuck in the middle of the list after older posts get appended below
+// where it used to sit.
+function updateAnnouncementEndMarker() {
+  const container = document.getElementById("announcements-posts");
+  const existing = container.querySelector(".announce-end-marker");
+  if (existing) existing.remove();
+  if (!announcementHasMoreHistory) {
+    const marker = document.createElement("div");
+    marker.className = "announce-end-marker";
+    marker.textContent = "You're up to date!";
+    container.appendChild(marker);
+  }
+}
+
+// Initial fetch on opening an Announcements channel — replaces the old
+// "reset to empty" placeholder behavior now that persistence is real.
+// Resets all three pieces of pagination state, same as selectChannel
+// resetting currentChannelMessages/channelHasMoreHistory for a channel
+// switch.
+async function loadAnnouncementPosts(channelId) {
+  currentAnnouncementPosts = [];
+  announcementHasMoreHistory = true;
+  announcementIsLoadingMore = false;
+  const container = document.getElementById("announcements-posts");
+  container.innerHTML = "";
+  try {
+    const response = await fetch(`https://${serverAddress}/get_announcement/${channelId}`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    currentAnnouncementPosts = data.posts;
+    if (data.posts.length < 25) announcementHasMoreHistory = false;
+    data.posts.forEach(post => container.appendChild(buildAnnouncementPostCard(post)));
+    updateAnnouncementEndMarker();
+  } catch (e) { /* leave empty on failure */ }
+}
+
+// Triggered when the user scrolls toward the BOTTOM of currently-loaded
+// posts — opposite end from loadOlderChannelMessages, since Announcements
+// is newest-first/composer-on-top rather than oldest-first/composer-on-
+// bottom. Same cursor-based pagination shape otherwise (oldest loaded
+// post's real id, via before_id).
+async function loadOlderAnnouncementPosts() {
+  if (announcementIsLoadingMore || !announcementHasMoreHistory || currentAnnouncementPosts.length === 0) return;
+  const oldest = currentAnnouncementPosts[currentAnnouncementPosts.length - 1];
+  if (!oldest.id) return;
+  announcementIsLoadingMore = true;
+
+  try {
+    const response = await fetch(`https://${serverAddress}/get_announcement/${currentChannelId}?before_id=${oldest.id}`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data.posts.length < 25) announcementHasMoreHistory = false;
+    currentAnnouncementPosts = currentAnnouncementPosts.concat(data.posts);
+    const container = document.getElementById("announcements-posts");
+    const existingMarker = container.querySelector(".announce-end-marker");
+    if (existingMarker) existingMarker.remove();
+    data.posts.forEach(post => container.appendChild(buildAnnouncementPostCard(post)));
+    updateAnnouncementEndMarker();
+  } catch (e) { /* leave state as-is on failure */ }
+
+  announcementIsLoadingMore = false;
+}
+
+document.getElementById("announcements-posts").addEventListener("scroll", () => {
+  const el = document.getElementById("announcements-posts");
+  if (el.scrollTop + el.clientHeight > el.scrollHeight - 40) loadOlderAnnouncementPosts();
+});
+
 
 // ---- Party creation modal ----
 // Max 9 selectable here since the creator themselves is the 10th member

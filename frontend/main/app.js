@@ -232,7 +232,7 @@ function connectSocket() {
     // so no risk of double-rendering their own post.
     if (data.type === "announcement_created") {
       if (currentChannelId === data.post.channel_id) {
-        prependNewAnnouncementPost(data.post);
+        appendNewAnnouncementPost(data.post);
       }
     }
   };
@@ -1052,7 +1052,7 @@ async function submitCreateAnnouncement() {
   // own immediate view is a deliberate, temporary stand-in until the
   // persistence pass adds a real fetch-on-load and can supply the
   // authoritative timestamp instead.
-  prependNewAnnouncementPost({
+  appendNewAnnouncementPost({
     id: post.id, title: post.title, body: post.body,
     created_at: new Date().toISOString(), username: myUsername
   });
@@ -1108,7 +1108,7 @@ function buildAnnouncementPostCard(post) {
 
   const date = document.createElement("div");
   date.className = "announce-post-date";
-  date.textContent = new Date(post.created_at).toLocaleString();
+  date.textContent = formatClusterTime(parseUtcTimestamp(post.created_at));
 
   const dividerTop = document.createElement("div");
   dividerTop.className = "announce-divider";
@@ -1148,27 +1148,26 @@ function buildAnnouncementPostCard(post) {
 }
 
 // A brand-new post — either just created by this user, or pushed live
-// via the announcement_created broadcast. Updates the source-of-truth
-// array AND the DOM, since a live post needs to be accounted for by
-// later pagination (loadOlderAnnouncementPosts anchors on the OLDEST
-// loaded post's id, which this doesn't change, but currentAnnouncementPosts
-// needs to stay a true reflection of what's on screen regardless).
-function prependNewAnnouncementPost(post) {
-  currentAnnouncementPosts.unshift(post);
+// via the announcement_created broadcast. Now goes at the BOTTOM,
+// matching chat's own newest-at-bottom direction, and scrolls the view
+// down to reveal it, same as chat does for a message you just sent.
+// Updates the source-of-truth array too, appended at its end now that
+// ascending (oldest-first) is the array's order, matching
+// currentChannelMessages' own convention.
+function appendNewAnnouncementPost(post) {
+  currentAnnouncementPosts.push(post);
   const container = document.getElementById("announcements-posts");
-  const card = buildAnnouncementPostCard(post);
-  if (container.firstChild) {
-    container.insertBefore(card, container.firstChild);
-  } else {
-    container.appendChild(card);
-  }
+  container.appendChild(buildAnnouncementPostCard(post));
+  container.scrollTop = container.scrollHeight;
 }
 
-// Removes any existing end marker before possibly re-adding one — safe
-// to call after every load/append so it never ends up duplicated or
-// stuck in the middle of the list after older posts get appended below
-// where it used to sit.
-function updateAnnouncementEndMarker() {
+// Sits at the TOP once older history is exhausted — the "beginning of
+// the channel" position, not "you're up to date" (that phrasing only
+// made sense back when newest sat at the top; now that newest is at
+// the bottom like every other feed in the app, there's nothing special
+// to announce there, same as chat shows no marker at its own bottom).
+// Still open whether Kiwi wants different wording/treatment here.
+function updateAnnouncementStartMarker() {
   const container = document.getElementById("announcements-posts");
   const existing = container.querySelector(".announce-end-marker");
   if (existing) existing.remove();
@@ -1176,15 +1175,19 @@ function updateAnnouncementEndMarker() {
     const marker = document.createElement("div");
     marker.className = "announce-end-marker";
     marker.textContent = "You're up to date!";
-    container.appendChild(marker);
+    if (container.firstChild) {
+      container.insertBefore(marker, container.firstChild);
+    } else {
+      container.appendChild(marker);
+    }
   }
 }
 
 // Initial fetch on opening an Announcements channel — replaces the old
 // "reset to empty" placeholder behavior now that persistence is real.
-// Resets all three pieces of pagination state, same as selectChannel
-// resetting currentChannelMessages/channelHasMoreHistory for a channel
-// switch.
+// get_announcement now returns ascending (oldest-first) order, matching
+// get_channel_history's own convention, so appending in the order
+// received naturally puts the newest post at the bottom.
 async function loadAnnouncementPosts(channelId) {
   currentAnnouncementPosts = [];
   announcementHasMoreHistory = true;
@@ -1198,32 +1201,48 @@ async function loadAnnouncementPosts(channelId) {
     currentAnnouncementPosts = data.posts;
     if (data.posts.length < 25) announcementHasMoreHistory = false;
     data.posts.forEach(post => container.appendChild(buildAnnouncementPostCard(post)));
-    updateAnnouncementEndMarker();
+    updateAnnouncementStartMarker();
+    container.scrollTop = container.scrollHeight;
   } catch (e) { /* leave empty on failure */ }
 }
 
-// Triggered when the user scrolls toward the BOTTOM of currently-loaded
-// posts — opposite end from loadOlderChannelMessages, since Announcements
-// is newest-first/composer-on-top rather than oldest-first/composer-on-
-// bottom. Same cursor-based pagination shape otherwise (oldest loaded
-// post's real id, via before_id).
+// Triggered when the user scrolls toward the TOP of currently-loaded
+// posts — same direction and cursor (oldest loaded post's real id, via
+// before_id) as loadOlderChannelMessages, now that Announcements
+// matches chat's own newest-at-bottom orientation. Same scroll-position
+// preservation trick too, so prepending older posts above doesn't
+// visually jump the view.
 async function loadOlderAnnouncementPosts() {
   if (announcementIsLoadingMore || !announcementHasMoreHistory || currentAnnouncementPosts.length === 0) return;
-  const oldest = currentAnnouncementPosts[currentAnnouncementPosts.length - 1];
+  const oldest = currentAnnouncementPosts[0];
   if (!oldest.id) return;
   announcementIsLoadingMore = true;
+
+  const container = document.getElementById("announcements-posts");
+  const prevScrollHeight = container.scrollHeight;
+  const prevScrollTop = container.scrollTop;
 
   try {
     const response = await fetch(`https://${serverAddress}/get_announcement/${currentChannelId}?before_id=${oldest.id}`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
     if (data.posts.length < 25) announcementHasMoreHistory = false;
-    currentAnnouncementPosts = currentAnnouncementPosts.concat(data.posts);
-    const container = document.getElementById("announcements-posts");
+    currentAnnouncementPosts = data.posts.concat(currentAnnouncementPosts);
     const existingMarker = container.querySelector(".announce-end-marker");
     if (existingMarker) existingMarker.remove();
-    data.posts.forEach(post => container.appendChild(buildAnnouncementPostCard(post)));
-    updateAnnouncementEndMarker();
+    // Inserted in reverse so the batch ends up in the right ascending
+    // order once each is individually placed at the current top —
+    // same reasoning as any repeated insertBefore(firstChild) loop.
+    for (let i = data.posts.length - 1; i >= 0; i--) {
+      const card = buildAnnouncementPostCard(data.posts[i]);
+      if (container.firstChild) {
+        container.insertBefore(card, container.firstChild);
+      } else {
+        container.appendChild(card);
+      }
+    }
+    updateAnnouncementStartMarker();
+    container.scrollTop = container.scrollHeight - prevScrollHeight + prevScrollTop;
   } catch (e) { /* leave state as-is on failure */ }
 
   announcementIsLoadingMore = false;
@@ -1231,7 +1250,7 @@ async function loadOlderAnnouncementPosts() {
 
 document.getElementById("announcements-posts").addEventListener("scroll", () => {
   const el = document.getElementById("announcements-posts");
-  if (el.scrollTop + el.clientHeight > el.scrollHeight - 40) loadOlderAnnouncementPosts();
+  if (el.scrollTop < 40) loadOlderAnnouncementPosts();
 });
 
 
@@ -2071,6 +2090,21 @@ function formatClusterTime(date) {
   if (ageMs < 24 * 60 * 60 * 1000) return timeStr;
   const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
   return `${dateStr} \u00b7 ${timeStr}`;
+}
+
+// Backend timestamps (post_announcement, get_announcement, and
+// Channel_messages' own timestamp — this bug is app-wide, not
+// Announcements-specific) come back as str(datetime) with NO timezone
+// marker, e.g. "2026-09-05 18:23:11.123456". That's a naive UTC value,
+// but a browser's Date constructor treats a space-separated string with
+// no marker as LOCAL time, silently misreading it by the local UTC
+// offset. Client-generated timestamps (new Date().toISOString(), used
+// for a post's own optimistic render before the real fetch confirms it)
+// are already valid ISO-8601 with a trailing Z and don't need this.
+function parseUtcTimestamp(ts) {
+  if (!ts) return new Date();
+  if (ts.includes("T")) return new Date(ts);
+  return new Date(ts.replace(" ", "T") + "Z");
 }
 
 // Checks whether a message's raw content is exactly an invite link and,

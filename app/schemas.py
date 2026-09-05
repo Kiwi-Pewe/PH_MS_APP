@@ -62,3 +62,9 @@ class Channel_create(BaseModel):
     name: str
     channel_type: str
     is_private: bool = False
+
+class Announcements(BaseModel):
+    channel_id: int
+    title: str
+    body: str
+

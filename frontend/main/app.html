@@ -143,68 +143,31 @@
           </div>
         </div>
 
-        <!-- Announcements channel type — visual layout only so far (see
-             Handoff.md, "Announcements channel" design log). Composer
+        <!-- Announcements channel type (see Handoff.md, "Announcements
+             channel" design log). Composer
              sits at the TOP here, opposite every other channel type,
              and posts render as self-contained cards rather than a
              clustered message feed — deliberate, confirmed
              Announcements-specific layout, not a bug. Hidden by
              default; selectChannel() toggles this on/off against
              #channel-body/#channel-composer based on channel_type.
-             Posts below are hardcoded placeholder content for this
-             visual pass only — nothing here is wired to real data yet. -->
+             Real creation is wired (openAnnouncementModal below);
+             persistence/fetch-on-load is the next step, not this one. -->
         <div id="announcements-view" style="display:none;">
           <div class="announce-composer-bar" id="announcements-composer-bar">
-            <div class="cluster-avatar">?</div>
+            <div class="cluster-avatar" id="announcements-composer-avatar">?</div>
             <div class="announce-composer-placeholder">Post an announcement</div>
           </div>
+          <!-- Populated entirely by JS now (renderAnnouncementPost, in
+               either selectChannel's reset or the announcement_created
+               ws.onmessage branch) — no persistence/fetch-on-load yet
+               (that's the next build step per Handoff.md), so this is
+               genuinely empty on every channel switch until something
+               is posted THIS session. Not a bug; the two example posts
+               that used to live here were removed once real creation
+               existed, since leaving fake ones in would make it
+               impossible to tell whether a real post actually worked. -->
           <div id="announcements-posts">
-            <div class="announce-post">
-              <div class="announce-post-top">
-                <div class="cluster-avatar">K</div>
-                <div class="announce-post-meta">
-                  <div class="announce-post-name">Kiwi</div>
-                  <div class="announce-post-role">Owner</div>
-                </div>
-                <button class="announce-post-menu-btn" title="More (coming soon)">&#8942;</button>
-              </div>
-              <div class="announce-post-title">Server rules updated</div>
-              <div class="announce-post-body">Took a pass at the rules channel to make a few things clearer — nothing major changed, just easier to read now.</div>
-              <div class="announce-post-date">2 hours ago</div>
-              <div class="announce-divider"></div>
-              <div class="announce-reactions-row">
-                <div class="announce-reactions">
-                  <button class="announce-add-reaction-btn" title="React (coming soon)">+</button>
-                </div>
-              </div>
-              <div class="announce-divider"></div>
-              <div class="announce-comments-row">
-                <button class="announce-comments-btn">3 comments</button>
-              </div>
-            </div>
-            <div class="announce-post">
-              <div class="announce-post-top">
-                <div class="cluster-avatar">K</div>
-                <div class="announce-post-meta">
-                  <div class="announce-post-name">Kiwi</div>
-                  <div class="announce-post-role">Owner</div>
-                </div>
-                <button class="announce-post-menu-btn" title="More (coming soon)">&#8942;</button>
-              </div>
-              <div class="announce-post-title">Welcome to the server!</div>
-              <div class="announce-post-body">Glad to have you here. Check out the categories on the left to get started, and feel free to introduce yourself in general.</div>
-              <div class="announce-post-date">1 day ago</div>
-              <div class="announce-divider"></div>
-              <div class="announce-reactions-row">
-                <div class="announce-reactions">
-                  <button class="announce-add-reaction-btn" title="React (coming soon)">+</button>
-                </div>
-              </div>
-              <div class="announce-divider"></div>
-              <div class="announce-comments-row">
-                <button class="announce-comments-btn">0 comments</button>
-              </div>
-            </div>
             <div class="announce-end-marker">You're up to date!</div>
           </div>
         </div>
@@ -479,6 +442,32 @@
       <div id="channel-modal-footer">
         <button class="ghost-btn" id="channel-modal-cancel-btn">Cancel</button>
         <button class="pill-btn" id="channel-modal-create-btn" disabled>Create Channel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Announcement modal — reached by clicking the composer bar
+       at the top of an Announcements channel (see #announcements-view
+       above). Same overlay/box/footer pattern as the category/channel
+       modals. Deliberately NOT reusing .server-name-input for the body
+       field — a textarea, not a single-line input, is needed for a
+       post body of any real length. -->
+  <div id="announcement-modal-overlay" style="display:none;">
+    <div id="announcement-modal">
+      <div class="view-header">
+        <span>Post an Announcement</span>
+        <button class="icon-btn" id="announcement-modal-close" title="Close">&times;</button>
+      </div>
+      <div class="view-body">
+        <label class="server-modal-label" for="announcement-title-input">Title</label>
+        <input type="text" id="announcement-title-input" class="server-name-input" maxlength="200" placeholder="Announcement title">
+
+        <label class="server-modal-label" for="announcement-body-input">Body</label>
+        <textarea id="announcement-body-input" class="announce-body-input" placeholder="Write your announcement..." rows="6"></textarea>
+      </div>
+      <div id="announcement-modal-footer">
+        <button class="ghost-btn" id="announcement-modal-cancel-btn">Cancel</button>
+        <button class="pill-btn" id="announcement-modal-post-btn">Post</button>
       </div>
     </div>
   </div>

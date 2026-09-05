@@ -4,8 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
-from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Party_members, Invite_model
-from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite, Category_create, Channel_create
+from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Party_members, Invite_model, Announcement_post
+from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite, Category_create, Channel_create, Announcements
 from app.database import get_db, Base, engine, SessionLocal
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
 from datetime import datetime, timedelta
@@ -780,6 +780,34 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return "success"
+
+@app.post("/post_announcement")
+async def create_post(announcement: Announcements, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel_found = database.query(Server_channels).filter(Server_channels.id == announcement.channel_id).first()
+    if not channel_found or not channel_found.channel_type == "announcements":
+        raise HTTPException(status_code= 404, detail= "No channel found")
+
+    category = database.query(Server_categories).filter(Server_categories.id == channel_found.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    if server.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="user is not owner")
+
+    new_post = Announcement_post(
+        channel_id = announcement.channel_id,
+        title = announcement.title,
+        body = announcement.body,
+        sender_id = current_user.id
+    )
+    database.add(new_post)
+    database.commit()
+    database.refresh(new_post)
+    payload = {
+        "type": "announcement_created",
+        "server_id": server.id,
+        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username}
+        }
+    await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body}
 
 async def server_broadcast(server_id, payload, database, exclude_user_id=None):
     all_members = database.query(Server_members).filter(Server_members.server_id == server_id).all()

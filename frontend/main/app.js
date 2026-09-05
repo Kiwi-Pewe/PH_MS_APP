@@ -215,6 +215,18 @@ function connectSocket() {
         }
       }
     }
+
+    // Only render if this exact Announcements channel is the one
+    // currently open — same guard channel_message uses against
+    // currentChannelId, since a server-wide broadcast can be about any
+    // channel in the server, not necessarily the one on screen. The
+    // sender never receives this (server_broadcast's exclude_user_id),
+    // so no risk of double-rendering their own post.
+    if (data.type === "announcement_created") {
+      if (currentChannelId === data.post.channel_id) {
+        renderAnnouncementPost(data.post, /*prepend=*/true);
+      }
+    }
   };
 }
 
@@ -677,13 +689,17 @@ async function selectChannel(channel, rowEl) {
 
   // Announcements gets its own view entirely — composer-on-top, card-
   // style posts — rather than sharing #channel-body/#channel-composer's
-  // clustered-message layout. Visual pass only right now (see
-  // Handoff.md): this just shows the static placeholder markup already
-  // in app.html, it doesn't fetch or render real posts yet.
+  // clustered-message layout. Real creation is wired (see
+  // openAnnouncementModal/renderAnnouncementPost below) but there's no
+  // persistence/fetch-on-load yet, so every channel switch resets to
+  // empty — this is NOT a bug, it's the confirmed next build step per
+  // Handoff.md, just not this one.
   if (isAnnouncement) {
     channelBody.style.display = "none";
     channelComposer.style.display = "none";
     announcementsView.style.display = "flex";
+    document.getElementById("announcements-composer-avatar").textContent = (myUsername || "?").charAt(0).toUpperCase();
+    document.getElementById("announcements-posts").innerHTML = '<div class="announce-end-marker">You\'re up to date!</div>';
     return;
   }
   announcementsView.style.display = "none";
@@ -964,6 +980,159 @@ async function submitCreateChannel() {
   }
   closeChannelModal();
   refreshServerSidebar();
+}
+
+// ---- Create Announcement modal ----
+// Reached by clicking the composer bar at the top of an Announcements
+// channel (see selectChannel's isAnnouncement branch above). Unlike
+// submitCreateCategory/submitCreateChannel, this does NOT refresh from
+// a fetch afterward — there's no GET route for existing posts yet
+// (that's the "persistence" build step, still ahead), so the creator's
+// own card is built directly from this route's response instead. Other
+// connected members get the new post via server_broadcast + the
+// announcement_created ws.onmessage branch below, same as
+// category_created/channel_created.
+document.getElementById("announcements-composer-bar").addEventListener("click", openAnnouncementModal);
+document.getElementById("announcement-modal-close").addEventListener("click", closeAnnouncementModal);
+document.getElementById("announcement-modal-cancel-btn").addEventListener("click", closeAnnouncementModal);
+document.getElementById("announcement-modal-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "announcement-modal-overlay") closeAnnouncementModal();
+});
+document.getElementById("announcement-modal-post-btn").addEventListener("click", submitCreateAnnouncement);
+
+function openAnnouncementModal() {
+  document.getElementById("announcement-title-input").value = "";
+  document.getElementById("announcement-body-input").value = "";
+  document.getElementById("announcement-modal-overlay").style.display = "flex";
+  document.getElementById("announcement-title-input").focus();
+}
+
+function closeAnnouncementModal() {
+  document.getElementById("announcement-modal-overlay").style.display = "none";
+}
+
+async function submitCreateAnnouncement() {
+  const title = document.getElementById("announcement-title-input").value.trim();
+  const body = document.getElementById("announcement-body-input").value.trim();
+  if (!title || !body) return; // both required — no empty posts
+
+  let post;
+  try {
+    const response = await fetch(`https://${serverAddress}/post_announcement`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ channel_id: currentChannelId, title, body })
+    });
+    if (!response.ok) {
+      console.error(`Failed to post announcement: ${response.status}`);
+      return;
+    }
+    post = await response.json();
+  } catch (e) {
+    console.error("Failed to post announcement, network error:", e);
+    return;
+  }
+  closeAnnouncementModal();
+  // post_announcement's response doesn't include created_at/username
+  // (see Handoff.md) — using client-side values here for the creator's
+  // own immediate view is a deliberate, temporary stand-in until the
+  // persistence pass adds a real fetch-on-load and can supply the
+  // authoritative timestamp instead.
+  renderAnnouncementPost({
+    id: post.id, title: post.title, body: post.body,
+    created_at: new Date().toISOString(), username: myUsername
+  }, /*prepend=*/true);
+}
+
+// Shared between the creator's own immediate render (above) and the
+// announcement_created broadcast handler (in ws.onmessage) — one shape,
+// one function, so the two can never visually drift apart. Built with
+// createElement/textContent throughout, not innerHTML with concatenated
+// strings, matching how renderClusteredMessages handles message content
+// — post title/body/username are user-supplied text, never HTML.
+function renderAnnouncementPost(post, prepend) {
+  const container = document.getElementById("announcements-posts");
+
+  const card = document.createElement("div");
+  card.className = "announce-post";
+
+  const top = document.createElement("div");
+  top.className = "announce-post-top";
+  const avatar = document.createElement("div");
+  avatar.className = "cluster-avatar";
+  avatar.textContent = (post.username || "?").charAt(0).toUpperCase();
+  const meta = document.createElement("div");
+  meta.className = "announce-post-meta";
+  const name = document.createElement("div");
+  name.className = "announce-post-name";
+  name.textContent = post.username || "Unknown";
+  const role = document.createElement("div");
+  role.className = "announce-post-role";
+  // Only the owner can post right now (server-enforced in
+  // post_announcement) — hardcoding "Owner" here is accurate today,
+  // not a shortcut that'll silently go stale until real roles exist,
+  // at which point this needs to come from the payload instead.
+  role.textContent = "Owner";
+  meta.appendChild(name);
+  meta.appendChild(role);
+  const menuBtn = document.createElement("button");
+  menuBtn.className = "announce-post-menu-btn";
+  menuBtn.title = "More (coming soon)";
+  menuBtn.innerHTML = "&#8942;";
+  top.appendChild(avatar);
+  top.appendChild(meta);
+  top.appendChild(menuBtn);
+
+  const title = document.createElement("div");
+  title.className = "announce-post-title";
+  title.textContent = post.title;
+
+  const body = document.createElement("div");
+  body.className = "announce-post-body";
+  body.textContent = post.body;
+
+  const date = document.createElement("div");
+  date.className = "announce-post-date";
+  date.textContent = new Date(post.created_at).toLocaleString();
+
+  const dividerTop = document.createElement("div");
+  dividerTop.className = "announce-divider";
+  const dividerMid = document.createElement("div");
+  dividerMid.className = "announce-divider";
+
+  const reactionsRow = document.createElement("div");
+  reactionsRow.className = "announce-reactions-row";
+  const reactions = document.createElement("div");
+  reactions.className = "announce-reactions";
+  const addReactionBtn = document.createElement("button");
+  addReactionBtn.className = "announce-add-reaction-btn";
+  addReactionBtn.title = "React (coming soon)";
+  addReactionBtn.textContent = "+";
+  reactions.appendChild(addReactionBtn);
+  reactionsRow.appendChild(reactions);
+
+  const commentsRow = document.createElement("div");
+  commentsRow.className = "announce-comments-row";
+  const commentsBtn = document.createElement("button");
+  commentsBtn.className = "announce-comments-btn";
+  commentsBtn.textContent = "0 comments";
+  commentsRow.appendChild(commentsBtn);
+
+  card.appendChild(top);
+  card.appendChild(title);
+  card.appendChild(body);
+  card.appendChild(date);
+  card.appendChild(dividerTop);
+  card.appendChild(reactionsRow);
+  card.appendChild(dividerMid);
+  card.appendChild(commentsRow);
+
+  if (prepend && container.firstChild) {
+    container.insertBefore(card, container.firstChild);
+  } else {
+    container.appendChild(card);
+  }
 }
 
 // ---- Party creation modal ----

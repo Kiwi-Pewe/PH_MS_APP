@@ -127,3 +127,12 @@ class Invite_model(Base):
     use_count = Column(Integer, default= 0)
     created_at = Column(DateTime, server_default=func.now())
 
+class Announcement_post(Base):
+    __tablename__ = "announcements"
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    title = Column(String)
+    body = Column(String)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    comment_count = Column(Integer, default= 0)

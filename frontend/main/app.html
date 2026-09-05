@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=1">
-<link rel="stylesheet" href="app.css?v=13">
+<link rel="stylesheet" href="app.css?v=14">
 </head>
 <body>
 
@@ -151,12 +151,35 @@
              Announcements-specific layout, not a bug. Hidden by
              default; selectChannel() toggles this on/off against
              #channel-body/#channel-composer based on channel_type.
-             Real creation is wired (openAnnouncementModal below);
-             persistence/fetch-on-load is the next step, not this one. -->
+             Real creation is wired (see showAnnounceComposerEditing/
+             submitCreateAnnouncement in app.js); persistence/
+             fetch-on-load is the next step, not this one. -->
         <div id="announcements-view" style="display:none;">
+          <!-- Two states in the SAME spot, toggled by JS
+               (showAnnounceComposerEditing) — not a modal. Default:
+               a search box (non-functional placeholder for now, no
+               search backend exists yet) + New Post, matching the
+               reference design's "one bar, two jobs" approach. New
+               Post is hidden entirely for non-owners (see
+               selectChannel) rather than greyed out. -->
           <div class="announce-composer-bar" id="announcements-composer-bar">
-            <div class="cluster-avatar" id="announcements-composer-avatar">?</div>
-            <div class="announce-composer-placeholder">Post an announcement</div>
+            <div id="announce-composer-default" class="announce-composer-default">
+              <input type="text" class="search-box announce-composer-search" placeholder="Search or create a post..." disabled>
+              <button class="pill-btn" id="announce-new-post-btn">New Post</button>
+            </div>
+            <div id="announce-composer-editing" class="announce-composer-editing" style="display:none;">
+              <div class="announce-composer-editing-header">
+                <button class="icon-btn" id="announce-composer-cancel-btn" title="Cancel">&times;</button>
+                <input type="text" id="announcement-title-input" class="announce-composer-title-input" maxlength="200" placeholder="Title">
+              </div>
+              <div class="announce-composer-editing-body">
+                <textarea id="announcement-body-input" class="announce-composer-body-input" placeholder="Enter a message..." rows="3"></textarea>
+                <button class="composer-icon-btn" id="announce-composer-image-btn" title="Attach image (coming soon)">&#128247;</button>
+              </div>
+              <div class="announce-composer-editing-footer">
+                <button class="pill-btn" id="announcement-post-btn">Post</button>
+              </div>
+            </div>
           </div>
           <!-- Populated entirely by JS now (renderAnnouncementPost, in
                either selectChannel's reset or the announcement_created
@@ -446,32 +469,6 @@
     </div>
   </div>
 
-  <!-- Create Announcement modal — reached by clicking the composer bar
-       at the top of an Announcements channel (see #announcements-view
-       above). Same overlay/box/footer pattern as the category/channel
-       modals. Deliberately NOT reusing .server-name-input for the body
-       field — a textarea, not a single-line input, is needed for a
-       post body of any real length. -->
-  <div id="announcement-modal-overlay" style="display:none;">
-    <div id="announcement-modal">
-      <div class="view-header">
-        <span>Post an Announcement</span>
-        <button class="icon-btn" id="announcement-modal-close" title="Close">&times;</button>
-      </div>
-      <div class="view-body">
-        <label class="server-modal-label" for="announcement-title-input">Title</label>
-        <input type="text" id="announcement-title-input" class="server-name-input" maxlength="200" placeholder="Announcement title">
-
-        <label class="server-modal-label" for="announcement-body-input">Body</label>
-        <textarea id="announcement-body-input" class="announce-body-input" placeholder="Write your announcement..." rows="6"></textarea>
-      </div>
-      <div id="announcement-modal-footer">
-        <button class="ghost-btn" id="announcement-modal-cancel-btn">Cancel</button>
-        <button class="pill-btn" id="announcement-modal-post-btn">Post</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Invite panel — shared by both servers and parties (openInviteModal
        takes the type so one panel handles both), reached via each's own
        context menu (see showServerContextMenu/showPartyContextMenu in
@@ -505,6 +502,6 @@
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=1"></script>
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>

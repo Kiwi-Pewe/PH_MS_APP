@@ -270,12 +270,9 @@
 #announcements-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 
 .announce-composer-bar {
-  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
-  margin: 16px; padding: 10px 14px; cursor: pointer;
+  flex: 0 0 auto; margin: 16px; padding: 10px 14px;
   background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
 }
-.announce-composer-bar:hover { border-color: var(--text-dim); }
-.announce-composer-placeholder { color: var(--text-dim); font-size: 14px; }
 
 #announcements-posts { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px; }
 
@@ -554,35 +551,36 @@
   padding: 12px 16px; border-top: 1px solid var(--border);
 }
 
-/* ---- Create Announcement modal ---- */
-/* Same overlay/box treatment as the category/channel modals. Reuses
-   .server-modal-label/.server-name-input for the title field; the body
-   field needs its own class since a single-line input can't hold a
-   real post body. */
-#announcement-modal-overlay {
-  position: fixed; inset: 0; z-index: 900;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex; align-items: center; justify-content: center;
+/* ---- Announcement composer (inline, not a modal) ---- */
+/* Two states living in the SAME .announce-composer-bar slot, toggled by
+   JS (showAnnounceComposerEditing/hideAnnounceComposerEditing) — a
+   previous pass here used a popup modal, which was a deviation from
+   this channel type's whole point ("composer at the top", decided back
+   when Announcements was first designed) and got corrected once it was
+   actually compared side-by-side against the reference design. */
+.announce-composer-default { display: flex; align-items: center; gap: 10px; }
+.announce-composer-search { flex: 1 1 auto; }
+/* The search box is a non-functional placeholder for now — no backend
+   search route exists yet (posts aren't even persisted across a reload
+   yet), so it's disabled rather than pretending to work. */
+.announce-composer-search:disabled { cursor: default; opacity: 0.7; }
+
+.announce-composer-editing { display: flex; flex-direction: column; gap: 10px; }
+.announce-composer-editing-header { display: flex; align-items: center; gap: 8px; }
+.announce-composer-title-input {
+  flex: 1 1 auto; background: transparent; border: none; outline: none;
+  color: var(--text); font-size: 16px; font-weight: 700;
 }
-#announcement-modal {
-  width: 480px;
-  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
-  display: flex; flex-direction: column; overflow: hidden;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+.announce-composer-title-input::placeholder { color: var(--text-dim); font-weight: 700; }
+.announce-composer-editing-body { position: relative; }
+.announce-composer-body-input {
+  width: 100%; background: transparent; border: none; outline: none;
+  color: var(--text); font-size: 14px; font-family: inherit; resize: vertical;
+  padding-right: 36px; box-sizing: border-box;
 }
-#announcement-modal .view-header { flex: 0 0 auto; }
-#announcement-modal .view-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
-#announcement-modal .server-modal-label:not(:first-child) { margin-top: 14px; }
-.announce-body-input {
-  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px;
-  padding: 8px 10px; color: var(--text); font-size: 13px; font-family: inherit;
-  resize: vertical; min-height: 100px;
-}
-.announce-body-input:focus { outline: none; border-color: var(--accent-submenu); }
-#announcement-modal-footer {
-  flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px;
-  padding: 12px 16px; border-top: 1px solid var(--border);
-}
+.announce-composer-body-input::placeholder { color: var(--text-dim); }
+#announce-composer-image-btn { position: absolute; top: 0; right: 0; }
+.announce-composer-editing-footer { display: flex; justify-content: flex-end; }
 
 /* ---- Channel creation modal ---- */
 /* Same overlay/box treatment as the category modal, plus the type-

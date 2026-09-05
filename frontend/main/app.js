@@ -690,15 +690,20 @@ async function selectChannel(channel, rowEl) {
   // Announcements gets its own view entirely — composer-on-top, card-
   // style posts — rather than sharing #channel-body/#channel-composer's
   // clustered-message layout. Real creation is wired (see
-  // openAnnouncementModal/renderAnnouncementPost below) but there's no
-  // persistence/fetch-on-load yet, so every channel switch resets to
-  // empty — this is NOT a bug, it's the confirmed next build step per
-  // Handoff.md, just not this one.
+  // showAnnounceComposerEditing/submitCreateAnnouncement below) but
+  // there's no persistence/fetch-on-load yet, so every channel switch
+  // resets to empty — this is NOT a bug, it's the confirmed next build
+  // step per Handoff.md, just not this one.
   if (isAnnouncement) {
     channelBody.style.display = "none";
     channelComposer.style.display = "none";
     announcementsView.style.display = "flex";
-    document.getElementById("announcements-composer-avatar").textContent = (myUsername || "?").charAt(0).toUpperCase();
+    hideAnnounceComposerEditing();
+    // Only the owner can post right now (server-enforced in
+    // post_announcement) — hidden entirely for everyone else rather
+    // than shown greyed-out, per Kiwi's call when this was designed.
+    document.getElementById("announce-new-post-btn").style.display =
+      (myUserId === currentServerOwnerId) ? "inline-flex" : "none";
     document.getElementById("announcements-posts").innerHTML = '<div class="announce-end-marker">You\'re up to date!</div>';
     return;
   }
@@ -982,33 +987,35 @@ async function submitCreateChannel() {
   refreshServerSidebar();
 }
 
-// ---- Create Announcement modal ----
-// Reached by clicking the composer bar at the top of an Announcements
-// channel (see selectChannel's isAnnouncement branch above). Unlike
-// submitCreateCategory/submitCreateChannel, this does NOT refresh from
-// a fetch afterward — there's no GET route for existing posts yet
-// (that's the "persistence" build step, still ahead), so the creator's
-// own card is built directly from this route's response instead. Other
+// ---- Announcement composer (inline, not a modal) ----
+// Two states in the same #announcements-composer-bar slot: default
+// (search box + New Post) and editing (title/body/Post), toggled by
+// show/hideAnnounceComposerEditing rather than showing a separate
+// popup — matches the reference design's actual behavior (composer
+// takes over the top bar in place) rather than the modal this used to
+// be before it got compared side-by-side against real Discord/Guilded
+// screenshots and corrected. Doesn't refresh from a fetch afterward —
+// there's no GET route for existing posts yet (that's the
+// "persistence" build step, still ahead) — so the creator's own card
+// is built directly from this route's response instead. Other
 // connected members get the new post via server_broadcast + the
-// announcement_created ws.onmessage branch below, same as
+// announcement_created ws.onmessage branch, same as
 // category_created/channel_created.
-document.getElementById("announcements-composer-bar").addEventListener("click", openAnnouncementModal);
-document.getElementById("announcement-modal-close").addEventListener("click", closeAnnouncementModal);
-document.getElementById("announcement-modal-cancel-btn").addEventListener("click", closeAnnouncementModal);
-document.getElementById("announcement-modal-overlay").addEventListener("click", (e) => {
-  if (e.target.id === "announcement-modal-overlay") closeAnnouncementModal();
-});
-document.getElementById("announcement-modal-post-btn").addEventListener("click", submitCreateAnnouncement);
+document.getElementById("announce-new-post-btn").addEventListener("click", showAnnounceComposerEditing);
+document.getElementById("announce-composer-cancel-btn").addEventListener("click", hideAnnounceComposerEditing);
+document.getElementById("announcement-post-btn").addEventListener("click", submitCreateAnnouncement);
 
-function openAnnouncementModal() {
+function showAnnounceComposerEditing() {
   document.getElementById("announcement-title-input").value = "";
   document.getElementById("announcement-body-input").value = "";
-  document.getElementById("announcement-modal-overlay").style.display = "flex";
+  document.getElementById("announce-composer-default").style.display = "none";
+  document.getElementById("announce-composer-editing").style.display = "flex";
   document.getElementById("announcement-title-input").focus();
 }
 
-function closeAnnouncementModal() {
-  document.getElementById("announcement-modal-overlay").style.display = "none";
+function hideAnnounceComposerEditing() {
+  document.getElementById("announce-composer-editing").style.display = "none";
+  document.getElementById("announce-composer-default").style.display = "flex";
 }
 
 async function submitCreateAnnouncement() {
@@ -1033,7 +1040,7 @@ async function submitCreateAnnouncement() {
     console.error("Failed to post announcement, network error:", e);
     return;
   }
-  closeAnnouncementModal();
+  hideAnnounceComposerEditing();
   // post_announcement's response doesn't include created_at/username
   // (see Handoff.md) — using client-side values here for the creator's
   // own immediate view is a deliberate, temporary stand-in until the

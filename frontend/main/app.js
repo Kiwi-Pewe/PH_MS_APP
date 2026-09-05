@@ -1158,29 +1158,27 @@ function appendNewAnnouncementPost(post) {
   currentAnnouncementPosts.push(post);
   const container = document.getElementById("announcements-posts");
   container.appendChild(buildAnnouncementPostCard(post));
+  updateAnnouncementEndMarker();
   container.scrollTop = container.scrollHeight;
 }
 
-// Sits at the TOP once older history is exhausted — the "beginning of
-// the channel" position, not "you're up to date" (that phrasing only
-// made sense back when newest sat at the top; now that newest is at
-// the bottom like every other feed in the app, there's nothing special
-// to announce there, same as chat shows no marker at its own bottom).
-// Still open whether Kiwi wants different wording/treatment here.
-function updateAnnouncementStartMarker() {
+// Sits permanently at the very bottom, after the newest loaded post —
+// static, not tied to whether older history is exhausted (that's a
+// TOP-of-list concern, unrelated to this). Matches the original Guilded
+// reference exactly: a standing "you're caught up" marker right under
+// the latest post. Not yet aware of "someone posted while you were
+// scrolled up" (see Handoff.md's scroll-position design note) — that's
+// explicitly deferred, so this is honest today (nothing's out of date
+// upon load) but will need real unread-tracking to stay honest once a
+// user can be scrolled away from the bottom while new posts land.
+function updateAnnouncementEndMarker() {
   const container = document.getElementById("announcements-posts");
   const existing = container.querySelector(".announce-end-marker");
   if (existing) existing.remove();
-  if (!announcementHasMoreHistory) {
-    const marker = document.createElement("div");
-    marker.className = "announce-end-marker";
-    marker.textContent = "You're up to date!";
-    if (container.firstChild) {
-      container.insertBefore(marker, container.firstChild);
-    } else {
-      container.appendChild(marker);
-    }
-  }
+  const marker = document.createElement("div");
+  marker.className = "announce-end-marker";
+  marker.textContent = "You're up to date!";
+  container.appendChild(marker);
 }
 
 // Initial fetch on opening an Announcements channel — replaces the old
@@ -1201,7 +1199,7 @@ async function loadAnnouncementPosts(channelId) {
     currentAnnouncementPosts = data.posts;
     if (data.posts.length < 25) announcementHasMoreHistory = false;
     data.posts.forEach(post => container.appendChild(buildAnnouncementPostCard(post)));
-    updateAnnouncementStartMarker();
+    updateAnnouncementEndMarker();
     container.scrollTop = container.scrollHeight;
   } catch (e) { /* leave empty on failure */ }
 }
@@ -1228,8 +1226,9 @@ async function loadOlderAnnouncementPosts() {
     const data = await response.json();
     if (data.posts.length < 25) announcementHasMoreHistory = false;
     currentAnnouncementPosts = data.posts.concat(currentAnnouncementPosts);
-    const existingMarker = container.querySelector(".announce-end-marker");
-    if (existingMarker) existingMarker.remove();
+    // No marker handling here — it's pinned at the true bottom of the
+    // list (see appendNewAnnouncementPost/loadAnnouncementPosts) and
+    // prepending older posts at the TOP never disturbs it.
     // Inserted in reverse so the batch ends up in the right ascending
     // order once each is individually placed at the current top —
     // same reasoning as any repeated insertBefore(firstChild) loop.
@@ -1241,7 +1240,6 @@ async function loadOlderAnnouncementPosts() {
         container.appendChild(card);
       }
     }
-    updateAnnouncementStartMarker();
     container.scrollTop = container.scrollHeight - prevScrollHeight + prevScrollTop;
   } catch (e) { /* leave state as-is on failure */ }
 

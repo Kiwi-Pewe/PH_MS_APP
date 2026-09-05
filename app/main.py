@@ -841,6 +841,8 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
             "body": post.body,
             "created_at": str(post.created_at)
         })
+
+    recent_post.reverse()
     return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "posts": recent_post}
 
 

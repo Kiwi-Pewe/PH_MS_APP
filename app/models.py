@@ -136,3 +136,11 @@ class Announcement_post(Base):
     sender_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
     comment_count = Column(Integer, default= 0)
+
+class Announcement_comment(Base):
+    __tablename__= "announcement_comments"
+    id = Column(Integer, primary_key = True)
+    post_id = Column(Integer, ForeignKey("announcements.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    created_at = Column(DateTime, server_default=func.now())

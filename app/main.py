@@ -4,8 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
-from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Party_members, Invite_model, Announcement_post
-from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite, Category_create, Channel_create, Announcements
+from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Party_members, Invite_model, Announcement_post, Announcement_comment
+from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite, Category_create, Channel_create, Announcements, Comment_create
 from app.database import get_db, Base, engine, SessionLocal
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
 from datetime import datetime, timedelta
@@ -845,6 +845,71 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
     recent_post.reverse()
     return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "posts": recent_post}
 
+@app.post("/post_comment")
+async def post_comment(comment: Comment_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    announcement = database.query(Announcement_post).filter(Announcement_post.id == comment.post_id).first()
+    if not announcement:
+        raise HTTPException(status_code=404, detail="post not found")
+
+    channel = database.query(Server_channels).filter(Server_channels.id == announcement.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+
+    if not is_member:
+        raise HTTPException(status_code=404, detail="membership not found")
+
+    new_comment = Announcement_comment(
+        post_id = announcement.id,
+        sender_id = current_user.id,
+        content = comment.content
+    )
+    announcement.comment_count += 1
+    database.add(new_comment)
+    database.commit()
+    database.refresh(new_comment)
+    payload = {
+        "type": "announcement_comment",
+        "post_id": comment.post_id,
+        "comment": {"id": new_comment.id, "post_id": new_comment.post_id, "sender_id": current_user.id, "username": current_user.username, "content": comment.content, "created_at": str(new_comment.created_at)}
+    }
+    await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    return {"id": new_comment.id, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count}
+
+@app.get("/get_post_comment/{post_id}")
+def get_post_comments(post_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), after_id: int = None, limit: int = 3):
+    comment = database.query(Announcement_post).filter(Announcement_post.id == post_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    channel = database.query(Server_channels).filter(Server_channels.id == comment.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+
+    if not is_member:
+        raise HTTPException(status_code=404, detail="membership not found")
+
+    if after_id:
+        comment_history = database.query(Announcement_comment).filter(Announcement_comment.post_id == post_id, Announcement_comment.id > after_id).order_by(Announcement_comment.id.asc()).limit(limit).all()
+    else:
+        comment_history = database.query(Announcement_comment).filter(Announcement_comment.post_id == post_id).order_by(Announcement_comment.id.asc()).limit(limit).all()
+     
+    sender_ids = list({user.sender_id for user in comment_history})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
+    username_lookup = {account.id: account.username for account in accounts}
+
+    picked_comments = []
+    for user_comment in comment_history:
+        picked_comments.append({
+            "id": user_comment.id,
+            "post_id": user_comment.post_id,
+            "sender_id": user_comment.sender_id,
+            "username": username_lookup[user_comment.sender_id],
+            "created_at": str(user_comment.created_at)
+        })
+
+    return {"post_id": post_id, "comments": picked_comments}
 
 async def server_broadcast(server_id, payload, database, exclude_user_id=None):
     all_members = database.query(Server_members).filter(Server_members.server_id == server_id).all()

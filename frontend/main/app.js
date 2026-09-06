@@ -69,12 +69,24 @@ let channelHasMoreHistory = true;
 let channelIsLoadingMore = false;
 
 // Announcements equivalent of the above — same cursor-based pagination
-// shape, but since posts are newest-first (composer at the TOP, scroll
-// DOWN for older), "more history" is loaded from the bottom, opposite
-// of channel messages. Reset by selectChannel on every channel switch.
+// shape and same oldest-first/newest-at-bottom orientation as chat
+// itself. Reset by selectChannel on every channel switch.
 let currentAnnouncementPosts = [];
 let announcementHasMoreHistory = true;
 let announcementIsLoadingMore = false;
+
+// Comment threads — one entry per post, NOT reset on channel switch
+// like the post-pagination state above, since a post card (and its
+// thread) only exists in the DOM while its channel is open anyway;
+// stale entries for posts no longer on screen are harmless dead
+// weight, not a correctness risk.
+// commentThreadState[postId] = { expanded, comments: [], hasMore }
+const commentThreadState = {};
+// commentThreadElements[postId] = { btnEl, listEl, loadMoreBtn, sectionEl }
+// — populated once per card in buildAnnouncementPostCard, so a live
+// announcement_comment broadcast can find and update the right card
+// without needing to search the DOM.
+const commentThreadElements = {};
 
 // A same-sender gap this long or longer forces a new cluster/bubble,
 // even without a sender change in between.
@@ -233,6 +245,25 @@ function connectSocket() {
     if (data.type === "announcement_created") {
       if (currentChannelId === data.post.channel_id) {
         appendNewAnnouncementPost(data.post);
+      }
+    }
+
+    // Unlike announcement_created, this isn't gated on the channel
+    // being open — commentThreadElements only has entries for posts
+    // currently rendered on screen at all, so the lookup itself is the
+    // guard. Always updates the count (visible whether or not the
+    // thread is expanded); only appends the actual comment if the
+    // thread is currently expanded, matching how a collapsed thread
+    // doesn't have anything loaded to append into in the first place.
+    if (data.type === "announcement_comment") {
+      const els = commentThreadElements[data.post_id];
+      const state = commentThreadState[data.post_id];
+      if (els) {
+        els.btnEl.textContent = `${data.comment.comment_count} comments`;
+        if (state && state.expanded) {
+          state.comments.push(data.comment);
+          els.listEl.appendChild(buildCommentElement(data.comment));
+        }
       }
     }
   };
@@ -1130,11 +1161,45 @@ function buildAnnouncementPostCard(post) {
   commentsRow.className = "announce-comments-row";
   const commentsBtn = document.createElement("button");
   commentsBtn.className = "announce-comments-btn";
-  // get_announcement_posts doesn't return comment_count yet — harmless
-  // right now since comments don't exist to count, but worth adding to
-  // that route's response once the comments table/routes get built.
   commentsBtn.textContent = `${post.comment_count || 0} comments`;
   commentsRow.appendChild(commentsBtn);
+
+  // Comment thread — collapsed by default, built once per card and
+  // toggled open/closed rather than re-fetched every click (state lives
+  // in commentThreadState, keyed by post id, so re-expanding after a
+  // collapse doesn't re-request the same first page). Registered in
+  // commentThreadElements so the announcement_comment ws.onmessage
+  // branch can find and update this exact card's thread/count from a
+  // live broadcast, even if it isn't currently expanded.
+  const commentsSection = document.createElement("div");
+  commentsSection.className = "announce-comments-section";
+  commentsSection.style.display = "none";
+  const commentsList = document.createElement("div");
+  commentsList.className = "announce-comments-list";
+  const loadMoreBtn = document.createElement("button");
+  loadMoreBtn.className = "announce-comments-loadmore-btn";
+  loadMoreBtn.textContent = "Load 5 more comments";
+  loadMoreBtn.style.display = "none";
+  const commentComposer = document.createElement("div");
+  commentComposer.className = "announce-comment-composer";
+  const commentInput = document.createElement("input");
+  commentInput.type = "text";
+  commentInput.className = "announce-comment-input";
+  commentInput.placeholder = "Add a comment...";
+  const commentSendBtn = document.createElement("button");
+  commentSendBtn.className = "announce-comment-send-btn";
+  commentSendBtn.textContent = "Post";
+  commentComposer.appendChild(commentInput);
+  commentComposer.appendChild(commentSendBtn);
+  commentsSection.appendChild(commentsList);
+  commentsSection.appendChild(loadMoreBtn);
+  commentsSection.appendChild(commentComposer);
+
+  commentThreadElements[post.id] = { btnEl: commentsBtn, listEl: commentsList, loadMoreBtn, sectionEl: commentsSection };
+  commentsBtn.addEventListener("click", () => toggleCommentThread(post.id));
+  loadMoreBtn.addEventListener("click", () => loadMoreComments(post.id));
+  commentSendBtn.addEventListener("click", () => submitComment(post.id, commentInput));
+  commentInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitComment(post.id, commentInput); });
 
   card.appendChild(top);
   card.appendChild(title);
@@ -1144,6 +1209,7 @@ function buildAnnouncementPostCard(post) {
   card.appendChild(reactionsRow);
   card.appendChild(dividerMid);
   card.appendChild(commentsRow);
+  card.appendChild(commentsSection);
   return card;
 }
 
@@ -1250,6 +1316,120 @@ document.getElementById("announcements-posts").addEventListener("scroll", () => 
   const el = document.getElementById("announcements-posts");
   if (el.scrollTop < 40) loadOlderAnnouncementPosts();
 });
+
+// ---- Announcement comment threads ----
+// Built with createElement/textContent throughout, not innerHTML with
+// concatenated strings — same reasoning as buildAnnouncementPostCard,
+// since comment content/username are user-supplied text, never HTML.
+function buildCommentElement(comment) {
+  const row = document.createElement("div");
+  row.className = "announce-comment";
+
+  const avatar = document.createElement("div");
+  avatar.className = "cluster-avatar";
+  avatar.textContent = (comment.username || "?").charAt(0).toUpperCase();
+
+  const body = document.createElement("div");
+  body.className = "announce-comment-body";
+  const header = document.createElement("div");
+  header.className = "announce-comment-header";
+  const name = document.createElement("span");
+  name.className = "announce-comment-name";
+  name.textContent = comment.username || "Unknown";
+  const time = document.createElement("span");
+  time.className = "announce-comment-time";
+  time.textContent = formatClusterTime(parseUtcTimestamp(comment.created_at));
+  header.appendChild(name);
+  header.appendChild(time);
+  const content = document.createElement("div");
+  content.className = "announce-comment-content";
+  content.textContent = comment.content;
+  body.appendChild(header);
+  body.appendChild(content);
+
+  row.appendChild(avatar);
+  row.appendChild(body);
+  return row;
+}
+
+// Expand/collapse only — the actual fetch happens once, the first time
+// a thread is opened (state.comments.length === 0 check below), so
+// collapsing and re-expanding doesn't re-request the same first page.
+async function toggleCommentThread(postId) {
+  const els = commentThreadElements[postId];
+  if (!els) return;
+  let state = commentThreadState[postId];
+  if (!state) {
+    state = { expanded: false, comments: [], hasMore: true };
+    commentThreadState[postId] = state;
+  }
+
+  if (state.expanded) {
+    state.expanded = false;
+    els.sectionEl.style.display = "none";
+    return;
+  }
+  state.expanded = true;
+  els.sectionEl.style.display = "flex";
+  if (state.comments.length === 0 && state.hasMore) {
+    await fetchComments(postId, 3);
+  }
+}
+
+// Shared by the initial 3-comment load and each "load 5 more" click —
+// only the limit differs, both go through the same after_id cursor
+// logic as get_post_comments itself.
+async function fetchComments(postId, limit) {
+  const state = commentThreadState[postId];
+  const els = commentThreadElements[postId];
+  if (!state || !els) return;
+  const lastId = state.comments.length > 0 ? state.comments[state.comments.length - 1].id : null;
+  let url = `https://${serverAddress}/get_post_comment/${postId}?limit=${limit}`;
+  if (lastId) url += `&after_id=${lastId}`;
+
+  try {
+    const response = await fetch(url, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    state.comments = state.comments.concat(data.comments);
+    if (data.comments.length < limit) state.hasMore = false;
+    data.comments.forEach(c => els.listEl.appendChild(buildCommentElement(c)));
+    els.loadMoreBtn.style.display = state.hasMore ? "block" : "none";
+  } catch (e) { /* leave state as-is on failure */ }
+}
+
+function loadMoreComments(postId) {
+  fetchComments(postId, 5);
+}
+
+async function submitComment(postId, inputEl) {
+  const content = inputEl.value.trim();
+  if (!content) return;
+
+  let result;
+  try {
+    const response = await fetch(`https://${serverAddress}/post_comment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ post_id: postId, content })
+    });
+    if (!response.ok) return;
+    result = await response.json();
+  } catch (e) {
+    return;
+  }
+  inputEl.value = "";
+
+  const comment = { id: result.id, content: result.content, created_at: result.created_at, username: myUsername };
+  const state = commentThreadState[postId] || (commentThreadState[postId] = { expanded: true, comments: [], hasMore: false });
+  state.comments.push(comment);
+  const els = commentThreadElements[postId];
+  if (els) {
+    els.listEl.appendChild(buildCommentElement(comment));
+    els.btnEl.textContent = `${result.comment_count} comments`;
+  }
+}
 
 
 // ---- Party creation modal ----

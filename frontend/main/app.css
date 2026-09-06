@@ -320,6 +320,44 @@
 }
 .announce-comments-btn:hover { color: var(--text); }
 
+/* ---- Comment thread ---- */
+/* Collapsed by default (see toggleCommentThread) — this whole block is
+   display:none until the comments button is clicked. Reuses
+   .cluster-avatar for the small avatar circles, matching every other
+   avatar in the app, same as the post cards themselves already do. */
+.announce-comments-section {
+  flex-direction: column; gap: 10px; margin-top: 12px;
+}
+.announce-comments-list { display: flex; flex-direction: column; gap: 10px; }
+.announce-comment { display: flex; gap: 10px; }
+.announce-comment .cluster-avatar { width: 28px; height: 28px; font-size: 12px; flex: 0 0 auto; }
+.announce-comment-body { flex: 1 1 auto; min-width: 0; }
+.announce-comment-header { display: flex; align-items: baseline; gap: 8px; }
+.announce-comment-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.announce-comment-time { font-size: 11px; color: var(--text-dim); }
+.announce-comment-content { font-size: 13px; color: var(--text); line-height: 1.4; word-wrap: break-word; }
+
+.announce-comments-loadmore-btn {
+  background: transparent; color: var(--accent); font-size: 12px; font-weight: 600;
+  align-self: flex-start; padding: 2px 0;
+}
+.announce-comments-loadmore-btn:hover { text-decoration: underline; }
+
+.announce-comment-composer {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+}
+.announce-comment-input {
+  flex: 1 1 auto; background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; color: var(--text); font-size: 13px; font-family: inherit;
+}
+.announce-comment-input:focus { outline: none; border-color: var(--accent-submenu); }
+.announce-comment-input::placeholder { color: var(--text-dim); }
+.announce-comment-send-btn {
+  background: var(--accent); color: #fff; font-size: 12px; font-weight: 700;
+  padding: 6px 12px; border-radius: 6px; flex: 0 0 auto;
+}
+.announce-comment-send-btn:hover { background: var(--accent-hover); }
+
 .announce-end-marker { text-align: center; color: var(--text-dim); font-size: 13px; padding: 8px 0 4px; }
 
 #user-list { display: none; width: 220px; border-left: 1px solid var(--border); background: var(--panel); }

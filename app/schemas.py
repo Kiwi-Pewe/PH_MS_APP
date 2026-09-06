@@ -68,3 +68,6 @@ class Announcements(BaseModel):
     title: str
     body: str
 
+class Comment_create(BaseModel):
+    post_id: int
+    content: str

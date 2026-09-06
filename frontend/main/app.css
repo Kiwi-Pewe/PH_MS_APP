@@ -344,7 +344,7 @@
 .announce-comments-loadmore-btn:hover { text-decoration: underline; }
 
 .announce-comment-composer {
-  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
 }
 .announce-comment-input {
   flex: 1 1 auto; background: var(--panel); border: 1px solid var(--border); border-radius: 6px;

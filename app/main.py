@@ -843,7 +843,7 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
         })
 
     recent_post.reverse()
-    return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "posts": recent_post}
+    return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "posts": recent_post, "comment_count": post.comment_count}
 
 @app.post("/post_comment")
 async def post_comment(comment: Comment_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -871,7 +871,7 @@ async def post_comment(comment: Comment_create, database: Session = Depends(get_
     payload = {
         "type": "announcement_comment",
         "post_id": comment.post_id,
-        "comment": {"id": new_comment.id, "post_id": new_comment.post_id, "sender_id": current_user.id, "username": current_user.username, "content": comment.content, "created_at": str(new_comment.created_at)}
+        "comment": {"id": new_comment.id, "post_id": new_comment.post_id, "sender_id": current_user.id, "username": current_user.username, "content": comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count}
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return {"id": new_comment.id, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count}

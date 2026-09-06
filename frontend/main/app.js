@@ -1191,9 +1191,14 @@ function buildAnnouncementPostCard(post) {
   commentSendBtn.textContent = "Post";
   commentComposer.appendChild(commentInput);
   commentComposer.appendChild(commentSendBtn);
+  // Composer sits FIRST — directly under the reactions row above,
+  // ahead of the loaded comments below — so it's immediately visible
+  // the moment the thread expands, regardless of whether any comments
+  // exist yet. Previously last in this section, which made it easy to
+  // miss (or genuinely invisible-looking) on a post with zero comments.
+  commentsSection.appendChild(commentComposer);
   commentsSection.appendChild(commentsList);
   commentsSection.appendChild(loadMoreBtn);
-  commentsSection.appendChild(commentComposer);
 
   commentThreadElements[post.id] = { btnEl: commentsBtn, listEl: commentsList, loadMoreBtn, sectionEl: commentsSection };
   commentsBtn.addEventListener("click", () => toggleCommentThread(post.id));

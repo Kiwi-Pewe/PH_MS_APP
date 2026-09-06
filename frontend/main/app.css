@@ -328,13 +328,29 @@
 .announce-comments-section {
   flex-direction: column; gap: 10px; margin-top: 12px;
 }
-.announce-comments-list { display: flex; flex-direction: column; gap: 10px; }
-.announce-comment { display: flex; gap: 10px; }
+.announce-comments-list { display: flex; flex-direction: column; }
+.announce-comment { display: flex; gap: 10px; padding: 10px 0; }
+/* A border on every comment except the first, rather than a separate
+   divider element — this way it's correct regardless of WHEN a comment
+   gets appended (initial load, "load more", a freshly-posted comment,
+   or a live broadcast from someone else), without needing divider
+   logic duplicated across all four of those call sites. */
+.announce-comment + .announce-comment { border-top: 1px solid var(--border); }
 .announce-comment .cluster-avatar { width: 28px; height: 28px; font-size: 12px; flex: 0 0 auto; }
 .announce-comment-body { flex: 1 1 auto; min-width: 0; }
 .announce-comment-header { display: flex; align-items: baseline; gap: 8px; }
 .announce-comment-name { font-size: 13px; font-weight: 700; color: var(--text); }
 .announce-comment-time { font-size: 11px; color: var(--text-dim); }
+/* Pushed to the far right of the header row via margin-left: auto —
+   only ever rendered by buildCommentElement when the current user can
+   actually delete this comment, so there's no need for a disabled/inert
+   state here the way .announce-post-menu-btn has for Edit. */
+.announce-comment-menu-btn {
+  margin-left: auto; background: transparent; color: var(--text-dim); font-size: 14px; font-weight: 700;
+  width: 22px; height: 22px; flex: 0 0 auto; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.announce-comment-menu-btn:hover { color: var(--text); background: var(--rail); }
 .announce-comment-content { font-size: 13px; color: var(--text); line-height: 1.4; word-wrap: break-word; }
 
 .announce-comments-loadmore-btn {

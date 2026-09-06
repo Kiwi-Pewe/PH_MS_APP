@@ -266,6 +266,16 @@ function connectSocket() {
         }
       }
     }
+
+    // The deleter never receives this (server_broadcast's
+    // exclude_user_id) — their own cleanup happens directly inside
+    // deleteCommentFromContextMenu instead, right after a confirmed
+    // response. comment_count here is authoritative (the backend's own
+    // post-delete value), unlike the deleter's own path which has no
+    // response body to read it from.
+    if (data.type === "comment_deleted") {
+      removeCommentFromThread(data.post_id, data.comment_id, data.comment_count);
+    }
   };
 }
 
@@ -1178,7 +1188,11 @@ function buildAnnouncementPostCard(post) {
   commentsList.className = "announce-comments-list";
   const loadMoreBtn = document.createElement("button");
   loadMoreBtn.className = "announce-comments-loadmore-btn";
-  loadMoreBtn.textContent = "Load 5 more comments";
+  // Deliberately doesn't say "Load 5 more" — the exact batch size is an
+  // implementation detail, and stating a number sets an expectation
+  // (Kiwi: if fewer than promised come back, a user has no way to know
+  // that's normal vs. a bug). "Load more" makes no promise either way.
+  loadMoreBtn.textContent = "Load more comments";
   loadMoreBtn.style.display = "none";
   const commentComposer = document.createElement("div");
   commentComposer.className = "announce-comment-composer";
@@ -1329,6 +1343,10 @@ document.getElementById("announcements-posts").addEventListener("scroll", () => 
 function buildCommentElement(comment) {
   const row = document.createElement("div");
   row.className = "announce-comment";
+  // Read back by removeCommentFromThread (both the deleter's own path
+  // and the comment_deleted broadcast) to find and remove this exact
+  // DOM node without re-querying by index.
+  row.dataset.commentId = comment.id;
 
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
@@ -1346,6 +1364,24 @@ function buildCommentElement(comment) {
   time.textContent = formatClusterTime(parseUtcTimestamp(comment.created_at));
   header.appendChild(name);
   header.appendChild(time);
+
+  // Delete is the only real comment-level action right now, matching
+  // delete_comment's own author-or-server-owner permission check
+  // exactly. The button is only rendered when it would actually do
+  // something — unlike the post-level 3-dot menu (which stays visible
+  // for everyone with Edit shown-but-disabled), there's no other
+  // comment action planned yet to fill an otherwise-empty menu for
+  // someone who can't delete.
+  const canDelete = comment.sender_id === myUserId || myUserId === currentServerOwnerId;
+  if (canDelete) {
+    const menuBtn = document.createElement("button");
+    menuBtn.className = "announce-comment-menu-btn";
+    menuBtn.title = "More";
+    menuBtn.innerHTML = "&#8942;";
+    menuBtn.addEventListener("click", (e) => showCommentContextMenu(e, comment));
+    header.appendChild(menuBtn);
+  }
+
   const content = document.createElement("div");
   content.className = "announce-comment-content";
   content.textContent = comment.content;
@@ -1355,6 +1391,75 @@ function buildCommentElement(comment) {
   row.appendChild(avatar);
   row.appendChild(body);
   return row;
+}
+
+// Reuses the generic context-menu engine, same reference-area shape as
+// showMessageContextMenu (avatar/name/timestamp/truncated content).
+// canDelete was already checked once in buildCommentElement to decide
+// whether to even show the trigger button, so it isn't re-checked here.
+function showCommentContextMenu(e, comment) {
+  e.preventDefault();
+  e.stopPropagation();
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: avatarLetter(comment.username),
+    title: comment.username,
+    timestamp: formatClusterTime(parseUtcTimestamp(comment.created_at)),
+    subtitle: truncateForContextMenu(comment.content)
+  }, [
+    { label: "Delete Comment", danger: true, onSelect: () => deleteCommentFromContextMenu(comment) }
+  ]);
+}
+
+// delete_comment returns no response body on success (see Handoff.md) —
+// and the deleter is also excluded from the comment_deleted broadcast
+// (server_broadcast's exclude_user_id), same as every other
+// server_broadcast call site in the app. That means the deleter has to
+// do their own local cleanup rather than waiting for the ws event the
+// way every other connected member will — removeCommentFromThread is
+// shared by both paths so they can't visually drift apart.
+async function deleteCommentFromContextMenu(comment) {
+  try {
+    const response = await fetch(`https://${serverAddress}/delete_comment/${comment.id}`, {
+      method: "POST",
+      credentials: "include"
+    });
+    if (!response.ok) {
+      console.error(`Failed to delete comment: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to delete comment, network error:", e);
+    return;
+  }
+  removeCommentFromThread(comment.post_id, comment.id);
+}
+
+// Shared by the deleter's own confirmed-delete cleanup above and the
+// comment_deleted ws.onmessage branch below. authoritativeCount is the
+// real post.comment_count the backend already computed — passed by the
+// broadcast branch (which receives it directly) but not available to
+// the deleter's own path (empty response body), which falls back to
+// decrementing whatever count is already held locally. Lookups
+// (commentThreadState/commentThreadElements) simply no-op if the post's
+// thread isn't currently expanded/loaded — matches how
+// announcement_comment's own handler already treats a collapsed thread.
+function removeCommentFromThread(postId, commentId, authoritativeCount) {
+  const state = commentThreadState[postId];
+  if (state) {
+    state.comments = state.comments.filter(c => c.id !== commentId);
+  }
+  const els = commentThreadElements[postId];
+  if (els) {
+    const rowEl = els.listEl.querySelector(`[data-comment-id="${commentId}"]`);
+    if (rowEl) rowEl.remove();
+  }
+
+  const post = currentAnnouncementPosts.find(p => p.id === postId);
+  const newCount = typeof authoritativeCount === "number"
+    ? authoritativeCount
+    : (post ? Math.max(0, (post.comment_count || 0) - 1) : null);
+  if (post && newCount !== null) post.comment_count = newCount;
+  if (els && newCount !== null) els.btnEl.textContent = `${newCount} comments`;
 }
 
 // Expand/collapse only — the actual fetch happens once, the first time
@@ -1426,7 +1531,12 @@ async function submitComment(postId, inputEl) {
   }
   inputEl.value = "";
 
-  const comment = { id: result.id, content: result.content, created_at: result.created_at, username: myUsername };
+  // post_id/sender_id added here so this locally-built comment carries
+  // the same shape as one that came from get_post_comment/a broadcast —
+  // buildCommentElement's canDelete check and the delete button it wires
+  // up both depend on sender_id, and deleteCommentFromContextMenu needs
+  // post_id to call removeCommentFromThread correctly.
+  const comment = { id: result.id, post_id: postId, sender_id: myUserId, content: result.content, created_at: result.created_at, username: myUsername };
   const state = commentThreadState[postId] || (commentThreadState[postId] = { expanded: true, comments: [], hasMore: false });
   state.comments.push(comment);
   const els = commentThreadElements[postId];

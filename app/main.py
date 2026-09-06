@@ -839,11 +839,12 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
             "username": username_lookup[post.sender_id],
             "title": post.title,
             "body": post.body,
-            "created_at": str(post.created_at)
+            "created_at": str(post.created_at),
+            "comment_count": post.comment_count
         })
 
     recent_post.reverse()
-    return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "posts": recent_post, "comment_count": post.comment_count}
+    return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "posts": recent_post}
 
 @app.post("/post_comment")
 async def post_comment(comment: Comment_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -905,11 +906,47 @@ def get_post_comments(post_id: int, database: Session = Depends(get_db), current
             "id": user_comment.id,
             "post_id": user_comment.post_id,
             "sender_id": user_comment.sender_id,
+            "content": user_comment.content,
             "username": username_lookup[user_comment.sender_id],
             "created_at": str(user_comment.created_at)
         })
 
     return {"post_id": post_id, "comments": picked_comments}
+
+@app.post("/delete_comment/{comment_id}")
+async def delete_comment(comment_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    comment_exist = database.query(Announcement_comment).filter(Announcement_comment.id == comment_id).first()
+    if not comment_exist:
+        raise HTTPException(status_code=404, detail="comment doesn't exist")
+
+    post = database.query(Announcement_post).filter(Announcement_post.id == comment_exist.post_id).first()
+    channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+
+    if not is_member:
+        raise HTTPException(status_code=404, detail="User is not a member")
+    if current_user.id != comment_exist.sender_id and current_user.id != server.owner_id:
+        raise HTTPException(status_code= 403, detail="Not authorized to delete comment")
+
+    database.delete(comment_exist)
+    post.comment_count -= 1
+    database.commit()
+
+    payload = {
+        "type": "comment_deleted",
+        "post_id": post.id,
+        "comment_id": comment_exist.id,
+        "comment_count": post.comment_count
+    }
+
+    await server_broadcast(server_id=server.id, payload= payload, database=database, exclude_user_id=current_user.id)
+    return
+
+@app.post("delete_post")
+def delete_post(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    pass
 
 async def server_broadcast(server_id, payload, database, exclude_user_id=None):
     all_members = database.query(Server_members).filter(Server_members.server_id == server_id).all()

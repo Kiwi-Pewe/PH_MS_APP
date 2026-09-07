@@ -944,9 +944,38 @@ async def delete_comment(comment_id: int, database: Session = Depends(get_db), c
     await server_broadcast(server_id=server.id, payload= payload, database=database, exclude_user_id=current_user.id)
     return {"comment_id": comment_exist.id, "comment_count": post.comment_count}
 
-@app.post("/delete_post")
-def delete_post(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    pass
+@app.post("/delete_post/{post_id}")
+async def delete_post(post_id: int,database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    post_exist = database.query(Announcement_post).filter(Announcement_post.id == post_id).first()
+    if not post_exist:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    channel = database.query(Server_channels).filter(Server_channels.id == post_exist.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
+
+    if not is_member:
+        raise HTTPException(status_code=404, detail="User is not a member")
+    if  current_user.id != post_exist.sender_id and current_user.id != server.owner_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete post")
+
+    all_comments = database.query(Announcement_comment).filter(Announcement_comment.post_id == post_id).all()
+
+    for comment in all_comments:
+        database.delete(comment)
+    
+    database.delete(post_exist)
+    database.commit()
+    payload = {
+       "type": "announcement_deleted",
+       "channel_id": channel.id,
+       "post_id": post_id
+    }
+
+    await server_broadcast(server_id = server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    return {"post_id": post_id}
+
 
 async def server_broadcast(server_id, payload, database, exclude_user_id=None):
     all_members = database.query(Server_members).filter(Server_members.server_id == server_id).all()

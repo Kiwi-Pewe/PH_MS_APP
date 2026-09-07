@@ -46,11 +46,11 @@ async function submitCreateAnnouncement() {
     return;
   }
   hideAnnounceComposerEditing();
-  // post_announcement's response has no created_at/username - client
-  // values stand in until a real fetch-on-load exists.
+  // post_announcement's response has no created_at/username/sender_id -
+  // client values stand in until a real fetch-on-load exists.
   appendNewAnnouncementPost({
     id: post.id, title: post.title, body: post.body,
-    created_at: new Date().toISOString(), username: myUsername
+    created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId
   });
 }
 
@@ -60,6 +60,9 @@ async function submitCreateAnnouncement() {
 function buildAnnouncementPostCard(post) {
   const card = document.createElement("div");
   card.className = "announce-post";
+  // Read back by removePostFromView to find and remove this exact DOM
+  // node, same pattern buildCommentElement uses for its own rows.
+  card.dataset.postId = post.id;
 
   const top = document.createElement("div");
   top.className = "announce-post-top";
@@ -80,8 +83,9 @@ function buildAnnouncementPostCard(post) {
   meta.appendChild(role);
   const menuBtn = document.createElement("button");
   menuBtn.className = "announce-post-menu-btn";
-  menuBtn.title = "More (coming soon)";
+  menuBtn.title = "More";
   menuBtn.innerHTML = "&#8942;";
+  menuBtn.addEventListener("click", (e) => showPostContextMenu(e, post));
   top.appendChild(avatar);
   top.appendChild(meta);
   top.appendChild(menuBtn);
@@ -250,3 +254,54 @@ document.getElementById("announcements-posts").addEventListener("scroll", () => 
   const el = document.getElementById("announcements-posts");
   if (el.scrollTop < 40) loadOlderAnnouncementPosts();
 });
+
+// Edit stays visible-but-disabled since it doesn't exist yet, so this
+// menu is never empty even for someone who can't delete - unlike a
+// comment's menu, which just hides the trigger entirely instead.
+function showPostContextMenu(e, post) {
+  e.preventDefault();
+  e.stopPropagation();
+  const canDelete = post.sender_id === myUserId || myUserId === currentServerOwnerId;
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: avatarLetter(post.username),
+    title: post.username,
+    timestamp: formatClusterTime(parseUtcTimestamp(post.created_at)),
+    subtitle: truncateForContextMenu(post.title)
+  }, [
+    { label: "Edit Post", disabled: true },
+    canDelete && { label: "Delete Post", danger: true, onSelect: () => deletePostFromContextMenu(post) }
+  ]);
+}
+
+// delete_post excludes the deleter from its broadcast (same as
+// delete_comment), so the deleter does its own local cleanup here
+// instead of waiting for the ws event like everyone else does.
+async function deletePostFromContextMenu(post) {
+  try {
+    const response = await fetch(`https://${serverAddress}/delete_post/${post.id}`, {
+      method: "POST",
+      credentials: "include"
+    });
+    if (!response.ok) {
+      console.error(`Failed to delete post: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to delete post, network error:", e);
+    return;
+  }
+  removePostFromView(post.id);
+}
+
+// Shared by the deleter's own path above and the announcement_deleted
+// ws.onmessage branch in boot.js, so the two paths can't drift apart.
+// Also clears this post's comment-thread bookkeeping - the post cascade-
+// deletes its comments server-side, so nothing should keep referencing
+// them client-side either.
+function removePostFromView(postId) {
+  currentAnnouncementPosts = currentAnnouncementPosts.filter(p => p.id !== postId);
+  const card = document.querySelector(`.announce-post[data-post-id="${postId}"]`);
+  if (card) card.remove();
+  delete commentThreadState[postId];
+  delete commentThreadElements[postId];
+}

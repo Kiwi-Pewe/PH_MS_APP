@@ -142,6 +142,15 @@ function connectSocket() {
     if (data.type === "comment_deleted") {
       removeCommentFromThread(data.post_id, data.comment_id, data.comment_count);
     }
+
+    // Same exclude_user_id pattern — deleter's own cleanup happens
+    // directly in deletePostFromContextMenu instead. Not gated on the
+    // channel being open, same reasoning as announcement_comment above:
+    // removePostFromView's own DOM/array lookups are the guard, and
+    // simply no-op if this post isn't currently rendered.
+    if (data.type === "announcement_deleted") {
+      removePostFromView(data.post_id);
+    }
   };
 }
 

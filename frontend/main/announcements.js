@@ -150,6 +150,11 @@ function buildAnnouncementPostCard(post) {
   commentSendBtn.textContent = "Post";
   commentComposer.appendChild(commentInput);
   commentComposer.appendChild(commentSendBtn);
+  // Stops the post's own right-click handler (attached to the whole
+  // card below) from swallowing native browser paste/spellcheck on this
+  // input - preventDefault is NOT called here, so the browser's own
+  // menu still opens normally.
+  commentInput.addEventListener("contextmenu", (e) => e.stopPropagation());
   // Composer sits first, above loaded comments - visible even on a
   // post with zero comments yet.
   commentsSection.appendChild(commentComposer);
@@ -171,6 +176,11 @@ function buildAnnouncementPostCard(post) {
   card.appendChild(dividerMid);
   card.appendChild(commentsRow);
   card.appendChild(commentsSection);
+  // Whole-card right-click, not just the 3-dot button - individual
+  // comment rows call stopPropagation in their own contextmenu handler,
+  // so right-clicking a comment inside this post opens the comment's
+  // menu, not this one.
+  card.addEventListener("contextmenu", (e) => showPostContextMenu(e, post));
   return card;
 }
 

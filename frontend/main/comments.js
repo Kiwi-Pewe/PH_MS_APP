@@ -24,17 +24,15 @@ function buildCommentElement(comment) {
   header.appendChild(name);
   header.appendChild(time);
 
-  // Only rendered when it would do something - no other comment action
-  // exists yet to fill an empty menu for someone who can't delete.
-  const canDelete = comment.sender_id === myUserId || myUserId === currentServerOwnerId;
-  if (canDelete) {
-    const menuBtn = document.createElement("button");
-    menuBtn.className = "announce-comment-menu-btn";
-    menuBtn.title = "More";
-    menuBtn.innerHTML = "&#8942;";
-    menuBtn.addEventListener("click", (e) => showCommentContextMenu(e, comment));
-    header.appendChild(menuBtn);
-  }
+  // Always rendered now - Copy/React always populate the menu
+  // regardless of permission, so it's never empty the way a
+  // Delete-only menu would have been for a non-owner.
+  const menuBtn = document.createElement("button");
+  menuBtn.className = "announce-comment-menu-btn";
+  menuBtn.title = "More";
+  menuBtn.innerHTML = "&#8942;";
+  menuBtn.addEventListener("click", (e) => showCommentContextMenu(e, comment));
+  header.appendChild(menuBtn);
 
   const content = document.createElement("div");
   content.className = "announce-comment-content";
@@ -44,20 +42,39 @@ function buildCommentElement(comment) {
 
   row.appendChild(avatar);
   row.appendChild(body);
+  row.addEventListener("contextmenu", (e) => showCommentContextMenu(e, comment));
   return row;
 }
 
+// Mirrors a normal (non-own) message's context menu: Copy/React/Report
+// available on anyone's content, Delete only for the owner. React/Report
+// have no backend yet, so they're shown-disabled like Edit Post - not
+// hidden, since a comment's menu should never look empty. Report is
+// only relevant on someone else's comment.
 function showCommentContextMenu(e, comment) {
   e.preventDefault();
   e.stopPropagation();
+  const isMine = comment.sender_id === myUserId;
+  const canDelete = isMine || myUserId === currentServerOwnerId;
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(comment.username),
     title: comment.username,
     timestamp: formatClusterTime(parseUtcTimestamp(comment.created_at)),
     subtitle: truncateForContextMenu(comment.content)
   }, [
-    { label: "Delete Comment", danger: true, onSelect: () => deleteCommentFromContextMenu(comment) }
+    { label: "Copy Comment", onSelect: () => copyCommentContent(comment) },
+    { label: "React", disabled: true },
+    !isMine && { label: "Report", disabled: true },
+    canDelete && { label: "Delete Comment", danger: true, onSelect: () => deleteCommentFromContextMenu(comment) }
   ]);
+}
+
+async function copyCommentContent(comment) {
+  try {
+    await navigator.clipboard.writeText(comment.content);
+  } catch (e) {
+    console.error("Failed to copy comment, clipboard error:", e);
+  }
 }
 
 // delete_comment returns no body, and excludes the deleter from the

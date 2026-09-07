@@ -942,9 +942,9 @@ async def delete_comment(comment_id: int, database: Session = Depends(get_db), c
     }
 
     await server_broadcast(server_id=server.id, payload= payload, database=database, exclude_user_id=current_user.id)
-    return
+    return {"comment_id": comment_exist.id, "comment_count": post.comment_count}
 
-@app.post("delete_post")
+@app.post("/delete_post")
 def delete_post(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     pass
 

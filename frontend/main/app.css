@@ -150,7 +150,14 @@
 #account-footer button { background: transparent; color: var(--text-dim); font-size: 11px; padding: 4px 8px; border-radius: 4px; }
 #account-footer button:hover { color: var(--text); background: var(--rail); }
 
-#main-panel { display: flex; flex-direction: column; min-height: 0; }
+/* min-width: 0 is exactly as load-bearing here as min-height: 0, and for
+   the mirror-image reason. #main-panel is the 1fr track of #main-grid,
+   and a grid item's automatic minimum size means that track refuses to
+   shrink below its content's min-content width. A forum card's single
+   nowrap line has a min-content width as wide as the whole unbroken
+   string, so without this the panel widens past the viewport and the
+   page grows a horizontal scrollbar instead of the line ellipsing. */
+#main-panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .main-view { display: none; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .main-view.active { display: flex; }
 
@@ -420,8 +427,29 @@
    left - matching the reference screenshot rather than being spread
    across the card's full width. */
 .forum-post-meta { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--text-dim); }
-/* Inert placeholder, same status as .announce-add-reaction-btn. */
-.forum-post-reactions { font-size: 13px; }
+/* The reaction button reuses .announce-add-reaction-btn outright rather
+   than restyling a lookalike, so both channel types stay one edit apart
+   when reactions become real. Only the box is shrunk to sit on a 12px
+   metadata row instead of the announcement post's own dedicated row. */
+.forum-post-meta .announce-add-reaction-btn { width: 20px; height: 20px; font-size: 13px; }
+
+/* Same capped auto-grow the chat composers use (see #composer textarea
+   above): the CSS owns the ceiling and the switch to scrolling, so the
+   JS only ever has to measure. rows="3" against a 5-line ceiling is what
+   makes it expand exactly twice and then stop. min-height keeps it from
+   collapsing below 3 lines while it's empty, since measuring an empty
+   textarea would otherwise shrink it to one. No padding-right, unlike
+   Announcements - there's no image button overlapping this corner.
+
+   Selector is tag-qualified on purpose. The element carries BOTH this
+   class and .announce-composer-body-input, and that one is defined
+   further down this file with resize: vertical - equal specificity, so
+   source order would win and the box would stay drag-resizable. Adding
+   the tag outranks it regardless of where either rule sits. */
+textarea.forum-composer-body-input {
+  padding: 0; box-sizing: content-box; resize: none; overflow-y: auto;
+  line-height: 1.4; min-height: calc(1.4em * 3); max-height: calc(1.4em * 5);
+}
 
 #user-list { display: none; width: 220px; border-left: 1px solid var(--border); background: var(--panel); }
 

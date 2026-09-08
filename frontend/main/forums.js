@@ -14,10 +14,26 @@ document.getElementById("forum-post-btn").addEventListener("click", submitCreate
 function showForumComposerEditing() {
   document.getElementById("forum-title-input").value = "";
   document.getElementById("forum-body-input").value = "";
+  // Clearing the inline height (rather than setting a number) hands
+  // sizing back to rows="3", so reopening the composer after a long
+  // draft starts small again instead of staying expanded.
+  document.getElementById("forum-body-input").style.height = "";
   document.getElementById("forum-composer-default").style.display = "none";
   document.getElementById("forum-composer-editing").style.display = "flex";
   document.getElementById("forum-title-input").focus();
 }
+
+// Same shape as autoGrowComposer: measure with height cleared, then set
+// the measured height. The ceiling and the switch to scrolling live in
+// CSS (.forum-composer-body-input), so this can't overgrow - it expands
+// twice off rows="3" and then the max-height takes over.
+function autoGrowForumBody() {
+  const el = document.getElementById("forum-body-input");
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+
+document.getElementById("forum-body-input").addEventListener("input", autoGrowForumBody);
 
 function hideForumComposerEditing() {
   document.getElementById("forum-composer-editing").style.display = "none";
@@ -103,9 +119,11 @@ function buildForumPostCard(post) {
   // height regardless of body length - no fixed pixel height needed.
   const line = document.createElement("div");
   line.className = "forum-post-line";
+  // Trailing colon so the line reads "username: message" instead of the
+  // two running together as one sentence.
   const author = document.createElement("span");
   author.className = "forum-post-author";
-  author.textContent = post.author_username || "Unknown";
+  author.textContent = `${post.author_username || "Unknown"}:`;
   const body = document.createElement("span");
   body.className = "forum-post-body";
   body.textContent = post.body;
@@ -114,11 +132,14 @@ function buildForumPostCard(post) {
 
   const meta = document.createElement("div");
   meta.className = "forum-post-meta";
-  // Inert placeholder, same status as the announcement post's own
-  // reaction button - reactions are a later cross-cutting feature.
-  const reactions = document.createElement("span");
-  reactions.className = "forum-post-reactions";
-  reactions.textContent = "\u2606";
+  // Reuses the announcement post's own reaction button outright, class
+  // and all, rather than a lookalike - both are inert placeholders for
+  // the same future cross-cutting reactions feature, so they should
+  // become real in one edit rather than two.
+  const reactions = document.createElement("button");
+  reactions.className = "announce-add-reaction-btn";
+  reactions.title = "React (coming soon)";
+  reactions.textContent = "+";
   const count = document.createElement("span");
   count.className = "forum-post-count";
   count.textContent = `${post.message_count || 0} messages`;

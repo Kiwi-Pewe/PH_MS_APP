@@ -451,6 +451,18 @@ textarea.forum-composer-body-input {
   line-height: 1.4; min-height: calc(1.4em * 3); max-height: calc(1.4em * 5);
 }
 
+/* The visible box the user clicks into. Deliberately drawn on the
+   WRAPPER, not the textarea: a border on the textarea itself would sit
+   outside its box-sizing and throw off the line math above, since
+   scrollHeight excludes borders and the auto-grow would then stop a
+   couple of pixels short and show a scrollbar a line early.
+   :focus-within lights the wrapper when the textarea inside takes focus,
+   matching how the other inputs highlight on focus. */
+.forum-composer-editing-body {
+  border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
+}
+.forum-composer-editing-body:focus-within { border-color: var(--accent-submenu); }
+
 #user-list { display: none; width: 220px; border-left: 1px solid var(--border); background: var(--panel); }
 
 /* Sits once at the very top of message history — signals "you've

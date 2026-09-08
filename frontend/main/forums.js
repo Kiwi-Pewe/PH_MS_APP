@@ -1,0 +1,206 @@
+// ==================================================================
+// forums.js - Forum channel: post composer, post cards, card pagination.
+// ==================================================================
+
+// Same two-state bar as Announcements (search <-> title+body) and the
+// same .announce-composer-* CSS, but its own elements and its own submit:
+// submitCreateAnnouncement is hard-wired to the announcement input ids
+// and posts to /post_announcement, so there was nothing to share beyond
+// the styling. Same relationship #composer and #channel-composer have.
+document.getElementById("forum-new-post-btn").addEventListener("click", showForumComposerEditing);
+document.getElementById("forum-composer-cancel-btn").addEventListener("click", hideForumComposerEditing);
+document.getElementById("forum-post-btn").addEventListener("click", submitCreateForumPost);
+
+function showForumComposerEditing() {
+  document.getElementById("forum-title-input").value = "";
+  document.getElementById("forum-body-input").value = "";
+  document.getElementById("forum-composer-default").style.display = "none";
+  document.getElementById("forum-composer-editing").style.display = "flex";
+  document.getElementById("forum-title-input").focus();
+}
+
+function hideForumComposerEditing() {
+  document.getElementById("forum-composer-editing").style.display = "none";
+  document.getElementById("forum-composer-default").style.display = "flex";
+}
+
+async function submitCreateForumPost() {
+  const title = document.getElementById("forum-title-input").value.trim();
+  const body = document.getElementById("forum-body-input").value.trim();
+  if (!title || !body) return;
+
+  let post;
+  try {
+    const response = await fetch(`https://${serverAddress}/create_forum`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ channel_id: currentChannelId, title, body })
+    });
+    if (!response.ok) {
+      console.error(`Failed to create forum post: ${response.status}`);
+      return;
+    }
+    post = await response.json();
+  } catch (e) {
+    console.error("Failed to create forum post, network error:", e);
+    return;
+  }
+  hideForumComposerEditing();
+  // create_forum's response carries no author fields - it only returns
+  // what it stored. Filled in from the session here, the same gap
+  // submitCreateAnnouncement covers for its own locally-built card.
+  prependNewForumPost({
+    id: post.id,
+    title: post.title,
+    body: post.body,
+    tags: post.tags,
+    message_count: post.message_count,
+    last_activity: post.last_activity,
+    author_id: myUserId,
+    author_username: myUsername
+  });
+}
+
+// Goes to the TOP: creating a post counts as activity, so a new one is
+// the most recently active thing in the channel. Only ever called for
+// YOUR OWN post - other people's new posts deliberately do NOT appear
+// until the channel is reloaded, since inserting a card would shift the
+// list under someone who's mid-read.
+function prependNewForumPost(post) {
+  currentForumPosts.unshift(post);
+  const container = document.getElementById("forum-posts");
+  const card = buildForumPostCard(post);
+  if (container.firstChild) {
+    container.insertBefore(card, container.firstChild);
+  } else {
+    container.appendChild(card);
+  }
+  container.scrollTop = 0;
+}
+
+// Pure builder, shared by the fetch-on-load path and a freshly created
+// post. createElement/textContent throughout, never innerHTML - title
+// and body are user text.
+function buildForumPostCard(post) {
+  const card = document.createElement("div");
+  card.className = "forum-post";
+  card.dataset.postId = post.id;
+
+  // Deliberately empty. The column exists and always comes back "",
+  // since real tag management is tied to the future roles/permissions
+  // work. Rendered anyway so a card is the same height now as it will
+  // be once tags land, rather than growing later.
+  const tags = document.createElement("div");
+  tags.className = "forum-post-tags";
+
+  const title = document.createElement("div");
+  title.className = "forum-post-title";
+  title.textContent = post.title;
+
+  // Author and body share ONE line that clips at the card's edge with an
+  // ellipsis. That single clipped line is what makes every card the same
+  // height regardless of body length - no fixed pixel height needed.
+  const line = document.createElement("div");
+  line.className = "forum-post-line";
+  const author = document.createElement("span");
+  author.className = "forum-post-author";
+  author.textContent = post.author_username || "Unknown";
+  const body = document.createElement("span");
+  body.className = "forum-post-body";
+  body.textContent = post.body;
+  line.appendChild(author);
+  line.appendChild(body);
+
+  const meta = document.createElement("div");
+  meta.className = "forum-post-meta";
+  // Inert placeholder, same status as the announcement post's own
+  // reaction button - reactions are a later cross-cutting feature.
+  const reactions = document.createElement("span");
+  reactions.className = "forum-post-reactions";
+  reactions.textContent = "\u2606";
+  const count = document.createElement("span");
+  count.className = "forum-post-count";
+  count.textContent = `${post.message_count || 0} messages`;
+  // Clock time of the last message, not "3h ago" - Kiwi's call for the
+  // baseline pass, which is why formatClusterTime is reused unchanged.
+  const activity = document.createElement("span");
+  activity.className = "forum-post-activity";
+  activity.textContent = formatClusterTime(parseUtcTimestamp(post.last_activity));
+  meta.appendChild(reactions);
+  meta.appendChild(count);
+  meta.appendChild(activity);
+
+  // Registered so a live broadcast can retext this card in place, without
+  // searching the DOM and without touching its position. Not cleared on
+  // channel switch - same reasoning as commentThreadElements: a rebuilt
+  // card overwrites its own entry, and entries for cards no longer on
+  // screen are dead weight rather than a correctness risk.
+  forumCardElements[post.id] = { tagsEl: tags, countEl: count, activityEl: activity };
+
+  card.appendChild(tags);
+  card.appendChild(title);
+  card.appendChild(line);
+  card.appendChild(meta);
+  return card;
+}
+
+// Initial fetch on opening a Forums channel. This is also the ONLY thing
+// that sorts the list - re-running it (by switching channels and coming
+// back) is how a stale order gets refreshed, which is why no dedicated
+// refresh button is needed yet.
+async function loadForumPosts(channelId) {
+  currentForumPosts = [];
+  forumHasMore = true;
+  forumIsLoadingMore = false;
+  const container = document.getElementById("forum-posts");
+  container.innerHTML = "";
+  try {
+    const response = await fetch(`https://${serverAddress}/get_forum_post/${channelId}`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    currentForumPosts = data.forum_posts || [];
+    // Backend pages these 10 at a time, not the 25 used everywhere else.
+    if (currentForumPosts.length < 10) forumHasMore = false;
+    currentForumPosts.forEach(post => container.appendChild(buildForumPostCard(post)));
+    container.scrollTop = 0;
+  } catch (e) { /* leave the list empty on failure */ }
+}
+
+// Scroll-toward-BOTTOM pagination - the opposite direction from every
+// other paginated list here, because this list runs most-active-first
+// from the top instead of oldest-first. Appending to the bottom also
+// means no scroll-position juggling: the browser leaves scrollTop alone.
+async function loadMoreForumPosts() {
+  if (forumIsLoadingMore || !forumHasMore || currentForumPosts.length === 0) return;
+  const last = currentForumPosts[currentForumPosts.length - 1];
+  if (!last.id) return;
+  forumIsLoadingMore = true;
+
+  try {
+    // URLSearchParams, not a hand-built string: last_activity is
+    // space-separated ("2026-09-07 13:04:11.123456") and that space has
+    // to be encoded or the query arrives truncated.
+    const params = new URLSearchParams({
+      before_activity: last.last_activity,
+      before_id: last.id
+    });
+    const response = await fetch(`https://${serverAddress}/get_forum_post/${currentChannelId}?${params}`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    const older = data.forum_posts || [];
+    if (older.length < 10) forumHasMore = false;
+    currentForumPosts = currentForumPosts.concat(older);
+    const container = document.getElementById("forum-posts");
+    older.forEach(post => container.appendChild(buildForumPostCard(post)));
+  } catch (e) { /* leave state as-is on failure */ }
+
+  forumIsLoadingMore = false;
+}
+
+// 40px from the bottom rather than exactly at it, matching the same
+// early-trigger threshold the upward-scrolling lists use.
+document.getElementById("forum-posts").addEventListener("scroll", () => {
+  const el = document.getElementById("forum-posts");
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) loadMoreForumPosts();
+});

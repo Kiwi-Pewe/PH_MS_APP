@@ -1,6 +1,6 @@
 # Database table definitions (User, Message, etc.) go here.
 from app.database import Base
-from sqlalchemy import Column, String, Integer,Boolean, ForeignKey, func, DateTime
+from sqlalchemy import Column, String, Integer,Boolean, ForeignKey, func, DateTime, Index
 
 class UserInfo(Base):
     __tablename__ = "users"
@@ -144,3 +144,30 @@ class Announcement_comment(Base):
     sender_id = Column(Integer, ForeignKey("users.id"))
     content = Column(String)
     created_at = Column(DateTime, server_default=func.now())
+
+class Forum_post(Base):
+    __tablename__ = "forum_posts"
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    author_id = Column(Integer, ForeignKey("users.id"))
+    title = Column(String)
+    body = Column(String)
+    tags = Column(String)
+    message_count = Column(Integer, default=0)
+    last_activity_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+
+class Forum_messages(Base):
+    __tablename__ = "forum_messages"
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey("forum_posts.id"))
+    author_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+Index(
+    "ix_forum_post_activity",
+    Forum_post.channel_id,
+    Forum_post.last_activity_at,
+    Forum_post.id,
+)

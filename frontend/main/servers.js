@@ -153,6 +153,10 @@ async function selectChannel(channel, rowEl) {
   switchMainView("channel");
   const isVoice = channel.channel_type === "voice";
   const isAnnouncement = channel.channel_type === "announcements";
+  // "forums" plural - must match /create_forum and /get_forum_post's own
+  // channel_type comparison, and the radio value in app.html that gets
+  // stored verbatim at creation time.
+  const isForums = channel.channel_type === "forums";
   const label = isVoice ? channel.name : `#${channel.name}`;
   document.getElementById("channel-header-title").textContent = label;
 
@@ -161,6 +165,14 @@ async function selectChannel(channel, rowEl) {
   const channelBody = document.getElementById("channel-body");
   const channelComposer = document.getElementById("channel-composer");
   const announcementsView = document.getElementById("announcements-view");
+  const forumsView = document.getElementById("forums-view");
+
+  // Both special panels go down up front so each branch below only has
+  // to turn its own on - otherwise switching straight from an
+  // Announcements channel to a Forums one would leave the first visible
+  // underneath the second.
+  announcementsView.style.display = "none";
+  forumsView.style.display = "none";
 
   if (isAnnouncement) {
     channelBody.style.display = "none";
@@ -174,7 +186,20 @@ async function selectChannel(channel, rowEl) {
     loadAnnouncementPosts(channel.id);
     return;
   }
-  announcementsView.style.display = "none";
+
+  // No owner gate on New Post here, unlike Announcements above:
+  // /create_forum only checks server membership, so any member can start
+  // a post. Re-running this is also the only thing that re-sorts the
+  // card list, which is why leaving and returning acts as a refresh.
+  if (isForums) {
+    channelBody.style.display = "none";
+    channelComposer.style.display = "none";
+    forumsView.style.display = "flex";
+    hideForumComposerEditing();
+    loadForumPosts(channel.id);
+    return;
+  }
+
   channelBody.style.display = "flex";
   channelComposer.style.display = "block";
 

@@ -151,6 +151,17 @@ function connectSocket() {
     if (data.type === "announcement_deleted") {
       removePostFromView(data.post_id);
     }
+
+    // "post_forum" is broadcast by /create_forum but deliberately NOT
+    // handled here, and this comment exists so nobody "fixes" that.
+    // Inserting someone else's new card would reorder the list under a
+    // reader mid-scroll, which is exactly what the Forums no-live-
+    // reorder rule forbids - other people's posts appear on the next
+    // channel load instead. Your own post is added locally by
+    // submitCreateForumPost, so it still shows the moment you post it.
+    // The live updates Forums DOES want (message count, tags, activity
+    // time) arrive with the thread-message broadcast, which isn't built
+    // yet - see Team Chat/ForumsPlan.md.
   };
 }
 

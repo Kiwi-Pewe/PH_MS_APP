@@ -81,6 +81,22 @@ let currentAnnouncementPosts = [];
 let announcementHasMoreHistory = true;
 let announcementIsLoadingMore = false;
 
+// Forum post cards — same cursor-pagination shape as the announcement
+// state above, but the list runs the OTHER way: most-recently-active at
+// the TOP, paginating downward. Reset by selectChannel on every switch,
+// which is also the only thing that re-sorts the list (see below).
+let currentForumPosts = [];
+let forumHasMore = true;
+let forumIsLoadingMore = false;
+
+// forumCardElements[postId] = { tagsEl, countEl, activityEl }
+// Same idea as commentThreadElements: registered once per card so a live
+// broadcast can retext the right card without searching the DOM. Kept
+// deliberately narrow — a live update may only change a card's CONTENTS,
+// never its position, since reordering the list under someone who's
+// mid-read is the exact thing the Forums design forbids.
+const forumCardElements = {};
+
 // Comment threads — one entry per post, NOT reset on channel switch
 // like the post-pagination state above, since a post card (and its
 // thread) only exists in the DOM while its channel is open anyway;

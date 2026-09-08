@@ -4,8 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
-from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Party_members, Invite_model, Announcement_post, Announcement_comment
-from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite, Category_create, Channel_create, Announcements, Comment_create
+from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Party_members, Invite_model, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Index
+from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite, Category_create, Channel_create, Announcements, Comment_create, Forum_message_create, Forum_post_create
 from app.database import get_db, Base, engine, SessionLocal
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
 from datetime import datetime, timedelta
@@ -976,6 +976,77 @@ async def delete_post(post_id: int,database: Session = Depends(get_db), current_
     await server_broadcast(server_id = server.id, payload=payload, database=database, exclude_user_id=current_user.id)
     return {"post_id": post_id}
 
+@app.post("/create_forum")
+async def create_forum_post(create_forum: Forum_post_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel_exist = database.query(Server_channels).filter(Server_channels.id == create_forum.channel_id).first()
+    if not channel_exist or channel_exist.channel_type != "forums":
+        raise HTTPException(status_code=404, detail="channel not found")
+
+    category = database.query(Server_categories).filter(Server_categories.id == channel_exist.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+
+    if not is_member:
+        raise HTTPException(status_code=404, detail="membership not found")
+
+    new_post = Forum_post(
+        channel_id = channel_exist.id,
+        author_id = current_user.id,
+        title = create_forum.title,
+        body = create_forum.body,
+        tags = ""
+    )
+    database.add(new_post)
+    database.commit()
+    database.refresh(new_post)
+    payload = {
+        "type": "post_forum",
+        "post_id": new_post.id,
+        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "title": new_post.title, "body": new_post.body, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at)}
+    }
+    await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at)}
+
+@app.get("/get_forum_post/{channel_id}")
+async def get_forum_post(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_activity: datetime = None, before_id: int = None):
+    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not channel or channel.channel_type != "forums":
+        raise HTTPException(status_code=404, detail="channel not found")
+
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+    if not is_member:
+        raise HTTPException(status_code=404, detail="User is not a member of server")
+
+    if before_activity:
+        post_list = database.query(Forum_post).filter(
+            Forum_post.channel_id == channel.id,
+            or_(
+                Forum_post.last_activity_at < before_activity,
+                and_(Forum_post.last_activity_at == before_activity, Forum_post.id < before_id)
+            )
+        ).order_by(Forum_post.last_activity_at.desc(), Forum_post.id.desc()).limit(10).all()
+    else:
+        post_list = database.query(Forum_post).filter(Forum_post.channel_id == channel.id).order_by(Forum_post.last_activity_at.desc(), Forum_post.id.desc()).limit(10).all()
+
+    author_ids = list({post.author_id for post in post_list})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(author_ids)).all()
+    username_lookup = {account.id: account.username for account in accounts}
+
+    picked_posts = []
+    for post in post_list:
+        picked_posts.append({
+            "id": post.id,
+            "author_id": post.author_id,
+            "author_username": username_lookup[post.author_id],
+            "title": post.title,
+            "body": post.body,
+            "tags": post.tags,
+            "message_count": post.message_count,
+            "last_activity": str(post.last_activity_at)
+        })
+    return {"channel_id": channel.id, "forum_posts": picked_posts}
 
 async def server_broadcast(server_id, payload, database, exclude_user_id=None):
     all_members = database.query(Server_members).filter(Server_members.server_id == server_id).all()

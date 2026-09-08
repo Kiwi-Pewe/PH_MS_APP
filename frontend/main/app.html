@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=2">
-<link rel="stylesheet" href="app.css?v=18">
+<link rel="stylesheet" href="app.css?v=19">
 </head>
 <body>
 
@@ -194,6 +194,43 @@
             <div class="announce-end-marker">You're up to date!</div>
           </div>
         </div>
+
+        <!-- Forums channel type. Same sibling-panel pattern as
+             #announcements-view above - selectChannel toggles this
+             against #channel-body/#channel-composer by channel_type,
+             rather than it being its own .main-view.
+             Two things here run OPPOSITE to the rest of the app, both
+             deliberate (see Team Chat/ForumsPlan.md): the list is
+             most-recently-active FIRST at the top and paginates
+             DOWNWARD, and its order is frozen once rendered - a live
+             update may only retext a card, never move it. Reopening the
+             channel is what re-sorts, which is why there's no refresh
+             button. Unlike Announcements, New Post is visible to every
+             member, since /create_forum only checks membership. -->
+        <div id="forums-view" style="display:none;">
+          <div class="announce-composer-bar" id="forums-composer-bar">
+            <div id="forum-composer-default" class="announce-composer-default">
+              <input type="text" class="search-box announce-composer-search" placeholder="Search or create a post..." disabled>
+              <button class="pill-btn" id="forum-new-post-btn">New Post</button>
+            </div>
+            <div id="forum-composer-editing" class="announce-composer-editing" style="display:none;">
+              <div class="announce-composer-editing-header">
+                <button class="icon-btn" id="forum-composer-cancel-btn" title="Cancel">&times;</button>
+                <input type="text" id="forum-title-input" class="announce-composer-title-input" maxlength="200" placeholder="Title">
+              </div>
+              <div class="announce-composer-editing-body">
+                <textarea id="forum-body-input" class="announce-composer-body-input" placeholder="Enter a message..." rows="3"></textarea>
+              </div>
+              <div class="announce-composer-editing-footer">
+                <button class="pill-btn" id="forum-post-btn">Post</button>
+              </div>
+            </div>
+          </div>
+          <!-- Populated entirely by loadForumPosts(). No end-marker
+               equivalent to Announcements' "You're up to date!" - that
+               marker means "bottom = newest", which is backwards here. -->
+          <div id="forum-posts"></div>
+        </div>
       </div>
 
       <div class="main-view" id="view-friends">
@@ -377,7 +414,13 @@
                 <span class="channel-type-desc">A single document page — no chat, just a reference/welcome page</span>
               </label>
               <label class="channel-type-option">
-                <input type="radio" name="channel-type" value="forum">
+                <!-- "forums" plural, matching what /create_forum and
+                     /get_forum_post compare channel_type against. This
+                     value is stored verbatim (server-modals.js sends
+                     selected.value, main.py stores it unchanged), so a
+                     mismatch here makes every forum channel unreachable
+                     with a misleading 404 "channel not found". -->
+                <input type="radio" name="channel-type" value="forums">
                 <span class="channel-type-name">&#129525; Forums</span>
                 <span class="channel-type-desc">Reddit-style threaded discussions</span>
               </label>
@@ -502,21 +545,22 @@
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=2"></script>
-<script src="state.js?v=33"></script>
-<script src="util.js?v=33"></script>
-<script src="boot.js?v=33"></script>
-<script src="app-shell.js?v=33"></script>
-<script src="context-menus.js?v=33"></script>
-<script src="conversations.js?v=33"></script>
-<script src="chat-render.js?v=33"></script>
-<script src="chat-history.js?v=33"></script>
-<script src="chat-compose.js?v=33"></script>
-<script src="friends.js?v=33"></script>
-<script src="parties.js?v=33"></script>
-<script src="invites.js?v=33"></script>
-<script src="servers.js?v=33"></script>
-<script src="server-modals.js?v=33"></script>
-<script src="announcements.js?v=33"></script>
-<script src="comments.js?v=33"></script>
+<script src="state.js?v=34"></script>
+<script src="util.js?v=34"></script>
+<script src="boot.js?v=34"></script>
+<script src="app-shell.js?v=34"></script>
+<script src="context-menus.js?v=34"></script>
+<script src="conversations.js?v=34"></script>
+<script src="chat-render.js?v=34"></script>
+<script src="chat-history.js?v=34"></script>
+<script src="chat-compose.js?v=34"></script>
+<script src="friends.js?v=34"></script>
+<script src="parties.js?v=34"></script>
+<script src="invites.js?v=34"></script>
+<script src="servers.js?v=34"></script>
+<script src="server-modals.js?v=34"></script>
+<script src="announcements.js?v=34"></script>
+<script src="comments.js?v=34"></script>
+<script src="forums.js?v=34"></script>
 </body>
 </html>

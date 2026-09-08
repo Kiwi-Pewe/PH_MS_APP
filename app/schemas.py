@@ -71,3 +71,12 @@ class Announcements(BaseModel):
 class Comment_create(BaseModel):
     post_id: int
     content: str
+
+class Forum_post_create(BaseModel):
+    channel_id: int
+    title: str
+    body: str
+
+class Forum_message_create(BaseModel):
+    post_id: int
+    content: str

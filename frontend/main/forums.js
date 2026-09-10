@@ -140,6 +140,9 @@ function buildForumPostCard(post) {
   reactions.className = "announce-add-reaction-btn";
   reactions.title = "React (coming soon)";
   reactions.textContent = "+";
+  // The whole card opens the thread, so this has to stop the click here
+  // or reacting would navigate away instead.
+  reactions.addEventListener("click", (e) => e.stopPropagation());
   const count = document.createElement("span");
   count.className = "forum-post-count";
   count.textContent = `${post.message_count || 0} messages`;
@@ -159,11 +162,82 @@ function buildForumPostCard(post) {
   // screen are dead weight rather than a correctness risk.
   forumCardElements[post.id] = { tagsEl: tags, countEl: count, activityEl: activity };
 
+  card.addEventListener("click", () => openForumPost(post));
+
   card.appendChild(tags);
   card.appendChild(title);
   card.appendChild(line);
   card.appendChild(meta);
   return card;
+}
+
+// Opens a post's thread IN PLACE of the card list, rather than beside it.
+// Everything below the header is the ordinary channel chat view being
+// borrowed wholesale - no forum-specific renderer, composer or pagination
+// exists, they're the channel ones with openForumPostId set (see state.js).
+async function openForumPost(post) {
+  openForumPostId = post.id;
+  openForumPostTitle = post.title;
+
+  document.getElementById("forums-view").style.display = "none";
+  document.getElementById("channel-body").style.display = "flex";
+  document.getElementById("channel-composer").style.display = "block";
+  document.getElementById("forum-back-btn").style.display = "inline-flex";
+  document.getElementById("channel-header-title").textContent = post.title;
+  document.getElementById("channel-empty").style.display = "none";
+  document.getElementById("channel-messages").style.display = "block";
+  enableChannelComposer(post.title);
+
+  currentChannelMessages = [];
+  channelHasMoreHistory = true;
+  channelIsLoadingMore = false;
+
+  try {
+    const response = await fetch(`https://${serverAddress}/get_forum_messages/${post.id}`, { credentials: "include" });
+    if (!response.ok) { renderChannelMessages(); return; }
+    const data = await response.json();
+    currentChannelMessages = (data.forum_post_messages || []).map(msg => ({
+      id: msg.id,
+      isMine: msg.author_id === myUserId,
+      senderId: msg.author_id,
+      username: msg.username,
+      content: msg.content,
+      time: parseUtcTimestamp(msg.timestamp)
+    }));
+    if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
+    renderChannelMessages();
+  } catch (e) { renderChannelMessages(); }
+}
+
+// Deliberately does NOT re-fetch the card list on the way back. Returning
+// from a thread is not a channel reload, and re-sorting here would shuffle
+// the list under someone who just stepped away to read one post - the exact
+// thing the no-live-reorder rule exists to prevent. Counts and times on the
+// cards are already current via patchForumCard.
+function closeForumPost() {
+  openForumPostId = null;
+  openForumPostTitle = null;
+  currentChannelMessages = [];
+
+  document.getElementById("forum-back-btn").style.display = "none";
+  document.getElementById("channel-body").style.display = "none";
+  document.getElementById("channel-composer").style.display = "none";
+  document.getElementById("forums-view").style.display = "flex";
+  document.getElementById("channel-header-title").textContent = `#${currentChannelName}`;
+}
+
+document.getElementById("forum-back-btn").addEventListener("click", closeForumPost);
+
+// Retexts one card in place from a forum_post_updated broadcast. Touches
+// the DOM only, never the card's position. currentForumPosts is left stale
+// on purpose: its last entry is loadMoreForumPosts' pagination cursor, and
+// bumping that entry's activity to "now" would make the next page re-fetch
+// posts already on screen. Nothing reads the array for display.
+function patchForumCard(postId, messageCount, lastActivity) {
+  const els = forumCardElements[postId];
+  if (!els) return;
+  els.countEl.textContent = `${messageCount} messages`;
+  els.activityEl.textContent = formatClusterTime(parseUtcTimestamp(lastActivity));
 }
 
 // Initial fetch on opening a Forums channel. This is also the ONLY thing

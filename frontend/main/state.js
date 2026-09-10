@@ -89,6 +89,19 @@ let currentForumPosts = [];
 let forumHasMore = true;
 let forumIsLoadingMore = false;
 
+// Which forum post's thread is open, or null when the chat UI is showing
+// an ordinary text channel. A thread is just a chat, so it BORROWS the
+// channel chat view outright — #channel-body, #channel-messages,
+// #channel-composer, currentChannelMessages and the pagination flags
+// above are all reused rather than duplicated. This is the flag that
+// tells the three shared paths (renderChannelMessages, sendChannelMessage,
+// loadOlderChannelMessages) which of the two they're currently driving.
+// Only one can be on screen at a time, so sharing the array is safe —
+// but selectChannel MUST clear this on every channel switch, or a send
+// from the next text channel would still be addressed to the old thread.
+let openForumPostId = null;
+let openForumPostTitle = null;
+
 // forumCardElements[postId] = { tagsEl, countEl, activityEl }
 // Same idea as commentThreadElements: registered once per card so a live
 // broadcast can retext the right card without searching the DOM. Kept

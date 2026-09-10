@@ -97,6 +97,34 @@ function connectSocket() {
       }
     }
 
+    // Mirrors channel_message above almost exactly, because a forum
+    // thread IS the channel chat view with a different id behind it -
+    // only the "is this the open one" test differs. Sender is excluded
+    // server-side, so isMine is always false here.
+    if (data.type === "forum_message") {
+      if (openForumPostId === data.post_id) {
+        currentChannelMessages.push({
+          senderId: data.sender_id,
+          isMine: false,
+          username: data.username,
+          content: data.content,
+          time: data.timestamp ? parseUtcTimestamp(data.timestamp) : new Date()
+        });
+        renderChannelMessages();
+      }
+    }
+
+    // NOT gated on the channel being open, same reasoning as
+    // announcement_comment below: forumCardElements only has entries for
+    // cards actually built, so the lookup is its own guard. Unlike every
+    // other broadcast here the sender is NOT excluded from this one -
+    // they're inside the thread while their own card list sits behind
+    // them, so letting it reach them keeps that card correct with no
+    // separate local-patch path.
+    if (data.type === "forum_post_updated") {
+      patchForumCard(data.post_id, data.message_count, data.last_activity);
+    }
+
     // Sender is excluded from these broadcasts (server_broadcast's
     // exclude_user_id), so no double-add guard needed for our own creations.
     if (data.type === "category_created") {

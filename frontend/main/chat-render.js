@@ -66,7 +66,11 @@ function renderChannelMessages(opts = {}) {
   const wrap = document.getElementById("channel-messages");
   wrap.innerHTML = "";
 
-  if (currentChannelId !== null) {
+  // Same view, two occupants — a forum thread borrows this whole feed,
+  // so the only thing that differs is which start card tops it.
+  if (openForumPostId !== null) {
+    wrap.appendChild(buildForumStartCard(openForumPostTitle));
+  } else if (currentChannelId !== null) {
     wrap.appendChild(buildChannelStartCard(currentChannelName));
   }
 
@@ -185,6 +189,28 @@ function buildPartyStartCard(name) {
   const desc = document.createElement("div");
   desc.className = "convo-start-desc";
   desc.textContent = `This is the beginning of ${name}.`;
+
+  card.appendChild(avatar);
+  card.appendChild(nameEl);
+  card.appendChild(desc);
+  return card;
+}
+
+function buildForumStartCard(title) {
+  const card = document.createElement("div");
+  card.className = "convo-start-card";
+
+  const avatar = document.createElement("div");
+  avatar.className = "convo-start-avatar";
+  avatar.textContent = "\u{1F4AC}";
+
+  const nameEl = document.createElement("div");
+  nameEl.className = "convo-start-name";
+  nameEl.textContent = title || "";
+
+  const desc = document.createElement("div");
+  desc.className = "convo-start-desc";
+  desc.textContent = `This is the start of ${title || "this post"}.`;
 
   card.appendChild(avatar);
   card.appendChild(nameEl);

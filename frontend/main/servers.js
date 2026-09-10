@@ -142,6 +142,13 @@ function renderServerSidebar(data) {
 }
 
 async function selectChannel(channel, rowEl) {
+  // A forum thread borrows the channel chat view, so leaving the channel
+  // has to hand it back. Skipping this would leave sendChannelMessage
+  // addressing the old thread from inside the next text channel.
+  openForumPostId = null;
+  openForumPostTitle = null;
+  document.getElementById("forum-back-btn").style.display = "none";
+
   currentChannelId = channel.id;
   currentChannelType = channel.channel_type;
   currentChannelName = channel.name;

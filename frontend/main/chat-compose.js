@@ -78,9 +78,17 @@ document.getElementById("composer-input").addEventListener("keydown", (e) => {
 function sendChannelMessage() {
   const input = document.getElementById("channel-composer-input");
   const content = input.value.trim();
-  if (!content || currentChannelId === null || !ws) return;
+  if (!content || !ws) return;
 
-  ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content }));
+  // One composer, two possible destinations: a forum thread borrows this
+  // view, so openForumPostId decides where this send is addressed.
+  if (openForumPostId !== null) {
+    ws.send(JSON.stringify({ type: "forum_message", post_id: openForumPostId, content }));
+  } else if (currentChannelId !== null) {
+    ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content }));
+  } else {
+    return;
+  }
 
   currentChannelMessages.push({
     senderId: myUserId,

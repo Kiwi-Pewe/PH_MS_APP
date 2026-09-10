@@ -51,6 +51,7 @@ document.getElementById("chat-body").addEventListener("scroll", () => {
 // get_channel_history/#channel-body/currentChannelMessages.
 async function loadOlderChannelMessages() {
   if (channelIsLoadingMore || !channelHasMoreHistory || currentChannelMessages.length === 0) return;
+  if (openForumPostId === null && currentChannelId === null) return;
   const oldest = currentChannelMessages[0];
   if (!oldest.id) return;
   channelIsLoadingMore = true;
@@ -60,17 +61,31 @@ async function loadOlderChannelMessages() {
   const prevScrollTop = channelBody.scrollTop;
 
   try {
-    const response = await fetch(`https://${serverAddress}/get_channel_history/${currentChannelId}?before_id=${oldest.id}`, { credentials: "include" });
+    // A forum thread borrows this whole view, so the same scroll-back
+    // drives both - only the endpoint and the author field's name differ.
+    const isForum = openForumPostId !== null;
+    const url = isForum
+      ? `https://${serverAddress}/get_forum_messages/${openForumPostId}?before_id=${oldest.id}`
+      : `https://${serverAddress}/get_channel_history/${currentChannelId}?before_id=${oldest.id}`;
+    const response = await fetch(url, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
-    const older = data.messages.map(msg => ({
-      id: msg.id,
-      isMine: msg.sender_id === myUserId,
-      senderId: msg.sender_id,
-      username: msg.username,
-      content: msg.content,
-      time: new Date(msg.timestamp)
-    }));
+    const rows = (isForum ? data.forum_post_messages : data.messages) || [];
+    const older = rows.map(msg => {
+      const senderId = isForum ? msg.author_id : msg.sender_id;
+      return {
+        id: msg.id,
+        isMine: senderId === myUserId,
+        senderId,
+        username: msg.username,
+        content: msg.content,
+        // Forum rows go through parseUtcTimestamp (correct for the
+        // space-separated str(datetime) the backend sends); the channel
+        // branch keeps bare Date() so it stays consistent with its own
+        // initial load until the queued timestamp fix lands everywhere.
+        time: isForum ? parseUtcTimestamp(msg.timestamp) : new Date(msg.timestamp)
+      };
+    });
     if (older.length < 25) channelHasMoreHistory = false;
     currentChannelMessages = older.concat(currentChannelMessages);
     renderChannelMessages({ preserveScroll: true });

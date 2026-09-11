@@ -239,9 +239,14 @@ function openEmojiPicker(btn, input) {
   emojiPickerTarget = input;
   picker.style.display = "flex";
   const rect = btn.getBoundingClientRect();
-  const height = picker.offsetHeight || 420;
-  picker.style.left = Math.max(8, rect.right - picker.offsetWidth) + "px";
-  picker.style.top = Math.max(8, rect.top - height - 8) + "px";
+  const height = picker.offsetHeight || 520;
+  const width = picker.offsetWidth || 520;
+  picker.style.left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)) + "px";
+  if (rect.top - 8 - height >= 8) {
+    picker.style.top = (rect.top - height - 8) + "px";
+  } else {
+    picker.style.top = Math.min(rect.bottom + 8, window.innerHeight - height - 8) + "px";
+  }
   document.getElementById("emoji-picker-search").value = "";
   document.getElementById("emoji-picker-footer").textContent = "";
   emojiSearchSaved = "";
@@ -265,6 +270,14 @@ document.getElementById("channel-composer-emoji-btn").addEventListener("click", 
   e.stopPropagation();
   openEmojiPicker(e.currentTarget, document.getElementById("channel-composer-input"));
 });
+document.getElementById("announce-composer-emoji-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  openEmojiPicker(e.currentTarget, document.getElementById("announcement-body-input"));
+});
+document.getElementById("forum-composer-emoji-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  openEmojiPicker(e.currentTarget, document.getElementById("forum-body-input"));
+});
 
 document.getElementById("emoji-picker").addEventListener("click", (e) => e.stopPropagation());
 document.addEventListener("click", () => closeEmojiPicker());
@@ -286,6 +299,12 @@ document.getElementById("composer-input").addEventListener("input", () => {
 document.getElementById("channel-composer-input").addEventListener("input", () => {
   applyEmojiShortcodesToInput(document.getElementById("channel-composer-input"));
   autoGrowChannelComposer();
+});
+document.getElementById("announcement-body-input").addEventListener("input", () => {
+  applyEmojiShortcodesToInput(document.getElementById("announcement-body-input"));
+});
+document.getElementById("forum-body-input").addEventListener("input", () => {
+  applyEmojiShortcodesToInput(document.getElementById("forum-body-input"));
 });
 
 buildEmojiPickerBody();

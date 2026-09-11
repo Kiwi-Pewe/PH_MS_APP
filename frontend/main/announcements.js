@@ -13,10 +13,20 @@ document.getElementById("announcement-post-btn").addEventListener("click", submi
 function showAnnounceComposerEditing() {
   document.getElementById("announcement-title-input").value = "";
   document.getElementById("announcement-body-input").value = "";
+  document.getElementById("announcement-body-input").style.height = "";
   document.getElementById("announce-composer-default").style.display = "none";
   document.getElementById("announce-composer-editing").style.display = "flex";
   document.getElementById("announcement-title-input").focus();
 }
+
+function autoGrowPostBodyInput(el) {
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+
+document.getElementById("announcement-body-input").addEventListener("input", () => {
+  autoGrowPostBodyInput(document.getElementById("announcement-body-input"));
+});
 
 function hideAnnounceComposerEditing() {
   document.getElementById("announce-composer-editing").style.display = "none";

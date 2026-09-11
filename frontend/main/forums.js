@@ -25,12 +25,10 @@ function showForumComposerEditing() {
 
 // Same shape as autoGrowComposer: measure with height cleared, then set
 // the measured height. The ceiling and the switch to scrolling live in
-// CSS (.forum-composer-body-input), so this can't overgrow - it expands
+// CSS (.announce-composer-body-input), so this can't overgrow - it expands
 // twice off rows="3" and then the max-height takes over.
 function autoGrowForumBody() {
-  const el = document.getElementById("forum-body-input");
-  el.style.height = "auto";
-  el.style.height = el.scrollHeight + "px";
+  autoGrowPostBodyInput(document.getElementById("forum-body-input"));
 }
 
 document.getElementById("forum-body-input").addEventListener("input", autoGrowForumBody);

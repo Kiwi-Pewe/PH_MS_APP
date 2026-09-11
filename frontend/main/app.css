@@ -440,36 +440,6 @@
    metadata row instead of the announcement post's own dedicated row. */
 .forum-post-meta .announce-add-reaction-btn { width: 20px; height: 20px; font-size: 13px; }
 
-/* Same capped auto-grow the chat composers use (see #composer textarea
-   above): the CSS owns the ceiling and the switch to scrolling, so the
-   JS only ever has to measure. rows="3" against a 5-line ceiling is what
-   makes it expand exactly twice and then stop. min-height keeps it from
-   collapsing below 3 lines while it's empty, since measuring an empty
-   textarea would otherwise shrink it to one. No padding-right, unlike
-   Announcements - there's no image button overlapping this corner.
-
-   Selector is tag-qualified on purpose. The element carries BOTH this
-   class and .announce-composer-body-input, and that one is defined
-   further down this file with resize: vertical - equal specificity, so
-   source order would win and the box would stay drag-resizable. Adding
-   the tag outranks it regardless of where either rule sits. */
-textarea.forum-composer-body-input {
-  padding: 0; box-sizing: content-box; resize: none; overflow-y: auto;
-  line-height: 1.4; min-height: calc(1.4em * 3); max-height: calc(1.4em * 5);
-}
-
-/* The visible box the user clicks into. Deliberately drawn on the
-   WRAPPER, not the textarea: a border on the textarea itself would sit
-   outside its box-sizing and throw off the line math above, since
-   scrollHeight excludes borders and the auto-grow would then stop a
-   couple of pixels short and show a scrollbar a line early.
-   :focus-within lights the wrapper when the textarea inside takes focus,
-   matching how the other inputs highlight on focus. */
-.forum-composer-editing-body {
-  border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
-}
-.forum-composer-editing-body:focus-within { border-color: var(--accent-submenu); }
-
 #user-list { display: none; width: 220px; border-left: 1px solid var(--border); background: var(--panel); }
 
 /* Sits once at the very top of message history — signals "you've
@@ -714,22 +684,48 @@ textarea.forum-composer-body-input {
    yet), so it's disabled rather than pretending to work. */
 .announce-composer-search:disabled { cursor: default; opacity: 0.7; }
 
-.announce-composer-editing { display: flex; flex-direction: column; gap: 10px; }
+.announce-composer-editing { display: flex; flex-direction: column; }
 .announce-composer-editing-header { display: flex; align-items: center; gap: 8px; }
 .announce-composer-title-input {
   flex: 1 1 auto; background: transparent; border: none; outline: none;
   color: var(--text); font-size: 16px; font-weight: 700;
 }
 .announce-composer-title-input::placeholder { color: var(--text-dim); font-weight: 700; }
-.announce-composer-editing-body { position: relative; }
+.announce-composer-editing-main {
+  display: flex; align-items: center; gap: 12px;
+}
+.announce-composer-editing-fields {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+/* Shared by Announcements and Forums. Same capped auto-grow as chat:
+   CSS owns the 3-to-5-line ceiling, JS only measures. resize:none so
+   the drag handle cannot stretch the page. */
 .announce-composer-body-input {
   width: 100%; background: transparent; border: none; outline: none;
-  color: var(--text); font-size: 14px; font-family: inherit; resize: vertical;
-  padding-right: 36px; box-sizing: border-box;
+  color: var(--text); font-size: 14px; font-family: inherit;
+  padding: 0; box-sizing: content-box; resize: none; overflow-y: auto;
+  line-height: 1.4; min-height: calc(1.4em * 3); max-height: calc(1.4em * 5);
 }
 .announce-composer-body-input::placeholder { color: var(--text-dim); }
-#announce-composer-image-btn { position: absolute; top: 0; right: 0; }
-.announce-composer-editing-footer { display: flex; justify-content: flex-end; }
+.announce-composer-image-btn {
+  flex: 0 0 auto; width: 56px; height: 56px; border-radius: 12px;
+  background: var(--panel); color: var(--text-dim);
+  display: flex; align-items: center; justify-content: center;
+}
+.announce-composer-image-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.announce-composer-editing-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+}
+.announce-composer-editing-footer .composer-icon-btn {
+  background: transparent; color: var(--text-dim); font-size: 18px;
+  width: 36px; height: 36px; padding: 0; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.announce-composer-editing-footer .composer-icon-btn:hover {
+  color: var(--text); background: var(--rail);
+}
 
 /* ---- Channel creation modal ---- */
 /* Same overlay/box treatment as the category modal, plus the type-

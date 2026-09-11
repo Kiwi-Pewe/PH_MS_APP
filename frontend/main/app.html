@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=2">
-<link rel="stylesheet" href="app.css?v=25">
+<link rel="stylesheet" href="app.css?v=26">
 </head>
 <body>
 
@@ -183,15 +183,25 @@
               <button class="pill-btn" id="announce-new-post-btn">New Post</button>
             </div>
             <div id="announce-composer-editing" class="announce-composer-editing" style="display:none;">
-              <div class="announce-composer-editing-header">
-                <button class="icon-btn" id="announce-composer-cancel-btn" title="Cancel">&times;</button>
-                <input type="text" id="announcement-title-input" class="announce-composer-title-input" maxlength="200" placeholder="Title">
-              </div>
-              <div class="announce-composer-editing-body">
-                <textarea id="announcement-body-input" class="announce-composer-body-input" placeholder="Enter a message..." rows="3"></textarea>
-                <button class="composer-icon-btn" id="announce-composer-image-btn" title="Attach image (coming soon)">&#128247;</button>
+              <div class="announce-composer-editing-main">
+                <div class="announce-composer-editing-fields">
+                  <div class="announce-composer-editing-header">
+                    <button class="icon-btn" id="announce-composer-cancel-btn" title="Cancel">&times;</button>
+                    <input type="text" id="announcement-title-input" class="announce-composer-title-input" maxlength="200" placeholder="Title">
+                  </div>
+                  <textarea id="announcement-body-input" class="announce-composer-body-input" placeholder="Enter a message..." rows="3"></textarea>
+                </div>
+                <button type="button" class="announce-composer-image-btn" id="announce-composer-image-btn" disabled title="Coming soon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="6" width="14" height="12" rx="2"></rect>
+                    <circle cx="8" cy="11" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <path d="M17 14l-3.5-3.5L7 17"></path>
+                    <path d="M17 4v6M14 7h6"></path>
+                  </svg>
+                </button>
               </div>
               <div class="announce-composer-editing-footer">
+                <button type="button" class="composer-icon-btn" id="announce-composer-emoji-btn" title="Emoji">🙂</button>
                 <button class="pill-btn" id="announcement-post-btn">Post</button>
               </div>
             </div>
@@ -229,14 +239,25 @@
               <button class="pill-btn" id="forum-new-post-btn">New Post</button>
             </div>
             <div id="forum-composer-editing" class="announce-composer-editing" style="display:none;">
-              <div class="announce-composer-editing-header">
-                <button class="icon-btn" id="forum-composer-cancel-btn" title="Cancel">&times;</button>
-                <input type="text" id="forum-title-input" class="announce-composer-title-input" maxlength="200" placeholder="Title">
-              </div>
-              <div class="announce-composer-editing-body forum-composer-editing-body">
-                <textarea id="forum-body-input" class="announce-composer-body-input forum-composer-body-input" placeholder="Enter a message..." rows="3"></textarea>
+              <div class="announce-composer-editing-main">
+                <div class="announce-composer-editing-fields">
+                  <div class="announce-composer-editing-header">
+                    <button class="icon-btn" id="forum-composer-cancel-btn" title="Cancel">&times;</button>
+                    <input type="text" id="forum-title-input" class="announce-composer-title-input" maxlength="200" placeholder="Title">
+                  </div>
+                  <textarea id="forum-body-input" class="announce-composer-body-input" placeholder="Enter a message..." rows="3"></textarea>
+                </div>
+                <button type="button" class="announce-composer-image-btn" id="forum-composer-image-btn" disabled title="Coming soon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="6" width="14" height="12" rx="2"></rect>
+                    <circle cx="8" cy="11" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <path d="M17 14l-3.5-3.5L7 17"></path>
+                    <path d="M17 4v6M14 7h6"></path>
+                  </svg>
+                </button>
               </div>
               <div class="announce-composer-editing-footer">
+                <button type="button" class="composer-icon-btn" id="forum-composer-emoji-btn" title="Emoji">🙂</button>
                 <button class="pill-btn" id="forum-post-btn">Post</button>
               </div>
             </div>
@@ -621,25 +642,25 @@
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=2"></script>
-<script src="state.js?v=39"></script>
-<script src="util.js?v=39"></script>
-<script src="boot.js?v=39"></script>
-<script src="app-shell.js?v=39"></script>
-<script src="context-menus.js?v=39"></script>
-<script src="conversations.js?v=39"></script>
-<script src="chat-render.js?v=39"></script>
-<script src="chat-history.js?v=39"></script>
-<script src="chat-compose.js?v=39"></script>
+<script src="state.js?v=40"></script>
+<script src="util.js?v=40"></script>
+<script src="boot.js?v=40"></script>
+<script src="app-shell.js?v=40"></script>
+<script src="context-menus.js?v=40"></script>
+<script src="conversations.js?v=40"></script>
+<script src="chat-render.js?v=40"></script>
+<script src="chat-history.js?v=40"></script>
+<script src="chat-compose.js?v=40"></script>
 <script src="emoji-data.js?v=1"></script>
-<script src="emoji-picker.js?v=39"></script>
-<script src="friends.js?v=39"></script>
-<script src="parties.js?v=39"></script>
-<script src="invites.js?v=39"></script>
-<script src="servers.js?v=39"></script>
-<script src="server-modals.js?v=39"></script>
-<script src="announcements.js?v=39"></script>
-<script src="comments.js?v=39"></script>
-<script src="forums.js?v=39"></script>
-<script src="docs.js?v=39"></script>
+<script src="emoji-picker.js?v=40"></script>
+<script src="friends.js?v=40"></script>
+<script src="parties.js?v=40"></script>
+<script src="invites.js?v=40"></script>
+<script src="servers.js?v=40"></script>
+<script src="server-modals.js?v=40"></script>
+<script src="announcements.js?v=40"></script>
+<script src="comments.js?v=40"></script>
+<script src="forums.js?v=40"></script>
+<script src="docs.js?v=40"></script>
 </body>
 </html>

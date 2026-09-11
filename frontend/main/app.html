@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=2">
-<link rel="stylesheet" href="app.css?v=23">
+<link rel="stylesheet" href="app.css?v=24">
 </head>
 <body>
 
@@ -101,7 +101,7 @@
           <div class="box">
             <button class="composer-icon-btn" id="composer-plus-btn" title="Options (coming soon)">+</button>
             <textarea id="composer-input" placeholder="Type a message" rows="1"></textarea>
-            <button class="composer-icon-btn" id="composer-emoji-btn" title="Emoji (coming soon)">&#9786;</button>
+            <button class="composer-icon-btn" id="composer-emoji-btn" title="Emoji">🙂</button>
             <button onclick="sendChatMessage()" id="composer-send-btn">Send</button>
           </div>
         </div>
@@ -153,7 +153,7 @@
           <div class="box">
             <button class="composer-icon-btn" id="channel-composer-plus-btn" title="Options (coming soon)">+</button>
             <textarea id="channel-composer-input" placeholder="Type a message" rows="1"></textarea>
-            <button class="composer-icon-btn" id="channel-composer-emoji-btn" title="Emoji (coming soon)">&#9786;</button>
+            <button class="composer-icon-btn" id="channel-composer-emoji-btn" title="Emoji">🙂</button>
             <button onclick="sendChannelMessage()" id="channel-composer-send-btn">Send</button>
           </div>
         </div>
@@ -599,25 +599,45 @@
 
 </div>
 
+<div id="emoji-picker" style="display:none;">
+  <div class="emoji-picker-top">
+    <button type="button" class="emoji-tab disabled" disabled title="Coming soon">GIFs</button>
+    <button type="button" class="emoji-tab disabled" disabled title="Coming soon">Stickers</button>
+    <button type="button" class="emoji-tab active">Emoji</button>
+    <input id="emoji-picker-search" type="text" placeholder="Find the perfect emoji" autocomplete="off">
+    <button type="button" class="emoji-add-btn disabled" disabled title="Coming soon">Add emoji</button>
+  </div>
+  <div class="emoji-picker-body">
+    <div id="emoji-cat-rail"></div>
+    <div id="emoji-picker-main">
+      <div id="emoji-search-results" style="display:none;"></div>
+      <div id="emoji-picker-catalog"></div>
+    </div>
+  </div>
+  <div id="emoji-picker-footer"></div>
+</div>
+
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=2"></script>
-<script src="state.js?v=38"></script>
-<script src="util.js?v=38"></script>
-<script src="boot.js?v=38"></script>
-<script src="app-shell.js?v=38"></script>
-<script src="context-menus.js?v=38"></script>
-<script src="conversations.js?v=38"></script>
-<script src="chat-render.js?v=38"></script>
-<script src="chat-history.js?v=38"></script>
-<script src="chat-compose.js?v=38"></script>
-<script src="friends.js?v=38"></script>
-<script src="parties.js?v=38"></script>
-<script src="invites.js?v=38"></script>
-<script src="servers.js?v=38"></script>
-<script src="server-modals.js?v=38"></script>
-<script src="announcements.js?v=38"></script>
-<script src="comments.js?v=38"></script>
-<script src="forums.js?v=38"></script>
-<script src="docs.js?v=38"></script>
+<script src="state.js?v=39"></script>
+<script src="util.js?v=39"></script>
+<script src="boot.js?v=39"></script>
+<script src="app-shell.js?v=39"></script>
+<script src="context-menus.js?v=39"></script>
+<script src="conversations.js?v=39"></script>
+<script src="chat-render.js?v=39"></script>
+<script src="chat-history.js?v=39"></script>
+<script src="chat-compose.js?v=39"></script>
+<script src="emoji-data.js?v=1"></script>
+<script src="emoji-picker.js?v=39"></script>
+<script src="friends.js?v=39"></script>
+<script src="parties.js?v=39"></script>
+<script src="invites.js?v=39"></script>
+<script src="servers.js?v=39"></script>
+<script src="server-modals.js?v=39"></script>
+<script src="announcements.js?v=39"></script>
+<script src="comments.js?v=39"></script>
+<script src="forums.js?v=39"></script>
+<script src="docs.js?v=39"></script>
 </body>
 </html>

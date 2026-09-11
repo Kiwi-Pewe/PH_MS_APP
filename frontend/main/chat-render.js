@@ -29,9 +29,7 @@ function renderClusteredMessages(wrap, messages) {
       openCluster = startNewCluster(wrap, msg);
     } else {
       const line = document.createElement("div");
-      line.className = "bubble-line";
-      line.textContent = msg.content;
-      line.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
+      fillBubbleLine(line, msg);
       openCluster.bubbleEl.appendChild(line);
       attachInviteCardIfNeeded(openCluster.bubbleEl, msg.content);
     }
@@ -82,6 +80,15 @@ function renderChannelMessages(opts = {}) {
   }
 }
 
+function fillBubbleLine(line, msg) {
+  line.className = "bubble-line";
+  if (typeof isEmojiOnlyContent === "function" && isEmojiOnlyContent(msg.content)) {
+    line.classList.add("emoji-only");
+  }
+  line.textContent = msg.content;
+  line.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
+}
+
 function buildSystemDivider(msg) {
   const divider = document.createElement("div");
   divider.className = "system-divider";
@@ -116,9 +123,7 @@ function startNewCluster(wrap, msg) {
   const bubble = document.createElement("div");
   bubble.className = "cluster-bubble";
   const firstLine = document.createElement("div");
-  firstLine.className = "bubble-line";
-  firstLine.textContent = msg.content;
-  firstLine.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
+  fillBubbleLine(firstLine, msg);
   bubble.appendChild(firstLine);
   attachInviteCardIfNeeded(bubble, msg.content);
 

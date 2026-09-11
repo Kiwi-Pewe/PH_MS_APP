@@ -698,6 +698,13 @@
   flex: 1 1 auto; min-width: 0;
   display: flex; flex-direction: column; gap: 4px;
 }
+/* Border lives on the wrapper, not the textarea: scrollHeight ignores
+   borders, so a box on the textarea itself makes auto-grow stop a
+   line early. :focus-within lights it when the body is being typed. */
+.announce-composer-editing-body {
+  border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
+}
+.announce-composer-editing-body:focus-within { border-color: var(--accent-submenu); }
 /* Shared by Announcements and Forums. Same capped auto-grow as chat:
    CSS owns the 3-to-5-line ceiling, JS only measures. resize:none so
    the drag handle cannot stretch the page. */

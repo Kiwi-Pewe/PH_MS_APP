@@ -164,6 +164,7 @@
 .view-header {
   height: 52px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
   padding: 0 16px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 700;
+  position: relative;
 }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 /* Keeps a header's back-arrow and title together as one left-hand unit,
@@ -849,3 +850,39 @@ textarea.forum-composer-body-input {
 .invite-card.invalid { border-color: var(--danger); }
 .invite-card.invalid .invite-card-badge { background: var(--danger); }
 .invite-card-invalid-text { color: var(--danger); font-size: 13px; font-weight: 600; }
+
+#docs-editing-banner {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  font-size: 12px; font-weight: 600; color: var(--text-dim); white-space: nowrap;
+  pointer-events: none;
+}
+#docs-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#docs-toolbar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--panel);
+}
+#docs-toolbar select {
+  background: var(--panel-alt); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 8px; font-size: 12px;
+}
+.docs-fmt-btn {
+  background: var(--panel-alt); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; width: 28px; height: 28px; font-size: 13px;
+}
+.docs-fmt-btn:hover { background: var(--rail); }
+#docs-canvas {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  background: var(--rail); padding: 24px 16px;
+}
+#docs-page {
+  box-sizing: border-box; width: min(816px, 100%); min-height: 1056px; margin: 0 auto;
+  background: #fff; color: #000; padding: 72px 72px;
+  font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+#docs-page:focus { outline: none; }
+#docs-page h1 { font-size: 24pt; font-weight: 700; margin: 0 0 12px; }
+#docs-page h2 { font-size: 18pt; font-weight: 700; margin: 0 0 10px; }
+#docs-page h3 { font-size: 14pt; font-weight: 700; margin: 0 0 8px; }
+#docs-page p { margin: 0 0 8px; }
+#docs-page .doc-title { font-size: 26pt; font-weight: 700; margin: 0 0 16px; }

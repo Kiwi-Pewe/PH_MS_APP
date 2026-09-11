@@ -142,12 +142,15 @@ function renderServerSidebar(data) {
 }
 
 async function selectChannel(channel, rowEl) {
+  if (!(await leaveDocIfNeeded())) return;
+
   // A forum thread borrows the channel chat view, so leaving the channel
   // has to hand it back. Skipping this would leave sendChannelMessage
   // addressing the old thread from inside the next text channel.
   openForumPostId = null;
   openForumPostTitle = null;
   document.getElementById("forum-back-btn").style.display = "none";
+  hideDocsChrome();
 
   currentChannelId = channel.id;
   currentChannelType = channel.channel_type;
@@ -164,7 +167,8 @@ async function selectChannel(channel, rowEl) {
   // channel_type comparison, and the radio value in app.html that gets
   // stored verbatim at creation time.
   const isForums = channel.channel_type === "forums";
-  const label = isVoice ? channel.name : `#${channel.name}`;
+  const isDoc = channel.channel_type === "doc";
+  const label = (isVoice || isDoc) ? channel.name : `#${channel.name}`;
   document.getElementById("channel-header-title").textContent = label;
 
   const channelEmpty = document.getElementById("channel-empty");
@@ -173,13 +177,13 @@ async function selectChannel(channel, rowEl) {
   const channelComposer = document.getElementById("channel-composer");
   const announcementsView = document.getElementById("announcements-view");
   const forumsView = document.getElementById("forums-view");
+  const docsView = document.getElementById("docs-view");
 
-  // Both special panels go down up front so each branch below only has
-  // to turn its own on - otherwise switching straight from an
-  // Announcements channel to a Forums one would leave the first visible
-  // underneath the second.
+  // Special panels go down up front so each branch below only has to
+  // turn its own on.
   announcementsView.style.display = "none";
   forumsView.style.display = "none";
+  docsView.style.display = "none";
 
   if (isAnnouncement) {
     channelBody.style.display = "none";
@@ -204,6 +208,14 @@ async function selectChannel(channel, rowEl) {
     forumsView.style.display = "flex";
     hideForumComposerEditing();
     loadForumPosts(channel.id);
+    return;
+  }
+
+  if (isDoc) {
+    channelBody.style.display = "none";
+    channelComposer.style.display = "none";
+    docsView.style.display = "flex";
+    loadDoc(channel.id);
     return;
   }
 

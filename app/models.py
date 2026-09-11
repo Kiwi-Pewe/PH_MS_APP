@@ -165,6 +165,15 @@ class Forum_messages(Base):
     content = Column(String)
     created_at = Column(DateTime, server_default=func.now())
 
+class Doc_page(Base):
+    __tablename__ = "doc_pages"
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"), unique=True)
+    content = Column(String, default="")
+    updated_at = Column(DateTime, server_default=func.now())
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    editor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
 Index(
     "ix_forum_post_activity",
     Forum_post.channel_id,

@@ -180,6 +180,10 @@ function connectSocket() {
       removePostFromView(data.post_id);
     }
 
+    if (data.type === "doc_locked") handleDocLocked(data);
+    if (data.type === "doc_unlocked") handleDocUnlocked(data);
+    if (data.type === "doc_updated") handleDocUpdated(data);
+
     // "post_forum" is broadcast by /create_forum but deliberately NOT
     // handled here, and this comment exists so nobody "fixes" that.
     // Inserting someone else's new card would reorder the list under a

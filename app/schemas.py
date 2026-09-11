@@ -80,3 +80,7 @@ class Forum_post_create(BaseModel):
 class Forum_message_create(BaseModel):
     post_id: int
     content: str
+
+class Doc_save(BaseModel):
+    channel_id: int
+    content: str

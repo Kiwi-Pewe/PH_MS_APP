@@ -110,6 +110,16 @@ let openForumPostTitle = null;
 // mid-read is the exact thing the Forums design forbids.
 const forumCardElements = {};
 
+// Doc channel — one page, View or Edit. Always lands in View on open.
+// docsMode "edit" means we hold the server lock. Cleared by leaveDocIfNeeded
+// before every channel switch and Home.
+let docsMode = "view";
+let docsDirty = false;
+let docsCanEdit = false;
+let docsEditorId = null;
+let docsEditorUsername = null;
+let docsSavedHtml = "";
+
 // Comment threads — one entry per post, NOT reset on channel switch
 // like the post-pagination state above, since a post card (and its
 // thread) only exists in the DOM while its channel is open anyway;

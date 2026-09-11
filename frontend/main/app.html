@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=6">
 <link rel="stylesheet" href="../shared/context-menu.css?v=2">
-<link rel="stylesheet" href="app.css?v=22">
+<link rel="stylesheet" href="app.css?v=23">
 </head>
 <body>
 
@@ -125,6 +125,11 @@
             <button class="icon-btn" id="forum-back-btn" style="display:none;" title="Back to posts">&#8592;</button>
             <span id="channel-header-title">No channel selected</span>
           </div>
+          <div id="docs-editing-banner" style="display:none;"></div>
+          <div class="header-actions" id="docs-header-actions">
+            <button class="pill-btn" id="docs-save-btn" style="display:none;">Save</button>
+            <button class="icon-btn" id="docs-mode-btn" style="display:none;">View</button>
+          </div>
         </div>
         <div id="channel-body">
           <!-- Shown only when no real text channel is selected (a server
@@ -240,6 +245,47 @@
                equivalent to Announcements' "You're up to date!" - that
                marker means "bottom = newest", which is backwards here. -->
           <div id="forum-posts"></div>
+        </div>
+
+        <!-- Doc channel. Sibling panel like #forums-view — no chat, no
+             composer. Toolbar is Edit-only. The side mode-tab (draw)
+             is second pass and is not stubbed. -->
+        <div id="docs-view" style="display:none;">
+          <div id="docs-toolbar" style="display:none;">
+            <select id="docs-style-select" title="Style">
+              <option value="normal">Normal text</option>
+              <option value="title">Title</option>
+              <option value="h1">Heading 1</option>
+              <option value="h2">Heading 2</option>
+              <option value="h3">Heading 3</option>
+            </select>
+            <select id="docs-font-select" title="Font">
+              <option value="Arial">Arial</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Courier New">Courier New</option>
+              <option value="Verdana">Verdana</option>
+            </select>
+            <select id="docs-size-select" title="Size">
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+              <option value="11" selected>11</option>
+              <option value="12">12</option>
+              <option value="14">14</option>
+              <option value="18">18</option>
+              <option value="24">24</option>
+            </select>
+            <button type="button" class="docs-fmt-btn" id="docs-bold-btn" title="Bold"><b>B</b></button>
+            <button type="button" class="docs-fmt-btn" id="docs-italic-btn" title="Italic"><i>I</i></button>
+            <button type="button" class="docs-fmt-btn" id="docs-underline-btn" title="Underline"><u>U</u></button>
+            <button type="button" class="docs-fmt-btn" id="docs-align-left-btn" title="Align left">L</button>
+            <button type="button" class="docs-fmt-btn" id="docs-align-center-btn" title="Align center">C</button>
+            <button type="button" class="docs-fmt-btn" id="docs-align-right-btn" title="Align right">R</button>
+          </div>
+          <div id="docs-canvas">
+            <div id="docs-page"></div>
+          </div>
         </div>
       </div>
 
@@ -555,22 +601,23 @@
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=2"></script>
-<script src="state.js?v=37"></script>
-<script src="util.js?v=37"></script>
-<script src="boot.js?v=37"></script>
-<script src="app-shell.js?v=37"></script>
-<script src="context-menus.js?v=37"></script>
-<script src="conversations.js?v=37"></script>
-<script src="chat-render.js?v=37"></script>
-<script src="chat-history.js?v=37"></script>
-<script src="chat-compose.js?v=37"></script>
-<script src="friends.js?v=37"></script>
-<script src="parties.js?v=37"></script>
-<script src="invites.js?v=37"></script>
-<script src="servers.js?v=37"></script>
-<script src="server-modals.js?v=37"></script>
-<script src="announcements.js?v=37"></script>
-<script src="comments.js?v=37"></script>
-<script src="forums.js?v=37"></script>
+<script src="state.js?v=38"></script>
+<script src="util.js?v=38"></script>
+<script src="boot.js?v=38"></script>
+<script src="app-shell.js?v=38"></script>
+<script src="context-menus.js?v=38"></script>
+<script src="conversations.js?v=38"></script>
+<script src="chat-render.js?v=38"></script>
+<script src="chat-history.js?v=38"></script>
+<script src="chat-compose.js?v=38"></script>
+<script src="friends.js?v=38"></script>
+<script src="parties.js?v=38"></script>
+<script src="invites.js?v=38"></script>
+<script src="servers.js?v=38"></script>
+<script src="server-modals.js?v=38"></script>
+<script src="announcements.js?v=38"></script>
+<script src="comments.js?v=38"></script>
+<script src="forums.js?v=38"></script>
+<script src="docs.js?v=38"></script>
 </body>
 </html>

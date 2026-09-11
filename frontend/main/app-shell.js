@@ -9,7 +9,8 @@ function switchMainView(viewName) {
 }
 
 document.querySelectorAll("#secondary-nav .nav-item").forEach(btn => {
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", async () => {
+    if (!(await leaveDocIfNeeded())) return;
     document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".dm-item").forEach(d => d.classList.remove("active"));
     btn.classList.add("active");
@@ -34,7 +35,9 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
   });
 });
 
-document.getElementById("home-icon").addEventListener("click", () => {
+document.getElementById("home-icon").addEventListener("click", async () => {
+  if (!(await leaveDocIfNeeded())) return;
+  hideDocsChrome();
   selectRailIcon("home", document.getElementById("home-icon"));
 
   // Remembering the last DM/party open is deferred (see Handoff) -

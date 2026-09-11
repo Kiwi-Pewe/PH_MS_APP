@@ -4,13 +4,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
-from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Party_members, Invite_model, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Index
-from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite, Category_create, Channel_create, Announcements, Comment_create, Forum_message_create, Forum_post_create
+from app.models import UserInfo, Message, Active_Sessions, Block_user, Friend_request, Conversations, Parties, Party_messages, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Party_members, Invite_model, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Index
+from app.schemas import Account_register, Account_login, Message_schema, Block_schema, Friend_user, Party_create, Party_message_schema, Server_create, Server_message, Invite, Category_create, Channel_create, Announcements, Comment_create, Forum_message_create, Forum_post_create, Doc_save
 from app.database import get_db, Base, engine, SessionLocal
 from app.auth import pwd_context, create_session_id, get_current_user, validate_session
 from datetime import datetime, timedelta
+from html import unescape
 import asyncio
 import random
+import re
 
 app = FastAPI()
 Base.metadata.create_all(engine)
@@ -1130,6 +1132,168 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
     forum_messages.reverse()
     return {"post_id": post_id, "forum_post_messages": forum_messages}
 
+def visible_doc_text(html):
+    text = re.sub(r"<[^>]+>", "", html or "")
+    return unescape(text).replace("\xa0", " ")
+
+def sanitize_doc_html(html):
+    if not html:
+        return ""
+    cleaned = re.sub(r"<(script|style)[^>]*>[\s\S]*?</\1>", "", html, flags=re.I)
+    cleaned = re.sub(r"\son\w+\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", "", cleaned, flags=re.I)
+    cleaned = re.sub(r"javascript:", "", cleaned, flags=re.I)
+    return cleaned
+
+def get_or_create_doc_page(channel_id, database):
+    page = database.query(Doc_page).filter(Doc_page.channel_id == channel_id).first()
+    if not page:
+        page = Doc_page(channel_id=channel_id, content="")
+        database.add(page)
+        database.commit()
+        database.refresh(page)
+    return page
+
+async def release_doc_locks(user_id, database):
+    held = database.query(Doc_page).filter(Doc_page.editor_id == user_id).all()
+    for page in held:
+        page.editor_id = None
+        channel = database.query(Server_channels).filter(Server_channels.id == page.channel_id).first()
+        if not channel:
+            continue
+        category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+        server = database.query(Servers).filter(Servers.id == category.server_id).first()
+        database.commit()
+        await server_broadcast(
+            server_id=server.id,
+            payload={"type": "doc_unlocked", "channel_id": page.channel_id},
+            database=database
+        )
+
+@app.get("/get_doc/{channel_id}")
+def get_doc(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not channel or channel.channel_type != "doc":
+        raise HTTPException(status_code=404, detail="channel not found")
+
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+    if not is_member:
+        raise HTTPException(status_code=404, detail="membership not found")
+
+    page = get_or_create_doc_page(channel.id, database)
+    editor_username = None
+    if page.editor_id:
+        editor = database.query(UserInfo).filter(UserInfo.id == page.editor_id).first()
+        editor_username = editor.username if editor else None
+
+    return {
+        "channel_id": channel.id,
+        "content": page.content or "",
+        "updated_at": str(page.updated_at) if page.updated_at else None,
+        "updated_by": page.updated_by,
+        "editor_id": page.editor_id,
+        "editor_username": editor_username,
+        "can_edit": current_user.id == server.owner_id
+    }
+
+@app.post("/lock_doc/{channel_id}")
+async def lock_doc(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not channel or channel.channel_type != "doc":
+        raise HTTPException(status_code=404, detail="channel not found")
+
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+    if not is_member:
+        raise HTTPException(status_code=404, detail="membership not found")
+    if current_user.id != server.owner_id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit")
+
+    page = get_or_create_doc_page(channel.id, database)
+    if page.editor_id and page.editor_id != current_user.id:
+        raise HTTPException(status_code=409, detail="Page is being edited")
+
+    page.editor_id = current_user.id
+    database.commit()
+
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "doc_locked", "channel_id": channel.id, "editor_id": current_user.id, "editor_username": current_user.username},
+        database=database,
+        exclude_user_id=current_user.id
+    )
+    return {"channel_id": channel.id, "editor_id": current_user.id, "editor_username": current_user.username}
+
+@app.post("/unlock_doc/{channel_id}")
+async def unlock_doc(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not channel or channel.channel_type != "doc":
+        raise HTTPException(status_code=404, detail="channel not found")
+
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+    if not is_member:
+        raise HTTPException(status_code=404, detail="membership not found")
+
+    page = database.query(Doc_page).filter(Doc_page.channel_id == channel.id).first()
+    if not page or page.editor_id != current_user.id:
+        return {"channel_id": channel.id}
+
+    page.editor_id = None
+    database.commit()
+
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "doc_unlocked", "channel_id": channel.id},
+        database=database,
+        exclude_user_id=current_user.id
+    )
+    return {"channel_id": channel.id}
+
+@app.post("/save_doc")
+async def save_doc(doc: Doc_save, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel = database.query(Server_channels).filter(Server_channels.id == doc.channel_id).first()
+    if not channel or channel.channel_type != "doc":
+        raise HTTPException(status_code=404, detail="channel not found")
+
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+    if not is_member:
+        raise HTTPException(status_code=404, detail="membership not found")
+    if current_user.id != server.owner_id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit")
+
+    page = database.query(Doc_page).filter(Doc_page.channel_id == channel.id).first()
+    if not page or page.editor_id != current_user.id:
+        raise HTTPException(status_code=409, detail="You are not editing this page")
+
+    cleaned = sanitize_doc_html(doc.content)
+    if len(visible_doc_text(cleaned)) > 3500:
+        raise HTTPException(status_code=400, detail="Document is over the character limit")
+
+    page.content = cleaned
+    page.updated_at = datetime.utcnow()
+    page.updated_by = current_user.id
+    database.commit()
+
+    await server_broadcast(
+        server_id=server.id,
+        payload={
+            "type": "doc_updated",
+            "channel_id": channel.id,
+            "content": page.content,
+            "updated_at": str(page.updated_at),
+            "updated_by": current_user.id
+        },
+        database=database,
+        exclude_user_id=current_user.id
+    )
+    return {"channel_id": channel.id, "updated_at": str(page.updated_at)}
+
 async def server_broadcast(server_id, payload, database, exclude_user_id=None):
     all_members = database.query(Server_members).filter(Server_members.server_id == server_id).all()
 
@@ -1310,5 +1474,6 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
 
 
     except WebSocketDisconnect:
+        await release_doc_locks(current_user.id, database)
         del active_connections[current_user.id]
         heartbeat_task.cancel()

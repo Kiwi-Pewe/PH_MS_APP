@@ -40,6 +40,9 @@ function extractEmbedUrls(text) {
 
 function embedKind(url) {
   const host = ((parseHttpUrl(url) || {}).hostname || "").toLowerCase();
+  if (host === "youtu.be" || host === "youtube.com" || host.endsWith(".youtube.com")) return "youtube";
+  if (host === "reddit.com" || host.endsWith(".reddit.com")) return "reddit";
+  if (host === "x.com" || host.endsWith(".x.com") || host === "twitter.com" || host.endsWith(".twitter.com")) return "twitter";
   if (host === "twitch.tv" || host.endsWith(".twitch.tv")) return "twitch";
   if (host === "spotify.com" || host.endsWith(".spotify.com")) return "spotify";
   if (host.endsWith("steampowered.com") || host.endsWith("steamcommunity.com")) return "steam";

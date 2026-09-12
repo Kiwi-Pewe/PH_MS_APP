@@ -864,16 +864,31 @@
 
 .link-embed {
   position: relative;
-  margin-top: 6px; max-width: 432px; width: 100%;
+  margin-top: 6px; width: 320px; max-width: 100%;
   background: var(--rail); border-radius: 4px;
   border-left: 4px solid #6b6680;
   padding: 8px 28px 8px 12px; box-sizing: border-box;
   display: grid; grid-template-columns: 1fr auto; gap: 8px 12px;
-  align-items: start;
+  align-items: start; align-self: flex-start;
 }
+.link-embed-youtube { border-left-color: #ff0000; }
+.link-embed-reddit { border-left-color: #ff4500; }
+.link-embed-twitter { border-left-color: #1d9bf0; }
 .link-embed-twitch { border-left-color: #9146ff; }
 .link-embed-spotify { border-left-color: #1db954; }
 .link-embed-steam { border-left-color: #1b4f8a; }
+/* Cards follow the same self-right parent class as the bubble text, so a
+   future "my messages on the left" setting only flips that one class. */
+#chat-messages.self-right .msg-cluster.self .link-embed,
+#channel-messages.self-right .msg-cluster.self .link-embed,
+#chat-messages.self-right .msg-cluster.self .invite-card,
+#channel-messages.self-right .msg-cluster.self .invite-card { align-self: flex-end; }
+#chat-messages:not(.self-right) .msg-cluster.self .link-embed,
+#channel-messages:not(.self-right) .msg-cluster.self .link-embed,
+#chat-messages:not(.self-right) .msg-cluster.self .invite-card,
+#channel-messages:not(.self-right) .msg-cluster.self .invite-card { align-self: flex-start; }
+.msg-cluster.other .link-embed,
+.msg-cluster.other .invite-card { align-self: flex-start; }
 .link-embed-hide {
   position: absolute; top: 4px; right: 4px;
   width: 22px; height: 22px; padding: 0; border-radius: 4px;

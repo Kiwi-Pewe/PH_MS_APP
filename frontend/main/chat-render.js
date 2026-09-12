@@ -32,6 +32,7 @@ function renderClusteredMessages(wrap, messages) {
       fillBubbleLine(line, msg);
       openCluster.bubbleEl.appendChild(line);
       attachInviteCardIfNeeded(openCluster.bubbleEl, msg.content);
+      attachLinkEmbedIfNeeded(openCluster.bubbleEl, msg.content);
     }
 
     openCluster.lastTime = msg.time;
@@ -85,7 +86,8 @@ function fillBubbleLine(line, msg) {
   if (typeof isEmojiOnlyContent === "function" && isEmojiOnlyContent(msg.content)) {
     line.classList.add("emoji-only");
   }
-  line.textContent = msg.content;
+  if (typeof renderMessageText === "function") renderMessageText(line, msg.content);
+  else line.textContent = msg.content;
   line.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
 }
 
@@ -126,6 +128,7 @@ function startNewCluster(wrap, msg) {
   fillBubbleLine(firstLine, msg);
   bubble.appendChild(firstLine);
   attachInviteCardIfNeeded(bubble, msg.content);
+  attachLinkEmbedIfNeeded(bubble, msg.content);
 
   body.appendChild(header);
   body.appendChild(bubble);

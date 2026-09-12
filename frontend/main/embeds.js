@@ -1,8 +1,9 @@
 // ==================================================================
-// embeds.js - Clickable links + in-chat link cards.
-// Title/description/image fill in when GET /embed_preview exists.
+// embeds.js - Clickable chat links + preview cards under the message.
+// Invite URLs are skipped; invite cards stay in invites.js untouched.
 // ==================================================================
 
+const EMBED_HIDDEN_KEY = "oneira_embed_hidden";
 const embedPreviewCache = {};
 
 function trimUrlTrail(raw) {
@@ -13,74 +14,84 @@ function isInviteUrl(url) {
   return /^https:\/\/oneira\.cc\/invite\/[A-Za-z0-9]{8}$/.test(url);
 }
 
-function isSkippableEmbedHost(hostname) {
-  const h = (hostname || "").toLowerCase();
-  return h === "localhost" || h.endsWith(".localhost") ||
-    h === "127.0.0.1" || h === "0.0.0.0" || h === "[::1]";
-}
-
 function parseHttpUrl(raw) {
   try {
-    const u = new URL(raw);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    if (isSkippableEmbedHost(u.hostname)) return null;
-    return u;
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed;
   } catch (e) {
     return null;
   }
 }
 
-function firstEmbedUrl(text) {
+function extractEmbedUrls(text) {
+  const found = [];
+  const seen = {};
   const re = /https?:\/\/[^\s<>"']+/gi;
-  let m;
-  while ((m = re.exec(text || ""))) {
-    const url = trimUrlTrail(m[0]);
-    if (isInviteUrl(url)) continue;
-    if (parseHttpUrl(url)) return url;
+  let match;
+  while ((match = re.exec(text || ""))) {
+    const url = trimUrlTrail(match[0]);
+    if (!url || seen[url] || isInviteUrl(url) || !parseHttpUrl(url)) continue;
+    seen[url] = true;
+    found.push(url);
   }
-  return null;
+  return found;
+}
+
+function embedKind(url) {
+  const host = ((parseHttpUrl(url) || {}).hostname || "").toLowerCase();
+  if (host === "twitch.tv" || host.endsWith(".twitch.tv")) return "twitch";
+  if (host === "spotify.com" || host.endsWith(".spotify.com")) return "spotify";
+  if (host.endsWith("steampowered.com") || host.endsWith("steamcommunity.com")) return "steam";
+  return "default";
+}
+
+function hiddenEmbedSet() {
+  try { return new Set(JSON.parse(localStorage.getItem(EMBED_HIDDEN_KEY) || "[]")); }
+  catch (e) { return new Set(); }
+}
+
+function isEmbedHidden(url) {
+  return hiddenEmbedSet().has(url);
+}
+
+function hideEmbedUrl(url) {
+  const hidden = hiddenEmbedSet();
+  hidden.add(url);
+  localStorage.setItem(EMBED_HIDDEN_KEY, JSON.stringify(Array.from(hidden)));
 }
 
 function renderMessageText(el, text) {
   const re = /https?:\/\/[^\s<>"']+/gi;
   let last = 0;
-  let m;
-  while ((m = re.exec(text || ""))) {
-    const trimmed = trimUrlTrail(m[0]);
-    const keep = m[0].length - (m[0].length - trimmed.length);
-    if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
+  let match;
+  while ((match = re.exec(text || ""))) {
+    const trimmed = trimUrlTrail(match[0]);
+    if (match.index > last) el.appendChild(document.createTextNode(text.slice(last, match.index)));
     if (trimmed && parseHttpUrl(trimmed)) {
-      const a = document.createElement("a");
-      a.className = "msg-link";
-      a.href = trimmed;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.textContent = trimmed;
-      el.appendChild(a);
-      last = m.index + keep;
+      const link = document.createElement("a");
+      link.className = "msg-link";
+      link.href = trimmed;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = trimmed;
+      el.appendChild(link);
+      last = match.index + trimmed.length;
     } else {
-      el.appendChild(document.createTextNode(m[0]));
-      last = m.index + m[0].length;
+      el.appendChild(document.createTextNode(match[0]));
+      last = match.index + match[0].length;
     }
   }
   if (last < (text || "").length) el.appendChild(document.createTextNode(text.slice(last)));
 }
 
-function siteLabelFromUrl(url) {
-  const parsed = parseHttpUrl(url);
-  if (!parsed) return "";
-  return parsed.hostname.replace(/^www\./, "");
-}
-
-function fillLinkEmbedCard(card, data) {
+function fillDefaultEmbedLayout(card, data) {
+  const hide = card.querySelector(".link-embed-hide");
   card.innerHTML = "";
+  if (hide) card.appendChild(hide);
+
   const body = document.createElement("div");
   body.className = "link-embed-body";
-
-  const site = document.createElement("div");
-  site.className = "link-embed-site";
-  site.textContent = data.site || siteLabelFromUrl(data.url);
-  body.appendChild(site);
 
   const title = document.createElement("a");
   title.className = "link-embed-title";
@@ -100,7 +111,7 @@ function fillLinkEmbedCard(card, data) {
 
   if (data.image) {
     const img = document.createElement("img");
-    img.className = "link-embed-thumb";
+    img.className = "link-embed-logo";
     img.alt = "";
     img.referrerPolicy = "no-referrer";
     img.addEventListener("error", () => img.remove());
@@ -109,27 +120,51 @@ function fillLinkEmbedCard(card, data) {
   }
 }
 
-function attachLinkEmbedIfNeeded(bubbleEl, content) {
-  const url = firstEmbedUrl(content);
-  if (!url) return;
-
+function buildLinkEmbedCard(url) {
   const card = document.createElement("div");
-  card.className = "link-embed";
-  fillLinkEmbedCard(card, { url, site: siteLabelFromUrl(url), title: "", description: "", image: "" });
-  bubbleEl.appendChild(card);
+  card.className = "link-embed link-embed-" + embedKind(url);
+
+  const hide = document.createElement("button");
+  hide.type = "button";
+  hide.className = "link-embed-hide";
+  hide.title = "Hide embed";
+  hide.textContent = "\u00d7";
+  hide.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    hideEmbedUrl(url);
+    card.remove();
+  });
+  card.appendChild(hide);
+
+  const parsed = parseHttpUrl(url);
+  const fallbackSite = parsed ? parsed.hostname.replace(/^www\./, "") : url;
+  fillDefaultEmbedLayout(card, { url, site: fallbackSite, title: fallbackSite, description: "", image: "" });
 
   if (embedPreviewCache[url]) {
-    fillLinkEmbedCard(card, embedPreviewCache[url]);
-    return;
+    fillDefaultEmbedLayout(card, embedPreviewCache[url]);
+    return card;
   }
-  if (!serverAddress) return;
+  if (!serverAddress) return card;
 
   fetch(`https://${serverAddress}/embed_preview?url=${encodeURIComponent(url)}`, { credentials: "include" })
     .then(response => response.ok ? response.json() : null)
     .then(data => {
       if (!data || !data.url) return;
       embedPreviewCache[url] = data;
-      fillLinkEmbedCard(card, data);
+      fillDefaultEmbedLayout(card, data);
     })
     .catch(() => {});
+  return card;
+}
+
+function attachLinkEmbedsIfNeeded(lineEl, content) {
+  const urls = extractEmbedUrls(content);
+  let after = lineEl;
+  urls.forEach(url => {
+    if (isEmbedHidden(url)) return;
+    const card = buildLinkEmbedCard(url);
+    after.after(card);
+    after = card;
+  });
 }

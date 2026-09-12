@@ -7,7 +7,7 @@ from app.models import Parties, Party_members, Servers, Server_members, Server_c
 from app.schemas import Message_schema, Party_message_schema, Server_message, Forum_message_create
 from app.database import get_db, Base, engine
 from app.auth import validate_session
-from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs
+from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds
 from app.routers.realtime import active_connections, heartbeat
 from app.routers.messages import send_message
 from app.routers.parties import message_party, leave_party
@@ -38,6 +38,7 @@ app.include_router(invites.router)
 app.include_router(announcements.router)
 app.include_router(forums.router)
 app.include_router(docs.router)
+app.include_router(embeds.router)
 
 @app.on_event("startup")
 async def interval_tasks():

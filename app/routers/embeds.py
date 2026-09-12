@@ -17,6 +17,9 @@ PREVIEW_TTL_SEC = 3600
 FETCH_TIMEOUT_SEC = 5
 MAX_BODY_BYTES = 512_000
 MAX_REDIRECTS = 3
+# HTML unfurl wants a crawler UA — a browser UA gets Spotify's empty
+# "Web Player" shell. oEmbed endpoints do not care which we send.
+CRAWLER_UA = "facebookexternalhit/1.1; OneiraBot/1.0 (+https://oneira.cc)"
 BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 # In-process only. Same URL asked by many clients should not hit the
 # remote site every time. Dies with the worker; that is fine this pass.
@@ -128,14 +131,23 @@ def host_kind(url):
         return "youtube"
     if host == "reddit.com" or host.endswith(".reddit.com"):
         return "reddit"
+    if host == "spotify.com" or host.endswith(".spotify.com"):
+        return "spotify"
     return None
 
 
-def fetch_url(url, accept):
+def preview_is_thin(data):
+    title = (data.get("title") or "").strip().lower()
+    if data.get("description") or data.get("image"):
+        return title in ("spotify - web player",)
+    return True
+
+
+def fetch_url(url, accept, user_agent=CRAWLER_UA):
     request = Request(
         url,
         headers={
-            "User-Agent": BROWSER_UA,
+            "User-Agent": user_agent,
             "Accept": accept,
             "Accept-Language": "en-US,en;q=0.9",
         },
@@ -169,7 +181,7 @@ def fetch_oembed(endpoint, page_url, site):
     if not url_is_allowed(oembed_url):
         return None
     try:
-        response, body = fetch_url(oembed_url, "application/json")
+        response, body = fetch_url(oembed_url, "application/json", BROWSER_UA)
         data = json.loads(body.decode("utf-8", errors="replace"))
         if not isinstance(data, dict) or not (data.get("title") or data.get("author_name")):
             return None
@@ -203,7 +215,7 @@ def parse_preview(html, page_url):
 
 
 def fetch_html_preview(url):
-    response, body = fetch_url(url, "text/html,application/xhtml+xml")
+    response, body = fetch_url(url, "text/html,application/xhtml+xml", CRAWLER_UA)
     content_type = (response.headers.get("Content-Type") or "").lower()
     if "html" not in content_type and "xml" not in content_type:
         raise HTTPException(status_code=422, detail="not an html page")
@@ -225,8 +237,17 @@ def fetch_preview(url):
         data = fetch_oembed("https://www.reddit.com/oembed?url=", url, "Reddit")
         if data:
             return data
+    if kind == "spotify":
+        data = fetch_oembed("https://open.spotify.com/oembed?url=", url, "Spotify")
+        if data:
+            return data
     try:
-        return fetch_html_preview(url)
+        html_data = fetch_html_preview(url)
+        if kind == "spotify" and preview_is_thin(html_data):
+            data = fetch_oembed("https://open.spotify.com/oembed?url=", url, "Spotify")
+            if data:
+                return data
+        return html_data
     except HTTPException:
         raise
     except HTTPError as e:
@@ -246,5 +267,6 @@ def embed_preview(url: str = Query(..., max_length=2000), current_user: UserInfo
     if cached:
         return cached
     data = fetch_preview(raw)
-    _preview_cache[raw] = (time.time(), data)
+    if not preview_is_thin(data):
+        _preview_cache[raw] = (time.time(), data)
     return data

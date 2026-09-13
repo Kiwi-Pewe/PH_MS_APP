@@ -52,13 +52,18 @@ async function sendChatMessage() {
     }
   }
 
+  const tempId = nextMessageTempId();
+  const chatKind = openChatType === "party" ? "party" : "dm";
   const payload = openChatType === "party"
-    ? { type: "party_message", party_id: openChatId, content, attachment }
-    : { type: "message", receiver_id: openChatId, content, attachment };
+    ? { type: "party_message", party_id: openChatId, content, attachment, temp_id: tempId }
+    : { type: "message", receiver_id: openChatId, content, attachment, temp_id: tempId };
   ws.send(JSON.stringify(payload));
 
   currentMessages.push({
+    tempId,
+    chatKind,
     isMine: true,
+    senderId: myUserId,
     username: myUsername || "You",
     content,
     attachment,
@@ -106,15 +111,19 @@ async function sendChannelMessage() {
 
   // One composer, two possible destinations: a forum thread borrows this
   // view, so openForumPostId decides where this send is addressed.
+  const tempId = nextMessageTempId();
+  const chatKind = openForumPostId !== null ? "forum" : "channel";
   if (openForumPostId !== null) {
-    ws.send(JSON.stringify({ type: "forum_message", post_id: openForumPostId, content, attachment }));
+    ws.send(JSON.stringify({ type: "forum_message", post_id: openForumPostId, content, attachment, temp_id: tempId }));
   } else if (currentChannelId !== null) {
-    ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content, attachment }));
+    ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content, attachment, temp_id: tempId }));
   } else {
     return;
   }
 
   currentChannelMessages.push({
+    tempId,
+    chatKind,
     senderId: myUserId,
     isMine: true,
     username: myUsername || "You",

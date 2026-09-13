@@ -12,6 +12,17 @@ function renderClusteredMessages(wrap, messages) {
     // divider, never merged into a cluster. Resets openCluster so the
     // next real message starts fresh rather than silently merging across
     // the divider.
+    if (msg.deletionState === "deleted" || pendingIsExpired(msg)) {
+      wrap.appendChild(buildDeletedTombstone(msg));
+      openCluster = null;
+      return;
+    }
+    if (msg.deletionState === "pending") {
+      wrap.appendChild(buildPendingDeleteCard(msg));
+      openCluster = null;
+      return;
+    }
+
     if (msg.senderId === null) {
       wrap.appendChild(buildSystemDivider(msg));
       openCluster = null;
@@ -92,6 +103,62 @@ function fillBubbleLine(line, msg) {
   if (typeof renderMessageText === "function") renderMessageText(line, msg.content);
   else line.textContent = msg.content;
   line.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
+}
+
+function buildDeletedTombstone(msg) {
+  const el = document.createElement("div");
+  el.className = "deletion-tombstone";
+  el.textContent = "Message deleted";
+  return el;
+}
+
+function buildPendingDeleteCard(msg) {
+  const card = document.createElement("div");
+  card.className = "deletion-card";
+
+  const summary = document.createElement("div");
+  summary.className = "deletion-card-summary";
+  summary.textContent = "Message marked for deletion";
+
+  const detail = document.createElement("div");
+  detail.className = "deletion-card-detail";
+
+  const original = document.createElement("div");
+  original.className = "deletion-card-original";
+  if (msg.content) {
+    const line = document.createElement("div");
+    line.className = "bubble-line";
+    if (typeof renderMessageText === "function") renderMessageText(line, msg.content);
+    else line.textContent = msg.content;
+    original.appendChild(line);
+  }
+  if (typeof attachMediaIfNeeded === "function") attachMediaIfNeeded(original, msg);
+
+  const when = document.createElement("div");
+  when.className = "deletion-card-when";
+  when.textContent = msg.deletionRequestedAt
+    ? `Marked for deletion ${formatClusterTime(msg.deletionRequestedAt)}`
+    : "Marked for deletion";
+
+  detail.appendChild(original);
+  detail.appendChild(when);
+  if (msg.isMine) {
+    const btn = document.createElement("button");
+    btn.className = "pill-btn";
+    btn.textContent = "Reinstate";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      reinstateMessage(msg);
+    });
+    detail.appendChild(btn);
+  }
+
+  card.appendChild(summary);
+  card.appendChild(detail);
+  card.addEventListener("click", () => {
+    card.classList.toggle("expanded");
+  });
+  return card;
 }
 
 function buildSystemDivider(msg) {

@@ -186,15 +186,16 @@ async function openDirectMessage(id, username) {
     const data = await response.json();
     currentMessages = data.messages.map(msg => {
       const isMine = msg.sender_id !== id;
-      return {
+      return applyDeletionFields({
         id: msg.id,
+        chatKind: "dm",
         isMine,
         senderId: msg.sender_id,
         username: isMine ? myUsername : username,
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
         time: new Date(msg.timestamp)
-      };
+      }, msg);
     });
     if (currentMessages.length < 25) hasMoreHistory = false;
     renderMessages();
@@ -227,15 +228,16 @@ async function openParty(id, name) {
     const response = await fetch(`https://${serverAddress}/get_party_messages/${id}`, { credentials: "include" });
     if (!response.ok) { renderMessages(); return; }
     const data = await response.json();
-    currentMessages = data.messages.map(msg => ({
+    currentMessages = data.messages.map(msg => applyDeletionFields({
       id: msg.id,
+      chatKind: "party",
       isMine: msg.username === myUsername,
       senderId: msg.sender_id,
       username: msg.username,
       content: msg.content,
       attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
       time: new Date(msg.timestamp)
-    }));
+    }, msg));
     if (currentMessages.length < 25) hasMoreHistory = false;
     renderMessages();
   } catch (e) { renderMessages(); }

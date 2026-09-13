@@ -215,6 +215,7 @@ async function openForumPost(post) {
     const data = await response.json();
     currentChannelMessages = (data.forum_post_messages || []).map(msg => ({
       id: msg.id,
+      chatKind: "forum",
       isMine: msg.author_id === myUserId,
       senderId: msg.author_id,
       username: msg.username,

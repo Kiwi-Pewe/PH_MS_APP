@@ -6,6 +6,7 @@ from app.schemas import Message_schema
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
+from app.routers.deletion import deletion_fields, refresh_pending_messages
 from datetime import datetime
 
 router = APIRouter()
@@ -80,17 +81,21 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
             msg.read = True
 
     database.commit()
+    refresh_pending_messages(database, History)
     History.reverse()
     messages_out = []
     for msg in History:
+        fields = deletion_fields(msg, attachment_public(msg.attachment))
         messages_out.append({
             "id": msg.id,
             "sender_id": msg.sender_id,
             "receiver_id": msg.receiver_id,
-            "content": msg.content,
-            "attachment": attachment_public(msg.attachment),
+            "content": fields["content"],
+            "attachment": fields["attachment"],
             "timestamp": msg.timestamp,
             "read": msg.read,
+            "deletion_state": fields["deletion_state"],
+            "deletion_requested_at": fields["deletion_requested_at"],
         })
     return {"other_username": target_user.username, "session_username": current_user.username , "messages": messages_out}
 

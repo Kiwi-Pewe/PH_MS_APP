@@ -11,11 +11,140 @@ function showMessageContextMenu(e, msg) {
     timestamp: formatClusterTime(msg.time),
     subtitle: truncateForContextMenu(msg.content)
   }, [
+    { label: "Copy Message", onSelect: () => copyMessageContent(msg) },
     msg.isMine && { label: "Edit Message", onSelect: () => console.log("Edit message — not implemented yet") },
     { label: "Reply", onSelect: () => console.log("Reply — not implemented yet") },
     { label: "Pin", onSelect: () => console.log("Pin — not implemented yet") },
-    msg.isMine && { label: "Delete Message", danger: true, onSelect: () => console.log("Delete message — not implemented yet") }
+    canDeleteMessage(msg) && { label: "Delete Message", danger: true, onSelect: () => deleteMessageFromContextMenu(msg) }
   ]);
+}
+
+function canDeleteMessage(msg) {
+  if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
+  if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
+  if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
+  if (msg.chatKind === "channel" || msg.chatKind === "forum") {
+    return msg.isMine || myUserId === currentServerOwnerId;
+  }
+  return msg.isMine;
+}
+
+function rerenderForKind(kind) {
+  if (kind === "channel" || kind === "forum") renderChannelMessages({ preserveScroll: true });
+  else renderMessages({ preserveScroll: true });
+}
+
+function findLocalMessage(kind, messageId) {
+  const list = (kind === "channel" || kind === "forum") ? currentChannelMessages : currentMessages;
+  return list.find(m => m.id === messageId);
+}
+
+function removeLocalMessage(kind, messageId) {
+  if (kind === "channel" || kind === "forum") {
+    currentChannelMessages = currentChannelMessages.filter(m => m.id !== messageId);
+  } else {
+    currentMessages = currentMessages.filter(m => m.id !== messageId);
+  }
+  rerenderForKind(kind);
+}
+
+function markLocalPending(kind, messageId, requestedAt) {
+  const row = findLocalMessage(kind, messageId);
+  if (!row) return;
+  row.deletionState = "pending";
+  row.deletionRequestedAt = requestedAt ? parseUtcTimestamp(requestedAt) : new Date();
+  rerenderForKind(kind);
+}
+
+function markLocalDeleted(kind, messageId) {
+  const row = findLocalMessage(kind, messageId);
+  if (!row) return;
+  row.deletionState = "deleted";
+  row.content = "";
+  row.attachment = null;
+  rerenderForKind(kind);
+}
+
+function markLocalReinstated(kind, messageId) {
+  const row = findLocalMessage(kind, messageId);
+  if (!row) return;
+  row.deletionState = null;
+  row.deletionRequestedAt = null;
+  rerenderForKind(kind);
+}
+
+function deletionEventTargetsOpenChat(data) {
+  if (data.kind === "dm") {
+    return openChatType === "dm" && (openChatId === data.sender_id || openChatId === data.receiver_id);
+  }
+  if (data.kind === "party") {
+    return openChatType === "party" && openChatId === data.party_id;
+  }
+  if (data.kind === "channel") {
+    return openForumPostId === null && currentChannelId === data.channel_id;
+  }
+  if (data.kind === "forum") {
+    return openForumPostId === data.post_id;
+  }
+  return false;
+}
+
+async function deleteMessageFromContextMenu(msg) {
+  if (!msg.id || !msg.chatKind) return;
+  try {
+    const response = await fetch(`https://${serverAddress}/delete_message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ kind: msg.chatKind, message_id: msg.id })
+    });
+    if (!response.ok) {
+      console.error(`Failed to delete message: ${response.status}`);
+      return;
+    }
+    const data = await response.json();
+    if (msg.chatKind === "channel" || msg.chatKind === "forum") {
+      removeLocalMessage(msg.chatKind, msg.id);
+    } else {
+      msg.deletionState = data.deletion_state || "pending";
+      msg.deletionRequestedAt = data.deletion_requested_at
+        ? parseUtcTimestamp(data.deletion_requested_at)
+        : new Date();
+      rerenderForKind(msg.chatKind);
+    }
+  } catch (e) {
+    console.error("Failed to delete message, network error:", e);
+  }
+}
+
+async function reinstateMessage(msg) {
+  if (!msg.id || !msg.chatKind) return;
+  try {
+    const response = await fetch(`https://${serverAddress}/reinstate_message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ kind: msg.chatKind, message_id: msg.id })
+    });
+    if (!response.ok) {
+      if (response.status === 400) markLocalDeleted(msg.chatKind, msg.id);
+      else console.error(`Failed to reinstate message: ${response.status}`);
+      return;
+    }
+    msg.deletionState = null;
+    msg.deletionRequestedAt = null;
+    rerenderForKind(msg.chatKind);
+  } catch (e) {
+    console.error("Failed to reinstate message, network error:", e);
+  }
+}
+
+async function copyMessageContent(msg) {
+  try {
+    await navigator.clipboard.writeText(msg.content || "");
+  } catch (e) {
+    console.error("Failed to copy message, clipboard error:", e);
+  }
 }
 
 function showProfileContextMenu(e, id, username, isSelf) {

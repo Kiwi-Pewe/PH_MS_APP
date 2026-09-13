@@ -592,6 +592,26 @@
   content: ""; flex: 1 1 auto; height: 1px; background: var(--border);
 }
 
+.deletion-card, .deletion-tombstone {
+  margin: 8px 0 12px;
+  padding: calc(10px * var(--message-scale)) calc(14px * var(--message-scale));
+  border-radius: 10px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: calc(13px * var(--message-scale));
+}
+.deletion-card { cursor: pointer; }
+.deletion-card.expanded { cursor: default; }
+.deletion-card-summary { font-weight: 600; }
+.deletion-card-detail { display: none; flex-direction: column; gap: 10px; margin-top: 10px; }
+.deletion-card.expanded .deletion-card-detail { display: flex; }
+.deletion-card-original { color: var(--text); }
+.deletion-card-original .bubble-line { text-align: left; }
+.deletion-card-when { font-size: calc(12px * var(--message-scale)); color: var(--text-dim); }
+.deletion-card-detail .pill-btn { align-self: flex-start; }
+.deletion-tombstone { cursor: default; text-align: center; }
+
 .dm-item .who { font-size: 13px; font-weight: 600; }
 .dm-item .dm-close { opacity: 0; background: transparent; color: var(--text-dim); font-size: 14px; padding: 2px 6px; border-radius: 4px; }
 .dm-item:hover .dm-close { opacity: 1; }
@@ -763,14 +783,17 @@
 }
 .announce-composer-body-input::placeholder { color: var(--text-dim); }
 .announce-composer-media-strip {
-  display: flex; align-items: flex-start; gap: 6px;
-  flex: 0 0 auto; padding-top: 2px;
+  display: flex; align-items: flex-start; justify-content: flex-end; gap: 6px;
+  flex: 0 0 auto; padding-top: 2px; position: relative;
 }
 .announce-composer-image-btn {
   flex: 0 0 auto; width: 56px; height: 56px; border-radius: 12px;
   background: var(--panel); color: var(--text-dim);
   display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden; cursor: pointer; padding: 0; border: none;
+}
+.announce-composer-image-thumb {
+  transition: margin-right 0.16s ease;
 }
 .announce-composer-image-btn:hover { color: var(--text); }
 .announce-composer-image-btn.has-file { color: var(--text); }
@@ -783,8 +806,16 @@
   border: none; border-radius: 50%; padding: 0; cursor: pointer;
   background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 14px; line-height: 18px;
 }
-/* Rest with files: thumbs only. Hover or focus the strip to reveal add. */
+/* Rest: one stacked pile. Hover slides thumbs aside and shows add. */
+.announce-composer-media-strip.has-files:not(:hover):not(:focus-within) {
+  gap: 0;
+}
+.announce-composer-media-strip.has-files:not(:hover):not(:focus-within) .announce-composer-image-thumb:not(:last-of-type) {
+  margin-right: -56px;
+  pointer-events: none;
+}
 .announce-composer-media-strip.has-files:not(:hover):not(:focus-within) .announce-composer-image-add,
+.announce-composer-media-strip.has-files:not(:hover):not(:focus-within) .announce-composer-image-clear,
 .announce-composer-media-strip.is-full .announce-composer-image-add {
   display: none;
 }

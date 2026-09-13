@@ -50,11 +50,30 @@ function connectSocket() {
     try { data = JSON.parse(event.data); } catch (e) { return; }
     if (data.type === "friend_request") refreshFriendsView();
 
+    if (data.type === "message_ack" && data.temp_id) {
+      const row = currentMessages.find(m => m.tempId === data.temp_id)
+        || currentChannelMessages.find(m => m.tempId === data.temp_id);
+      if (row) row.id = data.id;
+    }
+
+    if (data.type === "message_pending_delete" && deletionEventTargetsOpenChat(data)) {
+      markLocalPending(data.kind, data.message_id, data.deletion_requested_at);
+    }
+    if (data.type === "message_reinstated" && deletionEventTargetsOpenChat(data)) {
+      markLocalReinstated(data.kind, data.message_id);
+    }
+    if (data.type === "message_deleted" && deletionEventTargetsOpenChat(data)) {
+      if (data.tombstone) markLocalDeleted(data.kind, data.message_id);
+      else removeLocalMessage(data.kind, data.message_id);
+    }
+
     if (data.type === "message") {
       const isOpen = openChatType === "dm" && openChatId === data.sender_id;
       bumpConversation("dm", data.sender_id, data.username, !isOpen);
       if (isOpen) {
         currentMessages.push({
+          id: data.id,
+          chatKind: "dm",
           isMine: false,
           senderId: data.sender_id,
           username: data.username,
@@ -71,6 +90,8 @@ function connectSocket() {
       bumpConversation("party", data.party_id, data.party_name, !isOpen);
       if (isOpen) {
         currentMessages.push({
+          id: data.id,
+          chatKind: "party",
           isMine: false,
           senderId: data.sender_id,
           username: data.username,
@@ -89,6 +110,8 @@ function connectSocket() {
       const isOpen = currentChannelId === data.channel_id;
       if (isOpen) {
         currentChannelMessages.push({
+          id: data.id,
+          chatKind: "channel",
           senderId: data.sender_id,
           isMine: false,
           username: data.username,
@@ -107,6 +130,8 @@ function connectSocket() {
     if (data.type === "forum_message") {
       if (openForumPostId === data.post_id) {
         currentChannelMessages.push({
+          id: data.id,
+          chatKind: "forum",
           senderId: data.sender_id,
           isMine: false,
           username: data.username,

@@ -33,3 +33,22 @@ def ensure_attachment_columns():
                 conn.commit()
             except Exception:
                 conn.rollback()
+
+
+# Same reason as attachment: create_all will not add these to a live
+# .db that already has the chat tables. Pending-delete only lives on
+# DMs and parties — server messages are wiped immediately.
+def ensure_deletion_columns():
+    adds = (
+        ("messages", "deletion_state", "VARCHAR"),
+        ("messages", "deletion_requested_at", "DATETIME"),
+        ("party_messages", "deletion_state", "VARCHAR"),
+        ("party_messages", "deletion_requested_at", "DATETIME"),
+    )
+    with engine.connect() as conn:
+        for table, column, coltype in adds:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()

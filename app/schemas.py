@@ -98,3 +98,7 @@ class Forum_message_create(BaseModel):
 class Doc_save(BaseModel):
     channel_id: int
     content: str
+
+class Delete_message(BaseModel):
+    kind: str
+    message_id: int

@@ -23,15 +23,16 @@ async function loadOlderMessages() {
     const data = await response.json();
     const older = data.messages.map(msg => {
       const isMine = openChatType === "party" ? msg.username === myUsername : msg.sender_id !== openChatId;
-      return {
+      return applyDeletionFields({
         id: msg.id,
+        chatKind: openChatType === "party" ? "party" : "dm",
         isMine,
         senderId: msg.sender_id,
         username: isMine ? myUsername : (openChatType === "party" ? msg.username : openChatName),
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
         time: new Date(msg.timestamp)
-      };
+      }, msg);
     });
     if (older.length < 25) hasMoreHistory = false;
     currentMessages = older.concat(currentMessages);
@@ -74,8 +75,9 @@ async function loadOlderChannelMessages() {
     const rows = (isForum ? data.forum_post_messages : data.messages) || [];
     const older = rows.map(msg => {
       const senderId = isForum ? msg.author_id : msg.sender_id;
-      return {
+      return applyDeletionFields({
         id: msg.id,
+        chatKind: isForum ? "forum" : "channel",
         isMine: senderId === myUserId,
         senderId,
         username: msg.username,
@@ -86,7 +88,7 @@ async function loadOlderChannelMessages() {
         // branch keeps bare Date() so it stays consistent with its own
         // initial load until the queued timestamp fix lands everywhere.
         time: isForum ? parseUtcTimestamp(msg.timestamp) : new Date(msg.timestamp)
-      };
+      }, msg);
     });
     if (older.length < 25) channelHasMoreHistory = false;
     currentChannelMessages = older.concat(currentChannelMessages);

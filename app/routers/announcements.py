@@ -6,6 +6,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import delete_attachment, normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
 from app.routers.realtime import server_broadcast
+from app.routers.deletion import write_audit_log
 
 router = APIRouter()
 
@@ -165,6 +166,13 @@ async def delete_comment(comment_id: int, database: Session = Depends(get_db), c
     if current_user.id != comment_exist.sender_id and current_user.id != server.owner_id:
         raise HTTPException(status_code= 403, detail="Not authorized to delete comment")
 
+    author = database.query(UserInfo).filter(UserInfo.id == comment_exist.sender_id).first()
+    write_audit_log(database, server.id, current_user.id, "delete_comment", "announcement_comment", comment_exist.id, {
+        "content": comment_exist.content,
+        "author_id": comment_exist.sender_id,
+        "author_username": author.username if author else None,
+        "post_id": post.id
+    })
     database.delete(comment_exist)
     post.comment_count -= 1
     database.commit()
@@ -195,6 +203,14 @@ async def delete_post(post_id: int,database: Session = Depends(get_db), current_
     if  current_user.id != post_exist.sender_id and current_user.id != server.owner_id:
         raise HTTPException(status_code=403, detail="Not authorized to delete post")
 
+    author = database.query(UserInfo).filter(UserInfo.id == post_exist.sender_id).first()
+    write_audit_log(database, server.id, current_user.id, "delete_post", "announcement_post", post_exist.id, {
+        "title": post_exist.title,
+        "body": post_exist.body,
+        "author_id": post_exist.sender_id,
+        "author_username": author.username if author else None,
+        "channel_id": channel.id
+    })
     all_comments = database.query(Announcement_comment).filter(Announcement_comment.post_id == post_id).all()
 
     for comment in all_comments:

@@ -6,6 +6,7 @@ from app.schemas import Party_create, Party_message_schema
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
+from app.routers.deletion import deletion_fields, refresh_pending_messages
 from datetime import datetime
 import random
 
@@ -105,6 +106,7 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
     else:
         party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
 
+    refresh_pending_messages(database, party_history)
     sender_ids = list({message.sender_id for message in party_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
@@ -112,13 +114,16 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
     message_history = []
 
     for message in party_history:
+        fields = deletion_fields(message, attachment_public(message.attachment))
         message_history.append({
             "id": message.id,
             "sender_id": message.sender_id,
             "username": "" if message.sender_id == None else username_lookup[message.sender_id],
-            "content": message.content,
-            "attachment": attachment_public(message.attachment),
-            "timestamp": str(message.timestamp)
+            "content": fields["content"],
+            "attachment": fields["attachment"],
+            "timestamp": str(message.timestamp),
+            "deletion_state": fields["deletion_state"],
+            "deletion_requested_at": fields["deletion_requested_at"],
         })
 
     message_history.reverse()

@@ -19,6 +19,8 @@ class Message(Base):
     attachment = Column(String, nullable=True)
     timestamp = Column(DateTime, server_default=func.now())
     read = Column(Boolean, default= False)
+    deletion_state = Column(String, nullable=True)
+    deletion_requested_at = Column(DateTime, nullable=True)
 
 class Active_Sessions(Base):
     __tablename__ = "sessions"
@@ -77,6 +79,8 @@ class Party_messages(Base):
     content = Column(String)
     attachment = Column(String, nullable=True)
     timestamp = Column(DateTime, server_default=func.now())
+    deletion_state = Column(String, nullable=True)
+    deletion_requested_at = Column(DateTime, nullable=True)
 
 class Servers(Base):
     __tablename__ = "servers"
@@ -179,6 +183,17 @@ class Doc_page(Base):
     updated_at = Column(DateTime, server_default=func.now())
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     editor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+class Audit_log(Base):
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key = True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    actor_id = Column(Integer, ForeignKey("users.id"))
+    action = Column(String)
+    target_type = Column(String)
+    target_id = Column(Integer)
+    detail = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
 
 Index(
     "ix_forum_post_activity",

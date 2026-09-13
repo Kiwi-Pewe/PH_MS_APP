@@ -5,10 +5,10 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from app.models import Parties, Party_members, Servers, Server_members, Server_categories, Server_channels, Forum_post
 from app.schemas import Attachment_in, Message_schema, Party_message_schema, Server_message, Forum_message_create
-from app.database import get_db, Base, engine, ensure_attachment_columns
+from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns
 from app.auth import validate_session
 from app.r2 import attachment_public
-from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads
+from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion
 from pydantic import ValidationError
 from app.routers.realtime import active_connections, heartbeat
 from app.routers.messages import send_message
@@ -17,6 +17,7 @@ from app.routers.servers import message_server_channel
 from app.routers.forums import send_forum_message
 from app.routers.docs import release_doc_locks
 from app.routers.invites import check_invites
+from app.routers.deletion import sweep_pending_deletes
 import asyncio
 
 def ws_attachment(data):
@@ -32,6 +33,7 @@ def ws_attachment(data):
 app = FastAPI()
 Base.metadata.create_all(engine)
 ensure_attachment_columns()
+ensure_deletion_columns()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://oneira.cc"],
@@ -53,10 +55,12 @@ app.include_router(forums.router)
 app.include_router(docs.router)
 app.include_router(embeds.router)
 app.include_router(uploads.router)
+app.include_router(deletion.router)
 
 @app.on_event("startup")
 async def interval_tasks():
     asyncio.create_task(check_invites())
+    asyncio.create_task(sweep_pending_deletes())
 
 @app.websocket("/ws")
 async def connect_user(socket: WebSocket, session_id: str = Cookie(None), database: Session = Depends(get_db)):
@@ -85,9 +89,16 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
 
+                await socket.send_json({
+                    "type": "message_ack",
+                    "kind": "dm",
+                    "id": new_message.id,
+                    "temp_id": data.get("temp_id"),
+                })
                 if data["receiver_id"] in active_connections:
                     await active_connections[data["receiver_id"]].send_json({
                     "type": "message",
+                    "id": new_message.id,
                     "username": current_user.username,
                     "sender_id": current_user.id,
                     "content": data.get("content") or "",
@@ -105,6 +116,12 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
+                await socket.send_json({
+                    "type": "message_ack",
+                    "kind": "party",
+                    "id": new_party_message.id,
+                    "temp_id": data.get("temp_id"),
+                })
                 party_info = database.query(Parties).filter(Parties.id == data["party_id"]).first()
                 all_members = database.query(Party_members).filter(Party_members.party_id == data["party_id"]).all()
 
@@ -112,6 +129,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     if member.user_id != current_user.id and member.user_id in active_connections:
                         await active_connections[member.user_id].send_json({
                             "type": "party_message",
+                            "id": new_party_message.id,
                             "party_name": party_info.party_name,
                             "party_id": data["party_id"],
                             "sender_id": current_user.id,
@@ -157,6 +175,12 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
 
+                await socket.send_json({
+                    "type": "message_ack",
+                    "kind": "channel",
+                    "id": new_server_msg.id,
+                    "temp_id": data.get("temp_id"),
+                })
                 channel = database.query(Server_channels).filter(Server_channels.id == data["channel_id"]).first()
                 category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
                 server = database.query(Servers).filter(Servers.id == category.server_id).first()
@@ -166,6 +190,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     if member.user_id != current_user.id and member.user_id in active_connections:
                         await active_connections[member.user_id].send_json({
                             "type": "channel_message",
+                            "id": new_server_msg.id,
                             "channel_id": channel.id,
                             "sender_id": current_user.id,
                             "username": current_user.username,
@@ -185,6 +210,12 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
 
+                await socket.send_json({
+                    "type": "message_ack",
+                    "kind": "forum",
+                    "id": new_forum_msg["id"],
+                    "temp_id": data.get("temp_id"),
+                })
                 post = database.query(Forum_post).filter(Forum_post.id == data["post_id"]).first()
                 channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
                 category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()

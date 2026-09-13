@@ -105,10 +105,12 @@ function bindPostComposerMedia(kind, buttonId) {
   input.type = "file";
   input.accept = typeof MEDIA_ACCEPT === "string" ? MEDIA_ACCEPT : "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm";
   input.multiple = true;
-  input.hidden = true;
-  btn.insertAdjacentElement("afterend", input);
+  input.setAttribute("hidden", "");
+  input.style.display = "none";
+  input.tabIndex = -1;
+  document.body.appendChild(input);
   btn.disabled = false;
-  btn.title = "Add image or video";
+  btn.removeAttribute("title");
   btn.addEventListener("click", () => {
     if (postMediaPending[kind].files.length >= POST_MEDIA_MAX) return;
     input.value = "";

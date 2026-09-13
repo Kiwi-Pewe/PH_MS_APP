@@ -248,6 +248,7 @@ async function selectChannel(channel, rowEl) {
     const data = await response.json();
     currentChannelMessages = data.messages.map(msg => ({
       id: msg.id,
+      chatKind: "channel",
       isMine: msg.sender_id === myUserId,
       senderId: msg.sender_id,
       username: msg.username,

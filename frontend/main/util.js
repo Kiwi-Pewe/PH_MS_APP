@@ -38,3 +38,20 @@ function parseUtcTimestamp(ts) {
   if (ts.includes("T")) return new Date(ts);
   return new Date(ts.replace(" ", "T") + "Z");
 }
+
+function nextMessageTempId() {
+  return "tmp-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+}
+
+function applyDeletionFields(out, src) {
+  out.deletionState = src.deletion_state || null;
+  out.deletionRequestedAt = src.deletion_requested_at
+    ? parseUtcTimestamp(src.deletion_requested_at)
+    : null;
+  return out;
+}
+
+function pendingIsExpired(msg) {
+  if (!msg || msg.deletionState !== "pending" || !msg.deletionRequestedAt) return false;
+  return Date.now() - msg.deletionRequestedAt.getTime() >= 24 * 60 * 60 * 1000;
+}

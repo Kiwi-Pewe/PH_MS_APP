@@ -4,10 +4,12 @@ import json
 import os
 import re
 import uuid
+from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import HTTPException
 
-load_dotenv()
+# Always the app folder, not whatever cwd uvicorn was started from.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 ALLOWED_MIMES = {
     "image/jpeg": "jpg",

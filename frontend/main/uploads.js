@@ -197,7 +197,8 @@ async function uploadPendingFile(file) {
     body: JSON.stringify({ mime, size: file.size, name: file.name || "" })
   });
   if (!signed.ok) {
-    const detail = await signed.text();
+    let detail = await signed.text();
+    try { detail = JSON.parse(detail).detail || detail; } catch (e) { /* keep text */ }
     throw new Error(detail || `Could not start upload (${signed.status})`);
   }
   const ticket = await signed.json();

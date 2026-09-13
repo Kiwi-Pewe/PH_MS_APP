@@ -58,7 +58,8 @@ async function submitCreateAnnouncement() {
     }
     post = await response.json();
   } catch (e) {
-    console.error("Failed to post announcement, network error:", e);
+    console.error("Failed to post announcement:", e);
+    alert(e.message || "Failed to post announcement");
     return;
   } finally {
     postBtn.disabled = false;

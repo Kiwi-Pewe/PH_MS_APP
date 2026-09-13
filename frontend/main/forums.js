@@ -63,7 +63,8 @@ async function submitCreateForumPost() {
     }
     post = await response.json();
   } catch (e) {
-    console.error("Failed to create forum post, network error:", e);
+    console.error("Failed to create forum post:", e);
+    alert(e.message || "Failed to create forum post");
     return;
   } finally {
     postBtn.disabled = false;

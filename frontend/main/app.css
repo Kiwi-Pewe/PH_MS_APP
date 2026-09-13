@@ -593,7 +593,8 @@
 }
 
 .deletion-card, .deletion-tombstone {
-  margin: 8px 0 12px;
+  width: fit-content;
+  max-width: 100%;
   padding: calc(10px * var(--message-scale)) calc(14px * var(--message-scale));
   border-radius: 10px;
   background: var(--panel-alt);
@@ -603,14 +604,25 @@
 }
 .deletion-card { cursor: pointer; }
 .deletion-card.expanded { cursor: default; }
-.deletion-card-summary { font-weight: 600; }
+.deletion-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.deletion-card-caret {
+  font-size: 11px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.deletion-card.expanded .deletion-card-caret { transform: rotate(180deg); }
 .deletion-card-detail { display: none; flex-direction: column; gap: 10px; margin-top: 10px; }
 .deletion-card.expanded .deletion-card-detail { display: flex; }
 .deletion-card-original { color: var(--text); }
 .deletion-card-original .bubble-line { text-align: left; }
 .deletion-card-when { font-size: calc(12px * var(--message-scale)); color: var(--text-dim); }
 .deletion-card-detail .pill-btn { align-self: flex-start; }
-.deletion-tombstone { cursor: default; text-align: center; }
+.deletion-tombstone { cursor: default; }
 
 .dm-item .who { font-size: 13px; font-weight: 600; }
 .dm-item .dm-close { opacity: 0; background: transparent; color: var(--text-dim); font-size: 14px; padding: 2px 6px; border-radius: 4px; }

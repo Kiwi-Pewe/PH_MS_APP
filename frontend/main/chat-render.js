@@ -105,11 +105,28 @@ function fillBubbleLine(line, msg) {
   line.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
 }
 
+function wrapDeletionOnSenderSide(msg, inner) {
+  const cluster = document.createElement("div");
+  cluster.className = "msg-cluster deletion-cluster " + (msg.isMine ? "self" : "other");
+
+  const avatar = document.createElement("div");
+  avatar.className = "cluster-avatar";
+  avatar.textContent = avatarLetter(msg.username);
+
+  const body = document.createElement("div");
+  body.className = "cluster-body";
+  body.appendChild(inner);
+
+  cluster.appendChild(avatar);
+  cluster.appendChild(body);
+  return cluster;
+}
+
 function buildDeletedTombstone(msg) {
   const el = document.createElement("div");
   el.className = "deletion-tombstone";
   el.textContent = "Message deleted";
-  return el;
+  return wrapDeletionOnSenderSide(msg, el);
 }
 
 function buildPendingDeleteCard(msg) {
@@ -118,7 +135,13 @@ function buildPendingDeleteCard(msg) {
 
   const summary = document.createElement("div");
   summary.className = "deletion-card-summary";
-  summary.textContent = "Message marked for deletion";
+  const label = document.createElement("span");
+  label.textContent = "Message marked for deletion";
+  const caret = document.createElement("span");
+  caret.className = "deletion-card-caret";
+  caret.innerHTML = "&#9662;";
+  summary.appendChild(label);
+  summary.appendChild(caret);
 
   const detail = document.createElement("div");
   detail.className = "deletion-card-detail";
@@ -158,7 +181,7 @@ function buildPendingDeleteCard(msg) {
   card.addEventListener("click", () => {
     card.classList.toggle("expanded");
   });
-  return card;
+  return wrapDeletionOnSenderSide(msg, card);
 }
 
 function buildSystemDivider(msg) {

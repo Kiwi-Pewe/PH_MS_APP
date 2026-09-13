@@ -5,6 +5,7 @@ from app.models import UserInfo, Parties, Party_messages, Party_members
 from app.schemas import Party_create, Party_message_schema
 from app.database import get_db
 from app.auth import get_current_user
+from app.r2 import attachment_public, require_message_body, store_attachment
 from datetime import datetime
 import random
 
@@ -67,10 +68,12 @@ def message_party(party_msg: Party_message_schema, database: Session = Depends(g
     if not in_Party:
         raise HTTPException(status_code=404, detail="Party not found.")
 
+    require_message_body(party_msg.content, party_msg.attachment)
     new_party_msg = Party_messages(
         party_id=party_msg.party_id,
         sender_id=current_user.id,
         content=party_msg.content,
+        attachment=store_attachment(party_msg.attachment, current_user),
     )
     database.add(new_party_msg)
 
@@ -114,6 +117,7 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
             "sender_id": message.sender_id,
             "username": "" if message.sender_id == None else username_lookup[message.sender_id],
             "content": message.content,
+            "attachment": attachment_public(message.attachment),
             "timestamp": str(message.timestamp)
         })
 

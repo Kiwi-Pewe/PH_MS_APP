@@ -36,25 +36,38 @@ function enableChannelComposer(label) {
   document.getElementById("channel-composer-emoji-btn").disabled = false;
 }
 
-function sendChatMessage() {
+async function sendChatMessage() {
   const input = document.getElementById("composer-input");
   const content = input.value.trim();
-  if (!content || openChatId === null || !ws) return;
+  if ((!content && !pendingAttach) || openChatId === null || !ws) return;
+  if (pendingAttach && pendingAttach.busy) return;
+
+  let attachment = null;
+  if (pendingAttach) {
+    try {
+      attachment = await uploadPendingIfNeeded();
+    } catch (err) {
+      window.alert(err.message || "Upload failed.");
+      return;
+    }
+  }
 
   const payload = openChatType === "party"
-    ? { type: "party_message", party_id: openChatId, content }
-    : { type: "message", receiver_id: openChatId, content };
+    ? { type: "party_message", party_id: openChatId, content, attachment }
+    : { type: "message", receiver_id: openChatId, content, attachment };
   ws.send(JSON.stringify(payload));
 
   currentMessages.push({
     isMine: true,
     username: myUsername || "You",
     content,
+    attachment,
     time: new Date()
   });
   renderMessages();
   bumpConversation(openChatType, openChatId, openChatName, false);
   input.value = "";
+  clearPendingAttach();
   autoGrowComposer();
 }
 
@@ -75,17 +88,28 @@ document.getElementById("composer-input").addEventListener("keydown", (e) => {
 
 // sender_id isn't in the payload - backend fills it from the verified
 // session (never trust the client for identity).
-function sendChannelMessage() {
+async function sendChannelMessage() {
   const input = document.getElementById("channel-composer-input");
   const content = input.value.trim();
-  if (!content || !ws) return;
+  if ((!content && !pendingAttach) || !ws) return;
+  if (pendingAttach && pendingAttach.busy) return;
+
+  let attachment = null;
+  if (pendingAttach) {
+    try {
+      attachment = await uploadPendingIfNeeded();
+    } catch (err) {
+      window.alert(err.message || "Upload failed.");
+      return;
+    }
+  }
 
   // One composer, two possible destinations: a forum thread borrows this
   // view, so openForumPostId decides where this send is addressed.
   if (openForumPostId !== null) {
-    ws.send(JSON.stringify({ type: "forum_message", post_id: openForumPostId, content }));
+    ws.send(JSON.stringify({ type: "forum_message", post_id: openForumPostId, content, attachment }));
   } else if (currentChannelId !== null) {
-    ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content }));
+    ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content, attachment }));
   } else {
     return;
   }
@@ -95,10 +119,12 @@ function sendChannelMessage() {
     isMine: true,
     username: myUsername || "You",
     content,
+    attachment,
     time: new Date()
   });
   renderChannelMessages();
   input.value = "";
+  clearPendingAttach();
   autoGrowChannelComposer();
 }
 

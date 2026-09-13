@@ -160,6 +160,7 @@ function resetChatView() {
 }
 
 async function openDirectMessage(id, username) {
+  if (typeof clearPendingAttach === "function") clearPendingAttach();
   openChatType = "dm";
   openChatId = id;
   openChatName = username;
@@ -191,6 +192,7 @@ async function openDirectMessage(id, username) {
         senderId: msg.sender_id,
         username: isMine ? myUsername : username,
         content: msg.content,
+        attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
         time: new Date(msg.timestamp)
       };
     });
@@ -202,6 +204,7 @@ async function openDirectMessage(id, username) {
 // Mirrors openDirectMessage exactly, pointed at party endpoints -
 // everything downstream works off openChatType/openChatId/currentMessages.
 async function openParty(id, name) {
+  if (typeof clearPendingAttach === "function") clearPendingAttach();
   openChatType = "party";
   openChatId = id;
   openChatName = name;
@@ -230,6 +233,7 @@ async function openParty(id, name) {
       senderId: msg.sender_id,
       username: msg.username,
       content: msg.content,
+      attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
       time: new Date(msg.timestamp)
     }));
     if (currentMessages.length < 25) hasMoreHistory = false;

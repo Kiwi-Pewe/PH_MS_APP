@@ -5,6 +5,7 @@ from app.models import UserInfo, Message, Block_user, Friend_request, Conversati
 from app.schemas import Message_schema
 from app.database import get_db
 from app.auth import get_current_user
+from app.r2 import attachment_public, require_message_body, store_attachment
 from datetime import datetime
 
 router = APIRouter()
@@ -28,6 +29,9 @@ def send_message(message: Message_schema, database: Session = Depends(get_db), c
     if active_request.pending == True:
         raise HTTPException(status_code= 400, detail= "Friend request pending")
 
+    require_message_body(message.content, message.attachment)
+    attachment_json = store_attachment(message.attachment, current_user)
+
     convo_exists = database.query(Conversations).filter(Conversations.user_1 == current_user.id, Conversations.user_2 == message.receiver_id).first()
     mirrored_convo = database.query(Conversations).filter(Conversations.user_1 == message.receiver_id, Conversations.user_2 == current_user.id).first()
     active_convo = convo_exists or mirrored_convo
@@ -46,6 +50,7 @@ def send_message(message: Message_schema, database: Session = Depends(get_db), c
     new_message = Message(sender_id = current_user.id, 
     receiver_id = message.receiver_id,
     content = message.content,
+    attachment = attachment_json,
     read = False,
     )
     database.add(new_message)
@@ -76,7 +81,18 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
 
     database.commit()
     History.reverse()
-    return {"other_username": target_user.username, "session_username": current_user.username , "messages":History}
+    messages_out = []
+    for msg in History:
+        messages_out.append({
+            "id": msg.id,
+            "sender_id": msg.sender_id,
+            "receiver_id": msg.receiver_id,
+            "content": msg.content,
+            "attachment": attachment_public(msg.attachment),
+            "timestamp": msg.timestamp,
+            "read": msg.read,
+        })
+    return {"other_username": target_user.username, "session_username": current_user.username , "messages": messages_out}
 
 @router.get("/conversation_history")
 def conversation_history(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

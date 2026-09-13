@@ -4,10 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from app.models import Parties, Party_members, Servers, Server_members, Server_categories, Server_channels, Forum_post
-from app.schemas import Message_schema, Party_message_schema, Server_message, Forum_message_create
-from app.database import get_db, Base, engine
+from app.schemas import Attachment_in, Message_schema, Party_message_schema, Server_message, Forum_message_create
+from app.database import get_db, Base, engine, ensure_attachment_columns
 from app.auth import validate_session
-from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds
+from app.r2 import attachment_public
+from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads
+from pydantic import ValidationError
 from app.routers.realtime import active_connections, heartbeat
 from app.routers.messages import send_message
 from app.routers.parties import message_party, leave_party
@@ -17,8 +19,19 @@ from app.routers.docs import release_doc_locks
 from app.routers.invites import check_invites
 import asyncio
 
+def ws_attachment(data):
+    raw = data.get("attachment")
+    if not raw:
+        return None
+    try:
+        return Attachment_in.model_validate(raw)
+    except ValidationError:
+        raise HTTPException(status_code=400, detail="Invalid attachment")
+
+
 app = FastAPI()
 Base.metadata.create_all(engine)
+ensure_attachment_columns()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://oneira.cc"],
@@ -39,6 +52,7 @@ app.include_router(announcements.router)
 app.include_router(forums.router)
 app.include_router(docs.router)
 app.include_router(embeds.router)
+app.include_router(uploads.router)
 
 @app.on_event("startup")
 async def interval_tasks():
@@ -60,12 +74,12 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
             data = await socket.receive_json()
 
             if data["type"] == "message":
-                new_message = Message_schema(
-                sender_id = current_user.id,
-                receiver_id = data["receiver_id"],
-                content= data["content"])
-
                 try:
+                    new_message = Message_schema(
+                    sender_id = current_user.id,
+                    receiver_id = data["receiver_id"],
+                    content= data.get("content") or "",
+                    attachment= ws_attachment(data))
                     new_message = send_message(message=new_message, database=database, current_user=current_user)
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
@@ -76,16 +90,17 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     "type": "message",
                     "username": current_user.username,
                     "sender_id": current_user.id,
-                    "content": data["content"],
+                    "content": data.get("content") or "",
+                    "attachment": attachment_public(new_message.attachment),
                     "timestamp": str(new_message.timestamp)})
             elif data["type"] == "party_message":
-                new_party_message = Party_message_schema(
+                try:
+                    new_party_message = Party_message_schema(
                     sender_id= current_user.id,
                     party_id= data["party_id"],
-                    content= data["content"] 
-                )
-
-                try:
+                    content= data.get("content") or "",
+                    attachment= ws_attachment(data),
+                    )
                     new_party_message = message_party(party_msg= new_party_message,database=database, current_user=current_user)
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
@@ -101,7 +116,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "party_id": data["party_id"],
                             "sender_id": current_user.id,
                             "username": current_user.username,
-                            "content": data["content"],
+                            "content": data.get("content") or "",
+                            "attachment": attachment_public(new_party_message.attachment),
                             "timestamp": str(new_party_message.timestamp)
                         })            
             elif data["type"] == "leave_party":
@@ -129,13 +145,13 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                                 "timestamp": str(leave_notice["message"].timestamp)
                             })
             elif data["type"] == "channel_message":
-                new_server_msg = Server_message(
+                try:
+                    new_server_msg = Server_message(
                     sender_id= current_user.id,
                     channel_id= data["channel_id"],
-                    content = data["content"]
-                )
-
-                try:
+                    content = data.get("content") or "",
+                    attachment= ws_attachment(data),
+                    )
                     new_server_msg = message_server_channel(server_msg= new_server_msg, database=database, current_user=current_user)
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
@@ -153,16 +169,17 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "channel_id": channel.id,
                             "sender_id": current_user.id,
                             "username": current_user.username,
-                            "content": data["content"],
+                            "content": data.get("content") or "",
+                            "attachment": attachment_public(new_server_msg.attachment),
                             "timestamp": str(new_server_msg.timestamp) 
                         })
             elif data["type"] == "forum_message":
-                new_forum_msg = Forum_message_create(
-                    post_id = data["post_id"],
-                    content = data["content"]
-                )
-
                 try:
+                    new_forum_msg = Forum_message_create(
+                    post_id = data["post_id"],
+                    content = data.get("content") or "",
+                    attachment= ws_attachment(data),
+                    )
                     new_forum_msg = await send_forum_message(forum_message= new_forum_msg, database=database, current_user=current_user)
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
@@ -183,7 +200,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "id": new_forum_msg["id"],
                             "sender_id": current_user.id,
                             "username": current_user.username,
-                            "content": data["content"],
+                            "content": data.get("content") or "",
+                            "attachment": new_forum_msg.get("attachment"),
                             "timestamp": new_forum_msg["timestamp"]
                         })
 

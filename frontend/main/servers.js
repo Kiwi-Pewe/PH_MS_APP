@@ -142,6 +142,7 @@ function renderServerSidebar(data) {
 }
 
 async function selectChannel(channel, rowEl) {
+  if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (!(await leaveDocIfNeeded())) return;
 
   // A forum thread borrows the channel chat view, so leaving the channel
@@ -249,6 +250,7 @@ async function selectChannel(channel, rowEl) {
       senderId: msg.sender_id,
       username: msg.username,
       content: msg.content,
+      attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
       time: new Date(msg.timestamp)
     }));
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;

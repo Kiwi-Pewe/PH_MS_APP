@@ -174,6 +174,7 @@ function buildForumPostCard(post) {
 // borrowed wholesale - no forum-specific renderer, composer or pagination
 // exists, they're the channel ones with openForumPostId set (see state.js).
 async function openForumPost(post) {
+  if (typeof clearPendingAttach === "function") clearPendingAttach();
   openForumPostId = post.id;
   openForumPostTitle = post.title;
 
@@ -200,6 +201,7 @@ async function openForumPost(post) {
       senderId: msg.author_id,
       username: msg.username,
       content: msg.content,
+      attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
       time: parseUtcTimestamp(msg.timestamp)
     }));
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;

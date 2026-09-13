@@ -9,10 +9,17 @@ class Account_register(BaseModel):
     username:str
     password:str
 
+class Attachment_in(BaseModel):
+    key: str
+    mime: str
+    size: int
+    name: str = ""
+
 class Message_schema(BaseModel):
     sender_id: int
     receiver_id: int
-    content: str
+    content: str = ""
+    attachment: Attachment_in | None = None
 
 class Session_logger(BaseModel):
     session_id: str
@@ -37,7 +44,8 @@ class Party_create(BaseModel):
 class Party_message_schema(BaseModel):
     sender_id: int
     party_id: int
-    content: str
+    content: str = ""
+    attachment: Attachment_in | None = None
 
 class Server_create(BaseModel):
     name: str
@@ -45,7 +53,8 @@ class Server_create(BaseModel):
 class Server_message(BaseModel):
     sender_id: int
     channel_id: int
-    content: str
+    content: str = ""
+    attachment: Attachment_in | None = None
 
 class Invite(BaseModel):
     type: str
@@ -79,7 +88,8 @@ class Forum_post_create(BaseModel):
 
 class Forum_message_create(BaseModel):
     post_id: int
-    content: str
+    content: str = ""
+    attachment: Attachment_in | None = None
 
 class Doc_save(BaseModel):
     channel_id: int

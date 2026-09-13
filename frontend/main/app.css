@@ -239,6 +239,36 @@
    separate element only because both views coexist in the DOM and ids
    must be unique. */
 #composer, #channel-composer { flex: 0 0 auto; padding: 16px; border-top: 1px solid var(--border); }
+#composer.attach-drop, #channel-composer.attach-drop { outline: 1px dashed var(--accent); outline-offset: -8px; }
+.attach-preview { margin-bottom: 8px; }
+.attach-chip {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel-alt); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; max-width: 360px;
+}
+.attach-chip img, .attach-chip video {
+  width: 56px; height: 56px; object-fit: cover; border-radius: 6px; background: #000;
+}
+.attach-chip-meta { min-width: 0; flex: 1; }
+.attach-chip-name { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-chip-size { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+#composer button.attach-chip-remove, #channel-composer button.attach-chip-remove {
+  height: 28px; width: 28px; padding: 0; border-radius: 6px;
+  background: transparent; color: var(--text-dim); font-size: 18px; font-weight: 600;
+}
+#composer button.attach-chip-remove:hover, #channel-composer button.attach-chip-remove:hover {
+  background: var(--panel); color: var(--text);
+}
+.msg-media { max-width: 320px; }
+.msg-media img, .msg-media video {
+  display: block; max-width: 100%; max-height: 360px; border-radius: 10px;
+  background: #000;
+}
+.msg-media img { cursor: pointer; }
+#chat-messages.self-right .msg-cluster.self .msg-media,
+#channel-messages.self-right .msg-cluster.self .msg-media { align-self: flex-end; }
+#chat-messages:not(.self-right) .msg-cluster.self .msg-media,
+#channel-messages:not(.self-right) .msg-cluster.self .msg-media { align-self: flex-start; }
 #composer .box, #channel-composer .box { display: flex; align-items: flex-end; gap: 6px; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 6px; }
 #composer textarea, #channel-composer textarea {
   flex: 1; width: 100%; min-width: 0; box-sizing: border-box;

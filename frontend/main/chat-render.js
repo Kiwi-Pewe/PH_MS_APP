@@ -29,10 +29,13 @@ function renderClusteredMessages(wrap, messages) {
       openCluster = startNewCluster(wrap, msg);
     } else {
       const line = document.createElement("div");
-      fillBubbleLine(line, msg);
-      openCluster.bubbleEl.appendChild(line);
-      if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(line, msg.content);
-      attachInviteCardIfNeeded(openCluster.bubbleEl, msg.content);
+      if (msg.content) {
+        fillBubbleLine(line, msg);
+        openCluster.bubbleEl.appendChild(line);
+        if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(line, msg.content);
+        attachInviteCardIfNeeded(openCluster.bubbleEl, msg.content);
+      }
+      if (typeof attachMediaIfNeeded === "function") attachMediaIfNeeded(openCluster.bubbleEl, msg);
     }
 
     openCluster.lastTime = msg.time;
@@ -124,11 +127,14 @@ function startNewCluster(wrap, msg) {
 
   const bubble = document.createElement("div");
   bubble.className = "cluster-bubble";
-  const firstLine = document.createElement("div");
-  fillBubbleLine(firstLine, msg);
-  bubble.appendChild(firstLine);
-  if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(firstLine, msg.content);
-  attachInviteCardIfNeeded(bubble, msg.content);
+  if (msg.content) {
+    const firstLine = document.createElement("div");
+    fillBubbleLine(firstLine, msg);
+    bubble.appendChild(firstLine);
+    if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(firstLine, msg.content);
+    attachInviteCardIfNeeded(bubble, msg.content);
+  }
+  if (typeof attachMediaIfNeeded === "function") attachMediaIfNeeded(bubble, msg);
 
   body.appendChild(header);
   body.appendChild(bubble);

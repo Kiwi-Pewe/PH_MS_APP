@@ -5,6 +5,7 @@ from app.models import UserInfo, Servers, Server_members, Server_categories, Ser
 from app.schemas import Forum_message_create, Forum_post_create
 from app.database import get_db
 from app.auth import get_current_user
+from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.realtime import server_broadcast
 from datetime import datetime
 
@@ -96,10 +97,12 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
     if not is_member:
         raise HTTPException(status_code= 404, detail="Membership not found")
 
+    require_message_body(forum_message.content, forum_message.attachment)
     new_message = Forum_messages(
         post_id = forum_message.post_id,
         author_id = current_user.id,
-        content = forum_message.content
+        content = forum_message.content,
+        attachment = store_attachment(forum_message.attachment, current_user),
     )
     database.add(new_message)
 
@@ -125,6 +128,7 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
         "author_id": new_message.author_id,
         "username": current_user.username,
         "content": new_message.content,
+        "attachment": attachment_public(new_message.attachment),
         "timestamp": str(new_message.created_at)
     }
 
@@ -159,6 +163,10 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
             "author_id": message.author_id,
             "username": username_lookup[message.author_id], 
             "content": message.content,
+            "attachment": attachment_public(message.attachment),
             "timestamp": str(message.created_at)
         })
+
+    forum_messages.reverse()
+    return {"forum_post_messages": forum_messages}
 

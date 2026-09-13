@@ -16,6 +16,7 @@ class Message(Base):
     sender_id = Column(Integer, ForeignKey("users.id"))
     receiver_id = Column(Integer, ForeignKey("users.id"))
     content = Column(String)
+    attachment = Column(String, nullable=True)
     timestamp = Column(DateTime, server_default=func.now())
     read = Column(Boolean, default= False)
 
@@ -74,6 +75,7 @@ class Party_messages(Base):
     party_id = Column(Integer, ForeignKey("parties.id"))
     sender_id = Column(Integer, ForeignKey("users.id"))
     content = Column(String)
+    attachment = Column(String, nullable=True)
     timestamp = Column(DateTime, server_default=func.now())
 
 class Servers(Base):
@@ -114,6 +116,7 @@ class Channel_messages(Base):
     channel_id = Column(Integer,ForeignKey("server_channels.id"))
     sender_id = Column(Integer, ForeignKey("users.id"))
     content = Column(String)
+    attachment = Column(String, nullable=True)
     timestamp = Column(DateTime, server_default=func.now())
 
 class Invite_model(Base):
@@ -163,6 +166,7 @@ class Forum_messages(Base):
     post_id = Column(Integer, ForeignKey("forum_posts.id"))
     author_id = Column(Integer, ForeignKey("users.id"))
     content = Column(String)
+    attachment = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 class Doc_page(Base):

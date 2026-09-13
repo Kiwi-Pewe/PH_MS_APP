@@ -143,3 +143,7 @@ const CLUSTER_GAP_MINUTES = 5;
 // a pasted link, without accidentally matching some unrelated URL a
 // person happens to paste that just looks similar.
 const INVITE_LINK_REGEX = /^https:\/\/oneira\.cc\/invite\/([A-Za-z0-9]{8})$/;
+
+// One pending file for whichever composer is in use. Cleared when the
+// open chat changes, or when Send finishes / the chip X is clicked.
+let pendingAttach = null;

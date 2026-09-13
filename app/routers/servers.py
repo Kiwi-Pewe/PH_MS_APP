@@ -5,6 +5,7 @@ from app.models import UserInfo, Servers, Server_members, Server_categories, Ser
 from app.schemas import Server_create, Server_message, Category_create, Channel_create
 from app.database import get_db
 from app.auth import get_current_user
+from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.realtime import server_broadcast
 import random
 
@@ -117,10 +118,12 @@ def message_server_channel(server_msg: Server_message, database: Session = Depen
     if not is_member:
         raise HTTPException(status_code=404, detail= "Server membership not found.")
 
+    require_message_body(server_msg.content, server_msg.attachment)
     new_message = Channel_messages(
         sender_id= current_user.id,
         channel_id = channel.id,
-        content= server_msg.content
+        content= server_msg.content,
+        attachment=store_attachment(server_msg.attachment, current_user),
     )
     database.add(new_message)
     database.commit()
@@ -157,6 +160,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
             "sender_id": message.sender_id,
             "username": "" if message.sender_id == None else username_lookup[message.sender_id],
             "content": message.content,
+            "attachment": attachment_public(message.attachment),
             "timestamp": str(message.timestamp)
         })
 

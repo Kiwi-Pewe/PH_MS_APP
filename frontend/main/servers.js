@@ -150,6 +150,8 @@ async function selectChannel(channel, rowEl) {
   // addressing the old thread from inside the next text channel.
   openForumPostId = null;
   openForumPostTitle = null;
+  openForumPostBody = null;
+  openForumPostAttachment = null;
   document.getElementById("forum-back-btn").style.display = "none";
   hideDocsChrome();
 

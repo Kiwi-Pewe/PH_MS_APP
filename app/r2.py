@@ -113,6 +113,20 @@ def require_message_body(content, attachment):
     raise HTTPException(status_code=400, detail="Message is empty.")
 
 
+def require_post_body(title, body, attachment):
+    if not (title or "").strip():
+        raise HTTPException(status_code=400, detail="Title is required.")
+    if (body or "").strip() or attachment is not None:
+        return
+    raise HTTPException(status_code=400, detail="Post is empty.")
+
+
+def delete_attachment(raw):
+    data = attachment_public(raw)
+    if data and data.get("key"):
+        delete_r2_object(data["key"])
+
+
 def store_attachment(att, user=None):
     if att is None:
         return None

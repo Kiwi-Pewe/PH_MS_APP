@@ -101,6 +101,8 @@ let forumIsLoadingMore = false;
 // from the next text channel would still be addressed to the old thread.
 let openForumPostId = null;
 let openForumPostTitle = null;
+let openForumPostBody = null;
+let openForumPostAttachment = null;
 
 // forumCardElements[postId] = { tagsEl, countEl, activityEl }
 // Same idea as commentThreadElements: registered once per card so a live

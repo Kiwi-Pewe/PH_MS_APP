@@ -75,7 +75,8 @@ class Channel_create(BaseModel):
 class Announcements(BaseModel):
     channel_id: int
     title: str
-    body: str
+    body: str = ""
+    attachment: Attachment_in | None = None
 
 class Comment_create(BaseModel):
     post_id: int
@@ -84,7 +85,8 @@ class Comment_create(BaseModel):
 class Forum_post_create(BaseModel):
     channel_id: int
     title: str
-    body: str
+    body: str = ""
+    attachment: Attachment_in | None = None
 
 class Forum_message_create(BaseModel):
     post_id: int

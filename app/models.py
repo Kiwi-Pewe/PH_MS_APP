@@ -139,6 +139,7 @@ class Announcement_post(Base):
     sender_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
     comment_count = Column(Integer, default= 0)
+    attachment = Column(String, nullable=True)
 
 class Announcement_comment(Base):
     __tablename__= "announcement_comments"
@@ -159,6 +160,7 @@ class Forum_post(Base):
     message_count = Column(Integer, default=0)
     last_activity_at = Column(DateTime, server_default=func.now())
     created_at = Column(DateTime, server_default=func.now())
+    attachment = Column(String, nullable=True)
 
 class Forum_messages(Base):
     __tablename__ = "forum_messages"

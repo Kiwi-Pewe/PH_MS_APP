@@ -66,6 +66,15 @@ function connectSocket() {
       if (data.tombstone) markLocalDeleted(data.kind, data.message_id);
       else removeLocalMessage(data.kind, data.message_id);
     }
+    if (data.type === "message_edited" && deletionEventTargetsOpenChat(data)) {
+      const row = findLocalMessage(data.kind, data.message_id);
+      if (row) {
+        row.content = data.content;
+        row.attachment = typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment;
+        row.edited = true;
+        rerenderForKind(data.kind);
+      }
+    }
 
     if (data.type === "message") {
       const isOpen = openChatType === "dm" && openChatId === data.sender_id;
@@ -79,7 +88,8 @@ function connectSocket() {
           username: data.username,
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
-          time: data.timestamp ? new Date(data.timestamp) : new Date()
+          time: data.timestamp ? new Date(data.timestamp) : new Date(),
+          edited: false
         });
         renderMessages();
       }
@@ -97,7 +107,8 @@ function connectSocket() {
           username: data.username,
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
-          time: data.timestamp ? new Date(data.timestamp) : new Date()
+          time: data.timestamp ? new Date(data.timestamp) : new Date(),
+          edited: false
         });
         renderMessages();
       }
@@ -117,7 +128,8 @@ function connectSocket() {
           username: data.username,
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
-          time: data.timestamp ? new Date(data.timestamp) : new Date()
+          time: data.timestamp ? new Date(data.timestamp) : new Date(),
+          edited: false
         });
         renderChannelMessages();
       }

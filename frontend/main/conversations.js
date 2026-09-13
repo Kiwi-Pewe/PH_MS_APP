@@ -160,6 +160,7 @@ function resetChatView() {
 }
 
 async function openDirectMessage(id, username) {
+  if (typeof abandonMessageEdit === "function") abandonMessageEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   openChatType = "dm";
   openChatId = id;
@@ -205,6 +206,7 @@ async function openDirectMessage(id, username) {
 // Mirrors openDirectMessage exactly, pointed at party endpoints -
 // everything downstream works off openChatType/openChatId/currentMessages.
 async function openParty(id, name) {
+  if (typeof abandonMessageEdit === "function") abandonMessageEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   openChatType = "party";
   openChatId = id;

@@ -51,6 +51,10 @@ function clearPendingAttach() {
 }
 
 function setPendingFile(file) {
+  if (attachDestination === "edit" && editingMessageId) {
+    setEditFile(file);
+    return;
+  }
   const reason = rejectReason(file);
   if (reason) {
     window.alert(reason);
@@ -65,6 +69,128 @@ function setPendingFile(file) {
     previewUrl: URL.createObjectURL(file)
   };
   renderAttachPreviews();
+}
+
+function clearEditAttach() {
+  if (editAttach && editAttach.mode === "new" && editAttach.previewUrl) {
+    URL.revokeObjectURL(editAttach.previewUrl);
+  }
+  editAttach = null;
+  fillEditAttachPreview(document.getElementById("edit-composer-attach-preview"));
+}
+
+function setEditFile(file) {
+  const reason = rejectReason(file);
+  if (reason) {
+    window.alert(reason);
+    return;
+  }
+  if (editAttach && editAttach.mode === "new" && editAttach.previewUrl) {
+    URL.revokeObjectURL(editAttach.previewUrl);
+  }
+  const mime = fileMime(file);
+  editAttach = {
+    mode: "new",
+    file,
+    mime,
+    kind: MEDIA_MIME[mime] || "image",
+    previewUrl: URL.createObjectURL(file)
+  };
+  fillEditAttachPreview(document.getElementById("edit-composer-attach-preview"));
+}
+
+function fillEditAttachPreview(host) {
+  if (!host) return;
+  host.innerHTML = "";
+  if (!editAttach) {
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  const chip = document.createElement("div");
+  chip.className = "attach-chip";
+  const src = editAttach.mode === "existing" ? (editAttach.attachment && editAttach.attachment.url) : editAttach.previewUrl;
+  const kind = editAttach.mode === "existing" ? (editAttach.attachment && editAttach.attachment.kind) : editAttach.kind;
+  const name = editAttach.mode === "existing"
+    ? ((editAttach.attachment && editAttach.attachment.name) || "file")
+    : (editAttach.file.name || "file");
+  if (kind === "video") {
+    const vid = document.createElement("video");
+    vid.src = src;
+    vid.muted = true;
+    chip.appendChild(vid);
+  } else if (src) {
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = name;
+    chip.appendChild(img);
+  }
+  const meta = document.createElement("div");
+  meta.className = "attach-chip-meta";
+  const nameEl = document.createElement("div");
+  nameEl.className = "attach-chip-name";
+  nameEl.textContent = name;
+  meta.appendChild(nameEl);
+  chip.appendChild(meta);
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "attach-chip-remove";
+  close.textContent = "\u00d7";
+  close.onclick = (e) => {
+    e.stopPropagation();
+    clearEditAttach();
+  };
+  chip.appendChild(close);
+  host.appendChild(chip);
+}
+
+async function uploadEditIfNeeded() {
+  if (!editAttach) return null;
+  if (editAttach.mode === "existing") {
+    const att = editAttach.attachment;
+    return {
+      key: att.key,
+      mime: att.mime,
+      size: att.size,
+      name: att.name || ""
+    };
+  }
+  let intentRes;
+  try {
+    intentRes = await fetch(`https://${serverAddress}/upload_intent`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content_type: editAttach.mime,
+        size: editAttach.file.size,
+        filename: editAttach.file.name || ""
+      })
+    });
+  } catch (e) {
+    throw new Error("Could not reach the API to start the upload. Is uvicorn running?");
+  }
+  const intent = await intentRes.json().catch(() => ({}));
+  if (!intentRes.ok) throw new Error(intent.detail || "Could not start upload.");
+  let putRes;
+  try {
+    putRes = await fetch(intent.upload_url, {
+      method: "PUT",
+      headers: { "Content-Type": intent.mime },
+      body: editAttach.file
+    });
+  } catch (e) {
+    throw new Error("R2 blocked the browser upload. Re-save the bucket CORS policy.");
+  }
+  if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
+  return {
+    key: intent.key,
+    mime: intent.mime,
+    size: editAttach.file.size,
+    name: editAttach.file.name || "",
+    url: intent.public_url,
+    kind: intent.kind
+  };
 }
 
 function renderAttachPreviews() {
@@ -203,6 +329,7 @@ function bindComposerMedia(rootId, textareaId, plusId) {
     plus.title = "Attach image or video";
     plus.addEventListener("click", (e) => {
       e.preventDefault();
+      attachDestination = "composer";
       if (!plus.disabled) openMediaPicker();
     });
   }
@@ -211,6 +338,7 @@ function bindComposerMedia(rootId, textareaId, plusId) {
       const files = e.clipboardData && e.clipboardData.files;
       if (files && files.length) {
         e.preventDefault();
+        attachDestination = "composer";
         setPendingFile(files[0]);
       }
     });
@@ -228,6 +356,7 @@ function bindComposerMedia(rootId, textareaId, plusId) {
       const files = e.dataTransfer && e.dataTransfer.files;
       if (files && files.length) {
         e.preventDefault();
+        attachDestination = "composer";
         setPendingFile(files[0]);
       }
     });

@@ -35,6 +35,17 @@ def ensure_attachment_columns():
                 conn.rollback()
 
 
+def ensure_edited_columns():
+    tables = ("messages", "party_messages", "channel_messages")
+    with engine.connect() as conn:
+        for table in tables:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN edited BOOLEAN DEFAULT 0"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+
 # Same reason as attachment: create_all will not add these to a live
 # .db that already has the chat tables. Pending-delete only lives on
 # DMs and parties — server messages are wiped immediately.

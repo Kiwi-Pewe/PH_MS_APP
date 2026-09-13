@@ -67,7 +67,8 @@ async function sendChatMessage() {
     username: myUsername || "You",
     content,
     attachment,
-    time: new Date()
+    time: new Date(),
+    edited: false
   });
   renderMessages();
   bumpConversation(openChatType, openChatId, openChatName, false);
@@ -129,7 +130,8 @@ async function sendChannelMessage() {
     username: myUsername || "You",
     content,
     attachment,
-    time: new Date()
+    time: new Date(),
+    edited: false
   });
   renderChannelMessages();
   input.value = "";
@@ -151,3 +153,95 @@ document.getElementById("channel-composer-input").addEventListener("keydown", (e
     sendChannelMessage();
   }
 });
+
+function abandonMessageEdit() {
+  if (typeof closeEmojiPicker === "function") closeEmojiPicker();
+  editingMessageId = null;
+  editingDraft = "";
+  if (editAttach && editAttach.mode === "new" && editAttach.previewUrl) {
+    URL.revokeObjectURL(editAttach.previewUrl);
+  }
+  editAttach = null;
+  attachDestination = "composer";
+}
+
+function startMessageEdit(msg) {
+  if (!canEditMessage(msg)) return;
+  abandonMessageEdit();
+  editingMessageId = msg.id;
+  editingDraft = msg.content || "";
+  const att = typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment;
+  editAttach = att ? { mode: "existing", attachment: att } : null;
+  attachDestination = "edit";
+  if (msg.chatKind === "channel") renderChannelMessages({ preserveScroll: true });
+  else renderMessages({ preserveScroll: true });
+}
+
+function cancelMessageEdit() {
+  abandonMessageEdit();
+  const channelView = document.getElementById("view-channel");
+  if (channelView && channelView.classList.contains("active")) renderChannelMessages({ preserveScroll: true });
+  else renderMessages({ preserveScroll: true });
+}
+
+async function confirmMessageEdit(msg) {
+  const ta = document.getElementById("edit-composer-input");
+  const content = ((ta && ta.value) || "").trim();
+  const originalContent = (msg.content || "").trim();
+  const originalAtt = typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment;
+  const originalKey = originalAtt && originalAtt.key ? originalAtt.key : null;
+  const nextKey = attachmentKey(editAttach);
+  const sameFile = nextKey === originalKey && !(editAttach && editAttach.mode === "new");
+
+  if (content === originalContent && sameFile) {
+    cancelMessageEdit();
+    return;
+  }
+
+  let attachment = null;
+  if (editAttach) {
+    try {
+      attachment = await uploadEditIfNeeded();
+    } catch (err) {
+      window.alert(err.message || "Upload failed.");
+      return;
+    }
+  }
+
+  let data;
+  try {
+    const response = await fetch(`https://${serverAddress}/edit_message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ kind: msg.chatKind, message_id: msg.id, content, attachment })
+    });
+    if (!response.ok) {
+      console.error(`Failed to edit message: ${response.status}`);
+      return;
+    }
+    data = await response.json();
+  } catch (e) {
+    console.error("Failed to edit message, network error:", e);
+    return;
+  }
+
+  if (data.deleted) {
+    abandonMessageEdit();
+    removeLocalMessage(msg.chatKind, msg.id);
+    return;
+  }
+  if (data.deletion_state === "pending") {
+    msg.deletionState = "pending";
+    msg.deletionRequestedAt = data.deletion_requested_at
+      ? parseUtcTimestamp(data.deletion_requested_at)
+      : new Date();
+    abandonMessageEdit();
+    rerenderForKind(msg.chatKind);
+    return;
+  }
+  msg.content = data.content;
+  msg.attachment = typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment;
+  msg.edited = !!data.edited;
+  cancelMessageEdit();
+}

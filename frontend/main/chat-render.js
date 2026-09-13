@@ -22,6 +22,11 @@ function renderClusteredMessages(wrap, messages) {
       openCluster = null;
       return;
     }
+    if (editingMessageId && msg.id === editingMessageId) {
+      wrap.appendChild(buildEditComposer(msg));
+      openCluster = null;
+      return;
+    }
 
     if (msg.senderId === null) {
       wrap.appendChild(buildSystemDivider(msg));
@@ -47,13 +52,25 @@ function renderClusteredMessages(wrap, messages) {
         attachInviteCardIfNeeded(openCluster.bubbleEl, msg.content);
       }
       if (typeof attachMediaIfNeeded === "function") attachMediaIfNeeded(openCluster.bubbleEl, msg);
+      if (!msg.content && msg.edited) {
+        const tagLine = document.createElement("div");
+        tagLine.className = "bubble-line";
+        appendEditedTag(tagLine, msg);
+        openCluster.bubbleEl.appendChild(tagLine);
+      }
     }
 
     openCluster.lastTime = msg.time;
   });
 }
 
+function snapshotEditDraft() {
+  const ta = document.getElementById("edit-composer-input");
+  if (ta && editingMessageId) editingDraft = ta.value;
+}
+
 function renderMessages(opts = {}) {
+  snapshotEditDraft();
   const wrap = document.getElementById("chat-messages");
   wrap.innerHTML = "";
 
@@ -76,6 +93,7 @@ function renderMessages(opts = {}) {
 }
 
 function renderChannelMessages(opts = {}) {
+  snapshotEditDraft();
   const wrap = document.getElementById("channel-messages");
   wrap.innerHTML = "";
 
@@ -102,7 +120,16 @@ function fillBubbleLine(line, msg) {
   }
   if (typeof renderMessageText === "function") renderMessageText(line, msg.content);
   else line.textContent = msg.content;
+  appendEditedTag(line, msg);
   line.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
+}
+
+function appendEditedTag(parent, msg) {
+  if (!msg || !msg.edited) return;
+  const tag = document.createElement("span");
+  tag.className = "edited-tag";
+  tag.textContent = "edited";
+  parent.appendChild(tag);
 }
 
 function wrapDeletionOnSenderSide(msg, inner) {
@@ -150,9 +177,12 @@ function buildPendingDeleteCard(msg) {
   original.className = "deletion-card-original";
   if (msg.content) {
     const line = document.createElement("div");
+    fillBubbleLine(line, msg);
+    original.appendChild(line);
+  } else if (msg.edited) {
+    const line = document.createElement("div");
     line.className = "bubble-line";
-    if (typeof renderMessageText === "function") renderMessageText(line, msg.content);
-    else line.textContent = msg.content;
+    appendEditedTag(line, msg);
     original.appendChild(line);
   }
   if (typeof attachMediaIfNeeded === "function") attachMediaIfNeeded(original, msg);
@@ -182,6 +212,132 @@ function buildPendingDeleteCard(msg) {
     card.classList.toggle("expanded");
   });
   return wrapDeletionOnSenderSide(msg, card);
+}
+
+function buildEditComposer(msg) {
+  const cluster = document.createElement("div");
+  cluster.className = "msg-cluster edit-cluster " + (msg.isMine ? "self" : "other");
+
+  const avatar = document.createElement("div");
+  avatar.className = "cluster-avatar";
+  avatar.textContent = avatarLetter(msg.username);
+
+  const body = document.createElement("div");
+  body.className = "cluster-body";
+
+  const editor = document.createElement("div");
+  editor.className = "edit-composer";
+  editor.id = "edit-composer";
+
+  const top = document.createElement("div");
+  top.className = "edit-composer-top";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "icon-btn edit-composer-cancel";
+  cancelBtn.title = "Cancel";
+  cancelBtn.innerHTML = "&times;";
+  cancelBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    cancelMessageEdit();
+  });
+  top.appendChild(cancelBtn);
+
+  const preview = document.createElement("div");
+  preview.id = "edit-composer-attach-preview";
+  preview.className = "attach-preview";
+  preview.hidden = true;
+
+  const box = document.createElement("div");
+  box.className = "box";
+  const plusBtn = document.createElement("button");
+  plusBtn.type = "button";
+  plusBtn.className = "composer-icon-btn edit-composer-plus";
+  plusBtn.title = "Attach image or video";
+  plusBtn.textContent = "+";
+  const textarea = document.createElement("textarea");
+  textarea.id = "edit-composer-input";
+  textarea.className = "edit-composer-input";
+  textarea.rows = 1;
+  textarea.placeholder = "Type a message";
+  textarea.value = editingDraft;
+  const emojiBtn = document.createElement("button");
+  emojiBtn.type = "button";
+  emojiBtn.className = "composer-icon-btn edit-composer-emoji";
+  emojiBtn.title = "Emoji";
+  emojiBtn.textContent = "🙂";
+  box.appendChild(plusBtn);
+  box.appendChild(textarea);
+  box.appendChild(emojiBtn);
+
+  const footer = document.createElement("div");
+  footer.className = "edit-composer-footer";
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.className = "pill-btn";
+  confirmBtn.textContent = "Confirm";
+  confirmBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    confirmMessageEdit(msg);
+  });
+  footer.appendChild(confirmBtn);
+
+  editor.appendChild(top);
+  editor.appendChild(preview);
+  editor.appendChild(box);
+  editor.appendChild(footer);
+  body.appendChild(editor);
+  cluster.appendChild(avatar);
+  cluster.appendChild(body);
+
+  plusBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    attachDestination = "edit";
+    openMediaPicker();
+  });
+  emojiBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof openEmojiPicker === "function") openEmojiPicker(emojiBtn, textarea);
+  });
+  textarea.addEventListener("input", () => {
+    if (typeof applyEmojiShortcodesToInput === "function") applyEmojiShortcodesToInput(textarea);
+    textarea.style.height = "auto";
+    textarea.style.height = textarea.scrollHeight + "px";
+    editingDraft = textarea.value;
+  });
+  textarea.addEventListener("paste", (e) => {
+    const files = e.clipboardData && e.clipboardData.files;
+    if (files && files.length) {
+      e.preventDefault();
+      attachDestination = "edit";
+      setPendingFile(files[0]);
+    }
+  });
+  editor.addEventListener("dragover", (e) => {
+    if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) {
+      e.preventDefault();
+      editor.classList.add("attach-drop");
+    }
+  });
+  editor.addEventListener("dragleave", () => editor.classList.remove("attach-drop"));
+  editor.addEventListener("drop", (e) => {
+    editor.classList.remove("attach-drop");
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) {
+      e.preventDefault();
+      attachDestination = "edit";
+      setPendingFile(files[0]);
+    }
+  });
+
+  requestAnimationFrame(() => {
+    fillEditAttachPreview(preview);
+    textarea.style.height = "auto";
+    textarea.style.height = textarea.scrollHeight + "px";
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  });
+  return cluster;
 }
 
 function buildSystemDivider(msg) {
@@ -225,6 +381,12 @@ function startNewCluster(wrap, msg) {
     attachInviteCardIfNeeded(bubble, msg.content);
   }
   if (typeof attachMediaIfNeeded === "function") attachMediaIfNeeded(bubble, msg);
+  if (!msg.content && msg.edited) {
+    const tagLine = document.createElement("div");
+    tagLine.className = "bubble-line";
+    appendEditedTag(tagLine, msg);
+    bubble.appendChild(tagLine);
+  }
 
   body.appendChild(header);
   body.appendChild(bubble);

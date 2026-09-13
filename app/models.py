@@ -21,6 +21,7 @@ class Message(Base):
     read = Column(Boolean, default= False)
     deletion_state = Column(String, nullable=True)
     deletion_requested_at = Column(DateTime, nullable=True)
+    edited = Column(Boolean, default= False)
 
 class Active_Sessions(Base):
     __tablename__ = "sessions"
@@ -81,6 +82,7 @@ class Party_messages(Base):
     timestamp = Column(DateTime, server_default=func.now())
     deletion_state = Column(String, nullable=True)
     deletion_requested_at = Column(DateTime, nullable=True)
+    edited = Column(Boolean, default= False)
 
 class Servers(Base):
     __tablename__ = "servers"
@@ -122,6 +124,7 @@ class Channel_messages(Base):
     content = Column(String)
     attachment = Column(String, nullable=True)
     timestamp = Column(DateTime, server_default=func.now())
+    edited = Column(Boolean, default= False)
 
 class Invite_model(Base):
     __tablename__ = "invites"

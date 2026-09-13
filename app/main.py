@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from app.models import Parties, Party_members, Servers, Server_members, Server_categories, Server_channels, Forum_post
 from app.schemas import Attachment_in, Message_schema, Party_message_schema, Server_message, Forum_message_create
-from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns
+from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns
 from app.auth import validate_session
 from app.r2 import attachment_public
 from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion
@@ -34,6 +34,7 @@ app = FastAPI()
 Base.metadata.create_all(engine)
 ensure_attachment_columns()
 ensure_deletion_columns()
+ensure_edited_columns()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://oneira.cc"],
@@ -56,6 +57,7 @@ app.include_router(docs.router)
 app.include_router(embeds.router)
 app.include_router(uploads.router)
 app.include_router(deletion.router)
+app.include_router(editing.router)
 
 @app.on_event("startup")
 async def interval_tasks():

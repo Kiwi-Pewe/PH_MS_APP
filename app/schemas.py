@@ -102,3 +102,9 @@ class Doc_save(BaseModel):
 class Delete_message(BaseModel):
     kind: str
     message_id: int
+
+class Edit_message(BaseModel):
+    kind: str
+    message_id: int
+    content: str = ""
+    attachment: Attachment_in | None = None

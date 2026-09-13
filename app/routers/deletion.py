@@ -48,12 +48,13 @@ def refresh_pending_messages(database, rows):
 def deletion_fields(row, public_attachment):
     requested = str(row.deletion_requested_at) if row.deletion_requested_at else None
     if row.deletion_state == "deleted":
-        return {"content": "", "attachment": None, "deletion_state": "deleted", "deletion_requested_at": requested}
+        return {"content": "", "attachment": None, "deletion_state": "deleted", "deletion_requested_at": requested, "edited": bool(row.edited)}
     return {
         "content": row.content,
         "attachment": public_attachment,
         "deletion_state": row.deletion_state,
         "deletion_requested_at": requested,
+        "edited": bool(row.edited),
     }
 
 async def notify_user(user_id, payload):

@@ -161,7 +161,8 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
             "username": "" if message.sender_id == None else username_lookup[message.sender_id],
             "content": message.content,
             "attachment": attachment_public(message.attachment),
-            "timestamp": str(message.timestamp)
+            "timestamp": str(message.timestamp),
+            "edited": bool(message.edited)
         })
 
     message_history.reverse()

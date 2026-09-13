@@ -48,7 +48,15 @@ function applyDeletionFields(out, src) {
   out.deletionRequestedAt = src.deletion_requested_at
     ? parseUtcTimestamp(src.deletion_requested_at)
     : null;
+  out.edited = !!src.edited;
   return out;
+}
+
+function attachmentKey(att) {
+  if (!att) return null;
+  if (att.mode === "existing" && att.attachment) return att.attachment.key || null;
+  if (att.mode === "new") return "__new__";
+  return att.key || null;
 }
 
 function pendingIsExpired(msg) {

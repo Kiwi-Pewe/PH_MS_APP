@@ -142,6 +142,7 @@ function renderServerSidebar(data) {
 }
 
 async function selectChannel(channel, rowEl) {
+  if (typeof abandonMessageEdit === "function") abandonMessageEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (!(await leaveDocIfNeeded())) return;
 
@@ -254,7 +255,8 @@ async function selectChannel(channel, rowEl) {
       username: msg.username,
       content: msg.content,
       attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-      time: new Date(msg.timestamp)
+      time: new Date(msg.timestamp),
+      edited: !!msg.edited
     }));
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
     renderChannelMessages();

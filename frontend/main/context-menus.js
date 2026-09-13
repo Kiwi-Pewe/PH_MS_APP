@@ -12,11 +12,19 @@ function showMessageContextMenu(e, msg) {
     subtitle: truncateForContextMenu(msg.content)
   }, [
     { label: "Copy Message", onSelect: () => copyMessageContent(msg) },
-    msg.isMine && { label: "Edit Message", onSelect: () => console.log("Edit message — not implemented yet") },
+    canEditMessage(msg) && { label: "Edit Message", onSelect: () => startMessageEdit(msg) },
     { label: "Reply", onSelect: () => console.log("Reply — not implemented yet") },
     { label: "Pin", onSelect: () => console.log("Pin — not implemented yet") },
     canDeleteMessage(msg) && { label: "Delete Message", danger: true, onSelect: () => deleteMessageFromContextMenu(msg) }
   ]);
+}
+
+function canEditMessage(msg) {
+  if (!msg || !msg.id || !msg.isMine) return false;
+  if (msg.chatKind === "forum") return false;
+  if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
+  if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
+  return true;
 }
 
 function canDeleteMessage(msg) {

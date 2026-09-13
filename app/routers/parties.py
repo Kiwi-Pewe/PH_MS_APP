@@ -124,6 +124,7 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
             "timestamp": str(message.timestamp),
             "deletion_state": fields["deletion_state"],
             "deletion_requested_at": fields["deletion_requested_at"],
+            "edited": fields["edited"],
         })
 
     message_history.reverse()

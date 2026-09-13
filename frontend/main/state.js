@@ -149,3 +149,12 @@ const INVITE_LINK_REGEX = /^https:\/\/oneira\.cc\/invite\/([A-Za-z0-9]{8})$/;
 // One pending file for whichever composer is in use. Cleared when the
 // open chat changes, or when Send finishes / the chip X is clicked.
 let pendingAttach = null;
+
+// Inline message edit. editingMessageId is the row being replaced by
+// the in-chat composer; editingDraft survives a re-render (a live
+// message arriving would otherwise wipe the textarea). editAttach is
+// separate from pendingAttach so the bottom composer is left alone.
+let editingMessageId = null;
+let editingDraft = "";
+let editAttach = null;
+let attachDestination = "composer";

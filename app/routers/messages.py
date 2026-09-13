@@ -96,6 +96,7 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
             "read": msg.read,
             "deletion_state": fields["deletion_state"],
             "deletion_requested_at": fields["deletion_requested_at"],
+            "edited": fields["edited"],
         })
     return {"other_username": target_user.username, "session_username": current_user.username , "messages": messages_out}
 

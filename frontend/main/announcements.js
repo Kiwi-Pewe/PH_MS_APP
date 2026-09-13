@@ -14,6 +14,7 @@ function showAnnounceComposerEditing() {
   document.getElementById("announcement-title-input").value = "";
   document.getElementById("announcement-body-input").value = "";
   document.getElementById("announcement-body-input").style.height = "";
+  if (typeof clearPostMedia === "function") clearPostMedia("announce");
   document.getElementById("announce-composer-default").style.display = "none";
   document.getElementById("announce-composer-editing").style.display = "flex";
   document.getElementById("announcement-title-input").focus();
@@ -31,20 +32,26 @@ document.getElementById("announcement-body-input").addEventListener("input", () 
 function hideAnnounceComposerEditing() {
   document.getElementById("announce-composer-editing").style.display = "none";
   document.getElementById("announce-composer-default").style.display = "flex";
+  if (typeof clearPostMedia === "function") clearPostMedia("announce");
 }
 
 async function submitCreateAnnouncement() {
   const title = document.getElementById("announcement-title-input").value.trim();
   const body = document.getElementById("announcement-body-input").value.trim();
-  if (!title || !body) return;
+  const pending = postMediaPending.announce.file;
+  if (!title || (!body && !pending)) return;
 
+  const postBtn = document.getElementById("announcement-post-btn");
+  postBtn.disabled = true;
   let post;
   try {
+    let attachment = null;
+    if (pending) attachment = await uploadPendingFile(pending);
     const response = await fetch(`https://${serverAddress}/post_announcement`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ channel_id: currentChannelId, title, body })
+      body: JSON.stringify({ channel_id: currentChannelId, title, body, attachment })
     });
     if (!response.ok) {
       console.error(`Failed to post announcement: ${response.status}`);
@@ -54,12 +61,14 @@ async function submitCreateAnnouncement() {
   } catch (e) {
     console.error("Failed to post announcement, network error:", e);
     return;
+  } finally {
+    postBtn.disabled = false;
   }
   hideAnnounceComposerEditing();
   // post_announcement's response has no created_at/username/sender_id -
   // client values stand in until a real fetch-on-load exists.
   appendNewAnnouncementPost({
-    id: post.id, title: post.title, body: post.body,
+    id: post.id, title: post.title, body: post.body, attachment: post.attachment,
     created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId
   });
 }
@@ -106,7 +115,9 @@ function buildAnnouncementPostCard(post) {
 
   const body = document.createElement("div");
   body.className = "announce-post-body";
-  body.textContent = post.body;
+  body.textContent = post.body || "";
+
+  const media = typeof buildPostMedia === "function" ? buildPostMedia(post.attachment) : null;
 
   const date = document.createElement("div");
   date.className = "announce-post-date";
@@ -179,7 +190,8 @@ function buildAnnouncementPostCard(post) {
 
   card.appendChild(top);
   card.appendChild(title);
-  card.appendChild(body);
+  if (post.body) card.appendChild(body);
+  if (media) card.appendChild(media);
   card.appendChild(date);
   card.appendChild(dividerTop);
   card.appendChild(reactionsRow);

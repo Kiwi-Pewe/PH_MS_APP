@@ -4,6 +4,7 @@ from app.models import UserInfo, Servers, Server_members, Server_categories, Ser
 from app.schemas import Announcements, Comment_create
 from app.database import get_db
 from app.auth import get_current_user
+from app.r2 import attachment_public, delete_attachment, require_post_body, store_attachment
 from app.routers.realtime import server_broadcast
 
 router = APIRouter()
@@ -19,22 +20,27 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
     if server.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="user is not owner")
 
+    require_post_body(announcement.title, announcement.body, announcement.attachment)
+    attachment_json = store_attachment(announcement.attachment, current_user)
+
     new_post = Announcement_post(
         channel_id = announcement.channel_id,
-        title = announcement.title,
-        body = announcement.body,
-        sender_id = current_user.id
+        title = announcement.title.strip(),
+        body = (announcement.body or "").strip(),
+        sender_id = current_user.id,
+        attachment = attachment_json,
     )
     database.add(new_post)
     database.commit()
     database.refresh(new_post)
+    public_attachment = attachment_public(new_post.attachment)
     payload = {
         "type": "announcement_created",
         "server_id": server.id,
-        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username}
+        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username}
         }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body}
+    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment}
 
 @router.get("/get_announcement/{channel_id}")
 def get_announcement_posts(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id = None):
@@ -66,6 +72,7 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
             "username": username_lookup[post.sender_id],
             "title": post.title,
             "body": post.body,
+            "attachment": attachment_public(post.attachment),
             "created_at": str(post.created_at),
             "comment_count": post.comment_count
         })
@@ -191,7 +198,8 @@ async def delete_post(post_id: int,database: Session = Depends(get_db), current_
 
     for comment in all_comments:
         database.delete(comment)
-    
+
+    delete_attachment(post_exist.attachment)
     database.delete(post_exist)
     database.commit()
     payload = {

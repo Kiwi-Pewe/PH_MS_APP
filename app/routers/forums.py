@@ -5,7 +5,7 @@ from app.models import UserInfo, Servers, Server_members, Server_categories, Ser
 from app.schemas import Forum_message_create, Forum_post_create
 from app.database import get_db
 from app.auth import get_current_user
-from app.r2 import attachment_public, require_message_body, store_attachment
+from app.r2 import attachment_public, delete_attachment, require_message_body, require_post_body, store_attachment
 from app.routers.realtime import server_broadcast
 from datetime import datetime
 
@@ -24,23 +24,28 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
     if not is_member:
         raise HTTPException(status_code=404, detail="membership not found")
 
+    require_post_body(create_forum.title, create_forum.body, create_forum.attachment)
+    attachment_json = store_attachment(create_forum.attachment, current_user)
+
     new_post = Forum_post(
         channel_id = channel_exist.id,
         author_id = current_user.id,
-        title = create_forum.title,
-        body = create_forum.body,
-        tags = ""
+        title = create_forum.title.strip(),
+        body = (create_forum.body or "").strip(),
+        tags = "",
+        attachment = attachment_json,
     )
     database.add(new_post)
     database.commit()
     database.refresh(new_post)
+    public_attachment = attachment_public(new_post.attachment)
     payload = {
         "type": "post_forum",
         "post_id": new_post.id,
-        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "title": new_post.title, "body": new_post.body, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at)}
+        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at)}
     }
     await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
-    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at)}
+    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at)}
 
 @router.get("/get_forum_post/{channel_id}")
 async def get_forum_post(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_activity: datetime = None, before_id: int = None):
@@ -77,6 +82,7 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
             "author_username": username_lookup[post.author_id],
             "title": post.title,
             "body": post.body,
+            "attachment": attachment_public(post.attachment),
             "tags": post.tags,
             "message_count": post.message_count,
             "last_activity": str(post.last_activity_at)

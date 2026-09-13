@@ -72,10 +72,16 @@ class Channel_create(BaseModel):
     channel_type: str
     is_private: bool = False
 
+class Upload_request(BaseModel):
+    mime: str
+    size: int
+    name: str = ""
+
 class Announcements(BaseModel):
     channel_id: int
     title: str
-    body: str
+    body: str = ""
+    attachment: Attachment_in | None = None
 
 class Comment_create(BaseModel):
     post_id: int
@@ -84,7 +90,8 @@ class Comment_create(BaseModel):
 class Forum_post_create(BaseModel):
     channel_id: int
     title: str
-    body: str
+    body: str = ""
+    attachment: Attachment_in | None = None
 
 class Forum_message_create(BaseModel):
     post_id: int

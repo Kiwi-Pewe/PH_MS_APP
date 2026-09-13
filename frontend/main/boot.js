@@ -59,7 +59,6 @@ function connectSocket() {
           senderId: data.sender_id,
           username: data.username,
           content: data.content,
-          attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? new Date(data.timestamp) : new Date()
         });
         renderMessages();
@@ -75,7 +74,6 @@ function connectSocket() {
           senderId: data.sender_id,
           username: data.username,
           content: data.content,
-          attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? new Date(data.timestamp) : new Date()
         });
         renderMessages();
@@ -93,7 +91,6 @@ function connectSocket() {
           isMine: false,
           username: data.username,
           content: data.content,
-          attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? new Date(data.timestamp) : new Date()
         });
         renderChannelMessages();
@@ -111,7 +108,6 @@ function connectSocket() {
           isMine: false,
           username: data.username,
           content: data.content,
-          attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? parseUtcTimestamp(data.timestamp) : new Date()
         });
         renderChannelMessages();

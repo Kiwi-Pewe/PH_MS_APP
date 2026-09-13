@@ -98,9 +98,8 @@
           <div id="chat-messages" class="self-right" style="display:none;"></div>
         </div>
         <div id="composer">
-          <div id="composer-attach-preview" class="attach-preview" hidden></div>
           <div class="box">
-            <button class="composer-icon-btn" id="composer-plus-btn" title="Attach image or video">+</button>
+            <button class="composer-icon-btn" id="composer-plus-btn" title="Options (coming soon)">+</button>
             <textarea id="composer-input" placeholder="Type a message" rows="1"></textarea>
             <button class="composer-icon-btn" id="composer-emoji-btn" title="Emoji">🙂</button>
             <button onclick="sendChatMessage()" id="composer-send-btn">Send</button>
@@ -151,9 +150,8 @@
              this for voice channels, same as disableComposer() does for
              DMs after a block. -->
         <div id="channel-composer">
-          <div id="channel-composer-attach-preview" class="attach-preview" hidden></div>
           <div class="box">
-            <button class="composer-icon-btn" id="channel-composer-plus-btn" title="Attach image or video">+</button>
+            <button class="composer-icon-btn" id="channel-composer-plus-btn" title="Options (coming soon)">+</button>
             <textarea id="channel-composer-input" placeholder="Type a message" rows="1"></textarea>
             <button class="composer-icon-btn" id="channel-composer-emoji-btn" title="Emoji">🙂</button>
             <button onclick="sendChannelMessage()" id="channel-composer-send-btn">Send</button>
@@ -195,7 +193,7 @@
                     <textarea id="announcement-body-input" class="announce-composer-body-input" placeholder="Enter a message..." rows="3"></textarea>
                   </div>
                 </div>
-                <button type="button" class="announce-composer-image-btn" id="announce-composer-image-btn" disabled title="Coming soon">
+                <button type="button" class="announce-composer-image-btn" id="announce-composer-image-btn" title="Add image or video">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="3" y="6" width="14" height="12" rx="2"></rect>
                     <circle cx="8" cy="11" r="1.2" fill="currentColor" stroke="none"></circle>
@@ -253,7 +251,7 @@
                     <textarea id="forum-body-input" class="announce-composer-body-input" placeholder="Enter a message..." rows="3"></textarea>
                   </div>
                 </div>
-                <button type="button" class="announce-composer-image-btn" id="forum-composer-image-btn" disabled title="Coming soon">
+                <button type="button" class="announce-composer-image-btn" id="forum-composer-image-btn" title="Add image or video">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="3" y="6" width="14" height="12" rx="2"></rect>
                     <circle cx="8" cy="11" r="1.2" fill="currentColor" stroke="none"></circle>
@@ -648,10 +646,8 @@
 
 <script src="../shared/config.js?v=4"></script>
 <script src="../shared/context-menu.js?v=2"></script>
-<input type="file" id="media-file-input" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm" hidden>
 <script src="state.js?v=45"></script>
 <script src="util.js?v=45"></script>
-<script src="media.js?v=46"></script>
 <script src="boot.js?v=45"></script>
 <script src="app-shell.js?v=45"></script>
 <script src="context-menus.js?v=45"></script>
@@ -665,6 +661,7 @@
 <script src="parties.js?v=45"></script>
 <script src="invites.js?v=45"></script>
 <script src="embeds.js?v=45"></script>
+<script src="uploads.js?v=45"></script>
 <script src="servers.js?v=45"></script>
 <script src="server-modals.js?v=45"></script>
 <script src="announcements.js?v=45"></script>

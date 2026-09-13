@@ -15,10 +15,17 @@ def get_db():
         db.close()
 
 
-# create_all never alters existing tables. Add attachment on the four
-# chat tables if the live .db predates this column.
+# create_all never alters existing tables. Add attachment if the live
+# .db predates this column. Chat tables plus announcement/forum posts.
 def ensure_attachment_columns():
-    tables = ("messages", "party_messages", "channel_messages", "forum_messages")
+    tables = (
+        "messages",
+        "party_messages",
+        "channel_messages",
+        "forum_messages",
+        "announcements",
+        "forum_posts",
+    )
     with engine.connect() as conn:
         for table in tables:
             try:

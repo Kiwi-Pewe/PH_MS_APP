@@ -239,6 +239,36 @@
    separate element only because both views coexist in the DOM and ids
    must be unique. */
 #composer, #channel-composer { flex: 0 0 auto; padding: 16px; border-top: 1px solid var(--border); }
+#composer.attach-drop, #channel-composer.attach-drop { outline: 1px dashed var(--accent); outline-offset: -8px; }
+.attach-preview { margin-bottom: 8px; }
+.attach-chip {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel-alt); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; max-width: 360px;
+}
+.attach-chip img, .attach-chip video {
+  width: 56px; height: 56px; object-fit: cover; border-radius: 6px; background: #000;
+}
+.attach-chip-meta { min-width: 0; flex: 1; }
+.attach-chip-name { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-chip-size { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+#composer button.attach-chip-remove, #channel-composer button.attach-chip-remove {
+  height: 28px; width: 28px; padding: 0; border-radius: 6px;
+  background: transparent; color: var(--text-dim); font-size: 18px; font-weight: 600;
+}
+#composer button.attach-chip-remove:hover, #channel-composer button.attach-chip-remove:hover {
+  background: var(--panel); color: var(--text);
+}
+.msg-media { max-width: 320px; }
+.msg-media img, .msg-media video {
+  display: block; max-width: 100%; max-height: 360px; border-radius: 10px;
+  background: #000;
+}
+.msg-media img { cursor: pointer; }
+#chat-messages.self-right .msg-cluster.self .msg-media,
+#channel-messages.self-right .msg-cluster.self .msg-media { align-self: flex-end; }
+#chat-messages:not(.self-right) .msg-cluster.self .msg-media,
+#channel-messages:not(.self-right) .msg-cluster.self .msg-media { align-self: flex-start; }
 #composer .box, #channel-composer .box { display: flex; align-items: flex-end; gap: 6px; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 6px; }
 #composer textarea, #channel-composer textarea {
   flex: 1; width: 100%; min-width: 0; box-sizing: border-box;
@@ -407,17 +437,7 @@
 .forum-post {
   flex: 0 0 auto;
   background: var(--panel-alt); border: 1px solid var(--border); border-radius: 12px;
-  padding: 12px 14px; display: flex; flex-direction: row; align-items: center; gap: 12px;
-}
-.forum-post-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.forum-post-thumb {
-  flex: 0 0 56px; width: 56px; height: 56px; border-radius: 8px; overflow: hidden;
-  background: var(--panel);
-}
-.forum-post-thumb { position: relative; }
-.forum-post-thumb img, .forum-post-thumb video {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%; object-fit: cover; display: block;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
 }
 .forum-post:hover { border-color: var(--text-dim); }
 
@@ -457,9 +477,6 @@
    Rebuilt on every renderMessages() call along with the rest of the
    list, same reflow-from-scratch approach as the clusters below it. */
 .convo-start-card { text-align: center; padding: 24px 16px 28px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
-.convo-start-card .post-media { margin-top: 12px; display: flex; justify-content: center; }
-.convo-start-card .post-media img,
-.convo-start-card .post-media video { max-width: min(100%, 420px); }
 .convo-start-avatar {
   width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 12px;
   background: #3b3e4a; border: 1px solid var(--border);
@@ -705,7 +722,7 @@
 }
 .announce-composer-title-input::placeholder { color: var(--text-dim); font-weight: 700; }
 .announce-composer-editing-main {
-  display: flex; align-items: flex-start; gap: 12px;
+  display: flex; align-items: center; gap: 12px;
 }
 .announce-composer-editing-fields {
   flex: 1 1 auto; min-width: 0;
@@ -728,43 +745,12 @@
   line-height: 1.4; min-height: calc(1.4em * 3); max-height: calc(1.4em * 5);
 }
 .announce-composer-body-input::placeholder { color: var(--text-dim); }
-.announce-composer-media {
-  flex: 0 0 auto; display: flex; align-items: flex-start; gap: 8px;
-}
-.announce-composer-tile {
-  box-sizing: border-box;
-  flex: 0 0 64px; width: 64px; height: 64px;
-  min-width: 64px; min-height: 64px; max-width: 64px; max-height: 64px;
-  border-radius: 10px; background: var(--panel); color: var(--text-dim);
+.announce-composer-image-btn {
+  flex: 0 0 auto; width: 56px; height: 56px; border-radius: 12px;
+  background: var(--panel); color: var(--text-dim);
   display: flex; align-items: center; justify-content: center;
-  position: relative; overflow: hidden; padding: 0; border: none; cursor: pointer;
 }
-.announce-composer-tile:hover { color: var(--text); }
-.announce-composer-tile.has-file { cursor: default; }
-.announce-composer-tile img,
-.announce-composer-tile video {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%; object-fit: cover; display: block;
-}
-/* Empty: the add tile is the only box. With files: add tile only on hover,
-   matching the Guilded/Discord strip in Kiwi's screenshots. */
-.announce-composer-media:not(.is-empty) .announce-composer-add { display: none; }
-.announce-composer-media:not(.is-empty):hover .announce-composer-add,
-.announce-composer-media:not(.is-empty):focus-within .announce-composer-add {
-  display: flex;
-}
-.announce-composer-image-clear {
-  position: absolute; top: 2px; right: 2px; z-index: 1;
-  width: 18px; height: 18px;
-  border: none; border-radius: 50%; padding: 0; cursor: pointer;
-  background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 14px; line-height: 18px;
-}
-.announce-post { overflow: hidden; }
-.announce-post .post-media { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.post-media img, .post-media video {
-  max-width: 100%; max-height: 320px; width: auto; height: auto;
-  object-fit: contain; border-radius: 8px; display: block;
-}
+.announce-composer-image-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .announce-composer-editing-footer {
   display: flex; align-items: center; justify-content: space-between;
   margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);

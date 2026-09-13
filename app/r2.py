@@ -1,176 +1,139 @@
-# R2 helpers: presign, validate, store JSON, public URL.
-# Max bytes is one lookup so a later tier is a new number, not a rewrite.
+# R2 client, upload caps, and attachment JSON. One lookup for max bytes
+# so a later tier is a new number, not a rewrite.
+from fastapi import HTTPException
+from botocore.config import Config
+from datetime import datetime
+from dotenv import load_dotenv
+from pathlib import Path
+import boto3
 import json
 import os
 import re
 import uuid
-from pathlib import Path
-from dotenv import load_dotenv
-from fastapi import HTTPException
 
-# Always the app folder, not whatever cwd uvicorn was started from.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-ALLOWED_MIMES = {
-    "image/jpeg": "jpg",
-    "image/jpg": "jpg",
-    "image/png": "png",
-    "image/gif": "gif",
-    "image/webp": "webp",
-    "video/mp4": "mp4",
-    "video/webm": "webm",
+R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
+R2_BUCKET = os.getenv("R2_BUCKET", "")
+R2_ENDPOINT = os.getenv("R2_ENDPOINT", "")
+R2_PUBLIC_BASE = (os.getenv("R2_PUBLIC_BASE") or "").rstrip("/")
+
+BASE_UPLOAD_BYTES = 20 * 1024 * 1024
+
+ALLOWED_MIME = {
+    "image/jpeg": (".jpg", "image"),
+    "image/jpg": (".jpg", "image"),
+    "image/png": (".png", "image"),
+    "image/gif": (".gif", "image"),
+    "image/webp": (".webp", "image"),
+    "video/mp4": (".mp4", "video"),
+    "video/webm": (".webm", "video"),
 }
 
 KEY_RE = re.compile(
-    r"^u(\d+)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\."
-    r"(jpg|png|gif|webp|mp4|webm)$"
+    r"^chat/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp|mp4|webm)$"
 )
 
-MAX_POST_FILES = 4
+
+def max_upload_bytes(user=None):
+    return BASE_UPLOAD_BYTES
 
 
-def max_upload_bytes(_user=None):
-    return 20 * 1024 * 1024
+def r2_is_configured():
+    return bool(R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY and R2_BUCKET and R2_ENDPOINT and R2_PUBLIC_BASE)
 
 
-def r2_configured():
-    return bool(
-        os.getenv("R2_ACCOUNT_ID")
-        and os.getenv("R2_ACCESS_KEY_ID")
-        and os.getenv("R2_SECRET_ACCESS_KEY")
-        and os.getenv("R2_BUCKET")
-    )
+def normalize_mime(raw):
+    return (raw or "").lower().split(";")[0].strip()
 
 
-def _client():
-    if not r2_configured():
-        raise HTTPException(status_code=503, detail="File storage is not configured")
-    import boto3
-    from botocore.config import Config
+def public_url_for(key):
+    return f"{R2_PUBLIC_BASE}/{key}"
 
+
+def new_object_key(mime):
+    ext, kind = ALLOWED_MIME[mime]
+    now = datetime.utcnow()
+    key = f"chat/{now.year:04d}/{now.month:02d}/{now.day:02d}/{uuid.uuid4().hex}{ext}"
+    return key, kind
+
+
+def get_r2_client():
+    if not r2_is_configured():
+        raise HTTPException(status_code=503, detail="File uploads are not configured.")
     return boto3.client(
         "s3",
-        endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
-        aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
-        aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
-        config=Config(signature_version="s3v4"),
+        endpoint_url=R2_ENDPOINT,
+        aws_access_key_id=R2_ACCESS_KEY_ID,
+        aws_secret_access_key=R2_SECRET_ACCESS_KEY,
         region_name="auto",
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
+        ),
     )
 
 
-def public_base():
-    return (os.getenv("R2_PUBLIC_BASE") or "").rstrip("/")
+def presign_put(key, mime):
+    client = get_r2_client()
+    return client.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": R2_BUCKET, "Key": key, "ContentType": mime},
+        ExpiresIn=300,
+    )
 
 
 def require_message_body(content, attachment):
-    text = (content or "").strip()
-    if not text and attachment is None:
-        raise HTTPException(status_code=400, detail="Message is empty")
+    if (content or "").strip() or attachment is not None:
+        return
+    raise HTTPException(status_code=400, detail="Message is empty.")
 
 
-def require_post_body(title, body, attachment):
-    if not (title or "").strip():
-        raise HTTPException(status_code=400, detail="Title is required")
-    has_file = bool(attachment) if not isinstance(attachment, list) else len(attachment) > 0
-    if not (body or "").strip() and not has_file:
-        raise HTTPException(status_code=400, detail="Post needs a body or a file")
-
-
-def presign_put(user, mime, size, name=""):
-    mime = (mime or "").lower().strip()
-    ext = ALLOWED_MIMES.get(mime)
-    if not ext:
-        raise HTTPException(status_code=400, detail="File type not allowed")
-    if size < 1 or size > max_upload_bytes(user):
-        raise HTTPException(status_code=400, detail="File is too large")
-    if not r2_configured():
-        raise HTTPException(status_code=503, detail="File storage is not configured")
-
-    key = f"u{user.id}/{uuid.uuid4()}.{ext}"
-    upload_url = _client().generate_presigned_url(
-        "put_object",
-        Params={
-            "Bucket": os.environ["R2_BUCKET"],
-            "Key": key,
-            "ContentType": mime,
-        },
-        ExpiresIn=300,
-    )
-    base = public_base()
-    return {
-        "upload_url": upload_url,
-        "key": key,
-        "public_url": f"{base}/{key}" if base else "",
-        "max_bytes": max_upload_bytes(user),
-    }
-
-
-def store_attachment(attachment, user):
-    if attachment is None:
+def store_attachment(att, user=None):
+    if att is None:
         return None
-    if isinstance(attachment, list):
-        if len(attachment) > MAX_POST_FILES:
-            raise HTTPException(status_code=400, detail="Too many files")
-        if not attachment:
-            return None
-        packed = [json.loads(store_attachment(item, user)) for item in attachment]
-        return json.dumps(packed)
-    mime = (attachment.mime or "").lower().strip()
-    if mime not in ALLOWED_MIMES:
-        raise HTTPException(status_code=400, detail="File type not allowed")
-    if attachment.size < 1 or attachment.size > max_upload_bytes(user):
-        raise HTTPException(status_code=400, detail="File is too large")
-    match = KEY_RE.fullmatch(attachment.key or "")
-    if not match or match.group(1) != str(user.id):
-        raise HTTPException(status_code=400, detail="Invalid file key")
-    if ALLOWED_MIMES[mime] != match.group(2):
-        raise HTTPException(status_code=400, detail="File type does not match key")
-    name = (attachment.name or "")[:100]
+    mime = normalize_mime(att.mime)
+    if mime not in ALLOWED_MIME:
+        raise HTTPException(status_code=400, detail="File type not allowed.")
+    cap = max_upload_bytes(user)
+    if att.size < 1 or att.size > cap:
+        raise HTTPException(status_code=400, detail="File too large.")
+    if not KEY_RE.match(att.key):
+        raise HTTPException(status_code=400, detail="Invalid upload key.")
+    expected_ext = ALLOWED_MIME[mime][0]
+    if not att.key.endswith(expected_ext):
+        raise HTTPException(status_code=400, detail="Upload key does not match type.")
+    _, kind = ALLOWED_MIME[mime]
+    name = (att.name or "").replace("\\", "/").split("/")[-1][:200]
     return json.dumps({
-        "key": attachment.key,
+        "key": att.key,
+        "url": public_url_for(att.key),
+        "kind": kind,
         "mime": mime,
-        "size": attachment.size,
+        "size": att.size,
         "name": name,
     })
-
-
-def _public_one(data):
-    item = dict(data)
-    key = item.get("key")
-    base = public_base()
-    if key and base:
-        item["url"] = f"{base}/{key}"
-    return item
 
 
 def attachment_public(raw):
     if not raw:
         return None
-    if isinstance(raw, list):
-        return [_public_one(item) for item in raw if isinstance(item, dict)]
     if isinstance(raw, dict):
-        return _public_one(raw)
+        return raw
     try:
-        data = json.loads(raw)
-    except (TypeError, json.JSONDecodeError):
+        return json.loads(raw)
+    except (TypeError, ValueError):
         return None
-    if isinstance(data, list):
-        return [_public_one(item) for item in data if isinstance(item, dict)]
-    if isinstance(data, dict):
-        return _public_one(data)
-    return None
 
 
-def delete_attachment(raw):
-    data = attachment_public(raw)
-    if not data or not r2_configured():
+def delete_r2_object(key):
+    if not key or not r2_is_configured():
         return
-    items = data if isinstance(data, list) else [data]
-    for item in items:
-        key = item.get("key") if isinstance(item, dict) else None
-        if not key:
-            continue
-        try:
-            _client().delete_object(Bucket=os.environ["R2_BUCKET"], Key=key)
-        except Exception:
-            pass
+    try:
+        get_r2_client().delete_object(Bucket=R2_BUCKET, Key=key)
+    except Exception:
+        pass

@@ -18,7 +18,6 @@ function showForumComposerEditing() {
   // sizing back to rows="3", so reopening the composer after a long
   // draft starts small again instead of staying expanded.
   document.getElementById("forum-body-input").style.height = "";
-  if (typeof clearPostMedia === "function") clearPostMedia("forum");
   document.getElementById("forum-composer-default").style.display = "none";
   document.getElementById("forum-composer-editing").style.display = "flex";
   document.getElementById("forum-title-input").focus();
@@ -37,25 +36,20 @@ document.getElementById("forum-body-input").addEventListener("input", autoGrowFo
 function hideForumComposerEditing() {
   document.getElementById("forum-composer-editing").style.display = "none";
   document.getElementById("forum-composer-default").style.display = "flex";
-  if (typeof clearPostMedia === "function") clearPostMedia("forum");
 }
 
 async function submitCreateForumPost() {
   const title = document.getElementById("forum-title-input").value.trim();
   const body = document.getElementById("forum-body-input").value.trim();
-  const pending = pendingFiles("forum");
-  if (!title || (!body && !pending.length)) return;
+  if (!title || !body) return;
 
-  const postBtn = document.getElementById("forum-post-btn");
-  postBtn.disabled = true;
   let post;
   try {
-    const attachment = await uploadPendingFiles("forum");
     const response = await fetch(`https://${serverAddress}/create_forum`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ channel_id: currentChannelId, title, body, attachment })
+      body: JSON.stringify({ channel_id: currentChannelId, title, body })
     });
     if (!response.ok) {
       console.error(`Failed to create forum post: ${response.status}`);
@@ -63,11 +57,8 @@ async function submitCreateForumPost() {
     }
     post = await response.json();
   } catch (e) {
-    console.error("Failed to create forum post:", e);
-    alert(e.message || "Failed to create forum post");
+    console.error("Failed to create forum post, network error:", e);
     return;
-  } finally {
-    postBtn.disabled = false;
   }
   hideForumComposerEditing();
   // create_forum's response carries no author fields - it only returns
@@ -77,7 +68,6 @@ async function submitCreateForumPost() {
     id: post.id,
     title: post.title,
     body: post.body,
-    attachment: post.attachment,
     tags: post.tags,
     message_count: post.message_count,
     last_activity: post.last_activity,
@@ -172,15 +162,10 @@ function buildForumPostCard(post) {
 
   card.addEventListener("click", () => openForumPost(post));
 
-  const main = document.createElement("div");
-  main.className = "forum-post-main";
-  main.appendChild(tags);
-  main.appendChild(title);
-  main.appendChild(line);
-  main.appendChild(meta);
-  card.appendChild(main);
-  const thumb = typeof buildForumThumb === "function" ? buildForumThumb(post.attachment) : null;
-  if (thumb) card.appendChild(thumb);
+  card.appendChild(tags);
+  card.appendChild(title);
+  card.appendChild(line);
+  card.appendChild(meta);
   return card;
 }
 
@@ -189,10 +174,9 @@ function buildForumPostCard(post) {
 // borrowed wholesale - no forum-specific renderer, composer or pagination
 // exists, they're the channel ones with openForumPostId set (see state.js).
 async function openForumPost(post) {
+  if (typeof clearPendingAttach === "function") clearPendingAttach();
   openForumPostId = post.id;
   openForumPostTitle = post.title;
-  openForumPostBody = post.body || "";
-  openForumPostAttachment = post.attachment || null;
 
   document.getElementById("forums-view").style.display = "none";
   document.getElementById("channel-body").style.display = "flex";
@@ -217,6 +201,7 @@ async function openForumPost(post) {
       senderId: msg.author_id,
       username: msg.username,
       content: msg.content,
+      attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
       time: parseUtcTimestamp(msg.timestamp)
     }));
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
@@ -232,8 +217,6 @@ async function openForumPost(post) {
 function closeForumPost() {
   openForumPostId = null;
   openForumPostTitle = null;
-  openForumPostBody = null;
-  openForumPostAttachment = null;
   currentChannelMessages = [];
 
   document.getElementById("forum-back-btn").style.display = "none";

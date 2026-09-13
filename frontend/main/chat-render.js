@@ -29,10 +29,13 @@ function renderClusteredMessages(wrap, messages) {
       openCluster = startNewCluster(wrap, msg);
     } else {
       const line = document.createElement("div");
-      fillBubbleLine(line, msg);
-      openCluster.bubbleEl.appendChild(line);
-      if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(line, msg.content);
-      attachInviteCardIfNeeded(openCluster.bubbleEl, msg.content);
+      if (msg.content) {
+        fillBubbleLine(line, msg);
+        openCluster.bubbleEl.appendChild(line);
+        if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(line, msg.content);
+        attachInviteCardIfNeeded(openCluster.bubbleEl, msg.content);
+      }
+      if (typeof attachMediaIfNeeded === "function") attachMediaIfNeeded(openCluster.bubbleEl, msg);
     }
 
     openCluster.lastTime = msg.time;
@@ -68,7 +71,7 @@ function renderChannelMessages(opts = {}) {
   // Same view, two occupants — a forum thread borrows this whole feed,
   // so the only thing that differs is which start card tops it.
   if (openForumPostId !== null) {
-    wrap.appendChild(buildForumStartCard(openForumPostTitle, openForumPostBody, openForumPostAttachment));
+    wrap.appendChild(buildForumStartCard(openForumPostTitle));
   } else if (currentChannelId !== null) {
     wrap.appendChild(buildChannelStartCard(currentChannelName));
   }
@@ -124,11 +127,14 @@ function startNewCluster(wrap, msg) {
 
   const bubble = document.createElement("div");
   bubble.className = "cluster-bubble";
-  const firstLine = document.createElement("div");
-  fillBubbleLine(firstLine, msg);
-  bubble.appendChild(firstLine);
-  if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(firstLine, msg.content);
-  attachInviteCardIfNeeded(bubble, msg.content);
+  if (msg.content) {
+    const firstLine = document.createElement("div");
+    fillBubbleLine(firstLine, msg);
+    bubble.appendChild(firstLine);
+    if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(firstLine, msg.content);
+    attachInviteCardIfNeeded(bubble, msg.content);
+  }
+  if (typeof attachMediaIfNeeded === "function") attachMediaIfNeeded(bubble, msg);
 
   body.appendChild(header);
   body.appendChild(bubble);
@@ -204,7 +210,7 @@ function buildPartyStartCard(name) {
   return card;
 }
 
-function buildForumStartCard(title, body, attachment) {
+function buildForumStartCard(title) {
   const card = document.createElement("div");
   card.className = "convo-start-card";
 
@@ -218,13 +224,11 @@ function buildForumStartCard(title, body, attachment) {
 
   const desc = document.createElement("div");
   desc.className = "convo-start-desc";
-  desc.textContent = body || `This is the start of ${title || "this post"}.`;
+  desc.textContent = `This is the start of ${title || "this post"}.`;
 
   card.appendChild(avatar);
   card.appendChild(nameEl);
   card.appendChild(desc);
-  const media = typeof buildPostMedia === "function" ? buildPostMedia(attachment) : null;
-  if (media) card.appendChild(media);
   return card;
 }
 

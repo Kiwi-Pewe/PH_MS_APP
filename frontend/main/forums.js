@@ -43,15 +43,14 @@ function hideForumComposerEditing() {
 async function submitCreateForumPost() {
   const title = document.getElementById("forum-title-input").value.trim();
   const body = document.getElementById("forum-body-input").value.trim();
-  const pending = postMediaPending.forum.file;
-  if (!title || (!body && !pending)) return;
+  const pending = pendingFiles("forum");
+  if (!title || (!body && !pending.length)) return;
 
   const postBtn = document.getElementById("forum-post-btn");
   postBtn.disabled = true;
   let post;
   try {
-    let attachment = null;
-    if (pending) attachment = await uploadPendingFile(pending);
+    const attachment = await uploadPendingFiles("forum");
     const response = await fetch(`https://${serverAddress}/create_forum`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -1,10 +1,11 @@
 // ==================================================================
-// uploads.js - One pending file per post composer, sign + PUT to R2.
-// Chat composers are later. Announcements and Forums share this.
+// uploads.js - Composer media dock for announcement / forum posts.
+// Tiles stay a fixed square. Hover reveals the add slot. Chat later.
 // ==================================================================
 
 const UPLOAD_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm";
 const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
+const UPLOAD_MAX_FILES = 4;
 const UPLOAD_EXT_MIME = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -16,19 +17,22 @@ const UPLOAD_EXT_MIME = {
 };
 
 const postMediaPending = {
-  announce: { file: null, previewUrl: null },
-  forum: { file: null, previewUrl: null }
+  announce: { files: [], previewUrls: [] },
+  forum: { files: [], previewUrls: [] }
 };
 
-function parseAttachment(raw) {
-  if (!raw) return null;
-  if (typeof raw === "object") return raw.url ? raw : null;
-  try {
-    const data = JSON.parse(raw);
-    return data && data.url ? data : null;
-  } catch (e) {
-    return null;
+function parseAttachments(raw) {
+  if (!raw) return [];
+  let data = raw;
+  if (typeof raw === "string") {
+    try { data = JSON.parse(raw); } catch (e) { return []; }
   }
+  const list = Array.isArray(data) ? data : [data];
+  return list.filter(item => item && item.url);
+}
+
+function parseAttachment(raw) {
+  return parseAttachments(raw)[0] || null;
 }
 
 function fileMime(file) {
@@ -48,61 +52,42 @@ function isAllowedUpload(file) {
   return "";
 }
 
+function pendingFiles(kind) {
+  return postMediaPending[kind].files;
+}
+
 function clearPostMedia(kind) {
   const slot = postMediaPending[kind];
-  if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
-  slot.file = null;
-  slot.previewUrl = null;
-  paintComposerTile(kind);
+  slot.previewUrls.forEach(url => URL.revokeObjectURL(url));
+  slot.files = [];
+  slot.previewUrls = [];
+  paintComposerDock(kind);
 }
 
-function setPostMediaFile(kind, file) {
-  const reason = isAllowedUpload(file);
-  if (reason) {
-    console.error(reason);
-    return;
-  }
-  clearPostMedia(kind);
+function addPostMediaFiles(kind, fileList) {
   const slot = postMediaPending[kind];
-  slot.file = file;
-  slot.previewUrl = URL.createObjectURL(file);
-  paintComposerTile(kind);
+  const incoming = Array.from(fileList || []);
+  for (let i = 0; i < incoming.length; i++) {
+    if (slot.files.length >= UPLOAD_MAX_FILES) break;
+    const file = incoming[i];
+    const reason = isAllowedUpload(file);
+    if (reason) {
+      console.error(reason);
+      continue;
+    }
+    slot.files.push(file);
+    slot.previewUrls.push(URL.createObjectURL(file));
+  }
+  paintComposerDock(kind);
 }
 
-function paintComposerTile(kind) {
-  const btn = document.getElementById(kind === "announce" ? "announce-composer-image-btn" : "forum-composer-image-btn");
-  if (!btn) return;
+function removePostMediaAt(kind, index) {
   const slot = postMediaPending[kind];
-  btn.replaceChildren();
-  btn.classList.toggle("has-file", !!slot.file);
-  btn.title = slot.file ? "Remove file" : "Add image or video";
-  if (!slot.file) {
-    btn.appendChild(defaultComposerTileIcon());
-    return;
-  }
-  const mime = fileMime(slot.file);
-  if (mime.startsWith("video/")) {
-    const vid = document.createElement("video");
-    vid.src = slot.previewUrl;
-    vid.muted = true;
-    vid.playsInline = true;
-    btn.appendChild(vid);
-  } else {
-    const img = document.createElement("img");
-    img.src = slot.previewUrl;
-    img.alt = "";
-    btn.appendChild(img);
-  }
-  const clearBtn = document.createElement("button");
-  clearBtn.type = "button";
-  clearBtn.className = "announce-composer-image-clear";
-  clearBtn.title = "Remove file";
-  clearBtn.textContent = "\u00d7";
-  clearBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    clearPostMedia(kind);
-  });
-  btn.appendChild(clearBtn);
+  if (!slot.files[index]) return;
+  URL.revokeObjectURL(slot.previewUrls[index]);
+  slot.files.splice(index, 1);
+  slot.previewUrls.splice(index, 1);
+  paintComposerDock(kind);
 }
 
 function defaultComposerTileIcon() {
@@ -120,23 +105,85 @@ function defaultComposerTileIcon() {
   return svg;
 }
 
-function bindComposerMedia(kind, buttonId) {
-  const btn = document.getElementById(buttonId);
+function fillTilePreview(tile, file, previewUrl) {
+  const mime = fileMime(file);
+  if (mime.startsWith("video/")) {
+    const vid = document.createElement("video");
+    vid.src = previewUrl;
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.preload = "metadata";
+    tile.appendChild(vid);
+  } else {
+    const img = document.createElement("img");
+    img.src = previewUrl;
+    img.alt = "";
+    tile.appendChild(img);
+  }
+}
+
+function paintComposerDock(kind) {
+  const dock = document.getElementById(kind === "announce" ? "announce-composer-media" : "forum-composer-media");
+  if (!dock) return;
+  const slot = postMediaPending[kind];
+  const input = dock.querySelector("input[type=file]");
+  dock.replaceChildren();
+  dock.classList.toggle("is-empty", slot.files.length === 0);
+  dock.classList.toggle("is-full", slot.files.length >= UPLOAD_MAX_FILES);
+
+  slot.files.forEach((file, index) => {
+    const tile = document.createElement("div");
+    tile.className = "announce-composer-tile has-file";
+    fillTilePreview(tile, file, slot.previewUrls[index]);
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "announce-composer-image-clear";
+    clearBtn.title = "Remove file";
+    clearBtn.textContent = "\u00d7";
+    clearBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removePostMediaAt(kind, index);
+    });
+    tile.appendChild(clearBtn);
+    dock.appendChild(tile);
+  });
+
+  if (slot.files.length < UPLOAD_MAX_FILES) {
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "announce-composer-tile announce-composer-add";
+    add.title = "Add image or video";
+    add.appendChild(defaultComposerTileIcon());
+    add.addEventListener("click", () => {
+      const picker = dock.querySelector("input[type=file]");
+      if (!picker) return;
+      picker.value = "";
+      picker.click();
+    });
+    dock.appendChild(add);
+  }
+
+  if (input) dock.appendChild(input);
+  else dock.appendChild(makeComposerFileInput(kind));
+}
+
+function makeComposerFileInput(kind) {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = UPLOAD_ACCEPT;
+  input.multiple = true;
   input.hidden = true;
-  btn.insertAdjacentElement("afterend", input);
-  btn.disabled = false;
-  btn.title = "Add image or video";
-  btn.addEventListener("click", () => {
-    if (postMediaPending[kind].file) return;
-    input.value = "";
-    input.click();
-  });
   input.addEventListener("change", () => {
-    if (input.files && input.files[0]) setPostMediaFile(kind, input.files[0]);
+    if (input.files && input.files.length) addPostMediaFiles(kind, input.files);
   });
+  return input;
+}
+
+function bindComposerMedia(kind, dockId) {
+  const dock = document.getElementById(dockId);
+  if (!dock) return;
+  dock.appendChild(makeComposerFileInput(kind));
+  paintComposerDock(kind);
 }
 
 async function uploadPendingFile(file) {
@@ -163,29 +210,41 @@ async function uploadPendingFile(file) {
   return { key: ticket.key, mime, size: file.size, name: file.name || "" };
 }
 
+async function uploadPendingFiles(kind) {
+  const files = pendingFiles(kind);
+  if (!files.length) return null;
+  const uploaded = [];
+  for (let i = 0; i < files.length; i++) {
+    uploaded.push(await uploadPendingFile(files[i]));
+  }
+  return uploaded.length === 1 ? uploaded[0] : uploaded;
+}
+
 function buildPostMedia(attachment, extraClass) {
-  const data = parseAttachment(attachment) || attachment;
-  if (!data || !data.url) return null;
+  const items = parseAttachments(attachment);
+  if (!items.length) return null;
   const wrap = document.createElement("div");
   wrap.className = extraClass ? `post-media ${extraClass}` : "post-media";
-  const mime = (data.mime || "").toLowerCase();
-  if (mime.startsWith("video/")) {
-    const vid = document.createElement("video");
-    vid.src = data.url;
-    vid.controls = true;
-    vid.preload = "metadata";
-    wrap.appendChild(vid);
-  } else {
-    const img = document.createElement("img");
-    img.src = data.url;
-    img.alt = data.name || "";
-    wrap.appendChild(img);
-  }
+  items.forEach(data => {
+    const mime = (data.mime || "").toLowerCase();
+    if (mime.startsWith("video/")) {
+      const vid = document.createElement("video");
+      vid.src = data.url;
+      vid.controls = true;
+      vid.preload = "metadata";
+      wrap.appendChild(vid);
+    } else {
+      const img = document.createElement("img");
+      img.src = data.url;
+      img.alt = data.name || "";
+      wrap.appendChild(img);
+    }
+  });
   return wrap;
 }
 
 function buildForumThumb(attachment) {
-  const data = parseAttachment(attachment) || attachment;
+  const data = parseAttachment(attachment);
   if (!data || !data.url) return null;
   const thumb = document.createElement("div");
   thumb.className = "forum-post-thumb";
@@ -205,5 +264,5 @@ function buildForumThumb(attachment) {
   return thumb;
 }
 
-bindComposerMedia("announce", "announce-composer-image-btn");
-bindComposerMedia("forum", "forum-composer-image-btn");
+bindComposerMedia("announce", "announce-composer-media");
+bindComposerMedia("forum", "forum-composer-media");

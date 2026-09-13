@@ -81,7 +81,7 @@ class Announcements(BaseModel):
     channel_id: int
     title: str
     body: str = ""
-    attachment: Attachment_in | None = None
+    attachment: Attachment_in | list[Attachment_in] | None = None
 
 class Comment_create(BaseModel):
     post_id: int
@@ -91,7 +91,7 @@ class Forum_post_create(BaseModel):
     channel_id: int
     title: str
     body: str = ""
-    attachment: Attachment_in | None = None
+    attachment: Attachment_in | list[Attachment_in] | None = None
 
 class Forum_message_create(BaseModel):
     post_id: int

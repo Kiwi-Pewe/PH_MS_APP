@@ -38,15 +38,14 @@ function hideAnnounceComposerEditing() {
 async function submitCreateAnnouncement() {
   const title = document.getElementById("announcement-title-input").value.trim();
   const body = document.getElementById("announcement-body-input").value.trim();
-  const pending = postMediaPending.announce.file;
-  if (!title || (!body && !pending)) return;
+  const pending = pendingFiles("announce");
+  if (!title || (!body && !pending.length)) return;
 
   const postBtn = document.getElementById("announcement-post-btn");
   postBtn.disabled = true;
   let post;
   try {
-    let attachment = null;
-    if (pending) attachment = await uploadPendingFile(pending);
+    const attachment = await uploadPendingFiles("announce");
     const response = await fetch(`https://${serverAddress}/post_announcement`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

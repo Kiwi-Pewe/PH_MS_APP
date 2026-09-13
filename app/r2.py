@@ -24,6 +24,8 @@ KEY_RE = re.compile(
     r"(jpg|png|gif|webp|mp4|webm)$"
 )
 
+MAX_POST_FILES = 4
+
 
 def max_upload_bytes(_user=None):
     return 20 * 1024 * 1024
@@ -67,7 +69,8 @@ def require_message_body(content, attachment):
 def require_post_body(title, body, attachment):
     if not (title or "").strip():
         raise HTTPException(status_code=400, detail="Title is required")
-    if not (body or "").strip() and attachment is None:
+    has_file = bool(attachment) if not isinstance(attachment, list) else len(attachment) > 0
+    if not (body or "").strip() and not has_file:
         raise HTTPException(status_code=400, detail="Post needs a body or a file")
 
 
@@ -103,6 +106,13 @@ def presign_put(user, mime, size, name=""):
 def store_attachment(attachment, user):
     if attachment is None:
         return None
+    if isinstance(attachment, list):
+        if len(attachment) > MAX_POST_FILES:
+            raise HTTPException(status_code=400, detail="Too many files")
+        if not attachment:
+            return None
+        packed = [json.loads(store_attachment(item, user)) for item in attachment]
+        return json.dumps(packed)
     mime = (attachment.mime or "").lower().strip()
     if mime not in ALLOWED_MIMES:
         raise HTTPException(status_code=400, detail="File type not allowed")
@@ -122,28 +132,43 @@ def store_attachment(attachment, user):
     })
 
 
+def _public_one(data):
+    item = dict(data)
+    key = item.get("key")
+    base = public_base()
+    if key and base:
+        item["url"] = f"{base}/{key}"
+    return item
+
+
 def attachment_public(raw):
     if not raw:
         return None
+    if isinstance(raw, list):
+        return [_public_one(item) for item in raw if isinstance(item, dict)]
     if isinstance(raw, dict):
-        data = dict(raw)
-    else:
-        try:
-            data = json.loads(raw)
-        except (TypeError, json.JSONDecodeError):
-            return None
-    key = data.get("key")
-    base = public_base()
-    if key and base:
-        data["url"] = f"{base}/{key}"
-    return data
+        return _public_one(raw)
+    try:
+        data = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if isinstance(data, list):
+        return [_public_one(item) for item in data if isinstance(item, dict)]
+    if isinstance(data, dict):
+        return _public_one(data)
+    return None
 
 
 def delete_attachment(raw):
     data = attachment_public(raw)
-    if not data or not data.get("key") or not r2_configured():
+    if not data or not r2_configured():
         return
-    try:
-        _client().delete_object(Bucket=os.environ["R2_BUCKET"], Key=data["key"])
-    except Exception:
-        pass
+    items = data if isinstance(data, list) else [data]
+    for item in items:
+        key = item.get("key") if isinstance(item, dict) else None
+        if not key:
+            continue
+        try:
+            _client().delete_object(Bucket=os.environ["R2_BUCKET"], Key=key)
+        except Exception:
+            pass

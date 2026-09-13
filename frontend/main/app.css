@@ -661,6 +661,31 @@
 }
 .edit-composer button.attach-chip-remove:hover { background: var(--panel); color: var(--text); }
 
+.reaction-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--rail);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.reaction-pill:hover { border-color: var(--accent); }
+.reaction-pill.mine { border-color: var(--accent); background: var(--panel); }
+.msg-cluster.self .reaction-pill { background: rgba(0, 0, 0, 0.18); color: #fff; border-color: rgba(255,255,255,0.25); }
+.msg-cluster.self .reaction-pill.mine { border-color: #fff; }
+
 .dm-item .who { font-size: 13px; font-weight: 600; }
 .dm-item .dm-close { opacity: 0; background: transparent; color: var(--text-dim); font-size: 14px; padding: 2px 6px; border-radius: 4px; }
 .dm-item:hover .dm-close { opacity: 1; }

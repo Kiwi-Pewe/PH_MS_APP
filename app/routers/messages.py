@@ -7,6 +7,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.deletion import deletion_fields, refresh_pending_messages
+from app.routers.reactions import reactions_for_messages
 from datetime import datetime
 
 router = APIRouter()
@@ -83,6 +84,7 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
     database.commit()
     refresh_pending_messages(database, History)
     History.reverse()
+    reaction_map = reactions_for_messages(database, "dm", [msg.id for msg in History], current_user.id)
     messages_out = []
     for msg in History:
         fields = deletion_fields(msg, attachment_public(msg.attachment))
@@ -97,6 +99,7 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
             "deletion_state": fields["deletion_state"],
             "deletion_requested_at": fields["deletion_requested_at"],
             "edited": fields["edited"],
+            "reactions": reaction_map.get(msg.id, []),
         })
     return {"other_username": target_user.username, "session_username": current_user.username , "messages": messages_out}
 

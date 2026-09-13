@@ -49,7 +49,17 @@ function applyDeletionFields(out, src) {
     ? parseUtcTimestamp(src.deletion_requested_at)
     : null;
   out.edited = !!src.edited;
+  out.reactions = applyReactionMe(src.reactions || []);
   return out;
+}
+
+function applyReactionMe(reactions) {
+  return (reactions || []).map(r => ({
+    emoji: r.emoji,
+    count: r.count,
+    user_ids: r.user_ids || [],
+    me: typeof r.me === "boolean" ? r.me : (r.user_ids || []).includes(myUserId)
+  }));
 }
 
 function attachmentKey(att) {

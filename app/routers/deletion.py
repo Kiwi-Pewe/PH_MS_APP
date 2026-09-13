@@ -31,6 +31,9 @@ def pending_is_expired(row):
     return datetime.utcnow() - row.deletion_requested_at >= DELETION_WINDOW
 
 def finalize_soft_delete(database, row):
+    from app.routers.reactions import clear_reactions
+    kind = "party" if hasattr(row, "party_id") else "dm"
+    clear_reactions(database, kind, row.id)
     delete_attachment(row.attachment)
     row.content = ""
     row.attachment = None
@@ -152,6 +155,8 @@ async def delete_message(target: Delete_message, database: Session = Depends(get
             "author_username": author_name(database, msg.sender_id),
             "channel_id": msg.channel_id
         })
+        from app.routers.reactions import clear_reactions
+        clear_reactions(database, "channel", msg.id)
         delete_attachment(msg.attachment)
         channel_id = msg.channel_id
         message_id = msg.id

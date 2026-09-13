@@ -29,6 +29,7 @@ function applyEmojiShortcodesToInput(el) {
 }
 
 let emojiPickerTarget = null;
+let emojiReactionTarget = null;
 let emojiSearchSaved = "";
 let emojiHovering = false;
 let emojiScrollLock = false;
@@ -93,6 +94,13 @@ function clearEmojiPreview() {
 }
 
 function pickEmoji(item) {
+  if (emojiReactionTarget) {
+    const msg = emojiReactionTarget;
+    recordEmojiUse(item.name);
+    closeEmojiPicker();
+    toggleReaction(msg, item.ch);
+    return;
+  }
   if (!emojiPickerTarget || emojiPickerTarget.disabled) return;
   const el = emojiPickerTarget;
   const start = el.selectionStart;
@@ -231,6 +239,7 @@ function filterEmojiPicker(query) {
 
 function openEmojiPicker(btn, input) {
   if (input.disabled) return;
+  emojiReactionTarget = null;
   const picker = document.getElementById("emoji-picker");
   if (picker.style.display === "flex" && emojiPickerTarget === input) {
     closeEmojiPicker();
@@ -258,8 +267,30 @@ function openEmojiPicker(btn, input) {
 function closeEmojiPicker() {
   document.getElementById("emoji-picker").style.display = "none";
   emojiPickerTarget = null;
+  emojiReactionTarget = null;
   clearEmojiPreview();
   emojiSearchSaved = "";
+}
+
+function openEmojiPickerForReaction(x, y, msg) {
+  const picker = document.getElementById("emoji-picker");
+  emojiPickerTarget = null;
+  emojiReactionTarget = msg;
+  picker.style.display = "flex";
+  const height = picker.offsetHeight || 520;
+  const width = picker.offsetWidth || 520;
+  picker.style.left = Math.max(8, Math.min(x, window.innerWidth - width - 8)) + "px";
+  if (y - 8 - height >= 8) {
+    picker.style.top = (y - height - 8) + "px";
+  } else {
+    picker.style.top = Math.min(y + 8, window.innerHeight - height - 8) + "px";
+  }
+  document.getElementById("emoji-picker-search").value = "";
+  document.getElementById("emoji-picker-footer").textContent = "";
+  emojiSearchSaved = "";
+  emojiHovering = false;
+  filterEmojiPicker("");
+  highlightEmojiRail("frequent");
 }
 
 document.getElementById("composer-emoji-btn").addEventListener("click", (e) => {

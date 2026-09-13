@@ -1,6 +1,6 @@
 # Database table definitions (User, Message, etc.) go here.
 from app.database import Base
-from sqlalchemy import Column, String, Integer,Boolean, ForeignKey, func, DateTime, Index
+from sqlalchemy import Column, String, Integer,Boolean, ForeignKey, func, DateTime, Index, UniqueConstraint
 
 class UserInfo(Base):
     __tablename__ = "users"
@@ -186,6 +186,16 @@ class Doc_page(Base):
     updated_at = Column(DateTime, server_default=func.now())
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     editor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+class Message_reaction(Base):
+    __tablename__ = "message_reactions"
+    id = Column(Integer, primary_key = True)
+    kind = Column(String)
+    message_id = Column(Integer)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    emoji = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("kind", "message_id", "user_id", "emoji", name= "uq_message_reaction"),)
 
 class Audit_log(Base):
     __tablename__ = "audit_logs"

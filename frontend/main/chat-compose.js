@@ -68,7 +68,8 @@ async function sendChatMessage() {
     content,
     attachment,
     time: new Date(),
-    edited: false
+    edited: false,
+    reactions: []
   });
   renderMessages();
   bumpConversation(openChatType, openChatId, openChatName, false);
@@ -131,7 +132,8 @@ async function sendChannelMessage() {
     content,
     attachment,
     time: new Date(),
-    edited: false
+    edited: false,
+    reactions: []
   });
   renderChannelMessages();
   input.value = "";

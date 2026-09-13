@@ -8,7 +8,7 @@ from app.schemas import Attachment_in, Message_schema, Party_message_schema, Ser
 from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns
 from app.auth import validate_session
 from app.r2 import attachment_public
-from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion
+from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions
 from pydantic import ValidationError
 from app.routers.realtime import active_connections, heartbeat
 from app.routers.messages import send_message
@@ -58,6 +58,7 @@ app.include_router(embeds.router)
 app.include_router(uploads.router)
 app.include_router(deletion.router)
 app.include_router(editing.router)
+app.include_router(reactions.router)
 
 @app.on_event("startup")
 async def interval_tasks():

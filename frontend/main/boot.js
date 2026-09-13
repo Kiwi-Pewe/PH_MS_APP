@@ -66,6 +66,13 @@ function connectSocket() {
       if (data.tombstone) markLocalDeleted(data.kind, data.message_id);
       else removeLocalMessage(data.kind, data.message_id);
     }
+    if (data.type === "message_reacted" && deletionEventTargetsOpenChat(data)) {
+      const row = findLocalMessage(data.kind, data.message_id);
+      if (row) {
+        row.reactions = applyReactionMe(data.reactions || []);
+        rerenderForKind(data.kind);
+      }
+    }
     if (data.type === "message_edited" && deletionEventTargetsOpenChat(data)) {
       const row = findLocalMessage(data.kind, data.message_id);
       if (row) {
@@ -89,7 +96,8 @@ function connectSocket() {
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? new Date(data.timestamp) : new Date(),
-          edited: false
+          edited: false,
+          reactions: []
         });
         renderMessages();
       }
@@ -129,7 +137,8 @@ function connectSocket() {
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? new Date(data.timestamp) : new Date(),
-          edited: false
+          edited: false,
+          reactions: []
         });
         renderChannelMessages();
       }

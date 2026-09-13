@@ -58,6 +58,7 @@ function renderClusteredMessages(wrap, messages) {
         appendEditedTag(tagLine, msg);
         openCluster.bubbleEl.appendChild(tagLine);
       }
+      attachReactionsIfNeeded(openCluster.bubbleEl, msg);
     }
 
     openCluster.lastTime = msg.time;
@@ -122,6 +123,31 @@ function fillBubbleLine(line, msg) {
   else line.textContent = msg.content;
   appendEditedTag(line, msg);
   line.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
+}
+
+function attachReactionsIfNeeded(host, msg) {
+  if (!host || !msg.reactions || !msg.reactions.length) return;
+  const row = document.createElement("div");
+  row.className = "reaction-row";
+  msg.reactions.forEach(r => {
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "reaction-pill" + (r.me ? " mine" : "");
+    const emoji = document.createElement("span");
+    emoji.className = "reaction-emoji";
+    emoji.textContent = r.emoji;
+    const count = document.createElement("span");
+    count.className = "reaction-count";
+    count.textContent = String(r.count);
+    pill.appendChild(emoji);
+    pill.appendChild(count);
+    pill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleReaction(msg, r.emoji);
+    });
+    row.appendChild(pill);
+  });
+  host.appendChild(row);
 }
 
 function appendEditedTag(parent, msg) {
@@ -387,6 +413,7 @@ function startNewCluster(wrap, msg) {
     appendEditedTag(tagLine, msg);
     bubble.appendChild(tagLine);
   }
+  attachReactionsIfNeeded(bubble, msg);
 
   body.appendChild(header);
   body.appendChild(bubble);

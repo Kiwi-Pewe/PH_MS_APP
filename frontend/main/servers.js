@@ -256,7 +256,8 @@ async function selectChannel(channel, rowEl) {
       content: msg.content,
       attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
       time: new Date(msg.timestamp),
-      edited: !!msg.edited
+      edited: !!msg.edited,
+      reactions: applyReactionMe(msg.reactions || [])
     }));
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
     renderChannelMessages();

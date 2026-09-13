@@ -6,6 +6,7 @@ from app.schemas import Server_create, Server_message, Category_create, Channel_
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
+from app.routers.reactions import reactions_for_messages
 from app.routers.realtime import server_broadcast
 import random
 
@@ -152,6 +153,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
     sender_ids = list({message.sender_id for message in channel_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
+    reaction_map = reactions_for_messages(database, "channel", [message.id for message in channel_history], current_user.id)
 
     message_history = []
     for message in channel_history:
@@ -162,7 +164,8 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
             "content": message.content,
             "attachment": attachment_public(message.attachment),
             "timestamp": str(message.timestamp),
-            "edited": bool(message.edited)
+            "edited": bool(message.edited),
+            "reactions": reaction_map.get(message.id, []),
         })
 
     message_history.reverse()

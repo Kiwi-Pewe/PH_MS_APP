@@ -7,6 +7,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.deletion import deletion_fields, refresh_pending_messages
+from app.routers.reactions import reactions_for_messages
 from datetime import datetime
 import random
 
@@ -107,6 +108,7 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
         party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
 
     refresh_pending_messages(database, party_history)
+    reaction_map = reactions_for_messages(database, "party", [message.id for message in party_history], current_user.id)
     sender_ids = list({message.sender_id for message in party_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
@@ -125,6 +127,7 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
             "deletion_state": fields["deletion_state"],
             "deletion_requested_at": fields["deletion_requested_at"],
             "edited": fields["edited"],
+            "reactions": reaction_map.get(message.id, []),
         })
 
     message_history.reverse()

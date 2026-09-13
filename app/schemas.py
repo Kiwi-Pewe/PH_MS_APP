@@ -108,3 +108,8 @@ class Edit_message(BaseModel):
     message_id: int
     content: str = ""
     attachment: Attachment_in | None = None
+
+class React_message(BaseModel):
+    kind: str
+    message_id: int
+    emoji: str

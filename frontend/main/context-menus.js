@@ -12,11 +12,49 @@ function showMessageContextMenu(e, msg) {
     subtitle: truncateForContextMenu(msg.content)
   }, [
     { label: "Copy Message", onSelect: () => copyMessageContent(msg) },
+    // Hover bar (last-3 emoji / Add Reaction / Edit / Forward) is
+    // Discord's other add path. Not built this pass — keep the note.
+    canReactMessage(msg) && { label: "Add Reaction", onSelect: () => openReactionPicker(msg, e.clientX, e.clientY) },
     canEditMessage(msg) && { label: "Edit Message", onSelect: () => startMessageEdit(msg) },
     { label: "Reply", onSelect: () => console.log("Reply — not implemented yet") },
     { label: "Pin", onSelect: () => console.log("Pin — not implemented yet") },
     canDeleteMessage(msg) && { label: "Delete Message", danger: true, onSelect: () => deleteMessageFromContextMenu(msg) }
   ]);
+}
+
+function canReactMessage(msg) {
+  if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
+  if (msg.chatKind === "forum") return false;
+  if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
+  if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
+  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "channel";
+}
+
+function openReactionPicker(msg, x, y) {
+  setTimeout(() => {
+    if (typeof openEmojiPickerForReaction === "function") openEmojiPickerForReaction(x, y, msg);
+  }, 0);
+}
+
+async function toggleReaction(msg, emoji) {
+  if (!canReactMessage(msg) || !emoji) return;
+  try {
+    const response = await fetch(`https://${serverAddress}/react_message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ kind: msg.chatKind, message_id: msg.id, emoji })
+    });
+    if (!response.ok) {
+      console.error(`Failed to react: ${response.status}`);
+      return;
+    }
+    const data = await response.json();
+    msg.reactions = applyReactionMe(data.reactions || []);
+    rerenderForKind(msg.chatKind);
+  } catch (e) {
+    console.error("Failed to react, network error:", e);
+  }
 }
 
 function canEditMessage(msg) {

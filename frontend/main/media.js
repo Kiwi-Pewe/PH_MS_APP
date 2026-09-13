@@ -126,24 +126,34 @@ async function uploadPendingIfNeeded() {
   pendingAttach.busy = true;
   renderAttachPreviews();
   try {
-    const intentRes = await fetch(`https://${serverAddress}/upload_intent`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content_type: pendingAttach.mime,
-        size: pendingAttach.file.size,
-        filename: pendingAttach.file.name || ""
-      })
-    });
+    let intentRes;
+    try {
+      intentRes = await fetch(`https://${serverAddress}/upload_intent`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content_type: pendingAttach.mime,
+          size: pendingAttach.file.size,
+          filename: pendingAttach.file.name || ""
+        })
+      });
+    } catch (e) {
+      throw new Error("Could not reach the API to start the upload. Is uvicorn running?");
+    }
     const intent = await intentRes.json().catch(() => ({}));
     if (!intentRes.ok) throw new Error(intent.detail || "Could not start upload.");
-    const putRes = await fetch(intent.upload_url, {
-      method: "PUT",
-      headers: { "Content-Type": intent.mime },
-      body: pendingAttach.file
-    });
-    if (!putRes.ok) throw new Error("Upload failed.");
+    let putRes;
+    try {
+      putRes = await fetch(intent.upload_url, {
+        method: "PUT",
+        headers: { "Content-Type": intent.mime },
+        body: pendingAttach.file
+      });
+    } catch (e) {
+      throw new Error("R2 blocked the browser upload. Re-save the bucket CORS policy.");
+    }
+    if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
     return {
       key: intent.key,
       mime: intent.mime,

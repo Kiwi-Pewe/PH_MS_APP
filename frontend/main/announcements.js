@@ -70,7 +70,7 @@ async function submitCreateAnnouncement() {
   // client values stand in until a real fetch-on-load exists.
   appendNewAnnouncementPost({
     id: post.id, title: post.title, body: post.body, attachment: post.attachment,
-    created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId
+    created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId, reactions: []
   });
 }
 
@@ -135,9 +135,14 @@ function buildAnnouncementPostCard(post) {
   reactions.className = "announce-reactions";
   const addReactionBtn = document.createElement("button");
   addReactionBtn.className = "announce-add-reaction-btn";
-  addReactionBtn.title = "React (coming soon)";
+  addReactionBtn.title = "Add Reaction";
   addReactionBtn.textContent = "+";
+  addReactionBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openReactionPicker(announceReactionTarget(post), e.clientX, e.clientY);
+  });
   reactions.appendChild(addReactionBtn);
+  fillAnnounceReactions(reactions, post);
   reactionsRow.appendChild(reactions);
 
   const commentsRow = document.createElement("div");
@@ -242,7 +247,10 @@ async function loadAnnouncementPosts(channelId) {
     const response = await fetch(`https://${serverAddress}/get_announcement/${channelId}`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
-    currentAnnouncementPosts = data.posts;
+    currentAnnouncementPosts = data.posts.map(post => {
+      post.reactions = applyReactionMe(post.reactions || []);
+      return post;
+    });
     if (data.posts.length < 25) announcementHasMoreHistory = false;
     data.posts.forEach(post => container.appendChild(buildAnnouncementPostCard(post)));
     updateAnnouncementEndMarker();
@@ -267,10 +275,14 @@ async function loadOlderAnnouncementPosts() {
     if (!response.ok) return;
     const data = await response.json();
     if (data.posts.length < 25) announcementHasMoreHistory = false;
-    currentAnnouncementPosts = data.posts.concat(currentAnnouncementPosts);
+    const older = data.posts.map(post => {
+      post.reactions = applyReactionMe(post.reactions || []);
+      return post;
+    });
+    currentAnnouncementPosts = older.concat(currentAnnouncementPosts);
     // Reverse-inserted so the batch ends up in ascending order at the top.
-    for (let i = data.posts.length - 1; i >= 0; i--) {
-      const card = buildAnnouncementPostCard(data.posts[i]);
+    for (let i = older.length - 1; i >= 0; i--) {
+      const card = buildAnnouncementPostCard(older[i]);
       if (container.firstChild) {
         container.insertBefore(card, container.firstChild);
       } else {
@@ -291,6 +303,48 @@ document.getElementById("announcements-posts").addEventListener("scroll", () => 
 // Edit stays visible-but-disabled since it doesn't exist yet, so this
 // menu is never empty even for someone who can't delete - unlike a
 // comment's menu, which just hides the trigger entirely instead.
+function announceReactionTarget(post) {
+  return {
+    id: post.id,
+    chatKind: "announcement",
+    senderId: post.sender_id,
+    reactions: post.reactions || []
+  };
+}
+
+function fillAnnounceReactions(host, post) {
+  if (!host) return;
+  host.querySelectorAll(".reaction-pill").forEach(el => el.remove());
+  const addBtn = host.querySelector(".announce-add-reaction-btn");
+  (post.reactions || []).forEach(r => {
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "reaction-pill" + (r.me ? " mine" : "");
+    const emoji = document.createElement("span");
+    emoji.className = "reaction-emoji";
+    emoji.textContent = r.emoji;
+    const count = document.createElement("span");
+    count.className = "reaction-count";
+    count.textContent = String(r.count);
+    pill.appendChild(emoji);
+    pill.appendChild(count);
+    pill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleReaction(announceReactionTarget(post), r.emoji);
+    });
+    if (addBtn) host.insertBefore(pill, addBtn);
+    else host.appendChild(pill);
+  });
+}
+
+function patchAnnouncementReactions(postId, reactions) {
+  const post = currentAnnouncementPosts.find(p => p.id === postId);
+  if (post) post.reactions = applyReactionMe(reactions || []);
+  const card = document.querySelector(`.announce-post[data-post-id="${postId}"]`);
+  const host = card && card.querySelector(".announce-reactions");
+  if (host && post) fillAnnounceReactions(host, post);
+}
+
 function showPostContextMenu(e, post) {
   e.preventDefault();
   e.stopPropagation();
@@ -301,6 +355,7 @@ function showPostContextMenu(e, post) {
     timestamp: formatClusterTime(parseUtcTimestamp(post.created_at)),
     subtitle: truncateForContextMenu(post.title)
   }, [
+    { label: "Add Reaction", onSelect: () => openReactionPicker(announceReactionTarget(post), e.clientX, e.clientY) },
     { label: "Edit Post", disabled: true },
     canDelete && { label: "Delete Post", danger: true, onSelect: () => deletePostFromContextMenu(post) }
   ]);

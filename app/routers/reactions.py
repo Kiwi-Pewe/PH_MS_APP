@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models import UserInfo, Message, Party_messages, Party_members, Channel_messages, Message_reaction, Servers, Server_members, Server_categories, Server_channels
+from app.models import UserInfo, Message, Party_messages, Party_members, Channel_messages, Message_reaction, Announcement_post, Servers, Server_members, Server_categories, Server_channels
 from app.schemas import React_message
 from app.database import get_db
 from app.auth import get_current_user
@@ -117,5 +117,31 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             "reactions": reactions_for_one(database, "channel", msg.id, None)
         }, database= database, exclude_user_id= current_user.id)
         return {"id": msg.id, "reactions": reactions}
+
+    if target.kind == "announcement":
+        post = database.query(Announcement_post).filter(Announcement_post.id == target.message_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="No message found")
+        channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+        category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+        server = database.query(Servers).filter(Servers.id == category.server_id).first()
+        is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+        if not is_member:
+            raise HTTPException(status_code=404, detail="No message found")
+        existing = database.query(Message_reaction).filter(Message_reaction.kind == "announcement", Message_reaction.message_id == post.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()
+        if existing:
+            database.delete(existing)
+        else:
+            database.add(Message_reaction(kind= "announcement", message_id= post.id, user_id= current_user.id, emoji= emoji))
+        database.commit()
+        reactions = reactions_for_one(database, "announcement", post.id, current_user.id)
+        await server_broadcast(server_id= server.id, payload= {
+            "type": "announcement_reacted",
+            "kind": "announcement",
+            "post_id": post.id,
+            "channel_id": post.channel_id,
+            "reactions": reactions_for_one(database, "announcement", post.id, None)
+        }, database= database, exclude_user_id= current_user.id)
+        return {"id": post.id, "reactions": reactions}
 
     raise HTTPException(status_code=400, detail="This message type cannot be reacted to yet")

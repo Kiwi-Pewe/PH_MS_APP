@@ -194,6 +194,10 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "announcement_reacted") {
+      patchAnnouncementReactions(data.post_id, data.reactions || []);
+    }
+
     if (data.type === "announcement_created") {
       if (currentChannelId === data.post.channel_id) {
         appendNewAnnouncementPost(data.post);

@@ -27,7 +27,7 @@ function canReactMessage(msg) {
   if (msg.chatKind === "forum") return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
-  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "channel";
+  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "channel" || msg.chatKind === "announcement";
 }
 
 function openReactionPicker(msg, x, y) {
@@ -38,6 +38,25 @@ function openReactionPicker(msg, x, y) {
 
 async function toggleReaction(msg, emoji) {
   if (!canReactMessage(msg) || !emoji) return;
+  if (msg.chatKind === "announcement") {
+    try {
+      const response = await fetch(`https://${serverAddress}/react_message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ kind: "announcement", message_id: msg.id, emoji })
+      });
+      if (!response.ok) {
+        console.error(`Failed to react: ${response.status}`);
+        return;
+      }
+      const data = await response.json();
+      patchAnnouncementReactions(msg.id, data.reactions || []);
+    } catch (e) {
+      console.error("Failed to react, network error:", e);
+    }
+    return;
+  }
   try {
     const response = await fetch(`https://${serverAddress}/react_message`, {
       method: "POST",

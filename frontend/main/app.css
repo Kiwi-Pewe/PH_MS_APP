@@ -349,7 +349,7 @@
 .announce-divider { height: 1px; background: var(--border); margin: 14px 0; }
 
 .announce-reactions-row { display: flex; align-items: center; }
-.announce-reactions { display: flex; align-items: center; gap: 6px; }
+.announce-reactions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .announce-add-reaction-btn {
   background: transparent; color: var(--text-dim); font-size: 15px; font-weight: 700;
   width: 26px; height: 26px; border-radius: 6px; border: 1px dashed var(--border);

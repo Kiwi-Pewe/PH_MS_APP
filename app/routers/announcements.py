@@ -7,6 +7,7 @@ from app.auth import get_current_user
 from app.r2 import delete_attachment, normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
 from app.routers.realtime import server_broadcast
 from app.routers.deletion import write_audit_log
+from app.routers.reactions import clear_reactions, reactions_for_messages
 
 router = APIRouter()
 
@@ -39,7 +40,7 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
     payload = {
         "type": "announcement_created",
         "server_id": server.id,
-        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username}
+        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username, "reactions": []}
         }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment}
@@ -65,6 +66,7 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
     sender_ids = list({post.sender_id for post in post_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
+    reaction_map = reactions_for_messages(database, "announcement", [post.id for post in post_history], current_user.id)
 
     recent_post = []
     for post in post_history:
@@ -76,7 +78,8 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
             "body": post.body,
             "attachment": post_attachments_public(post.attachment),
             "created_at": str(post.created_at),
-            "comment_count": post.comment_count
+            "comment_count": post.comment_count,
+            "reactions": reaction_map.get(post.id, []),
         })
 
     recent_post.reverse()
@@ -216,6 +219,7 @@ async def delete_post(post_id: int,database: Session = Depends(get_db), current_
     for comment in all_comments:
         database.delete(comment)
 
+    clear_reactions(database, "announcement", post_id)
     delete_attachment(post_exist.attachment)
     database.delete(post_exist)
     database.commit()

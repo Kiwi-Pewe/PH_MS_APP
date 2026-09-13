@@ -11,14 +11,28 @@ import os
 import re
 import uuid
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 
-R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
-R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
-R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
-R2_BUCKET = os.getenv("R2_BUCKET", "")
-R2_ENDPOINT = os.getenv("R2_ENDPOINT", "")
-R2_PUBLIC_BASE = (os.getenv("R2_PUBLIC_BASE") or "").rstrip("/")
+
+def _env(name, default=""):
+    load_dotenv(_ENV_PATH, override=True)
+    return (os.getenv(name) or default).strip()
+
+
+def _endpoint():
+    explicit = _env("R2_ENDPOINT")
+    if explicit:
+        return explicit.rstrip("/")
+    account = _env("R2_ACCOUNT_ID")
+    return f"https://{account}.r2.cloudflarestorage.com" if account else ""
+
+
+R2_ACCOUNT_ID = _env("R2_ACCOUNT_ID")
+R2_ACCESS_KEY_ID = _env("R2_ACCESS_KEY_ID")
+R2_SECRET_ACCESS_KEY = _env("R2_SECRET_ACCESS_KEY")
+R2_BUCKET = _env("R2_BUCKET")
+R2_ENDPOINT = _endpoint()
+R2_PUBLIC_BASE = _env("R2_PUBLIC_BASE").rstrip("/")
 
 BASE_UPLOAD_BYTES = 20 * 1024 * 1024
 
@@ -42,7 +56,13 @@ def max_upload_bytes(user=None):
 
 
 def r2_is_configured():
-    return bool(R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY and R2_BUCKET and R2_ENDPOINT and R2_PUBLIC_BASE)
+    return bool(
+        _env("R2_ACCESS_KEY_ID")
+        and _env("R2_SECRET_ACCESS_KEY")
+        and _env("R2_BUCKET")
+        and _endpoint()
+        and _env("R2_PUBLIC_BASE")
+    )
 
 
 def normalize_mime(raw):
@@ -50,7 +70,7 @@ def normalize_mime(raw):
 
 
 def public_url_for(key):
-    return f"{R2_PUBLIC_BASE}/{key}"
+    return f"{_env('R2_PUBLIC_BASE').rstrip('/')}/{key}"
 
 
 def new_object_key(mime):
@@ -65,9 +85,9 @@ def get_r2_client():
         raise HTTPException(status_code=503, detail="File uploads are not configured.")
     return boto3.client(
         "s3",
-        endpoint_url=R2_ENDPOINT,
-        aws_access_key_id=R2_ACCESS_KEY_ID,
-        aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+        endpoint_url=_endpoint(),
+        aws_access_key_id=_env("R2_ACCESS_KEY_ID"),
+        aws_secret_access_key=_env("R2_SECRET_ACCESS_KEY"),
         region_name="auto",
         config=Config(
             signature_version="s3v4",
@@ -82,7 +102,7 @@ def presign_put(key, mime):
     client = get_r2_client()
     return client.generate_presigned_url(
         "put_object",
-        Params={"Bucket": R2_BUCKET, "Key": key, "ContentType": mime},
+        Params={"Bucket": _env("R2_BUCKET"), "Key": key, "ContentType": mime},
         ExpiresIn=300,
     )
 
@@ -134,6 +154,6 @@ def delete_r2_object(key):
     if not key or not r2_is_configured():
         return
     try:
-        get_r2_client().delete_object(Bucket=R2_BUCKET, Key=key)
+        get_r2_client().delete_object(Bucket=_env("R2_BUCKET"), Key=key)
     except Exception:
         pass

@@ -5,7 +5,7 @@ from app.models import UserInfo, Servers, Server_members, Server_categories, Ser
 from app.schemas import Forum_message_create, Forum_post_create
 from app.database import get_db
 from app.auth import get_current_user
-from app.r2 import attachment_public, require_message_body, require_post_body, store_attachment
+from app.r2 import attachment_public, normalize_post_attachments, post_attachments_public, require_message_body, require_post_body, store_attachment, store_post_attachments
 from app.routers.realtime import server_broadcast
 from datetime import datetime
 
@@ -24,8 +24,9 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
     if not is_member:
         raise HTTPException(status_code=404, detail="membership not found")
 
-    require_post_body(create_forum.title, create_forum.body, create_forum.attachment)
-    attachment_json = store_attachment(create_forum.attachment, current_user)
+    items = normalize_post_attachments(create_forum.attachments, create_forum.attachment)
+    require_post_body(create_forum.title, create_forum.body, items)
+    attachment_json = store_post_attachments(items, current_user)
 
     new_post = Forum_post(
         channel_id = channel_exist.id,
@@ -38,7 +39,7 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
     database.add(new_post)
     database.commit()
     database.refresh(new_post)
-    public_attachment = attachment_public(new_post.attachment)
+    public_attachment = post_attachments_public(new_post.attachment)
     payload = {
         "type": "post_forum",
         "post_id": new_post.id,
@@ -82,7 +83,7 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
             "author_username": username_lookup[post.author_id],
             "title": post.title,
             "body": post.body,
-            "attachment": attachment_public(post.attachment),
+            "attachment": post_attachments_public(post.attachment),
             "tags": post.tags,
             "message_count": post.message_count,
             "last_activity": str(post.last_activity_at)

@@ -113,18 +113,50 @@ def require_message_body(content, attachment):
     raise HTTPException(status_code=400, detail="Message is empty.")
 
 
-def require_post_body(title, body, attachment):
+POST_ATTACHMENT_MAX = 4
+
+
+def require_post_body(title, body, attachments):
     if not (title or "").strip():
         raise HTTPException(status_code=400, detail="Title is required.")
-    if (body or "").strip() or attachment is not None:
+    if (body or "").strip() or attachments:
         return
     raise HTTPException(status_code=400, detail="Post is empty.")
 
 
-def delete_attachment(raw):
+def normalize_post_attachments(attachments, single=None):
+    items = list(attachments or [])
+    if not items and single is not None:
+        items = [single]
+    if len(items) > POST_ATTACHMENT_MAX:
+        raise HTTPException(status_code=400, detail="At most 4 files.")
+    return items
+
+
+def store_post_attachments(atts, user=None):
+    if not atts:
+        return None
+    packed = []
+    for att in atts:
+        packed.append(json.loads(store_attachment(att, user)))
+    return json.dumps(packed)
+
+
+def post_attachments_public(raw):
     data = attachment_public(raw)
-    if data and data.get("key"):
-        delete_r2_object(data["key"])
+    if not data:
+        return []
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    if isinstance(data, dict):
+        return [data]
+    return []
+
+
+def delete_attachment(raw):
+    for item in post_attachments_public(raw):
+        if item.get("key"):
+            delete_r2_object(item["key"])
 
 
 def store_attachment(att, user=None):

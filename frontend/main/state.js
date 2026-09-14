@@ -103,6 +103,7 @@ let openForumPostId = null;
 let openForumPostTitle = null;
 let openForumPostBody = null;
 let openForumPostAttachment = null;
+let openForumPostEdited = false;
 
 // forumCardElements[postId] = { tagsEl, countEl, activityEl }
 // Same idea as commentThreadElements: registered once per card so a live
@@ -162,3 +163,7 @@ let attachDestination = "composer";
 // In-card announcement edit. Separate from the top New Post composer
 // so opening Edit does not wipe a draft sitting up there.
 let editingAnnouncementId = null;
+
+// Same idea as announcements, pointed at a forum card. Separate media
+// slot (forumEdit) so New Post at the top is left alone.
+let editingForumPostId = null;

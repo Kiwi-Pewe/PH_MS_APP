@@ -459,6 +459,20 @@
   font-size: 10px; line-height: 16px; text-align: center;
 }
 .forum-post:hover { border-color: var(--text-dim); }
+.forum-post.is-editing {
+  flex-direction: column; align-items: stretch;
+}
+.forum-post.is-editing:hover { border-color: var(--border); }
+.forum-post-title-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.forum-post-title-row .forum-post-title { flex: 1 1 auto; min-width: 0; }
+.forum-post-title-row .edited-tag { flex: 0 0 auto; }
+.forum-post-title-row .announce-post-menu-btn { flex: 0 0 auto; margin-left: auto; }
+.forum-start-title-row {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center;
+  column-gap: 8px;
+}
 
 /* Deliberately empty until tags are real, but kept in the DOM with a
    reserved height so a card is exactly as tall now as it will be once

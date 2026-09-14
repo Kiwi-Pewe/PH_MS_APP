@@ -144,6 +144,7 @@ function renderServerSidebar(data) {
 async function selectChannel(channel, rowEl) {
   if (typeof abandonMessageEdit === "function") abandonMessageEdit();
   if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
+  if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (!(await leaveDocIfNeeded())) return;
 
@@ -154,6 +155,7 @@ async function selectChannel(channel, rowEl) {
   openForumPostTitle = null;
   openForumPostBody = null;
   openForumPostAttachment = null;
+  openForumPostEdited = false;
   document.getElementById("forum-back-btn").style.display = "none";
   hideDocsChrome();
 

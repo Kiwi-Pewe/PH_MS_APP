@@ -83,7 +83,8 @@ async function submitCreateForumPost() {
     message_count: post.message_count,
     last_activity: post.last_activity,
     author_id: myUserId,
-    author_username: myUsername
+    author_username: myUsername,
+    edited: false
   });
 }
 
@@ -119,25 +120,8 @@ function buildForumPostCard(post) {
   const tags = document.createElement("div");
   tags.className = "forum-post-tags";
 
-  const title = document.createElement("div");
-  title.className = "forum-post-title";
-  title.textContent = post.title;
-
-  // Author and body share ONE line that clips at the card's edge with an
-  // ellipsis. That single clipped line is what makes every card the same
-  // height regardless of body length - no fixed pixel height needed.
-  const line = document.createElement("div");
-  line.className = "forum-post-line";
-  // Trailing colon so the line reads "username: message" instead of the
-  // two running together as one sentence.
-  const author = document.createElement("span");
-  author.className = "forum-post-author";
-  author.textContent = `${post.author_username || "Unknown"}:`;
-  const body = document.createElement("span");
-  body.className = "forum-post-body";
-  body.textContent = post.body;
-  line.appendChild(author);
-  line.appendChild(body);
+  const content = document.createElement("div");
+  content.className = "forum-post-content";
 
   const meta = document.createElement("div");
   meta.className = "forum-post-meta";
@@ -171,17 +155,20 @@ function buildForumPostCard(post) {
   // screen are dead weight rather than a correctness risk.
   forumCardElements[post.id] = { tagsEl: tags, countEl: count, activityEl: activity };
 
-  card.addEventListener("click", () => openForumPost(post));
+  card.addEventListener("click", (e) => {
+    if (editingForumPostId === post.id) return;
+    if (e.target.closest(".announce-post-menu-btn")) return;
+    openForumPost(post);
+  });
+  card.addEventListener("contextmenu", (e) => showForumPostContextMenu(e, post));
 
   const main = document.createElement("div");
   main.className = "forum-post-main";
   main.appendChild(tags);
-  main.appendChild(title);
-  main.appendChild(line);
+  main.appendChild(content);
   main.appendChild(meta);
   card.appendChild(main);
-  const thumb = typeof buildForumThumb === "function" ? buildForumThumb(post.attachment) : null;
-  if (thumb) card.appendChild(thumb);
+  fillForumPostContent(card, post);
   return card;
 }
 
@@ -190,11 +177,13 @@ function buildForumPostCard(post) {
 // borrowed wholesale - no forum-specific renderer, composer or pagination
 // exists, they're the channel ones with openForumPostId set (see state.js).
 async function openForumPost(post) {
+  if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   openForumPostId = post.id;
   openForumPostTitle = post.title;
   openForumPostBody = post.body || "";
   openForumPostAttachment = post.attachment || null;
+  openForumPostEdited = !!post.edited;
 
   document.getElementById("forums-view").style.display = "none";
   document.getElementById("channel-body").style.display = "flex";
@@ -238,6 +227,7 @@ function closeForumPost() {
   openForumPostTitle = null;
   openForumPostBody = null;
   openForumPostAttachment = null;
+  openForumPostEdited = false;
   currentChannelMessages = [];
 
   document.getElementById("forum-back-btn").style.display = "none";
@@ -266,6 +256,8 @@ function patchForumCard(postId, messageCount, lastActivity) {
 // back) is how a stale order gets refreshed, which is why no dedicated
 // refresh button is needed yet.
 async function loadForumPosts(channelId) {
+  editingForumPostId = null;
+  if (typeof clearPostMedia === "function") clearPostMedia("forumEdit");
   currentForumPosts = [];
   forumHasMore = true;
   forumIsLoadingMore = false;
@@ -320,3 +312,293 @@ document.getElementById("forum-posts").addEventListener("scroll", () => {
   const el = document.getElementById("forum-posts");
   if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) loadMoreForumPosts();
 });
+
+function showForumPostContextMenu(e, post) {
+  if (post.author_id !== myUserId) return;
+  e.preventDefault();
+  e.stopPropagation();
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: avatarLetter(post.author_username),
+    title: post.author_username,
+    timestamp: formatClusterTime(parseUtcTimestamp(post.last_activity)),
+    subtitle: truncateForContextMenu(post.title)
+  }, [
+    { label: "Edit Post", onSelect: () => startForumEdit(post) }
+  ]);
+}
+
+function replaceForumThumb(card, post) {
+  const old = card.querySelector(".forum-post-thumb");
+  if (old) old.remove();
+  const thumb = typeof buildForumThumb === "function" ? buildForumThumb(post.attachment) : null;
+  if (thumb) card.appendChild(thumb);
+}
+
+function fillForumPostContent(card, post) {
+  let wrap = card.querySelector(".forum-post-content");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.className = "forum-post-content";
+    const main = card.querySelector(".forum-post-main");
+    const meta = card.querySelector(".forum-post-meta");
+    if (main && meta) main.insertBefore(wrap, meta);
+    else card.appendChild(wrap);
+  }
+  card.classList.remove("is-editing");
+  wrap.replaceChildren();
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "forum-post-title-row";
+  const title = document.createElement("div");
+  title.className = "forum-post-title";
+  title.textContent = post.title;
+  titleRow.appendChild(title);
+  if (post.edited) {
+    const tag = document.createElement("span");
+    tag.className = "edited-tag";
+    tag.textContent = "edited";
+    titleRow.appendChild(tag);
+  }
+  if (post.author_id === myUserId) {
+    const menuBtn = document.createElement("button");
+    menuBtn.className = "announce-post-menu-btn";
+    menuBtn.title = "More";
+    menuBtn.innerHTML = "&#8942;";
+    menuBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showForumPostContextMenu(e, post);
+    });
+    titleRow.appendChild(menuBtn);
+  }
+  wrap.appendChild(titleRow);
+
+  const line = document.createElement("div");
+  line.className = "forum-post-line";
+  const author = document.createElement("span");
+  author.className = "forum-post-author";
+  author.textContent = `${post.author_username || "Unknown"}:`;
+  const body = document.createElement("span");
+  body.className = "forum-post-body";
+  body.textContent = post.body;
+  line.appendChild(author);
+  line.appendChild(body);
+  wrap.appendChild(line);
+  replaceForumThumb(card, post);
+}
+
+function seedForumEditMedia(post) {
+  if (typeof clearPostMedia === "function") clearPostMedia("forumEdit");
+  const items = typeof parsePostAttachments === "function" ? parsePostAttachments(post.attachment) : [];
+  items.forEach((att) => {
+    postMediaPending.forumEdit.files.push({
+      existing: att,
+      previewUrl: att.url
+    });
+  });
+}
+
+function forumEditAttachmentKeys() {
+  return postMediaPending.forumEdit.files.map((item) => (
+    item.existing ? item.existing.key : "__new__"
+  )).join("|");
+}
+
+function originalForumAttachmentKeys(post) {
+  const items = typeof parsePostAttachments === "function" ? parsePostAttachments(post.attachment) : [];
+  return items.map((att) => att.key).join("|");
+}
+
+function abandonForumEdit() {
+  if (typeof closeEmojiPicker === "function") closeEmojiPicker();
+  const postId = editingForumPostId;
+  editingForumPostId = null;
+  if (typeof clearPostMedia === "function") clearPostMedia("forumEdit");
+  if (!postId) return;
+  const post = currentForumPosts.find(p => p.id === postId);
+  const card = document.querySelector(`.forum-post[data-post-id="${postId}"]`);
+  if (post && card) fillForumPostContent(card, post);
+}
+
+function startForumEdit(post) {
+  if (post.author_id !== myUserId) return;
+  if (editingForumPostId === post.id) return;
+  abandonForumEdit();
+  const card = document.querySelector(`.forum-post[data-post-id="${post.id}"]`);
+  if (!card) return;
+  editingForumPostId = post.id;
+  seedForumEditMedia(post);
+  fillForumPostEditor(card, post);
+}
+
+function fillForumPostEditor(card, post) {
+  const wrap = card.querySelector(".forum-post-content");
+  if (!wrap) return;
+  card.classList.add("is-editing");
+  wrap.replaceChildren();
+  const existingThumb = card.querySelector(".forum-post-thumb");
+  if (existingThumb) existingThumb.remove();
+
+  const editor = document.createElement("div");
+  editor.className = "announce-composer-editing";
+
+  const main = document.createElement("div");
+  main.className = "announce-composer-editing-main";
+
+  const fields = document.createElement("div");
+  fields.className = "announce-composer-editing-fields";
+
+  const header = document.createElement("div");
+  header.className = "announce-composer-editing-header";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "icon-btn";
+  cancelBtn.title = "Cancel";
+  cancelBtn.innerHTML = "&times;";
+  cancelBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    abandonForumEdit();
+  });
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.id = "forum-edit-title-input";
+  titleInput.className = "announce-composer-title-input";
+  titleInput.maxLength = 200;
+  titleInput.placeholder = "Title";
+  titleInput.value = post.title || "";
+  titleInput.addEventListener("contextmenu", (e) => e.stopPropagation());
+  header.appendChild(cancelBtn);
+  header.appendChild(titleInput);
+
+  const bodyWrap = document.createElement("div");
+  bodyWrap.className = "announce-composer-editing-body";
+  const bodyInput = document.createElement("textarea");
+  bodyInput.id = "forum-edit-body-input";
+  bodyInput.className = "announce-composer-body-input";
+  bodyInput.placeholder = "Enter a message...";
+  bodyInput.rows = 3;
+  bodyInput.value = post.body || "";
+  bodyInput.addEventListener("input", () => autoGrowPostBodyInput(bodyInput));
+  bodyInput.addEventListener("contextmenu", (e) => e.stopPropagation());
+  bodyWrap.appendChild(bodyInput);
+
+  fields.appendChild(header);
+  fields.appendChild(bodyWrap);
+
+  const strip = document.createElement("div");
+  strip.className = "announce-composer-media-strip";
+  strip.id = "forum-edit-media-strip";
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "announce-composer-image-btn announce-composer-image-add";
+  addBtn.id = "forum-edit-image-btn";
+  addBtn.title = "Add image or video";
+  addBtn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="12" rx="2"></rect><circle cx="8" cy="11" r="1.2" fill="currentColor" stroke="none"></circle><path d="M17 14l-3.5-3.5L7 17"></path><path d="M17 4v6M14 7h6"></path></svg>';
+  addBtn.addEventListener("click", (e) => e.stopPropagation());
+  strip.appendChild(addBtn);
+
+  main.appendChild(fields);
+  main.appendChild(strip);
+
+  const footer = document.createElement("div");
+  footer.className = "announce-composer-editing-footer";
+  const emojiBtn = document.createElement("button");
+  emojiBtn.type = "button";
+  emojiBtn.className = "composer-icon-btn";
+  emojiBtn.id = "forum-edit-emoji-btn";
+  emojiBtn.title = "Emoji";
+  emojiBtn.textContent = "🙂";
+  emojiBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof openEmojiPicker === "function") openEmojiPicker(emojiBtn, bodyInput);
+  });
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.className = "pill-btn";
+  confirmBtn.textContent = "Confirm";
+  confirmBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    confirmForumEdit(post);
+  });
+  footer.appendChild(emojiBtn);
+  footer.appendChild(confirmBtn);
+
+  editor.appendChild(main);
+  editor.appendChild(footer);
+  wrap.appendChild(editor);
+
+  if (typeof bindPostMediaButton === "function") bindPostMediaButton("forumEdit", addBtn);
+  autoGrowPostBodyInput(bodyInput);
+  titleInput.focus();
+}
+
+function applyForumPostEdit(data) {
+  const post = currentForumPosts.find(p => p.id === data.post_id);
+  if (post) {
+    if (editingForumPostId === post.id) {
+      editingForumPostId = null;
+      if (typeof clearPostMedia === "function") clearPostMedia("forumEdit");
+    }
+    post.title = data.title;
+    post.body = data.body;
+    post.attachment = data.attachment;
+    post.edited = !!data.edited;
+    const card = document.querySelector(`.forum-post[data-post-id="${post.id}"]`);
+    if (card) fillForumPostContent(card, post);
+  }
+
+  if (openForumPostId === data.post_id) {
+    openForumPostTitle = data.title;
+    openForumPostBody = data.body || "";
+    openForumPostAttachment = data.attachment || null;
+    openForumPostEdited = !!data.edited;
+    const header = document.getElementById("channel-header-title");
+    if (header) header.textContent = data.title;
+    if (typeof renderChannelMessages === "function") renderChannelMessages({ preserveScroll: true });
+  }
+}
+
+async function confirmForumEdit(post) {
+  const titleEl = document.getElementById("forum-edit-title-input");
+  const bodyEl = document.getElementById("forum-edit-body-input");
+  const title = ((titleEl && titleEl.value) || "").trim();
+  const body = ((bodyEl && bodyEl.value) || "").trim();
+  const pending = postMediaPending.forumEdit.files;
+  if (!title || (!body && !pending.length)) return;
+
+  if (title === (post.title || "") && body === (post.body || "") && forumEditAttachmentKeys() === originalForumAttachmentKeys(post)) {
+    abandonForumEdit();
+    return;
+  }
+
+  let attachments = [];
+  try {
+    if (pending.length) attachments = await uploadPendingPostFiles(pending);
+  } catch (e) {
+    window.alert(e.message || "Upload failed.");
+    return;
+  }
+
+  let data;
+  try {
+    const response = await fetch(`https://${serverAddress}/edit_forum`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ post_id: post.id, title, body, attachments })
+    });
+    if (!response.ok) {
+      console.error(`Failed to edit post: ${response.status}`);
+      return;
+    }
+    data = await response.json();
+  } catch (e) {
+    console.error("Failed to edit post, network error:", e);
+    return;
+  }
+
+  post.title = data.title;
+  post.body = data.body;
+  post.attachment = data.attachment;
+  post.edited = !!data.edited;
+  abandonForumEdit();
+}

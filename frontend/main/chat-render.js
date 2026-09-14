@@ -101,7 +101,7 @@ function renderChannelMessages(opts = {}) {
   // Same view, two occupants — a forum thread borrows this whole feed,
   // so the only thing that differs is which start card tops it.
   if (openForumPostId !== null) {
-    wrap.appendChild(buildForumStartCard(openForumPostTitle, openForumPostBody, openForumPostAttachment));
+    wrap.appendChild(buildForumStartCard(openForumPostTitle, openForumPostBody, openForumPostAttachment, openForumPostEdited));
   } else if (currentChannelId !== null) {
     wrap.appendChild(buildChannelStartCard(currentChannelName));
   }
@@ -489,7 +489,7 @@ function buildPartyStartCard(name) {
   return card;
 }
 
-function buildForumStartCard(title, body, attachment) {
+function buildForumStartCard(title, body, attachment, edited) {
   const card = document.createElement("div");
   card.className = "convo-start-card";
 
@@ -497,16 +497,25 @@ function buildForumStartCard(title, body, attachment) {
   avatar.className = "convo-start-avatar";
   avatar.textContent = "\u{1F4AC}";
 
+  const nameRow = document.createElement("div");
+  nameRow.className = "forum-start-title-row";
   const nameEl = document.createElement("div");
   nameEl.className = "convo-start-name";
   nameEl.textContent = title || "";
+  nameRow.appendChild(nameEl);
+  if (edited) {
+    const tag = document.createElement("span");
+    tag.className = "edited-tag";
+    tag.textContent = "edited";
+    nameRow.appendChild(tag);
+  }
 
   const desc = document.createElement("div");
   desc.className = "convo-start-desc";
   desc.textContent = body || `This is the start of ${title || "this post"}.`;
 
   card.appendChild(avatar);
-  card.appendChild(nameEl);
+  card.appendChild(nameRow);
   card.appendChild(desc);
   const media = typeof buildPostMedia === "function" ? buildPostMedia(attachment) : null;
   if (media) card.appendChild(media);

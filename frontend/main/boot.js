@@ -175,6 +175,10 @@ function connectSocket() {
       patchForumCard(data.post_id, data.message_count, data.last_activity);
     }
 
+    if (data.type === "forum_post_edited") {
+      applyForumPostEdit(data);
+    }
+
     // Sender is excluded from these broadcasts (server_broadcast's
     // exclude_user_id), so no double-add guard needed for our own creations.
     if (data.type === "category_created") {

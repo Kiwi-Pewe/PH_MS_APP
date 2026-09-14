@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Forum_post, Forum_messages
-from app.schemas import Forum_message_create, Forum_post_create
+from app.schemas import Forum_message_create, Forum_post_create, Edit_forum
 from app.database import get_db
 from app.auth import get_current_user
-from app.r2 import attachment_public, normalize_post_attachments, post_attachments_public, require_message_body, require_post_body, store_attachment, store_post_attachments
+from app.r2 import attachment_public, delete_r2_object, normalize_post_attachments, post_attachments_public, require_message_body, require_post_body, store_attachment, store_post_attachments
 from app.routers.realtime import server_broadcast
 from datetime import datetime
 
@@ -43,10 +43,10 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
     payload = {
         "type": "post_forum",
         "post_id": new_post.id,
-        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at)}
+        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False}
     }
     await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
-    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at)}
+    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False}
 
 @router.get("/get_forum_post/{channel_id}")
 async def get_forum_post(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_activity: datetime = None, before_id: int = None):
@@ -86,9 +86,57 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
             "attachment": post_attachments_public(post.attachment),
             "tags": post.tags,
             "message_count": post.message_count,
-            "last_activity": str(post.last_activity_at)
+            "last_activity": str(post.last_activity_at),
+            "edited": bool(post.edited)
         })
     return {"channel_id": channel.id, "forum_posts": picked_posts}
+
+@router.post("/edit_forum")
+async def edit_forum_post(edit: Edit_forum, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    post = database.query(Forum_post).filter(Forum_post.id == edit.post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
+    if not is_member:
+        raise HTTPException(status_code=404, detail="User is not a member")
+    if current_user.id != post.author_id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit post")
+
+    title = edit.title.strip()
+    body = (edit.body or "").strip()
+    items = normalize_post_attachments(edit.attachments, None)
+    require_post_body(title, body, items)
+
+    old_keys = [item.get("key") for item in post_attachments_public(post.attachment) if item.get("key")]
+    new_keys = [item.key for item in items]
+    same = (post.title or "") == title and (post.body or "") == body and old_keys == new_keys
+    if same:
+        return {"id": post.id, "title": post.title, "body": post.body, "attachment": post_attachments_public(post.attachment), "edited": bool(post.edited), "unchanged": True}
+
+    for key in set(old_keys) - set(new_keys):
+        delete_r2_object(key)
+
+    post.title = title
+    post.body = body
+    post.attachment = store_post_attachments(items, current_user)
+    post.edited = True
+    database.commit()
+    public_attachment = post_attachments_public(post.attachment)
+    payload = {
+        "type": "forum_post_edited",
+        "channel_id": post.channel_id,
+        "post_id": post.id,
+        "title": post.title,
+        "body": post.body,
+        "attachment": public_attachment,
+        "edited": True
+    }
+    await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": True, "unchanged": False}
 
 @router.post("/send_forum_message")
 async def send_forum_message(forum_message: Forum_message_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

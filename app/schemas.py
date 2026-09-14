@@ -119,3 +119,9 @@ class Edit_announcement(BaseModel):
     title: str
     body: str = ""
     attachments: list[Attachment_in] = []
+
+class Edit_forum(BaseModel):
+    post_id: int
+    title: str
+    body: str = ""
+    attachments: list[Attachment_in] = []

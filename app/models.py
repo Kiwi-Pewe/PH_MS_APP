@@ -169,6 +169,7 @@ class Forum_post(Base):
     last_activity_at = Column(DateTime, server_default=func.now())
     created_at = Column(DateTime, server_default=func.now())
     attachment = Column(String, nullable=True)
+    edited = Column(Boolean, default= False)
 
 class Forum_messages(Base):
     __tablename__ = "forum_messages"

@@ -8,12 +8,14 @@ const POST_MEDIA_MAX = 4;
 const postMediaPending = {
   announce: { files: [] },
   forum: { files: [] },
-  announceEdit: { files: [] }
+  announceEdit: { files: [] },
+  forumEdit: { files: [] }
 };
 const POST_MEDIA_HOSTS = {
   announce: { addId: "announce-composer-image-btn", stripId: "announce-composer-media-strip" },
   forum: { addId: "forum-composer-image-btn", stripId: "forum-composer-media-strip" },
-  announceEdit: { addId: "announce-edit-image-btn", stripId: "announce-edit-media-strip" }
+  announceEdit: { addId: "announce-edit-image-btn", stripId: "announce-edit-media-strip" },
+  forumEdit: { addId: "forum-edit-image-btn", stripId: "forum-edit-media-strip" }
 };
 const postMediaInputs = {};
 

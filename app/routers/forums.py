@@ -5,8 +5,9 @@ from app.models import UserInfo, Servers, Server_members, Server_categories, Ser
 from app.schemas import Forum_message_create, Forum_post_create, Edit_forum
 from app.database import get_db
 from app.auth import get_current_user
-from app.r2 import attachment_public, delete_r2_object, normalize_post_attachments, post_attachments_public, require_message_body, require_post_body, store_attachment, store_post_attachments
+from app.r2 import attachment_public, delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_message_body, require_post_body, store_attachment, store_post_attachments
 from app.routers.realtime import server_broadcast
+from app.routers.deletion import write_audit_log
 from datetime import datetime
 
 router = APIRouter()
@@ -137,6 +138,45 @@ async def edit_forum_post(edit: Edit_forum, database: Session = Depends(get_db),
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": True, "unchanged": False}
+
+@router.post("/delete_forum/{post_id}")
+async def delete_forum_post(post_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    post = database.query(Forum_post).filter(Forum_post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
+    if not is_member:
+        raise HTTPException(status_code=404, detail="User is not a member")
+    if current_user.id != post.author_id and current_user.id != server.owner_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete post")
+
+    author = database.query(UserInfo).filter(UserInfo.id == post.author_id).first()
+    write_audit_log(database, server.id, current_user.id, "delete_post", "forum_post", post.id, {
+        "title": post.title,
+        "body": post.body,
+        "author_id": post.author_id,
+        "author_username": author.username if author else None,
+        "channel_id": channel.id
+    })
+    thread_messages = database.query(Forum_messages).filter(Forum_messages.post_id == post_id).all()
+    for msg in thread_messages:
+        delete_attachment(msg.attachment)
+        database.delete(msg)
+
+    delete_attachment(post.attachment)
+    database.delete(post)
+    database.commit()
+    payload = {
+        "type": "forum_post_deleted",
+        "channel_id": channel.id,
+        "post_id": post_id
+    }
+    await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    return {"post_id": post_id}
 
 @router.post("/send_forum_message")
 async def send_forum_message(forum_message: Forum_message_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

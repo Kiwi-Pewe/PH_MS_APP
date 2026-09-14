@@ -314,7 +314,9 @@ document.getElementById("forum-posts").addEventListener("scroll", () => {
 });
 
 function showForumPostContextMenu(e, post) {
-  if (post.author_id !== myUserId) return;
+  const canEdit = post.author_id === myUserId;
+  const canDelete = canEdit || myUserId === currentServerOwnerId;
+  if (!canEdit && !canDelete) return;
   e.preventDefault();
   e.stopPropagation();
   openContextMenu(e.clientX, e.clientY, {
@@ -323,8 +325,38 @@ function showForumPostContextMenu(e, post) {
     timestamp: formatClusterTime(parseUtcTimestamp(post.last_activity)),
     subtitle: truncateForContextMenu(post.title)
   }, [
-    { label: "Edit Post", onSelect: () => startForumEdit(post) }
+    canEdit && { label: "Edit Post", onSelect: () => startForumEdit(post) },
+    canDelete && { label: "Delete Post", danger: true, onSelect: () => deleteForumPostFromContextMenu(post) }
   ]);
+}
+
+async function deleteForumPostFromContextMenu(post) {
+  try {
+    const response = await fetch(`https://${serverAddress}/delete_forum/${post.id}`, {
+      method: "POST",
+      credentials: "include"
+    });
+    if (!response.ok) {
+      console.error(`Failed to delete post: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to delete post, network error:", e);
+    return;
+  }
+  removeForumPostFromView(post.id);
+}
+
+function removeForumPostFromView(postId) {
+  if (editingForumPostId === postId) {
+    editingForumPostId = null;
+    if (typeof clearPostMedia === "function") clearPostMedia("forumEdit");
+  }
+  currentForumPosts = currentForumPosts.filter(p => p.id !== postId);
+  const card = document.querySelector(`.forum-post[data-post-id="${postId}"]`);
+  if (card) card.remove();
+  delete forumCardElements[postId];
+  if (openForumPostId === postId) closeForumPost();
 }
 
 function replaceForumThumb(card, post) {
@@ -359,7 +391,7 @@ function fillForumPostContent(card, post) {
     tag.textContent = "edited";
     titleRow.appendChild(tag);
   }
-  if (post.author_id === myUserId) {
+  if (post.author_id === myUserId || myUserId === currentServerOwnerId) {
     const menuBtn = document.createElement("button");
     menuBtn.className = "announce-post-menu-btn";
     menuBtn.title = "More";

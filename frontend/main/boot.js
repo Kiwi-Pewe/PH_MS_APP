@@ -179,6 +179,10 @@ function connectSocket() {
       applyForumPostEdit(data);
     }
 
+    if (data.type === "forum_post_deleted") {
+      removeForumPostFromView(data.post_id);
+    }
+
     // Sender is excluded from these broadcasts (server_broadcast's
     // exclude_user_id), so no double-add guard needed for our own creations.
     if (data.type === "category_created") {

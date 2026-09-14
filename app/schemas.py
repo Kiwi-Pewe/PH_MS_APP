@@ -113,3 +113,9 @@ class React_message(BaseModel):
     kind: str
     message_id: int
     emoji: str
+
+class Edit_announcement(BaseModel):
+    post_id: int
+    title: str
+    body: str = ""
+    attachments: list[Attachment_in] = []

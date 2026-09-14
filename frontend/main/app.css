@@ -336,8 +336,13 @@
 }
 .announce-post-menu-btn:hover { color: var(--text); background: var(--rail); }
 
-.announce-post-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.announce-post-title-row {
+  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 2px;
+  margin-bottom: 6px;
+}
+.announce-post-title { font-size: 16px; font-weight: 700; color: var(--text); }
 .announce-post-body { font-size: 14px; line-height: 1.5; color: var(--text); white-space: pre-wrap; word-wrap: break-word; }
+.announce-post-content.announce-post-editing { margin-bottom: 4px; }
 .announce-post-date { font-size: 12px; color: var(--text-dim); margin-top: 10px; }
 
 /* Full-width within the post's own padding — deliberately edge-to-edge
@@ -573,8 +578,16 @@
 #chat-messages:not(.self-right) .msg-cluster.self .bubble-line,
 #channel-messages:not(.self-right) .msg-cluster.self .bubble-line { text-align: left; }
 
-.bubble-line .edited-tag { color: var(--text-dim); font-size: calc(12px * var(--message-scale)); margin-left: 6px; }
-.msg-cluster.self .bubble-line .edited-tag { color: rgba(255,255,255,0.7); }
+.edited-tag {
+  font-size: 11px; font-weight: 400; font-style: italic;
+  color: var(--text-dim); opacity: 0.8; margin-left: 2px;
+  user-select: none; pointer-events: none;
+}
+.bubble-line .edited-tag {
+  font-size: calc(11px * var(--message-scale));
+  margin-left: 8px;
+}
+.msg-cluster.self .bubble-line .edited-tag { color: rgba(255,255,255,0.42); opacity: 1; }
 
 /* System divider — full-width line with its text centered on top,
    Discord's date-divider trick (two flex:1 lines flanking the text,
@@ -620,7 +633,7 @@
 .deletion-card.expanded .deletion-card-detail { display: flex; }
 .deletion-card-original { color: var(--text); }
 .deletion-card-original .bubble-line { color: var(--text); text-align: left; }
-.deletion-card-original .edited-tag { color: var(--text-dim); }
+.deletion-card-original .edited-tag { color: var(--text-dim); opacity: 0.8; }
 .deletion-card-when { font-size: calc(12px * var(--message-scale)); color: var(--text-dim); }
 .deletion-card-detail .pill-btn { align-self: flex-start; }
 .deletion-tombstone { cursor: default; }

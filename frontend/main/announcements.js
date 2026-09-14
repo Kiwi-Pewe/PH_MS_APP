@@ -70,7 +70,7 @@ async function submitCreateAnnouncement() {
   // client values stand in until a real fetch-on-load exists.
   appendNewAnnouncementPost({
     id: post.id, title: post.title, body: post.body, attachment: post.attachment,
-    created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId, reactions: []
+    created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId, reactions: [], edited: false
   });
 }
 
@@ -110,15 +110,8 @@ function buildAnnouncementPostCard(post) {
   top.appendChild(meta);
   top.appendChild(menuBtn);
 
-  const title = document.createElement("div");
-  title.className = "announce-post-title";
-  title.textContent = post.title;
-
-  const body = document.createElement("div");
-  body.className = "announce-post-body";
-  body.textContent = post.body || "";
-
-  const media = typeof buildPostMedia === "function" ? buildPostMedia(post.attachment) : null;
+  const content = document.createElement("div");
+  content.className = "announce-post-content";
 
   const date = document.createElement("div");
   date.className = "announce-post-date";
@@ -195,9 +188,8 @@ function buildAnnouncementPostCard(post) {
   commentInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitComment(post.id, commentInput); });
 
   card.appendChild(top);
-  card.appendChild(title);
-  if (post.body) card.appendChild(body);
-  if (media) card.appendChild(media);
+  card.appendChild(content);
+  fillAnnouncePostContent(card, post);
   card.appendChild(date);
   card.appendChild(dividerTop);
   card.appendChild(reactionsRow);
@@ -238,6 +230,8 @@ function updateAnnouncementEndMarker() {
 // Initial fetch on opening an Announcements channel. Ascending
 // (oldest-first) order, same convention as get_channel_history.
 async function loadAnnouncementPosts(channelId) {
+  editingAnnouncementId = null;
+  if (typeof clearPostMedia === "function") clearPostMedia("announceEdit");
   currentAnnouncementPosts = [];
   announcementHasMoreHistory = true;
   announcementIsLoadingMore = false;
@@ -300,9 +294,6 @@ document.getElementById("announcements-posts").addEventListener("scroll", () => 
   if (el.scrollTop < 40) loadOlderAnnouncementPosts();
 });
 
-// Edit stays visible-but-disabled since it doesn't exist yet, so this
-// menu is never empty even for someone who can't delete - unlike a
-// comment's menu, which just hides the trigger entirely instead.
 function announceReactionTarget(post) {
   return {
     id: post.id,
@@ -356,7 +347,7 @@ function showPostContextMenu(e, post) {
     subtitle: truncateForContextMenu(post.title)
   }, [
     { label: "Add Reaction", onSelect: () => openReactionPicker(announceReactionTarget(post), e.clientX, e.clientY) },
-    { label: "Edit Post", disabled: true },
+    post.sender_id === myUserId && { label: "Edit Post", onSelect: () => startAnnouncementEdit(post) },
     canDelete && { label: "Delete Post", danger: true, onSelect: () => deletePostFromContextMenu(post) }
   ]);
 }
@@ -387,9 +378,251 @@ async function deletePostFromContextMenu(post) {
 // deletes its comments server-side, so nothing should keep referencing
 // them client-side either.
 function removePostFromView(postId) {
+  if (editingAnnouncementId === postId) {
+    editingAnnouncementId = null;
+    if (typeof clearPostMedia === "function") clearPostMedia("announceEdit");
+  }
   currentAnnouncementPosts = currentAnnouncementPosts.filter(p => p.id !== postId);
   const card = document.querySelector(`.announce-post[data-post-id="${postId}"]`);
   if (card) card.remove();
   delete commentThreadState[postId];
   delete commentThreadElements[postId];
+}
+
+function fillAnnouncePostContent(card, post) {
+  let wrap = card.querySelector(".announce-post-content");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.className = "announce-post-content";
+    const date = card.querySelector(".announce-post-date");
+    card.insertBefore(wrap, date || card.firstChild);
+  }
+  wrap.classList.remove("announce-post-editing");
+  wrap.replaceChildren();
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "announce-post-title-row";
+  const title = document.createElement("div");
+  title.className = "announce-post-title";
+  title.textContent = post.title;
+  titleRow.appendChild(title);
+  if (post.edited) {
+    const tag = document.createElement("span");
+    tag.className = "edited-tag";
+    tag.textContent = "edited";
+    titleRow.appendChild(tag);
+  }
+  wrap.appendChild(titleRow);
+
+  if (post.body) {
+    const body = document.createElement("div");
+    body.className = "announce-post-body";
+    body.textContent = post.body;
+    wrap.appendChild(body);
+  }
+  const media = typeof buildPostMedia === "function" ? buildPostMedia(post.attachment) : null;
+  if (media) wrap.appendChild(media);
+}
+
+function seedAnnounceEditMedia(post) {
+  if (typeof clearPostMedia === "function") clearPostMedia("announceEdit");
+  const items = typeof parsePostAttachments === "function" ? parsePostAttachments(post.attachment) : [];
+  items.forEach((att) => {
+    postMediaPending.announceEdit.files.push({
+      existing: att,
+      previewUrl: att.url
+    });
+  });
+}
+
+function announceEditAttachmentKeys() {
+  return postMediaPending.announceEdit.files.map((item) => (
+    item.existing ? item.existing.key : "__new__"
+  )).join("|");
+}
+
+function originalPostAttachmentKeys(post) {
+  const items = typeof parsePostAttachments === "function" ? parsePostAttachments(post.attachment) : [];
+  return items.map((att) => att.key).join("|");
+}
+
+function abandonAnnouncementEdit() {
+  if (typeof closeEmojiPicker === "function") closeEmojiPicker();
+  const postId = editingAnnouncementId;
+  editingAnnouncementId = null;
+  if (typeof clearPostMedia === "function") clearPostMedia("announceEdit");
+  if (!postId) return;
+  const post = currentAnnouncementPosts.find(p => p.id === postId);
+  const card = document.querySelector(`.announce-post[data-post-id="${postId}"]`);
+  if (post && card) fillAnnouncePostContent(card, post);
+}
+
+function startAnnouncementEdit(post) {
+  if (post.sender_id !== myUserId) return;
+  if (editingAnnouncementId === post.id) return;
+  abandonAnnouncementEdit();
+  const card = document.querySelector(`.announce-post[data-post-id="${post.id}"]`);
+  if (!card) return;
+  editingAnnouncementId = post.id;
+  seedAnnounceEditMedia(post);
+  fillAnnouncePostEditor(card, post);
+}
+
+function fillAnnouncePostEditor(card, post) {
+  const wrap = card.querySelector(".announce-post-content");
+  if (!wrap) return;
+  wrap.classList.add("announce-post-editing");
+  wrap.replaceChildren();
+
+  const editor = document.createElement("div");
+  editor.className = "announce-composer-editing";
+
+  const main = document.createElement("div");
+  main.className = "announce-composer-editing-main";
+
+  const fields = document.createElement("div");
+  fields.className = "announce-composer-editing-fields";
+
+  const header = document.createElement("div");
+  header.className = "announce-composer-editing-header";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "icon-btn";
+  cancelBtn.title = "Cancel";
+  cancelBtn.innerHTML = "&times;";
+  cancelBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    abandonAnnouncementEdit();
+  });
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.id = "announce-edit-title-input";
+  titleInput.className = "announce-composer-title-input";
+  titleInput.maxLength = 200;
+  titleInput.placeholder = "Title";
+  titleInput.value = post.title || "";
+  titleInput.addEventListener("contextmenu", (e) => e.stopPropagation());
+  header.appendChild(cancelBtn);
+  header.appendChild(titleInput);
+
+  const bodyWrap = document.createElement("div");
+  bodyWrap.className = "announce-composer-editing-body";
+  const bodyInput = document.createElement("textarea");
+  bodyInput.id = "announce-edit-body-input";
+  bodyInput.className = "announce-composer-body-input";
+  bodyInput.placeholder = "Enter a message...";
+  bodyInput.rows = 3;
+  bodyInput.value = post.body || "";
+  bodyInput.addEventListener("input", () => autoGrowPostBodyInput(bodyInput));
+  bodyInput.addEventListener("contextmenu", (e) => e.stopPropagation());
+  bodyWrap.appendChild(bodyInput);
+
+  fields.appendChild(header);
+  fields.appendChild(bodyWrap);
+
+  const strip = document.createElement("div");
+  strip.className = "announce-composer-media-strip";
+  strip.id = "announce-edit-media-strip";
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "announce-composer-image-btn announce-composer-image-add";
+  addBtn.id = "announce-edit-image-btn";
+  addBtn.title = "Add image or video";
+  addBtn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="14" height="12" rx="2"></rect><circle cx="8" cy="11" r="1.2" fill="currentColor" stroke="none"></circle><path d="M17 14l-3.5-3.5L7 17"></path><path d="M17 4v6M14 7h6"></path></svg>';
+  strip.appendChild(addBtn);
+
+  main.appendChild(fields);
+  main.appendChild(strip);
+
+  const footer = document.createElement("div");
+  footer.className = "announce-composer-editing-footer";
+  const emojiBtn = document.createElement("button");
+  emojiBtn.type = "button";
+  emojiBtn.className = "composer-icon-btn";
+  emojiBtn.id = "announce-edit-emoji-btn";
+  emojiBtn.title = "Emoji";
+  emojiBtn.textContent = "🙂";
+  emojiBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof openEmojiPicker === "function") openEmojiPicker(emojiBtn, bodyInput);
+  });
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.className = "pill-btn";
+  confirmBtn.textContent = "Confirm";
+  confirmBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    confirmAnnouncementEdit(post);
+  });
+  footer.appendChild(emojiBtn);
+  footer.appendChild(confirmBtn);
+
+  editor.appendChild(main);
+  editor.appendChild(footer);
+  wrap.appendChild(editor);
+
+  if (typeof bindPostMediaButton === "function") bindPostMediaButton("announceEdit", addBtn);
+  autoGrowPostBodyInput(bodyInput);
+  titleInput.focus();
+}
+
+function applyAnnouncementEdit(data) {
+  const post = currentAnnouncementPosts.find(p => p.id === data.post_id);
+  if (!post) return;
+  if (editingAnnouncementId === post.id) {
+    editingAnnouncementId = null;
+    if (typeof clearPostMedia === "function") clearPostMedia("announceEdit");
+  }
+  post.title = data.title;
+  post.body = data.body;
+  post.attachment = data.attachment;
+  post.edited = !!data.edited;
+  const card = document.querySelector(`.announce-post[data-post-id="${post.id}"]`);
+  if (card) fillAnnouncePostContent(card, post);
+}
+
+async function confirmAnnouncementEdit(post) {
+  const titleEl = document.getElementById("announce-edit-title-input");
+  const bodyEl = document.getElementById("announce-edit-body-input");
+  const title = ((titleEl && titleEl.value) || "").trim();
+  const body = ((bodyEl && bodyEl.value) || "").trim();
+  const pending = postMediaPending.announceEdit.files;
+  if (!title || (!body && !pending.length)) return;
+
+  if (title === (post.title || "") && body === (post.body || "") && announceEditAttachmentKeys() === originalPostAttachmentKeys(post)) {
+    abandonAnnouncementEdit();
+    return;
+  }
+
+  let attachments = [];
+  try {
+    if (pending.length) attachments = await uploadPendingPostFiles(pending);
+  } catch (e) {
+    window.alert(e.message || "Upload failed.");
+    return;
+  }
+
+  let data;
+  try {
+    const response = await fetch(`https://${serverAddress}/edit_announcement`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ post_id: post.id, title, body, attachments })
+    });
+    if (!response.ok) {
+      console.error(`Failed to edit post: ${response.status}`);
+      return;
+    }
+    data = await response.json();
+  } catch (e) {
+    console.error("Failed to edit post, network error:", e);
+    return;
+  }
+
+  post.title = data.title;
+  post.body = data.body;
+  post.attachment = data.attachment;
+  post.edited = !!data.edited;
+  abandonAnnouncementEdit();
 }

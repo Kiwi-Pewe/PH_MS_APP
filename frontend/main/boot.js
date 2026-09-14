@@ -234,6 +234,10 @@ function connectSocket() {
       removePostFromView(data.post_id);
     }
 
+    if (data.type === "announcement_edited") {
+      applyAnnouncementEdit(data);
+    }
+
     if (data.type === "doc_locked") handleDocLocked(data);
     if (data.type === "doc_unlocked") handleDocUnlocked(data);
     if (data.type === "doc_updated") handleDocUpdated(data);

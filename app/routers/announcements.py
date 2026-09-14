@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Announcement_post, Announcement_comment
-from app.schemas import Announcements, Comment_create
+from app.schemas import Announcements, Comment_create, Edit_announcement
 from app.database import get_db
 from app.auth import get_current_user
-from app.r2 import delete_attachment, normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
+from app.r2 import delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
 from app.routers.realtime import server_broadcast
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
@@ -40,10 +40,10 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
     payload = {
         "type": "announcement_created",
         "server_id": server.id,
-        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username, "reactions": []}
+        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username, "reactions": [], "edited": False}
         }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment}
+    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "edited": False}
 
 @router.get("/get_announcement/{channel_id}")
 def get_announcement_posts(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id = None):
@@ -80,6 +80,7 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
             "created_at": str(post.created_at),
             "comment_count": post.comment_count,
             "reactions": reaction_map.get(post.id, []),
+            "edited": bool(post.edited),
         })
 
     recent_post.reverse()
@@ -231,3 +232,50 @@ async def delete_post(post_id: int,database: Session = Depends(get_db), current_
 
     await server_broadcast(server_id = server.id, payload=payload, database=database, exclude_user_id=current_user.id)
     return {"post_id": post_id}
+
+@router.post("/edit_announcement")
+async def edit_announcement(edit: Edit_announcement, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    post = database.query(Announcement_post).filter(Announcement_post.id == edit.post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
+    if not is_member:
+        raise HTTPException(status_code=404, detail="User is not a member")
+    if current_user.id != post.sender_id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit post")
+
+    title = edit.title.strip()
+    body = (edit.body or "").strip()
+    items = normalize_post_attachments(edit.attachments, None)
+    require_post_body(title, body, items)
+
+    old_keys = [item.get("key") for item in post_attachments_public(post.attachment) if item.get("key")]
+    new_keys = [item.key for item in items]
+    same = (post.title or "") == title and (post.body or "") == body and old_keys == new_keys
+    if same:
+        return {"id": post.id, "title": post.title, "body": post.body, "attachment": post_attachments_public(post.attachment), "edited": bool(post.edited), "unchanged": True}
+
+    for key in set(old_keys) - set(new_keys):
+        delete_r2_object(key)
+
+    post.title = title
+    post.body = body
+    post.attachment = store_post_attachments(items, current_user)
+    post.edited = True
+    database.commit()
+    public_attachment = post_attachments_public(post.attachment)
+    payload = {
+        "type": "announcement_edited",
+        "channel_id": post.channel_id,
+        "post_id": post.id,
+        "title": post.title,
+        "body": post.body,
+        "attachment": public_attachment,
+        "edited": True
+    }
+    await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": True, "unchanged": False}

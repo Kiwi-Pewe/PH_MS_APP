@@ -158,3 +158,7 @@ let editingMessageId = null;
 let editingDraft = "";
 let editAttach = null;
 let attachDestination = "composer";
+
+// In-card announcement edit. Separate from the top New Post composer
+// so opening Edit does not wipe a draft sitting up there.
+let editingAnnouncementId = null;

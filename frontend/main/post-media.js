@@ -7,8 +7,15 @@
 const POST_MEDIA_MAX = 4;
 const postMediaPending = {
   announce: { files: [] },
-  forum: { files: [] }
+  forum: { files: [] },
+  announceEdit: { files: [] }
 };
+const POST_MEDIA_HOSTS = {
+  announce: { addId: "announce-composer-image-btn", stripId: "announce-composer-media-strip" },
+  forum: { addId: "forum-composer-image-btn", stripId: "forum-composer-media-strip" },
+  announceEdit: { addId: "announce-edit-image-btn", stripId: "announce-edit-media-strip" }
+};
+const postMediaInputs = {};
 
 function parsePostAttachments(raw) {
   if (!raw) return [];
@@ -22,7 +29,7 @@ function clearPostMedia(kind) {
   const slot = postMediaPending[kind];
   if (!slot) return;
   slot.files.forEach((item) => {
-    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    if (item.file && item.previewUrl) URL.revokeObjectURL(item.previewUrl);
   });
   slot.files = [];
   paintPostComposerStrip(kind);
@@ -53,21 +60,27 @@ function removePostMediaAt(kind, index) {
   const slot = postMediaPending[kind];
   const item = slot.files[index];
   if (!item) return;
-  if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  if (item.file && item.previewUrl) URL.revokeObjectURL(item.previewUrl);
   slot.files.splice(index, 1);
   paintPostComposerStrip(kind);
 }
 
+function postMediaItemMime(item) {
+  if (item.file && typeof fileMime === "function") return fileMime(item.file);
+  return ((item.existing && item.existing.mime) || "").toLowerCase();
+}
+
 function paintPostComposerStrip(kind) {
-  const addBtn = document.getElementById(kind === "announce" ? "announce-composer-image-btn" : "forum-composer-image-btn");
-  const strip = document.getElementById(kind === "announce" ? "announce-composer-media-strip" : "forum-composer-media-strip");
+  const host = POST_MEDIA_HOSTS[kind];
+  const addBtn = host && document.getElementById(host.addId);
+  const strip = host && document.getElementById(host.stripId);
   if (!addBtn || !strip) return;
   strip.querySelectorAll(".announce-composer-image-thumb").forEach((el) => el.remove());
   const items = postMediaPending[kind].files;
   items.forEach((item, index) => {
     const thumb = document.createElement("div");
     thumb.className = "announce-composer-image-btn announce-composer-image-thumb has-file";
-    const mime = fileMime(item.file);
+    const mime = postMediaItemMime(item);
     if (mime.startsWith("video/")) {
       const vid = document.createElement("video");
       vid.src = item.previewUrl;
@@ -98,9 +111,8 @@ function paintPostComposerStrip(kind) {
   addBtn.title = items.length >= POST_MEDIA_MAX ? "Maximum of 4 files" : "Add image or video";
 }
 
-function bindPostComposerMedia(kind, buttonId) {
-  const btn = document.getElementById(buttonId);
-  if (!btn) return;
+function ensurePostMediaInput(kind) {
+  if (postMediaInputs[kind]) return postMediaInputs[kind];
   const input = document.createElement("input");
   input.type = "file";
   input.accept = typeof MEDIA_ACCEPT === "string" ? MEDIA_ACCEPT : "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm";
@@ -109,6 +121,16 @@ function bindPostComposerMedia(kind, buttonId) {
   input.style.display = "none";
   input.tabIndex = -1;
   document.body.appendChild(input);
+  input.addEventListener("change", () => {
+    if (input.files && input.files.length) addPostMediaFiles(kind, input.files);
+  });
+  postMediaInputs[kind] = input;
+  return input;
+}
+
+function bindPostMediaButton(kind, btn) {
+  if (!btn) return;
+  const input = ensurePostMediaInput(kind);
   btn.disabled = false;
   btn.removeAttribute("title");
   btn.addEventListener("click", () => {
@@ -116,10 +138,11 @@ function bindPostComposerMedia(kind, buttonId) {
     input.value = "";
     input.click();
   });
-  input.addEventListener("change", () => {
-    if (input.files && input.files.length) addPostMediaFiles(kind, input.files);
-  });
   paintPostComposerStrip(kind);
+}
+
+function bindPostComposerMedia(kind, buttonId) {
+  bindPostMediaButton(kind, document.getElementById(buttonId));
 }
 
 async function uploadPendingPostFile(file) {
@@ -165,7 +188,16 @@ async function uploadPendingPostFile(file) {
 async function uploadPendingPostFiles(items) {
   const uploaded = [];
   for (const item of items) {
-    uploaded.push(await uploadPendingPostFile(item.file));
+    if (item.existing) {
+      uploaded.push({
+        key: item.existing.key,
+        mime: item.existing.mime,
+        size: item.existing.size,
+        name: item.existing.name || ""
+      });
+    } else {
+      uploaded.push(await uploadPendingPostFile(item.file));
+    }
   }
   return uploaded;
 }

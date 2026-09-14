@@ -143,6 +143,7 @@ function renderServerSidebar(data) {
 
 async function selectChannel(channel, rowEl) {
   if (typeof abandonMessageEdit === "function") abandonMessageEdit();
+  if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (!(await leaveDocIfNeeded())) return;
 

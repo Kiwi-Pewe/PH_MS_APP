@@ -36,7 +36,7 @@ def ensure_attachment_columns():
 
 
 def ensure_edited_columns():
-    tables = ("messages", "party_messages", "channel_messages")
+    tables = ("messages", "party_messages", "channel_messages", "announcements")
     with engine.connect() as conn:
         for table in tables:
             try:

@@ -264,30 +264,98 @@ function showServerAreaContextMenu(e) {
 function showCategoryContextMenu(e, category, isOwner) {
   e.preventDefault();
   e.stopPropagation();
+  const x = e.clientX;
+  const y = e.clientY;
   const options = isOwner ? [
     { label: "Edit Category", onSelect: () => console.log("Edit Category — not implemented yet") },
-    { label: "Delete Category", danger: true, onSelect: () => console.log("Delete Category — confirmation sub-menu not implemented yet") }
+    { label: "Delete Category", danger: true, onSelect: () => confirmDeleteCategory(x, y, category) }
   ] : [];
-  openContextMenu(e.clientX, e.clientY, {
+  openContextMenu(x, y, {
     avatarText: "\u{1F4C1}",
     title: category.name,
     subtitle: category.is_private ? "Private Category" : "Category"
   }, options);
 }
 
+function confirmDeleteCategory(x, y, category) {
+  const count = (category.channels || []).length;
+  const subtitle = count === 0
+    ? "This cannot be undone"
+    : `Deletes ${count} channel${count === 1 ? "" : "s"} inside. Cannot be undone.`;
+  setTimeout(() => {
+    openContextMenu(x, y, {
+      avatarText: "\u{1F4C1}",
+      title: category.name,
+      subtitle
+    }, [
+      { label: "Cancel", onSelect: () => {} },
+      { label: "Delete Category", danger: true, onSelect: () => deleteCategoryFromContextMenu(category) }
+    ]);
+  }, 0);
+}
+
 function showChannelContextMenu(e, channel, isOwner) {
   e.preventDefault();
   e.stopPropagation();
+  const x = e.clientX;
+  const y = e.clientY;
   const options = isOwner ? [
     { label: "Edit Channel", onSelect: () => console.log("Edit Channel — not implemented yet") },
-    { label: "Delete Channel", danger: true, onSelect: () => console.log("Delete Channel — confirmation sub-menu not implemented yet") }
+    { label: "Delete Channel", danger: true, onSelect: () => confirmDeleteChannel(x, y, channel) }
   ] : [];
   const typeLabel = channel.channel_type === "voice" ? "Voice Channel" : "Text Channel";
-  openContextMenu(e.clientX, e.clientY, {
+  openContextMenu(x, y, {
     avatarText: channel.channel_type === "voice" ? "\u{1F50A}" : "#",
     title: channel.name,
     subtitle: channel.is_private ? `Private ${typeLabel}` : typeLabel
   }, options);
+}
+
+function confirmDeleteChannel(x, y, channel) {
+  setTimeout(() => {
+    openContextMenu(x, y, {
+      avatarText: channel.channel_type === "voice" ? "\u{1F50A}" : "#",
+      title: channel.name,
+      subtitle: "This cannot be undone"
+    }, [
+      { label: "Cancel", onSelect: () => {} },
+      { label: "Delete Channel", danger: true, onSelect: () => deleteChannelFromContextMenu(channel) }
+    ]);
+  }, 0);
+}
+
+async function deleteCategoryFromContextMenu(category) {
+  try {
+    const response = await fetch(`https://${serverAddress}/delete_category/${category.id}`, {
+      method: "POST",
+      credentials: "include"
+    });
+    if (!response.ok) {
+      console.error(`Failed to delete category: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to delete category, network error:", e);
+    return;
+  }
+  applyCategoryDeleted(category.id);
+}
+
+async function deleteChannelFromContextMenu(channel) {
+  try {
+    const response = await fetch(`https://${serverAddress}/delete_channel/${channel.id}`, {
+      method: "POST",
+      credentials: "include"
+    });
+    if (!response.ok) {
+      console.error(`Failed to delete channel: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to delete channel, network error:", e);
+    return;
+  }
+  applyChannelDeleted(channel.category_id, channel.id);
 }
 
 // leave_party is a live socket action, not an HTTP round-trip, so there's

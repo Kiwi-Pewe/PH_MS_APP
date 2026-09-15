@@ -204,6 +204,18 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "channel_deleted") {
+      if (currentServerId === data.server_id) {
+        applyChannelDeleted(data.category_id, data.channel_id);
+      }
+    }
+
+    if (data.type === "category_deleted") {
+      if (currentServerId === data.server_id) {
+        applyCategoryDeleted(data.category_id);
+      }
+    }
+
     if (data.type === "announcement_reacted") {
       patchAnnouncementReactions(data.post_id, data.reactions || []);
     }

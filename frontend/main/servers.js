@@ -63,15 +63,7 @@ async function openServer(serverId, iconEl) {
   if (firstChannel) {
     selectChannel(firstChannel);
   } else {
-    currentChannelId = null;
-    switchMainView("channel");
-    document.getElementById("channel-header-title").textContent = "No channels yet";
-    document.getElementById("channel-messages").style.display = "none";
-    document.getElementById("channel-empty").style.display = "flex";
-    document.getElementById("channel-empty-badge").textContent = "#";
-    document.getElementById("channel-welcome-title").textContent = "";
-    document.getElementById("channel-welcome-sub").textContent = "";
-    disableChannelComposer("No channel selected.");
+    showNoChannelSelected();
   }
 }
 
@@ -139,6 +131,11 @@ function renderServerSidebar(data) {
     block.appendChild(channelsEl);
     list.appendChild(block);
   });
+
+  if (currentChannelId) {
+    const activeRow = document.querySelector(`.channel-row[data-channel-id="${currentChannelId}"]`);
+    if (activeRow) activeRow.classList.add("active");
+  }
 }
 
 async function selectChannel(channel, rowEl) {
@@ -265,4 +262,74 @@ async function selectChannel(channel, rowEl) {
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
     renderChannelMessages();
   } catch (e) { renderChannelMessages(); }
+}
+
+function showNoChannelSelected() {
+  if (typeof abandonMessageEdit === "function") abandonMessageEdit();
+  if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
+  if (typeof abandonForumEdit === "function") abandonForumEdit();
+  if (typeof clearPendingAttach === "function") clearPendingAttach();
+  if (typeof hideDocsChrome === "function") hideDocsChrome();
+  openForumPostId = null;
+  openForumPostTitle = null;
+  openForumPostBody = null;
+  openForumPostAttachment = null;
+  openForumPostEdited = false;
+  const back = document.getElementById("forum-back-btn");
+  if (back) back.style.display = "none";
+
+  currentChannelId = null;
+  currentChannelType = null;
+  currentChannelName = null;
+  currentChannelMessages = [];
+
+  switchMainView("channel");
+  document.getElementById("announcements-view").style.display = "none";
+  document.getElementById("forums-view").style.display = "none";
+  document.getElementById("docs-view").style.display = "none";
+  document.getElementById("channel-body").style.display = "flex";
+  document.getElementById("channel-composer").style.display = "block";
+  document.getElementById("channel-header-title").textContent = "No channels yet";
+  document.getElementById("channel-messages").style.display = "none";
+  document.getElementById("channel-empty").style.display = "flex";
+  document.getElementById("channel-empty-badge").textContent = "#";
+  document.getElementById("channel-welcome-title").textContent = "";
+  document.getElementById("channel-welcome-sub").textContent = "";
+  disableChannelComposer("No channel selected.");
+}
+
+function channelStillInSidebar(channelId) {
+  if (!currentServerData) return false;
+  return currentServerData.categories.some(category =>
+    category.channels.some(channel => channel.id === channelId)
+  );
+}
+
+function afterServerStructureChange() {
+  if (!currentServerData) return;
+  const stillOpen = currentChannelId && channelStillInSidebar(currentChannelId);
+  renderServerSidebar(currentServerData);
+  if (stillOpen) return;
+  if (typeof hideDocsChrome === "function") hideDocsChrome();
+  const firstChannel = currentServerData.categories.flatMap(c => c.channels)[0];
+  if (firstChannel) {
+    selectChannel(firstChannel);
+  } else {
+    showNoChannelSelected();
+  }
+}
+
+function applyChannelDeleted(categoryId, channelId) {
+  if (!currentServerData) return;
+  const category = currentServerData.categories.find(c => c.id === categoryId);
+  if (category) {
+    category.channels = category.channels.filter(channel => channel.id !== channelId);
+  }
+  afterServerStructureChange();
+}
+
+function applyCategoryDeleted(categoryId) {
+  if (!currentServerData) return;
+  currentServerData.categories = currentServerData.categories.filter(c => c.id !== categoryId);
+  afterServerStructureChange();
 }

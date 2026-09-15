@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
 from app.schemas import Server_create, Server_message, Category_create, Channel_create
 from app.database import get_db
 from app.auth import get_current_user
-from app.r2 import attachment_public, require_message_body, store_attachment
-from app.routers.reactions import reactions_for_messages
+from app.r2 import attachment_public, delete_attachment, require_message_body, store_attachment
+from app.routers.deletion import write_audit_log
+from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.realtime import server_broadcast
 import random
 
@@ -225,6 +226,98 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return "success"
+
+def purge_channel_contents(database, channel):
+    messages = database.query(Channel_messages).filter(Channel_messages.channel_id == channel.id).all()
+    for message in messages:
+        clear_reactions(database, "channel", message.id)
+        delete_attachment(message.attachment)
+        database.delete(message)
+
+    posts = database.query(Announcement_post).filter(Announcement_post.channel_id == channel.id).all()
+    for post in posts:
+        comments = database.query(Announcement_comment).filter(Announcement_comment.post_id == post.id).all()
+        for comment in comments:
+            clear_reactions(database, "comment", comment.id)
+            database.delete(comment)
+        clear_reactions(database, "announcement", post.id)
+        delete_attachment(post.attachment)
+        database.delete(post)
+
+    forum_posts = database.query(Forum_post).filter(Forum_post.channel_id == channel.id).all()
+    for post in forum_posts:
+        thread_messages = database.query(Forum_messages).filter(Forum_messages.post_id == post.id).all()
+        for message in thread_messages:
+            delete_attachment(message.attachment)
+            database.delete(message)
+        clear_reactions(database, "forum_post", post.id)
+        delete_attachment(post.attachment)
+        database.delete(post)
+
+    page = database.query(Doc_page).filter(Doc_page.channel_id == channel.id).first()
+    if page:
+        database.delete(page)
+
+    database.delete(channel)
+
+@router.post("/delete_channel/{channel_id}")
+async def delete_channel(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    if not server or not server.owner_id == current_user.id:
+        raise HTTPException(status_code=403, detail="Owner doesn't match")
+
+    write_audit_log(database, server.id, current_user.id, "delete_channel", "channel", channel.id, {
+        "name": channel.name,
+        "channel_type": channel.channel_type,
+        "category_id": category.id
+    })
+    category_id = category.id
+    purge_channel_contents(database, channel)
+    database.commit()
+    payload = {
+        "type": "channel_deleted",
+        "server_id": server.id,
+        "category_id": category_id,
+        "channel_id": channel_id
+    }
+    await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    return {"channel_id": channel_id, "category_id": category_id}
+
+@router.post("/delete_category/{category_id}")
+async def delete_category(category_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    category = database.query(Server_categories).filter(Server_categories.id == category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    if not server or not server.owner_id == current_user.id:
+        raise HTTPException(status_code=403, detail="Owner doesn't match")
+
+    channels = database.query(Server_channels).filter(Server_channels.category_id == category.id).all()
+    channel_ids = [channel.id for channel in channels]
+    write_audit_log(database, server.id, current_user.id, "delete_category", "category", category.id, {
+        "name": category.name,
+        "channel_ids": channel_ids
+    })
+    for channel in channels:
+        purge_channel_contents(database, channel)
+    database.delete(category)
+    database.commit()
+    payload = {
+        "type": "category_deleted",
+        "server_id": server.id,
+        "category_id": category_id,
+        "channel_ids": channel_ids
+    }
+    await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    return {"category_id": category_id, "channel_ids": channel_ids}
 
 @router.post("/leave_server/{server_id}")
 def leave_server(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

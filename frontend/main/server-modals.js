@@ -104,6 +104,7 @@ async function refreshServerSidebar() {
     return;
   }
   currentServerOwnerId = data.owner;
+  currentServerData = data;
   renderServerSidebar(data);
 }
 

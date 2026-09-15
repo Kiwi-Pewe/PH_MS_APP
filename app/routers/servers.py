@@ -79,7 +79,7 @@ def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo
     server_list = []
     for server in user_servers:
         server_info = database.query(Servers).filter(Servers.id == server.server_id).first()
-        server_list.append({"type": "server", "id": server_info.id, "name": server_info.name,  "position": server.position})
+        server_list.append({"type": "server", "id": server_info.id, "name": server_info.name,  "position": server.position, "owner_id": server_info.owner_id})
 
     return {"servers": server_list}
 
@@ -225,3 +225,31 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return "success"
+
+@router.post("/leave_server/{server_id}")
+def leave_server(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id == current_user.id:
+        raise HTTPException(status_code=403, detail="Owner cannot leave the server")
+
+    membership = database.query(Server_members).filter(Server_members.server_id == server_id, Server_members.user_id == current_user.id).first()
+    if not membership:
+        raise HTTPException(status_code=404, detail="Server membership not found")
+
+    category = database.query(Server_categories).filter(Server_categories.server_id == server_id).order_by(Server_categories.position).first()
+    channel = None
+    if category:
+        channel = database.query(Server_channels).filter(Server_channels.category_id == category.id).order_by(Server_channels.position).first()
+    if channel:
+        leave_message = Channel_messages(
+            sender_id = None,
+            channel_id = channel.id,
+            content = f"{current_user.username} has left the server"
+        )
+        database.add(leave_message)
+
+    database.delete(membership)
+    database.commit()
+    return {"server_id": server_id}

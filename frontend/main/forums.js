@@ -204,7 +204,7 @@ async function openForumPost(post) {
     const response = await fetch(`https://${serverAddress}/get_forum_messages/${post.id}`, { credentials: "include" });
     if (!response.ok) { renderChannelMessages(); return; }
     const data = await response.json();
-    currentChannelMessages = (data.forum_post_messages || []).map(msg => ({
+    currentChannelMessages = (data.forum_post_messages || []).map(msg => applyDeletionFields({
       id: msg.id,
       chatKind: "forum",
       isMine: msg.author_id === myUserId,
@@ -213,7 +213,7 @@ async function openForumPost(post) {
       content: msg.content,
       attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
       time: parseUtcTimestamp(msg.timestamp)
-    }));
+    }, msg));
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
     renderChannelMessages();
   } catch (e) { renderChannelMessages(); }

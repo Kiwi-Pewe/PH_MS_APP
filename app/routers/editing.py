@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models import UserInfo, Message, Party_messages, Party_members, Channel_messages, Servers, Server_members, Server_categories, Server_channels
+from app.models import UserInfo, Message, Party_messages, Party_members, Channel_messages, Forum_messages, Forum_post, Servers, Server_members, Server_categories, Server_channels
 from app.schemas import Delete_message, Edit_message
 from app.database import get_db
 from app.auth import get_current_user
@@ -114,6 +114,35 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
                 "kind": "channel",
                 "message_id": msg.id,
                 "channel_id": msg.channel_id,
+                "content": msg.content,
+                "attachment": attachment_public(msg.attachment),
+                "edited": True
+            }
+            await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed}
+
+    if edit.kind == "forum":
+        msg = database.query(Forum_messages).filter(Forum_messages.id == edit.message_id).first()
+        if not msg:
+            raise HTTPException(status_code=404, detail="No message found")
+        post = database.query(Forum_post).filter(Forum_post.id == msg.post_id).first()
+        channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+        category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+        server = database.query(Servers).filter(Servers.id == category.server_id).first()
+        is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+        if not is_member:
+            raise HTTPException(status_code=404, detail="No message found")
+        if msg.author_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to edit message")
+        changed = apply_edit(msg, content, edit.attachment, current_user)
+        database.commit()
+        if changed:
+            payload = {
+                "type": "message_edited",
+                "kind": "forum",
+                "message_id": msg.id,
+                "post_id": msg.post_id,
+                "channel_id": post.channel_id,
                 "content": msg.content,
                 "attachment": attachment_public(msg.attachment),
                 "edited": True

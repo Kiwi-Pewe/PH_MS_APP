@@ -263,7 +263,8 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
             "username": username_lookup[message.author_id], 
             "content": message.content,
             "attachment": attachment_public(message.attachment),
-            "timestamp": str(message.created_at)
+            "timestamp": str(message.created_at),
+            "edited": bool(message.edited)
         })
 
     forum_messages.reverse()

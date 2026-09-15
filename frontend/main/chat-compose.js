@@ -175,7 +175,7 @@ function startMessageEdit(msg) {
   const att = typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment;
   editAttach = att ? { mode: "existing", attachment: att } : null;
   attachDestination = "edit";
-  if (msg.chatKind === "channel") renderChannelMessages({ preserveScroll: true });
+  if (msg.chatKind === "channel" || msg.chatKind === "forum") renderChannelMessages({ preserveScroll: true });
   else renderMessages({ preserveScroll: true });
 }
 

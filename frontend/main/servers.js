@@ -22,7 +22,7 @@ function renderServerList() {
     icon.textContent = serverAvatarLetters(server.name);
     icon.dataset.serverId = server.id;
     icon.addEventListener("click", () => openServer(server.id, icon));
-    icon.addEventListener("contextmenu", (e) => showServerContextMenu(e, server.id, server.name));
+    icon.addEventListener("contextmenu", (e) => showServerContextMenu(e, server.id, server.name, server.owner_id));
     container.appendChild(icon);
   });
 }

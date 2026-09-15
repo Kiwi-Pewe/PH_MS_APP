@@ -179,6 +179,7 @@ class Forum_messages(Base):
     content = Column(String)
     attachment = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    edited = Column(Boolean, default= False)
 
 class Doc_page(Base):
     __tablename__ = "doc_pages"

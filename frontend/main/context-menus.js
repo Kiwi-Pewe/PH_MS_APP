@@ -71,7 +71,6 @@ async function toggleReaction(msg, emoji) {
 
 function canEditMessage(msg) {
   if (!msg || !msg.id || !msg.isMine) return false;
-  if (msg.chatKind === "forum") return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
   return true;
@@ -239,13 +238,14 @@ function showPartyContextMenu(e, id, name, memberCount) {
   ]);
 }
 
-function showServerContextMenu(e, id, name) {
+function showServerContextMenu(e, id, name, ownerId) {
   e.preventDefault();
   openContextMenu(e.clientX, e.clientY, {
     avatarText: serverAvatarLetters(name),
     title: name
   }, [
-    { label: "Invite People", onSelect: () => openInviteModal("server", id, name) }
+    { label: "Invite People", onSelect: () => openInviteModal("server", id, name) },
+    ownerId !== myUserId && { label: "Leave Server", danger: true, onSelect: () => leaveServerFromContextMenu(id) }
   ]);
 }
 
@@ -298,6 +298,27 @@ function leavePartyFromContextMenu(id, name) {
   if (openChatType === "party" && openChatId === id) resetChatView();
   conversationList = conversationList.filter(c => !(c.type === "party" && c.id === id));
   renderConversationList();
+}
+
+async function leaveServerFromContextMenu(id) {
+  try {
+    const response = await fetch(`https://${serverAddress}/leave_server/${id}`, {
+      method: "POST",
+      credentials: "include"
+    });
+    if (!response.ok) {
+      console.error(`Failed to leave server: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to leave server, network error:", e);
+    return;
+  }
+  serverList = serverList.filter(s => s.id !== id);
+  renderServerList();
+  if (currentServerId === id) {
+    document.getElementById("home-icon").click();
+  }
 }
 
 async function unfriendFromContextMenu(id, username) {

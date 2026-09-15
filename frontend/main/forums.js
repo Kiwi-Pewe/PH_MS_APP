@@ -84,7 +84,8 @@ async function submitCreateForumPost() {
     last_activity: post.last_activity,
     author_id: myUserId,
     author_username: myUsername,
-    edited: false
+    edited: false,
+    reactions: []
   });
 }
 
@@ -125,17 +126,18 @@ function buildForumPostCard(post) {
 
   const meta = document.createElement("div");
   meta.className = "forum-post-meta";
-  // Reuses the announcement post's own reaction button outright, class
-  // and all, rather than a lookalike - both are inert placeholders for
-  // the same future cross-cutting reactions feature, so they should
-  // become real in one edit rather than two.
-  const reactions = document.createElement("button");
-  reactions.className = "announce-add-reaction-btn";
-  reactions.title = "React (coming soon)";
-  reactions.textContent = "+";
-  // The whole card opens the thread, so this has to stop the click here
-  // or reacting would navigate away instead.
-  reactions.addEventListener("click", (e) => e.stopPropagation());
+  const reactionsHost = document.createElement("div");
+  reactionsHost.className = "forum-post-reactions";
+  const addReactionBtn = document.createElement("button");
+  addReactionBtn.className = "announce-add-reaction-btn";
+  addReactionBtn.title = "Add Reaction";
+  addReactionBtn.textContent = "+";
+  addReactionBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openReactionPicker(forumPostReactionTarget(post), e.clientX, e.clientY);
+  });
+  reactionsHost.appendChild(addReactionBtn);
+  fillForumPostReactions(reactionsHost, post);
   const count = document.createElement("span");
   count.className = "forum-post-count";
   count.textContent = `${post.message_count || 0} messages`;
@@ -144,7 +146,7 @@ function buildForumPostCard(post) {
   const activity = document.createElement("span");
   activity.className = "forum-post-activity";
   activity.textContent = formatClusterTime(parseUtcTimestamp(post.last_activity));
-  meta.appendChild(reactions);
+  meta.appendChild(reactionsHost);
   meta.appendChild(count);
   meta.appendChild(activity);
 
@@ -153,11 +155,11 @@ function buildForumPostCard(post) {
   // channel switch - same reasoning as commentThreadElements: a rebuilt
   // card overwrites its own entry, and entries for cards no longer on
   // screen are dead weight rather than a correctness risk.
-  forumCardElements[post.id] = { tagsEl: tags, countEl: count, activityEl: activity };
+  forumCardElements[post.id] = { tagsEl: tags, countEl: count, activityEl: activity, reactionsEl: reactionsHost };
 
   card.addEventListener("click", (e) => {
     if (editingForumPostId === post.id) return;
-    if (e.target.closest(".announce-post-menu-btn")) return;
+    if (e.target.closest(".announce-post-menu-btn, .forum-post-reactions")) return;
     openForumPost(post);
   });
   card.addEventListener("contextmenu", (e) => showForumPostContextMenu(e, post));
@@ -267,7 +269,10 @@ async function loadForumPosts(channelId) {
     const response = await fetch(`https://${serverAddress}/get_forum_post/${channelId}`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
-    currentForumPosts = data.forum_posts || [];
+    currentForumPosts = (data.forum_posts || []).map(post => {
+      post.reactions = applyReactionMe(post.reactions || []);
+      return post;
+    });
     // Backend pages these 10 at a time, not the 25 used everywhere else.
     if (currentForumPosts.length < 10) forumHasMore = false;
     currentForumPosts.forEach(post => container.appendChild(buildForumPostCard(post)));
@@ -296,7 +301,10 @@ async function loadMoreForumPosts() {
     const response = await fetch(`https://${serverAddress}/get_forum_post/${currentChannelId}?${params}`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
-    const older = data.forum_posts || [];
+    const older = (data.forum_posts || []).map(post => {
+      post.reactions = applyReactionMe(post.reactions || []);
+      return post;
+    });
     if (older.length < 10) forumHasMore = false;
     currentForumPosts = currentForumPosts.concat(older);
     const container = document.getElementById("forum-posts");
@@ -314,20 +322,61 @@ document.getElementById("forum-posts").addEventListener("scroll", () => {
 });
 
 function showForumPostContextMenu(e, post) {
-  const canEdit = post.author_id === myUserId;
-  const canDelete = canEdit || myUserId === currentServerOwnerId;
-  if (!canEdit && !canDelete) return;
   e.preventDefault();
   e.stopPropagation();
+  const canEdit = post.author_id === myUserId;
+  const canDelete = canEdit || myUserId === currentServerOwnerId;
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(post.author_username),
     title: post.author_username,
     timestamp: formatClusterTime(parseUtcTimestamp(post.last_activity)),
     subtitle: truncateForContextMenu(post.title)
   }, [
+    { label: "Add Reaction", onSelect: () => openReactionPicker(forumPostReactionTarget(post), e.clientX, e.clientY) },
     canEdit && { label: "Edit Post", onSelect: () => startForumEdit(post) },
     canDelete && { label: "Delete Post", danger: true, onSelect: () => deleteForumPostFromContextMenu(post) }
   ]);
+}
+
+function forumPostReactionTarget(post) {
+  return {
+    id: post.id,
+    chatKind: "forum_post",
+    senderId: post.author_id,
+    reactions: post.reactions || []
+  };
+}
+
+function fillForumPostReactions(host, post) {
+  if (!host) return;
+  host.querySelectorAll(".reaction-pill").forEach(el => el.remove());
+  const addBtn = host.querySelector(".announce-add-reaction-btn");
+  (post.reactions || []).forEach(r => {
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "reaction-pill" + (r.me ? " mine" : "");
+    const emoji = document.createElement("span");
+    emoji.className = "reaction-emoji";
+    emoji.textContent = r.emoji;
+    const count = document.createElement("span");
+    count.className = "reaction-count";
+    count.textContent = String(r.count);
+    pill.appendChild(emoji);
+    pill.appendChild(count);
+    pill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleReaction(forumPostReactionTarget(post), r.emoji);
+    });
+    if (addBtn) host.insertBefore(pill, addBtn);
+    else host.appendChild(pill);
+  });
+}
+
+function patchForumPostReactions(postId, reactions) {
+  const post = currentForumPosts.find(p => p.id === postId);
+  if (post) post.reactions = applyReactionMe(reactions || []);
+  const els = forumCardElements[postId];
+  if (els && els.reactionsEl && post) fillForumPostReactions(els.reactionsEl, post);
 }
 
 async function deleteForumPostFromContextMenu(post) {
@@ -391,17 +440,15 @@ function fillForumPostContent(card, post) {
     tag.textContent = "edited";
     titleRow.appendChild(tag);
   }
-  if (post.author_id === myUserId || myUserId === currentServerOwnerId) {
-    const menuBtn = document.createElement("button");
-    menuBtn.className = "announce-post-menu-btn";
-    menuBtn.title = "More";
-    menuBtn.innerHTML = "&#8942;";
-    menuBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      showForumPostContextMenu(e, post);
-    });
-    titleRow.appendChild(menuBtn);
-  }
+  const menuBtn = document.createElement("button");
+  menuBtn.className = "announce-post-menu-btn";
+  menuBtn.title = "More";
+  menuBtn.innerHTML = "&#8942;";
+  menuBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showForumPostContextMenu(e, post);
+  });
+  titleRow.appendChild(menuBtn);
   wrap.appendChild(titleRow);
 
   const line = document.createElement("div");

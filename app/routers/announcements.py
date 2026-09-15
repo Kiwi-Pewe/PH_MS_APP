@@ -112,10 +112,10 @@ async def post_comment(comment: Comment_create, database: Session = Depends(get_
     payload = {
         "type": "announcement_comment",
         "post_id": comment.post_id,
-        "comment": {"id": new_comment.id, "post_id": new_comment.post_id, "sender_id": current_user.id, "username": current_user.username, "content": comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count}
+        "comment": {"id": new_comment.id, "post_id": new_comment.post_id, "sender_id": current_user.id, "username": current_user.username, "content": comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": []}
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-    return {"id": new_comment.id, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count}
+    return {"id": new_comment.id, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": []}
 
 @router.get("/get_post_comment/{post_id}")
 def get_post_comments(post_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), after_id: int = None, limit: int = 3):
@@ -139,6 +139,7 @@ def get_post_comments(post_id: int, database: Session = Depends(get_db), current
     sender_ids = list({user.sender_id for user in comment_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
+    reaction_map = reactions_for_messages(database, "comment", [user_comment.id for user_comment in comment_history], current_user.id)
 
     picked_comments = []
     for user_comment in comment_history:
@@ -148,7 +149,8 @@ def get_post_comments(post_id: int, database: Session = Depends(get_db), current
             "sender_id": user_comment.sender_id,
             "content": user_comment.content,
             "username": username_lookup[user_comment.sender_id],
-            "created_at": str(user_comment.created_at)
+            "created_at": str(user_comment.created_at),
+            "reactions": reaction_map.get(user_comment.id, [])
         })
 
     return {"post_id": post_id, "comments": picked_comments}
@@ -177,6 +179,7 @@ async def delete_comment(comment_id: int, database: Session = Depends(get_db), c
         "author_username": author.username if author else None,
         "post_id": post.id
     })
+    clear_reactions(database, "comment", comment_exist.id)
     database.delete(comment_exist)
     post.comment_count -= 1
     database.commit()
@@ -218,6 +221,7 @@ async def delete_post(post_id: int,database: Session = Depends(get_db), current_
     all_comments = database.query(Announcement_comment).filter(Announcement_comment.post_id == post_id).all()
 
     for comment in all_comments:
+        clear_reactions(database, "comment", comment.id)
         database.delete(comment)
 
     clear_reactions(database, "announcement", post_id)

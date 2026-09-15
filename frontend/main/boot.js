@@ -206,6 +206,14 @@ function connectSocket() {
       patchAnnouncementReactions(data.post_id, data.reactions || []);
     }
 
+    if (data.type === "forum_post_reacted") {
+      patchForumPostReactions(data.post_id, data.reactions || []);
+    }
+
+    if (data.type === "comment_reacted") {
+      patchCommentReactions(data.comment_id, data.reactions || []);
+    }
+
     if (data.type === "announcement_created") {
       if (currentChannelId === data.post.channel_id) {
         appendNewAnnouncementPost(data.post);
@@ -221,6 +229,7 @@ function connectSocket() {
       if (els) {
         els.btnEl.textContent = `${data.comment.comment_count} comments`;
         if (state && state.expanded) {
+          data.comment.reactions = applyReactionMe(data.comment.reactions || []);
           state.comments.push(data.comment);
           els.listEl.appendChild(buildCommentElement(data.comment));
         }

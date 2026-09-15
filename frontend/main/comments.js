@@ -37,8 +37,21 @@ function buildCommentElement(comment) {
   const content = document.createElement("div");
   content.className = "announce-comment-content";
   content.textContent = comment.content;
+  const reactionsHost = document.createElement("div");
+  reactionsHost.className = "announce-comment-reactions";
+  const addReactionBtn = document.createElement("button");
+  addReactionBtn.className = "announce-add-reaction-btn";
+  addReactionBtn.title = "Add Reaction";
+  addReactionBtn.textContent = "+";
+  addReactionBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openReactionPicker(commentReactionTarget(comment), e.clientX, e.clientY);
+  });
+  reactionsHost.appendChild(addReactionBtn);
+  fillCommentReactions(reactionsHost, comment);
   body.appendChild(header);
   body.appendChild(content);
+  body.appendChild(reactionsHost);
 
   row.appendChild(avatar);
   row.appendChild(body);
@@ -47,10 +60,8 @@ function buildCommentElement(comment) {
 }
 
 // Mirrors a normal (non-own) message's context menu: Copy/React/Report
-// available on anyone's content, Delete only for the owner. React/Report
-// have no backend yet, so they're shown-disabled like Edit Post - not
-// hidden, since a comment's menu should never look empty. Report is
-// only relevant on someone else's comment.
+// available on anyone's content, Delete only for the owner. Report is
+// still a placeholder. Report is only relevant on someone else's comment.
 function showCommentContextMenu(e, comment) {
   e.preventDefault();
   e.stopPropagation();
@@ -63,10 +74,58 @@ function showCommentContextMenu(e, comment) {
     subtitle: truncateForContextMenu(comment.content)
   }, [
     { label: "Copy Comment", onSelect: () => copyCommentContent(comment) },
-    { label: "React", disabled: true },
+    { label: "Add Reaction", onSelect: () => openReactionPicker(commentReactionTarget(comment), e.clientX, e.clientY) },
     !isMine && { label: "Report", disabled: true },
     canDelete && { label: "Delete Comment", danger: true, onSelect: () => deleteCommentFromContextMenu(comment) }
   ]);
+}
+
+function commentReactionTarget(comment) {
+  return {
+    id: comment.id,
+    chatKind: "comment",
+    senderId: comment.sender_id,
+    reactions: comment.reactions || []
+  };
+}
+
+function fillCommentReactions(host, comment) {
+  if (!host) return;
+  host.querySelectorAll(".reaction-pill").forEach(el => el.remove());
+  const addBtn = host.querySelector(".announce-add-reaction-btn");
+  (comment.reactions || []).forEach(r => {
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "reaction-pill" + (r.me ? " mine" : "");
+    const emoji = document.createElement("span");
+    emoji.className = "reaction-emoji";
+    emoji.textContent = r.emoji;
+    const count = document.createElement("span");
+    count.className = "reaction-count";
+    count.textContent = String(r.count);
+    pill.appendChild(emoji);
+    pill.appendChild(count);
+    pill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleReaction(commentReactionTarget(comment), r.emoji);
+    });
+    if (addBtn) host.insertBefore(pill, addBtn);
+    else host.appendChild(pill);
+  });
+}
+
+function patchCommentReactions(commentId, reactions) {
+  const painted = applyReactionMe(reactions || []);
+  Object.keys(commentThreadState).forEach(postId => {
+    const state = commentThreadState[postId];
+    const comment = state && state.comments.find(c => c.id === commentId);
+    if (!comment) return;
+    comment.reactions = painted;
+    const els = commentThreadElements[postId];
+    const row = els && els.listEl.querySelector(`[data-comment-id="${commentId}"]`);
+    const host = row && row.querySelector(".announce-comment-reactions");
+    if (host) fillCommentReactions(host, comment);
+  });
 }
 
 async function copyCommentContent(comment) {
@@ -156,9 +215,13 @@ async function fetchComments(postId, limit) {
     const response = await fetch(url, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
-    state.comments = state.comments.concat(data.comments);
-    if (data.comments.length < limit) state.hasMore = false;
-    data.comments.forEach(c => els.listEl.appendChild(buildCommentElement(c)));
+    const incoming = (data.comments || []).map(c => {
+      c.reactions = applyReactionMe(c.reactions || []);
+      return c;
+    });
+    state.comments = state.comments.concat(incoming);
+    if (incoming.length < limit) state.hasMore = false;
+    incoming.forEach(c => els.listEl.appendChild(buildCommentElement(c)));
     els.loadMoreBtn.style.display = state.hasMore ? "block" : "none";
   } catch (e) { /* leave state as-is on failure */ }
 }
@@ -186,7 +249,7 @@ async function submitComment(postId, inputEl) {
   }
   inputEl.value = "";
 
-  const comment = { id: result.id, post_id: postId, sender_id: myUserId, content: result.content, created_at: result.created_at, username: myUsername };
+  const comment = { id: result.id, post_id: postId, sender_id: myUserId, content: result.content, created_at: result.created_at, username: myUsername, reactions: [] };
   const state = commentThreadState[postId] || (commentThreadState[postId] = { expanded: true, comments: [], hasMore: false });
   state.comments.push(comment);
   const els = commentThreadElements[postId];

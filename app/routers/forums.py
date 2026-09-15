@@ -8,6 +8,7 @@ from app.auth import get_current_user
 from app.r2 import attachment_public, delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_message_body, require_post_body, store_attachment, store_post_attachments
 from app.routers.realtime import server_broadcast
 from app.routers.deletion import write_audit_log
+from app.routers.reactions import clear_reactions, reactions_for_messages
 from datetime import datetime
 
 router = APIRouter()
@@ -75,6 +76,7 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
     author_ids = list({post.author_id for post in post_list})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(author_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
+    reaction_map = reactions_for_messages(database, "forum_post", [post.id for post in post_list], current_user.id)
 
     picked_posts = []
     for post in post_list:
@@ -88,7 +90,8 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
             "tags": post.tags,
             "message_count": post.message_count,
             "last_activity": str(post.last_activity_at),
-            "edited": bool(post.edited)
+            "edited": bool(post.edited),
+            "reactions": reaction_map.get(post.id, [])
         })
     return {"channel_id": channel.id, "forum_posts": picked_posts}
 
@@ -167,6 +170,7 @@ async def delete_forum_post(post_id: int, database: Session = Depends(get_db), c
         delete_attachment(msg.attachment)
         database.delete(msg)
 
+    clear_reactions(database, "forum_post", post_id)
     delete_attachment(post.attachment)
     database.delete(post)
     database.commit()

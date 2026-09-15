@@ -401,6 +401,8 @@
 }
 .announce-comment-menu-btn:hover { color: var(--text); background: var(--rail); }
 .announce-comment-content { font-size: 13px; color: var(--text); line-height: 1.4; word-wrap: break-word; }
+.announce-comment-reactions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.announce-comment-reactions .announce-add-reaction-btn { width: 22px; height: 22px; font-size: 13px; }
 
 .announce-comments-loadmore-btn {
   background: transparent; color: var(--accent); font-size: 12px; font-weight: 600;
@@ -496,7 +498,9 @@
 /* Reactions, message count and last-activity sit side by side, grouped
    left - matching the reference screenshot rather than being spread
    across the card's full width. */
-.forum-post-meta { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--text-dim); }
+.forum-post-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-dim); }
+.forum-post-reactions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.forum-post-reactions .reaction-pill { height: 22px; font-size: 12px; padding: 0 7px; }
 /* The reaction button reuses .announce-add-reaction-btn outright rather
    than restyling a lookalike, so both channel types stay one edit apart
    when reactions become real. Only the box is shrunk to sit on a 12px

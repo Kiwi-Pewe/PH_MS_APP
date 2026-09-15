@@ -239,7 +239,6 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "timestamp": new_forum_msg["timestamp"]
                         })
 
-
     except WebSocketDisconnect:
         await release_doc_locks(current_user.id, database)
         del active_connections[current_user.id]

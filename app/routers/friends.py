@@ -99,6 +99,26 @@ def get_friends(database: Session = Depends(get_db), current_user: UserInfo = De
 
     return {"pending_requests": all_requests, "online_friends": online_friends, "offline_friends": offline_friends}
 
+@router.get("/relationship/{user_id}")
+def get_relationship(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    if user_id == current_user.id:
+        return {"self": True, "friend": False, "pending_out": False, "pending_in": False, "blocked": False}
+
+    outgoing = database.query(Friend_request).filter(Friend_request.user_1 == current_user.id, Friend_request.user_2 == user_id).first()
+    incoming = database.query(Friend_request).filter(Friend_request.user_1 == user_id, Friend_request.user_2 == current_user.id).first()
+    blocked = database.query(Block_user).filter(Block_user.initiated_by == current_user.id, Block_user.blocked_user == user_id).first()
+
+    friend = (outgoing and outgoing.pending == False) or (incoming and incoming.pending == False)
+    pending_out = bool(outgoing and outgoing.pending == True)
+    pending_in = bool(incoming and incoming.pending == True)
+    return {
+        "self": False,
+        "friend": bool(friend),
+        "pending_out": pending_out,
+        "pending_in": pending_in,
+        "blocked": bool(blocked)
+    }
+
 @router.post("/unfriend_user")
 def remove_user(friends: Friend_user, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 

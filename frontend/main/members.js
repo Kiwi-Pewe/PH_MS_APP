@@ -100,6 +100,7 @@ function buildMemberRow(member) {
     crown.textContent = "\u{1F451}";
     row.appendChild(crown);
   }
+  row.addEventListener("contextmenu", (e) => showMemberContextMenu(e, member));
   return row;
 }
 

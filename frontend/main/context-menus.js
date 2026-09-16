@@ -204,6 +204,79 @@ async function copyMessageContent(msg) {
   }
 }
 
+function canModerateMember(member) {
+  if (memberListScope !== "server") return false;
+  if (!member || member.id === myUserId || member.is_owner) return false;
+  return currentServerOwnerId === myUserId;
+}
+
+async function fetchRelationship(userId) {
+  try {
+    const response = await fetch(`https://${serverAddress}/relationship/${userId}`, { credentials: "include" });
+    if (!response.ok) return { friend: false, pending_out: false, blocked: false };
+    return await response.json();
+  } catch (e) {
+    return { friend: false, pending_out: false, blocked: false };
+  }
+}
+
+async function showMemberContextMenu(e, member) {
+  e.preventDefault();
+  e.stopPropagation();
+  const isSelf = member.id === myUserId;
+  const relation = isSelf ? { self: true } : await fetchRelationship(member.id);
+  const statusLabel = memberAppearsOnline(member.status)
+    ? member.status.charAt(0).toUpperCase() + member.status.slice(1)
+    : "Offline";
+
+  const options = isSelf ? [
+    { label: "Profile", onSelect: () => console.log("View own profile — not implemented yet") },
+    { label: "Mention", onSelect: () => console.log("Mention — not implemented yet") }
+  ] : [
+    { label: "Profile", onSelect: () => console.log("View profile — not implemented yet") },
+    { label: "Mention", onSelect: () => console.log("Mention — not implemented yet") },
+    { label: "Message", onSelect: () => messageMemberFromList(member.id, member.username) },
+    !relation.blocked && (relation.friend
+      ? { label: "Remove Friend", onSelect: () => unfriendFromContextMenu(member.id, member.username) }
+      : { label: "Add Friend", disabled: !!relation.pending_out, onSelect: () => addFriendFromContextMenu(member.username) }),
+    relation.blocked
+      ? { label: "Unblock", onSelect: () => unblockFromContextMenu(member.id, member.username) }
+      : { label: "Block", danger: true, onSelect: () => blockFromContextMenu(member.id, member.username) },
+    canModerateMember(member) && { label: "Timeout", onSelect: () => console.log("Timeout — not implemented yet") },
+    canModerateMember(member) && { label: "Kick", danger: true, onSelect: () => console.log("Kick — not implemented yet") },
+    canModerateMember(member) && { label: "Ban", danger: true, onSelect: () => console.log("Ban — not implemented yet") }
+  ];
+
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: avatarLetter(member.username),
+    title: member.username,
+    subtitle: statusLabel
+  }, options);
+}
+
+async function messageMemberFromList(id, username) {
+  if (currentServerId && typeof goHome === "function") {
+    if (!(await goHome())) return;
+  }
+  openDirectMessage(id, username);
+}
+
+async function addFriendFromContextMenu(username) {
+  try {
+    const response = await fetch(`https://${serverAddress}/friend_user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ username })
+    });
+    if (!response.ok) {
+      console.error(`Failed to add friend: ${response.status}`);
+    }
+  } catch (e) {
+    console.error("Failed to add friend, network error:", e);
+  }
+}
+
 function showProfileContextMenu(e, id, username, isSelf) {
   e.preventDefault();
   const options = isSelf ? [
@@ -378,6 +451,26 @@ async function unfriendFromContextMenu(id, username) {
     return;
   }
   if (openChatType === "dm" && openChatId === id) resetChatView();
+  refreshFriendsView();
+  loadConversations();
+}
+
+async function unblockFromContextMenu(id, username) {
+  try {
+    const response = await fetch(`https://${serverAddress}/unblock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ blocked_user: id })
+    });
+    if (!response.ok) {
+      console.error(`Failed to unblock ${username}: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to unblock, network error:", e);
+    return;
+  }
   refreshFriendsView();
   loadConversations();
 }

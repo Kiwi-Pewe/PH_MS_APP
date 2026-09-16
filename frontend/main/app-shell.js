@@ -36,8 +36,8 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
   });
 });
 
-document.getElementById("home-icon").addEventListener("click", async () => {
-  if (!(await leaveDocIfNeeded())) return;
+async function goHome() {
+  if (!(await leaveDocIfNeeded())) return false;
   hideDocsChrome();
   selectRailIcon("home", document.getElementById("home-icon"));
 
@@ -52,4 +52,7 @@ document.getElementById("home-icon").addEventListener("click", async () => {
   document.getElementById("dm-sidebar-view").style.display = "flex";
 
   resetChatView();
-});
+  return true;
+}
+
+document.getElementById("home-icon").addEventListener("click", () => goHome());

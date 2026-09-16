@@ -185,6 +185,7 @@ function buildForumPostCard(post) {
 async function openForumPost(post) {
   if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
+  if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   openForumPostId = post.id;
   openForumPostTitle = post.title;
   openForumPostBody = post.body || "";
@@ -234,6 +235,7 @@ async function openForumPost(post) {
 // cards are already current via patchForumCard.
 function closeForumPost() {
   if (typeof clearPendingReply === "function") clearPendingReply();
+  if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   openForumPostId = null;
   openForumPostTitle = null;
   openForumPostBody = null;

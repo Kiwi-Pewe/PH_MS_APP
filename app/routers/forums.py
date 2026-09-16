@@ -180,6 +180,7 @@ async def delete_forum_post(post_id: int, database: Session = Depends(get_db), c
     })
     thread_messages = database.query(Forum_messages).filter(Forum_messages.post_id == post_id).all()
     for msg in thread_messages:
+        clear_reactions(database, "forum", msg.id)
         clear_mentions(database, "forum", msg.id)
         delete_attachment(msg.attachment)
         database.delete(msg)
@@ -278,6 +279,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(author_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
     mention_meta = decorate_ids(database, "forum", [message.id for message in message_list], [message.content for message in message_list], current_user.id)
+    reaction_map = reactions_for_messages(database, "forum", [message.id for message in message_list], current_user.id)
     reply_map = reply_map_for(database, Forum_messages, message_list, author_attr= "author_id")
 
     forum_messages = []
@@ -291,6 +293,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
             "attachment": attachment_public(message.attachment),
             "timestamp": str(message.created_at),
             "edited": bool(message.edited),
+            "reactions": reaction_map.get(message.id, []),
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
             "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,

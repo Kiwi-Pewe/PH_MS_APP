@@ -11,6 +11,7 @@ function disableComposer(message) {
   document.getElementById("composer-plus-btn").disabled = true;
   document.getElementById("composer-emoji-btn").disabled = true;
   clearPendingReply();
+  if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
 }
 
 function enableComposer() {
@@ -136,6 +137,7 @@ async function sendChatMessage() {
   input.value = "";
   clearPendingAttach();
   clearPendingReply();
+  if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
   autoGrowComposer();
   if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   if (typeof hideMentionPicker === "function") hideMentionPicker();
@@ -217,6 +219,7 @@ async function sendChannelMessage() {
   input.value = "";
   clearPendingAttach();
   clearPendingReply();
+  if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
   autoGrowChannelComposer();
   if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   if (typeof hideMentionPicker === "function") hideMentionPicker();

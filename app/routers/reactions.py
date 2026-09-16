@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models import UserInfo, Message, Party_messages, Party_members, Channel_messages, Message_reaction, Announcement_post, Announcement_comment, Forum_post, Servers, Server_members, Server_categories, Server_channels
+from app.models import UserInfo, Message, Party_messages, Party_members, Channel_messages, Message_reaction, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Servers, Server_members, Server_categories, Server_channels
 from app.schemas import React_message
 from app.database import get_db
 from app.auth import get_current_user
@@ -115,6 +115,36 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             "message_id": msg.id,
             "channel_id": msg.channel_id,
             "reactions": reactions_for_one(database, "channel", msg.id, None)
+        }, database= database, exclude_user_id= current_user.id)
+        return {"id": msg.id, "reactions": reactions}
+
+    if target.kind == "forum":
+        msg = database.query(Forum_messages).filter(Forum_messages.id == target.message_id).first()
+        if not msg:
+            raise HTTPException(status_code=404, detail="No message found")
+        post = database.query(Forum_post).filter(Forum_post.id == msg.post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="No message found")
+        channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+        category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+        server = database.query(Servers).filter(Servers.id == category.server_id).first()
+        is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+        if not is_member:
+            raise HTTPException(status_code=404, detail="No message found")
+        existing = database.query(Message_reaction).filter(Message_reaction.kind == "forum", Message_reaction.message_id == msg.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()
+        if existing:
+            database.delete(existing)
+        else:
+            database.add(Message_reaction(kind= "forum", message_id= msg.id, user_id= current_user.id, emoji= emoji))
+        database.commit()
+        reactions = reactions_for_one(database, "forum", msg.id, current_user.id)
+        await server_broadcast(server_id= server.id, payload= {
+            "type": "message_reacted",
+            "kind": "forum",
+            "message_id": msg.id,
+            "post_id": msg.post_id,
+            "channel_id": post.channel_id,
+            "reactions": reactions_for_one(database, "forum", msg.id, None)
         }, database= database, exclude_user_id= current_user.id)
         return {"id": msg.id, "reactions": reactions}
 

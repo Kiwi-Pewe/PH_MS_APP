@@ -19,6 +19,7 @@ from app.routers.docs import release_doc_locks
 from app.routers.invites import check_invites
 from app.routers.mentions import mentioned_user_ids, mention_user_map, live_reply_to
 from app.routers.deletion import sweep_pending_deletes
+from app.routers.typing import relay_typing
 import asyncio
 
 def ws_attachment(data):
@@ -268,6 +269,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "mention_users": users_map,
                             "reply_to": new_forum_msg.get("reply_to")
                         })
+            elif data["type"] == "typing":
+                await relay_typing(data, current_user, database)
 
     except WebSocketDisconnect:
         await release_doc_locks(current_user.id, database)

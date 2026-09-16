@@ -311,6 +311,7 @@ def purge_channel_contents(database, channel):
     for post in forum_posts:
         thread_messages = database.query(Forum_messages).filter(Forum_messages.post_id == post.id).all()
         for message in thread_messages:
+            clear_reactions(database, "forum", message.id)
             clear_mentions(database, "forum", message.id)
             delete_attachment(message.attachment)
             database.delete(message)

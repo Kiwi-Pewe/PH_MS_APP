@@ -197,6 +197,9 @@ async def delete_message(target: Delete_message, database: Session = Depends(get
             "post_id": msg.post_id,
             "channel_id": channel.id
         })
+        from app.routers.reactions import clear_reactions
+        clear_reactions(database, "forum", msg.id)
+        clear_mentions(database, "forum", msg.id)
         delete_attachment(msg.attachment)
         post_id = msg.post_id
         message_id = msg.id

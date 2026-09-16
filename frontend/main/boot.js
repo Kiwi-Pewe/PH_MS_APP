@@ -84,6 +84,10 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "typing") {
+      if (typeof noteRemoteTyping === "function") noteRemoteTyping(data);
+    }
+
     if (data.type === "message") {
       const isOpen = openChatType === "dm" && openChatId === data.sender_id;
       bumpConversation("dm", data.sender_id, data.username, !isOpen);
@@ -103,6 +107,7 @@ function connectSocket() {
         if (typeof applyMentionFields === "function") applyMentionFields(row, data);
         currentMessages.push(row);
         renderMessages();
+        if (typeof clearRemoteTyper === "function") clearRemoteTyper(data.sender_id);
       }
     }
 
@@ -125,6 +130,7 @@ function connectSocket() {
         if (typeof applyMentionFields === "function") applyMentionFields(row, data);
         currentMessages.push(row);
         renderMessages();
+        if (typeof clearRemoteTyper === "function") clearRemoteTyper(data.sender_id);
       }
     }
 
@@ -149,6 +155,7 @@ function connectSocket() {
         if (typeof applyMentionFields === "function") applyMentionFields(row, data);
         currentChannelMessages.push(row);
         renderChannelMessages();
+        if (typeof clearRemoteTyper === "function") clearRemoteTyper(data.sender_id);
       }
     }
 
@@ -177,6 +184,7 @@ function connectSocket() {
         if (typeof applyMentionFields === "function") applyMentionFields(row, data);
         currentChannelMessages.push(row);
         renderChannelMessages();
+        if (typeof clearRemoteTyper === "function") clearRemoteTyper(data.sender_id);
       }
     }
 

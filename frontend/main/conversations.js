@@ -169,6 +169,7 @@ async function closeConversation(type, id) {
 function resetChatView() {
   if (typeof hideMemberList === "function") hideMemberList();
   if (typeof clearPendingReply === "function") clearPendingReply();
+  if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   openChatType = null;
   openChatId = null;
   openChatName = null;
@@ -186,6 +187,7 @@ async function openDirectMessage(id, username) {
   if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (typeof clearPendingReply === "function") clearPendingReply();
+  if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   if (typeof hideMemberList === "function") hideMemberList();
   openChatType = "dm";
   openChatId = id;
@@ -237,6 +239,7 @@ async function openParty(id, name) {
   if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (typeof clearPendingReply === "function") clearPendingReply();
+  if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   openChatType = "party";
   openChatId = id;
   openChatName = name;

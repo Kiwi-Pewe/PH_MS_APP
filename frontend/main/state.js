@@ -177,3 +177,7 @@ let memberList = [];
 
 // Composer reply target. Cleared on send, cancel, or leaving the chat.
 let pendingReply = null;
+
+// Other people currently typing in the open chat. Keyed by user id.
+// Local idle / empty-composer stops are handled in typing.js.
+let typingPeers = {};

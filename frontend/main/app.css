@@ -264,6 +264,21 @@
    separate element only because both views coexist in the DOM and ids
    must be unique. */
 #composer, #channel-composer { flex: 0 0 auto; padding: 16px; border-top: 1px solid var(--border); position: relative; }
+.typing-indicator {
+  position: absolute;
+  left: 20px;
+  right: 16px;
+  top: 0;
+  height: 16px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-dim);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.typing-indicator[hidden] { display: none !important; }
 #composer.attach-drop, #channel-composer.attach-drop { outline: 1px dashed var(--accent); outline-offset: -8px; }
 #composer.attach-drop, #channel-composer.attach-drop { outline: 1px dashed var(--accent); outline-offset: -8px; }
 .attach-preview { margin-bottom: 8px; }

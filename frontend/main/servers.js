@@ -162,6 +162,7 @@ async function selectChannel(channel, rowEl) {
   if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (typeof clearPendingReply === "function") clearPendingReply();
+  if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   if (!(await leaveDocIfNeeded())) return;
 
   // A forum thread borrows the channel chat view, so leaving the channel

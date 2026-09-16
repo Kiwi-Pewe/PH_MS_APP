@@ -9,6 +9,7 @@ from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
 from app.routers.realtime import party_broadcast, serialize_member
+from app.routers.mentions import apply_party_mentions, decorate_history, party_mention_count
 from datetime import datetime
 import random
 
@@ -58,8 +59,9 @@ def get_parties(database: Session = Depends(get_db), current_user: UserInfo = De
             Party_messages.timestamp > membership.last_activity,
             Party_messages.sender_id != current_user.id
         ).count()
+        mention_count = party_mention_count(database, membership.party_id, current_user.id, membership.last_activity)
 
-        parties_out.append({"type": "party", "id": membership.party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(sort_timestamp), "unread_count": unread_count})
+        parties_out.append({"type": "party", "id": membership.party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(sort_timestamp), "unread_count": unread_count, "mention_count": mention_count})
 
     return {"parties": parties_out}
 
@@ -101,6 +103,9 @@ def message_party(party_msg: Party_message_schema, database: Session = Depends(g
         attachment=store_attachment(party_msg.attachment, current_user),
     )
     database.add(new_party_msg)
+    database.flush()
+    member_ids = [row.user_id for row in database.query(Party_members).filter(Party_members.party_id == party_msg.party_id).all()]
+    apply_party_mentions(database, new_party_msg, member_ids)
 
     database.query(Party_members).filter(Party_members.party_id == party_msg.party_id, Party_members.user_id == current_user.id).update(
         {"last_activity": datetime.utcnow()}
@@ -132,13 +137,14 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
 
     refresh_pending_messages(database, party_history)
     reaction_map = reactions_for_messages(database, "party", [message.id for message in party_history], current_user.id)
+    mention_meta = decorate_history(database, "party", party_history, current_user.id)
     sender_ids = list({message.sender_id for message in party_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
 
     message_history = []
 
-    for message in party_history:
+    for index, message in enumerate(party_history):
         fields = deletion_fields(message, attachment_public(message.attachment))
         message_history.append({
             "id": message.id,
@@ -151,6 +157,8 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
             "deletion_requested_at": fields["deletion_requested_at"],
             "edited": fields["edited"],
             "reactions": reaction_map.get(message.id, []),
+            "mentioned": mention_meta[index]["mentioned"],
+            "mention_users": mention_meta[index]["mention_users"],
         })
 
     message_history.reverse()

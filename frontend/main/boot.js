@@ -79,6 +79,7 @@ function connectSocket() {
         row.content = data.content;
         row.attachment = typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment;
         row.edited = true;
+        if (typeof applyMentionFields === "function") applyMentionFields(row, data);
         rerenderForKind(data.kind);
       }
     }
@@ -105,9 +106,10 @@ function connectSocket() {
 
     if (data.type === "party_message") {
       const isOpen = openChatType === "party" && openChatId === data.party_id;
-      bumpConversation("party", data.party_id, data.party_name, !isOpen);
+      bumpConversation("party", data.party_id, data.party_name, !isOpen, { mentioned: !!data.mentioned });
       if (isOpen) {
-        currentMessages.push({
+        if (typeof stampPartyView === "function") stampPartyView(data.party_id);
+        const row = {
           id: data.id,
           chatKind: "party",
           isMine: false,
@@ -117,18 +119,20 @@ function connectSocket() {
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? new Date(data.timestamp) : new Date(),
           edited: false
-        });
+        };
+        if (typeof applyMentionFields === "function") applyMentionFields(row, data);
+        currentMessages.push(row);
         renderMessages();
       }
     }
 
-    // Backend never broadcasts channel_message back to the sender, so
-    // isMine is always false here. Per-channel unread tracking is
-    // deferred, so an unopened channel gets no visible signal.
     if (data.type === "channel_message") {
       const isOpen = currentChannelId === data.channel_id;
+      if (typeof noteIncomingChannelMessage === "function") {
+        noteIncomingChannelMessage(data.channel_id, data.server_id, !!data.mentioned, isOpen);
+      }
       if (isOpen) {
-        currentChannelMessages.push({
+        const row = {
           id: data.id,
           chatKind: "channel",
           senderId: data.sender_id,
@@ -139,7 +143,9 @@ function connectSocket() {
           time: data.timestamp ? new Date(data.timestamp) : new Date(),
           edited: false,
           reactions: []
-        });
+        };
+        if (typeof applyMentionFields === "function") applyMentionFields(row, data);
+        currentChannelMessages.push(row);
         renderChannelMessages();
       }
     }

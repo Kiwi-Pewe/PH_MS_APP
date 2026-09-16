@@ -54,6 +54,7 @@ async function sendChatMessage() {
 
   const tempId = nextMessageTempId();
   const chatKind = openChatType === "party" ? "party" : "dm";
+  const storedContent = chatKind === "party" && typeof encodeMentions === "function" ? encodeMentions(content) : content;
   const payload = openChatType === "party"
     ? { type: "party_message", party_id: openChatId, content, attachment, temp_id: tempId }
     : { type: "message", receiver_id: openChatId, content, attachment, temp_id: tempId };
@@ -65,11 +66,12 @@ async function sendChatMessage() {
     isMine: true,
     senderId: myUserId,
     username: myUsername || "You",
-    content,
+    content: storedContent,
     attachment,
     time: new Date(),
     edited: false,
-    reactions: []
+    reactions: [],
+    mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {}
   });
   renderMessages();
   bumpConversation(openChatType, openChatId, openChatName, false);
@@ -123,17 +125,19 @@ async function sendChannelMessage() {
     return;
   }
 
+  const storedContent = chatKind === "channel" && typeof encodeMentions === "function" ? encodeMentions(content) : content;
   currentChannelMessages.push({
     tempId,
     chatKind,
     senderId: myUserId,
     isMine: true,
     username: myUsername || "You",
-    content,
+    content: storedContent,
     attachment,
     time: new Date(),
     edited: false,
-    reactions: []
+    reactions: [],
+    mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {}
   });
   renderChannelMessages();
   input.value = "";
@@ -171,7 +175,9 @@ function startMessageEdit(msg) {
   if (!canEditMessage(msg)) return;
   abandonMessageEdit();
   editingMessageId = msg.id;
-  editingDraft = msg.content || "";
+  editingDraft = typeof mentionDisplayText === "function"
+    ? mentionDisplayText(msg.content || "", msg.mentionUsers)
+    : (msg.content || "");
   const att = typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment;
   editAttach = att ? { mode: "existing", attachment: att } : null;
   attachDestination = "edit";
@@ -189,7 +195,9 @@ function cancelMessageEdit() {
 async function confirmMessageEdit(msg) {
   const ta = document.getElementById("edit-composer-input");
   const content = ((ta && ta.value) || "").trim();
-  const originalContent = (msg.content || "").trim();
+  const originalContent = typeof mentionDisplayText === "function"
+    ? mentionDisplayText(msg.content || "", msg.mentionUsers).trim()
+    : (msg.content || "").trim();
   const originalAtt = typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment;
   const originalKey = originalAtt && originalAtt.key ? originalAtt.key : null;
   const nextKey = attachmentKey(editAttach);
@@ -245,5 +253,6 @@ async function confirmMessageEdit(msg) {
   msg.content = data.content;
   msg.attachment = typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment;
   msg.edited = !!data.edited;
+  if (typeof applyMentionFields === "function") applyMentionFields(msg, data);
   cancelMessageEdit();
 }

@@ -116,10 +116,12 @@ function renderChannelMessages(opts = {}) {
 
 function fillBubbleLine(line, msg) {
   line.className = "bubble-line";
+  if (msg.mentioned) line.classList.add("mention-highlight");
   if (typeof isEmojiOnlyContent === "function" && isEmojiOnlyContent(msg.content)) {
     line.classList.add("emoji-only");
   }
-  if (typeof renderMessageText === "function") renderMessageText(line, msg.content);
+  if (typeof appendMentionAwareText === "function") appendMentionAwareText(line, msg.content, msg);
+  else if (typeof renderMessageText === "function") renderMessageText(line, msg.content);
   else line.textContent = msg.content;
   appendEditedTag(line, msg);
   line.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
@@ -376,6 +378,7 @@ function buildSystemDivider(msg) {
 function startNewCluster(wrap, msg) {
   const cluster = document.createElement("div");
   cluster.className = "msg-cluster " + (msg.isMine ? "self" : "other");
+  if (msg.mentioned) cluster.classList.add("mention-highlight");
 
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";

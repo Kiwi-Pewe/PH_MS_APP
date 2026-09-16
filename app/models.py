@@ -211,6 +211,25 @@ class Audit_log(Base):
     detail = Column(String)
     created_at = Column(DateTime, server_default=func.now())
 
+class Channel_last_viewed(Base):
+    __tablename__ = "channel_last_viewed"
+    id = Column(Integer, primary_key = True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    last_viewed_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("channel_id", "user_id", name= "uq_channel_last_viewed"),)
+
+class Message_mention(Base):
+    __tablename__ = "message_mentions"
+    id = Column(Integer, primary_key = True)
+    kind = Column(String)
+    message_id = Column(Integer)
+    server_id = Column(String(10), nullable= True)
+    channel_id = Column(Integer, nullable= True)
+    party_id = Column(Integer, nullable= True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+
 Index(
     "ix_forum_post_activity",
     Forum_post.channel_id,

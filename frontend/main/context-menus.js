@@ -198,7 +198,10 @@ async function reinstateMessage(msg) {
 
 async function copyMessageContent(msg) {
   try {
-    await navigator.clipboard.writeText(msg.content || "");
+    const text = typeof mentionDisplayText === "function"
+      ? mentionDisplayText(msg.content || "", msg.mentionUsers)
+      : (msg.content || "");
+    await navigator.clipboard.writeText(text);
   } catch (e) {
     console.error("Failed to copy message, clipboard error:", e);
   }
@@ -305,6 +308,7 @@ function showPartyContextMenu(e, id, name, memberCount) {
     subtitle: `${memberCount} Members`
   }, [
     { label: "Invite to Party", onSelect: () => openInviteModal("party", id, name) },
+    { label: "Mark as Read", onSelect: () => markPartyRead(id) },
     { label: "Party Info", onSelect: () => console.log("Party info — not implemented yet") },
     { label: "Mute", onSelect: () => console.log("Mute — not implemented yet") },
     { label: "Leave Party", danger: true, onSelect: () => leavePartyFromContextMenu(id, name) }
@@ -318,6 +322,7 @@ function showServerContextMenu(e, id, name, ownerId) {
     title: name
   }, [
     { label: "Invite People", onSelect: () => openInviteModal("server", id, name) },
+    { label: "Mark as Read", onSelect: () => markServerRead(id) },
     ownerId !== myUserId && { label: "Leave Server", danger: true, onSelect: () => leaveServerFromContextMenu(id) }
   ]);
 }

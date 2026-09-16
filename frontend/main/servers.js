@@ -16,6 +16,14 @@ function renderServerList() {
   const container = document.getElementById("server-list");
   container.innerHTML = "";
   serverList.forEach(server => {
+    const wrap = document.createElement("div");
+    wrap.className = "server-icon-wrap";
+    wrap.dataset.serverId = server.id;
+
+    const pill = document.createElement("span");
+    pill.className = "rail-unread-pill";
+    wrap.appendChild(pill);
+
     const icon = document.createElement("div");
     icon.className = "rail-icon server-icon" + (selectedRailIcon === server.id ? " active" : "");
     icon.title = server.name;
@@ -23,7 +31,13 @@ function renderServerList() {
     icon.dataset.serverId = server.id;
     icon.addEventListener("click", () => openServer(server.id, icon));
     icon.addEventListener("contextmenu", (e) => showServerContextMenu(e, server.id, server.name, server.owner_id));
-    container.appendChild(icon);
+
+    const badge = document.createElement("span");
+    badge.className = "icon-badge";
+    icon.appendChild(badge);
+    wrap.appendChild(icon);
+    if (typeof decorateRailIcon === "function") decorateRailIcon(wrap, server);
+    container.appendChild(wrap);
   });
 }
 
@@ -120,6 +134,8 @@ function renderServerSidebar(data) {
       label.textContent = channel.name;
       row.appendChild(label);
 
+      if (typeof decorateChannelRow === "function") decorateChannelRow(row, channel);
+
       row.addEventListener("click", () => selectChannel(channel, row));
       row.addEventListener("contextmenu", (e) => showChannelContextMenu(e, channel, isOwner));
       channelsEl.appendChild(row);
@@ -160,9 +176,10 @@ async function selectChannel(channel, rowEl) {
   currentChannelId = channel.id;
   currentChannelType = channel.channel_type;
   currentChannelName = channel.name;
+  if (typeof markChannelReadLocal === "function") markChannelReadLocal(channel.id);
 
   document.querySelectorAll(".channel-row").forEach(r => r.classList.remove("active"));
-  const activeRow = rowEl || document.querySelector(`.channel-row[data-channel-id="${channel.id}"]`);
+  const activeRow = document.querySelector(`.channel-row[data-channel-id="${channel.id}"]`);
   if (activeRow) activeRow.classList.add("active");
 
   switchMainView("channel");
@@ -248,18 +265,21 @@ async function selectChannel(channel, rowEl) {
     const response = await fetch(`https://${serverAddress}/get_channel_history/${channel.id}`, { credentials: "include" });
     if (!response.ok) { renderChannelMessages(); return; }
     const data = await response.json();
-    currentChannelMessages = data.messages.map(msg => ({
-      id: msg.id,
-      chatKind: "channel",
-      isMine: msg.sender_id === myUserId,
-      senderId: msg.sender_id,
-      username: msg.username,
-      content: msg.content,
-      attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-      time: new Date(msg.timestamp),
-      edited: !!msg.edited,
-      reactions: applyReactionMe(msg.reactions || [])
-    }));
+    currentChannelMessages = data.messages.map(msg => {
+      const mapped = {
+        id: msg.id,
+        chatKind: "channel",
+        isMine: msg.sender_id === myUserId,
+        senderId: msg.sender_id,
+        username: msg.username,
+        content: msg.content,
+        attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
+        time: new Date(msg.timestamp),
+        edited: !!msg.edited,
+        reactions: applyReactionMe(msg.reactions || [])
+      };
+      return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
+    });
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
     renderChannelMessages();
   } catch (e) { renderChannelMessages(); }

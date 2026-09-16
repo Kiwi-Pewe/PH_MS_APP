@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
 from app.schemas import Server_create, Server_message, Category_create, Channel_create
 from app.database import get_db
 from app.auth import get_current_user
@@ -9,6 +9,7 @@ from app.r2 import attachment_public, delete_attachment, require_message_body, s
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.realtime import serialize_member, server_broadcast
+from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread
 import random
 
 router = APIRouter()
@@ -80,7 +81,16 @@ def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo
     server_list = []
     for server in user_servers:
         server_info = database.query(Servers).filter(Servers.id == server.server_id).first()
-        server_list.append({"type": "server", "id": server_info.id, "name": server_info.name,  "position": server.position, "owner_id": server_info.owner_id})
+        notice = server_notice(database, server_info.id, current_user.id)
+        server_list.append({
+            "type": "server",
+            "id": server_info.id,
+            "name": server_info.name,
+            "position": server.position,
+            "owner_id": server_info.owner_id,
+            "unread": notice["unread"],
+            "mention_count": notice["mention_count"]
+        })
 
     return {"servers": server_list}
 
@@ -104,7 +114,17 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
 
             for channel in all_channels:
                 if channel.is_private == False or is_owner:
-                    channel_info.append({"id": channel.id, "category_id": channel.category_id, "name": channel.name, "channel_type": channel.channel_type, "position": channel.position, "is_private": channel.is_private})
+                    notice = channel_notice(database, channel.id, current_user.id)
+                    channel_info.append({
+                        "id": channel.id,
+                        "category_id": channel.category_id,
+                        "name": channel.name,
+                        "channel_type": channel.channel_type,
+                        "position": channel.position,
+                        "is_private": channel.is_private,
+                        "unread": notice["unread"],
+                        "mention_count": notice["mention_count"]
+                    })
 
             server_info.append({"id": category.id, "name": category.name, "position": category.position, "is_private": category.is_private, "channels": channel_info})
             
@@ -150,6 +170,11 @@ def message_server_channel(server_msg: Server_message, database: Session = Depen
         attachment=store_attachment(server_msg.attachment, current_user),
     )
     database.add(new_message)
+    database.flush()
+    member_ids = [row.user_id for row in database.query(Server_members).filter(Server_members.server_id == server.id).all()]
+    apply_channel_mentions(database, new_message, server, member_ids)
+    seed_channel_unread(database, channel.id, member_ids, current_user.id, new_message.timestamp)
+    stamp_channel_view(database, channel.id, current_user.id)
     database.commit()
     database.refresh(new_message)
     return new_message    
@@ -171,15 +196,18 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
     if before_id:
         channel_history = database.query(Channel_messages).filter(Channel_messages.channel_id == channel_id, Channel_messages.id < before_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()
     else:
+        stamp_channel_view(database, channel_id, current_user.id)
+        database.commit()
         channel_history = database.query(Channel_messages).filter(Channel_messages.channel_id == channel_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()
 
     sender_ids = list({message.sender_id for message in channel_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
     reaction_map = reactions_for_messages(database, "channel", [message.id for message in channel_history], current_user.id)
+    mention_meta = decorate_history(database, "channel", channel_history, current_user.id)
 
     message_history = []
-    for message in channel_history:
+    for index, message in enumerate(channel_history):
         message_history.append({
             "id": message.id,
             "sender_id": message.sender_id,
@@ -189,6 +217,8 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
             "timestamp": str(message.timestamp),
             "edited": bool(message.edited),
             "reactions": reaction_map.get(message.id, []),
+            "mentioned": mention_meta[index]["mentioned"],
+            "mention_users": mention_meta[index]["mention_users"],
         })
 
     message_history.reverse()
@@ -253,8 +283,10 @@ def purge_channel_contents(database, channel):
     messages = database.query(Channel_messages).filter(Channel_messages.channel_id == channel.id).all()
     for message in messages:
         clear_reactions(database, "channel", message.id)
+        clear_mentions(database, "channel", message.id)
         delete_attachment(message.attachment)
         database.delete(message)
+    database.query(Channel_last_viewed).filter(Channel_last_viewed.channel_id == channel.id).delete()
 
     posts = database.query(Announcement_post).filter(Announcement_post.channel_id == channel.id).all()
     for post in posts:

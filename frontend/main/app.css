@@ -51,6 +51,25 @@
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   overflow-y: auto;
 }
+.server-icon-wrap {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.rail-unread-pill {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 20px;
+  border-radius: 0 4px 4px 0;
+  background: #fff;
+}
+.server-icon-wrap.has-unread .rail-unread-pill { display: block; }
 /* Server icons reuse .rail-icon's circle/rounded-square hover behavior
    for visual consistency with Home, but get their own class so
    server-specific states (drag handles, unread dot, etc. — all later
@@ -129,6 +148,11 @@
 .category-channels { display: flex; flex-direction: column; gap: 1px; }
 .channel-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; font-size: 14px; }
 .channel-row:hover, .channel-row.active { background: var(--panel-alt); color: var(--text); }
+.channel-row.has-unread .channel-label { color: var(--text); font-weight: 600; }
+.channel-mention-badge {
+  margin-left: auto; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
+  min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px;
+}
 .channel-icon { font-size: 13px; flex: 0 0 auto; }
 #secondary-body h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin: 8px 6px 6px; }
 .dm-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; }
@@ -566,6 +590,45 @@
   margin-bottom: 14px;
   max-width: 100%;
 }
+.msg-cluster.mention-highlight {
+  background: rgba(250, 168, 26, 0.14);
+  box-shadow: inset 2px 0 0 var(--away);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-left: -8px;
+  margin-right: -8px;
+}
+.bubble-line.mention-highlight {
+  background: rgba(250, 168, 26, 0.14);
+  box-shadow: inset 2px 0 0 var(--away);
+  border-radius: 4px;
+  margin-left: -8px;
+  padding: 2px 8px;
+}
+.mention-chip {
+  display: inline;
+  background: rgba(88, 101, 242, 0.35);
+  color: #dee0fc;
+  border-radius: 3px;
+  padding: 0 4px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mention-chip:hover { filter: brightness(1.15); }
+.mention-chip.mention-self,
+.mention-chip.mention-special {
+  background: var(--away);
+  color: #1a1a1e;
+}
+.msg-cluster.self .mention-chip {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.msg-cluster.self .mention-chip.mention-self,
+.msg-cluster.self .mention-chip.mention-special {
+  background: var(--away);
+  color: #1a1a1e;
+}
 
 /* Others always render avatar-left, body-left, regardless of settings. */
 .msg-cluster.other { flex-direction: row; }
@@ -745,6 +808,7 @@
 .msg-cluster.self .reaction-pill.mine { border-color: #fff; }
 
 .dm-item .who { font-size: 13px; font-weight: 600; }
+.dm-item.has-unread .who { color: var(--text); font-weight: 700; }
 .dm-item .dm-close { opacity: 0; background: transparent; color: var(--text-dim); font-size: 14px; padding: 2px 6px; border-radius: 4px; }
 .dm-item:hover .dm-close { opacity: 1; }
 .dm-item .dm-close:hover { background: var(--rail); color: var(--text); }

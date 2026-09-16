@@ -27,6 +27,7 @@ function loadConversations() {
       name: p.name,
       memberCount: p.member_count,
       unread: p.unread_count || 0,
+      mentions: p.mention_count || 0,
       timestamp: p.last_activity
     }));
     conversationList = dms.concat(parties).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -50,7 +51,15 @@ function renderConversationList() {
     row.querySelector(".avatar-dot").textContent = avatarLetter(displayName);
     row.querySelector(".who").textContent = displayName;
     row.querySelector(".dm-subtitle").textContent = subtitle;
-    if (convo.unread > 0) {
+    if (convo.type === "party") {
+      if ((convo.mentions || 0) > 0) {
+        const badge = row.querySelector(".dm-unread-badge");
+        badge.textContent = convo.mentions > 99 ? "99+" : convo.mentions;
+        badge.style.display = "flex";
+      } else if (convo.unread > 0) {
+        row.classList.add("has-unread");
+      }
+    } else if (convo.unread > 0) {
       const badge = row.querySelector(".dm-unread-badge");
       badge.textContent = convo.unread;
       badge.style.display = "flex";
@@ -84,15 +93,19 @@ function renderConversationList() {
 
 // type+id together identify an entry - a DM partner's id and a party's
 // id can coincidentally collide.
-function bumpConversation(type, id, name, incrementUnread) {
+function bumpConversation(type, id, name, incrementUnread, opts) {
+  const extra = opts || {};
   let entry = conversationList.find(c => c.type === type && c.id === id);
   conversationList = conversationList.filter(c => !(c.type === type && c.id === id));
   if (!entry) {
     entry = type === "party"
-      ? { type, id, name, memberCount: 0, unread: 0 }
+      ? { type, id, name, memberCount: 0, unread: 0, mentions: 0 }
       : { type, id, username: name, unread: 0 };
   }
-  if (incrementUnread) entry.unread = (entry.unread || 0) + 1;
+  if (incrementUnread) {
+    if (type === "party" && extra.mentioned) entry.mentions = (entry.mentions || 0) + 1;
+    else entry.unread = (entry.unread || 0) + 1;
+  }
   conversationList.unshift(entry);
   renderConversationList();
 }
@@ -108,13 +121,19 @@ function ensureConversationPresent(id, username) {
 
 function clearUnread(type, id) {
   const entry = conversationList.find(c => c.type === type && c.id === id);
-  if (entry) entry.unread = 0;
+  if (entry) {
+    entry.unread = 0;
+    entry.mentions = 0;
+  }
   renderConversationList();
 }
 
 function updateHomeBadge() {
   const badge = document.getElementById("home-unread-badge");
-  const total = conversationList.reduce((sum, c) => sum + (c.unread || 0), 0);
+  const total = conversationList.reduce((sum, c) => {
+    if (c.type === "party") return sum + (c.mentions || 0);
+    return sum + (c.unread || 0);
+  }, 0);
   const chatFocused = document.getElementById("view-chat").classList.contains("active") && openChatId !== null;
   if (total > 0 && !chatFocused) {
     badge.textContent = total;
@@ -237,16 +256,20 @@ async function openParty(id, name) {
     if (!response.ok) { renderMessages(); }
     else {
       const data = await response.json();
-      currentMessages = data.messages.map(msg => applyDeletionFields({
-        id: msg.id,
-        chatKind: "party",
-        isMine: msg.username === myUsername,
-        senderId: msg.sender_id,
-        username: msg.username,
-        content: msg.content,
-        attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-        time: new Date(msg.timestamp)
-      }, msg));
+      currentMessages = data.messages.map(msg => {
+        const mapped = applyDeletionFields({
+          id: msg.id,
+          chatKind: "party",
+          isMine: msg.username === myUsername,
+          senderId: msg.sender_id,
+          username: msg.username,
+          content: msg.content,
+          attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
+          time: new Date(msg.timestamp)
+        }, msg);
+        if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);
+        return mapped;
+      });
       if (currentMessages.length < 25) hasMoreHistory = false;
       renderMessages();
     }

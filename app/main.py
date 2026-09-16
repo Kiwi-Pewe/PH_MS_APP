@@ -8,7 +8,7 @@ from app.schemas import Attachment_in, Message_schema, Party_message_schema, Ser
 from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns
 from app.auth import validate_session
 from app.r2 import attachment_public
-from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions
+from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions
 from pydantic import ValidationError
 from app.routers.realtime import active_connections, heartbeat, notify_presence
 from app.routers.messages import send_message
@@ -17,6 +17,7 @@ from app.routers.servers import message_server_channel
 from app.routers.forums import send_forum_message
 from app.routers.docs import release_doc_locks
 from app.routers.invites import check_invites
+from app.routers.mentions import mentioned_user_ids, mention_user_map
 from app.routers.deletion import sweep_pending_deletes
 import asyncio
 
@@ -59,6 +60,7 @@ app.include_router(uploads.router)
 app.include_router(deletion.router)
 app.include_router(editing.router)
 app.include_router(reactions.router)
+app.include_router(mentions.router)
 
 @app.on_event("startup")
 async def interval_tasks():
@@ -130,6 +132,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 })
                 party_info = database.query(Parties).filter(Parties.id == data["party_id"]).first()
                 all_members = database.query(Party_members).filter(Party_members.party_id == data["party_id"]).all()
+                pinged_ids = mentioned_user_ids(database, "party", new_party_message.id)
+                users_map = mention_user_map(database, new_party_message.content)
 
                 for member in all_members:
                     if member.user_id != current_user.id and member.user_id in active_connections:
@@ -140,9 +144,11 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "party_id": data["party_id"],
                             "sender_id": current_user.id,
                             "username": current_user.username,
-                            "content": data.get("content") or "",
+                            "content": new_party_message.content,
                             "attachment": attachment_public(new_party_message.attachment),
-                            "timestamp": str(new_party_message.timestamp)
+                            "timestamp": str(new_party_message.timestamp),
+                            "mentioned": member.user_id in pinged_ids,
+                            "mention_users": users_map
                         })            
             elif data["type"] == "leave_party":
                     
@@ -192,17 +198,22 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 server = database.query(Servers).filter(Servers.id == category.server_id).first()
 
                 all_members = database.query(Server_members).filter(Server_members.server_id == server.id).all()
+                pinged_ids = mentioned_user_ids(database, "channel", new_server_msg.id)
+                users_map = mention_user_map(database, new_server_msg.content)
                 for member in all_members:
                     if member.user_id != current_user.id and member.user_id in active_connections:
                         await active_connections[member.user_id].send_json({
                             "type": "channel_message",
                             "id": new_server_msg.id,
+                            "server_id": server.id,
                             "channel_id": channel.id,
                             "sender_id": current_user.id,
                             "username": current_user.username,
-                            "content": data.get("content") or "",
+                            "content": new_server_msg.content,
                             "attachment": attachment_public(new_server_msg.attachment),
-                            "timestamp": str(new_server_msg.timestamp) 
+                            "timestamp": str(new_server_msg.timestamp),
+                            "mentioned": member.user_id in pinged_ids,
+                            "mention_users": users_map
                         })
             elif data["type"] == "forum_message":
                 try:

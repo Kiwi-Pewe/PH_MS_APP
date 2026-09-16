@@ -7,6 +7,7 @@ from app.auth import get_current_user
 from app.r2 import attachment_public, delete_attachment, store_attachment
 from app.routers.deletion import delete_message, notify_party, notify_user
 from app.routers.realtime import server_broadcast
+from app.routers.mentions import apply_channel_mentions, apply_party_mentions, mention_user_map, message_mentioned
 
 router = APIRouter()
 
@@ -80,6 +81,9 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
         if msg.deletion_state == "pending" or msg.deletion_state == "deleted":
             raise HTTPException(status_code=400, detail="Cannot edit a deleted message")
         changed = apply_edit(msg, content, edit.attachment, current_user)
+        if changed:
+            member_ids = [row.user_id for row in database.query(Party_members).filter(Party_members.party_id == msg.party_id).all()]
+            apply_party_mentions(database, msg, member_ids)
         database.commit()
         if changed:
             payload = {
@@ -89,10 +93,11 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
                 "party_id": msg.party_id,
                 "content": msg.content,
                 "attachment": attachment_public(msg.attachment),
-                "edited": True
+                "edited": True,
+                "mention_users": mention_user_map(database, msg.content)
             }
             await notify_party(msg.party_id, payload, database, exclude_user_id= current_user.id)
-        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed}
+        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed, "mentioned": message_mentioned(database, "party", msg.id, current_user.id), "mention_users": mention_user_map(database, msg.content)}
 
     if edit.kind == "channel":
         msg = database.query(Channel_messages).filter(Channel_messages.id == edit.message_id).first()
@@ -107,6 +112,9 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
         if msg.sender_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized to edit message")
         changed = apply_edit(msg, content, edit.attachment, current_user)
+        if changed:
+            member_ids = [row.user_id for row in database.query(Server_members).filter(Server_members.server_id == server.id).all()]
+            apply_channel_mentions(database, msg, server, member_ids)
         database.commit()
         if changed:
             payload = {
@@ -116,10 +124,11 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
                 "channel_id": msg.channel_id,
                 "content": msg.content,
                 "attachment": attachment_public(msg.attachment),
-                "edited": True
+                "edited": True,
+                "mention_users": mention_user_map(database, msg.content)
             }
             await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed}
+        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed, "mentioned": message_mentioned(database, "channel", msg.id, current_user.id), "mention_users": mention_user_map(database, msg.content)}
 
     if edit.kind == "forum":
         msg = database.query(Forum_messages).filter(Forum_messages.id == edit.message_id).first()

@@ -6,6 +6,7 @@ from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app.r2 import delete_attachment
 from app.routers.realtime import active_connections, server_broadcast
+from app.routers.mentions import clear_mentions
 from datetime import datetime, timedelta
 import json
 import asyncio
@@ -34,6 +35,8 @@ def finalize_soft_delete(database, row):
     from app.routers.reactions import clear_reactions
     kind = "party" if hasattr(row, "party_id") else "dm"
     clear_reactions(database, kind, row.id)
+    if kind == "party":
+        clear_mentions(database, "party", row.id)
     delete_attachment(row.attachment)
     row.content = ""
     row.attachment = None
@@ -157,6 +160,7 @@ async def delete_message(target: Delete_message, database: Session = Depends(get
         })
         from app.routers.reactions import clear_reactions
         clear_reactions(database, "channel", msg.id)
+        clear_mentions(database, "channel", msg.id)
         delete_attachment(msg.attachment)
         channel_id = msg.channel_id
         message_id = msg.id

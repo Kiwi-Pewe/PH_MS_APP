@@ -42,6 +42,10 @@ async function loadMemberList(scope, scopeId) {
     memberList = data.members || [];
     showMemberListPanel();
     renderMemberList();
+    if (typeof refreshComposerMentions === "function") {
+      const input = typeof activeMentionComposer === "function" ? activeMentionComposer() : null;
+      if (input) refreshComposerMentions(input);
+    }
   } catch (e) {
     hideMemberList();
   }

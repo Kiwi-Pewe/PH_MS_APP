@@ -234,10 +234,10 @@ async function showMemberContextMenu(e, member) {
 
   const options = isSelf ? [
     { label: "Profile", onSelect: () => console.log("View own profile — not implemented yet") },
-    { label: "Mention", onSelect: () => console.log("Mention — not implemented yet") }
+    { label: "Mention", onSelect: () => insertMentionToken(member.username) }
   ] : [
     { label: "Profile", onSelect: () => console.log("View profile — not implemented yet") },
-    { label: "Mention", onSelect: () => console.log("Mention — not implemented yet") },
+    { label: "Mention", onSelect: () => insertMentionToken(member.username) },
     { label: "Message", onSelect: () => messageMemberFromList(member.id, member.username) },
     !relation.blocked && (relation.friend
       ? { label: "Remove Friend", onSelect: () => unfriendFromContextMenu(member.id, member.username) }

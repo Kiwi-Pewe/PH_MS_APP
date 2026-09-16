@@ -272,3 +272,360 @@ function decorateChannelRow(row, channel) {
     row.classList.add("has-unread");
   }
 }
+
+const MENTION_SPECIALS = [
+  { key: "everyone", label: "everyone", hint: "Notify everyone in this channel", enabled: true },
+  { key: "here", label: "here", hint: "Notify everyone online in this channel", enabled: true },
+  { key: "game", label: "game", hint: "Not implemented yet", enabled: false },
+  { key: "time", label: "time", hint: "Not implemented yet", enabled: false }
+];
+
+let mentionPickerState = { input: null, range: null, items: [], index: 0 };
+
+function composerAllowsMentions(input) {
+  if (!input || input.disabled) return false;
+  if (input.id === "edit-composer-input") {
+    const pool = (typeof currentChannelMessages !== "undefined" ? currentChannelMessages : [])
+      .concat(typeof currentMessages !== "undefined" ? currentMessages : []);
+    const msg = pool.find(row => row.id === editingMessageId);
+    return !!(msg && (msg.chatKind === "party" || msg.chatKind === "channel"));
+  }
+  if (input.id === "channel-composer-input") {
+    return openForumPostId === null && currentChannelType !== "voice";
+  }
+  if (input.id === "composer-input") return openChatType === "party";
+  return false;
+}
+
+function mentionQueryAtCursor(value, cursor) {
+  const before = value.slice(0, cursor);
+  const match = before.match(/(^|[\s])@([^\s@]*)$/);
+  if (!match) return null;
+  const query = match[2];
+  const start = cursor - query.length - 1;
+  return { start, end: cursor, query };
+}
+
+function mentionStartsWith(name, query) {
+  return name.toLowerCase().startsWith((query || "").toLowerCase());
+}
+
+function mentionPickerItems(query) {
+  const items = [];
+  const q = query || "";
+  MENTION_SPECIALS.forEach(special => {
+    if (q && !mentionStartsWith(special.label, q)) return;
+    items.push({
+      type: "special",
+      key: special.key,
+      label: special.label,
+      hint: special.hint,
+      enabled: special.enabled,
+      insert: special.enabled ? "@" + special.label + " " : null
+    });
+  });
+  if (q) {
+    mentionMembers()
+      .filter(member => mentionStartsWith(member.username || "", q))
+      .sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" }))
+      .forEach(member => {
+        items.push({
+          type: "user",
+          key: "user-" + member.id,
+          label: member.username,
+          hint: member.username,
+          enabled: true,
+          insert: "@" + member.username + " ",
+          member
+        });
+      });
+  }
+  return items;
+}
+
+function validComposerMentionNames() {
+  const names = ["everyone", "here"];
+  mentionMembers().forEach(member => {
+    if (member.username) names.push(member.username);
+  });
+  names.sort((a, b) => b.length - a.length);
+  return names;
+}
+
+function renderComposerHighlight(el, text) {
+  if (!el) return;
+  el.innerHTML = "";
+  if (!text) return;
+  const names = validComposerMentionNames();
+  if (!names.length) {
+    el.appendChild(document.createTextNode(text));
+    return;
+  }
+  const pattern = new RegExp("@(?:" + names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")\\b", "gi");
+  let last = 0;
+  let match;
+  while ((match = pattern.exec(text))) {
+    if (match.index > last) el.appendChild(document.createTextNode(text.slice(last, match.index)));
+    const chip = document.createElement("span");
+    chip.className = "composer-mention";
+    chip.textContent = match[0];
+    el.appendChild(chip);
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+}
+
+function composerHighlightFor(input) {
+  if (!input) return null;
+  if (input.id === "composer-input") return document.getElementById("composer-highlight");
+  if (input.id === "channel-composer-input") return document.getElementById("channel-composer-highlight");
+  if (input.id === "edit-composer-input") {
+    const field = input.closest(".composer-field");
+    return field ? field.querySelector(".composer-highlight") : null;
+  }
+  return null;
+}
+
+function refreshComposerMentions(input) {
+  if (!input) return;
+  const highlight = composerHighlightFor(input);
+  if (highlight) {
+    if (composerAllowsMentions(input)) renderComposerHighlight(highlight, input.value);
+    else {
+      highlight.innerHTML = "";
+      highlight.appendChild(document.createTextNode(input.value || ""));
+    }
+    highlight.scrollTop = input.scrollTop;
+  }
+  updateMentionPicker(input);
+}
+
+function hideMentionPicker() {
+  const picker = document.getElementById("mention-picker");
+  if (picker) {
+    picker.hidden = true;
+    picker.classList.remove("visible");
+  }
+  mentionPickerState = { input: null, range: null, items: [], index: 0 };
+}
+
+function mentionPickerHost(input) {
+  return input.closest("#composer, #channel-composer, .edit-composer");
+}
+
+function firstEnabledMentionIndex(items, preferred) {
+  if (preferred >= 0 && items[preferred] && items[preferred].enabled) return preferred;
+  return items.findIndex(item => item.enabled);
+}
+
+function paintMentionPickerSelection() {
+  const picker = document.getElementById("mention-picker");
+  if (!picker) return;
+  picker.querySelectorAll(".mention-picker-row").forEach(row => {
+    const index = parseInt(row.dataset.index, 10);
+    row.classList.toggle("selected", index === mentionPickerState.index);
+  });
+  const selected = picker.querySelector(".mention-picker-row.selected");
+  if (selected) selected.scrollIntoView({ block: "nearest" });
+}
+
+function renderMentionPicker(items) {
+  const picker = document.getElementById("mention-picker");
+  const list = document.getElementById("mention-picker-list");
+  if (!picker || !list) return;
+  list.innerHTML = "";
+  let specialHeader = false;
+  let memberHeader = false;
+  items.forEach((item, index) => {
+    if (item.type === "special" && !specialHeader) {
+      specialHeader = true;
+      const heading = document.createElement("div");
+      heading.className = "mention-picker-heading";
+      heading.textContent = "Mentions";
+      list.appendChild(heading);
+    }
+    if (item.type === "user" && !memberHeader) {
+      memberHeader = true;
+      const heading = document.createElement("div");
+      heading.className = "mention-picker-heading";
+      heading.textContent = "Members";
+      list.appendChild(heading);
+    }
+    const row = document.createElement("div");
+    row.className = "mention-picker-row" + (index === mentionPickerState.index ? " selected" : "");
+    row.dataset.index = String(index);
+    if (!item.enabled) row.setAttribute("aria-disabled", "true");
+
+    const avatar = document.createElement("div");
+    avatar.className = "mention-picker-avatar" + (item.type === "special" ? " mention-picker-at" : "");
+    avatar.textContent = item.type === "special" ? "@" : avatarLetter(item.label);
+    row.appendChild(avatar);
+
+    const name = document.createElement("div");
+    name.className = "mention-picker-name";
+    name.textContent = item.type === "special" ? "@" + item.label : item.label;
+    row.appendChild(name);
+
+    const meta = document.createElement("div");
+    meta.className = "mention-picker-meta";
+    meta.textContent = item.hint || "";
+    row.appendChild(meta);
+
+    row.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      if (!item.enabled) return;
+      pickMention(item);
+    });
+    row.addEventListener("mouseenter", () => {
+      if (!item.enabled) return;
+      mentionPickerState.index = index;
+      paintMentionPickerSelection();
+    });
+    list.appendChild(row);
+  });
+}
+
+function showMentionPicker(input, range, items) {
+  const picker = document.getElementById("mention-picker");
+  const host = mentionPickerHost(input);
+  if (!picker || !host || !items.length) {
+    hideMentionPicker();
+    return;
+  }
+  host.appendChild(picker);
+  mentionPickerState = {
+    input,
+    range,
+    items,
+    index: firstEnabledMentionIndex(items, mentionPickerState.input === input ? mentionPickerState.index : 0)
+  };
+  if (mentionPickerState.index < 0) mentionPickerState.index = 0;
+  renderMentionPicker(items);
+  picker.hidden = false;
+  picker.classList.add("visible");
+}
+
+function updateMentionPicker(input) {
+  if (!composerAllowsMentions(input)) {
+    hideMentionPicker();
+    return;
+  }
+  const cursor = input.selectionStart;
+  const range = mentionQueryAtCursor(input.value, cursor);
+  if (!range) {
+    hideMentionPicker();
+    return;
+  }
+  const items = mentionPickerItems(range.query);
+  if (!items.length) {
+    hideMentionPicker();
+    return;
+  }
+  showMentionPicker(input, range, items);
+}
+
+function insertAtCursor(input, start, end, text) {
+  const value = input.value;
+  input.value = value.slice(0, start) + text + value.slice(end);
+  const pos = start + text.length;
+  input.setSelectionRange(pos, pos);
+  input.focus();
+  input.dispatchEvent(new Event("input"));
+}
+
+function pickMention(item) {
+  if (!item || !item.enabled || !item.insert || !mentionPickerState.input || !mentionPickerState.range) return;
+  const input = mentionPickerState.input;
+  const range = mentionPickerState.range;
+  hideMentionPicker();
+  insertAtCursor(input, range.start, range.end, item.insert);
+}
+
+function mentionPickerMove(dir) {
+  const enabled = mentionPickerState.items
+    .map((item, index) => item.enabled ? index : -1)
+    .filter(index => index >= 0);
+  if (!enabled.length) return;
+  const pos = enabled.indexOf(mentionPickerState.index);
+  const from = pos < 0 ? 0 : pos;
+  mentionPickerState.index = enabled[(from + dir + enabled.length) % enabled.length];
+  paintMentionPickerSelection();
+}
+
+function mentionPickerHandleKey(e) {
+  const picker = document.getElementById("mention-picker");
+  if (!picker || picker.hidden || !picker.classList.contains("visible")) return false;
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    mentionPickerMove(1);
+    return true;
+  }
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    mentionPickerMove(-1);
+    return true;
+  }
+  if (e.key === "Escape") {
+    e.preventDefault();
+    hideMentionPicker();
+    return true;
+  }
+  if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+    const item = mentionPickerState.items[mentionPickerState.index];
+    if (item && item.enabled) {
+      e.preventDefault();
+      pickMention(item);
+      return true;
+    }
+    hideMentionPicker();
+    return e.key === "Tab";
+  }
+  return false;
+}
+
+function activeMentionComposer() {
+  const edit = document.getElementById("edit-composer-input");
+  if (edit) return edit;
+  const channelView = document.getElementById("view-channel");
+  if (channelView && channelView.classList.contains("active")) return document.getElementById("channel-composer-input");
+  return document.getElementById("composer-input");
+}
+
+function insertMentionToken(name) {
+  const input = activeMentionComposer();
+  if (!input || input.disabled) return;
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  const before = input.value.slice(0, start);
+  const pad = before.length === 0 || /\s$/.test(before) ? "" : " ";
+  insertAtCursor(input, start, end, pad + "@" + name + " ");
+}
+
+function bindMentionComposer(input) {
+  if (!input || input.dataset.mentionBound) return;
+  input.dataset.mentionBound = "1";
+  input.addEventListener("input", () => refreshComposerMentions(input));
+  input.addEventListener("click", () => refreshComposerMentions(input));
+  input.addEventListener("keyup", () => refreshComposerMentions(input));
+  input.addEventListener("scroll", () => {
+    const highlight = composerHighlightFor(input);
+    if (highlight) highlight.scrollTop = input.scrollTop;
+  });
+  input.addEventListener("keydown", (e) => {
+    if (mentionPickerHandleKey(e)) {
+      e.stopImmediatePropagation();
+    }
+  }, true);
+  refreshComposerMentions(input);
+}
+
+bindMentionComposer(document.getElementById("composer-input"));
+bindMentionComposer(document.getElementById("channel-composer-input"));
+document.addEventListener("click", (e) => {
+  const picker = document.getElementById("mention-picker");
+  if (!picker || picker.hidden) return;
+  if (picker.contains(e.target)) return;
+  if (e.target && e.target.closest && e.target.closest("textarea")) return;
+  hideMentionPicker();
+});
+

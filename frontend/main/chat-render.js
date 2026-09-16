@@ -282,19 +282,26 @@ function buildEditComposer(msg) {
   plusBtn.className = "composer-icon-btn edit-composer-plus";
   plusBtn.title = "Attach image or video";
   plusBtn.textContent = "+";
+  const field = document.createElement("div");
+  field.className = "composer-field";
+  const highlight = document.createElement("div");
+  highlight.className = "composer-highlight";
+  highlight.setAttribute("aria-hidden", "true");
   const textarea = document.createElement("textarea");
   textarea.id = "edit-composer-input";
   textarea.className = "edit-composer-input";
   textarea.rows = 1;
   textarea.placeholder = "Type a message";
   textarea.value = editingDraft;
+  field.appendChild(highlight);
+  field.appendChild(textarea);
   const emojiBtn = document.createElement("button");
   emojiBtn.type = "button";
   emojiBtn.className = "composer-icon-btn edit-composer-emoji";
   emojiBtn.title = "Emoji";
   emojiBtn.textContent = "🙂";
   box.appendChild(plusBtn);
-  box.appendChild(textarea);
+  box.appendChild(field);
   box.appendChild(emojiBtn);
 
   const footer = document.createElement("div");
@@ -332,6 +339,7 @@ function buildEditComposer(msg) {
     textarea.style.height = "auto";
     textarea.style.height = textarea.scrollHeight + "px";
     editingDraft = textarea.value;
+    if (typeof refreshComposerMentions === "function") refreshComposerMentions(textarea);
   });
   textarea.addEventListener("paste", (e) => {
     const files = e.clipboardData && e.clipboardData.files;
@@ -364,6 +372,7 @@ function buildEditComposer(msg) {
     textarea.style.height = textarea.scrollHeight + "px";
     textarea.focus();
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    if (typeof bindMentionComposer === "function") bindMentionComposer(textarea);
   });
   return cluster;
 }

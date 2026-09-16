@@ -263,7 +263,8 @@
    as #channel-messages joining #chat-messages above: identical behavior,
    separate element only because both views coexist in the DOM and ids
    must be unique. */
-#composer, #channel-composer { flex: 0 0 auto; padding: 16px; border-top: 1px solid var(--border); }
+#composer, #channel-composer { flex: 0 0 auto; padding: 16px; border-top: 1px solid var(--border); position: relative; }
+#composer.attach-drop, #channel-composer.attach-drop { outline: 1px dashed var(--accent); outline-offset: -8px; }
 #composer.attach-drop, #channel-composer.attach-drop { outline: 1px dashed var(--accent); outline-offset: -8px; }
 .attach-preview { margin-bottom: 8px; }
 .attach-chip {
@@ -295,11 +296,59 @@
 #chat-messages:not(.self-right) .msg-cluster.self .msg-media,
 #channel-messages:not(.self-right) .msg-cluster.self .msg-media { align-self: flex-start; }
 #composer .box, #channel-composer .box { display: flex; align-items: flex-end; gap: 6px; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 6px; }
-#composer textarea, #channel-composer textarea {
+.composer-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  overflow: hidden;
+}
+.composer-highlight {
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  padding: 8px 6px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--text);
+}
+.composer-mention {
+  background: rgba(88, 101, 242, 0.35);
+  color: #dee0fc;
+  border-radius: 3px;
+  font-weight: 600;
+}
+#composer textarea, #channel-composer textarea, .edit-composer textarea {
   flex: 1; width: 100%; min-width: 0; box-sizing: border-box;
   background: transparent; border: none; color: var(--text); font-size: 14px;
   font-family: inherit; padding: 8px 6px; resize: none; overflow-y: auto;
   line-height: 1.4; max-height: calc(1.4em * 5); /* caps growth at 5 lines, then scrolls */
+}
+.composer-field textarea {
+  color: transparent;
+  caret-color: var(--text);
+  position: relative;
+  z-index: 1;
+}
+#composer .composer-field textarea,
+#channel-composer .composer-field textarea,
+.edit-composer .composer-field textarea {
+  color: transparent;
+  caret-color: var(--text);
+}
+.composer-field textarea::placeholder { color: var(--text-dim); }
+.composer-field textarea:disabled,
+#composer .composer-field textarea:disabled,
+#channel-composer .composer-field textarea:disabled {
+  color: transparent;
+  caret-color: var(--text-dim);
+  cursor: not-allowed;
 }
 #composer textarea:focus, #channel-composer textarea:focus { outline: none; }
 #composer textarea:disabled, #channel-composer textarea:disabled { color: var(--text-dim); cursor: not-allowed; }
@@ -324,6 +373,103 @@
 }
 #composer .composer-icon-btn:hover, #channel-composer .composer-icon-btn:hover {
   color: var(--text); background: var(--rail);
+}
+
+#mention-picker {
+  display: none;
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 100%;
+  z-index: 40;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.edit-composer #mention-picker {
+  left: 8px;
+  right: 8px;
+}
+#mention-picker.visible { display: block; }
+.mention-picker-heading {
+  padding: 6px 12px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.mention-picker-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 14px;
+  border-radius: 0;
+  height: auto;
+  align-self: stretch;
+}
+#composer #mention-picker .mention-picker-row,
+#channel-composer #mention-picker .mention-picker-row,
+.edit-composer #mention-picker .mention-picker-row {
+  background: transparent;
+  color: var(--text);
+  height: auto;
+  padding: 6px 12px;
+  justify-content: flex-start;
+}
+.mention-picker-row:hover,
+.mention-picker-row.selected {
+  background: var(--panel-alt);
+}
+#composer #mention-picker .mention-picker-row:hover,
+#channel-composer #mention-picker .mention-picker-row:hover,
+#composer #mention-picker .mention-picker-row.selected,
+#channel-composer #mention-picker .mention-picker-row.selected,
+.edit-composer #mention-picker .mention-picker-row:hover,
+.edit-composer #mention-picker .mention-picker-row.selected {
+  background: var(--panel-alt);
+  color: var(--text);
+}
+.mention-picker-row:disabled,
+#composer #mention-picker .mention-picker-row:disabled,
+#channel-composer #mention-picker .mention-picker-row:disabled {
+  opacity: 0.55;
+  cursor: default;
+  color: var(--text-dim);
+}
+.mention-picker-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex: 0 0 auto;
+  background: #3b3e4a; border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #cfd1e0; text-transform: uppercase;
+}
+.mention-picker-avatar.mention-picker-at {
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+  font-size: 16px;
+}
+.mention-picker-name { flex: 0 0 auto; font-weight: 600; }
+.mention-picker-meta {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---- Announcements channel ---- */
@@ -753,6 +899,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px;
+  position: relative;
 }
 .edit-composer.attach-drop { outline: 1px dashed var(--accent); outline-offset: 2px; }
 .edit-composer-top { display: flex; justify-content: flex-end; margin-bottom: 4px; }

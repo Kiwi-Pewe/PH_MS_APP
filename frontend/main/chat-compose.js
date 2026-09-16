@@ -78,6 +78,8 @@ async function sendChatMessage() {
   input.value = "";
   clearPendingAttach();
   autoGrowComposer();
+  if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
+  if (typeof hideMentionPicker === "function") hideMentionPicker();
 }
 
 function autoGrowComposer() {
@@ -143,6 +145,8 @@ async function sendChannelMessage() {
   input.value = "";
   clearPendingAttach();
   autoGrowChannelComposer();
+  if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
+  if (typeof hideMentionPicker === "function") hideMentionPicker();
 }
 
 function autoGrowChannelComposer() {
@@ -162,6 +166,7 @@ document.getElementById("channel-composer-input").addEventListener("keydown", (e
 
 function abandonMessageEdit() {
   if (typeof closeEmojiPicker === "function") closeEmojiPicker();
+  if (typeof hideMentionPicker === "function") hideMentionPicker();
   editingMessageId = null;
   editingDraft = "";
   if (editAttach && editAttach.mode === "new" && editAttach.previewUrl) {

@@ -182,3 +182,62 @@ async function submitCreateChannel() {
   closeChannelModal();
   refreshServerSidebar();
 }
+
+// Compact centered confirm — Delete Category / Delete Channel from the
+// owner context menus. Cancel, X, overlay click, and Escape all close.
+let pendingDelete = null;
+
+function channelDeleteLabel(channel) {
+  if (channel.channel_type === "voice" || channel.channel_type === "doc") return channel.name;
+  return `#${channel.name}`;
+}
+
+function openDeleteConfirm(kind, target) {
+  pendingDelete = { kind, target };
+  const isCategory = kind === "category";
+  document.getElementById("confirm-delete-title").textContent = isCategory ? "Delete Category" : "Delete Channel";
+  document.getElementById("confirm-delete-action").textContent = isCategory ? "Delete Category" : "Delete Channel";
+
+  let body;
+  if (isCategory) {
+    const count = (target.channels || []).length;
+    body = count === 0
+      ? `Are you sure you want to delete ${target.name}? This cannot be undone.`
+      : `Are you sure you want to delete ${target.name}? This deletes ${count} channel${count === 1 ? "" : "s"} inside and cannot be undone.`;
+  } else {
+    body = `Are you sure you want to delete ${channelDeleteLabel(target)}? This cannot be undone.`;
+  }
+  document.getElementById("confirm-delete-body").textContent = body;
+  document.getElementById("confirm-delete-overlay").style.display = "flex";
+  document.getElementById("confirm-delete-cancel-btn").focus();
+}
+
+function closeDeleteConfirm() {
+  pendingDelete = null;
+  document.getElementById("confirm-delete-overlay").style.display = "none";
+}
+
+async function submitDeleteConfirm() {
+  if (!pendingDelete) return;
+  const { kind, target } = pendingDelete;
+  const action = document.getElementById("confirm-delete-action");
+  action.disabled = true;
+  const ok = kind === "category"
+    ? await deleteCategoryFromContextMenu(target)
+    : await deleteChannelFromContextMenu(target);
+  action.disabled = false;
+  if (ok) closeDeleteConfirm();
+}
+
+document.getElementById("confirm-delete-close").addEventListener("click", closeDeleteConfirm);
+document.getElementById("confirm-delete-cancel-btn").addEventListener("click", closeDeleteConfirm);
+document.getElementById("confirm-delete-action").addEventListener("click", submitDeleteConfirm);
+document.getElementById("confirm-delete-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "confirm-delete-overlay") closeDeleteConfirm();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (document.getElementById("confirm-delete-overlay").style.display === "flex") {
+    closeDeleteConfirm();
+  }
+});

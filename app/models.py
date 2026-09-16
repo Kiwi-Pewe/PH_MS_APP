@@ -22,6 +22,7 @@ class Message(Base):
     deletion_state = Column(String, nullable=True)
     deletion_requested_at = Column(DateTime, nullable=True)
     edited = Column(Boolean, default= False)
+    reply_to_id = Column(Integer, nullable=True)
 
 class Active_Sessions(Base):
     __tablename__ = "sessions"
@@ -83,6 +84,7 @@ class Party_messages(Base):
     deletion_state = Column(String, nullable=True)
     deletion_requested_at = Column(DateTime, nullable=True)
     edited = Column(Boolean, default= False)
+    reply_to_id = Column(Integer, nullable=True)
 
 class Servers(Base):
     __tablename__ = "servers"
@@ -125,6 +127,7 @@ class Channel_messages(Base):
     attachment = Column(String, nullable=True)
     timestamp = Column(DateTime, server_default=func.now())
     edited = Column(Boolean, default= False)
+    reply_to_id = Column(Integer, nullable=True)
 
 class Invite_model(Base):
     __tablename__ = "invites"
@@ -180,6 +183,7 @@ class Forum_messages(Base):
     attachment = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     edited = Column(Boolean, default= False)
+    reply_to_id = Column(Integer, nullable=True)
 
 class Doc_page(Base):
     __tablename__ = "doc_pages"

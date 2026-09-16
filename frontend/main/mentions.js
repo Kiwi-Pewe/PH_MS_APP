@@ -54,6 +54,7 @@ function mentionUsersFromText(text) {
 function applyMentionFields(target, raw) {
   target.mentioned = !!(raw && raw.mentioned);
   target.mentionUsers = (raw && raw.mention_users) || target.mentionUsers || {};
+  if (raw && raw.reply_to) target.replyTo = raw.reply_to;
   return target;
 }
 

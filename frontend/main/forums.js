@@ -233,6 +233,7 @@ async function openForumPost(post) {
 // thing the no-live-reorder rule exists to prevent. Counts and times on the
 // cards are already current via patchForumCard.
 function closeForumPost() {
+  if (typeof clearPendingReply === "function") clearPendingReply();
   openForumPostId = null;
   openForumPostTitle = null;
   openForumPostBody = null;

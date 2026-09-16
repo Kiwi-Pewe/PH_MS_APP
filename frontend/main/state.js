@@ -174,3 +174,6 @@ let editingForumPostId = null;
 let memberListScope = null;
 let memberListScopeId = null;
 let memberList = [];
+
+// Composer reply target. Cleared on send, cancel, or leaving the chat.
+let pendingReply = null;

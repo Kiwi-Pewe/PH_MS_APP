@@ -139,6 +139,67 @@ def write_mentions(database, kind, message_id, user_ids, server_id=None, channel
             user_id = user_id
         ))
 
+def add_reply_ping(targets, author_id, sender_id):
+    if author_id and author_id != sender_id:
+        targets.add(author_id)
+    return targets
+
+def accepted_reply_parent(parent, author_attr="sender_id"):
+    if not parent:
+        return None
+    if getattr(parent, author_attr, None) is None:
+        return None
+    if getattr(parent, "deletion_state", None) == "deleted":
+        return None
+    return parent
+
+def reply_to_payload(database, parent, author_attr="sender_id"):
+    if not parent:
+        return None
+    author_id = getattr(parent, author_attr)
+    account = database.query(UserInfo).filter(UserInfo.id == author_id).first() if author_id else None
+    deleted = getattr(parent, "deletion_state", None) == "deleted"
+    return {
+        "id": parent.id,
+        "sender_id": author_id,
+        "username": account.username if account else "user",
+        "content": "" if deleted else (parent.content or ""),
+        "deleted": bool(deleted),
+    }
+
+def reply_map_for(database, model, messages, author_attr="sender_id"):
+    reply_ids = [message.reply_to_id for message in messages if getattr(message, "reply_to_id", None)]
+    if not reply_ids:
+        return {}
+    parents = database.query(model).filter(model.id.in_(reply_ids)).all()
+    parent_map = {parent.id: parent for parent in parents}
+    author_ids = [getattr(parent, author_attr) for parent in parents if getattr(parent, author_attr)]
+    names = {account.id: account.username for account in member_records(database, author_ids)}
+    out = {}
+    for reply_id in set(reply_ids):
+        parent = parent_map.get(reply_id)
+        if not parent:
+            out[reply_id] = {"id": reply_id, "sender_id": None, "username": "", "content": "", "deleted": True}
+            continue
+        deleted = getattr(parent, "deletion_state", None) == "deleted"
+        author_id = getattr(parent, author_attr)
+        out[reply_id] = {
+            "id": parent.id,
+            "sender_id": author_id,
+            "username": names.get(author_id, "user") if author_id else "user",
+            "content": "" if deleted else (parent.content or ""),
+            "deleted": bool(deleted),
+        }
+    return out
+
+def live_reply_to(database, model, reply_to_id, author_attr="sender_id"):
+    if not reply_to_id:
+        return None
+    parent = database.query(model).filter(model.id == reply_to_id).first()
+    if not parent:
+        return {"id": reply_to_id, "sender_id": None, "username": "", "content": "", "deleted": True}
+    return reply_to_payload(database, parent, author_attr)
+
 def seed_channel_unread(database, channel_id, member_ids, sender_id, seen_at):
     rows = database.query(Channel_last_viewed).filter(Channel_last_viewed.channel_id == channel_id).all()
     existing = {row.user_id for row in rows}
@@ -148,30 +209,33 @@ def seed_channel_unread(database, channel_id, member_ids, sender_id, seen_at):
             continue
         database.add(Channel_last_viewed(channel_id= channel_id, user_id= user_id, last_viewed_at= cutoff))
 
-def apply_channel_mentions(database, message, server, member_ids):
+def apply_channel_mentions(database, message, server, member_ids, reply_author_id=None):
     members = member_records(database, member_ids)
     content, pinged = tokenize_mentions(message.content, members)
     online_ids = [uid for uid in member_ids if uid in active_connections]
     targets = expand_pinged(pinged, member_ids, online_ids)
+    add_reply_ping(targets, reply_author_id, message.sender_id)
     message.content = content
     write_mentions(database, "channel", message.id, targets, server_id= server.id, channel_id= message.channel_id)
     return content, list(targets)
 
-def apply_party_mentions(database, message, member_ids):
+def apply_party_mentions(database, message, member_ids, reply_author_id=None):
     members = member_records(database, member_ids)
     content, pinged = tokenize_mentions(message.content, members)
     online_ids = [uid for uid in member_ids if uid in active_connections]
     targets = expand_pinged(pinged, member_ids, online_ids)
+    add_reply_ping(targets, reply_author_id, message.sender_id)
     message.content = content
     write_mentions(database, "party", message.id, targets, party_id= message.party_id)
     return content, list(targets)
 
-def apply_server_text_mentions(database, text, kind, message_id, server, channel_id, seed=False, sender_id=None):
+def apply_server_text_mentions(database, text, kind, message_id, server, channel_id, seed=False, sender_id=None, reply_author_id=None):
     member_ids = [row.user_id for row in database.query(Server_members).filter(Server_members.server_id == server.id).all()]
     members = member_records(database, member_ids)
     content, pinged = tokenize_mentions(text or "", members)
     online_ids = [uid for uid in member_ids if uid in active_connections]
     targets = expand_pinged(pinged, member_ids, online_ids)
+    add_reply_ping(targets, reply_author_id, sender_id)
     write_mentions(database, kind, message_id, targets, server_id= server.id, channel_id= channel_id)
     if seed:
         seed_channel_unread(database, channel_id, member_ids, sender_id, datetime.utcnow())

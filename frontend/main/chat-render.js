@@ -41,7 +41,7 @@ function renderClusteredMessages(wrap, messages) {
     const withinGap = openCluster &&
       (msg.time - openCluster.lastTime) <= CLUSTER_GAP_MINUTES * 60 * 1000;
 
-    if (!(sameSenderAsLast && withinGap)) {
+    if (msg.replyTo || !(sameSenderAsLast && withinGap)) {
       openCluster = startNewCluster(wrap, msg);
     } else {
       const line = document.createElement("div");
@@ -116,6 +116,7 @@ function renderChannelMessages(opts = {}) {
 
 function fillBubbleLine(line, msg) {
   line.className = "bubble-line";
+  if (msg.id) line.dataset.messageId = String(msg.id);
   if (msg.mentioned) line.classList.add("mention-highlight");
   if (typeof isEmojiOnlyContent === "function" && isEmojiOnlyContent(msg.content)) {
     line.classList.add("emoji-only");
@@ -427,6 +428,7 @@ function startNewCluster(wrap, msg) {
   }
   attachReactionsIfNeeded(bubble, msg);
 
+  if (msg.replyTo) body.appendChild(buildReplySnippet(msg.replyTo));
   body.appendChild(header);
   body.appendChild(bubble);
   cluster.appendChild(avatar);
@@ -434,6 +436,38 @@ function startNewCluster(wrap, msg) {
   wrap.appendChild(cluster);
 
   return { isMine: msg.isMine, username: msg.username, lastTime: msg.time, bubbleEl: bubble };
+}
+
+function buildReplySnippet(replyTo) {
+  const row = document.createElement("div");
+  row.className = "msg-reply";
+  const bar = document.createElement("span");
+  bar.className = "msg-reply-bar";
+  const name = document.createElement("span");
+  name.className = "msg-reply-name";
+  const text = document.createElement("span");
+  text.className = "msg-reply-text";
+  if (replyTo.deleted) {
+    name.textContent = "";
+    text.textContent = "Original message was deleted";
+  } else {
+    name.textContent = replyTo.username || "user";
+    const raw = replyTo.content || "";
+    text.textContent = typeof mentionDisplayText === "function"
+      ? mentionDisplayText(raw, {})
+      : raw;
+  }
+  row.appendChild(bar);
+  if (name.textContent) row.appendChild(name);
+  row.appendChild(text);
+  if (replyTo.id && !replyTo.deleted) {
+    row.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const target = document.querySelector(`[data-message-id="${replyTo.id}"]`);
+      if (target) target.scrollIntoView({ block: "center" });
+    });
+  }
+  return row;
 }
 
 function buildConversationStartCard(id, username) {

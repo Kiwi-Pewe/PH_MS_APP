@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=7">
 <link rel="stylesheet" href="../shared/context-menu.css?v=2">
-<link rel="stylesheet" href="app.css?v=48">
+<link rel="stylesheet" href="app.css?v=49">
 </head>
 <body>
 
@@ -98,15 +98,21 @@
           <div id="chat-messages" class="self-right" style="display:none;"></div>
         </div>
         <div id="composer">
-          <div id="composer-attach-preview" class="attach-preview" hidden></div>
-          <div class="box">
-            <button class="composer-icon-btn" id="composer-plus-btn" title="Attach image or video">+</button>
-            <div class="composer-field">
-              <div class="composer-highlight" id="composer-highlight" aria-hidden="true"></div>
-              <textarea id="composer-input" placeholder="Type a message" rows="1"></textarea>
+          <div class="composer-card">
+            <div id="composer-reply-bar" class="composer-reply-bar" hidden>
+              <div class="composer-reply-label">Replying to <span id="composer-reply-name" class="composer-reply-name"></span></div>
+              <button type="button" class="composer-reply-cancel" id="composer-reply-cancel" title="Cancel">&times;</button>
             </div>
-            <button class="composer-icon-btn" id="composer-emoji-btn" title="Emoji">🙂</button>
-            <button onclick="sendChatMessage()" id="composer-send-btn">Send</button>
+            <div id="composer-attach-preview" class="attach-preview" hidden></div>
+            <div class="box">
+              <button class="composer-icon-btn" id="composer-plus-btn" title="Attach image or video">+</button>
+              <div class="composer-field">
+                <div class="composer-highlight" id="composer-highlight" aria-hidden="true"></div>
+                <textarea id="composer-input" placeholder="Type a message" rows="1"></textarea>
+              </div>
+              <button class="composer-icon-btn" id="composer-emoji-btn" title="Emoji">🙂</button>
+              <button onclick="sendChatMessage()" id="composer-send-btn">Send</button>
+            </div>
           </div>
         </div>
       </div>
@@ -154,15 +160,21 @@
              this for voice channels, same as disableComposer() does for
              DMs after a block. -->
         <div id="channel-composer">
-          <div id="channel-composer-attach-preview" class="attach-preview" hidden></div>
-          <div class="box">
-            <button class="composer-icon-btn" id="channel-composer-plus-btn" title="Attach image or video">+</button>
-            <div class="composer-field">
-              <div class="composer-highlight" id="channel-composer-highlight" aria-hidden="true"></div>
-              <textarea id="channel-composer-input" placeholder="Type a message" rows="1"></textarea>
+          <div class="composer-card">
+            <div id="channel-composer-reply-bar" class="composer-reply-bar" hidden>
+              <div class="composer-reply-label">Replying to <span id="channel-composer-reply-name" class="composer-reply-name"></span></div>
+              <button type="button" class="composer-reply-cancel" id="channel-composer-reply-cancel" title="Cancel">&times;</button>
             </div>
-            <button class="composer-icon-btn" id="channel-composer-emoji-btn" title="Emoji">🙂</button>
-            <button onclick="sendChannelMessage()" id="channel-composer-send-btn">Send</button>
+            <div id="channel-composer-attach-preview" class="attach-preview" hidden></div>
+            <div class="box">
+              <button class="composer-icon-btn" id="channel-composer-plus-btn" title="Attach image or video">+</button>
+              <div class="composer-field">
+                <div class="composer-highlight" id="channel-composer-highlight" aria-hidden="true"></div>
+                <textarea id="channel-composer-input" placeholder="Type a message" rows="1"></textarea>
+              </div>
+              <button class="composer-icon-btn" id="channel-composer-emoji-btn" title="Emoji">🙂</button>
+              <button onclick="sendChannelMessage()" id="channel-composer-send-btn">Send</button>
+            </div>
           </div>
         </div>
 
@@ -692,30 +704,30 @@
 <div id="mention-picker" hidden>
   <div id="mention-picker-list"></div>
 </div>
-<script src="state.js?v=53"></script>
+<script src="state.js?v=54"></script>
 <script src="util.js?v=48"></script>
 <script src="media.js?v=47"></script>
 <script src="post-media.js?v=51"></script>
-<script src="boot.js?v=58"></script>
+<script src="boot.js?v=59"></script>
 <script src="app-shell.js?v=47"></script>
-<script src="context-menus.js?v=62"></script>
-<script src="conversations.js?v=51"></script>
-<script src="chat-render.js?v=55"></script>
-<script src="chat-history.js?v=47"></script>
-<script src="chat-compose.js?v=52"></script>
+<script src="context-menus.js?v=63"></script>
+<script src="conversations.js?v=52"></script>
+<script src="chat-render.js?v=56"></script>
+<script src="chat-history.js?v=48"></script>
+<script src="chat-compose.js?v=53"></script>
 <script src="emoji-data.js?v=1"></script>
 <script src="emoji-picker.js?v=46"></script>
 <script src="friends.js?v=45"></script>
 <script src="parties.js?v=45"></script>
 <script src="invites.js?v=45"></script>
 <script src="embeds.js?v=45"></script>
-<script src="mentions.js?v=3"></script>
-<script src="servers.js?v=57"></script>
+<script src="mentions.js?v=4"></script>
+<script src="servers.js?v=58"></script>
 <script src="members.js?v=3"></script>
 <script src="server-modals.js?v=47"></script>
 <script src="announcements.js?v=51"></script>
 <script src="comments.js?v=47"></script>
-<script src="forums.js?v=54"></script>
+<script src="forums.js?v=55"></script>
 <script src="docs.js?v=45"></script>
 </body>
 </html>

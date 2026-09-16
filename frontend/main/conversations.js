@@ -168,6 +168,7 @@ async function closeConversation(type, id) {
 
 function resetChatView() {
   if (typeof hideMemberList === "function") hideMemberList();
+  if (typeof clearPendingReply === "function") clearPendingReply();
   openChatType = null;
   openChatId = null;
   openChatName = null;
@@ -184,6 +185,7 @@ async function openDirectMessage(id, username) {
   if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
   if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
+  if (typeof clearPendingReply === "function") clearPendingReply();
   if (typeof hideMemberList === "function") hideMemberList();
   openChatType = "dm";
   openChatId = id;
@@ -210,7 +212,7 @@ async function openDirectMessage(id, username) {
     const data = await response.json();
     currentMessages = data.messages.map(msg => {
       const isMine = msg.sender_id !== id;
-      return applyDeletionFields({
+      const mapped = applyDeletionFields({
         id: msg.id,
         chatKind: "dm",
         isMine,
@@ -220,6 +222,7 @@ async function openDirectMessage(id, username) {
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
         time: new Date(msg.timestamp)
       }, msg);
+      return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
     });
     if (currentMessages.length < 25) hasMoreHistory = false;
     renderMessages();
@@ -233,6 +236,7 @@ async function openParty(id, name) {
   if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
   if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
+  if (typeof clearPendingReply === "function") clearPendingReply();
   openChatType = "party";
   openChatId = id;
   openChatName = name;

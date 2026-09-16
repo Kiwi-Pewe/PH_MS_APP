@@ -10,6 +10,7 @@ function disableComposer(message) {
   document.getElementById("composer-send-btn").disabled = true;
   document.getElementById("composer-plus-btn").disabled = true;
   document.getElementById("composer-emoji-btn").disabled = true;
+  clearPendingReply();
 }
 
 function enableComposer() {
@@ -18,6 +19,56 @@ function enableComposer() {
   document.getElementById("composer-send-btn").disabled = false;
   document.getElementById("composer-plus-btn").disabled = false;
   document.getElementById("composer-emoji-btn").disabled = false;
+}
+
+function replyBarIds(kind) {
+  if (kind === "channel" || kind === "forum") {
+    return { bar: "channel-composer-reply-bar", name: "channel-composer-reply-name", input: "channel-composer-input" };
+  }
+  return { bar: "composer-reply-bar", name: "composer-reply-name", input: "composer-input" };
+}
+
+function paintPendingReply() {
+  const homeBar = document.getElementById("composer-reply-bar");
+  const homeName = document.getElementById("composer-reply-name");
+  const channelBar = document.getElementById("channel-composer-reply-bar");
+  const channelName = document.getElementById("channel-composer-reply-name");
+  const homeActive = !!(pendingReply && (pendingReply.chatKind === "dm" || pendingReply.chatKind === "party"));
+  const channelActive = !!(pendingReply && (pendingReply.chatKind === "channel" || pendingReply.chatKind === "forum"));
+  if (homeBar) {
+    homeBar.hidden = !homeActive;
+    if (homeActive && homeName) homeName.textContent = pendingReply.username || "user";
+  }
+  if (channelBar) {
+    channelBar.hidden = !channelActive;
+    if (channelActive && channelName) channelName.textContent = pendingReply.username || "user";
+  }
+}
+
+function clearPendingReply() {
+  pendingReply = null;
+  paintPendingReply();
+}
+
+function startReply(msg) {
+  if (typeof canReplyMessage === "function" && !canReplyMessage(msg)) return;
+  pendingReply = {
+    id: msg.id,
+    chatKind: msg.chatKind,
+    senderId: msg.senderId,
+    username: msg.username,
+    content: msg.content || "",
+    mentionUsers: msg.mentionUsers || {}
+  };
+  paintPendingReply();
+  const input = document.getElementById(replyBarIds(msg.chatKind).input);
+  if (input && !input.disabled) {
+    input.focus();
+  }
+}
+
+function currentPendingReplyId(chatKind) {
+  return pendingReply && pendingReply.chatKind === chatKind ? pendingReply.id : null;
 }
 
 function disableChannelComposer(message) {
@@ -56,8 +107,8 @@ async function sendChatMessage() {
   const chatKind = openChatType === "party" ? "party" : "dm";
   const storedContent = chatKind === "party" && typeof encodeMentions === "function" ? encodeMentions(content) : content;
   const payload = openChatType === "party"
-    ? { type: "party_message", party_id: openChatId, content, attachment, temp_id: tempId }
-    : { type: "message", receiver_id: openChatId, content, attachment, temp_id: tempId };
+    ? { type: "party_message", party_id: openChatId, content, attachment, temp_id: tempId, reply_to_id: currentPendingReplyId(chatKind) }
+    : { type: "message", receiver_id: openChatId, content, attachment, temp_id: tempId, reply_to_id: currentPendingReplyId(chatKind) };
   ws.send(JSON.stringify(payload));
 
   currentMessages.push({
@@ -71,12 +122,20 @@ async function sendChatMessage() {
     time: new Date(),
     edited: false,
     reactions: [],
-    mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {}
+    mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {},
+    replyTo: pendingReply && pendingReply.chatKind === chatKind ? {
+      id: pendingReply.id,
+      sender_id: pendingReply.senderId,
+      username: pendingReply.username,
+      content: pendingReply.content,
+      deleted: false
+    } : null
   });
   renderMessages();
   bumpConversation(openChatType, openChatId, openChatName, false);
   input.value = "";
   clearPendingAttach();
+  clearPendingReply();
   autoGrowComposer();
   if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   if (typeof hideMentionPicker === "function") hideMentionPicker();
@@ -91,6 +150,11 @@ function autoGrowComposer() {
 document.getElementById("composer-input").addEventListener("input", autoGrowComposer);
 
 document.getElementById("composer-input").addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && pendingReply) {
+    e.preventDefault();
+    clearPendingReply();
+    return;
+  }
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     sendChatMessage();
@@ -119,10 +183,11 @@ async function sendChannelMessage() {
   // view, so openForumPostId decides where this send is addressed.
   const tempId = nextMessageTempId();
   const chatKind = openForumPostId !== null ? "forum" : "channel";
+  const replyToId = currentPendingReplyId(chatKind);
   if (openForumPostId !== null) {
-    ws.send(JSON.stringify({ type: "forum_message", post_id: openForumPostId, content, attachment, temp_id: tempId }));
+    ws.send(JSON.stringify({ type: "forum_message", post_id: openForumPostId, content, attachment, temp_id: tempId, reply_to_id: replyToId }));
   } else if (currentChannelId !== null) {
-    ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content, attachment, temp_id: tempId }));
+    ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content, attachment, temp_id: tempId, reply_to_id: replyToId }));
   } else {
     return;
   }
@@ -139,11 +204,19 @@ async function sendChannelMessage() {
     time: new Date(),
     edited: false,
     reactions: [],
-    mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {}
+    mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {},
+    replyTo: pendingReply && pendingReply.chatKind === chatKind ? {
+      id: pendingReply.id,
+      sender_id: pendingReply.senderId,
+      username: pendingReply.username,
+      content: pendingReply.content,
+      deleted: false
+    } : null
   });
   renderChannelMessages();
   input.value = "";
   clearPendingAttach();
+  clearPendingReply();
   autoGrowChannelComposer();
   if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   if (typeof hideMentionPicker === "function") hideMentionPicker();
@@ -158,6 +231,11 @@ function autoGrowChannelComposer() {
 document.getElementById("channel-composer-input").addEventListener("input", autoGrowChannelComposer);
 
 document.getElementById("channel-composer-input").addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && pendingReply) {
+    e.preventDefault();
+    clearPendingReply();
+    return;
+  }
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     sendChannelMessage();
@@ -261,3 +339,6 @@ async function confirmMessageEdit(msg) {
   if (typeof applyMentionFields === "function") applyMentionFields(msg, data);
   cancelMessageEdit();
 }
+
+document.getElementById("composer-reply-cancel").addEventListener("click", clearPendingReply);
+document.getElementById("channel-composer-reply-cancel").addEventListener("click", clearPendingReply);

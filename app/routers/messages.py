@@ -8,6 +8,7 @@ from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
+from app.routers.mentions import accepted_reply_parent, reply_map_for
 from datetime import datetime
 
 router = APIRouter()
@@ -49,11 +50,19 @@ def send_message(message: Message_schema, database: Session = Depends(get_db), c
 
     active_convo.closed_by_user_1 = False
     active_convo.closed_by_user_2 = False
+    parent = None
+    if message.reply_to_id:
+        candidate = database.query(Message).filter(Message.id == message.reply_to_id).first()
+        if accepted_reply_parent(candidate):
+            pair = {candidate.sender_id, candidate.receiver_id}
+            if current_user.id in pair and message.receiver_id in pair:
+                parent = candidate
     new_message = Message(sender_id = current_user.id, 
     receiver_id = message.receiver_id,
     content = message.content,
     attachment = attachment_json,
     read = False,
+    reply_to_id = parent.id if parent else None,
     )
     database.add(new_message)
     database.commit()
@@ -85,6 +94,7 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
     refresh_pending_messages(database, History)
     History.reverse()
     reaction_map = reactions_for_messages(database, "dm", [msg.id for msg in History], current_user.id)
+    reply_map = reply_map_for(database, Message, History)
     messages_out = []
     for msg in History:
         fields = deletion_fields(msg, attachment_public(msg.attachment))
@@ -100,6 +110,7 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
             "deletion_requested_at": fields["deletion_requested_at"],
             "edited": fields["edited"],
             "reactions": reaction_map.get(msg.id, []),
+            "reply_to": reply_map.get(msg.reply_to_id) if msg.reply_to_id else None,
         })
     return {"other_username": target_user.username, "session_username": current_user.username , "messages": messages_out}
 

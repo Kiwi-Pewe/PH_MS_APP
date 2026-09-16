@@ -9,7 +9,7 @@ from app.r2 import attachment_public, delete_attachment, require_message_body, s
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.realtime import serialize_member, server_broadcast
-from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions
+from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 import random
 
 router = APIRouter()
@@ -163,16 +163,21 @@ def message_server_channel(server_msg: Server_message, database: Session = Depen
         raise HTTPException(status_code=404, detail= "Server membership not found.")
 
     require_message_body(server_msg.content, server_msg.attachment)
+    parent = None
+    if server_msg.reply_to_id:
+        candidate = database.query(Channel_messages).filter(Channel_messages.id == server_msg.reply_to_id, Channel_messages.channel_id == channel.id).first()
+        parent = accepted_reply_parent(candidate)
     new_message = Channel_messages(
         sender_id= current_user.id,
         channel_id = channel.id,
         content= server_msg.content,
         attachment=store_attachment(server_msg.attachment, current_user),
+        reply_to_id= parent.id if parent else None,
     )
     database.add(new_message)
     database.flush()
     member_ids = [row.user_id for row in database.query(Server_members).filter(Server_members.server_id == server.id).all()]
-    apply_channel_mentions(database, new_message, server, member_ids)
+    apply_channel_mentions(database, new_message, server, member_ids, reply_author_id= parent.sender_id if parent else None)
     seed_channel_unread(database, channel.id, member_ids, current_user.id, new_message.timestamp)
     stamp_channel_view(database, channel.id, current_user.id)
     database.commit()
@@ -205,6 +210,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
     username_lookup = {account.id: account.username for account in accounts}
     reaction_map = reactions_for_messages(database, "channel", [message.id for message in channel_history], current_user.id)
     mention_meta = decorate_history(database, "channel", channel_history, current_user.id)
+    reply_map = reply_map_for(database, Channel_messages, channel_history)
 
     message_history = []
     for index, message in enumerate(channel_history):
@@ -219,6 +225,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
             "reactions": reaction_map.get(message.id, []),
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
+            "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,
         })
 
     message_history.reverse()

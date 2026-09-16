@@ -3,9 +3,9 @@ from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from app.models import Parties, Party_members, Servers, Server_members, Server_categories, Server_channels, Forum_post
+from app.models import Parties, Party_members, Servers, Server_members, Server_categories, Server_channels, Forum_post, Message, Party_messages, Channel_messages, Forum_messages
 from app.schemas import Attachment_in, Message_schema, Party_message_schema, Server_message, Forum_message_create
-from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns
+from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns, ensure_reply_columns
 from app.auth import validate_session
 from app.r2 import attachment_public
 from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions
@@ -17,7 +17,7 @@ from app.routers.servers import message_server_channel
 from app.routers.forums import send_forum_message
 from app.routers.docs import release_doc_locks
 from app.routers.invites import check_invites
-from app.routers.mentions import mentioned_user_ids, mention_user_map
+from app.routers.mentions import mentioned_user_ids, mention_user_map, live_reply_to
 from app.routers.deletion import sweep_pending_deletes
 import asyncio
 
@@ -36,6 +36,7 @@ Base.metadata.create_all(engine)
 ensure_attachment_columns()
 ensure_deletion_columns()
 ensure_edited_columns()
+ensure_reply_columns()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://oneira.cc"],
@@ -91,7 +92,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     sender_id = current_user.id,
                     receiver_id = data["receiver_id"],
                     content= data.get("content") or "",
-                    attachment= ws_attachment(data))
+                    attachment= ws_attachment(data),
+                    reply_to_id= data.get("reply_to_id"))
                     new_message = send_message(message=new_message, database=database, current_user=current_user)
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
@@ -111,7 +113,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     "sender_id": current_user.id,
                     "content": data.get("content") or "",
                     "attachment": attachment_public(new_message.attachment),
-                    "timestamp": str(new_message.timestamp)})
+                    "timestamp": str(new_message.timestamp),
+                    "reply_to": live_reply_to(database, Message, new_message.reply_to_id)})
             elif data["type"] == "party_message":
                 try:
                     new_party_message = Party_message_schema(
@@ -119,6 +122,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     party_id= data["party_id"],
                     content= data.get("content") or "",
                     attachment= ws_attachment(data),
+                    reply_to_id= data.get("reply_to_id"),
                     )
                     new_party_message = message_party(party_msg= new_party_message,database=database, current_user=current_user)
                 except HTTPException as e:
@@ -134,6 +138,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 all_members = database.query(Party_members).filter(Party_members.party_id == data["party_id"]).all()
                 pinged_ids = mentioned_user_ids(database, "party", new_party_message.id)
                 users_map = mention_user_map(database, new_party_message.content)
+                reply_to = live_reply_to(database, Party_messages, new_party_message.reply_to_id)
 
                 for member in all_members:
                     if member.user_id != current_user.id and member.user_id in active_connections:
@@ -148,7 +153,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "attachment": attachment_public(new_party_message.attachment),
                             "timestamp": str(new_party_message.timestamp),
                             "mentioned": member.user_id in pinged_ids,
-                            "mention_users": users_map
+                            "mention_users": users_map,
+                            "reply_to": reply_to
                         })            
             elif data["type"] == "leave_party":
                     
@@ -181,6 +187,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     channel_id= data["channel_id"],
                     content = data.get("content") or "",
                     attachment= ws_attachment(data),
+                    reply_to_id= data.get("reply_to_id"),
                     )
                     new_server_msg = message_server_channel(server_msg= new_server_msg, database=database, current_user=current_user)
                 except HTTPException as e:
@@ -200,6 +207,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 all_members = database.query(Server_members).filter(Server_members.server_id == server.id).all()
                 pinged_ids = mentioned_user_ids(database, "channel", new_server_msg.id)
                 users_map = mention_user_map(database, new_server_msg.content)
+                reply_to = live_reply_to(database, Channel_messages, new_server_msg.reply_to_id)
                 for member in all_members:
                     if member.user_id != current_user.id and member.user_id in active_connections:
                         await active_connections[member.user_id].send_json({
@@ -213,7 +221,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "attachment": attachment_public(new_server_msg.attachment),
                             "timestamp": str(new_server_msg.timestamp),
                             "mentioned": member.user_id in pinged_ids,
-                            "mention_users": users_map
+                            "mention_users": users_map,
+                            "reply_to": reply_to
                         })
             elif data["type"] == "forum_message":
                 try:
@@ -221,6 +230,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     post_id = data["post_id"],
                     content = data.get("content") or "",
                     attachment= ws_attachment(data),
+                    reply_to_id= data.get("reply_to_id"),
                     )
                     new_forum_msg = await send_forum_message(forum_message= new_forum_msg, database=database, current_user=current_user)
                 except HTTPException as e:
@@ -255,7 +265,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "attachment": new_forum_msg.get("attachment"),
                             "timestamp": new_forum_msg["timestamp"],
                             "mentioned": member.user_id in pinged_ids,
-                            "mention_users": users_map
+                            "mention_users": users_map,
+                            "reply_to": new_forum_msg.get("reply_to")
                         })
 
     except WebSocketDisconnect:

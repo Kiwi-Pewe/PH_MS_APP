@@ -88,7 +88,7 @@ function connectSocket() {
       const isOpen = openChatType === "dm" && openChatId === data.sender_id;
       bumpConversation("dm", data.sender_id, data.username, !isOpen);
       if (isOpen) {
-        currentMessages.push({
+        const row = {
           id: data.id,
           chatKind: "dm",
           isMine: false,
@@ -99,7 +99,9 @@ function connectSocket() {
           time: data.timestamp ? new Date(data.timestamp) : new Date(),
           edited: false,
           reactions: []
-        });
+        };
+        if (typeof applyMentionFields === "function") applyMentionFields(row, data);
+        currentMessages.push(row);
         renderMessages();
       }
     }

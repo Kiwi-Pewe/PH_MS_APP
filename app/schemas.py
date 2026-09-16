@@ -20,6 +20,7 @@ class Message_schema(BaseModel):
     receiver_id: int
     content: str = ""
     attachment: Attachment_in | None = None
+    reply_to_id: int | None = None
 
 class Session_logger(BaseModel):
     session_id: str
@@ -46,6 +47,7 @@ class Party_message_schema(BaseModel):
     party_id: int
     content: str = ""
     attachment: Attachment_in | None = None
+    reply_to_id: int | None = None
 
 class Server_create(BaseModel):
     name: str
@@ -55,6 +57,7 @@ class Server_message(BaseModel):
     channel_id: int
     content: str = ""
     attachment: Attachment_in | None = None
+    reply_to_id: int | None = None
 
 class Invite(BaseModel):
     type: str
@@ -94,6 +97,7 @@ class Forum_message_create(BaseModel):
     post_id: int
     content: str = ""
     attachment: Attachment_in | None = None
+    reply_to_id: int | None = None
 
 class Doc_save(BaseModel):
     channel_id: int

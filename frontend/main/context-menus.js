@@ -16,7 +16,7 @@ function showMessageContextMenu(e, msg) {
     // Discord's other add path. Not built this pass — keep the note.
     canReactMessage(msg) && { label: "Add Reaction", onSelect: () => openReactionPicker(msg, e.clientX, e.clientY) },
     canEditMessage(msg) && { label: "Edit Message", onSelect: () => startMessageEdit(msg) },
-    { label: "Reply", onSelect: () => console.log("Reply — not implemented yet") },
+    canReplyMessage(msg) && { label: "Reply", onSelect: () => startReply(msg) },
     { label: "Pin", onSelect: () => console.log("Pin — not implemented yet") },
     canDeleteMessage(msg) && { label: "Delete Message", danger: true, onSelect: () => deleteMessageFromContextMenu(msg) }
   ]);
@@ -67,6 +67,13 @@ async function toggleReaction(msg, emoji) {
   } catch (e) {
     console.error("Failed to react, network error:", e);
   }
+}
+
+function canReplyMessage(msg) {
+  if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
+  if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
+  if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
+  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "channel" || msg.chatKind === "forum";
 }
 
 function canEditMessage(msg) {

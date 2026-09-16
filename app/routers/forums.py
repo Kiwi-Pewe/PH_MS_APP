@@ -6,7 +6,7 @@ from app.schemas import Forum_message_create, Forum_post_create, Edit_forum
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_message_body, require_post_body, store_attachment, store_post_attachments
-from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, clear_mentions
+from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, clear_mentions, accepted_reply_parent, reply_map_for, reply_to_payload
 from app.routers.realtime import server_broadcast
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
@@ -212,15 +212,20 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
         raise HTTPException(status_code= 404, detail="Membership not found")
 
     require_message_body(forum_message.content, forum_message.attachment)
+    parent = None
+    if forum_message.reply_to_id:
+        candidate = database.query(Forum_messages).filter(Forum_messages.id == forum_message.reply_to_id, Forum_messages.post_id == forum_message.post_id).first()
+        parent = accepted_reply_parent(candidate, author_attr= "author_id")
     new_message = Forum_messages(
         post_id = forum_message.post_id,
         author_id = current_user.id,
         content = forum_message.content,
         attachment = store_attachment(forum_message.attachment, current_user),
+        reply_to_id = parent.id if parent else None,
     )
     database.add(new_message)
     database.flush()
-    new_message.content = apply_server_text_mentions(database, new_message.content, "forum", new_message.id, server, channel.id, seed= True, sender_id= current_user.id)
+    new_message.content = apply_server_text_mentions(database, new_message.content, "forum", new_message.id, server, channel.id, seed= True, sender_id= current_user.id, reply_author_id= parent.author_id if parent else None)
 
     post_exist.message_count = (post_exist.message_count or 0) + 1
     post_exist.last_activity_at = datetime.utcnow()
@@ -246,7 +251,8 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
         "content": new_message.content,
         "attachment": attachment_public(new_message.attachment),
         "timestamp": str(new_message.created_at),
-        "mention_users": mention_user_map(database, new_message.content)
+        "mention_users": mention_user_map(database, new_message.content),
+        "reply_to": reply_to_payload(database, parent, author_attr= "author_id")
     }
 
 @router.get("/get_forum_messages/{post_id}")
@@ -272,6 +278,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(author_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
     mention_meta = decorate_ids(database, "forum", [message.id for message in message_list], [message.content for message in message_list], current_user.id)
+    reply_map = reply_map_for(database, Forum_messages, message_list, author_attr= "author_id")
 
     forum_messages = []
     for index, message in enumerate(message_list):
@@ -286,6 +293,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
             "edited": bool(message.edited),
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
+            "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,
         })
 
     forum_messages.reverse()

@@ -7,7 +7,7 @@ from app.auth import get_current_user
 from app.r2 import attachment_public, delete_attachment, store_attachment
 from app.routers.deletion import delete_message, notify_party, notify_user
 from app.routers.realtime import server_broadcast
-from app.routers.mentions import apply_channel_mentions, apply_party_mentions, mention_user_map, message_mentioned
+from app.routers.mentions import apply_channel_mentions, apply_party_mentions, apply_server_text_mentions, mention_user_map, message_mentioned
 
 router = APIRouter()
 
@@ -144,6 +144,8 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
         if msg.author_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized to edit message")
         changed = apply_edit(msg, content, edit.attachment, current_user)
+        if changed:
+            msg.content = apply_server_text_mentions(database, msg.content, "forum", msg.id, server, post.channel_id)
         database.commit()
         if changed:
             payload = {
@@ -154,9 +156,10 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
                 "channel_id": post.channel_id,
                 "content": msg.content,
                 "attachment": attachment_public(msg.attachment),
-                "edited": True
+                "edited": True,
+                "mention_users": mention_user_map(database, msg.content)
             }
             await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed}
+        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed, "mentioned": message_mentioned(database, "forum", msg.id, current_user.id), "mention_users": mention_user_map(database, msg.content)}
 
     raise HTTPException(status_code=400, detail="This message type cannot be edited yet")

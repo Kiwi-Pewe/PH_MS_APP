@@ -6,6 +6,7 @@ from app.schemas import Forum_message_create, Forum_post_create, Edit_forum
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_message_body, require_post_body, store_attachment, store_post_attachments
+from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, clear_mentions
 from app.routers.realtime import server_broadcast
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
@@ -39,16 +40,21 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
         attachment = attachment_json,
     )
     database.add(new_post)
+    database.flush()
+    new_post.body = apply_server_text_mentions(database, new_post.body, "forum_post", new_post.id, server, channel_exist.id, seed= True, sender_id= current_user.id)
     database.commit()
     database.refresh(new_post)
     public_attachment = post_attachments_public(new_post.attachment)
+    users_map = mention_user_map(database, new_post.body)
     payload = {
         "type": "post_forum",
         "post_id": new_post.id,
-        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False}
+        "server_id": server.id,
+        "channel_id": channel_exist.id,
+        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map}
     }
     await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
-    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False}
+    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map}
 
 @router.get("/get_forum_post/{channel_id}")
 async def get_forum_post(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_activity: datetime = None, before_id: int = None):
@@ -77,9 +83,10 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(author_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
     reaction_map = reactions_for_messages(database, "forum_post", [post.id for post in post_list], current_user.id)
+    mention_meta = decorate_ids(database, "forum_post", [post.id for post in post_list], [post.body for post in post_list], current_user.id)
 
     picked_posts = []
-    for post in post_list:
+    for index, post in enumerate(post_list):
         picked_posts.append({
             "id": post.id,
             "author_id": post.author_id,
@@ -91,7 +98,9 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
             "message_count": post.message_count,
             "last_activity": str(post.last_activity_at),
             "edited": bool(post.edited),
-            "reactions": reaction_map.get(post.id, [])
+            "reactions": reaction_map.get(post.id, []),
+            "mentioned": mention_meta[index]["mentioned"],
+            "mention_users": mention_meta[index]["mention_users"],
         })
     return {"channel_id": channel.id, "forum_posts": picked_posts}
 
@@ -117,19 +126,22 @@ async def edit_forum_post(edit: Edit_forum, database: Session = Depends(get_db),
 
     old_keys = [item.get("key") for item in post_attachments_public(post.attachment) if item.get("key")]
     new_keys = [item.key for item in items]
-    same = (post.title or "") == title and (post.body or "") == body and old_keys == new_keys
+    tokenized = apply_server_text_mentions(database, body, "forum_post", post.id, server, post.channel_id)
+    same = (post.title or "") == title and (post.body or "") == tokenized and old_keys == new_keys
     if same:
-        return {"id": post.id, "title": post.title, "body": post.body, "attachment": post_attachments_public(post.attachment), "edited": bool(post.edited), "unchanged": True}
+        database.commit()
+        return {"id": post.id, "title": post.title, "body": post.body, "attachment": post_attachments_public(post.attachment), "edited": bool(post.edited), "unchanged": True, "mention_users": mention_user_map(database, post.body)}
 
     for key in set(old_keys) - set(new_keys):
         delete_r2_object(key)
 
     post.title = title
-    post.body = body
+    post.body = tokenized
     post.attachment = store_post_attachments(items, current_user)
     post.edited = True
     database.commit()
     public_attachment = post_attachments_public(post.attachment)
+    users_map = mention_user_map(database, post.body)
     payload = {
         "type": "forum_post_edited",
         "channel_id": post.channel_id,
@@ -137,10 +149,11 @@ async def edit_forum_post(edit: Edit_forum, database: Session = Depends(get_db),
         "title": post.title,
         "body": post.body,
         "attachment": public_attachment,
-        "edited": True
+        "edited": True,
+        "mention_users": users_map
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-    return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": True, "unchanged": False}
+    return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": True, "unchanged": False, "mention_users": users_map}
 
 @router.post("/delete_forum/{post_id}")
 async def delete_forum_post(post_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -167,10 +180,12 @@ async def delete_forum_post(post_id: int, database: Session = Depends(get_db), c
     })
     thread_messages = database.query(Forum_messages).filter(Forum_messages.post_id == post_id).all()
     for msg in thread_messages:
+        clear_mentions(database, "forum", msg.id)
         delete_attachment(msg.attachment)
         database.delete(msg)
 
     clear_reactions(database, "forum_post", post_id)
+    clear_mentions(database, "forum_post", post_id)
     delete_attachment(post.attachment)
     database.delete(post)
     database.commit()
@@ -204,6 +219,8 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
         attachment = store_attachment(forum_message.attachment, current_user),
     )
     database.add(new_message)
+    database.flush()
+    new_message.content = apply_server_text_mentions(database, new_message.content, "forum", new_message.id, server, channel.id, seed= True, sender_id= current_user.id)
 
     post_exist.message_count = (post_exist.message_count or 0) + 1
     post_exist.last_activity_at = datetime.utcnow()
@@ -228,7 +245,8 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
         "username": current_user.username,
         "content": new_message.content,
         "attachment": attachment_public(new_message.attachment),
-        "timestamp": str(new_message.created_at)
+        "timestamp": str(new_message.created_at),
+        "mention_users": mention_user_map(database, new_message.content)
     }
 
 @router.get("/get_forum_messages/{post_id}")
@@ -253,9 +271,10 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
     author_ids = list({message.author_id for message in message_list})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(author_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
+    mention_meta = decorate_ids(database, "forum", [message.id for message in message_list], [message.content for message in message_list], current_user.id)
 
     forum_messages = []
-    for message in message_list:
+    for index, message in enumerate(message_list):
         forum_messages.append({
             "id": message.id,
             "post_id": message.post_id,
@@ -264,7 +283,9 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
             "content": message.content,
             "attachment": attachment_public(message.attachment),
             "timestamp": str(message.created_at),
-            "edited": bool(message.edited)
+            "edited": bool(message.edited),
+            "mentioned": mention_meta[index]["mentioned"],
+            "mention_users": mention_meta[index]["mention_users"],
         })
 
     forum_messages.reverse()

@@ -127,7 +127,7 @@ async function sendChannelMessage() {
     return;
   }
 
-  const storedContent = chatKind === "channel" && typeof encodeMentions === "function" ? encodeMentions(content) : content;
+  const storedContent = (chatKind === "channel" || chatKind === "forum") && typeof encodeMentions === "function" ? encodeMentions(content) : content;
   currentChannelMessages.push({
     tempId,
     chatKind,

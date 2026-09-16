@@ -89,17 +89,19 @@ def mentioned_user_ids(database, kind, message_id):
     ).all()
     return [row.user_id for row in rows]
 
-def decorate_history(database, kind, messages, user_id):
-    ids = [message.id for message in messages]
+def decorate_ids(database, kind, ids, texts, user_id):
     pinged = mentioned_map(database, kind, ids, user_id)
-    maps = mention_user_maps(database, [message.content for message in messages])
+    maps = mention_user_maps(database, texts)
     out = []
-    for index, message in enumerate(messages):
+    for index, item_id in enumerate(ids):
         out.append({
-            "mentioned": pinged.get(message.id, False),
+            "mentioned": pinged.get(item_id, False),
             "mention_users": maps[index]
         })
     return out
+
+def decorate_history(database, kind, messages, user_id):
+    return decorate_ids(database, kind, [message.id for message in messages], [message.content for message in messages], user_id)
 
 def message_mentioned(database, kind, message_id, user_id):
     row = database.query(Message_mention).filter(
@@ -121,6 +123,9 @@ def mentioned_map(database, kind, message_ids, user_id):
 
 def clear_mentions(database, kind, message_id):
     database.query(Message_mention).filter(Message_mention.kind == kind, Message_mention.message_id == message_id).delete()
+
+def clear_channel_mentions(database, channel_id):
+    database.query(Message_mention).filter(Message_mention.channel_id == channel_id).delete()
 
 def write_mentions(database, kind, message_id, user_ids, server_id=None, channel_id=None, party_id=None):
     clear_mentions(database, kind, message_id)
@@ -161,6 +166,17 @@ def apply_party_mentions(database, message, member_ids):
     write_mentions(database, "party", message.id, targets, party_id= message.party_id)
     return content, list(targets)
 
+def apply_server_text_mentions(database, text, kind, message_id, server, channel_id, seed=False, sender_id=None):
+    member_ids = [row.user_id for row in database.query(Server_members).filter(Server_members.server_id == server.id).all()]
+    members = member_records(database, member_ids)
+    content, pinged = tokenize_mentions(text or "", members)
+    online_ids = [uid for uid in member_ids if uid in active_connections]
+    targets = expand_pinged(pinged, member_ids, online_ids)
+    write_mentions(database, kind, message_id, targets, server_id= server.id, channel_id= channel_id)
+    if seed:
+        seed_channel_unread(database, channel_id, member_ids, sender_id, datetime.utcnow())
+    return content
+
 def stamp_channel_view(database, channel_id, user_id):
     row = database.query(Channel_last_viewed).filter(
         Channel_last_viewed.channel_id == channel_id,
@@ -189,7 +205,6 @@ def channel_notice(database, channel_id, user_id):
     ).first() is not None
 
     mention_count = database.query(func.count(Message_mention.id)).filter(
-        Message_mention.kind == "channel",
         Message_mention.channel_id == channel_id,
         Message_mention.user_id == user_id,
         Message_mention.created_at > since

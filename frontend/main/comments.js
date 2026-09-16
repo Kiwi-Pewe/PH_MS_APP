@@ -36,7 +36,9 @@ function buildCommentElement(comment) {
 
   const content = document.createElement("div");
   content.className = "announce-comment-content";
-  content.textContent = comment.content;
+  if (typeof applyMentionFields === "function") applyMentionFields(comment, comment);
+  if (typeof fillMentionText === "function") fillMentionText(content, comment.content, comment.mentionUsers);
+  else content.textContent = comment.content;
   const reactionsHost = document.createElement("div");
   reactionsHost.className = "announce-comment-reactions";
   const addReactionBtn = document.createElement("button");
@@ -71,7 +73,7 @@ function showCommentContextMenu(e, comment) {
     avatarText: avatarLetter(comment.username),
     title: comment.username,
     timestamp: formatClusterTime(parseUtcTimestamp(comment.created_at)),
-    subtitle: truncateForContextMenu(comment.content)
+    subtitle: truncateForContextMenu(typeof mentionDisplayText === "function" ? mentionDisplayText(comment.content, comment.mentionUsers) : comment.content)
   }, [
     { label: "Copy Comment", onSelect: () => copyCommentContent(comment) },
     { label: "Add Reaction", onSelect: () => openReactionPicker(commentReactionTarget(comment), e.clientX, e.clientY) },
@@ -130,7 +132,7 @@ function patchCommentReactions(commentId, reactions) {
 
 async function copyCommentContent(comment) {
   try {
-    await navigator.clipboard.writeText(comment.content);
+    await navigator.clipboard.writeText(typeof mentionDisplayText === "function" ? mentionDisplayText(comment.content, comment.mentionUsers) : comment.content);
   } catch (e) {
     console.error("Failed to copy comment, clipboard error:", e);
   }
@@ -217,6 +219,7 @@ async function fetchComments(postId, limit) {
     const data = await response.json();
     const incoming = (data.comments || []).map(c => {
       c.reactions = applyReactionMe(c.reactions || []);
+      if (typeof applyMentionFields === "function") applyMentionFields(c, c);
       return c;
     });
     state.comments = state.comments.concat(incoming);
@@ -248,8 +251,11 @@ async function submitComment(postId, inputEl) {
     return;
   }
   inputEl.value = "";
+  if (typeof refreshComposerMentions === "function") refreshComposerMentions(inputEl);
+  if (typeof hideMentionPicker === "function") hideMentionPicker();
 
   const comment = { id: result.id, post_id: postId, sender_id: myUserId, content: result.content, created_at: result.created_at, username: myUsername, reactions: [] };
+  if (typeof applyMentionFields === "function") applyMentionFields(comment, result);
   const state = commentThreadState[postId] || (commentThreadState[postId] = { expanded: true, comments: [], hasMore: false });
   state.comments.push(comment);
   const els = commentThreadElements[postId];

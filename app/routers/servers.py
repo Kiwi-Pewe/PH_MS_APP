@@ -9,7 +9,7 @@ from app.r2 import attachment_public, delete_attachment, require_message_body, s
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.realtime import serialize_member, server_broadcast
-from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread
+from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions
 import random
 
 router = APIRouter()
@@ -293,8 +293,10 @@ def purge_channel_contents(database, channel):
         comments = database.query(Announcement_comment).filter(Announcement_comment.post_id == post.id).all()
         for comment in comments:
             clear_reactions(database, "comment", comment.id)
+            clear_mentions(database, "comment", comment.id)
             database.delete(comment)
         clear_reactions(database, "announcement", post.id)
+        clear_mentions(database, "announcement", post.id)
         delete_attachment(post.attachment)
         database.delete(post)
 
@@ -302,9 +304,11 @@ def purge_channel_contents(database, channel):
     for post in forum_posts:
         thread_messages = database.query(Forum_messages).filter(Forum_messages.post_id == post.id).all()
         for message in thread_messages:
+            clear_mentions(database, "forum", message.id)
             delete_attachment(message.attachment)
             database.delete(message)
         clear_reactions(database, "forum_post", post.id)
+        clear_mentions(database, "forum_post", post.id)
         delete_attachment(post.attachment)
         database.delete(post)
 
@@ -312,6 +316,7 @@ def purge_channel_contents(database, channel):
     if page:
         database.delete(page)
 
+    clear_channel_mentions(database, channel.id)
     database.delete(channel)
 
 @router.post("/delete_channel/{channel_id}")

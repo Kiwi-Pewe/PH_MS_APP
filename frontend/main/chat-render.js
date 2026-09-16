@@ -524,7 +524,11 @@ function buildForumStartCard(title, body, attachment, edited) {
 
   const desc = document.createElement("div");
   desc.className = "convo-start-desc";
-  desc.textContent = body || `This is the start of ${title || "this post"}.`;
+  if (body && typeof fillMentionText === "function") {
+    fillMentionText(desc, body, typeof openForumPostMentionUsers !== "undefined" ? openForumPostMentionUsers : {});
+  } else {
+    desc.textContent = body || `This is the start of ${title || "this post"}.`;
+  }
 
   card.appendChild(avatar);
   card.appendChild(nameRow);

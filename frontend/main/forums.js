@@ -22,6 +22,7 @@ function showForumComposerEditing() {
   document.getElementById("forum-composer-default").style.display = "none";
   document.getElementById("forum-composer-editing").style.display = "flex";
   document.getElementById("forum-title-input").focus();
+  if (typeof refreshComposerMentions === "function") refreshComposerMentions(document.getElementById("forum-body-input"));
 }
 
 // Same shape as autoGrowComposer: measure with height cleared, then set
@@ -35,6 +36,7 @@ function autoGrowForumBody() {
 document.getElementById("forum-body-input").addEventListener("input", autoGrowForumBody);
 
 function hideForumComposerEditing() {
+  if (typeof hideMentionPicker === "function") hideMentionPicker();
   document.getElementById("forum-composer-editing").style.display = "none";
   document.getElementById("forum-composer-default").style.display = "flex";
   if (typeof clearPostMedia === "function") clearPostMedia("forum");
@@ -85,7 +87,8 @@ async function submitCreateForumPost() {
     author_id: myUserId,
     author_username: myUsername,
     edited: false,
-    reactions: []
+    reactions: [],
+    mention_users: post.mention_users
   });
 }
 
@@ -110,6 +113,7 @@ function prependNewForumPost(post) {
 // post. createElement/textContent throughout, never innerHTML - title
 // and body are user text.
 function buildForumPostCard(post) {
+  if (typeof applyMentionFields === "function") applyMentionFields(post, post);
   const card = document.createElement("div");
   card.className = "forum-post";
   card.dataset.postId = post.id;
@@ -186,6 +190,7 @@ async function openForumPost(post) {
   openForumPostBody = post.body || "";
   openForumPostAttachment = post.attachment || null;
   openForumPostEdited = !!post.edited;
+  openForumPostMentionUsers = post.mentionUsers || post.mention_users || {};
 
   document.getElementById("forums-view").style.display = "none";
   document.getElementById("channel-body").style.display = "flex";
@@ -204,16 +209,19 @@ async function openForumPost(post) {
     const response = await fetch(`https://${serverAddress}/get_forum_messages/${post.id}`, { credentials: "include" });
     if (!response.ok) { renderChannelMessages(); return; }
     const data = await response.json();
-    currentChannelMessages = (data.forum_post_messages || []).map(msg => applyDeletionFields({
-      id: msg.id,
-      chatKind: "forum",
-      isMine: msg.author_id === myUserId,
-      senderId: msg.author_id,
-      username: msg.username,
-      content: msg.content,
-      attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-      time: parseUtcTimestamp(msg.timestamp)
-    }, msg));
+    currentChannelMessages = (data.forum_post_messages || []).map(msg => {
+      const mapped = applyDeletionFields({
+        id: msg.id,
+        chatKind: "forum",
+        isMine: msg.author_id === myUserId,
+        senderId: msg.author_id,
+        username: msg.username,
+        content: msg.content,
+        attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
+        time: parseUtcTimestamp(msg.timestamp)
+      }, msg);
+      return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
+    });
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
     renderChannelMessages();
   } catch (e) { renderChannelMessages(); }
@@ -230,6 +238,7 @@ function closeForumPost() {
   openForumPostBody = null;
   openForumPostAttachment = null;
   openForumPostEdited = false;
+  openForumPostMentionUsers = {};
   currentChannelMessages = [];
 
   document.getElementById("forum-back-btn").style.display = "none";
@@ -458,7 +467,8 @@ function fillForumPostContent(card, post) {
   author.textContent = `${post.author_username || "Unknown"}:`;
   const body = document.createElement("span");
   body.className = "forum-post-body";
-  body.textContent = post.body;
+  if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers);
+  else body.textContent = post.body;
   line.appendChild(author);
   line.appendChild(body);
   wrap.appendChild(line);
@@ -489,6 +499,7 @@ function originalForumAttachmentKeys(post) {
 
 function abandonForumEdit() {
   if (typeof closeEmojiPicker === "function") closeEmojiPicker();
+  if (typeof hideMentionPicker === "function") hideMentionPicker();
   const postId = editingForumPostId;
   editingForumPostId = null;
   if (typeof clearPostMedia === "function") clearPostMedia("forumEdit");
@@ -555,7 +566,9 @@ function fillForumPostEditor(card, post) {
   bodyInput.className = "announce-composer-body-input";
   bodyInput.placeholder = "Enter a message...";
   bodyInput.rows = 3;
-  bodyInput.value = post.body || "";
+  bodyInput.value = typeof mentionDisplayText === "function"
+    ? mentionDisplayText(post.body || "", post.mentionUsers)
+    : (post.body || "");
   bodyInput.addEventListener("input", () => autoGrowPostBodyInput(bodyInput));
   bodyInput.addEventListener("contextmenu", (e) => e.stopPropagation());
   bodyWrap.appendChild(bodyInput);
@@ -606,7 +619,9 @@ function fillForumPostEditor(card, post) {
   wrap.appendChild(editor);
 
   if (typeof bindPostMediaButton === "function") bindPostMediaButton("forumEdit", addBtn);
+  if (typeof bindMentionComposer === "function") bindMentionComposer(bodyInput);
   autoGrowPostBodyInput(bodyInput);
+  if (typeof refreshComposerMentions === "function") refreshComposerMentions(bodyInput);
   titleInput.focus();
 }
 
@@ -621,6 +636,7 @@ function applyForumPostEdit(data) {
     post.body = data.body;
     post.attachment = data.attachment;
     post.edited = !!data.edited;
+    if (typeof applyMentionFields === "function") applyMentionFields(post, data);
     const card = document.querySelector(`.forum-post[data-post-id="${post.id}"]`);
     if (card) fillForumPostContent(card, post);
   }
@@ -630,6 +646,7 @@ function applyForumPostEdit(data) {
     openForumPostBody = data.body || "";
     openForumPostAttachment = data.attachment || null;
     openForumPostEdited = !!data.edited;
+    openForumPostMentionUsers = (post && post.mentionUsers) || data.mention_users || {};
     const header = document.getElementById("channel-header-title");
     if (header) header.textContent = data.title;
     if (typeof renderChannelMessages === "function") renderChannelMessages({ preserveScroll: true });
@@ -644,7 +661,10 @@ async function confirmForumEdit(post) {
   const pending = postMediaPending.forumEdit.files;
   if (!title || (!body && !pending.length)) return;
 
-  if (title === (post.title || "") && body === (post.body || "") && forumEditAttachmentKeys() === originalForumAttachmentKeys(post)) {
+  const originalBody = typeof mentionDisplayText === "function"
+    ? mentionDisplayText(post.body || "", post.mentionUsers).trim()
+    : (post.body || "");
+  if (title === (post.title || "") && body === originalBody && forumEditAttachmentKeys() === originalForumAttachmentKeys(post)) {
     abandonForumEdit();
     return;
   }
@@ -679,5 +699,6 @@ async function confirmForumEdit(post) {
   post.body = data.body;
   post.attachment = data.attachment;
   post.edited = !!data.edited;
+  if (typeof applyMentionFields === "function") applyMentionFields(post, data);
   abandonForumEdit();
 }

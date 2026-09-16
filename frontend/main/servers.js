@@ -156,6 +156,7 @@ function renderServerSidebar(data) {
 }
 
 async function selectChannel(channel, rowEl) {
+  if (typeof hideMentionPicker === "function") hideMentionPicker();
   if (typeof abandonMessageEdit === "function") abandonMessageEdit();
   if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
   if (typeof abandonForumEdit === "function") abandonForumEdit();
@@ -170,6 +171,7 @@ async function selectChannel(channel, rowEl) {
   openForumPostBody = null;
   openForumPostAttachment = null;
   openForumPostEdited = false;
+  openForumPostMentionUsers = {};
   document.getElementById("forum-back-btn").style.display = "none";
   hideDocsChrome();
 
@@ -296,6 +298,7 @@ function showNoChannelSelected() {
   openForumPostBody = null;
   openForumPostAttachment = null;
   openForumPostEdited = false;
+  openForumPostMentionUsers = {};
   const back = document.getElementById("forum-back-btn");
   if (back) back.style.display = "none";
 

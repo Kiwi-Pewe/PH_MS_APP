@@ -239,18 +239,23 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 server = database.query(Servers).filter(Servers.id == category.server_id).first()
 
                 all_members = database.query(Server_members).filter(Server_members.server_id == server.id).all()
+                pinged_ids = mentioned_user_ids(database, "forum", new_forum_msg["id"])
+                users_map = mention_user_map(database, new_forum_msg.get("content") or "")
                 for member in all_members:
                     if member.user_id != current_user.id and member.user_id in active_connections:
                         await active_connections[member.user_id].send_json({
                             "type": "forum_message",
                             "post_id": post.id,
                             "channel_id": channel.id,
+                            "server_id": server.id,
                             "id": new_forum_msg["id"],
                             "sender_id": current_user.id,
                             "username": current_user.username,
-                            "content": data.get("content") or "",
+                            "content": new_forum_msg.get("content") or "",
                             "attachment": new_forum_msg.get("attachment"),
-                            "timestamp": new_forum_msg["timestamp"]
+                            "timestamp": new_forum_msg["timestamp"],
+                            "mentioned": member.user_id in pinged_ids,
+                            "mention_users": users_map
                         })
 
     except WebSocketDisconnect:

@@ -57,6 +57,21 @@ function applyMentionFields(target, raw) {
   return target;
 }
 
+function fillMentionText(el, text, mentionUsers) {
+  if (!el) return;
+  el.replaceChildren();
+  appendMentionAwareText(el, text || "", { mentionUsers: mentionUsers || {} });
+}
+
+function mentionedFromPayload(text, mentionUsers, mentionedFlag) {
+  if (mentionedFlag) return true;
+  const source = text || "";
+  if (/<@(everyone|here)>/.test(source)) return true;
+  if (typeof myUserId === "undefined" || myUserId == null) return false;
+  const lookup = mentionUsers || {};
+  return !!(lookup[myUserId] || lookup[String(myUserId)]);
+}
+
 function appendMentionAwareText(el, text, msg) {
   const source = text || "";
   const lookup = (msg && msg.mentionUsers) || {};
@@ -288,12 +303,15 @@ function composerAllowsMentions(input) {
     const pool = (typeof currentChannelMessages !== "undefined" ? currentChannelMessages : [])
       .concat(typeof currentMessages !== "undefined" ? currentMessages : []);
     const msg = pool.find(row => row.id === editingMessageId);
-    return !!(msg && (msg.chatKind === "party" || msg.chatKind === "channel"));
+    return !!(msg && (msg.chatKind === "party" || msg.chatKind === "channel" || msg.chatKind === "forum"));
   }
   if (input.id === "channel-composer-input") {
-    return openForumPostId === null && currentChannelType !== "voice";
+    return currentChannelType !== "voice" && currentChannelType !== "doc";
   }
   if (input.id === "composer-input") return openChatType === "party";
+  if (input.id === "announcement-body-input" || input.id === "forum-body-input") return true;
+  if (input.id === "announce-edit-body-input" || input.id === "forum-edit-body-input") return true;
+  if (input.classList && input.classList.contains("announce-comment-input")) return true;
   return false;
 }
 
@@ -379,11 +397,24 @@ function composerHighlightFor(input) {
   if (!input) return null;
   if (input.id === "composer-input") return document.getElementById("composer-highlight");
   if (input.id === "channel-composer-input") return document.getElementById("channel-composer-highlight");
-  if (input.id === "edit-composer-input") {
-    const field = input.closest(".composer-field");
-    return field ? field.querySelector(".composer-highlight") : null;
+  const field = input.closest(".composer-field");
+  return field ? field.querySelector(".composer-highlight") : null;
+}
+
+function ensureComposerHighlight(input) {
+  if (!input) return null;
+  let field = input.closest(".composer-field");
+  if (!field) {
+    field = document.createElement("div");
+    field.className = "composer-field";
+    input.parentNode.insertBefore(field, input);
+    const highlight = document.createElement("div");
+    highlight.className = "composer-highlight";
+    highlight.setAttribute("aria-hidden", "true");
+    field.appendChild(highlight);
+    field.appendChild(input);
   }
-  return null;
+  return field.querySelector(".composer-highlight");
 }
 
 function refreshComposerMentions(input) {
@@ -396,6 +427,7 @@ function refreshComposerMentions(input) {
       highlight.appendChild(document.createTextNode(input.value || ""));
     }
     highlight.scrollTop = input.scrollTop;
+    highlight.scrollLeft = input.scrollLeft;
   }
   updateMentionPicker(input);
 }
@@ -404,13 +436,20 @@ function hideMentionPicker() {
   const picker = document.getElementById("mention-picker");
   if (picker) {
     picker.hidden = true;
-    picker.classList.remove("visible");
+    picker.classList.remove("visible", "mention-picker-below");
   }
   mentionPickerState = { input: null, range: null, items: [], index: 0 };
 }
 
 function mentionPickerHost(input) {
-  return input.closest("#composer, #channel-composer, .edit-composer");
+  return input.closest(".announce-composer-editing-body")
+    || input.closest(".announce-comment-composer")
+    || input.closest(".announce-composer-editing")
+    || input.closest("#composer, #channel-composer, .edit-composer");
+}
+
+function mentionPickerOpensBelow(input) {
+  return !!(input.closest(".announce-composer-editing") || input.closest(".announce-comment-composer"));
 }
 
 function firstEnabledMentionIndex(items, preferred) {
@@ -493,6 +532,7 @@ function showMentionPicker(input, range, items) {
     return;
   }
   host.appendChild(picker);
+  picker.classList.toggle("mention-picker-below", mentionPickerOpensBelow(input));
   mentionPickerState = {
     input,
     range,
@@ -584,8 +624,18 @@ function mentionPickerHandleKey(e) {
 }
 
 function activeMentionComposer() {
+  const focused = document.activeElement;
+  if (focused && composerAllowsMentions(focused)) return focused;
   const edit = document.getElementById("edit-composer-input");
   if (edit) return edit;
+  const announceEdit = document.getElementById("announce-edit-body-input");
+  if (announceEdit) return announceEdit;
+  const forumEdit = document.getElementById("forum-edit-body-input");
+  if (forumEdit) return forumEdit;
+  const announceBody = document.getElementById("announcement-body-input");
+  if (announceBody && announceBody.offsetParent) return announceBody;
+  const forumBody = document.getElementById("forum-body-input");
+  if (forumBody && forumBody.offsetParent) return forumBody;
   const channelView = document.getElementById("view-channel");
   if (channelView && channelView.classList.contains("active")) return document.getElementById("channel-composer-input");
   return document.getElementById("composer-input");
@@ -604,12 +654,16 @@ function insertMentionToken(name) {
 function bindMentionComposer(input) {
   if (!input || input.dataset.mentionBound) return;
   input.dataset.mentionBound = "1";
+  ensureComposerHighlight(input);
   input.addEventListener("input", () => refreshComposerMentions(input));
   input.addEventListener("click", () => refreshComposerMentions(input));
   input.addEventListener("keyup", () => refreshComposerMentions(input));
   input.addEventListener("scroll", () => {
     const highlight = composerHighlightFor(input);
-    if (highlight) highlight.scrollTop = input.scrollTop;
+    if (highlight) {
+      highlight.scrollTop = input.scrollTop;
+      highlight.scrollLeft = input.scrollLeft;
+    }
   });
   input.addEventListener("keydown", (e) => {
     if (mentionPickerHandleKey(e)) {
@@ -621,11 +675,13 @@ function bindMentionComposer(input) {
 
 bindMentionComposer(document.getElementById("composer-input"));
 bindMentionComposer(document.getElementById("channel-composer-input"));
+bindMentionComposer(document.getElementById("announcement-body-input"));
+bindMentionComposer(document.getElementById("forum-body-input"));
 document.addEventListener("click", (e) => {
   const picker = document.getElementById("mention-picker");
   if (!picker || picker.hidden) return;
   if (picker.contains(e.target)) return;
-  if (e.target && e.target.closest && e.target.closest("textarea")) return;
+  if (e.target && e.target.closest && e.target.closest("textarea, .announce-comment-input, .composer-field")) return;
   hideMentionPicker();
 });
 

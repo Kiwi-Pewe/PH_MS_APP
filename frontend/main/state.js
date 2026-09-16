@@ -104,6 +104,7 @@ let openForumPostTitle = null;
 let openForumPostBody = null;
 let openForumPostAttachment = null;
 let openForumPostEdited = false;
+let openForumPostMentionUsers = {};
 
 // forumCardElements[postId] = { tagsEl, countEl, activityEl }
 // Same idea as commentThreadElements: registered once per card so a live

@@ -155,8 +155,12 @@ function connectSocket() {
     // only the "is this the open one" test differs. Sender is excluded
     // server-side, so isMine is always false here.
     if (data.type === "forum_message") {
-      if (openForumPostId === data.post_id) {
-        currentChannelMessages.push({
+      const isOpen = openForumPostId === data.post_id;
+      if (typeof noteIncomingChannelMessage === "function") {
+        noteIncomingChannelMessage(data.channel_id, data.server_id, !!data.mentioned, isOpen);
+      }
+      if (isOpen) {
+        const row = {
           id: data.id,
           chatKind: "forum",
           senderId: data.sender_id,
@@ -167,7 +171,9 @@ function connectSocket() {
           time: data.timestamp ? parseUtcTimestamp(data.timestamp) : new Date(),
           edited: false,
           reactions: []
-        });
+        };
+        if (typeof applyMentionFields === "function") applyMentionFields(row, data);
+        currentChannelMessages.push(row);
         renderChannelMessages();
       }
     }
@@ -247,8 +253,19 @@ function connectSocket() {
     }
 
     if (data.type === "announcement_created") {
-      if (currentChannelId === data.post.channel_id) {
-        appendNewAnnouncementPost(data.post);
+      const post = data.post;
+      if (typeof applyMentionFields === "function") applyMentionFields(post, post);
+      const isOpen = currentChannelId === post.channel_id;
+      if (typeof noteIncomingChannelMessage === "function") {
+        noteIncomingChannelMessage(
+          post.channel_id,
+          data.server_id,
+          typeof mentionedFromPayload === "function" ? mentionedFromPayload(post.body, post.mentionUsers || post.mention_users, post.mentioned) : !!post.mentioned,
+          isOpen
+        );
+      }
+      if (isOpen) {
+        appendNewAnnouncementPost(post);
       }
     }
 
@@ -256,6 +273,15 @@ function connectSocket() {
     // has entries for posts actually rendered, so the lookup is the
     // guard. Count always updates; comment only appends if expanded.
     if (data.type === "announcement_comment") {
+      if (typeof applyMentionFields === "function") applyMentionFields(data.comment, data.comment);
+      if (typeof noteIncomingChannelMessage === "function" && data.channel_id) {
+        noteIncomingChannelMessage(
+          data.channel_id,
+          data.server_id,
+          typeof mentionedFromPayload === "function" ? mentionedFromPayload(data.comment.content, data.comment.mentionUsers || data.comment.mention_users, data.comment.mentioned) : !!data.comment.mentioned,
+          currentChannelId === data.channel_id
+        );
+      }
       const els = commentThreadElements[data.post_id];
       const state = commentThreadState[data.post_id];
       if (els) {
@@ -292,15 +318,26 @@ function connectSocket() {
     if (data.type === "doc_updated") handleDocUpdated(data);
 
     // "post_forum" is broadcast by /create_forum but deliberately NOT
-    // handled here, and this comment exists so nobody "fixes" that.
-    // Inserting someone else's new card would reorder the list under a
-    // reader mid-scroll, which is exactly what the Forums no-live-
-    // reorder rule forbids - other people's posts appear on the next
-    // channel load instead. Your own post is added locally by
+    // used to insert a card here, and this comment exists so nobody
+    // "fixes" that. Inserting someone else's new card would reorder the
+    // list under a reader mid-scroll, which is exactly what the Forums
+    // no-live-reorder rule forbids - other people's posts appear on the
+    // next channel load instead. Your own post is added locally by
     // submitCreateForumPost, so it still shows the moment you post it.
-    // The live updates Forums DOES want (message count, tags, activity
-    // time) arrive with the thread-message broadcast, which isn't built
-    // yet - see Team Chat/ForumsPlan.md.
+    // Mentions still light the rail, because a ping is not a reorder.
+    if (data.type === "post_forum") {
+      const post = data.content || {};
+      const channelId = post.channel_id || data.channel_id;
+      if (channelId && typeof noteIncomingChannelMessage === "function") {
+        const isOpen = currentChannelId === channelId && openForumPostId === null;
+        noteIncomingChannelMessage(
+          channelId,
+          data.server_id,
+          typeof mentionedFromPayload === "function" ? mentionedFromPayload(post.body, post.mention_users, false) : false,
+          isOpen
+        );
+      }
+    }
   };
 }
 

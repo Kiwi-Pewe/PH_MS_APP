@@ -18,6 +18,7 @@ function showAnnounceComposerEditing() {
   document.getElementById("announce-composer-default").style.display = "none";
   document.getElementById("announce-composer-editing").style.display = "flex";
   document.getElementById("announcement-title-input").focus();
+  if (typeof refreshComposerMentions === "function") refreshComposerMentions(document.getElementById("announcement-body-input"));
 }
 
 function autoGrowPostBodyInput(el) {
@@ -30,6 +31,7 @@ document.getElementById("announcement-body-input").addEventListener("input", () 
 });
 
 function hideAnnounceComposerEditing() {
+  if (typeof hideMentionPicker === "function") hideMentionPicker();
   document.getElementById("announce-composer-editing").style.display = "none";
   document.getElementById("announce-composer-default").style.display = "flex";
   if (typeof clearPostMedia === "function") clearPostMedia("announce");
@@ -68,16 +70,19 @@ async function submitCreateAnnouncement() {
   hideAnnounceComposerEditing();
   // post_announcement's response has no created_at/username/sender_id -
   // client values stand in until a real fetch-on-load exists.
-  appendNewAnnouncementPost({
+  const cardPost = {
     id: post.id, title: post.title, body: post.body, attachment: post.attachment,
     created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId, reactions: [], edited: false
-  });
+  };
+  if (typeof applyMentionFields === "function") applyMentionFields(cardPost, post);
+  appendNewAnnouncementPost(cardPost);
 }
 
 // Pure builder, shared by a fresh post / the broadcast handler / the
 // fetch-on-load path below - one shape everywhere. createElement/
 // textContent throughout, never innerHTML - post fields are user text.
 function buildAnnouncementPostCard(post) {
+  if (typeof applyMentionFields === "function") applyMentionFields(post, post);
   const card = document.createElement("div");
   card.className = "announce-post";
   // Read back by removePostFromView to find and remove this exact DOM
@@ -186,6 +191,7 @@ function buildAnnouncementPostCard(post) {
   loadMoreBtn.addEventListener("click", () => loadMoreComments(post.id));
   commentSendBtn.addEventListener("click", () => submitComment(post.id, commentInput));
   commentInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitComment(post.id, commentInput); });
+  if (typeof bindMentionComposer === "function") bindMentionComposer(commentInput);
 
   card.appendChild(top);
   card.appendChild(content);
@@ -417,7 +423,8 @@ function fillAnnouncePostContent(card, post) {
   if (post.body) {
     const body = document.createElement("div");
     body.className = "announce-post-body";
-    body.textContent = post.body;
+    if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers);
+    else body.textContent = post.body;
     wrap.appendChild(body);
   }
   const media = typeof buildPostMedia === "function" ? buildPostMedia(post.attachment) : null;
@@ -448,6 +455,7 @@ function originalPostAttachmentKeys(post) {
 
 function abandonAnnouncementEdit() {
   if (typeof closeEmojiPicker === "function") closeEmojiPicker();
+  if (typeof hideMentionPicker === "function") hideMentionPicker();
   const postId = editingAnnouncementId;
   editingAnnouncementId = null;
   if (typeof clearPostMedia === "function") clearPostMedia("announceEdit");
@@ -512,7 +520,9 @@ function fillAnnouncePostEditor(card, post) {
   bodyInput.className = "announce-composer-body-input";
   bodyInput.placeholder = "Enter a message...";
   bodyInput.rows = 3;
-  bodyInput.value = post.body || "";
+  bodyInput.value = typeof mentionDisplayText === "function"
+    ? mentionDisplayText(post.body || "", post.mentionUsers)
+    : (post.body || "");
   bodyInput.addEventListener("input", () => autoGrowPostBodyInput(bodyInput));
   bodyInput.addEventListener("contextmenu", (e) => e.stopPropagation());
   bodyWrap.appendChild(bodyInput);
@@ -562,7 +572,9 @@ function fillAnnouncePostEditor(card, post) {
   wrap.appendChild(editor);
 
   if (typeof bindPostMediaButton === "function") bindPostMediaButton("announceEdit", addBtn);
+  if (typeof bindMentionComposer === "function") bindMentionComposer(bodyInput);
   autoGrowPostBodyInput(bodyInput);
+  if (typeof refreshComposerMentions === "function") refreshComposerMentions(bodyInput);
   titleInput.focus();
 }
 
@@ -577,6 +589,7 @@ function applyAnnouncementEdit(data) {
   post.body = data.body;
   post.attachment = data.attachment;
   post.edited = !!data.edited;
+  if (typeof applyMentionFields === "function") applyMentionFields(post, data);
   const card = document.querySelector(`.announce-post[data-post-id="${post.id}"]`);
   if (card) fillAnnouncePostContent(card, post);
 }
@@ -589,7 +602,10 @@ async function confirmAnnouncementEdit(post) {
   const pending = postMediaPending.announceEdit.files;
   if (!title || (!body && !pending.length)) return;
 
-  if (title === (post.title || "") && body === (post.body || "") && announceEditAttachmentKeys() === originalPostAttachmentKeys(post)) {
+  const originalBody = typeof mentionDisplayText === "function"
+    ? mentionDisplayText(post.body || "", post.mentionUsers).trim()
+    : (post.body || "");
+  if (title === (post.title || "") && body === originalBody && announceEditAttachmentKeys() === originalPostAttachmentKeys(post)) {
     abandonAnnouncementEdit();
     return;
   }
@@ -624,5 +640,6 @@ async function confirmAnnouncementEdit(post) {
   post.body = data.body;
   post.attachment = data.attachment;
   post.edited = !!data.edited;
+  if (typeof applyMentionFields === "function") applyMentionFields(post, data);
   abandonAnnouncementEdit();
 }

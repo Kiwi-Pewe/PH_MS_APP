@@ -30,6 +30,8 @@
      changing them risks losing the at-a-glance meaning people already
      associate with those colors, independent of the overall theme. */
   --online: #3ba55d;
+  --away: #faa61a;
+  --offline: #747f8d;
   --danger: #ed4245;
 
   /* Global multiplier for message elements (avatar, name, timestamp,

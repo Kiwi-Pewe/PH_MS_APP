@@ -15,6 +15,7 @@ document.querySelectorAll("#secondary-nav .nav-item").forEach(btn => {
     document.querySelectorAll(".dm-item").forEach(d => d.classList.remove("active"));
     btn.classList.add("active");
     switchMainView(btn.dataset.view);
+    if (btn.dataset.view && typeof hideMemberList === "function") hideMemberList();
     if (btn.dataset.view === "friends") refreshFriendsView();
   });
 });

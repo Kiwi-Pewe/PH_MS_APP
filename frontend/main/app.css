@@ -25,6 +25,7 @@
    inherit a constrained height from its flex parent the way nested
    Flexbox containers do. */
 #main-grid { flex: 1 1 auto; display: grid; grid-template-columns: 72px minmax(240px, 280px) 1fr; grid-template-rows: 1fr; min-height: 0; }
+#main-grid.has-member-list { grid-template-columns: 72px minmax(240px, 280px) 1fr 240px; }
 
 #server-rail { background: var(--rail); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 10px; }
 .rail-icon {
@@ -507,7 +508,33 @@
    metadata row instead of the announcement post's own dedicated row. */
 .forum-post-meta .announce-add-reaction-btn { width: 20px; height: 20px; font-size: 13px; }
 
-#user-list { display: none; width: 220px; border-left: 1px solid var(--border); background: var(--panel); }
+#user-list {
+  display: none; flex-direction: column; min-height: 0; min-width: 0;
+  border-left: 1px solid var(--border); background: var(--panel);
+}
+#member-list-body { flex: 1 1 auto; overflow-y: auto; padding: 16px 8px 12px; }
+.member-group-header {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-dim); padding: 8px 8px 4px;
+}
+.member-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 6px; color: var(--text);
+}
+.member-row:hover { background: var(--panel-alt); }
+.member-row.offline { color: var(--text-dim); }
+.member-row .avatar-dot { position: relative; width: 32px; height: 32px; }
+.member-row .status-dot {
+  position: absolute; width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid var(--panel); right: -2px; bottom: -2px;
+}
+.member-row:hover .status-dot { border-color: var(--panel-alt); }
+.status-dot.status-online { background: var(--online); }
+.status-dot.status-away { background: var(--away); }
+.status-dot.status-dnd { background: var(--danger); }
+.status-dot.status-offline { background: var(--offline); }
+.member-name { flex: 1 1 auto; min-width: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-crown { flex: 0 0 auto; font-size: 13px; line-height: 1; }
 
 /* Sits once at the very top of message history — signals "you've
    reached the start, nothing more to load" and hosts quick actions.

@@ -5,7 +5,7 @@ from app.models import UserInfo, Servers, Server_members, Server_categories, Ser
 from app.schemas import Invite
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
-from app.routers.realtime import active_connections
+from app.routers.realtime import serialize_member, server_broadcast, party_broadcast
 from datetime import datetime, timedelta
 import asyncio
 import random
@@ -28,7 +28,7 @@ async def check_invites():
         database.close()
 
 @router.post("/accept_invite")
-def accept_invite(code: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+async def accept_invite(code: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     invite = database.query(Invite_model).filter(Invite_model.code == code).first()
     if not invite or not is_invite_valid(invite):
         raise HTTPException(status_code=404, detail= "Invite not found")
@@ -57,6 +57,12 @@ def accept_invite(code: str, database: Session = Depends(get_db), current_user: 
         )
         database.add(join_message)
         database.commit()
+        await server_broadcast(server_id= invite.server_id, payload= {
+            "type": "member_joined",
+            "scope": "server",
+            "scope_id": invite.server_id,
+            "member": serialize_member(current_user, current_user.id == server.owner_id)
+        }, database= database, exclude_user_id= current_user.id)
         return {"type": "server", "id": invite.server_id, "server_name": server.name, "position": new_member.position,}
 
     elif invite.type == "party":
@@ -81,6 +87,12 @@ def accept_invite(code: str, database: Session = Depends(get_db), current_user: 
         )
         database.add(join_message)
         database.commit()
+        await party_broadcast(party_id= invite.party_id, payload= {
+            "type": "member_joined",
+            "scope": "party",
+            "scope_id": invite.party_id,
+            "member": serialize_member(current_user, current_user.id == party.created_by_id)
+        }, database= database, exclude_user_id= current_user.id)
         return {"type": "party", "id": invite.party_id, "party_name": party.party_name}
         
 @router.post("/create_invite")

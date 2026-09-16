@@ -8,6 +8,7 @@ from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
+from app.routers.realtime import party_broadcast, serialize_member
 from datetime import datetime
 import random
 
@@ -61,6 +62,28 @@ def get_parties(database: Session = Depends(get_db), current_user: UserInfo = De
         parties_out.append({"type": "party", "id": membership.party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(sort_timestamp), "unread_count": unread_count})
 
     return {"parties": parties_out}
+
+@router.get("/get_party_members/{party_id}")
+def get_party_members(party_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    in_party = database.query(Party_members).filter(Party_members.party_id == party_id, Party_members.user_id == current_user.id).first()
+    if not in_party:
+        raise HTTPException(status_code=404, detail="User not in party")
+
+    party = database.query(Parties).filter(Parties.id == party_id).first()
+    if not party:
+        raise HTTPException(status_code=404, detail="Party not found")
+
+    memberships = database.query(Party_members).filter(Party_members.party_id == party_id).all()
+    user_ids = [row.user_id for row in memberships]
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all()
+    account_lookup = {account.id: account for account in accounts}
+
+    members = []
+    for row in memberships:
+        account = account_lookup.get(row.user_id)
+        if account:
+            members.append(serialize_member(account, account.id == party.created_by_id))
+    return {"party_id": party_id, "members": members}
     
 @router.post("/send_party_message")
 def message_party(party_msg: Party_message_schema, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -159,5 +182,12 @@ async def leave_party(party_id: int, database: Session = Depends(get_db), curren
 
     database.commit()
     database.refresh(server_message)
+    if remaining_count > 0:
+        await party_broadcast(party_id= party_id, payload= {
+            "type": "member_left",
+            "scope": "party",
+            "scope_id": party_id,
+            "user_id": current_user.id
+        }, database= database, exclude_user_id= current_user.id)
 
     return {"success": True, "message": server_message}

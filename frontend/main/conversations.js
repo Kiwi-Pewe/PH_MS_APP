@@ -148,6 +148,7 @@ async function closeConversation(type, id) {
 }
 
 function resetChatView() {
+  if (typeof hideMemberList === "function") hideMemberList();
   openChatType = null;
   openChatId = null;
   openChatName = null;
@@ -164,6 +165,7 @@ async function openDirectMessage(id, username) {
   if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
   if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
+  if (typeof hideMemberList === "function") hideMemberList();
   openChatType = "dm";
   openChatId = id;
   openChatName = username;
@@ -232,19 +234,22 @@ async function openParty(id, name) {
 
   try {
     const response = await fetch(`https://${serverAddress}/get_party_messages/${id}`, { credentials: "include" });
-    if (!response.ok) { renderMessages(); return; }
-    const data = await response.json();
-    currentMessages = data.messages.map(msg => applyDeletionFields({
-      id: msg.id,
-      chatKind: "party",
-      isMine: msg.username === myUsername,
-      senderId: msg.sender_id,
-      username: msg.username,
-      content: msg.content,
-      attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-      time: new Date(msg.timestamp)
-    }, msg));
-    if (currentMessages.length < 25) hasMoreHistory = false;
-    renderMessages();
+    if (!response.ok) { renderMessages(); }
+    else {
+      const data = await response.json();
+      currentMessages = data.messages.map(msg => applyDeletionFields({
+        id: msg.id,
+        chatKind: "party",
+        isMine: msg.username === myUsername,
+        senderId: msg.sender_id,
+        username: msg.username,
+        content: msg.content,
+        attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
+        time: new Date(msg.timestamp)
+      }, msg));
+      if (currentMessages.length < 25) hasMoreHistory = false;
+      renderMessages();
+    }
   } catch (e) { renderMessages(); }
+  if (typeof loadMemberList === "function") loadMemberList("party", id);
 }

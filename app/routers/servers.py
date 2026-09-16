@@ -8,7 +8,7 @@ from app.auth import get_current_user
 from app.r2 import attachment_public, delete_attachment, require_message_body, store_attachment
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
-from app.routers.realtime import server_broadcast
+from app.routers.realtime import serialize_member, server_broadcast
 import random
 
 router = APIRouter()
@@ -109,6 +109,28 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
             server_info.append({"id": category.id, "name": category.name, "position": category.position, "is_private": category.is_private, "channels": channel_info})
             
     return {"type": "server", "categories": server_info, "owner": server.owner_id}
+
+@router.get("/get_server_members/{server_id}")
+def get_server_members(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    in_server = database.query(Server_members).filter(Server_members.server_id == server_id, Server_members.user_id == current_user.id).first()
+    if not in_server:
+        raise HTTPException(status_code=404, detail="Server membership not found")
+
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+
+    memberships = database.query(Server_members).filter(Server_members.server_id == server_id).all()
+    user_ids = [row.user_id for row in memberships]
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all()
+    account_lookup = {account.id: account for account in accounts}
+
+    members = []
+    for row in memberships:
+        account = account_lookup.get(row.user_id)
+        if account:
+            members.append(serialize_member(account, account.id == server.owner_id))
+    return {"server_id": server_id, "members": members}
 
 @router.post("/message_server_channel")
 def message_server_channel(server_msg: Server_message, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -320,7 +342,7 @@ async def delete_category(category_id: int, database: Session = Depends(get_db),
     return {"category_id": category_id, "channel_ids": channel_ids}
 
 @router.post("/leave_server/{server_id}")
-def leave_server(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+async def leave_server(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server = database.query(Servers).filter(Servers.id == server_id).first()
     if not server:
         raise HTTPException(status_code=404, detail="Server not found")
@@ -345,4 +367,10 @@ def leave_server(server_id: str, database: Session = Depends(get_db), current_us
 
     database.delete(membership)
     database.commit()
+    await server_broadcast(server_id= server_id, payload= {
+        "type": "member_left",
+        "scope": "server",
+        "scope_id": server_id,
+        "user_id": current_user.id
+    }, database= database, exclude_user_id= current_user.id)
     return {"server_id": server_id}

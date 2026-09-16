@@ -167,3 +167,9 @@ let editingAnnouncementId = null;
 // Same idea as announcements, pointed at a forum card. Separate media
 // slot (forumEdit) so New Post at the top is left alone.
 let editingForumPostId = null;
+
+// Right-rail member list. scope is "server" or "party"; id matches
+// currentServerId or openChatId. Empty / hidden on DMs and Home views.
+let memberListScope = null;
+let memberListScopeId = null;
+let memberList = [];

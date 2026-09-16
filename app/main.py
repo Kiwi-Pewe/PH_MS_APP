@@ -10,7 +10,7 @@ from app.auth import validate_session
 from app.r2 import attachment_public
 from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions
 from pydantic import ValidationError
-from app.routers.realtime import active_connections, heartbeat
+from app.routers.realtime import active_connections, heartbeat, notify_presence
 from app.routers.messages import send_message
 from app.routers.parties import message_party, leave_party
 from app.routers.servers import message_server_channel
@@ -74,7 +74,10 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
         return
 
     await socket.accept()
+    was_online = current_user.id in active_connections
     active_connections[current_user.id] = socket
+    if not was_online:
+        await notify_presence(database, current_user.id, "online")
     heartbeat_task = asyncio.create_task(heartbeat(socket))
     try:
         while True:
@@ -241,5 +244,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
 
     except WebSocketDisconnect:
         await release_doc_locks(current_user.id, database)
-        del active_connections[current_user.id]
+        if current_user.id in active_connections and active_connections[current_user.id] is socket:
+            del active_connections[current_user.id]
+            await notify_presence(database, current_user.id, "offline")
         heartbeat_task.cancel()

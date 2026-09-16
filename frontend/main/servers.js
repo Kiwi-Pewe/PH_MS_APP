@@ -56,6 +56,7 @@ async function openServer(serverId, iconEl) {
   document.getElementById("server-sidebar-name").textContent = serverMeta ? serverMeta.name : "";
 
   renderServerSidebar(data);
+  if (typeof loadMemberList === "function") loadMemberList("server", serverId);
 
   // Auto-selects first channel. Remembering last-viewed channel is
   // deferred (see Handoff).

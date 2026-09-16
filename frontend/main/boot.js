@@ -216,6 +216,18 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "presence") {
+      applyPresence(data.user_id, data.status);
+    }
+
+    if (data.type === "member_joined") {
+      applyMemberJoined(data.scope, data.scope_id, data.member);
+    }
+
+    if (data.type === "member_left") {
+      applyMemberLeft(data.scope, data.scope_id, data.user_id);
+    }
+
     if (data.type === "announcement_reacted") {
       patchAnnouncementReactions(data.post_id, data.reactions || []);
     }

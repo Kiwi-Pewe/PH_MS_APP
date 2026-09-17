@@ -394,7 +394,7 @@
 .settings-opt-desc { font-size: 14px; line-height: 1.5; color: var(--text-dim); margin-top: 4px; }
 .settings-opt-control { flex: 0 0 auto; padding-top: 2px; }
 .settings-note {
-  margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--text-dim);
+  margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--accent);
 }
 .settings-note.is-later { color: var(--accent); }
 .settings-inline-link.is-static { cursor: default; }

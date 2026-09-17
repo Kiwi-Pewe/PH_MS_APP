@@ -6,6 +6,7 @@ from app.schemas import Block_schema, Friend_user
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import active_connections
+from app.privacy import can_send_friend_request
 
 router = APIRouter()
 
@@ -59,12 +60,15 @@ async def add_user(friends: Friend_user, database: Session = Depends(get_db), cu
         reversed_pending.pending = False
         database.commit()
         return
-    
+
     pending_request = database.query(Friend_request).filter(Friend_request.user_1 == current_user.id, Friend_request.user_2 == friend_exists.id).first()
     if pending_request and pending_request.pending == True:
         raise HTTPException(status_code=409, detail="account has pending request.")
     elif (pending_request and pending_request.pending == False) or (reversed_pending and reversed_pending.pending == False):
         raise HTTPException(status_code=400, detail="accounts are already friends.")
+
+    if not can_send_friend_request(database, current_user.id, friend_exists):
+        raise HTTPException(status_code=403, detail="This user is not accepting friend requests from you.")
 
     add_friend = Friend_request(user_1 = current_user.id, user_2 = friend_exists.id, pending = True)
     database.add(add_friend)

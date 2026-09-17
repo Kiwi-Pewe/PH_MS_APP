@@ -429,6 +429,36 @@
   background: var(--rail); border: 1px solid var(--border); border-radius: 6px;
   color: var(--text-dim); font-size: 14px; cursor: default;
 }
+.settings-filter-grid { display: flex; gap: 18px; margin: 12px 0 8px; align-items: flex-start; }
+.settings-filter-cats { flex: 0 0 180px; display: flex; flex-direction: column; gap: 4px; }
+.settings-filter-cat {
+  background: transparent; color: var(--text-dim); text-align: left;
+  font-size: 14px; font-weight: 700; padding: 8px 10px; border-radius: 4px;
+  border-left: 3px solid transparent;
+}
+.settings-filter-cat.is-on { color: var(--text); border-left-color: var(--accent); background: var(--panel-alt); }
+.settings-filter-main { flex: 1 1 auto; min-width: 0; }
+.settings-filter-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.settings-select {
+  background: var(--rail); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 14px; padding: 8px 10px; min-width: 160px;
+}
+.settings-subblock > .settings-select { width: 100%; margin: 8px 0 12px; }
+.settings-select:disabled { opacity: 0.55; cursor: default; }
+.settings-radio-list.is-disabled { opacity: 0.7; pointer-events: none; }
+.settings-empty-card {
+  background: var(--panel-alt); border-radius: 8px; padding: 18px 16px; margin: 12px 0;
+  text-align: center;
+}
+.settings-empty-card.is-left { text-align: left; }
+.settings-block-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.settings-block-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
 
 /* justify-content: flex-end is deliberately NOT used here — it has a
    well-known Flexbox quirk where content that overflows specifically

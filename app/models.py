@@ -16,6 +16,10 @@ class UserInfo(Base):
     mfa_challenge = Column(String, nullable= True)
     mfa_challenge_until = Column(DateTime, nullable= True)
     profile_visibility = Column(String, nullable= True)
+    friend_req_everyone = Column(Boolean, default= True)
+    friend_req_friends_of_friends = Column(Boolean, default= True)
+    friend_req_server_members = Column(Boolean, default= True)
+    allow_server_dms = Column(Boolean, default= True)
 
 class Message(Base):
     __tablename__ = "messages"
@@ -112,7 +116,15 @@ class Server_members(Base):
     server_id = Column(String(10), ForeignKey("servers.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
     joined_at = Column(DateTime, server_default=func.now())
-    position = Column(Integer) 
+    position = Column(Integer)
+
+class Dm_server_pref(Base):
+    __tablename__ = "dm_server_prefs"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    allow_dms = Column(Boolean, default=True)
+    __table_args__ = (UniqueConstraint("user_id", "server_id"),) 
 
 class Server_categories(Base):
     __tablename__ = "server_categories"

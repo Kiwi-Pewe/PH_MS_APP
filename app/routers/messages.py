@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
-from app.models import UserInfo, Message, Block_user, Friend_request, Conversations
+from app.models import UserInfo, Message, Block_user, Conversations
+from app.privacy import can_send_dm
 from app.schemas import Message_schema
 from app.database import get_db
 from app.auth import get_current_user
@@ -22,15 +23,11 @@ def send_message(message: Message_schema, database: Session = Depends(get_db), c
     if is_blocked or blocked_mirrored:
         raise HTTPException(status_code= 400, detail= "User is blocked.")
 
-    is_friend = database.query(Friend_request).filter(Friend_request.user_1 == current_user.id, Friend_request.user_2 == message.receiver_id).first()
-    friend_mirrored = database.query(Friend_request).filter(Friend_request.user_1 == message.receiver_id, Friend_request.user_2 == current_user.id).first()
-    active_request = is_friend or friend_mirrored
-
-    if not active_request:
-        raise HTTPException(status_code= 404, detail= "No friend request found")
-
-    if active_request.pending == True:
-        raise HTTPException(status_code= 400, detail= "Friend request pending")
+    recipient = database.query(UserInfo).filter(UserInfo.id == message.receiver_id).first()
+    if not recipient:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if not can_send_dm(database, current_user.id, recipient):
+        raise HTTPException(status_code=403, detail="This user does not accept Direct Messages from you.")
 
     require_message_body(message.content, message.attachment)
     attachment_json = store_attachment(message.attachment, current_user)

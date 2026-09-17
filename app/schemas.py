@@ -34,6 +34,15 @@ class Account_revoke_session(BaseModel):
 class Account_privacy_edit(BaseModel):
     value: str
 
+class Messaging_friend_prefs(BaseModel):
+    everyone: bool
+    friends_of_friends: bool
+    server_members: bool
+
+class Messaging_dms_pref(BaseModel):
+    server_id: str | None = None
+    allow: bool
+
 class Attachment_in(BaseModel):
     key: str
     mime: str

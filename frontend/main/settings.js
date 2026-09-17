@@ -28,12 +28,12 @@ const SETTINGS_GENERAL_CATALOG = [
       {
         id: "messaging-permissions",
         label: "Messaging Permissions",
-        placeholder: true,
         children: [
           { id: "content-filters", label: "Content Filters" },
           { id: "spam-filters", label: "Spam Filters" },
           { id: "direct-messages", label: "Direct Messages" },
           { id: "friend-requests", label: "Friend Requests" },
+          { id: "connected-games", label: "Connected Games" },
           { id: "ignore-block", label: "Ignore & Block" }
         ]
       },
@@ -180,6 +180,10 @@ function paintSettingsSection(item, jumpChildId) {
   }
   if (item.id === "data-privacy" && typeof renderDataPrivacySettings === "function") {
     renderDataPrivacySettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "messaging-permissions" && typeof renderMessagingSettings === "function") {
+    renderMessagingSettings(pane, jumpChildId);
     return;
   }
   pane.innerHTML = "";

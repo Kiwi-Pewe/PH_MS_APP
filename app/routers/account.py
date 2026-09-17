@@ -225,6 +225,10 @@ def create_account(account: Account_register, database : Session = Depends(get_d
         phone= None,
         mfa_enabled= False,
         profile_visibility= "friends_all",
+        friend_req_everyone= True,
+        friend_req_friends_of_friends= True,
+        friend_req_server_members= True,
+        allow_server_dms= True,
     )
     database.add(info)
     database.commit()

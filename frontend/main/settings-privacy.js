@@ -8,7 +8,7 @@ function privacySettingsUrl(path) {
   return `https://${serverAddress}${path}`;
 }
 
-function settingsToggle(checked, disabled) {
+function settingsToggle(checked, disabled, onChange) {
   const label = document.createElement("label");
   label.className = "toggle-switch settings-toggle" + (disabled ? " is-disabled" : "");
   const input = document.createElement("input");
@@ -22,6 +22,9 @@ function settingsToggle(checked, disabled) {
   track.appendChild(thumb);
   label.appendChild(input);
   label.appendChild(track);
+  if (onChange && !disabled) {
+    input.addEventListener("change", () => onChange(input.checked));
+  }
   return label;
 }
 

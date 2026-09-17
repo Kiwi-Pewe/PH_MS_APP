@@ -91,6 +91,10 @@ def ensure_account_columns():
         ("sessions", "device_label", "VARCHAR"),
         ("sessions", "client_label", "VARCHAR"),
         ("users", "profile_visibility", "VARCHAR"),
+        ("users", "friend_req_everyone", "BOOLEAN"),
+        ("users", "friend_req_friends_of_friends", "BOOLEAN"),
+        ("users", "friend_req_server_members", "BOOLEAN"),
+        ("users", "allow_server_dms", "BOOLEAN"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:
@@ -114,3 +118,9 @@ def ensure_account_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        for column in ("friend_req_everyone", "friend_req_friends_of_friends", "friend_req_server_members", "allow_server_dms"):
+            try:
+                conn.execute(text(f"UPDATE users SET {column} = 1 WHERE {column} IS NULL"))
+                conn.commit()
+            except Exception:
+                conn.rollback()

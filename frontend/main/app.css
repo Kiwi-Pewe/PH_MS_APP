@@ -519,6 +519,23 @@
   padding-bottom: 10px;
 }
 .settings-block.has-sections .settings-radio { padding-top: 8px; padding-bottom: 8px; }
+.settings-slider {
+  width: 160px; accent-color: var(--accent);
+}
+.settings-slider:disabled { opacity: 0.55; cursor: default; }
+.voice-advanced-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.voice-advanced-actions .settings-danger-btn:disabled { opacity: 0.55; cursor: default; }
+.video-bg-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+  margin: 8px 0 12px;
+}
+.video-bg-tile {
+  min-height: 88px; border-radius: 8px;
+  background: var(--panel-alt); color: var(--text-dim);
+  border: 2px solid transparent; font-size: 13px; font-weight: 700;
+}
+.video-bg-tile.is-on { border-color: var(--accent); color: var(--text); }
+.video-bg-tile:disabled { cursor: default; opacity: 0.75; }
 
 /* justify-content: flex-end is deliberately NOT used here — it has a
    well-known Flexbox quirk where content that overflows specifically

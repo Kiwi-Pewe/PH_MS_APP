@@ -67,12 +67,15 @@ const SETTINGS_GENERAL_CATALOG = [
       {
         id: "voice-video",
         label: "Voice & Video",
-        placeholder: true,
         parked: "voice",
         children: [
           { id: "voice", label: "Voice" },
           { id: "camera", label: "Camera" },
-          { id: "streaming", label: "Streaming" }
+          { id: "video", label: "Video" },
+          { id: "streaming", label: "Streaming" },
+          { id: "voice-sounds", label: "Sounds" },
+          { id: "soundboard", label: "Soundboard" },
+          { id: "voice-advanced", label: "Advanced" }
         ]
       },
       {
@@ -190,6 +193,10 @@ function paintSettingsSection(item, jumpChildId) {
   }
   if (item.id === "appearance" && typeof renderAppearanceSettings === "function") {
     renderAppearanceSettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "voice-video" && typeof renderVoiceSettings === "function") {
+    renderVoiceSettings(pane, jumpChildId);
     return;
   }
   pane.innerHTML = "";

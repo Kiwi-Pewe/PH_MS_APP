@@ -11,6 +11,10 @@ function switchMainView(viewName) {
 document.querySelectorAll("#secondary-nav .nav-item").forEach(btn => {
   btn.addEventListener("click", async () => {
     if (!(await leaveDocIfNeeded())) return;
+    if (btn.dataset.view === "settings") {
+      if (typeof openSettings === "function") await openSettings();
+      return;
+    }
     document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".dm-item").forEach(d => d.classList.remove("active"));
     btn.classList.add("active");
@@ -20,19 +24,15 @@ document.querySelectorAll("#secondary-nav .nav-item").forEach(btn => {
   });
 });
 
-document.querySelectorAll(".settings-nav-item").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".settings-nav-item").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".settings-section").forEach(s => s.style.display = "none");
-    btn.classList.add("active");
-    document.getElementById(`settings-${btn.dataset.section}`).style.display = "block";
-  });
-});
-
 document.querySelectorAll("#topbar .tab").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll("#topbar .tab").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
+  btn.addEventListener("click", async () => {
+    if (btn.dataset.tab === "settings") {
+      if (typeof openSettings === "function") await openSettings();
+      return;
+    }
+    if (btn.dataset.tab === "messages") {
+      await goHome();
+    }
   });
 });
 
@@ -48,6 +48,7 @@ async function goHome() {
   currentChannelId = null;
   currentChannelType = null;
   currentChannelName = null;
+  if (typeof closeSettingsChrome === "function") closeSettingsChrome();
   document.getElementById("server-sidebar-view").style.display = "none";
   document.getElementById("dm-sidebar-view").style.display = "flex";
 

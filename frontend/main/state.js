@@ -181,3 +181,9 @@ let pendingReply = null;
 // Other people currently typing in the open chat. Keyed by user id.
 // Local idle / empty-composer stops are handled in typing.js.
 let typingPeers = {};
+
+// Settings destination. When true, the DM/channel rail is swapped for
+// the settings list and the main pane is view-settings.
+let isSettingsOpen = false;
+let settingsPane = "general";
+let settingsActiveId = "account";

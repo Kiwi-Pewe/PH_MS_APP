@@ -59,6 +59,8 @@ async function openServer(serverId, iconEl) {
     return;
   }
 
+  if (typeof closeSettingsChrome === "function") closeSettingsChrome();
+
   currentServerId = serverId;
   currentServerOwnerId = data.owner;
   currentServerData = data;

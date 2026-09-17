@@ -94,9 +94,10 @@ function noteComposerTyping(input) {
 }
 
 function formatTypingLabel(names) {
+  if (names.length >= 5) return "Multiple people are typing...";
   if (names.length === 1) return names[0] + " is typing...";
   if (names.length === 2) return names[0] + " and " + names[1] + " are typing...";
-  return "Several people are typing...";
+  return names.slice(0, -1).join(", ") + ", and " + names[names.length - 1] + " are typing...";
 }
 
 function paintTypingIndicator() {

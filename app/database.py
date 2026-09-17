@@ -114,6 +114,7 @@ def ensure_account_columns():
         ("users", "appearance_show_bubbles", "BOOLEAN"),
         ("users", "appearance_self_side", "VARCHAR"),
         ("users", "appearance_search", "VARCHAR"),
+        ("users", "accessibility_prefs", "VARCHAR"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:
@@ -201,6 +202,11 @@ def ensure_account_columns():
             conn.rollback()
         try:
             conn.execute(text("UPDATE users SET appearance_search = 'auto' WHERE appearance_search IS NULL OR appearance_search = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET accessibility_prefs = '{}' WHERE accessibility_prefs IS NULL OR accessibility_prefs = ''"))
             conn.commit()
         except Exception:
             conn.rollback()

@@ -537,6 +537,109 @@
 .video-bg-tile.is-on { border-color: var(--accent); color: var(--text); }
 .video-bg-tile:disabled { cursor: default; opacity: 0.75; }
 
+.a11y-slider { width: 100%; margin: 4px 0 12px; }
+.a11y-ticks {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--text-dim); margin-top: 4px;
+}
+.a11y-preview {
+  position: sticky; top: 0; z-index: 6;
+  background: var(--bg); padding: 4px 0 16px; margin-bottom: 8px;
+}
+.a11y-preview-label {
+  font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 8px;
+}
+.a11y-preview-window {
+  position: relative;
+  display: flex; gap: 12px; align-items: flex-start;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel); padding: 12px;
+  transform: scale(var(--preview-zoom, 1));
+  transform-origin: top left;
+  width: calc(100% / var(--preview-zoom, 1));
+}
+.a11y-preview-chat { flex: 1 1 auto; min-width: 0; }
+.a11y-preview-cluster { display: flex; gap: 8px; align-items: flex-start; }
+.a11y-preview-cluster + .a11y-preview-cluster { margin-top: var(--preview-gap, 16px); }
+.a11y-preview-avatar {
+  width: calc(32px * var(--message-scale)); height: calc(32px * var(--message-scale));
+  border-radius: 50%; background: var(--panel-alt); color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+  font-size: calc(13px * var(--message-scale)); font-weight: 700; flex: 0 0 auto;
+}
+.a11y-preview-body { min-width: 0; }
+.a11y-preview-header { display: flex; gap: 6px; align-items: baseline; margin-bottom: 4px; }
+.a11y-preview-name { font-weight: 700; color: var(--accent); font-size: calc(13px * var(--message-scale)); }
+.a11y-preview-time { color: var(--text-dim); font-size: calc(11px * var(--message-scale)); }
+.a11y-preview-bubble {
+  background: var(--panel-alt); border-radius: 12px;
+  padding: calc(8px * var(--message-scale)) calc(10px * var(--message-scale));
+  width: fit-content; max-width: 100%;
+}
+.a11y-preview-line { font-size: calc(15px * var(--message-scale)); color: var(--text); line-height: 1.45; }
+.a11y-preview-reacts { display: flex; gap: 6px; margin-top: 6px; }
+.a11y-preview-react {
+  font-size: 12px; background: var(--rail); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1px 6px;
+}
+.a11y-preview-btn {
+  margin-top: 8px; background: var(--accent); color: #fff;
+  font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 6px;
+}
+.a11y-preview-members { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.a11y-preview-window.density-compact .a11y-preview-members { gap: 2px; }
+.a11y-preview-window.density-spacious .a11y-preview-members { gap: 16px; }
+.a11y-preview-member { width: 22px; height: 22px; border-radius: 50%; }
+.a11y-preview-toggle { position: absolute; right: 12px; bottom: 12px; }
+.a11y-preview-gif {
+  margin-top: 8px; width: 120px; height: 54px; border-radius: 6px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-submenu), var(--accent));
+  background-size: 200% 100%;
+  color: #fff; font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  animation: a11y-gif 2.4s linear infinite;
+}
+.a11y-preview-window.still-gif .a11y-preview-gif { animation: none; }
+.a11y-preview-emoji { display: inline-block; animation: a11y-pop 1.2s ease-in-out infinite; }
+.a11y-preview-window.still-emoji .a11y-preview-emoji { animation: none; }
+.a11y-preview-window.is-compact .a11y-preview-avatar { display: none; }
+.a11y-preview-window.is-compact .a11y-preview-header { display: inline; margin-right: 6px; }
+.a11y-preview-window.is-compact .a11y-preview-bubble {
+  display: inline; background: transparent; padding: 0; border-radius: 0;
+}
+.a11y-preview-window.name-styles:not(.role-off) .a11y-preview-name {
+  background: linear-gradient(90deg, var(--accent), var(--accent-submenu));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.a11y-preview-window.role-off .a11y-preview-name { color: var(--text); }
+@keyframes a11y-gif {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes a11y-pop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+html.underline-links .msg-link { text-decoration: underline; }
+html.high-contrast { --border: var(--text-dim); }
+html.high-contrast .settings-opt-title,
+html.high-contrast .a11y-preview-name { font-weight: 800; }
+html.high-contrast .a11y-preview-window { border-width: 2px; }
+html.show-toggle-icons .toggle-track::after {
+  content: "\2715";
+  position: absolute; right: 5px; top: 1px;
+  font-size: 9px; color: var(--text-dim); pointer-events: none;
+}
+html.show-toggle-icons .toggle-switch input:checked + .toggle-track::after {
+  content: "\2713"; left: 5px; right: auto; color: #fff;
+}
+html.reduced-motion *, html.reduced-motion *::before, html.reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 /* justify-content: flex-end is deliberately NOT used here — it has a
    well-known Flexbox quirk where content that overflows specifically
    *because of* flex-end alignment becomes unscrollable in most browsers
@@ -1129,10 +1232,10 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: var(--cluster-gap, 20px);
   max-width: 100%;
 }
-html.no-chat-bubbles .msg-cluster { margin-bottom: 24px; }
+html.no-chat-bubbles .msg-cluster { margin-bottom: calc(var(--cluster-gap, 20px) + 4px); }
 .msg-cluster.mention-highlight {
   background: rgba(250, 168, 26, 0.14);
   box-shadow: inset 2px 0 0 var(--away);

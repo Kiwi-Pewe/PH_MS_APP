@@ -39,6 +39,7 @@ class UserInfo(Base):
     appearance_show_bubbles = Column(Boolean, default= True)
     appearance_self_side = Column(String, nullable= True)
     appearance_search = Column(String, nullable= True)
+    accessibility_prefs = Column(String, nullable= True)
 
 class Message(Base):
     __tablename__ = "messages"

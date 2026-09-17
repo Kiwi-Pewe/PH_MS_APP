@@ -207,3 +207,28 @@ let appearancePrefs = {
   self_side: "right",
   search_style: "auto"
 };
+
+let accessibilityPrefs = {
+  text_size: 15,
+  underline_links: false,
+  display_name_styles: false,
+  ui_density: "default",
+  chat_display: "default",
+  group_spacing: 20,
+  zoom: 100,
+  saturation: 100,
+  saturation_custom: false,
+  high_contrast: false,
+  sync_contrast: true,
+  role_colors: "names",
+  official_messages: "default",
+  toggle_indicators: false,
+  reduced_motion: false,
+  sync_motion: true,
+  gifs_when_focused: true,
+  animated_emoji: true,
+  sticker_anim: "always",
+  tts_rate: 1,
+  image_descriptions: false,
+  legacy_input: false
+};

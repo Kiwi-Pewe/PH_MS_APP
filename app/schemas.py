@@ -68,6 +68,30 @@ class Appearance_prefs(BaseModel):
     self_side: str = "right"
     search_style: str = "auto"
 
+class Accessibility_prefs(BaseModel):
+    text_size: int = 15
+    underline_links: bool = False
+    display_name_styles: bool = False
+    ui_density: str = "default"
+    chat_display: str = "default"
+    group_spacing: int = 20
+    zoom: int = 100
+    saturation: int = 100
+    saturation_custom: bool = False
+    high_contrast: bool = False
+    sync_contrast: bool = True
+    role_colors: str = "names"
+    official_messages: str = "default"
+    toggle_indicators: bool = False
+    reduced_motion: bool = False
+    sync_motion: bool = True
+    gifs_when_focused: bool = True
+    animated_emoji: bool = True
+    sticker_anim: str = "always"
+    tts_rate: float = 1
+    image_descriptions: bool = False
+    legacy_input: bool = False
+
 class Attachment_in(BaseModel):
     key: str
     mime: str

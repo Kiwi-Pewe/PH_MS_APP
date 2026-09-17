@@ -9,6 +9,7 @@ from app.schemas import (
 from app.database import get_db
 from app.auth import pwd_context, create_session_id, get_current_user
 from app.routers.appearance import appearance_payload
+from app.routers.accessibility import accessibility_payload
 from datetime import datetime, timedelta
 import re
 import secrets
@@ -248,6 +249,7 @@ def self_identity(current_user: UserInfo = Depends(get_current_user)):
         "id": current_user.id,
         "display_name": public_display_name(current_user),
         "appearance": appearance_payload(current_user),
+        "accessibility": accessibility_payload(current_user),
     }
 
 @router.get("/account_settings")

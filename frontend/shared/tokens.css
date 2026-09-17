@@ -34,6 +34,7 @@
      bubble text) — a future settings slider only ever needs to change
      this one number; every element below is sized relative to it. */
   --message-scale: 1;
+  --cluster-gap: 20px;
 }
 
 * { box-sizing: border-box; }

@@ -104,7 +104,13 @@ function privacyRadio(value, selected, title, desc, onPick) {
   copy.appendChild(body);
   btn.appendChild(dot);
   btn.appendChild(copy);
-  btn.addEventListener("click", () => onPick(value));
+  btn.addEventListener("click", () => {
+    const list = btn.parentNode;
+    if (list) {
+      list.querySelectorAll(".settings-radio").forEach(row => row.classList.toggle("is-on", row === btn));
+    }
+    onPick(value);
+  });
   return btn;
 }
 

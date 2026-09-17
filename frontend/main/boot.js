@@ -20,6 +20,7 @@ window.addEventListener("load", () => {
       myDisplayName = data.display_name || data.username;
       myUserId = data.id;
       if (typeof hydrateAppearance === "function") hydrateAppearance(data.appearance);
+      if (typeof hydrateAccessibility === "function") hydrateAccessibility(data.accessibility);
       connectSocket();
     })
     .catch(() => {

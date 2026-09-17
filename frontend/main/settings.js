@@ -81,12 +81,12 @@ const SETTINGS_GENERAL_CATALOG = [
       {
         id: "accessibility",
         label: "Accessibility",
-        placeholder: true,
         children: [
           { id: "text-readability", label: "Text Readability" },
           { id: "visual-density", label: "Visual Density" },
           { id: "color-contrast", label: "Color & Contrast" },
-          { id: "reduced-motion", label: "Reduced Motion" }
+          { id: "reduced-motion", label: "Reduced Motion" },
+          { id: "audio-screen-reader", label: "Audio & Screen Reader" }
         ]
       },
       {
@@ -197,6 +197,10 @@ function paintSettingsSection(item, jumpChildId) {
   }
   if (item.id === "voice-video" && typeof renderVoiceSettings === "function") {
     renderVoiceSettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "accessibility" && typeof renderAccessibilitySettings === "function") {
+    renderAccessibilitySettings(pane, jumpChildId);
     return;
   }
   pane.innerHTML = "";

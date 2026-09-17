@@ -6,6 +6,7 @@
 
 let accountSettingsCache = null;
 let accountEmailRevealed = false;
+let accountPhoneRevealed = false;
 
 function accountSettingsUrl(path) {
   return `https://${serverAddress}${path}`;
@@ -219,22 +220,24 @@ async function postAccount(path, body) {
   return data;
 }
 
-function emailValueNode(info) {
+function maskedFieldNode(info, key, revealed, setRevealed) {
   const wrap = document.createElement("span");
-  if (!info.email) {
-    wrap.textContent = "You haven't added an email yet.";
+  const raw = info[key] || "";
+  const masked = info[key + "_masked"] || raw;
+  if (!raw) {
+    wrap.textContent = key === "phone" ? "You haven't added a phone number yet." : "You haven't added an email yet.";
     wrap.className = "is-empty";
     return wrap;
   }
-  wrap.appendChild(document.createTextNode(accountEmailRevealed ? info.email : (info.email_masked || info.email)));
+  wrap.appendChild(document.createTextNode(revealed ? raw : masked));
   wrap.appendChild(document.createTextNode(" "));
   const reveal = document.createElement("button");
   reveal.type = "button";
   reveal.className = "settings-inline-link";
-  reveal.textContent = accountEmailRevealed ? "Hide" : "Reveal";
+  reveal.textContent = revealed ? "Hide" : "Reveal";
   reveal.addEventListener("click", (e) => {
     e.stopPropagation();
-    accountEmailRevealed = !accountEmailRevealed;
+    setRevealed(!revealed);
     if (typeof jumpToSettings === "function") jumpToSettings("account-info");
   });
   wrap.appendChild(reveal);
@@ -281,7 +284,7 @@ async function renderAccountSettings(pane, jumpChildId) {
       jumpToSettings("account-info");
     });
   }));
-  infoWrap.appendChild(settingsRow("Email", emailValueNode(info), info.email ? "Edit" : "Add", () => {
+  infoWrap.appendChild(settingsRow("Email", maskedFieldNode(info, "email", accountEmailRevealed, (v) => { accountEmailRevealed = v; }), info.email ? "Edit" : "Add", () => {
     openSettingsForm(info.email ? "Change email" : "Add email", [
       { name: "value", label: "Email", value: info.email || "", type: "email" },
       { name: "password", label: "Current password", type: "password", autocomplete: "current-password" }
@@ -291,7 +294,7 @@ async function renderAccountSettings(pane, jumpChildId) {
       jumpToSettings("account-info");
     });
   }));
-  infoWrap.appendChild(settingsRow("Phone Number", info.phone || "You haven't added a phone number yet.", info.phone ? "Edit" : "Add", () => {
+  infoWrap.appendChild(settingsRow("Phone Number", maskedFieldNode(info, "phone", accountPhoneRevealed, (v) => { accountPhoneRevealed = v; }), info.phone ? "Edit" : "Add", () => {
     openSettingsForm(info.phone ? "Change phone number" : "Add phone number", [
       { name: "value", label: "Phone number", value: info.phone || "" },
       { name: "password", label: "Current password", type: "password", autocomplete: "current-password" }

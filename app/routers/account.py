@@ -133,6 +133,15 @@ def mask_email(email):
         hidden = name[0] + ("*" * min(8, max(1, len(name) - 1)))
     return hidden + "@" + domain
 
+def mask_phone(phone):
+    if not phone:
+        return phone
+    digits = re.sub(r"\D", "", phone)
+    last = digits[-4:] if digits else ""
+    if not last:
+        return "***-***-****"
+    return "***-***-" + last
+
 def session_payload(row, current_session_id):
     return {
         "session_id": row.session_id,
@@ -233,6 +242,7 @@ def get_account_settings(current_user: UserInfo = Depends(get_current_user), dat
         "email": current_user.email or "",
         "email_masked": mask_email(current_user.email) if current_user.email else "",
         "phone": current_user.phone or "",
+        "phone_masked": mask_phone(current_user.phone) if current_user.phone else "",
         "mfa_enabled": bool(current_user.mfa_enabled),
         "device_count": device_count,
         "current_session_id": session_id,
@@ -272,7 +282,7 @@ def update_account_phone(edit: Account_field_edit, current_user: UserInfo = Depe
     require_password(current_user, edit.password)
     current_user.phone = clean_phone(edit.value)
     database.commit()
-    return {"phone": current_user.phone or ""}
+    return {"phone": current_user.phone or "", "phone_masked": mask_phone(current_user.phone) if current_user.phone else ""}
 
 @router.post("/account_password")
 def update_account_password(edit: Account_password_change, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):

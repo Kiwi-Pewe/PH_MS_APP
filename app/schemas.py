@@ -52,6 +52,20 @@ class Notification_sound_prefs(BaseModel):
 class Notification_reaction_pref(BaseModel):
     value: str
 
+class Appearance_prefs(BaseModel):
+    theme: str
+    brightness: str
+    color_bg: str = ""
+    color_surface: str = ""
+    color_accent: str = ""
+    color_highlight: str = ""
+    show_link_media: bool = True
+    show_uploads: bool = True
+    show_embeds: bool = True
+    show_reactions: bool = True
+    show_send: bool = False
+    search_style: str = "auto"
+
 class Attachment_in(BaseModel):
     key: str
     mime: str

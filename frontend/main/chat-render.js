@@ -51,6 +51,7 @@ function renderClusteredMessages(wrap, messages) {
         if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(line, msg.content);
         attachInviteCardIfNeeded(openCluster.bubbleEl, msg.content);
       }
+      if (typeof attachLinkImagesIfNeeded === "function") attachLinkImagesIfNeeded(openCluster.bubbleEl, msg.content);
       if (typeof attachMediaIfNeeded === "function") attachMediaIfNeeded(openCluster.bubbleEl, msg);
       if (!msg.content && msg.edited) {
         const tagLine = document.createElement("div");
@@ -129,6 +130,7 @@ function fillBubbleLine(line, msg) {
 }
 
 function attachReactionsIfNeeded(host, msg) {
+  if (!appearancePref("show_reactions", true)) return;
   if (!host || !msg.reactions || !msg.reactions.length) return;
   const row = document.createElement("div");
   row.className = "reaction-row";
@@ -419,6 +421,7 @@ function startNewCluster(wrap, msg) {
     if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(firstLine, msg.content);
     attachInviteCardIfNeeded(bubble, msg.content);
   }
+  if (typeof attachLinkImagesIfNeeded === "function") attachLinkImagesIfNeeded(bubble, msg.content);
   if (typeof attachMediaIfNeeded === "function") attachMediaIfNeeded(bubble, msg);
   if (!msg.content && msg.edited) {
     const tagLine = document.createElement("div");

@@ -25,6 +25,18 @@ class UserInfo(Base):
     notify_sound_ring = Column(Boolean, default= True)
     notify_sound_mute_all = Column(Boolean, default= False)
     notify_reactions = Column(String, nullable= True)
+    appearance_theme = Column(String, nullable= True)
+    appearance_brightness = Column(String, nullable= True)
+    appearance_color_bg = Column(String, nullable= True)
+    appearance_color_surface = Column(String, nullable= True)
+    appearance_color_accent = Column(String, nullable= True)
+    appearance_color_highlight = Column(String, nullable= True)
+    appearance_show_link_media = Column(Boolean, default= True)
+    appearance_show_uploads = Column(Boolean, default= True)
+    appearance_show_embeds = Column(Boolean, default= True)
+    appearance_show_reactions = Column(Boolean, default= True)
+    appearance_show_send = Column(Boolean, default= False)
+    appearance_search = Column(String, nullable= True)
 
 class Message(Base):
     __tablename__ = "messages"

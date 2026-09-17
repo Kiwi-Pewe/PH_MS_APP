@@ -8,6 +8,7 @@ from app.schemas import (
 )
 from app.database import get_db
 from app.auth import pwd_context, create_session_id, get_current_user
+from app.routers.appearance import appearance_payload
 from datetime import datetime, timedelta
 import re
 import secrets
@@ -242,7 +243,12 @@ def create_account(account: Account_register, database : Session = Depends(get_d
 
 @router.get("/whoami")
 def self_identity(current_user: UserInfo = Depends(get_current_user)):
-    return {"username": current_user.username, "id": current_user.id, "display_name": public_display_name(current_user)}
+    return {
+        "username": current_user.username,
+        "id": current_user.id,
+        "display_name": public_display_name(current_user),
+        "appearance": appearance_payload(current_user),
+    }
 
 @router.get("/account_settings")
 def get_account_settings(current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db), session_id: str = Cookie(None)):

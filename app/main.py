@@ -8,7 +8,7 @@ from app.schemas import Attachment_in, Message_schema, Party_message_schema, Ser
 from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns, ensure_reply_columns, ensure_account_columns
 from app.auth import validate_session
 from app.r2 import attachment_public
-from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings
+from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance
 from pydantic import ValidationError
 from app.routers.realtime import active_connections, heartbeat, notify_presence
 from app.routers.messages import send_message
@@ -51,6 +51,7 @@ app.mount("/static", StaticFiles(directory="frontend", html=True), name="fronten
 
 app.include_router(account.router)
 app.include_router(messaging_settings.router)
+app.include_router(appearance.router)
 app.include_router(messages.router)
 app.include_router(friends.router)
 app.include_router(parties.router)

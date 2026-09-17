@@ -1,11 +1,7 @@
 :root {
-  /* Midnight Purple — default theme. These are just CSS variable
-     values; every stylesheet in the app already reads colors through
-     var(--x) rather than hardcoding them, so this is the ONLY file
-     that ever needs to change to reskin the whole app. A future
-     "custom theme" settings screen is just writing different values
-     into these same variable names at runtime — no structural change
-     needed anywhere else. */
+  /* Midnight Purple — default theme. appearance.js overwrites these
+     at runtime from the user's saved preset / custom colors. Status
+     colors below stay locked on purpose. */
   --bg: #0f0a1a;
   --rail: #150f22;
   --panel: #1c1430;

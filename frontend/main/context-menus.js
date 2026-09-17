@@ -23,6 +23,7 @@ function showMessageContextMenu(e, msg) {
 }
 
 function canReactMessage(msg) {
+  if (!appearancePref("show_reactions", true)) return false;
   if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;

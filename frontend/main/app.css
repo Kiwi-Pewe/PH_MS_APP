@@ -459,6 +459,47 @@
   padding: 12px 0; border-bottom: 1px solid var(--border);
 }
 .settings-block-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.appearance-seg {
+  display: flex; overflow: hidden; min-width: 168px;
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.appearance-seg button {
+  flex: 1 1 0; background: var(--rail); color: var(--text-dim);
+  font-size: 13px; font-weight: 700; padding: 8px 12px;
+}
+.appearance-seg button:hover { color: var(--text); background: var(--panel-alt); }
+.appearance-seg button.is-on { background: var(--accent); color: #fff; }
+.appearance-tabs { width: 100%; margin: 8px 0 4px; }
+.theme-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+}
+.theme-tile {
+  background: var(--panel-alt); color: var(--text);
+  border: 2px solid transparent; border-radius: 10px;
+  padding: 12px 8px 10px;
+}
+.theme-tile:hover { border-color: var(--border); }
+.theme-tile.is-on { border-color: var(--accent); }
+.theme-dots { display: flex; justify-content: center; gap: 5px; margin-bottom: 8px; }
+.theme-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+.theme-tile-name { font-size: 12px; font-weight: 700; color: var(--text-dim); text-align: center; }
+.theme-tile.is-on .theme-tile-name { color: var(--text); }
+.appearance-color-row {
+  display: flex; align-items: center; gap: 16px;
+  width: 100%; padding: 14px 0; border-bottom: 1px solid var(--border);
+}
+.appearance-color-control { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.appearance-color-control input[type="color"] {
+  width: 36px; height: 36px; padding: 0; border: 1px solid var(--border);
+  border-radius: 8px; background: transparent;
+}
+.appearance-hex {
+  width: 92px; background: var(--rail); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 13px; padding: 8px 10px;
+}
 
 /* justify-content: flex-end is deliberately NOT used here — it has a
    well-known Flexbox quirk where content that overflows specifically
@@ -628,6 +669,13 @@
   background: var(--accent); color: #fff; font-size: 13px; font-weight: 600;
 }
 #composer button:hover, #channel-composer button:hover { background: var(--accent-hover); }
+#composer-send-btn, #channel-composer-send-btn { display: none; }
+html.show-send-btn #composer-send-btn, html.show-send-btn #channel-composer-send-btn { display: flex; }
+html.hide-reactions .reaction-row,
+html.hide-reactions .announce-reactions,
+html.hide-reactions .announce-comment-reactions,
+html.hide-reactions .forum-post-reactions,
+html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 
 /* + and emoji-face buttons flanking the textarea — quiet icon
    buttons rather than primary actions like Send. Matches Send's height

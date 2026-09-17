@@ -162,12 +162,37 @@ function buildLinkEmbedCard(url) {
 }
 
 function attachLinkEmbedsIfNeeded(lineEl, content) {
+  if (!appearancePref("show_embeds", true)) return;
   const urls = extractEmbedUrls(content);
   let after = lineEl;
   urls.forEach(url => {
     if (isEmbedHidden(url)) return;
+    if (appearancePref("show_link_media", true) && isDirectImageUrl(url)) return;
     const card = buildLinkEmbedCard(url);
     after.after(card);
     after = card;
+  });
+}
+
+function isDirectImageUrl(url) {
+  const parsed = parseHttpUrl(url);
+  if (!parsed) return false;
+  return /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(parsed.pathname);
+}
+
+function attachLinkImagesIfNeeded(host, content) {
+  if (!host || !appearancePref("show_link_media", true)) return;
+  extractEmbedUrls(content).forEach(url => {
+    if (!isDirectImageUrl(url)) return;
+    const wrap = document.createElement("div");
+    wrap.className = "msg-media msg-link-media";
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    img.referrerPolicy = "no-referrer";
+    img.addEventListener("error", () => wrap.remove());
+    img.addEventListener("click", () => window.open(url, "_blank", "noopener"));
+    wrap.appendChild(img);
+    host.appendChild(wrap);
   });
 }

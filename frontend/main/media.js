@@ -295,6 +295,7 @@ async function uploadPendingIfNeeded() {
 }
 
 function attachMediaIfNeeded(bubble, msg) {
+  if (!appearancePref("show_uploads", true)) return;
   const att = parseAttachment(msg && msg.attachment);
   if (!att || !att.url) return;
   const wrap = document.createElement("div");

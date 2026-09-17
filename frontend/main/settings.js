@@ -60,7 +60,8 @@ const SETTINGS_GENERAL_CATALOG = [
           { id: "theme", label: "Theme" },
           { id: "messages-look", label: "Messages" },
           { id: "chat-box", label: "Chat Box" },
-          { id: "appearance-search", label: "Search" }
+          { id: "appearance-search", label: "Search" },
+          { id: "streamer-mode", label: "Streamer Mode" }
         ]
       },
       {
@@ -161,9 +162,6 @@ function settingsPlaceholderNote(item) {
   if (item.id === "avatar") {
     return "Avatar upload isn't built yet.";
   }
-  if (item.id === "appearance" || item.id === "theme") {
-    return "Theme and custom colors aren't built yet.";
-  }
   return "This section isn't built yet.";
 }
 
@@ -188,6 +186,10 @@ function paintSettingsSection(item, jumpChildId) {
   }
   if (item.id === "notifications" && typeof renderNotificationSettings === "function") {
     renderNotificationSettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "appearance" && typeof renderAppearanceSettings === "function") {
+    renderAppearanceSettings(pane, jumpChildId);
     return;
   }
   pane.innerHTML = "";

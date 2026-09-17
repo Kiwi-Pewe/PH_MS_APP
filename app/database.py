@@ -100,6 +100,18 @@ def ensure_account_columns():
         ("users", "notify_sound_ring", "BOOLEAN"),
         ("users", "notify_sound_mute_all", "BOOLEAN"),
         ("users", "notify_reactions", "VARCHAR"),
+        ("users", "appearance_theme", "VARCHAR"),
+        ("users", "appearance_brightness", "VARCHAR"),
+        ("users", "appearance_color_bg", "VARCHAR"),
+        ("users", "appearance_color_surface", "VARCHAR"),
+        ("users", "appearance_color_accent", "VARCHAR"),
+        ("users", "appearance_color_highlight", "VARCHAR"),
+        ("users", "appearance_show_link_media", "BOOLEAN"),
+        ("users", "appearance_show_uploads", "BOOLEAN"),
+        ("users", "appearance_show_embeds", "BOOLEAN"),
+        ("users", "appearance_show_reactions", "BOOLEAN"),
+        ("users", "appearance_show_send", "BOOLEAN"),
+        ("users", "appearance_search", "VARCHAR"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:
@@ -151,6 +163,32 @@ def ensure_account_columns():
             conn.rollback()
         try:
             conn.execute(text("UPDATE users SET notify_reactions = 'all' WHERE notify_reactions IS NULL OR notify_reactions = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET appearance_theme = 'midnight-purple' WHERE appearance_theme IS NULL OR appearance_theme = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET appearance_brightness = 'dark' WHERE appearance_brightness IS NULL OR appearance_brightness = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        for column in ("appearance_show_link_media", "appearance_show_uploads", "appearance_show_embeds", "appearance_show_reactions"):
+            try:
+                conn.execute(text(f"UPDATE users SET {column} = 1 WHERE {column} IS NULL"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET appearance_show_send = 0 WHERE appearance_show_send IS NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET appearance_search = 'auto' WHERE appearance_search IS NULL OR appearance_search = ''"))
             conn.commit()
         except Exception:
             conn.rollback()

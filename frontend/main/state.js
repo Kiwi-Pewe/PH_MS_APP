@@ -188,3 +188,20 @@ let typingPeers = {};
 let isSettingsOpen = false;
 let settingsPane = "general";
 let settingsActiveId = "account";
+
+// Theme + message-display prefs. Applied from /whoami, then saved
+// through Appearance. Status colors are never stored here.
+let appearancePrefs = {
+  theme: "midnight-purple",
+  brightness: "dark",
+  color_bg: "",
+  color_surface: "",
+  color_accent: "",
+  color_highlight: "",
+  show_link_media: true,
+  show_uploads: true,
+  show_embeds: true,
+  show_reactions: true,
+  show_send: false,
+  search_style: "auto"
+};

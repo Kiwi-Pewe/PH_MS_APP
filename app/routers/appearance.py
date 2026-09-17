@@ -16,6 +16,7 @@ THEME_IDS = {
 }
 BRIGHTNESS_IDS = {"dark", "light"}
 SEARCH_STYLES = {"compact", "fullscreen", "auto"}
+SELF_SIDES = {"right", "left"}
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
@@ -36,6 +37,9 @@ def appearance_payload(user):
     search_style = (user.appearance_search or "").strip()
     if search_style not in SEARCH_STYLES:
         search_style = "auto"
+    self_side = (user.appearance_self_side or "").strip()
+    if self_side not in SELF_SIDES:
+        self_side = "right"
     return {
         "theme": theme,
         "brightness": brightness,
@@ -48,6 +52,8 @@ def appearance_payload(user):
         "show_embeds": flag_on(user, "appearance_show_embeds", True),
         "show_reactions": flag_on(user, "appearance_show_reactions", True),
         "show_send": bool(user.appearance_show_send) if user.appearance_show_send is not None else False,
+        "show_bubbles": flag_on(user, "appearance_show_bubbles", True),
+        "self_side": self_side,
         "search_style": search_style,
     }
 
@@ -68,6 +74,9 @@ def update_appearance_settings(prefs: Appearance_prefs, current_user: UserInfo =
     search_style = (prefs.search_style or "").strip()
     if search_style not in SEARCH_STYLES:
         raise HTTPException(status_code=400, detail="Pick a valid search layout.")
+    self_side = (prefs.self_side or "").strip()
+    if self_side not in SELF_SIDES:
+        raise HTTPException(status_code=400, detail="Pick a valid message side.")
     colors = [
         clean_hex(prefs.color_bg),
         clean_hex(prefs.color_surface),
@@ -87,6 +96,8 @@ def update_appearance_settings(prefs: Appearance_prefs, current_user: UserInfo =
     current_user.appearance_show_embeds = bool(prefs.show_embeds)
     current_user.appearance_show_reactions = bool(prefs.show_reactions)
     current_user.appearance_show_send = bool(prefs.show_send)
+    current_user.appearance_show_bubbles = bool(prefs.show_bubbles)
+    current_user.appearance_self_side = self_side
     current_user.appearance_search = search_style
     database.commit()
     return appearance_payload(current_user)

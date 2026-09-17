@@ -36,6 +36,8 @@ class UserInfo(Base):
     appearance_show_embeds = Column(Boolean, default= True)
     appearance_show_reactions = Column(Boolean, default= True)
     appearance_show_send = Column(Boolean, default= False)
+    appearance_show_bubbles = Column(Boolean, default= True)
+    appearance_self_side = Column(String, nullable= True)
     appearance_search = Column(String, nullable= True)
 
 class Message(Base):

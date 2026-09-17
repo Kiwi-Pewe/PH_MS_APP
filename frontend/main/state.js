@@ -203,5 +203,7 @@ let appearancePrefs = {
   show_embeds: true,
   show_reactions: true,
   show_send: false,
+  show_bubbles: true,
+  self_side: "right",
   search_style: "auto"
 };

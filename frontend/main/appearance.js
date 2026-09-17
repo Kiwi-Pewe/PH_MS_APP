@@ -37,6 +37,8 @@ function defaultAppearancePrefs() {
     show_embeds: true,
     show_reactions: true,
     show_send: false,
+    show_bubbles: true,
+    self_side: "right",
     search_style: "auto"
   };
 }
@@ -141,6 +143,12 @@ function appearancePref(name, fallback) {
 function applyAppearanceChrome(prefs) {
   document.documentElement.classList.toggle("show-send-btn", !!prefs.show_send);
   document.documentElement.classList.toggle("hide-reactions", !prefs.show_reactions);
+  document.documentElement.classList.toggle("no-chat-bubbles", prefs.show_bubbles === false);
+  const selfRight = prefs.self_side !== "left";
+  ["chat-messages", "channel-messages"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("self-right", selfRight);
+  });
 }
 
 function rerenderOpenChats() {

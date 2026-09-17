@@ -111,6 +111,8 @@ def ensure_account_columns():
         ("users", "appearance_show_embeds", "BOOLEAN"),
         ("users", "appearance_show_reactions", "BOOLEAN"),
         ("users", "appearance_show_send", "BOOLEAN"),
+        ("users", "appearance_show_bubbles", "BOOLEAN"),
+        ("users", "appearance_self_side", "VARCHAR"),
         ("users", "appearance_search", "VARCHAR"),
     )
     with engine.connect() as conn:
@@ -184,6 +186,16 @@ def ensure_account_columns():
                 conn.rollback()
         try:
             conn.execute(text("UPDATE users SET appearance_show_send = 0 WHERE appearance_show_send IS NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET appearance_show_bubbles = 1 WHERE appearance_show_bubbles IS NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET appearance_self_side = 'right' WHERE appearance_self_side IS NULL OR appearance_self_side = ''"))
             conn.commit()
         except Exception:
             conn.rollback()

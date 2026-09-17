@@ -64,6 +64,8 @@ class Appearance_prefs(BaseModel):
     show_embeds: bool = True
     show_reactions: bool = True
     show_send: bool = False
+    show_bubbles: bool = True
+    self_side: str = "right"
     search_style: str = "auto"
 
 class Attachment_in(BaseModel):

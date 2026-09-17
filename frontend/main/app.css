@@ -500,6 +500,25 @@
   width: 92px; background: var(--rail); border: 1px solid var(--border);
   border-radius: 6px; color: var(--text); font-size: 13px; padding: 8px 10px;
 }
+#settings-block-appearance { border-bottom: none; padding-bottom: 0; }
+#settings-block-appearance .settings-subblock {
+  margin: 0; padding: 24px 0;
+  border-top: 1px solid var(--border);
+}
+#settings-block-appearance .settings-subblock:first-of-type {
+  border-top: none; padding-top: 0;
+}
+#settings-block-appearance .settings-subblock-title {
+  font-size: 20px; font-weight: 800; margin-bottom: 14px;
+}
+#settings-block-appearance .settings-opt,
+#settings-block-appearance .appearance-color-row,
+#settings-block-appearance .settings-block-row {
+  border-bottom: none;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+#settings-block-appearance .settings-radio { padding-top: 8px; padding-bottom: 8px; }
 
 /* justify-content: flex-end is deliberately NOT used here — it has a
    well-known Flexbox quirk where content that overflows specifically
@@ -1232,6 +1251,33 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   margin-left: 8px;
 }
 .msg-cluster.self .bubble-line .edited-tag { color: rgba(255,255,255,0.42); opacity: 1; }
+
+html.no-chat-bubbles .cluster-bubble {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+}
+html.no-chat-bubbles .msg-cluster.self .bubble-line { color: var(--text); }
+html.no-chat-bubbles .msg-cluster.self .bubble-line .edited-tag { color: var(--text-dim); opacity: 0.8; }
+html.no-chat-bubbles .msg-cluster.self .mention-chip {
+  background: rgba(88, 101, 242, 0.35);
+  color: #dee0fc;
+}
+html.no-chat-bubbles .msg-cluster.self .mention-chip.mention-self,
+html.no-chat-bubbles .msg-cluster.self .mention-chip.mention-special {
+  background: var(--away);
+  color: #1a1a1e;
+}
+html.no-chat-bubbles .msg-cluster.self .bubble-line a.msg-link { color: #69c0ff; text-decoration: none; }
+html.no-chat-bubbles .msg-cluster.self .reaction-pill {
+  background: var(--rail);
+  color: var(--text);
+  border-color: var(--border);
+}
+html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
+  border-color: var(--accent);
+  background: var(--panel);
+}
 
 /* System divider — full-width line with its text centered on top,
    Discord's date-divider trick (two flex:1 lines flanking the text,

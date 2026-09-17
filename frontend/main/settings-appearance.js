@@ -171,6 +171,23 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
 
 function paintAppearanceMessages(host, info, persist) {
   host.appendChild(settingsOpt(
+    "Chat bubbles",
+    "Draw a colored bubble around each message. Turn this off for a flat chat list.",
+    settingsToggle(info.show_bubbles !== false, false, (on) => persist({ show_bubbles: on }))
+  ));
+  host.appendChild(settingsOpt(
+    "Your messages",
+    "Which side of the chat your own messages sit on. Other people stay on the left.",
+    appearanceSeg(
+      [
+        { value: "right", label: "Right" },
+        { value: "left", label: "Left" }
+      ],
+      info.self_side === "left" ? "left" : "right",
+      (value) => persist({ self_side: value })
+    )
+  ));
+  host.appendChild(settingsOpt(
     "Show images from links",
     "When a message includes a direct image URL, show the image in chat.",
     settingsToggle(!!info.show_link_media, false, (on) => persist({ show_link_media: on }))

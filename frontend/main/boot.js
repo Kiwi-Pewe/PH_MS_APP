@@ -17,6 +17,7 @@ window.addEventListener("load", () => {
     })
     .then((data) => {
       myUsername = data.username;
+      myDisplayName = data.display_name || data.username;
       myUserId = data.id;
       connectSocket();
     })
@@ -352,9 +353,10 @@ function connectSocket() {
 }
 
 function enterApp() {
+  const shown = myDisplayName || myUsername || "(existing session)";
   document.getElementById("topbar-username").textContent = myUsername || "(existing session)";
-  document.getElementById("footer-username").textContent = myUsername || "(existing session)";
-  document.getElementById("footer-avatar-letter").textContent = avatarLetter(myUsername);
+  document.getElementById("footer-username").textContent = shown;
+  document.getElementById("footer-avatar-letter").textContent = avatarLetter(shown);
   refreshFriendsView();
   loadConversations();
   loadServers();

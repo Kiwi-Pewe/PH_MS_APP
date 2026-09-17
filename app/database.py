@@ -74,3 +74,37 @@ def ensure_deletion_columns():
                 conn.commit()
             except Exception:
                 conn.rollback()
+
+
+def ensure_account_columns():
+    adds = (
+        ("users", "display_name", "VARCHAR"),
+        ("users", "email", "VARCHAR"),
+        ("users", "phone", "VARCHAR"),
+        ("users", "mfa_enabled", "BOOLEAN"),
+        ("users", "mfa_secret", "VARCHAR"),
+        ("users", "mfa_challenge", "VARCHAR"),
+        ("users", "mfa_challenge_until", "DATETIME"),
+        ("sessions", "user_agent", "VARCHAR"),
+        ("sessions", "ip_address", "VARCHAR"),
+        ("sessions", "location", "VARCHAR"),
+        ("sessions", "device_label", "VARCHAR"),
+        ("sessions", "client_label", "VARCHAR"),
+    )
+    with engine.connect() as conn:
+        for table, column, coltype in adds:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET display_name = username WHERE display_name IS NULL OR display_name = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET mfa_enabled = 0 WHERE mfa_enabled IS NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()

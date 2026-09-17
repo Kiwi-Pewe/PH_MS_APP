@@ -9,6 +9,28 @@ class Account_register(BaseModel):
     username:str
     password:str
 
+class Account_field_edit(BaseModel):
+    value: str = ""
+    password: str = ""
+
+class Account_password_change(BaseModel):
+    current_password: str
+    new_password: str
+
+class Account_mfa_confirm(BaseModel):
+    code: str
+
+class Account_mfa_disable(BaseModel):
+    password: str
+    code: str
+
+class Account_login_mfa(BaseModel):
+    username: str
+    code: str
+
+class Account_revoke_session(BaseModel):
+    session_id: str
+
 class Attachment_in(BaseModel):
     key: str
     mime: str

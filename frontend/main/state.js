@@ -7,6 +7,7 @@
 let serverAddress = null;
 let ws = null;
 let myUsername = null;
+let myDisplayName = null; // public name; username is the login key
 let myUserId = null; // from /whoami — needed to compare against a server's owner_id
 
 // The single open chat, whatever kind it is. type is "dm" or "party";

@@ -8,6 +8,13 @@ class UserInfo(Base):
     id = Column(Integer, primary_key = True)
     username = Column(String, unique= True, nullable= False)
     hashed_password = Column(String, nullable= False)
+    display_name = Column(String, nullable= True)
+    email = Column(String, nullable= True)
+    phone = Column(String, nullable= True)
+    mfa_enabled = Column(Boolean, default= False)
+    mfa_secret = Column(String, nullable= True)
+    mfa_challenge = Column(String, nullable= True)
+    mfa_challenge_until = Column(DateTime, nullable= True)
 
 class Message(Base):
     __tablename__ = "messages"
@@ -31,6 +38,11 @@ class Active_Sessions(Base):
     account_id = Column(Integer, ForeignKey("users.id"))
     last_active = Column(DateTime, server_default= func.now())
     created_at = Column(DateTime, server_default= func.now())
+    user_agent = Column(String, nullable= True)
+    ip_address = Column(String, nullable= True)
+    location = Column(String, nullable= True)
+    device_label = Column(String, nullable= True)
+    client_label = Column(String, nullable= True)
 
 class Friend_request(Base):
     __tablename__ = "friend"

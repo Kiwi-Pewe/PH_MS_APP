@@ -1,5 +1,6 @@
 // ==================================================================
-// settings.js - General + User settings shell. Section bodies stay
+// settings.js - General + User settings shell. Account + Profile
+// bodies are painted by settings-account.js; other sections stay
 // placeholders until we fill them one pass at a time.
 // ==================================================================
 
@@ -156,11 +157,8 @@ function settingsPlaceholderNote(item) {
   if (item.parked === "voice") return "Voice & Video waits until Voice is built.";
   if (item.stage === 3) return "Games & Apps wait on Stage 3.";
   if (item.id === "developer") return "Developer options aren't designed yet.";
-  if (item.id === "account" || item.id === "account-info" || item.id === "password-security") {
-    return "We'll fill this in on the next pass.";
-  }
-  if (item.id === "profile" || item.id === "display-name" || item.id === "avatar") {
-    return "User profile settings aren't built yet.";
+  if (item.id === "avatar") {
+    return "Avatar upload isn't built yet.";
   }
   if (item.id === "appearance" || item.id === "theme") {
     return "Theme and custom colors aren't built yet.";
@@ -171,6 +169,14 @@ function settingsPlaceholderNote(item) {
 function paintSettingsSection(item, jumpChildId) {
   const pane = settingsPaneEl();
   if (!pane || !item) return;
+  if (item.id === "account" && typeof renderAccountSettings === "function") {
+    renderAccountSettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "profile" && typeof renderProfileSettings === "function") {
+    renderProfileSettings(pane, jumpChildId);
+    return;
+  }
   pane.innerHTML = "";
 
   const block = document.createElement("section");
@@ -300,8 +306,9 @@ function paintSettingsUserCard() {
   const letter = document.getElementById("settings-card-letter");
   const name = document.getElementById("settings-card-name");
   const action = document.getElementById("settings-card-action");
-  if (letter) letter.textContent = typeof avatarLetter === "function" ? avatarLetter(myUsername) : (myUsername || "?").slice(0, 1);
-  if (name) name.textContent = myUsername || "—";
+  const shown = myDisplayName || myUsername || "";
+  if (letter) letter.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : (shown || "?").slice(0, 1);
+  if (name) name.textContent = shown || "—";
   if (action) action.textContent = settingsPane === "user" ? "Back to General" : "Edit Profiles";
 }
 

@@ -11,6 +11,7 @@ h11==0.16.0
 idna==3.18
 pydantic==2.13.4
 passlib==1.7.4
+pyotp==2.9.0
 pydantic_core==2.46.4
 python-dotenv==1.2.2
 SQLAlchemy==2.0.52

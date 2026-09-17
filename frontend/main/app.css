@@ -281,6 +281,106 @@
 .settings-subblock { margin: 0 0 22px; }
 .settings-subblock:last-child { margin-bottom: 0; }
 .settings-subblock-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.settings-blurb { font-size: 13px; line-height: 1.5; color: var(--text-dim); margin: 0 0 16px; }
+.settings-row {
+  display: flex; align-items: center; gap: 16px;
+  width: 100%; padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent; color: inherit; text-align: left;
+}
+.settings-subblock .settings-row:last-child { border-bottom: none; }
+.settings-row-label { flex: 0 0 180px; font-size: 13px; font-weight: 600; color: var(--text); }
+.settings-row-value { flex: 1 1 auto; text-align: right; font-size: 13px; color: var(--text); min-width: 0; }
+.settings-row-value.is-empty, .settings-row-value .is-empty { color: var(--text-dim); }
+.settings-row-btn {
+  flex: 0 0 auto; min-width: 64px;
+  background: var(--panel-alt); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px;
+  font-size: 13px; font-weight: 600; padding: 6px 16px;
+}
+.settings-row-btn:hover { background: var(--border); }
+.settings-row-link { cursor: pointer; }
+.settings-row-link:hover { background: transparent; }
+.settings-row-chevron { flex: 0 0 auto; color: var(--text-dim); font-size: 16px; line-height: 1; }
+.settings-inline-link {
+  background: transparent; color: var(--accent); font-size: 13px; font-weight: 600; padding: 0;
+}
+.settings-inline-link:hover { text-decoration: underline; }
+.settings-back {
+  background: transparent; color: var(--text-dim);
+  font-size: 13px; font-weight: 700; padding: 0 0 16px;
+}
+.settings-back:hover { color: var(--text); }
+.settings-danger-btn {
+  background: var(--danger); color: #fff;
+  font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 4px;
+}
+.settings-danger-btn:hover { filter: brightness(1.08); }
+.settings-form-overlay {
+  position: fixed; inset: 0; z-index: 960;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+.settings-form {
+  width: 440px; max-width: calc(100vw - 32px);
+  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
+  padding: 20px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.settings-form h3 { font-size: 16px; font-weight: 800; color: var(--text); margin: 0 0 16px; }
+.settings-form label { display: block; font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 12px; }
+.settings-form input {
+  display: block; width: 100%; margin-top: 6px;
+  background: var(--rail); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 14px; padding: 9px 10px;
+}
+.settings-form input:focus { outline: none; border-color: var(--accent); }
+.settings-form-status { min-height: 16px; font-size: 12px; color: var(--danger); margin-bottom: 10px; }
+.settings-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.settings-form-actions button {
+  background: var(--panel-alt); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px;
+  font-size: 13px; font-weight: 600; padding: 7px 14px;
+}
+.settings-form-save {
+  background: var(--accent); color: #fff;
+  border: 1px solid var(--accent); border-radius: 4px;
+  font-size: 13px; font-weight: 700; padding: 8px 14px;
+}
+.settings-form-save:hover { background: var(--accent-hover); }
+.settings-form-actions .settings-form-save { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
+.settings-form-actions .settings-danger-btn { background: var(--danger); color: #fff; border-color: var(--danger); }
+.device-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.device-icon {
+  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 8px;
+  background: var(--panel-alt); color: var(--text);
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.device-meta { flex: 1 1 auto; min-width: 0; }
+.device-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.device-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.device-revoke {
+  flex: 0 0 auto; background: transparent; color: var(--text-dim);
+  font-size: 22px; line-height: 1; padding: 4px 8px; border-radius: 4px;
+}
+.device-revoke:hover { color: var(--text); background: var(--panel-alt); }
+.mfa-setup { margin-top: 16px; max-width: 420px; }
+.mfa-setup .settings-form-save { margin-top: 4px; }
+.mfa-secret {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.08em; font-size: 15px; font-weight: 700;
+  background: var(--rail); border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px; margin: 0 0 14px; cursor: pointer; word-break: break-all;
+}
+.mfa-secret.copied { border-color: var(--accent); }
+.mfa-code-label { display: block; font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 12px; }
+.mfa-code-label input {
+  display: block; width: 100%; margin-top: 6px;
+  background: var(--rail); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 16px; padding: 9px 10px; letter-spacing: 0.12em;
+}
 
 /* justify-content: flex-end is deliberately NOT used here — it has a
    well-known Flexbox quirk where content that overflows specifically

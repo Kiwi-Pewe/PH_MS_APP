@@ -4,19 +4,29 @@
 <meta charset="UTF-8">
 <title>Oneira — Log In</title>
 <link rel="stylesheet" href="shared/tokens.css?v=6">
-<link rel="stylesheet" href="login.css">
+<link rel="stylesheet" href="login.css?v=2">
 </head>
 <body>
 
 <div class="card" id="login-card">
   <h1>Log In</h1>
   <label for="login-username">Username</label>
-  <input type="text" id="login-username" placeholder="Username">
+  <input type="text" id="login-username" placeholder="Username" autocomplete="username">
   <label for="login-password">Password</label>
-  <input type="password" id="login-password" placeholder="Password">
+  <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
   <button onclick="login()">Log In</button>
   <div id="status"></div>
   <div class="switch">No account? <a href="#" onclick="showRegister(); return false;">Register</a></div>
+</div>
+
+<div class="card" id="mfa-card" style="display:none;">
+  <h1>Authenticator</h1>
+  <p class="mfa-copy">Enter the code from Google Authenticator (or another TOTP app) for <strong id="mfa-username"></strong>.</p>
+  <label for="mfa-code">6-digit code</label>
+  <input type="text" id="mfa-code" placeholder="000000" inputmode="numeric" autocomplete="one-time-code" maxlength="8">
+  <button onclick="loginMfa()">Verify</button>
+  <div id="mfa-status"></div>
+  <div class="switch"><a href="#" onclick="showLogin(); return false;">Back to log in</a></div>
 </div>
 
 <div class="card" id="register-card" style="display:none;">
@@ -31,6 +41,6 @@
 </div>
 
 <script src="shared/config.js"></script>
-<script src="login.js"></script>
+<script src="login.js?v=2"></script>
 </body>
 </html>

@@ -229,17 +229,22 @@ function maskedFieldNode(info, key, revealed, setRevealed) {
     wrap.className = "is-empty";
     return wrap;
   }
-  wrap.appendChild(document.createTextNode(revealed ? raw : masked));
-  wrap.appendChild(document.createTextNode(" "));
+  let shown = !!revealed;
+  const text = document.createTextNode(shown ? raw : masked);
   const reveal = document.createElement("button");
   reveal.type = "button";
   reveal.className = "settings-inline-link";
-  reveal.textContent = revealed ? "Hide" : "Reveal";
+  reveal.textContent = shown ? "Hide" : "Reveal";
   reveal.addEventListener("click", (e) => {
+    e.preventDefault();
     e.stopPropagation();
-    setRevealed(!revealed);
-    if (typeof jumpToSettings === "function") jumpToSettings("account-info");
+    shown = !shown;
+    setRevealed(shown);
+    text.nodeValue = shown ? raw : masked;
+    reveal.textContent = shown ? "Hide" : "Reveal";
   });
+  wrap.appendChild(text);
+  wrap.appendChild(document.createTextNode(" "));
   wrap.appendChild(reveal);
   return wrap;
 }

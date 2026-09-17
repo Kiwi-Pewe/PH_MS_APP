@@ -31,6 +31,9 @@ class Account_login_mfa(BaseModel):
 class Account_revoke_session(BaseModel):
     session_id: str
 
+class Account_privacy_edit(BaseModel):
+    value: str
+
 class Attachment_in(BaseModel):
     key: str
     mime: str

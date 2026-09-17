@@ -4,6 +4,7 @@ from app.models import UserInfo, Active_Sessions
 from app.schemas import (
     Account_register, Account_login, Account_field_edit, Account_password_change,
     Account_mfa_confirm, Account_mfa_disable, Account_login_mfa, Account_revoke_session,
+    Account_privacy_edit,
 )
 from app.database import get_db
 from app.auth import pwd_context, create_session_id, get_current_user
@@ -223,6 +224,7 @@ def create_account(account: Account_register, database : Session = Depends(get_d
         email= None,
         phone= None,
         mfa_enabled= False,
+        profile_visibility= "friends_all",
     )
     database.add(info)
     database.commit()
@@ -372,3 +374,24 @@ def disable_account_mfa(body: Account_mfa_disable, current_user: UserInfo = Depe
     current_user.mfa_secret = None
     database.commit()
     return {"mfa_enabled": False}
+
+PROFILE_VISIBILITY = ("friends_all", "friends_small", "friends_only")
+
+def public_profile_visibility(user):
+    value = (user.profile_visibility or "").strip()
+    if value in PROFILE_VISIBILITY:
+        return value
+    return "friends_all"
+
+@router.get("/privacy_settings")
+def get_privacy_settings(current_user: UserInfo = Depends(get_current_user)):
+    return {"profile_visibility": public_profile_visibility(current_user)}
+
+@router.post("/privacy_visibility")
+def update_privacy_visibility(edit: Account_privacy_edit, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    value = (edit.value or "").strip()
+    if value not in PROFILE_VISIBILITY:
+        raise HTTPException(status_code=400, detail="Pick a valid profile visibility.")
+    current_user.profile_visibility = value
+    database.commit()
+    return {"profile_visibility": value}

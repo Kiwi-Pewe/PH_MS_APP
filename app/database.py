@@ -90,6 +90,7 @@ def ensure_account_columns():
         ("sessions", "location", "VARCHAR"),
         ("sessions", "device_label", "VARCHAR"),
         ("sessions", "client_label", "VARCHAR"),
+        ("users", "profile_visibility", "VARCHAR"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:
@@ -105,6 +106,11 @@ def ensure_account_columns():
             conn.rollback()
         try:
             conn.execute(text("UPDATE users SET mfa_enabled = 0 WHERE mfa_enabled IS NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET profile_visibility = 'friends_all' WHERE profile_visibility IS NULL OR profile_visibility = ''"))
             conn.commit()
         except Exception:
             conn.rollback()

@@ -18,7 +18,6 @@ const SETTINGS_GENERAL_CATALOG = [
       {
         id: "data-privacy",
         label: "Data & Privacy",
-        placeholder: true,
         children: [
           { id: "how-data-used", label: "How Oneira Uses My Data" },
           { id: "sponsored-content", label: "Sponsored Content" },
@@ -155,7 +154,9 @@ function settingsParentOf(id) {
 
 function settingsPlaceholderNote(item) {
   if (item.parked === "voice") return "Voice & Video waits until Voice is built.";
-  if (item.stage === 3) return "Games & Apps wait on Stage 3.";
+  if (item.stage === 3 || item.id === "registered-games" || item.id === "activity-privacy" || item.id === "connected-apps" || item.id === "game-overlay") {
+    return "This feature isn't built yet. You'll be able to link accounts like Steam or Roblox so what you're playing can show on your profile.";
+  }
   if (item.id === "developer") return "Developer options aren't designed yet.";
   if (item.id === "avatar") {
     return "Avatar upload isn't built yet.";
@@ -175,6 +176,10 @@ function paintSettingsSection(item, jumpChildId) {
   }
   if (item.id === "profile" && typeof renderProfileSettings === "function") {
     renderProfileSettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "data-privacy" && typeof renderDataPrivacySettings === "function") {
+    renderDataPrivacySettings(pane, jumpChildId);
     return;
   }
   pane.innerHTML = "";

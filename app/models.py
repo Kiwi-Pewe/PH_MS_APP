@@ -15,6 +15,7 @@ class UserInfo(Base):
     mfa_secret = Column(String, nullable= True)
     mfa_challenge = Column(String, nullable= True)
     mfa_challenge_until = Column(DateTime, nullable= True)
+    profile_visibility = Column(String, nullable= True)
 
 class Message(Base):
     __tablename__ = "messages"

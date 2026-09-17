@@ -229,6 +229,11 @@ def create_account(account: Account_register, database : Session = Depends(get_d
         friend_req_friends_of_friends= True,
         friend_req_server_members= True,
         allow_server_dms= True,
+        notify_sound_message= True,
+        notify_sound_current= False,
+        notify_sound_ring= True,
+        notify_sound_mute_all= False,
+        notify_reactions= "all",
     )
     database.add(info)
     database.commit()

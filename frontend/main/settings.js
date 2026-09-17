@@ -40,12 +40,12 @@ const SETTINGS_GENERAL_CATALOG = [
       {
         id: "notifications",
         label: "Notifications",
-        placeholder: true,
         children: [
           { id: "notifications-overview", label: "Overview" },
           { id: "notifications-sounds", label: "Sounds" },
           { id: "notifications-badges", label: "Badges" },
-          { id: "notifications-email", label: "Email" }
+          { id: "notifications-email", label: "Email" },
+          { id: "notifications-advanced", label: "Advanced" }
         ]
       }
     ]
@@ -184,6 +184,10 @@ function paintSettingsSection(item, jumpChildId) {
   }
   if (item.id === "messaging-permissions" && typeof renderMessagingSettings === "function") {
     renderMessagingSettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "notifications" && typeof renderNotificationSettings === "function") {
+    renderNotificationSettings(pane, jumpChildId);
     return;
   }
   pane.innerHTML = "";

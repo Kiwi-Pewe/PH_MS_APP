@@ -20,6 +20,11 @@ class UserInfo(Base):
     friend_req_friends_of_friends = Column(Boolean, default= True)
     friend_req_server_members = Column(Boolean, default= True)
     allow_server_dms = Column(Boolean, default= True)
+    notify_sound_message = Column(Boolean, default= True)
+    notify_sound_current = Column(Boolean, default= False)
+    notify_sound_ring = Column(Boolean, default= True)
+    notify_sound_mute_all = Column(Boolean, default= False)
+    notify_reactions = Column(String, nullable= True)
 
 class Message(Base):
     __tablename__ = "messages"

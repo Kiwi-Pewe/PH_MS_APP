@@ -43,6 +43,15 @@ class Messaging_dms_pref(BaseModel):
     server_id: str | None = None
     allow: bool
 
+class Notification_sound_prefs(BaseModel):
+    message: bool
+    current_channel: bool
+    incoming_ring: bool
+    mute_all: bool
+
+class Notification_reaction_pref(BaseModel):
+    value: str
+
 class Attachment_in(BaseModel):
     key: str
     mime: str

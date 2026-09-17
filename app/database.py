@@ -95,6 +95,11 @@ def ensure_account_columns():
         ("users", "friend_req_friends_of_friends", "BOOLEAN"),
         ("users", "friend_req_server_members", "BOOLEAN"),
         ("users", "allow_server_dms", "BOOLEAN"),
+        ("users", "notify_sound_message", "BOOLEAN"),
+        ("users", "notify_sound_current", "BOOLEAN"),
+        ("users", "notify_sound_ring", "BOOLEAN"),
+        ("users", "notify_sound_mute_all", "BOOLEAN"),
+        ("users", "notify_reactions", "VARCHAR"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:
@@ -124,3 +129,28 @@ def ensure_account_columns():
                 conn.commit()
             except Exception:
                 conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET notify_sound_message = 1 WHERE notify_sound_message IS NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET notify_sound_current = 0 WHERE notify_sound_current IS NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET notify_sound_ring = 1 WHERE notify_sound_ring IS NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET notify_sound_mute_all = 0 WHERE notify_sound_mute_all IS NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET notify_reactions = 'all' WHERE notify_reactions IS NULL OR notify_reactions = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()

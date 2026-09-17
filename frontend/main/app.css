@@ -247,11 +247,13 @@
   color: var(--text-dim); padding: 14px 10px 6px;
 }
 .settings-nav-item {
-  display: block; width: 100%;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
   background: transparent; color: var(--text-dim); text-align: left;
   font-size: 13px; font-weight: 600; padding: 8px 10px; border-radius: 6px;
 }
-.settings-nav-item:hover, .settings-nav-item.active { background: var(--panel-alt); color: var(--text); }
+.settings-nav-item:hover, .settings-nav-item.is-open { background: var(--panel-alt); color: var(--text); }
+.settings-nav-caret { font-size: 10px; color: var(--text-dim); transform: rotate(-90deg); }
+.settings-nav-item.is-open .settings-nav-caret { transform: none; }
 .settings-nav-item.is-later { opacity: 0.55; }
 .settings-nav-child {
   display: block; width: calc(100% - 14px);

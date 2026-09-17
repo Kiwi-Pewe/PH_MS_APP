@@ -500,25 +500,25 @@
   width: 92px; background: var(--rail); border: 1px solid var(--border);
   border-radius: 6px; color: var(--text); font-size: 13px; padding: 8px 10px;
 }
-#settings-block-appearance { border-bottom: none; padding-bottom: 0; }
-#settings-block-appearance .settings-subblock {
+.settings-block.has-sections { border-bottom: none; padding-bottom: 0; }
+.settings-block.has-sections > .settings-subblock {
   margin: 0; padding: 24px 0;
   border-top: 1px solid var(--border);
 }
-#settings-block-appearance .settings-subblock:first-of-type {
+.settings-block.has-sections > .settings-subblock:first-of-type {
   border-top: none; padding-top: 0;
 }
-#settings-block-appearance .settings-subblock-title {
+.settings-block.has-sections > .settings-subblock > .settings-subblock-title {
   font-size: 20px; font-weight: 800; margin-bottom: 14px;
 }
-#settings-block-appearance .settings-opt,
-#settings-block-appearance .appearance-color-row,
-#settings-block-appearance .settings-block-row {
+.settings-block.has-sections .settings-opt,
+.settings-block.has-sections .appearance-color-row,
+.settings-block.has-sections .settings-block-row {
   border-bottom: none;
   padding-top: 10px;
   padding-bottom: 10px;
 }
-#settings-block-appearance .settings-radio { padding-top: 8px; padding-bottom: 8px; }
+.settings-block.has-sections .settings-radio { padding-top: 8px; padding-bottom: 8px; }
 
 /* justify-content: flex-end is deliberately NOT used here — it has a
    well-known Flexbox quirk where content that overflows specifically
@@ -1112,9 +1112,10 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 20px;
   max-width: 100%;
 }
+html.no-chat-bubbles .msg-cluster { margin-bottom: 24px; }
 .msg-cluster.mention-highlight {
   background: rgba(250, 168, 26, 0.14);
   box-shadow: inset 2px 0 0 var(--away);
@@ -1252,7 +1253,8 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 }
 .msg-cluster.self .bubble-line .edited-tag { color: rgba(255,255,255,0.42); opacity: 1; }
 
-html.no-chat-bubbles .cluster-bubble {
+html.no-chat-bubbles .msg-cluster.self .cluster-bubble,
+html.no-chat-bubbles .msg-cluster.other .cluster-bubble {
   background: transparent;
   border-radius: 0;
   padding: 0;

@@ -180,8 +180,8 @@ function paintAppearanceMessages(host, info, persist) {
     "Which side of the chat your own messages sit on. Other people stay on the left.",
     appearanceSeg(
       [
-        { value: "right", label: "Right" },
-        { value: "left", label: "Left" }
+        { value: "left", label: "Left" },
+        { value: "right", label: "Right" }
       ],
       info.self_side === "left" ? "left" : "right",
       (value) => persist({ self_side: value })
@@ -263,7 +263,7 @@ async function renderAppearanceSettings(pane, jumpChildId) {
   applyAppearance(info);
 
   const block = document.createElement("section");
-  block.className = "settings-block";
+  block.className = "settings-block has-sections";
   block.id = settingsTargetId("appearance");
   const title = document.createElement("h2");
   title.className = "settings-block-title";

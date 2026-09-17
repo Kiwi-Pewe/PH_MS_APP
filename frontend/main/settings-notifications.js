@@ -41,7 +41,7 @@ async function renderNotificationSettings(pane, jumpChildId) {
   }
 
   const block = document.createElement("section");
-  block.className = "settings-block";
+  block.className = "settings-block has-sections";
   block.id = settingsTargetId("notifications");
   const title = document.createElement("h2");
   title.className = "settings-block-title";

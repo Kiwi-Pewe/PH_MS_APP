@@ -145,14 +145,23 @@ function bindProfileTileDrag(el, tile, handle) {
   let mode = null;
   let origin = null;
   let startPt = null;
+  let grabOffset = { x: 0, y: 0 };
+
+  function moveTarget(clientX, clientY) {
+    const cell = profileCellFromPoint(clientX, clientY);
+    return {
+      x: Math.max(0, Math.min(PROFILE_COLS - tile.w, cell.x - grabOffset.x)),
+      y: Math.max(0, cell.y - grabOffset.y)
+    };
+  }
 
   function onMove(e) {
     if (!mode) return;
     const cell = profileCellFromPoint(e.clientX, e.clientY);
     if (mode === "move") {
-      const x = Math.max(0, Math.min(PROFILE_COLS - tile.w, cell.x));
-      el.style.gridColumn = (x + 1) + " / span " + tile.w;
-      el.style.gridRow = (Math.max(0, cell.y) + 1) + " / span " + tile.h;
+      const next = moveTarget(e.clientX, e.clientY);
+      el.style.gridColumn = (next.x + 1) + " / span " + tile.w;
+      el.style.gridRow = (next.y + 1) + " / span " + tile.h;
     } else {
       const w = Math.max(1, Math.min(PROFILE_COLS - origin.x, cell.x - origin.x + 1));
       const h = Math.max(1, cell.y - origin.y + 1);
@@ -167,7 +176,10 @@ function bindProfileTileDrag(el, tile, handle) {
     const dist = startPt ? Math.hypot(e.clientX - startPt.x, e.clientY - startPt.y) : 0;
     if (mode === "move") {
       if (dist < 6 && typeof editProfileIdentity === "function") editProfileIdentity(tile);
-      else if (tryMoveTile(tile, cell.x, cell.y)) profileDirty = true;
+      else {
+        const next = moveTarget(e.clientX, e.clientY);
+        if (tryMoveTile(tile, next.x, next.y)) profileDirty = true;
+      }
     } else if (tryResizeTile(tile, Math.max(1, cell.x - origin.x + 1), Math.max(1, cell.y - origin.y + 1))) {
       profileDirty = true;
     }
@@ -185,6 +197,11 @@ function bindProfileTileDrag(el, tile, handle) {
     mode = "move";
     origin = { x: tile.x, y: tile.y, w: tile.w, h: tile.h };
     startPt = { x: e.clientX, y: e.clientY };
+    const grab = profileCellFromPoint(e.clientX, e.clientY);
+    grabOffset = {
+      x: Math.max(0, Math.min(Math.max(tile.w - 1, 0), grab.x - tile.x)),
+      y: Math.max(0, Math.min(Math.max(tile.h - 1, 0), grab.y - tile.y))
+    };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
   });

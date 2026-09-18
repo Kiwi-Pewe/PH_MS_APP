@@ -92,11 +92,12 @@ const SETTINGS_GENERAL_CATALOG = [
       {
         id: "system",
         label: "System",
-        placeholder: true,
         children: [
           { id: "system-general", label: "General" },
           { id: "custom-keybinds", label: "Custom Keybinds" },
-          { id: "default-keybinds", label: "Default Keybinds" }
+          { id: "default-keybinds", label: "Default Keybinds" },
+          { id: "system-helper", label: "System Helper" },
+          { id: "system-advanced", label: "Advanced" }
         ]
       },
       {
@@ -201,6 +202,10 @@ function paintSettingsSection(item, jumpChildId) {
   }
   if (item.id === "accessibility" && typeof renderAccessibilitySettings === "function") {
     renderAccessibilitySettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "system" && typeof renderSystemSettings === "function") {
+    renderSystemSettings(pane, jumpChildId);
     return;
   }
   pane.innerHTML = "";

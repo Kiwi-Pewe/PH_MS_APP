@@ -454,6 +454,42 @@
   text-align: center;
 }
 .settings-empty-card.is-left { text-align: left; }
+.settings-callout {
+  display: flex; align-items: flex-start; gap: 10px;
+  border: 1px solid var(--accent); border-radius: 8px;
+  padding: 10px 12px; margin: 8px 0 12px;
+}
+.settings-callout.is-warn { border-color: var(--away); }
+.settings-callout-icon {
+  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  font-size: 12px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.settings-callout.is-warn .settings-callout-icon { background: var(--away); color: #1a1a1e; }
+.settings-callout-copy { flex: 1 1 auto; min-width: 0; }
+.settings-callout .settings-row-btn { margin-left: auto; align-self: center; }
+.system-toolbar { display: flex; justify-content: flex-end; margin: -4px 0 8px; }
+.settings-keybind-labels {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 44px;
+  gap: 12px; margin: 12px 0 6px;
+}
+.settings-keybind-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 44px;
+  gap: 12px; align-items: center;
+}
+.settings-keybind-row .settings-select { min-width: 0; width: 100%; }
+.settings-keybind-combo {
+  display: flex; align-items: stretch; min-width: 0;
+  border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+  background: var(--rail); color: var(--text-dim); font-size: 13px;
+}
+.settings-keybind-combo span {
+  flex: 1 1 auto; padding: 8px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.settings-keybind-combo .settings-row-btn {
+  border: none; border-left: 1px solid var(--border); border-radius: 0; min-width: 0;
+}
 .settings-block-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 12px 0; border-bottom: 1px solid var(--border);

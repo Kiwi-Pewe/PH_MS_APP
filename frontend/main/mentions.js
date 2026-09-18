@@ -109,7 +109,7 @@ function buildMentionChip(token, lookup, msg) {
   chip.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log("View profile — not implemented yet", userId, username);
+    if (typeof openUserProfile === "function") openUserProfile(userId);
   });
   chip.addEventListener("contextmenu", (e) => {
     e.preventDefault();

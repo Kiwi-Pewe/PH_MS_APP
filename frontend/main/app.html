@@ -5,7 +5,7 @@
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=9">
 <link rel="stylesheet" href="../shared/context-menu.css?v=2">
-<link rel="stylesheet" href="app.css?v=67">
+<link rel="stylesheet" href="app.css?v=72">
 </head>
 <body>
 
@@ -15,6 +15,7 @@
     <div class="brand">Oneira</div>
     <div class="tabs">
       <button class="tab active" data-tab="messages">Messages</button>
+      <button class="tab" data-tab="profile">Profile</button>
       <button class="tab" data-tab="settings">Settings</button>
     </div>
     <div class="top-right"><span id="topbar-username"></span></div>
@@ -23,6 +24,7 @@
   <div id="main-grid">
 
     <div id="server-rail">
+      <div id="server-rail-main">
       <div class="rail-icon active" id="home-icon" title="Home">Home<span class="icon-badge" id="home-unread-badge">0</span></div>
       <div class="rail-divider"></div>
       <!-- Populated by loadServers()/renderServerList(). Sits in its own
@@ -34,6 +36,11 @@
            modal — a sub-menu pop-up, styled with the same
            --accent-submenu treatment as the party modal. -->
       <div class="rail-icon create-server-icon" id="create-server-btn" title="Create Server">+</div>
+      </div>
+      <div id="profile-palette" hidden>
+        <div class="profile-palette-title">Pieces</div>
+        <div id="profile-palette-body"></div>
+      </div>
     </div>
 
     <div id="secondary-panel">
@@ -79,12 +86,20 @@
         <div id="settings-nav-scroll"></div>
       </div>
 
+      <div id="profile-sidebar-view" style="display:none;">
+        <div id="profile-sidebar-header">Pages</div>
+        <div id="profile-page-list"></div>
+        <div id="profile-page-tools"></div>
+      </div>
+
       <div id="account-footer">
-        <div class="avatar-dot"><span id="footer-avatar-letter"></span><div class="status-dot"></div></div>
-        <div>
-          <div class="who" id="footer-username">—</div>
-          <div class="status-label">Online</div>
-        </div>
+        <button type="button" id="footer-profile-btn">
+          <div class="avatar-dot"><span id="footer-avatar-letter"></span><div class="status-dot"></div></div>
+          <div>
+            <div class="who" id="footer-username">—</div>
+            <div class="status-label">Online</div>
+          </div>
+        </button>
         <div class="spacer"></div>
       </div>
     </div>
@@ -393,6 +408,21 @@
       <div class="main-view" id="view-settings">
         <div id="settings-general-pane" class="settings-pane"></div>
         <div id="settings-user-pane" class="settings-pane" hidden></div>
+      </div>
+
+      <div class="main-view" id="view-profile">
+        <div class="profile-top">
+          <button type="button" id="profile-edit-btn" hidden>Edit Profile</button>
+          <div id="profile-edit-actions" hidden>
+            <button type="button" id="profile-cancel-btn" class="settings-row-btn">Cancel</button>
+            <button type="button" id="profile-save-btn" class="pill-btn">Save</button>
+          </div>
+          <div id="profile-owner-label"></div>
+        </div>
+        <div id="profile-board-scroll">
+          <div id="profile-board"></div>
+          <div id="profile-limited-note" hidden>This is a limited profile.</div>
+        </div>
       </div>
 
     </div>
@@ -708,7 +738,7 @@
 <div id="mention-picker" hidden>
   <div id="mention-picker-list"></div>
 </div>
-<script src="state.js?v=61"></script>
+<script src="state.js?v=62"></script>
 <script src="appearance.js?v=4"></script>
 <script src="accessibility.js?v=3"></script>
 <script src="language-time.js?v=1"></script>
@@ -716,18 +746,25 @@
 <script src="media.js?v=48"></script>
 <script src="post-media.js?v=51"></script>
 <script src="boot.js?v=64"></script>
-<script src="app-shell.js?v=48"></script>
-<script src="settings.js?v=11"></script>
+<script src="app-shell.js?v=49"></script>
+<script src="settings.js?v=16"></script>
 <script src="settings-account.js?v=3"></script>
-<script src="settings-privacy.js?v=3"></script>
+<script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=1"></script>
 <script src="settings-notifications.js?v=2"></script>
 <script src="settings-appearance.js?v=4"></script>
 <script src="settings-voice.js?v=1"></script>
 <script src="settings-system.js?v=1"></script>
 <script src="settings-language.js?v=1"></script>
+<script src="settings-games.js?v=1"></script>
+<script src="settings-activity.js?v=1"></script>
+<script src="settings-overlay.js?v=1"></script>
+<script src="settings-apps.js?v=1"></script>
 <script src="settings-accessibility.js?v=3"></script>
-<script src="context-menus.js?v=65"></script>
+<script src="profile-board.js?v=1"></script>
+<script src="profile.js?v=1"></script>
+<script src="profile-edit.js?v=1"></script>
+<script src="context-menus.js?v=66"></script>
 <script src="conversations.js?v=53"></script>
 <script src="chat-render.js?v=57"></script>
 <script src="chat-history.js?v=48"></script>
@@ -739,8 +776,8 @@
 <script src="parties.js?v=45"></script>
 <script src="invites.js?v=45"></script>
 <script src="embeds.js?v=46"></script>
-<script src="mentions.js?v=5"></script>
-<script src="servers.js?v=60"></script>
+<script src="mentions.js?v=6"></script>
+<script src="servers.js?v=61"></script>
 <script src="members.js?v=3"></script>
 <script src="server-modals.js?v=47"></script>
 <script src="announcements.js?v=51"></script>

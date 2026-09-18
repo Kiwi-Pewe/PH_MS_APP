@@ -116,6 +116,7 @@ def ensure_account_columns():
         ("users", "appearance_search", "VARCHAR"),
         ("users", "accessibility_prefs", "VARCHAR"),
         ("users", "language_time_prefs", "VARCHAR"),
+        ("users", "profile_layout", "VARCHAR"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:
@@ -213,6 +214,11 @@ def ensure_account_columns():
             conn.rollback()
         try:
             conn.execute(text("UPDATE users SET language_time_prefs = '{}' WHERE language_time_prefs IS NULL OR language_time_prefs = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET profile_layout = '{}' WHERE profile_layout IS NULL OR profile_layout = ''"))
             conn.commit()
         except Exception:
             conn.rollback()

@@ -114,10 +114,25 @@ const SETTINGS_GENERAL_CATALOG = [
     label: "Games & Apps",
     stage: 3,
     items: [
-      { id: "registered-games", label: "Registered Games", placeholder: true, stage: 3 },
-      { id: "activity-privacy", label: "Activity Privacy", placeholder: true, stage: 3 },
-      { id: "game-overlay", label: "Game Overlay", placeholder: true, stage: 3 },
-      { id: "connected-apps", label: "Connected Apps", placeholder: true, stage: 3 }
+      { id: "registered-games", label: "Registered Games", children: [
+        { id: "current-game", label: "Current Game" },
+        { id: "added-games", label: "Added Games" }
+      ]},
+      { id: "activity-privacy", label: "Activity Privacy", children: [
+        { id: "what-activity", label: "What Activity I Share" },
+        { id: "where-activity", label: "Where I Share Activity" },
+        { id: "join-games", label: "Who Can Join My Games" }
+      ]},
+      { id: "game-overlay", label: "Game Overlay", children: [
+        { id: "overlay", label: "Overlay" },
+        { id: "overlay-lock", label: "Overlay Lock" },
+        { id: "voice-widget", label: "Voice Widget" },
+        { id: "overlay-notifications", label: "Notifications" }
+      ]},
+      { id: "connected-apps", label: "Connected Apps", children: [
+        { id: "connections", label: "Connections" },
+        { id: "authorized-apps", label: "Authorized Apps" }
+      ]}
     ]
   },
   {
@@ -162,10 +177,8 @@ function settingsParentOf(id) {
 
 function settingsPlaceholderNote(item) {
   if (item.parked === "voice") return "Voice & Video waits until Voice is built.";
-  if (item.stage === 3 || item.id === "registered-games" || item.id === "activity-privacy" || item.id === "connected-apps" || item.id === "game-overlay") {
-    return "This feature isn't built yet. You'll be able to link accounts like Steam or Roblox so what you're playing can show on your profile.";
-  }
-  if (item.id === "developer") return "Developer options aren't designed yet.";
+  if (item.stage === 3) return "This feature isn't built yet.";
+  if (item.id === "developer") return "Developer options aren't designed yet. This page stays empty until we know what belongs here.";
   if (item.id === "avatar") {
     return "Avatar upload isn't built yet.";
   }
@@ -213,6 +226,22 @@ function paintSettingsSection(item, jumpChildId) {
   }
   if (item.id === "language-time" && typeof renderLanguageTimeSettings === "function") {
     renderLanguageTimeSettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "registered-games" && typeof renderRegisteredGamesSettings === "function") {
+    renderRegisteredGamesSettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "activity-privacy" && typeof renderActivityPrivacySettings === "function") {
+    renderActivityPrivacySettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "game-overlay" && typeof renderGameOverlaySettings === "function") {
+    renderGameOverlaySettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "connected-apps" && typeof renderConnectedAppsSettings === "function") {
+    renderConnectedAppsSettings(pane, jumpChildId);
     return;
   }
   pane.innerHTML = "";
@@ -347,7 +376,7 @@ function paintSettingsUserCard() {
   const shown = myDisplayName || myUsername || "";
   if (letter) letter.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : (shown || "?").slice(0, 1);
   if (name) name.textContent = shown || "—";
-  if (action) action.textContent = settingsPane === "user" ? "Back to General" : "Edit Profiles";
+  if (action) action.textContent = "Edit Profiles";
 }
 
 function showSettingsPane(pane) {
@@ -383,6 +412,7 @@ function setTopbarTab(tab) {
 }
 
 async function openSettings() {
+  if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;
   if (isSettingsOpen) {
     setTopbarTab("settings");
     return;
@@ -401,7 +431,7 @@ async function openSettings() {
 }
 
 document.getElementById("settings-user-card").addEventListener("click", () => {
-  showSettingsPane(settingsPane === "user" ? "general" : "user");
+  if (typeof openOwnProfile === "function") openOwnProfile();
 });
 document.getElementById("settings-search").addEventListener("input", () => {
   renderSettingsNav();

@@ -2,6 +2,8 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.models import Friend_request, Server_members, Dm_server_pref, UserInfo
 
+PROFILE_VISIBILITY = ("friends_all", "friends_small", "friends_only")
+
 def flag_on(user, name, default=True):
     value = getattr(user, name, None)
     if value is None:
@@ -37,6 +39,32 @@ def can_send_dm(database: Session, sender_id, recipient: UserInfo):
         return True
     for server_id in shared_server_ids(database, sender_id, recipient.id):
         if dms_allowed_on_server(database, recipient, server_id):
+            return True
+    return False
+
+def owner_profile_visibility(user):
+    value = (user.profile_visibility or "").strip()
+    if value in PROFILE_VISIBILITY:
+        return value
+    return "friends_all"
+
+def can_see_full_profile(database: Session, viewer: UserInfo, owner: UserInfo):
+    if not viewer or not owner:
+        return False
+    if viewer.id == owner.id:
+        return True
+    vis = owner_profile_visibility(owner)
+    friends = are_friends(database, viewer.id, owner.id)
+    if vis == "friends_only":
+        return friends
+    shared = shared_server_ids(database, viewer.id, owner.id)
+    if vis == "friends_all":
+        return friends or bool(shared)
+    if friends:
+        return True
+    for server_id in shared:
+        count = database.query(Server_members).filter(Server_members.server_id == server_id).count()
+        if count <= 200:
             return True
     return False
 

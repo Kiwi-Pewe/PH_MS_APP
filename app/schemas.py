@@ -96,6 +96,24 @@ class Language_time_prefs(BaseModel):
     language: str = "en-US"
     time_format: str = "auto"
 
+class Profile_tile_in(BaseModel):
+    id: str = ""
+    type: str = ""
+    x: int = 0
+    y: int = 0
+    w: int = 1
+    h: int = 1
+    props: dict = {}
+
+class Profile_page_in(BaseModel):
+    id: str = ""
+    title: str = ""
+    visibility: str = "public"
+    tiles: list[Profile_tile_in] = []
+
+class Profile_layout_in(BaseModel):
+    pages: list[Profile_page_in] = []
+
 class Attachment_in(BaseModel):
     key: str
     mime: str

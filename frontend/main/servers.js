@@ -60,6 +60,8 @@ async function openServer(serverId, iconEl) {
   }
 
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
+  if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;
+  if (typeof setTopbarTab === "function") setTopbarTab("messages");
 
   currentServerId = serverId;
   currentServerOwnerId = data.owner;

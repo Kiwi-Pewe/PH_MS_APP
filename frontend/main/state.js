@@ -189,6 +189,20 @@ let isSettingsOpen = false;
 let settingsPane = "general";
 let settingsActiveId = "account";
 
+// Profile destination. Replaces the DM/channel rail with the owner's
+// pages. Edit mode expands the server rail into a piece palette.
+let isProfileOpen = false;
+let profileOwnerId = null;
+let profileIsOwn = false;
+let profileLimited = false;
+let profileUser = null;
+let profileSavedLayout = null;
+let profileDraft = null;
+let profileFriends = [];
+let profileActivePageId = "profile";
+let profileEditing = false;
+let profileDirty = false;
+
 // Theme + message-display prefs. Applied from /whoami, then saved
 // through Appearance. Status colors are never stored here.
 let appearancePrefs = {

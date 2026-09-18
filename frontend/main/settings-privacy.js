@@ -196,7 +196,7 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   relatedHow.appendChild(relatedHowLabel);
   relatedHow.appendChild(settingsRelatedCard(
     "Registered Games",
-    "Link accounts like Steam or Roblox so what you're playing can show on your profile. Restrict sharing on a game-by-game basis.",
+    "See what you're playing and choose which games can show on your status.",
     "registered-games"
   ));
   how.appendChild(relatedHow);
@@ -303,7 +303,7 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   relatedProfile.appendChild(relatedProfileLabel);
   relatedProfile.appendChild(settingsRelatedCard(
     "Activity Privacy",
-    "Control how your game and app activity is shared — what's visible and who sees it. Linking Steam, Roblox, and similar accounts lives here too.",
+    "Control how your game and app activity is shared — what's visible, which servers see it, and who can join.",
     "activity-privacy"
   ));
   profile.appendChild(relatedProfile);

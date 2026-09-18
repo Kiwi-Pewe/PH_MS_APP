@@ -240,10 +240,10 @@ async function showMemberContextMenu(e, member) {
     : "Offline";
 
   const options = isSelf ? [
-    { label: "Profile", onSelect: () => console.log("View own profile — not implemented yet") },
+    { label: "Profile", onSelect: () => openUserProfile(member.id) },
     { label: "Mention", onSelect: () => insertMentionToken(member.username) }
   ] : [
-    { label: "Profile", onSelect: () => console.log("View profile — not implemented yet") },
+    { label: "Profile", onSelect: () => openUserProfile(member.id) },
     { label: "Mention", onSelect: () => insertMentionToken(member.username) },
     { label: "Message", onSelect: () => messageMemberFromList(member.id, member.username) },
     !relation.blocked && (relation.friend
@@ -290,10 +290,10 @@ async function addFriendFromContextMenu(username) {
 function showProfileContextMenu(e, id, username, isSelf) {
   e.preventDefault();
   const options = isSelf ? [
-    { label: "Profile", onSelect: () => console.log("View own profile — not implemented yet") },
+    { label: "Profile", onSelect: () => openUserProfile(id) },
     { label: "Settings", onSelect: () => console.log("Open settings from context menu — not implemented yet") }
   ] : [
-    { label: "Profile", onSelect: () => console.log("View profile — not implemented yet") },
+    { label: "Profile", onSelect: () => openUserProfile(id) },
     { label: "Unfriend", onSelect: () => unfriendFromContextMenu(id, username) },
     { label: "Mute", onSelect: () => console.log("Mute — not implemented yet") },
     { label: "Message", onSelect: () => openDirectMessage(id, username) },

@@ -30,6 +30,10 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
       if (typeof openSettings === "function") await openSettings();
       return;
     }
+    if (btn.dataset.tab === "profile") {
+      if (typeof openOwnProfile === "function") await openOwnProfile();
+      return;
+    }
     if (btn.dataset.tab === "messages") {
       await goHome();
     }
@@ -49,10 +53,12 @@ async function goHome() {
   currentChannelType = null;
   currentChannelName = null;
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
+  if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return false;
   document.getElementById("server-sidebar-view").style.display = "none";
   document.getElementById("dm-sidebar-view").style.display = "flex";
 
   resetChatView();
+  if (typeof setTopbarTab === "function") setTopbarTab("messages");
   return true;
 }
 

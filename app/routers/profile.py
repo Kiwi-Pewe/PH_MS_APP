@@ -1,0 +1,314 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import or_
+import json
+import re
+import uuid
+import random
+import colorsys
+from app.models import UserInfo, Friend_request
+from app.schemas import Profile_layout_in
+from app.database import get_db
+from app.auth import get_current_user
+from app.privacy import can_see_full_profile
+
+router = APIRouter()
+
+GRID_COLS = 12
+TILE_TYPES = {"banner", "avatar", "display_name", "bio", "friends"}
+PAGE_VIS = {"public", "owner"}
+HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+BIO_MAX = 1000
+TITLE_MAX = 32
+
+STARTER_PAGES = (
+    ("profile", "Profile", "public"),
+    ("games", "Games", "public"),
+    ("media", "Media", "public"),
+    ("servers", "Servers", "owner"),
+    ("friends", "Friends", "owner"),
+    ("applications", "Applications", "owner"),
+    ("events", "Events", "owner"),
+)
+
+# Midnight Purple background family sits around hue 265.
+PURPLE_HUE_MIN = 250
+PURPLE_HUE_MAX = 285
+
+
+def new_id(prefix):
+    return prefix + "_" + uuid.uuid4().hex[:10]
+
+
+def public_display_name(user):
+    return (user.display_name or user.username or "").strip() or user.username
+
+
+def random_banner_hex():
+    for _ in range(24):
+        hue = random.random()
+        deg = hue * 360
+        if PURPLE_HUE_MIN <= deg <= PURPLE_HUE_MAX:
+            continue
+        sat = 0.45 + random.random() * 0.40
+        light = 0.32 + random.random() * 0.20
+        r, g, b = colorsys.hls_to_rgb(hue, light, sat)
+        return "#{:02x}{:02x}{:02x}".format(int(r * 255), int(g * 255), int(b * 255))
+    return "#1e6b8a"
+
+
+def default_sizes(kind):
+    return {
+        "banner": (12, 3),
+        "avatar": (2, 2),
+        "display_name": (6, 2),
+        "bio": (4, 5),
+        "friends": (4, 5),
+    }.get(kind, (4, 3))
+
+
+def seed_layout():
+    banner = random_banner_hex()
+    return {
+        "pages": [
+            {
+                "id": page_id,
+                "title": title,
+                "visibility": vis,
+                "tiles": default_profile_tiles(banner) if page_id == "profile" else [],
+            }
+            for page_id, title, vis in STARTER_PAGES
+        ]
+    }
+
+
+def default_profile_tiles(banner_hex):
+    return [
+        {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 12, "h": 3, "props": {"color": banner_hex}},
+        {"id": new_id("tile"), "type": "avatar", "x": 5, "y": 3, "w": 2, "h": 2, "props": {}},
+        {"id": new_id("tile"), "type": "display_name", "x": 3, "y": 5, "w": 6, "h": 2, "props": {}},
+        {"id": new_id("tile"), "type": "friends", "x": 0, "y": 7, "w": 4, "h": 5, "props": {}},
+        {"id": new_id("tile"), "type": "bio", "x": 8, "y": 7, "w": 4, "h": 5, "props": {"text": ""}},
+    ]
+
+
+def tiles_overlap(a, b):
+    return not (a["x"] + a["w"] <= b["x"] or b["x"] + b["w"] <= a["x"] or a["y"] + a["h"] <= b["y"] or b["y"] + b["h"] <= a["y"])
+
+
+def clamp_int(value, lo, hi, fallback):
+    try:
+        num = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    if num < lo:
+        return lo
+    if num > hi:
+        return hi
+    return num
+
+
+def clean_hex(value, fallback):
+    text = str(value or "").strip()
+    if HEX_COLOR.match(text):
+        return text.lower()
+    return fallback
+
+
+def normalize_props(kind, props, banner_fallback):
+    data = props if isinstance(props, dict) else {}
+    if kind == "banner":
+        return {"color": clean_hex(data.get("color"), banner_fallback or random_banner_hex())}
+    if kind == "bio":
+        text = str(data.get("text") or "")
+        if len(text) > BIO_MAX:
+            text = text[:BIO_MAX]
+        return {"text": text}
+    return {}
+
+
+def normalize_tile(raw, used_ids, banner_fallback):
+    data = raw if isinstance(raw, dict) else {}
+    kind = str(data.get("type") or "")
+    if kind not in TILE_TYPES:
+        return None
+    tile_id = str(data.get("id") or "").strip() or new_id("tile")
+    if tile_id in used_ids:
+        tile_id = new_id("tile")
+    used_ids.add(tile_id)
+    default_w, default_h = default_sizes(kind)
+    w = clamp_int(data.get("w"), 1, GRID_COLS, default_w)
+    h = clamp_int(data.get("h"), 1, 24, default_h)
+    x = clamp_int(data.get("x"), 0, GRID_COLS - 1, 0)
+    y = clamp_int(data.get("y"), 0, 80, 0)
+    if x + w > GRID_COLS:
+        x = max(0, GRID_COLS - w)
+    return {
+        "id": tile_id,
+        "type": kind,
+        "x": x,
+        "y": y,
+        "w": w,
+        "h": h,
+        "props": normalize_props(kind, data.get("props"), banner_fallback),
+    }
+
+
+def normalize_page(raw, used_page_ids, banner_fallback):
+    data = raw if isinstance(raw, dict) else {}
+    page_id = str(data.get("id") or "").strip() or new_id("page")
+    if page_id in used_page_ids:
+        page_id = new_id("page")
+    used_page_ids.add(page_id)
+    title = str(data.get("title") or "Page").strip() or "Page"
+    if len(title) > TITLE_MAX:
+        title = title[:TITLE_MAX]
+    vis = str(data.get("visibility") or "public")
+    if vis not in PAGE_VIS:
+        vis = "public"
+    used_tile_ids = set()
+    tiles = []
+    for row in data.get("tiles") or []:
+        tile = normalize_tile(row, used_tile_ids, banner_fallback)
+        if tile:
+            tiles.append(tile)
+    kept = []
+    for tile in tiles:
+        if any(tiles_overlap(tile, other) for other in kept):
+            continue
+        kept.append(tile)
+    return {"id": page_id, "title": title, "visibility": vis, "tiles": kept}
+
+
+def normalize_layout(raw):
+    data = raw if isinstance(raw, dict) else {}
+    pages_in = data.get("pages")
+    if not isinstance(pages_in, list) or not pages_in:
+        return seed_layout()
+    used_page_ids = set()
+    banner_fallback = random_banner_hex()
+    for page in pages_in:
+        if not isinstance(page, dict):
+            continue
+        for tile in page.get("tiles") or []:
+            if isinstance(tile, dict) and tile.get("type") == "banner":
+                color = clean_hex((tile.get("props") or {}).get("color") if isinstance(tile.get("props"), dict) else "", "")
+                if color:
+                    banner_fallback = color
+                    break
+    pages = []
+    for row in pages_in:
+        page = normalize_page(row, used_page_ids, banner_fallback)
+        if page:
+            pages.append(page)
+    if not pages:
+        return seed_layout()
+    return {"pages": pages}
+
+
+def parse_layout(user):
+    raw = {}
+    try:
+        raw = json.loads(user.profile_layout or "{}")
+    except (TypeError, ValueError):
+        raw = {}
+    if not isinstance(raw, dict) or not raw.get("pages"):
+        return None
+    return normalize_layout(raw)
+
+
+def ensure_layout(user, database: Session):
+    layout = parse_layout(user)
+    if layout:
+        return layout
+    layout = seed_layout()
+    user.profile_layout = json.dumps(layout)
+    database.commit()
+    return layout
+
+
+def public_pages(layout):
+    return {
+        "pages": [page for page in (layout.get("pages") or []) if page.get("visibility") != "owner"]
+    }
+
+
+def identity_only_layout(layout):
+    source = None
+    for page in layout.get("pages") or []:
+        if page.get("id") == "profile":
+            source = page
+            break
+    if not source and layout.get("pages"):
+        source = layout["pages"][0]
+    keep_types = {"banner", "avatar", "display_name"}
+    tiles = [tile for tile in (source.get("tiles") or []) if tile.get("type") in keep_types] if source else []
+    return {
+        "pages": [{
+            "id": "profile",
+            "title": "Profile",
+            "visibility": "public",
+            "tiles": tiles,
+        }]
+    }
+
+
+def friend_preview(database: Session, owner_id, limit=8):
+    rows = database.query(Friend_request).filter(
+        or_(Friend_request.user_1 == owner_id, Friend_request.user_2 == owner_id),
+        Friend_request.pending == False
+    ).all()
+    out = []
+    for row in rows:
+        other_id = row.user_2 if row.user_1 == owner_id else row.user_1
+        other = database.query(UserInfo).filter(UserInfo.id == other_id).first()
+        if not other:
+            continue
+        out.append({
+            "id": other.id,
+            "username": other.username,
+            "display_name": public_display_name(other),
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
+def profile_payload(user, layout, limited, friends):
+    return {
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "display_name": public_display_name(user),
+        },
+        "limited": bool(limited),
+        "layout": layout,
+        "friends": friends if not limited else [],
+    }
+
+
+@router.get("/profile_layout")
+def get_own_profile_layout(current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    layout = ensure_layout(current_user, database)
+    return profile_payload(current_user, layout, False, friend_preview(database, current_user.id))
+
+
+@router.post("/profile_layout")
+def update_own_profile_layout(body: Profile_layout_in, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    layout = normalize_layout(body.model_dump())
+    current_user.profile_layout = json.dumps(layout)
+    database.commit()
+    return profile_payload(current_user, layout, False, friend_preview(database, current_user.id))
+
+
+@router.get("/profile/{user_id}")
+def get_public_profile(user_id: int, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    layout = ensure_layout(owner, database)
+    if current_user.id == owner.id:
+        return profile_payload(owner, layout, False, friend_preview(database, owner.id))
+    if not can_see_full_profile(database, current_user, owner):
+        return profile_payload(owner, identity_only_layout(layout), True, [])
+    return profile_payload(owner, public_pages(layout), False, friend_preview(database, owner.id))

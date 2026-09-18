@@ -14,7 +14,8 @@ from app.privacy import can_see_full_profile
 
 router = APIRouter()
 
-GRID_COLS = 12
+GRID_COLS = 32
+OLD_GRID_COLS = 12
 TILE_TYPES = {"banner", "avatar", "display_name", "bio", "friends"}
 PAGE_VIS = {"public", "owner"}
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -59,17 +60,18 @@ def random_banner_hex():
 
 def default_sizes(kind):
     return {
-        "banner": (12, 3),
-        "avatar": (2, 2),
-        "display_name": (6, 2),
-        "bio": (4, 5),
-        "friends": (4, 5),
-    }.get(kind, (4, 3))
+        "banner": (32, 3),
+        "avatar": (5, 2),
+        "display_name": (16, 2),
+        "bio": (11, 5),
+        "friends": (11, 5),
+    }.get(kind, (8, 3))
 
 
 def seed_layout():
     banner = random_banner_hex()
     return {
+        "grid_cols": GRID_COLS,
         "pages": [
             {
                 "id": page_id,
@@ -84,12 +86,41 @@ def seed_layout():
 
 def default_profile_tiles(banner_hex):
     return [
-        {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 12, "h": 3, "props": {"color": banner_hex}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "avatar", "x": 5, "y": 3, "w": 2, "h": 2, "props": {}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "display_name", "x": 3, "y": 5, "w": 6, "h": 2, "props": {}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "friends", "x": 0, "y": 7, "w": 4, "h": 5, "props": {}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "bio", "x": 8, "y": 7, "w": 4, "h": 5, "props": {"text": ""}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 32, "h": 3, "props": {"color": banner_hex}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "avatar", "x": 13, "y": 3, "w": 5, "h": 2, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "display_name", "x": 8, "y": 5, "w": 16, "h": 2, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "friends", "x": 0, "y": 7, "w": 11, "h": 5, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "bio", "x": 21, "y": 7, "w": 11, "h": 5, "props": {"text": ""}, "allow_overlap": False},
     ]
+
+
+def scale_tile_cols(tile, from_cols, to_cols):
+    if from_cols == to_cols or from_cols < 1:
+        return tile
+    out = dict(tile)
+    try:
+        x = int(out.get("x") or 0)
+    except (TypeError, ValueError):
+        x = 0
+    try:
+        w = int(out.get("w") or 1)
+    except (TypeError, ValueError):
+        w = 1
+    out["x"] = int(round(x * to_cols / from_cols))
+    out["w"] = max(1, int(round(w * to_cols / from_cols)))
+    if out["x"] + out["w"] > to_cols:
+        out["x"] = max(0, to_cols - out["w"])
+    return out
+
+
+def layout_col_count(data):
+    if not isinstance(data, dict) or "grid_cols" not in data:
+        return OLD_GRID_COLS
+    try:
+        cols = int(data.get("grid_cols"))
+    except (TypeError, ValueError):
+        return OLD_GRID_COLS
+    return cols if cols > 0 else OLD_GRID_COLS
 
 
 def tiles_overlap(a, b):
@@ -188,6 +219,19 @@ def normalize_layout(raw):
     pages_in = data.get("pages")
     if not isinstance(pages_in, list) or not pages_in:
         return seed_layout()
+    from_cols = layout_col_count(data)
+    if from_cols != GRID_COLS:
+        scaled = []
+        for page in pages_in:
+            if not isinstance(page, dict):
+                continue
+            copy = dict(page)
+            copy["tiles"] = [
+                scale_tile_cols(tile, from_cols, GRID_COLS) if isinstance(tile, dict) else tile
+                for tile in (copy.get("tiles") or [])
+            ]
+            scaled.append(copy)
+        pages_in = scaled
     used_page_ids = set()
     banner_fallback = random_banner_hex()
     for page in pages_in:
@@ -206,7 +250,7 @@ def normalize_layout(raw):
             pages.append(page)
     if not pages:
         return seed_layout()
-    return {"pages": pages}
+    return {"grid_cols": GRID_COLS, "pages": pages}
 
 
 def parse_layout(user):
@@ -221,17 +265,26 @@ def parse_layout(user):
 
 
 def ensure_layout(user, database: Session):
+    raw = {}
+    try:
+        raw = json.loads(user.profile_layout or "{}")
+    except (TypeError, ValueError):
+        raw = {}
     layout = parse_layout(user)
-    if layout:
+    if not layout:
+        layout = seed_layout()
+        user.profile_layout = json.dumps(layout)
+        database.commit()
         return layout
-    layout = seed_layout()
-    user.profile_layout = json.dumps(layout)
-    database.commit()
+    if layout_col_count(raw) != GRID_COLS:
+        user.profile_layout = json.dumps(layout)
+        database.commit()
     return layout
 
 
 def public_pages(layout):
     return {
+        "grid_cols": GRID_COLS,
         "pages": [page for page in (layout.get("pages") or []) if page.get("visibility") != "owner"]
     }
 
@@ -247,6 +300,7 @@ def identity_only_layout(layout):
     keep_types = {"banner", "avatar", "display_name"}
     tiles = [tile for tile in (source.get("tiles") or []) if tile.get("type") in keep_types] if source else []
     return {
+        "grid_cols": GRID_COLS,
         "pages": [{
             "id": "profile",
             "title": "Profile",

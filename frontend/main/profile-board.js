@@ -1,17 +1,17 @@
 // ==================================================================
-// profile-board.js - 12-column snap grid, collision, and tile paint.
+// profile-board.js - 32-column snap grid, collision, and tile paint.
 // Identity tiles sit on the Guilded seam with CSS, not shared cells.
 // ==================================================================
 
-const PROFILE_COLS = 12;
+const PROFILE_COLS = 32;
 const PROFILE_ROW_H = 36;
 const PROFILE_GAP = 0;
 const PROFILE_TILE_TYPES = {
-  banner: { w: 12, h: 3, label: "Banner" },
-  avatar: { w: 2, h: 2, label: "Avatar" },
-  display_name: { w: 6, h: 2, label: "Display name" },
-  bio: { w: 4, h: 5, label: "Bio" },
-  friends: { w: 4, h: 5, label: "Friends" }
+  banner: { w: 32, h: 3, label: "Banner" },
+  avatar: { w: 5, h: 2, label: "Avatar" },
+  display_name: { w: 16, h: 2, label: "Display name" },
+  bio: { w: 11, h: 5, label: "Bio" },
+  friends: { w: 11, h: 5, label: "Friends" }
 };
 
 function profileNewId(prefix) {
@@ -19,7 +19,9 @@ function profileNewId(prefix) {
 }
 
 function cloneProfileLayout(layout) {
-  return JSON.parse(JSON.stringify(layout || { pages: [] }));
+  const copy = JSON.parse(JSON.stringify(layout || { pages: [] }));
+  copy.grid_cols = PROFILE_COLS;
+  return copy;
 }
 
 function profilePageById(layout, pageId) {

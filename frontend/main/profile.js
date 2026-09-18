@@ -16,7 +16,7 @@ function applyProfilePayload(data) {
   profileIsOwn = !!(profileUser && profileUser.id === myUserId);
   profileLimited = !!data.limited;
   profileFriends = data.friends || [];
-  profileSavedLayout = data.layout || { pages: [] };
+  profileSavedLayout = data.layout || { pages: [], grid_cols: PROFILE_COLS };
   profileDraft = cloneProfileLayout(profileSavedLayout);
   profileDirty = false;
   const pages = profileDraft.pages || [];
@@ -207,7 +207,7 @@ async function saveProfileLayout() {
   try {
     const response = await profileApi("/profile_layout", {
       method: "POST",
-      body: JSON.stringify(profileDraft || { pages: [] })
+      body: JSON.stringify(Object.assign({ grid_cols: PROFILE_COLS }, profileDraft || { pages: [] }))
     });
     if (!response.ok) throw new Error("Could not save profile.");
     applyProfilePayload(await response.json());

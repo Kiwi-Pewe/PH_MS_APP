@@ -113,6 +113,7 @@ class Profile_page_in(BaseModel):
     tiles: list[Profile_tile_in] = []
 
 class Profile_layout_in(BaseModel):
+    grid_cols: int = 32
     pages: list[Profile_page_in] = []
 
 class Attachment_in(BaseModel):

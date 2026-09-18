@@ -1,6 +1,7 @@
 // ==================================================================
 // profile-edit.js - Palette, drag/swap/resize, and page tools.
-// Dragging is local until Save. Occupied drop swaps the two tiles.
+// Dragging is local until Save. Occupied drops snap back unless
+// the piece (or the one it lands on) has Allow overlap.
 // ==================================================================
 
 const PROFILE_PALETTE = [
@@ -96,47 +97,45 @@ function profileCellFromPoint(clientX, clientY) {
   const styles = window.getComputedStyle(board);
   const padX = parseFloat(styles.paddingLeft) || 0;
   const padY = parseFloat(styles.paddingTop) || 0;
-  const gap = parseFloat(styles.gap) || 8;
+  const gap = PROFILE_GAP;
   const innerW = board.clientWidth - padX - (parseFloat(styles.paddingRight) || 0);
   const colW = (innerW - gap * (PROFILE_COLS - 1)) / PROFILE_COLS;
-  const rowH = 56;
-  const x = Math.max(0, Math.min(PROFILE_COLS - 1, Math.floor((clientX - rect.left - padX + board.scrollLeft) / (colW + gap))));
-  const y = Math.max(0, Math.floor((clientY - rect.top - padY + board.scrollTop) / (rowH + gap)));
+  const stepX = colW + gap;
+  const stepY = PROFILE_ROW_H + gap;
+  const x = Math.max(0, Math.min(PROFILE_COLS - 1, Math.floor((clientX - rect.left - padX + board.scrollLeft) / stepX)));
+  const y = Math.max(0, Math.floor((clientY - rect.top - padY + board.scrollTop) / stepY));
   return { x, y };
 }
 
 function tryMoveTile(tile, x, y) {
   const page = currentProfilePage();
   if (!page) return false;
-  const next = { x, y, w: tile.w, h: tile.h };
-  if (!profileFits(next)) {
-    next.x = Math.max(0, Math.min(PROFILE_COLS - tile.w, x));
-    next.y = Math.max(0, y);
-    if (!profileFits(next)) return false;
-  }
-  const hits = profileColliders(page, next, tile.id);
-  if (!hits.length) {
-    tile.x = next.x;
-    tile.y = next.y;
-    return true;
-  }
-  if (hits.length === 1) {
-    swapProfileTiles(tile, hits[0]);
-    if (profileColliders(page, tile, tile.id).length || profileColliders(page, hits[0], hits[0].id).length) {
-      swapProfileTiles(tile, hits[0]);
-      return false;
-    }
-    return true;
-  }
-  return false;
+  const next = {
+    x: Math.max(0, Math.min(PROFILE_COLS - tile.w, x)),
+    y: Math.max(0, y),
+    w: tile.w,
+    h: tile.h,
+    allow_overlap: tile.allow_overlap
+  };
+  if (!profileFits(next)) return false;
+  if (profileColliders(page, Object.assign({}, tile, next), tile.id).length) return false;
+  tile.x = next.x;
+  tile.y = next.y;
+  return true;
 }
 
 function tryResizeTile(tile, w, h) {
   const page = currentProfilePage();
   if (!page) return false;
-  const next = { x: tile.x, y: tile.y, w: Math.max(1, w), h: Math.max(1, h) };
+  const next = {
+    x: tile.x,
+    y: tile.y,
+    w: Math.max(1, w),
+    h: Math.max(1, h),
+    allow_overlap: tile.allow_overlap
+  };
   if (!profileFits(next)) return false;
-  if (profileColliders(page, next, tile.id).length) return false;
+  if (profileColliders(page, Object.assign({}, tile, next), tile.id).length) return false;
   tile.w = next.w;
   tile.h = next.h;
   return true;
@@ -179,6 +178,7 @@ function bindProfileTileDrag(el, tile, handle) {
   }
 
   el.addEventListener("pointerdown", (e) => {
+    if (e.button === 2) return;
     if (e.target.closest(".profile-resize")) return;
     if (e.target.closest("textarea") || e.target.closest("input")) return;
     e.preventDefault();
@@ -198,6 +198,40 @@ function bindProfileTileDrag(el, tile, handle) {
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
   });
+}
+
+function showProfileTileMenu(e, tile) {
+  const meta = PROFILE_TILE_TYPES[tile.type] || { label: "Element" };
+  if (typeof openContextMenu !== "function") return;
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: (meta.label || "?").slice(0, 1),
+    title: meta.label
+  }, [
+    {
+      label: tile.allow_overlap ? "Allow overlap \u2713" : "Allow overlap",
+      onSelect: () => {
+        tile.allow_overlap = !tile.allow_overlap;
+        markProfileDirty();
+      }
+    },
+    {
+      label: "Reset element",
+      onSelect: () => {
+        resetProfileTile(tile);
+        markProfileDirty();
+      }
+    },
+    {
+      label: "Remove element",
+      danger: true,
+      onSelect: () => {
+        const page = currentProfilePage();
+        if (!page) return;
+        page.tiles = (page.tiles || []).filter(row => row.id !== tile.id);
+        markProfileDirty();
+      }
+    }
+  ]);
 }
 
 function addProfilePage() {

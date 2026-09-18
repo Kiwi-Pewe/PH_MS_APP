@@ -103,6 +103,7 @@ class Profile_tile_in(BaseModel):
     y: int = 0
     w: int = 1
     h: int = 1
+    allow_overlap: bool = False
     props: dict = {}
 
 class Profile_page_in(BaseModel):

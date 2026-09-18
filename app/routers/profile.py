@@ -84,11 +84,11 @@ def seed_layout():
 
 def default_profile_tiles(banner_hex):
     return [
-        {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 12, "h": 3, "props": {"color": banner_hex}},
-        {"id": new_id("tile"), "type": "avatar", "x": 5, "y": 3, "w": 2, "h": 2, "props": {}},
-        {"id": new_id("tile"), "type": "display_name", "x": 3, "y": 5, "w": 6, "h": 2, "props": {}},
-        {"id": new_id("tile"), "type": "friends", "x": 0, "y": 7, "w": 4, "h": 5, "props": {}},
-        {"id": new_id("tile"), "type": "bio", "x": 8, "y": 7, "w": 4, "h": 5, "props": {"text": ""}},
+        {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 12, "h": 3, "props": {"color": banner_hex}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "avatar", "x": 5, "y": 3, "w": 2, "h": 2, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "display_name", "x": 3, "y": 5, "w": 6, "h": 2, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "friends", "x": 0, "y": 7, "w": 4, "h": 5, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "bio", "x": 8, "y": 7, "w": 4, "h": 5, "props": {"text": ""}, "allow_overlap": False},
     ]
 
 
@@ -150,6 +150,7 @@ def normalize_tile(raw, used_ids, banner_fallback):
         "y": y,
         "w": w,
         "h": h,
+        "allow_overlap": bool(data.get("allow_overlap")),
         "props": normalize_props(kind, data.get("props"), banner_fallback),
     }
 
@@ -174,7 +175,9 @@ def normalize_page(raw, used_page_ids, banner_fallback):
             tiles.append(tile)
     kept = []
     for tile in tiles:
-        if any(tiles_overlap(tile, other) for other in kept):
+        hits = [other for other in kept if tiles_overlap(tile, other)]
+        blocked = [other for other in hits if not tile.get("allow_overlap") and not other.get("allow_overlap")]
+        if blocked:
             continue
         kept.append(tile)
     return {"id": page_id, "title": title, "visibility": vis, "tiles": kept}

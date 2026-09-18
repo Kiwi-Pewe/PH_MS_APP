@@ -4,6 +4,8 @@
 // ==================================================================
 
 const PROFILE_COLS = 12;
+const PROFILE_ROW_H = 36;
+const PROFILE_GAP = 0;
 const PROFILE_TILE_TYPES = {
   banner: { w: 12, h: 3, label: "Banner" },
   avatar: { w: 2, h: 2, label: "Avatar" },
@@ -29,8 +31,17 @@ function profileTilesOverlap(a, b) {
   return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
 }
 
+function profileTileAllowsOverlap(tile) {
+  return !!(tile && tile.allow_overlap);
+}
+
 function profileColliders(page, candidate, skipId) {
-  return (page.tiles || []).filter(tile => tile.id !== skipId && profileTilesOverlap(tile, candidate));
+  return (page.tiles || []).filter(tile => {
+    if (tile.id === skipId) return false;
+    if (!profileTilesOverlap(tile, candidate)) return false;
+    if (profileTileAllowsOverlap(candidate) || profileTileAllowsOverlap(tile)) return false;
+    return true;
+  });
 }
 
 function profileFits(tile) {
@@ -48,6 +59,15 @@ function profileFirstFit(page, w, h, skipId) {
   return { x: 0, y: maxY };
 }
 
+function defaultProfileTileProps(type, existing) {
+  if (type === "bio") return { text: "" };
+  if (type === "banner") {
+    const color = existing && existing.color ? existing.color : "#1e6b8a";
+    return { color };
+  }
+  return {};
+}
+
 function placeProfileTile(page, type) {
   const size = PROFILE_TILE_TYPES[type] || { w: 4, h: 3 };
   const spot = profileFirstFit(page, size.w, size.h);
@@ -58,16 +78,19 @@ function placeProfileTile(page, type) {
     y: spot.y,
     w: size.w,
     h: size.h,
-    props: type === "bio" ? { text: "" } : (type === "banner" ? { color: "#1e6b8a" } : {})
+    allow_overlap: false,
+    props: defaultProfileTileProps(type)
   };
   page.tiles = (page.tiles || []).concat([tile]);
   return tile;
 }
 
-function swapProfileTiles(a, b) {
-  const ax = a.x, ay = a.y, aw = a.w, ah = a.h;
-  a.x = b.x; a.y = b.y; a.w = b.w; a.h = b.h;
-  b.x = ax; b.y = ay; b.w = aw; b.h = ah;
+function resetProfileTile(tile) {
+  const size = PROFILE_TILE_TYPES[tile.type] || { w: 4, h: 3 };
+  tile.w = size.w;
+  tile.h = size.h;
+  tile.allow_overlap = false;
+  tile.props = defaultProfileTileProps(tile.type, tile.props);
 }
 
 function profileTileStyle(tile) {
@@ -177,9 +200,14 @@ function renderProfileBoard() {
   const board = document.getElementById("profile-board");
   if (!board) return;
   board.innerHTML = "";
+  board.classList.toggle("is-editing", !!(profileEditing && profileIsOwn));
+  board.style.setProperty("--profile-row", PROFILE_ROW_H + "px");
+  board.style.gridAutoRows = PROFILE_ROW_H + "px";
+  board.style.gap = PROFILE_GAP + "px";
   const layout = profileDraft || profileSavedLayout;
   const page = profilePageById(layout, profileActivePageId);
   const tiles = (page && page.tiles) || [];
+  if (profileEditing && profileIsOwn) paintProfileGrid(board, page);
   if (!tiles.length) {
     const empty = document.createElement("div");
     empty.className = "profile-board-empty";
@@ -188,10 +216,11 @@ function renderProfileBoard() {
       : "Nothing on this page yet.";
     board.appendChild(empty);
   }
-  tiles.forEach(tile => {
+  tiles.forEach((tile, index) => {
     const el = document.createElement("div");
-    el.className = "profile-tile is-" + tile.type + (profileEditing ? " is-editing" : "");
+    el.className = "profile-tile is-" + tile.type + (profileEditing ? " is-editing" : "") + (tile.allow_overlap ? " allows-overlap" : "");
     el.dataset.tileId = tile.id;
+    el.style.zIndex = String(10 + index);
     applyProfileTileStyle(el, tile);
     paintProfileTileContent(tile, el);
     if (profileEditing && profileIsOwn && typeof bindProfileTileDrag === "function") {
@@ -199,10 +228,28 @@ function renderProfileBoard() {
       handle.className = "profile-resize";
       el.appendChild(handle);
       bindProfileTileDrag(el, tile, handle);
+      el.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof showProfileTileMenu === "function") showProfileTileMenu(e, tile);
+      });
     }
     if (!profileEditing && profileIsOwn && typeof bindProfileQuickEdit === "function") {
       bindProfileQuickEdit(el, tile);
     }
     board.appendChild(el);
   });
+}
+
+function paintProfileGrid(board, page) {
+  const rows = Math.max(18, (page && page.tiles || []).reduce((n, tile) => Math.max(n, tile.y + tile.h), 0) + 10);
+  const overlay = document.createElement("div");
+  overlay.className = "profile-grid-overlay";
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.style.gridTemplateRows = "repeat(" + rows + ", " + PROFILE_ROW_H + "px)";
+  const count = PROFILE_COLS * rows;
+  for (let i = 0; i < count; i++) {
+    overlay.appendChild(document.createElement("div"));
+  }
+  board.appendChild(overlay);
 }

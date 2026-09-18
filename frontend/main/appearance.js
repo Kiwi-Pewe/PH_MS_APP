@@ -88,6 +88,21 @@ function shadeHex(hex, amount) {
   return rgbToHex(r * (1 + amount), g * (1 + amount), b * (1 + amount));
 }
 
+function themeSaturationAmount() {
+  if (typeof accessibilityPrefs === "undefined" || !accessibilityPrefs) return 1;
+  const n = Number(accessibilityPrefs.saturation);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(0, Math.min(100, n)) / 100;
+}
+
+function desaturateHex(hex, sat) {
+  const t = Math.max(0, Math.min(1, Number(sat)));
+  if (t >= 0.999) return appearanceHex(hex) || String(hex || "");
+  const { r, g, b } = hexToRgb(hex);
+  const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return rgbToHex(gray + (r - gray) * t, gray + (g - gray) * t, gray + (b - gray) * t);
+}
+
 function themePresetById(id) {
   return THEME_PRESETS.find(row => row.id === id) || THEME_PRESETS[0];
 }
@@ -117,18 +132,22 @@ function brightnessAdjustedColors(colors, brightness) {
 }
 
 function applyThemeTokens(colors) {
-  const [bg, surface, accent, highlight] = colors;
+  const sat = themeSaturationAmount();
+  const [bg, surface, accent, highlight] = colors.map(c => desaturateHex(c, sat));
   const light = luminance(bg) >= 0.45;
   const text = light ? "#1c1528" : "#ece7f7";
   const textDim = light ? "#6b627a" : "#a89bc4";
   const root = document.documentElement;
+  const highContrast = typeof effectiveHighContrast === "function"
+    && accessibilityPrefs
+    && effectiveHighContrast(accessibilityPrefs);
   root.style.setProperty("--bg", bg);
   root.style.setProperty("--rail", mixHex(bg, surface, 0.38));
   root.style.setProperty("--panel", surface);
   root.style.setProperty("--panel-alt", mixHex(surface, accent, 0.12));
-  root.style.setProperty("--border", mixHex(surface, text, 0.16));
+  root.style.setProperty("--border", highContrast ? mixHex(surface, text, 0.58) : mixHex(surface, text, 0.16));
   root.style.setProperty("--text", text);
-  root.style.setProperty("--text-dim", textDim);
+  root.style.setProperty("--text-dim", highContrast ? mixHex(textDim, text, 0.7) : textDim);
   root.style.setProperty("--accent", accent);
   root.style.setProperty("--accent-hover", shadeHex(accent, light ? -0.12 : -0.08));
   root.style.setProperty("--accent-submenu", highlight);

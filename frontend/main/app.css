@@ -586,13 +586,15 @@
   font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 6px;
 }
 .a11y-preview-members { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
-.a11y-preview-window.density-compact .a11y-preview-members { gap: 2px; }
-.a11y-preview-window.density-spacious .a11y-preview-members { gap: 16px; }
+html.ui-density-compact .a11y-preview-members { gap: 2px; }
+html.ui-density-spacious .a11y-preview-members { gap: 16px; }
 .a11y-preview-member { width: 22px; height: 22px; border-radius: 50%; }
+html.ui-density-compact .a11y-preview-member { width: 16px; height: 16px; }
+html.ui-density-spacious .a11y-preview-member { width: 28px; height: 28px; }
 .a11y-preview-toggle { position: absolute; right: 12px; bottom: 12px; }
 .a11y-preview-gif {
   margin-top: 8px; width: 120px; height: 54px; border-radius: 6px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-submenu), var(--accent));
+  background: linear-gradient(90deg, var(--online), var(--away), var(--danger));
   background-size: 200% 100%;
   color: #fff; font-size: 11px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
@@ -601,9 +603,9 @@
 .a11y-preview-window.still-gif .a11y-preview-gif { animation: none; }
 .a11y-preview-emoji { display: inline-block; animation: a11y-pop 1.2s ease-in-out infinite; }
 .a11y-preview-window.still-emoji .a11y-preview-emoji { animation: none; }
-.a11y-preview-window.is-compact .a11y-preview-avatar { display: none; }
-.a11y-preview-window.is-compact .a11y-preview-header { display: inline; margin-right: 6px; }
-.a11y-preview-window.is-compact .a11y-preview-bubble {
+html.chat-compact .a11y-preview-avatar { display: none; }
+html.chat-compact .a11y-preview-header { display: inline; margin-right: 6px; }
+html.chat-compact .a11y-preview-bubble {
   display: inline; background: transparent; padding: 0; border-radius: 0;
 }
 .a11y-preview-window.name-styles:not(.role-off) .a11y-preview-name {
@@ -620,10 +622,28 @@
   50% { transform: scale(1.18); }
 }
 html.underline-links .msg-link { text-decoration: underline; }
-html.high-contrast { --border: var(--text-dim); }
 html.high-contrast .settings-opt-title,
+html.high-contrast .cluster-name,
 html.high-contrast .a11y-preview-name { font-weight: 800; }
 html.high-contrast .a11y-preview-window { border-width: 2px; }
+html.high-contrast .channel-row,
+html.high-contrast .dm-item,
+html.high-contrast .member-row,
+html.high-contrast .nav-item,
+html.high-contrast .friend-row,
+html.high-contrast .pill-btn,
+html.high-contrast .a11y-preview-btn,
+html.high-contrast .settings-row-btn {
+  outline: 1px solid var(--border);
+}
+html.high-contrast .msg-link {
+  text-decoration: underline;
+  font-weight: 700;
+}
+html.high-contrast :focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
 html.show-toggle-icons .toggle-track::after {
   content: "\2715";
   position: absolute; right: 5px; top: 1px;
@@ -638,6 +658,115 @@ html.reduced-motion *, html.reduced-motion *::before, html.reduced-motion *::aft
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
+
+html.ui-density-compact #server-rail { padding: 8px 0; gap: 6px; }
+html.ui-density-compact #server-list { gap: 6px; }
+html.ui-density-compact .nav-item { padding: 4px 10px; }
+html.ui-density-compact #secondary-nav { padding: 8px 8px 6px; }
+html.ui-density-compact #secondary-body { padding: 8px 8px; }
+html.ui-density-compact .dm-item { padding: 4px 6px; gap: 8px; }
+html.ui-density-compact #server-sidebar-header { padding: 8px 10px; }
+html.ui-density-compact #server-sidebar-body { padding: 4px 4px; }
+html.ui-density-compact .category-header { padding: 4px 6px; }
+html.ui-density-compact .channel-row { padding: 3px 8px; }
+html.ui-density-compact #member-list-body { padding: 8px 6px 8px; }
+html.ui-density-compact .member-group-header { padding: 4px 8px 2px; }
+html.ui-density-compact .member-row { padding: 2px 6px; gap: 6px; }
+html.ui-density-compact .friend-row { padding: 4px 6px; }
+html.ui-density-compact .dm-item .avatar-dot,
+html.ui-density-compact .member-row .avatar-dot,
+html.ui-density-compact .friend-row .avatar-dot {
+  width: 24px; height: 24px; font-size: 11px;
+}
+
+html.ui-density-spacious #server-rail { padding: 16px 0; gap: 16px; }
+html.ui-density-spacious #server-list { gap: 16px; }
+html.ui-density-spacious .nav-item { padding: 12px 10px; }
+html.ui-density-spacious #secondary-nav { padding: 16px 10px 12px; }
+html.ui-density-spacious #secondary-body { padding: 16px 12px; }
+html.ui-density-spacious .dm-item { padding: 12px 8px; gap: 12px; }
+html.ui-density-spacious #server-sidebar-header { padding: 16px 14px; }
+html.ui-density-spacious #server-sidebar-body { padding: 12px 8px; }
+html.ui-density-spacious .category-header { padding: 10px 6px; }
+html.ui-density-spacious .channel-row { padding: 10px 8px; }
+html.ui-density-spacious #member-list-body { padding: 20px 10px 16px; }
+html.ui-density-spacious .member-group-header { padding: 12px 8px 6px; }
+html.ui-density-spacious .member-row { padding: 10px 8px; gap: 10px; }
+html.ui-density-spacious .friend-row { padding: 12px 8px; }
+html.ui-density-spacious .dm-item .avatar-dot,
+html.ui-density-spacious .member-row .avatar-dot,
+html.ui-density-spacious .friend-row .avatar-dot {
+  width: 40px; height: 40px; font-size: 15px;
+}
+
+html.chat-compact .cluster-avatar { display: none; }
+html.chat-compact .msg-cluster { gap: 0; }
+html.chat-compact .cluster-body { max-width: 100%; }
+html.chat-compact .cluster-header {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 8px 0 0;
+}
+html.chat-compact .cluster-bubble {
+  display: inline-flex;
+  vertical-align: top;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+html.chat-compact .msg-cluster.other .cluster-bubble,
+html.chat-compact .msg-cluster.self .cluster-bubble { background: transparent; }
+html.chat-compact .msg-cluster.self .bubble-line { color: var(--text); }
+html.chat-compact .msg-cluster.self .bubble-line .edited-tag { color: var(--text-dim); opacity: 0.8; }
+html.chat-compact .msg-cluster.self .bubble-line a.msg-link { color: #69c0ff; }
+html.chat-compact .msg-cluster.self .mention-chip {
+  background: rgba(88, 101, 242, 0.35);
+  color: #dee0fc;
+}
+html.chat-compact .msg-cluster.self .mention-chip.mention-self,
+html.chat-compact .msg-cluster.self .mention-chip.mention-special {
+  background: var(--away);
+  color: #1a1a1e;
+}
+html.chat-compact .msg-cluster.self .reaction-pill {
+  background: var(--rail);
+  color: var(--text);
+  border-color: var(--border);
+}
+html.chat-compact .msg-cluster.self .reaction-pill.mine {
+  border-color: var(--accent);
+  background: var(--panel);
+}
+html.chat-compact #chat-messages.self-right .msg-cluster.self,
+html.chat-compact #channel-messages.self-right .msg-cluster.self { flex-direction: row; }
+html.chat-compact #chat-messages.self-right .msg-cluster.self .cluster-body,
+html.chat-compact #channel-messages.self-right .msg-cluster.self .cluster-body { align-items: flex-start; }
+html.chat-compact #chat-messages.self-right .msg-cluster.self .bubble-line,
+html.chat-compact #channel-messages.self-right .msg-cluster.self .bubble-line,
+html.chat-compact #chat-messages.self-right .msg-cluster.self .msg-media,
+html.chat-compact #channel-messages.self-right .msg-cluster.self .msg-media,
+html.chat-compact #chat-messages.self-right .msg-cluster.self .link-embed,
+html.chat-compact #channel-messages.self-right .msg-cluster.self .link-embed,
+html.chat-compact #chat-messages.self-right .msg-cluster.self .invite-card,
+html.chat-compact #channel-messages.self-right .msg-cluster.self .invite-card { text-align: left; align-self: flex-start; }
+
+html.legacy-chat-input .composer-highlight { display: none !important; }
+html.legacy-chat-input .composer-field textarea,
+html.legacy-chat-input #composer .composer-field textarea,
+html.legacy-chat-input #channel-composer .composer-field textarea,
+html.legacy-chat-input .edit-composer .composer-field textarea {
+  color: var(--text);
+}
+html.legacy-chat-input #composer-emoji-btn,
+html.legacy-chat-input #channel-composer-emoji-btn,
+html.legacy-chat-input #announce-composer-emoji-btn,
+html.legacy-chat-input #forum-composer-emoji-btn,
+html.legacy-chat-input .edit-composer-emoji {
+  display: none !important;
+}
+html.legacy-chat-input #mention-picker { display: none !important; }
 
 /* justify-content: flex-end is deliberately NOT used here — it has a
    well-known Flexbox quirk where content that overflows specifically

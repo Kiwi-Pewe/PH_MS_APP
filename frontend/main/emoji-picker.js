@@ -239,6 +239,7 @@ function filterEmojiPicker(query) {
 
 function openEmojiPicker(btn, input) {
   if (input.disabled) return;
+  if (document.documentElement.classList.contains("legacy-chat-input")) return;
   emojiReactionTarget = null;
   const picker = document.getElementById("emoji-picker");
   if (picker.style.display === "flex" && emojiPickerTarget === input) {

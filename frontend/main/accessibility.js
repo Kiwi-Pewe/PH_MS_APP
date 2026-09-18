@@ -1,8 +1,8 @@
 // ==================================================================
 // accessibility.js - Saved a11y prefs, CSS variables, and document
 // classes. The live preview in settings-accessibility.js reads the
-// same object. Density / compact chat / zoom still mainly drive the
-// preview until those layouts are swept through the app.
+// same object. Theme saturation and high-contrast tokens are applied
+// through appearance.js so chrome and preview stay on one palette.
 // ==================================================================
 
 function defaultAccessibilityPrefs() {
@@ -59,7 +59,6 @@ function applyAccessibility(prefs) {
   const size = Number(accessibilityPrefs.text_size) || 15;
   root.style.setProperty("--message-scale", String(size / 15));
   root.style.setProperty("--cluster-gap", (Number(accessibilityPrefs.group_spacing) || 0) + "px");
-  root.style.setProperty("--ui-saturate", String((Number(accessibilityPrefs.saturation) || 0) / 100));
   root.classList.toggle("underline-links", !!accessibilityPrefs.underline_links);
   root.classList.toggle("show-toggle-icons", !!accessibilityPrefs.toggle_indicators);
   root.classList.toggle("reduced-motion", effectiveReducedMotion(accessibilityPrefs));
@@ -67,7 +66,13 @@ function applyAccessibility(prefs) {
   root.classList.toggle("chat-compact", accessibilityPrefs.chat_display === "compact");
   root.classList.toggle("ui-density-compact", accessibilityPrefs.ui_density === "compact");
   root.classList.toggle("ui-density-spacious", accessibilityPrefs.ui_density === "spacious");
+  root.classList.toggle("legacy-chat-input", !!accessibilityPrefs.legacy_input);
   applyAccessibilityZoom(accessibilityPrefs.zoom);
+  if (accessibilityPrefs.legacy_input) {
+    if (typeof hideMentionPicker === "function") hideMentionPicker();
+    if (typeof closeEmojiPicker === "function") closeEmojiPicker();
+  }
+  if (typeof applyAppearance === "function" && appearancePrefs) applyAppearance(appearancePrefs);
   if (typeof refreshAccessibilityPreview === "function") refreshAccessibilityPreview();
 }
 

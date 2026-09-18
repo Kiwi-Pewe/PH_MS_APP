@@ -1,9 +1,9 @@
 // ==================================================================
 // settings-accessibility.js - Accessibility page. Sticky live preview
-// at the top of the pane. Controls save on the account. Text size,
-// group spacing, links, contrast, reduced motion, and toggle icons
-// also hit the real app. Density / compact / zoom / saturation still
-// show mainly in the preview until those layouts are swept.
+// at the top of the pane. Controls save on the account. Density,
+// compact chat, saturation, contrast, and legacy input hit the real
+// app as well as the preview. Role / GIF / sticker / display-name
+// options stay saved until those products exist.
 // ==================================================================
 
 function accessibilitySettingsUrl(path) {
@@ -174,10 +174,6 @@ function refreshAccessibilityPreview() {
   const windowEl = document.getElementById("a11y-preview-window");
   if (!windowEl || !accessibilityPrefs) return;
   const prefs = accessibilityPrefs;
-  windowEl.style.filter = "saturate(" + ((Number(prefs.saturation) || 0) / 100) + ")";
-  windowEl.classList.toggle("is-compact", prefs.chat_display === "compact");
-  windowEl.classList.toggle("density-compact", prefs.ui_density === "compact");
-  windowEl.classList.toggle("density-spacious", prefs.ui_density === "spacious");
   windowEl.classList.toggle("name-styles", !!prefs.display_name_styles);
   windowEl.classList.toggle("role-off", prefs.role_colors === "off");
   windowEl.classList.toggle("still-gif", !prefs.gifs_when_focused || effectiveReducedMotion(prefs));

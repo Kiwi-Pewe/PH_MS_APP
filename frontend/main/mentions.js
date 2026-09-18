@@ -300,6 +300,7 @@ let mentionPickerState = { input: null, range: null, items: [], index: 0 };
 
 function composerAllowsMentions(input) {
   if (!input || input.disabled) return false;
+  if (document.documentElement.classList.contains("legacy-chat-input")) return false;
   if (input.id === "edit-composer-input") {
     const pool = (typeof currentChannelMessages !== "undefined" ? currentChannelMessages : [])
       .concat(typeof currentMessages !== "undefined" ? currentMessages : []);

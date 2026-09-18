@@ -2521,8 +2521,8 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   z-index: 2;
 }
 .profile-tile.is-display_name {
-  background: transparent; border: none;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 6px 8px;
 }
 .profile-tile-avatar {
   height: 100%;

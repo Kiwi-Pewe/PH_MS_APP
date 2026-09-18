@@ -58,13 +58,24 @@ def random_banner_hex():
     return "#1e6b8a"
 
 
+# Bounds are (min_w, min_h, max_w, max_h).
+def tile_bounds(kind):
+    return {
+        "banner": (6, 3, 32, 5),
+        "avatar": (2, 2, 4, 4),
+        "display_name": (3, 2, 5, 3),
+        "bio": (6, 5, 14, 6),
+        "friends": (4, 11, 6, 15),
+    }.get(kind, (1, 1, GRID_COLS, 24))
+
+
 def default_sizes(kind):
     return {
         "banner": (32, 3),
-        "avatar": (5, 2),
-        "display_name": (16, 2),
-        "bio": (11, 5),
-        "friends": (11, 5),
+        "avatar": (4, 4),
+        "display_name": (5, 2),
+        "bio": (14, 5),
+        "friends": (6, 11),
     }.get(kind, (8, 3))
 
 
@@ -87,10 +98,10 @@ def seed_layout():
 def default_profile_tiles(banner_hex):
     return [
         {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 32, "h": 3, "props": {"color": banner_hex}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "avatar", "x": 13, "y": 3, "w": 5, "h": 2, "props": {}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "display_name", "x": 8, "y": 5, "w": 16, "h": 2, "props": {}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "friends", "x": 0, "y": 7, "w": 11, "h": 5, "props": {}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "bio", "x": 21, "y": 7, "w": 11, "h": 5, "props": {"text": ""}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "avatar", "x": 14, "y": 3, "w": 4, "h": 4, "props": {}, "allow_overlap": True},
+        {"id": new_id("tile"), "type": "display_name", "x": 13, "y": 6, "w": 5, "h": 2, "props": {}, "allow_overlap": True},
+        {"id": new_id("tile"), "type": "bio", "x": 7, "y": 10, "w": 14, "h": 5, "props": {"text": ""}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "friends", "x": 26, "y": 10, "w": 6, "h": 11, "props": {}, "allow_overlap": False},
     ]
 
 
@@ -125,6 +136,23 @@ def layout_col_count(data):
 
 def tiles_overlap(a, b):
     return not (a["x"] + a["w"] <= b["x"] or b["x"] + b["w"] <= a["x"] or a["y"] + a["h"] <= b["y"] or b["y"] + b["h"] <= a["y"])
+
+
+def tile_blocked(tile, others):
+    hits = [other for other in others if tiles_overlap(tile, other)]
+    return [other for other in hits if not tile.get("allow_overlap") and not other.get("allow_overlap")]
+
+
+def find_open_spot(kept, tile):
+    w = tile["w"]
+    h = tile["h"]
+    max_y = max((row["y"] + row["h"] for row in kept), default=0) + 12
+    for y in range(0, max_y + 1):
+        for x in range(0, GRID_COLS - w + 1):
+            probe = dict(tile, x=x, y=y)
+            if not tile_blocked(probe, kept):
+                return x, y
+    return None
 
 
 def clamp_int(value, lo, hi, fallback):
@@ -168,8 +196,9 @@ def normalize_tile(raw, used_ids, banner_fallback):
         tile_id = new_id("tile")
     used_ids.add(tile_id)
     default_w, default_h = default_sizes(kind)
-    w = clamp_int(data.get("w"), 1, GRID_COLS, default_w)
-    h = clamp_int(data.get("h"), 1, 24, default_h)
+    min_w, min_h, max_w, max_h = tile_bounds(kind)
+    w = clamp_int(data.get("w"), min_w, min(max_w, GRID_COLS), default_w)
+    h = clamp_int(data.get("h"), min_h, max_h, default_h)
     x = clamp_int(data.get("x"), 0, GRID_COLS - 1, 0)
     y = clamp_int(data.get("y"), 0, 80, 0)
     if x + w > GRID_COLS:
@@ -206,10 +235,11 @@ def normalize_page(raw, used_page_ids, banner_fallback):
             tiles.append(tile)
     kept = []
     for tile in tiles:
-        hits = [other for other in kept if tiles_overlap(tile, other)]
-        blocked = [other for other in hits if not tile.get("allow_overlap") and not other.get("allow_overlap")]
-        if blocked:
-            continue
+        if tile_blocked(tile, kept):
+            spot = find_open_spot(kept, tile)
+            if not spot:
+                continue
+            tile["x"], tile["y"] = spot
         kept.append(tile)
     return {"id": page_id, "title": title, "visibility": vis, "tiles": kept}
 

@@ -111,6 +111,7 @@ function tryMoveTile(tile, x, y) {
   const page = currentProfilePage();
   if (!page) return false;
   const next = {
+    type: tile.type,
     x: Math.max(0, Math.min(PROFILE_COLS - tile.w, x)),
     y: Math.max(0, y),
     w: tile.w,
@@ -127,11 +128,13 @@ function tryMoveTile(tile, x, y) {
 function tryResizeTile(tile, w, h) {
   const page = currentProfilePage();
   if (!page) return false;
+  const size = clampProfileTileSize(tile.type, w, h, tile.x);
   const next = {
+    type: tile.type,
     x: tile.x,
     y: tile.y,
-    w: Math.max(1, w),
-    h: Math.max(1, h),
+    w: size.w,
+    h: size.h,
     allow_overlap: tile.allow_overlap
   };
   if (!profileFits(next)) return false;
@@ -163,10 +166,9 @@ function bindProfileTileDrag(el, tile, handle) {
       el.style.gridColumn = (next.x + 1) + " / span " + tile.w;
       el.style.gridRow = (next.y + 1) + " / span " + tile.h;
     } else {
-      const w = Math.max(1, Math.min(PROFILE_COLS - origin.x, cell.x - origin.x + 1));
-      const h = Math.max(1, cell.y - origin.y + 1);
-      el.style.gridColumn = (origin.x + 1) + " / span " + w;
-      el.style.gridRow = (origin.y + 1) + " / span " + h;
+      const size = clampProfileTileSize(tile.type, cell.x - origin.x + 1, cell.y - origin.y + 1, origin.x);
+      el.style.gridColumn = (origin.x + 1) + " / span " + size.w;
+      el.style.gridRow = (origin.y + 1) + " / span " + size.h;
     }
   }
 
@@ -180,7 +182,7 @@ function bindProfileTileDrag(el, tile, handle) {
         const next = moveTarget(e.clientX, e.clientY);
         if (tryMoveTile(tile, next.x, next.y)) profileDirty = true;
       }
-    } else if (tryResizeTile(tile, Math.max(1, cell.x - origin.x + 1), Math.max(1, cell.y - origin.y + 1))) {
+    } else if (tryResizeTile(tile, cell.x - origin.x + 1, cell.y - origin.y + 1)) {
       profileDirty = true;
     }
     mode = null;

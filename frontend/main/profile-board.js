@@ -7,12 +7,33 @@ const PROFILE_COLS = 32;
 const PROFILE_ROW_H = 36;
 const PROFILE_GAP = 0;
 const PROFILE_TILE_TYPES = {
-  banner: { w: 32, h: 3, label: "Banner" },
-  avatar: { w: 5, h: 2, label: "Avatar" },
-  display_name: { w: 16, h: 2, label: "Display name" },
-  bio: { w: 11, h: 5, label: "Bio" },
-  friends: { w: 11, h: 5, label: "Friends" }
+  banner: { w: 32, h: 3, minW: 6, minH: 3, maxW: 32, maxH: 5, label: "Banner" },
+  avatar: { w: 4, h: 4, minW: 2, minH: 2, maxW: 4, maxH: 4, label: "Avatar" },
+  display_name: { w: 5, h: 2, minW: 3, minH: 2, maxW: 5, maxH: 3, label: "Display name" },
+  bio: { w: 14, h: 5, minW: 6, minH: 5, maxW: 14, maxH: 6, label: "Bio" },
+  friends: { w: 6, h: 11, minW: 4, minH: 11, maxW: 6, maxH: 15, label: "Friends" }
 };
+
+function profileTileBounds(type) {
+  const meta = PROFILE_TILE_TYPES[type] || {};
+  return {
+    minW: meta.minW || 1,
+    minH: meta.minH || 1,
+    maxW: Math.min(meta.maxW || PROFILE_COLS, PROFILE_COLS),
+    maxH: meta.maxH || 24,
+    w: meta.w || 4,
+    h: meta.h || 3
+  };
+}
+
+function clampProfileTileSize(type, w, h, originX) {
+  const b = profileTileBounds(type);
+  const maxW = originX == null ? b.maxW : Math.min(b.maxW, PROFILE_COLS - originX);
+  return {
+    w: Math.max(b.minW, Math.min(maxW, w)),
+    h: Math.max(b.minH, Math.min(b.maxH, h))
+  };
+}
 
 function profileNewId(prefix) {
   return prefix + "_" + Math.random().toString(16).slice(2, 10);
@@ -47,7 +68,9 @@ function profileColliders(page, candidate, skipId) {
 }
 
 function profileFits(tile) {
-  return tile.x >= 0 && tile.y >= 0 && tile.w >= 1 && tile.h >= 1 && tile.x + tile.w <= PROFILE_COLS;
+  if (tile.x < 0 || tile.y < 0 || tile.x + tile.w > PROFILE_COLS) return false;
+  const b = profileTileBounds(tile.type);
+  return tile.w >= b.minW && tile.h >= b.minH && tile.w <= b.maxW && tile.h <= b.maxH;
 }
 
 function profileFirstFit(page, w, h, skipId) {
@@ -93,6 +116,13 @@ function resetProfileTile(tile) {
   tile.h = size.h;
   tile.allow_overlap = false;
   tile.props = defaultProfileTileProps(tile.type, tile.props);
+  if (tile.x + tile.w > PROFILE_COLS) tile.x = Math.max(0, PROFILE_COLS - tile.w);
+  const page = profilePageById(profileDraft, profileActivePageId);
+  if (page && profileColliders(page, tile, tile.id).length) {
+    const spot = profileFirstFit(page, tile.w, tile.h, tile.id);
+    tile.x = spot.x;
+    tile.y = spot.y;
+  }
 }
 
 function profileTileStyle(tile) {

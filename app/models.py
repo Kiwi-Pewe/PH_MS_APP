@@ -40,6 +40,7 @@ class UserInfo(Base):
     appearance_self_side = Column(String, nullable= True)
     appearance_search = Column(String, nullable= True)
     accessibility_prefs = Column(String, nullable= True)
+    language_time_prefs = Column(String, nullable= True)
 
 class Message(Base):
     __tablename__ = "messages"

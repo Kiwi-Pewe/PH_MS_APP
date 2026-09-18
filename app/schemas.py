@@ -92,6 +92,10 @@ class Accessibility_prefs(BaseModel):
     image_descriptions: bool = False
     legacy_input: bool = False
 
+class Language_time_prefs(BaseModel):
+    language: str = "en-US"
+    time_format: str = "auto"
+
 class Attachment_in(BaseModel):
     key: str
     mime: str

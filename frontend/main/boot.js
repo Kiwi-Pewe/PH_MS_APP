@@ -21,6 +21,7 @@ window.addEventListener("load", () => {
       myUserId = data.id;
       if (typeof hydrateAppearance === "function") hydrateAppearance(data.appearance);
       if (typeof hydrateAccessibility === "function") hydrateAccessibility(data.accessibility);
+      if (typeof hydrateLanguageTime === "function") hydrateLanguageTime(data.language_time);
       connectSocket();
     })
     .catch(() => {

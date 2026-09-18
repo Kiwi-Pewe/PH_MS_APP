@@ -490,6 +490,17 @@
 .settings-keybind-combo .settings-row-btn {
   border: none; border-left: 1px solid var(--border); border-radius: 0; min-width: 0;
 }
+.settings-language-pick {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--rail); border: 1px solid var(--border); border-radius: 8px;
+  padding: 4px 8px 4px 12px; margin: 8px 0 10px;
+}
+.settings-language-flag { font-size: 20px; line-height: 1; flex: 0 0 auto; }
+.settings-language-select {
+  flex: 1 1 auto; min-width: 0; width: auto;
+  background: transparent; border: none; text-align: right;
+  font-weight: 600;
+}
 .settings-block-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 12px 0; border-bottom: 1px solid var(--border);

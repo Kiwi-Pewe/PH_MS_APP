@@ -103,7 +103,10 @@ const SETTINGS_GENERAL_CATALOG = [
       {
         id: "language-time",
         label: "Language & Time",
-        placeholder: true
+        children: [
+          { id: "language", label: "Language" },
+          { id: "time-format", label: "Time Format" }
+        ]
       }
     ]
   },
@@ -206,6 +209,10 @@ function paintSettingsSection(item, jumpChildId) {
   }
   if (item.id === "system" && typeof renderSystemSettings === "function") {
     renderSystemSettings(pane, jumpChildId);
+    return;
+  }
+  if (item.id === "language-time" && typeof renderLanguageTimeSettings === "function") {
+    renderLanguageTimeSettings(pane, jumpChildId);
     return;
   }
   pane.innerHTML = "";

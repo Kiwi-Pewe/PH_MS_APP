@@ -208,6 +208,11 @@ let appearancePrefs = {
   search_style: "auto"
 };
 
+let languageTimePrefs = {
+  language: "en-US",
+  time_format: "auto"
+};
+
 let accessibilityPrefs = {
   text_size: 15,
   underline_links: false,

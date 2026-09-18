@@ -17,11 +17,26 @@ function serverAvatarLetters(name) {
   return (words[0] || "?").charAt(0).toUpperCase();
 }
 
+function formatClockTime(date) {
+  const mode = (typeof languageTimePrefs !== "undefined" && languageTimePrefs && languageTimePrefs.time_format) || "auto";
+  const opts = { minute: "2-digit" };
+  if (mode === "24") {
+    opts.hour = "2-digit";
+    opts.hour12 = false;
+  } else if (mode === "12") {
+    opts.hour = "numeric";
+    opts.hour12 = true;
+  } else {
+    opts.hour = "numeric";
+  }
+  return date.toLocaleTimeString([], opts);
+}
+
 // "24 hours old" is relative to render time, not calendar date — a
 // message from 11 PM last night is 2 hours old at 1 AM, not "yesterday."
 function formatClusterTime(date) {
   const ageMs = Date.now() - date.getTime();
-  const timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const timeStr = formatClockTime(date);
   if (ageMs < 24 * 60 * 60 * 1000) return timeStr;
   const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
   return `${dateStr} \u00b7 ${timeStr}`;

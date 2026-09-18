@@ -545,6 +545,7 @@
 .a11y-preview {
   position: sticky; top: 0; z-index: 6;
   background: var(--bg); padding: 4px 0 16px; margin-bottom: 8px;
+  overflow: hidden;
 }
 .a11y-preview-label {
   font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 8px;
@@ -554,9 +555,7 @@
   display: flex; gap: 12px; align-items: flex-start;
   border: 1px solid var(--border); border-radius: 10px;
   background: var(--panel); padding: 12px;
-  transform: scale(var(--preview-zoom, 1));
-  transform-origin: top left;
-  width: calc(100% / var(--preview-zoom, 1));
+  width: 100%; box-sizing: border-box;
 }
 .a11y-preview-chat { flex: 1 1 auto; min-width: 0; }
 .a11y-preview-cluster { display: flex; gap: 8px; align-items: flex-start; }

@@ -67,7 +67,13 @@ function applyAccessibility(prefs) {
   root.classList.toggle("chat-compact", accessibilityPrefs.chat_display === "compact");
   root.classList.toggle("ui-density-compact", accessibilityPrefs.ui_density === "compact");
   root.classList.toggle("ui-density-spacious", accessibilityPrefs.ui_density === "spacious");
+  applyAccessibilityZoom(accessibilityPrefs.zoom);
   if (typeof refreshAccessibilityPreview === "function") refreshAccessibilityPreview();
+}
+
+function applyAccessibilityZoom(percent) {
+  const z = (Number(percent) || 100) / 100;
+  document.documentElement.style.zoom = z === 1 ? "" : String(z);
 }
 
 function hydrateAccessibility(payload) {

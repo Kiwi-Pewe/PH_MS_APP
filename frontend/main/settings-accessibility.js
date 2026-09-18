@@ -174,8 +174,6 @@ function refreshAccessibilityPreview() {
   const windowEl = document.getElementById("a11y-preview-window");
   if (!windowEl || !accessibilityPrefs) return;
   const prefs = accessibilityPrefs;
-  const scale = (Number(prefs.zoom) || 100) / 100;
-  windowEl.style.setProperty("--preview-zoom", String(scale));
   windowEl.style.filter = "saturate(" + ((Number(prefs.saturation) || 0) / 100) + ")";
   windowEl.classList.toggle("is-compact", prefs.chat_display === "compact");
   windowEl.classList.toggle("density-compact", prefs.ui_density === "compact");
@@ -190,92 +188,97 @@ function refreshAccessibilityPreview() {
 function paintTextReadability(host, info, persist) {
   host.appendChild(settingsOpt(
     "Text size in chat",
-    "Adjust the size of message text. Avatars and timestamps scale with it.",
+    "Adjust the size of the chat font.",
     null
   ));
   host.appendChild(a11yTicks(["12px", "14px", "15px", "16px", "18px", "20px", "24px"]));
   host.appendChild(a11ySlider(12, 24, 1, info.text_size, (value) => persist({ text_size: value }, { save: false }), (value) => persist({ text_size: value })));
   host.appendChild(settingsOpt(
     "Always underline links",
-    "Make links stand out more in chat.",
+    "Make links stand out more.",
     settingsToggle(!!info.underline_links, false, (on) => persist({ underline_links: on }))
   ));
   host.appendChild(settingsOpt(
     "Display Name Styles",
-    "Name fonts and effects aren't built yet. The preview tints the sample name so you can see the idea.",
-    settingsToggle(!!info.display_name_styles, false, (on) => persist({ display_name_styles: on })),
-    settingsNote("This waits on profile name effects.", "later")
+    "Enable display name styles — including font, effect, and color — across Oneira.",
+    settingsToggle(!!info.display_name_styles, false, (on) => persist({ display_name_styles: on }))
   ));
 }
 
 function paintVisualDensity(host, info, persist) {
-  const density = document.createElement("div");
-  density.className = "settings-radio-list";
-  [
-    ["compact", "Compact", "Tighter server, channel, and member lists."],
-    ["default", "Default", "Current spacing."],
-    ["spacious", "Spacious", "More space between lists."]
-  ].forEach(row => {
-    density.appendChild(privacyRadio(row[0], info.ui_density || "default", row[1], row[2], (value) => persist({ ui_density: value })));
-  });
   const densityTitle = document.createElement("div");
   densityTitle.className = "settings-opt-title";
   densityTitle.textContent = "UI Density";
   host.appendChild(densityTitle);
   const densityDesc = document.createElement("div");
   densityDesc.className = "settings-opt-desc";
-  densityDesc.textContent = "The preview rail spacing updates now. The real rails wait on a layout sweep.";
+  densityDesc.textContent = "Adjust the space between server, channel, and member lists.";
   host.appendChild(densityDesc);
+  const density = document.createElement("div");
+  density.className = "settings-radio-list";
+  [
+    ["compact", "Compact", ""],
+    ["default", "Default", ""],
+    ["spacious", "Spacious", ""]
+  ].forEach(row => {
+    density.appendChild(privacyRadio(row[0], info.ui_density || "default", row[1], row[2], (value) => persist({ ui_density: value })));
+  });
   host.appendChild(density);
 
-  const chat = document.createElement("div");
-  chat.className = "settings-radio-list";
-  [
-    ["default", "Default", "Avatar, name, then the message."],
-    ["compact", "Compact", "Name and message on one line."]
-  ].forEach(row => {
-    chat.appendChild(privacyRadio(row[0], info.chat_display || "default", row[1], row[2], (value) => persist({ chat_display: value })));
-  });
   const chatTitle = document.createElement("div");
   chatTitle.className = "settings-opt-title";
   chatTitle.style.marginTop = "12px";
   chatTitle.textContent = "Chat Message Display";
   host.appendChild(chatTitle);
-  host.appendChild(settingsNote("Compact is live in the preview. Real chat still uses the current cluster layout.", "later"));
+  const chatDesc = document.createElement("div");
+  chatDesc.className = "settings-opt-desc";
+  chatDesc.textContent = "Change the appearance of chat messages.";
+  host.appendChild(chatDesc);
+  const chat = document.createElement("div");
+  chat.className = "settings-radio-list";
+  [
+    ["default", "Default", ""],
+    ["compact", "Compact", ""]
+  ].forEach(row => {
+    chat.appendChild(privacyRadio(row[0], info.chat_display || "default", row[1], row[2], (value) => persist({ chat_display: value })));
+  });
   host.appendChild(chat);
 
-  host.appendChild(settingsOpt("Space Between Message Groups", "Gap between different people's message clusters.", null));
+  host.appendChild(settingsOpt("Space Between Message Groups", "Adjust the spacing between message groups.", null));
   host.appendChild(a11yTicks(["0px", "4px", "8px", "16px", "24px"]));
   host.appendChild(a11ySlider(0, 24, 1, info.group_spacing, (value) => persist({ group_spacing: value }, { save: false }), (value) => persist({ group_spacing: value })));
 
-  host.appendChild(settingsOpt("Zoom level", "Scales the preview. Real-app zoom waits on a desktop wrapper; the browser zoom still works.", null));
-  host.appendChild(a11yTicks(["50", "75", "100", "125", "150", "200"]));
-  host.appendChild(a11ySlider(50, 200, 1, info.zoom, (value) => persist({ zoom: value }, { save: false }), (value) => persist({ zoom: value })));
+  host.appendChild(settingsOpt("Zoom level", "Adjust the size of the interface. You can also change this with ctrl +/-.", null));
+  host.appendChild(a11yTicks(["50", "67", "75", "80", "90", "100", "110", "125", "150", "175", "200"]));
+  host.appendChild(a11ySlider(50, 200, 1, info.zoom, () => {}, (value) => persist({ zoom: value })));
 }
 
 function paintColorContrast(host, info, persist) {
-  host.appendChild(settingsOpt("Saturation", "How strong colors are in the preview. Images in real chat stay untouched until we can exclude them from a global filter.", null));
-  host.appendChild(a11yTicks(["0%", "50%", "100%"]));
+  host.appendChild(settingsOpt(
+    "Saturation",
+    "Reduce the saturation of colors within the app, for those with color sensitivities. This does not affect the saturation of images, videos, role colors or other user content.",
+    null
+  ));
+  host.appendChild(a11yTicks(["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"]));
   host.appendChild(a11ySlider(0, 100, 1, info.saturation, (value) => persist({ saturation: value }, { save: false }), (value) => persist({ saturation: value })));
   host.appendChild(settingsOpt(
     "Apply saturation setting to custom colors",
-    "Would also mute role colors and custom theme accents. Roles aren't built yet.",
-    settingsToggle(!!info.saturation_custom, false, (on) => persist({ saturation_custom: on })),
-    settingsNote("Saved for when roles exist.", "later")
+    "Apply the above setting to custom color choices, like role colors.",
+    settingsToggle(!!info.saturation_custom, false, (on) => persist({ saturation_custom: on }))
   ));
   host.appendChild(settingsOpt(
     "Enable High Contrast Mode",
-    "Stronger borders and text in the app and the preview.",
+    "Enhance visibility with bold colors and sharp contrast.",
     settingsToggle(!!info.high_contrast, false, (on) => persist({ high_contrast: on }))
   ));
   host.appendChild(settingsOpt(
     "Sync contrast settings",
-    "Follow the computer's contrast preference when it asks for more contrast.",
+    "This allows Oneira to use your computer's contrast theme.",
     settingsToggle(info.sync_contrast !== false, false, (on) => persist({ sync_contrast: on }))
   ));
   host.appendChild(settingsOpt(
     "Role Colors",
-    "How role colors would show on names.",
+    "Choose how role colors should be displayed.",
     settingsSelect(
       [
         { value: "names", label: "In names" },
@@ -284,15 +287,14 @@ function paintColorContrast(host, info, persist) {
       ],
       info.role_colors || "names",
       false
-    ),
-    settingsNote("Roles aren't built yet. The preview tints the sample name.", "later")
+    )
   ));
   const roleSelect = host.querySelectorAll("select.settings-select");
   const lastSelect = roleSelect[roleSelect.length - 1];
   if (lastSelect) lastSelect.addEventListener("change", () => persist({ role_colors: lastSelect.value }));
   host.appendChild(settingsOpt(
     "Official Messages",
-    "How staff/system messages would look. We don't have that flag yet.",
+    "Choose how official developer messages look on verified servers that support it.",
     settingsSelect(
       [
         { value: "default", label: "Default" },
@@ -300,13 +302,15 @@ function paintColorContrast(host, info, persist) {
         { value: "off", label: "Plain" }
       ],
       info.official_messages || "default",
-      true
-    ),
-    settingsNote("This feature isn't built yet.", "later")
+      false
+    )
   ));
+  const officialSelect = host.querySelectorAll("select.settings-select");
+  const official = officialSelect[officialSelect.length - 1];
+  if (official) official.addEventListener("change", () => persist({ official_messages: official.value }));
   host.appendChild(settingsOpt(
     "Show on/off indicators",
-    "Toggles show a mark so on and off are not color-only.",
+    "On forms, menus and settings, on/off toggles will have icons.",
     settingsToggle(!!info.toggle_indicators, false, (on) => persist({ toggle_indicators: on }))
   ));
   const related = document.createElement("div");
@@ -315,52 +319,54 @@ function paintColorContrast(host, info, persist) {
   relatedTitle.className = "settings-subblock-title";
   relatedTitle.textContent = "Related Settings";
   related.appendChild(relatedTitle);
-  related.appendChild(settingsRelatedCard("Appearance", "Change your app theme.", "theme"));
+  related.appendChild(settingsRelatedCard("Appearance", "Change your app theme", "theme"));
   host.appendChild(related);
 }
 
 function paintReducedMotion(host, info, persist) {
   host.appendChild(settingsOpt(
     "Enable Reduced Motion",
-    "Cut back animations, hover motion, and other movement.",
+    "Reduce the amount and intensity of animations, hover effects, and other moving effects.",
     settingsToggle(!!info.reduced_motion, false, (on) => persist({ reduced_motion: on }))
   ));
   host.appendChild(settingsOpt(
     "Sync with computer setting",
-    "Follow the OS reduced-motion preference.",
+    "",
     settingsToggle(info.sync_motion !== false, false, (on) => persist({ sync_motion: on }))
   ));
   host.appendChild(settingsOpt(
     "Play GIFs when Oneira is focused",
-    "The preview GIF pauses when this is off. Real GIF autoplay waits on a media sweep.",
-    settingsToggle(info.gifs_when_focused !== false, false, (on) => persist({ gifs_when_focused: on })),
-    settingsNote("Saved. Chat GIF freeze isn't wired through every embed yet.", "later")
+    "",
+    settingsToggle(info.gifs_when_focused !== false, false, (on) => persist({ gifs_when_focused: on }))
   ));
   host.appendChild(settingsOpt(
     "Play animated emoji",
-    "The sparkle in the preview stops when this is off.",
+    "",
     settingsToggle(info.animated_emoji !== false, false, (on) => persist({ animated_emoji: on }))
   ));
-  const stickers = document.createElement("div");
-  stickers.className = "settings-radio-list";
-  [
-    ["always", "Always animate", "Stickers would always play."],
-    ["interaction", "Animate on interaction", "Play on hover or press."],
-    ["never", "Never animate", "Keep stickers still."]
-  ].forEach(row => {
-    stickers.appendChild(privacyRadio(row[0], info.sticker_anim || "always", row[1], row[2], (value) => persist({ sticker_anim: value })));
-  });
   const stickerTitle = document.createElement("div");
   stickerTitle.className = "settings-opt-title";
   stickerTitle.style.marginTop = "8px";
   stickerTitle.textContent = "Play sticker animations";
   host.appendChild(stickerTitle);
-  host.appendChild(settingsNote("Stickers aren't built yet. This choice is saved.", "later"));
+  const stickers = document.createElement("div");
+  stickers.className = "settings-radio-list";
+  [
+    ["always", "Always animate", ""],
+    ["interaction", "Animate on interaction", "On the desktop client, stickers will animate on hover or focus. On mobile clients, stickers will animate on long-press."],
+    ["never", "Never animate", ""]
+  ].forEach(row => {
+    stickers.appendChild(privacyRadio(row[0], info.sticker_anim || "always", row[1], row[2], (value) => persist({ sticker_anim: value })));
+  });
   host.appendChild(stickers);
 }
 
 function paintAudioReader(host, info, persist) {
-  host.appendChild(settingsOpt("Text-to-Speech rate", "Speed for Speak Message and other TTS. Preview uses the browser voice.", null));
+  host.appendChild(settingsOpt(
+    "Text-to-Speech rate",
+    "Control the speed at which text is read aloud when using Speak Message or other text-to-speech features.",
+    null
+  ));
   host.appendChild(a11yTicks(["Slower", "x" + Number(info.tts_rate || 1).toFixed(1), "Faster"]));
   host.appendChild(a11ySlider(0.5, 2, 0.1, info.tts_rate || 1, (value) => persist({ tts_rate: value }, { save: false }), (value) => persist({ tts_rate: value })));
   const preview = document.createElement("button");
@@ -374,18 +380,16 @@ function paintAudioReader(host, info, persist) {
     utter.rate = Number(accessibilityPrefs.tts_rate) || 1;
     window.speechSynthesis.speak(utter);
   });
-  host.appendChild(settingsOpt("Preview voice", "Reads a short sample at the current rate.", preview));
+  host.appendChild(preview);
   host.appendChild(settingsOpt(
     "Show image descriptions",
-    "Screen readers would hear image descriptions when we have them.",
-    settingsToggle(!!info.image_descriptions, false, (on) => persist({ image_descriptions: on })),
-    settingsNote("Saved. Image descriptions aren't written yet.", "later")
+    "Image descriptions are used to describe images for screen readers.",
+    settingsToggle(!!info.image_descriptions, false, (on) => persist({ image_descriptions: on }))
   ));
   host.appendChild(settingsOpt(
     "Use the legacy chat input",
-    "A simpler composer for some screen readers. Our composer stays as-is until that pass.",
-    settingsToggle(!!info.legacy_input, false, (on) => persist({ legacy_input: on })),
-    settingsNote("This feature isn't built yet.", "later")
+    "Disables most chat features but may work better with screen readers.",
+    settingsToggle(!!info.legacy_input, false, (on) => persist({ legacy_input: on }))
   ));
 }
 

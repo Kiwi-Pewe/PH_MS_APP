@@ -301,7 +301,7 @@ function bindProfileTileDrag(el, tile, handle) {
 }
 
 function profileTileHasOptions(type) {
-  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "divider" || type === "link_tree" || type === "banner" || type === "avatar" || type === "display_name";
+  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "divider" || type === "link_tree" || type === "banner" || type === "avatar" || type === "display_name" || type === "spoiler" || type === "callout";
 }
 
 function fillBorderOptions(box, tile) {
@@ -520,6 +520,23 @@ function openProfileTileOptions(tile) {
     ], tile.props.style || "solid");
     box.appendChild(field.label);
     readValues = () => ({ style: field.select.value });
+  } else if (tile.type === "spoiler") {
+    const label = document.createElement("label");
+    label.className = "settings-check";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = !!tile.props.start_open;
+    label.appendChild(check);
+    label.appendChild(document.createTextNode(" Start open"));
+    box.appendChild(label);
+    readValues = () => ({ start_open: !!check.checked });
+  } else if (tile.type === "callout") {
+    const field = profileSelectField("Callout tone", [
+      { value: "tip", label: "Tip" },
+      { value: "warning", label: "Warning" }
+    ], tile.props.tone || "tip");
+    box.appendChild(field.label);
+    readValues = () => ({ tone: field.select.value === "warning" ? "warning" : "tip" });
   } else if (tile.type === "banner" || tile.type === "avatar") {
     readValues = fillBorderOptions(box, tile);
   } else if (tile.type === "display_name") {

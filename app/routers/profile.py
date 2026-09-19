@@ -45,6 +45,10 @@ PRONOUNS_MAX = 32
 HEADER_LEVELS = {1, 2, 3}
 LIST_STYLES = {"bullet", "number"}
 DIVIDER_STYLES = {"solid", "dashed", "dotted"}
+CALLOUT_TONES = {"tip", "warning"}
+STAT_MAX_ROWS = 20
+STAT_FIELD_MAX = 80
+SPOILER_TITLE_MAX = 80
 LINK_PLATFORMS = (
     "YouTube", "Twitch", "Steam", "Discord", "X", "Instagram", "TikTok",
     "GitHub", "Spotify", "Reddit", "Roblox", "Battle.net", "PlayStation",
@@ -320,6 +324,24 @@ def normalize_list_items(data):
     return items
 
 
+def normalize_stat_rows(data):
+    rows = []
+    raw = data.get("rows")
+    if not isinstance(raw, list):
+        return rows
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        label = clip_text(row.get("label"), STAT_FIELD_MAX).strip()
+        value = clip_text(row.get("value"), STAT_FIELD_MAX).strip()
+        if not label and not value:
+            continue
+        rows.append({"label": label, "value": value})
+        if len(rows) >= STAT_MAX_ROWS:
+            break
+    return rows
+
+
 def clean_link_url(value):
     text = str(value or "").strip()
     if not text:
@@ -399,6 +421,19 @@ def normalize_props(kind, props, banner_fallback):
         if style not in LIST_STYLES:
             style = "bullet"
         return {"style": style, "items": normalize_list_items(data)}
+    if kind == "spoiler":
+        return {
+            "title": clip_text(data.get("title"), SPOILER_TITLE_MAX),
+            "text": clip_text(data.get("text"), BIO_MAX),
+            "start_open": bool(data.get("start_open")),
+        }
+    if kind == "stats":
+        return {"rows": normalize_stat_rows(data)}
+    if kind == "callout":
+        tone = str(data.get("tone") or "tip")
+        if tone not in CALLOUT_TONES:
+            tone = "tip"
+        return {"text": clip_text(data.get("text"), FOOTNOTE_MAX), "tone": tone}
     if kind == "divider":
         style = str(data.get("style") or "solid")
         if style not in DIVIDER_STYLES:

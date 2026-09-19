@@ -17,15 +17,15 @@ const PROFILE_TILE_TYPES = {
   body: { w: 14, h: 4, minW: 6, minH: 2, maxW: 32, maxH: 12, label: "Body" },
   footnote: { w: 12, h: 1, minW: 4, minH: 1, maxW: 32, maxH: 3, label: "Footnote" },
   list: { w: 10, h: 6, minW: 6, minH: 3, maxW: 20, maxH: 16, label: "List" },
+  spoiler: { w: 10, h: 3, minW: 6, minH: 2, maxW: 20, maxH: 10, label: "Spoiler" },
+  stats: { w: 10, h: 4, minW: 6, minH: 2, maxW: 20, maxH: 10, label: "Stats" },
+  callout: { w: 12, h: 3, minW: 6, minH: 2, maxW: 24, maxH: 8, label: "Callout" },
   divider: { w: 32, h: 1, minW: 6, minH: 1, maxW: 32, maxH: 2, label: "Divider" },
   spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
   link_tree: { w: 10, h: 8, minW: 8, minH: 4, maxW: 16, maxH: 18, label: "Link Tree" }
 };
 
 const PROFILE_PLACEHOLDERS = {
-  spoiler: { label: "Spoiler", w: 10, h: 3, minW: 6, minH: 2, maxW: 20, maxH: 10 },
-  stats: { label: "Stats", w: 10, h: 4, minW: 6, minH: 2, maxW: 20, maxH: 10 },
-  callout: { label: "Callout", w: 12, h: 3, minW: 6, minH: 2, maxW: 24, maxH: 8 },
   button: { label: "Button", w: 8, h: 2, minW: 4, minH: 1, maxW: 16, maxH: 3 },
   details: { label: "Details", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
   interests: { label: "Interests", w: 10, h: 3, minW: 6, minH: 2, maxW: 20, maxH: 8 },
@@ -164,6 +164,9 @@ function defaultProfileTileProps(type, existing) {
   if (type === "body") return { text: prev.text || "", show_border: false };
   if (type === "footnote") return { text: prev.text || "", show_border: false };
   if (type === "list") return { style: "bullet", items: Array.isArray(prev.items) ? prev.items.slice() : [] };
+  if (type === "spoiler") return { title: prev.title || "", text: prev.text || "", start_open: !!prev.start_open };
+  if (type === "stats") return { rows: Array.isArray(prev.rows) ? prev.rows.map(row => Object.assign({}, row)) : [] };
+  if (type === "callout") return { text: prev.text || "", tone: prev.tone === "warning" ? "warning" : "tip" };
   if (type === "divider") return { style: "solid" };
   if (type === "link_tree") return { links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [] };
   return {};
@@ -353,7 +356,7 @@ function paintProfileFriends(host) {
 }
 
 function profileTileIsText(type) {
-  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "bio";
+  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "bio" || type === "spoiler" || type === "stats" || type === "callout";
 }
 
 function bindProfileTextField(area, tile, onValue) {
@@ -362,8 +365,13 @@ function bindProfileTextField(area, tile, onValue) {
     if (host && host.classList.contains("is-typing")) e.stopPropagation();
   });
   area.addEventListener("blur", () => {
-    const host = area.closest(".profile-tile");
-    if (host) host.classList.remove("is-typing");
+    setTimeout(() => {
+      const host = area.closest(".profile-tile");
+      if (!host) return;
+      const active = document.activeElement;
+      if (active && host.contains(active) && active.matches("textarea, input")) return;
+      host.classList.remove("is-typing");
+    }, 0);
   });
   area.addEventListener("keydown", (e) => {
     if (e.key === "Escape") area.blur();
@@ -377,12 +385,12 @@ function bindProfileTextField(area, tile, onValue) {
 }
 
 function armProfileTileTyping(el) {
-  const area = el.querySelector("textarea");
+  const area = el.querySelector("textarea, input");
   if (!area) return;
   el.classList.add("is-typing");
   area.focus();
   const len = area.value.length;
-  area.setSelectionRange(len, len);
+  if (typeof area.setSelectionRange === "function") area.setSelectionRange(len, len);
 }
 
 function paintProfileHeader(tile, el) {
@@ -456,6 +464,126 @@ function paintProfileList(tile, el) {
     });
   }
   el.appendChild(list);
+}
+
+function profileStatRowsFromText(text) {
+  return String(text || "").split("\n").slice(0, 20).map(line => {
+    const idx = line.indexOf("|");
+    if (idx === -1) return { label: line.trim(), value: "" };
+    return { label: line.slice(0, idx).trim(), value: line.slice(idx + 1).trim() };
+  }).filter(row => row.label || row.value);
+}
+
+function profileStatRowsToText(rows) {
+  return (Array.isArray(rows) ? rows : []).map(row => {
+    const label = (row && row.label) || "";
+    const value = (row && row.value) || "";
+    return value ? label + " | " + value : label;
+  }).join("\n");
+}
+
+function paintProfileSpoiler(tile, el) {
+  const title = (tile.props && tile.props.title) || "";
+  const text = (tile.props && tile.props.text) || "";
+  if (profileEditing && profileIsOwn) {
+    const head = document.createElement("input");
+    head.type = "text";
+    head.className = "profile-spoiler-title";
+    head.maxLength = 80;
+    head.placeholder = "Spoiler title";
+    head.value = title;
+    bindProfileTextField(head, tile, (value) => { tile.props.title = value; });
+    const area = document.createElement("textarea");
+    area.className = "profile-spoiler-copy";
+    area.maxLength = 1000;
+    area.placeholder = "Hidden until someone opens this.";
+    area.value = text;
+    bindProfileTextField(area, tile, (value) => { tile.props.text = value; });
+    el.appendChild(head);
+    el.appendChild(area);
+    return;
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "profile-spoiler";
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "profile-spoiler-title";
+  toggle.textContent = title || "Spoiler";
+  if (!title) toggle.classList.add("is-empty");
+  const body = document.createElement("div");
+  body.className = "profile-spoiler-copy";
+  body.textContent = text || "Nothing hidden yet.";
+  if (!text) body.classList.add("is-empty");
+  let open = !!(tile.props && tile.props.start_open);
+  function paintOpen() {
+    wrap.classList.toggle("is-open", open);
+    body.hidden = !open;
+  }
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    open = !open;
+    paintOpen();
+  });
+  paintOpen();
+  wrap.appendChild(toggle);
+  wrap.appendChild(body);
+  el.appendChild(wrap);
+}
+
+function paintProfileStats(tile, el) {
+  const rows = Array.isArray(tile.props && tile.props.rows) ? tile.props.rows : [];
+  if (profileEditing && profileIsOwn) {
+    const area = document.createElement("textarea");
+    area.className = "profile-tile-list-edit";
+    area.value = profileStatRowsToText(rows);
+    area.placeholder = "Label | value  (one per line)";
+    bindProfileTextField(area, tile, (value) => {
+      tile.props.rows = profileStatRowsFromText(value);
+    });
+    el.appendChild(area);
+    return;
+  }
+  const table = document.createElement("div");
+  table.className = "profile-stats";
+  const shown = rows.filter(row => (row && (row.label || row.value)));
+  if (!shown.length) {
+    const empty = document.createElement("div");
+    empty.className = "is-empty";
+    empty.textContent = "No stats yet.";
+    table.appendChild(empty);
+  } else {
+    shown.forEach(row => {
+      const label = document.createElement("div");
+      label.className = "profile-stat-label";
+      label.textContent = row.label || "";
+      const value = document.createElement("div");
+      value.className = "profile-stat-value";
+      value.textContent = row.value || "";
+      table.appendChild(label);
+      table.appendChild(value);
+    });
+  }
+  el.appendChild(table);
+}
+
+function paintProfileCallout(tile, el) {
+  const text = (tile.props && tile.props.text) || "";
+  const tone = (tile.props && tile.props.tone) === "warning" ? "warning" : "tip";
+  if (profileEditing && profileIsOwn) {
+    const area = document.createElement("textarea");
+    area.className = "profile-callout-copy is-" + tone;
+    area.value = text;
+    area.maxLength = 300;
+    area.placeholder = tone === "warning" ? "Warning" : "Tip";
+    bindProfileTextField(area, tile, (value) => { tile.props.text = value; });
+    el.appendChild(area);
+    return;
+  }
+  const node = document.createElement("div");
+  node.className = "profile-callout-copy is-" + tone;
+  node.textContent = text || (tone === "warning" ? "Warning" : "Tip");
+  if (!text) node.classList.add("is-empty");
+  el.appendChild(node);
 }
 
 function paintProfilePlaceholder(tile, el) {
@@ -562,6 +690,18 @@ function paintProfileTileContent(tile, el) {
     paintProfileList(tile, el);
     return;
   }
+  if (tile.type === "spoiler") {
+    paintProfileSpoiler(tile, el);
+    return;
+  }
+  if (tile.type === "stats") {
+    paintProfileStats(tile, el);
+    return;
+  }
+  if (tile.type === "callout") {
+    paintProfileCallout(tile, el);
+    return;
+  }
   if (tile.type === "divider") {
     paintProfileDivider(tile, el);
     return;
@@ -650,6 +790,12 @@ function renderProfileBoard() {
         if (!profileTileIsText(tile.type)) return;
         e.preventDefault();
         e.stopPropagation();
+        const field = e.target.closest("textarea, input");
+        if (field) {
+          el.classList.add("is-typing");
+          field.focus();
+          return;
+        }
         armProfileTileTyping(el);
       });
       el.addEventListener("contextmenu", (e) => {

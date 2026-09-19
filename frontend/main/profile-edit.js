@@ -184,27 +184,31 @@ function bindProfileTileDrag(el, tile, handle) {
 
   function onUp(e) {
     if (!mode) return;
-    const cell = profileCellFromPoint(e.clientX, e.clientY);
+    const dragging = mode === "move";
     const dist = startPt ? Math.hypot(e.clientX - startPt.x, e.clientY - startPt.y) : 0;
-    if (mode === "move") {
-      if (dist < 6 && typeof editProfileIdentity === "function") editProfileIdentity(tile);
-      else {
+    const rerender = !dragging || dist >= 6;
+    if (dragging) {
+      if (dist < 6) {
+        if (typeof editProfileIdentity === "function") editProfileIdentity(tile);
+      } else {
         const next = moveTarget(e.clientX, e.clientY);
         if (tryMoveTile(tile, next.x, next.y)) profileDirty = true;
       }
-    } else if (tryResizeTile(tile, cell.x - origin.x + 1, cell.y - origin.y + 1)) {
-      profileDirty = true;
+    } else {
+      const cell = profileCellFromPoint(e.clientX, e.clientY);
+      if (tryResizeTile(tile, cell.x - origin.x + 1, cell.y - origin.y + 1)) profileDirty = true;
     }
     mode = null;
     document.removeEventListener("pointermove", onMove);
     document.removeEventListener("pointerup", onUp);
-    renderProfileBoard();
+    if (rerender) renderProfileBoard();
   }
 
   el.addEventListener("pointerdown", (e) => {
     if (e.button === 2) return;
+    if (e.detail >= 2) return;
     if (e.target.closest(".profile-resize")) return;
-    if (e.target.closest("textarea") || e.target.closest("input")) return;
+    if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
     e.preventDefault();
     mode = "move";
     origin = { x: tile.x, y: tile.y, w: tile.w, h: tile.h };

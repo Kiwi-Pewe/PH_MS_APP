@@ -2611,6 +2611,9 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .profile-friend-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
 .profile-friend-row .avatar-dot { width: 28px; height: 28px; font-size: 11px; }
 .profile-tile.is-editing { outline: 2px solid var(--accent); cursor: grab; user-select: none; }
+.profile-tile.is-editing textarea { pointer-events: none; cursor: inherit; }
+.profile-tile.is-typing { cursor: text; }
+.profile-tile.is-typing textarea { pointer-events: auto; cursor: text; }
 .profile-tile.allows-overlap.is-editing { outline-style: dashed; }
 .profile-tile.is-ghost { opacity: 0.45; }
 .profile-resize {

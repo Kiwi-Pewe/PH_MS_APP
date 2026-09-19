@@ -184,13 +184,37 @@ function paintProfileFriends(host) {
   });
 }
 
+function profileTileIsText(type) {
+  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "bio";
+}
+
 function bindProfileTextField(area, tile, onValue) {
-  area.addEventListener("pointerdown", (e) => e.stopPropagation());
+  area.addEventListener("pointerdown", (e) => {
+    const host = area.closest(".profile-tile");
+    if (host && host.classList.contains("is-typing")) e.stopPropagation();
+  });
+  area.addEventListener("blur", () => {
+    const host = area.closest(".profile-tile");
+    if (host) host.classList.remove("is-typing");
+  });
+  area.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") area.blur();
+    e.stopPropagation();
+  });
   area.addEventListener("input", () => {
     tile.props = tile.props || {};
     onValue(area.value);
     profileDirty = true;
   });
+}
+
+function armProfileTileTyping(el) {
+  const area = el.querySelector("textarea");
+  if (!area) return;
+  el.classList.add("is-typing");
+  area.focus();
+  const len = area.value.length;
+  area.setSelectionRange(len, len);
 }
 
 function paintProfileHeader(tile, el) {
@@ -318,12 +342,7 @@ function paintProfileTileContent(tile, el) {
       area.value = (tile.props && tile.props.text) || "";
       area.maxLength = 1000;
       area.placeholder = "Write something about yourself.";
-      area.addEventListener("pointerdown", (e) => e.stopPropagation());
-      area.addEventListener("input", () => {
-        tile.props = tile.props || {};
-        tile.props.text = area.value;
-        profileDirty = true;
-      });
+      bindProfileTextField(area, tile, (value) => { tile.props.text = value; });
       body.appendChild(area);
     } else {
       body.textContent = (tile.props && tile.props.text) || "No bio yet.";
@@ -368,6 +387,13 @@ function renderProfileBoard() {
       handle.className = "profile-resize";
       el.appendChild(handle);
       bindProfileTileDrag(el, tile, handle);
+      el.addEventListener("dblclick", (e) => {
+        if (!profileTileIsText(tile.type)) return;
+        if (e.target.closest(".profile-resize")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        armProfileTileTyping(el);
+      });
       el.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         e.stopPropagation();

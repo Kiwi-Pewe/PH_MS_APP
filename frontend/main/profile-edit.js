@@ -175,10 +175,9 @@ function profileCellFromPoint(clientX, clientY) {
   const padX = parseFloat(styles.paddingLeft) || 0;
   const padY = parseFloat(styles.paddingTop) || 0;
   const gap = PROFILE_GAP;
-  const innerW = board.clientWidth - padX - (parseFloat(styles.paddingRight) || 0);
-  const colW = (innerW - gap * (PROFILE_COLS - 1)) / PROFILE_COLS;
-  const stepX = colW + gap;
-  const stepY = PROFILE_ROW_H + gap;
+  const cell = (typeof profileCellSize === "function") ? profileCellSize() : PROFILE_ROW_H;
+  const stepX = cell + gap;
+  const stepY = cell + gap;
   const x = Math.max(0, Math.min(PROFILE_COLS - 1, Math.floor((clientX - rect.left - padX + board.scrollLeft) / stepX)));
   const y = Math.max(0, Math.floor((clientY - rect.top - padY + board.scrollTop) / stepY));
   return { x, y };
@@ -874,7 +873,7 @@ function openProfileTileOptions(tile) {
   function paintPreview() {
     const cellW = profilePreviewCellWidth();
     const nativeW = Math.max(80, tile.w * cellW);
-    const nativeH = Math.max(36, tile.h * PROFILE_ROW_H);
+    const nativeH = Math.max(cellW, tile.h * ((typeof profileCellSize === "function") ? profileCellSize() : PROFILE_ROW_H));
     const leftW = 300;
     const pad = 80;
     const maxW = Math.max(360, window.innerWidth - 48);

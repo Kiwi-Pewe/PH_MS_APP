@@ -5,7 +5,44 @@
 
 const PROFILE_COLS = 32;
 const PROFILE_ROW_H = 36;
+const PROFILE_CELL_MIN = 22;
+const PROFILE_CELL_MAX = 48;
 const PROFILE_GAP = 0;
+let profileLiveCell = PROFILE_ROW_H;
+
+function profileCellSize() {
+  return profileLiveCell || PROFILE_ROW_H;
+}
+
+function syncProfileBoardScale() {
+  const scroll = document.getElementById("profile-board-scroll");
+  const board = document.getElementById("profile-board");
+  if (!board) return profileCellSize();
+  const styles = window.getComputedStyle(board);
+  const padX = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
+  const host = scroll || board.parentElement;
+  const avail = host ? Math.max(1, host.clientWidth - padX) : PROFILE_COLS * PROFILE_ROW_H;
+  profileLiveCell = Math.max(
+    PROFILE_CELL_MIN,
+    Math.min(PROFILE_CELL_MAX, Math.floor(avail / PROFILE_COLS))
+  );
+  board.style.setProperty("--profile-cell", profileLiveCell + "px");
+  board.style.setProperty("--profile-row", profileLiveCell + "px");
+  board.style.width = (profileLiveCell * PROFILE_COLS) + "px";
+  return profileLiveCell;
+}
+
+function bindProfileBoardScale() {
+  const scroll = document.getElementById("profile-board-scroll");
+  if (!scroll || scroll.dataset.scaleBound === "1") return;
+  scroll.dataset.scaleBound = "1";
+  if (typeof ResizeObserver === "undefined") {
+    window.addEventListener("resize", () => syncProfileBoardScale());
+    return;
+  }
+  const observer = new ResizeObserver(() => syncProfileBoardScale());
+  observer.observe(scroll);
+}
 // Kiwi lists min/max as (Height, Width). Fields below are minH/minW, maxH/maxW.
 const PROFILE_TILE_TYPES = {
   banner: { w: 32, h: 3, minW: 6, minH: 3, maxW: 32, maxH: 5, label: "Banner" },
@@ -1020,10 +1057,10 @@ function paintProfileTileContent(tile, el) {
 function renderProfileBoard() {
   const board = document.getElementById("profile-board");
   if (!board) return;
+  bindProfileBoardScale();
+  syncProfileBoardScale();
   board.innerHTML = "";
   board.classList.toggle("is-editing", !!(profileEditing && profileIsOwn));
-  board.style.setProperty("--profile-row", PROFILE_ROW_H + "px");
-  board.style.gridAutoRows = PROFILE_ROW_H + "px";
   board.style.gap = PROFILE_GAP + "px";
   const layout = profileDraft || profileSavedLayout;
   const page = profilePageById(layout, profileActivePageId);
@@ -1089,7 +1126,7 @@ function paintProfileGrid(board, page) {
   const overlay = document.createElement("div");
   overlay.className = "profile-grid-overlay";
   overlay.setAttribute("aria-hidden", "true");
-  overlay.style.gridTemplateRows = "repeat(" + rows + ", " + PROFILE_ROW_H + "px)";
+  overlay.style.gridTemplateRows = "repeat(" + rows + ", var(--profile-row))";
   const count = PROFILE_COLS * rows;
   for (let i = 0; i < count; i++) {
     overlay.appendChild(document.createElement("div"));

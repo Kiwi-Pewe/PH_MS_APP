@@ -2476,22 +2476,27 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 #profile-edit-actions { display: flex; align-items: center; gap: 8px; }
 #profile-edit-actions[hidden] { display: none; }
 #profile-owner-label { margin-left: auto; font-size: 13px; color: var(--text-dim); }
-#profile-board-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; }
+#profile-board-scroll {
+  flex: 1 1 auto; min-height: 0; overflow: auto;
+  display: flex; flex-direction: column; align-items: center;
+}
 #profile-board {
   display: grid;
-  grid-template-columns: repeat(32, minmax(0, 1fr));
+  grid-template-columns: repeat(32, var(--profile-cell, 36px));
   grid-auto-rows: var(--profile-row, 36px);
   gap: 0;
   padding: 16px 20px 48px;
   position: relative;
   min-height: 100%;
   align-content: start;
+  box-sizing: content-box;
+  flex: 0 0 auto;
 }
 .profile-grid-overlay {
   position: absolute;
   left: 20px; right: 20px; top: 16px;
   display: grid;
-  grid-template-columns: repeat(32, minmax(0, 1fr));
+  grid-template-columns: repeat(32, var(--profile-cell, 36px));
   pointer-events: none;
   z-index: 0;
 }

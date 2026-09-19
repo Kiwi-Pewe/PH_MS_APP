@@ -35,7 +35,16 @@ const PROFILE_PALETTE = [
     id: "social",
     label: "Social",
     items: [
-      { type: "friends", label: "Friends" }
+      { type: "friends", label: "Friends" },
+      { type: "link_tree", label: "Link Tree" }
+    ]
+  },
+  {
+    id: "decoration",
+    label: "Decoration",
+    items: [
+      { type: "divider", label: "Divider" },
+      { type: "spacer", label: "Spacer" }
     ]
   },
   {
@@ -234,7 +243,106 @@ function bindProfileTileDrag(el, tile, handle) {
 }
 
 function profileTileHasOptions(type) {
-  return type === "header" || type === "body" || type === "footnote" || type === "list";
+  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "divider" || type === "link_tree";
+}
+
+function profileSelectField(labelText, options, selected) {
+  const label = document.createElement("label");
+  label.textContent = labelText;
+  const select = document.createElement("select");
+  select.className = "settings-select";
+  options.forEach(opt => {
+    const row = document.createElement("option");
+    row.value = opt.value;
+    row.textContent = opt.label;
+    if (String(selected) === String(opt.value)) row.selected = true;
+    select.appendChild(row);
+  });
+  label.appendChild(select);
+  return { label, select };
+}
+
+function fillLinkTreeOptions(box, tile) {
+  const links = (Array.isArray(tile.props.links) ? tile.props.links : []).map(row => ({
+    platform: row.platform || "Other",
+    username: row.username || "",
+    url: row.url || ""
+  }));
+  const list = document.createElement("div");
+  list.className = "profile-link-editor";
+  function paintList() {
+    list.innerHTML = "";
+    if (!links.length) {
+      const empty = document.createElement("div");
+      empty.className = "settings-opt-desc";
+      empty.textContent = "No links yet.";
+      list.appendChild(empty);
+      return;
+    }
+    links.forEach((row, index) => {
+      const line = document.createElement("div");
+      line.className = "profile-link-edit-row";
+      const label = document.createElement("div");
+      label.className = "profile-link-edit-label";
+      label.textContent = (row.platform || "Link") + (row.username ? " · " + row.username : "");
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "Remove";
+      del.addEventListener("click", () => {
+        links.splice(index, 1);
+        paintList();
+      });
+      line.appendChild(label);
+      line.appendChild(del);
+      list.appendChild(line);
+    });
+  }
+  paintList();
+  box.appendChild(list);
+
+  const platformField = profileSelectField(
+    "Platform",
+    PROFILE_LINK_PLATFORMS.map(name => ({ value: name, label: name })),
+    "YouTube"
+  );
+  const userLabel = document.createElement("label");
+  userLabel.textContent = "Username";
+  const userInput = document.createElement("input");
+  userInput.type = "text";
+  userInput.maxLength = 32;
+  userInput.placeholder = "your name on that site";
+  userLabel.appendChild(userInput);
+  const urlLabel = document.createElement("label");
+  urlLabel.textContent = "Link";
+  const urlInput = document.createElement("input");
+  urlInput.type = "url";
+  urlInput.placeholder = "https://";
+  urlLabel.appendChild(urlInput);
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "profile-link-add";
+  add.textContent = "Add link";
+  add.addEventListener("click", () => {
+    const url = (urlInput.value || "").trim();
+    if (!url) {
+      urlInput.focus();
+      return;
+    }
+    if (links.length >= 12) return;
+    links.push({
+      platform: platformField.select.value || "Other",
+      username: (userInput.value || "").trim(),
+      url
+    });
+    userInput.value = "";
+    urlInput.value = "";
+    paintList();
+  });
+  box.appendChild(platformField.label);
+  box.appendChild(userLabel);
+  box.appendChild(urlLabel);
+  box.appendChild(add);
+  return () => ({ links: links.slice() });
 }
 
 function openProfileTileOptions(tile) {
@@ -249,42 +357,31 @@ function openProfileTileOptions(tile) {
 
   let readValues = () => ({});
   if (tile.type === "header") {
-    const label = document.createElement("label");
-    label.textContent = "Header style";
-    const select = document.createElement("select");
-    select.className = "settings-select";
-    [
+    const field = profileSelectField("Header style", [
       { value: "1", label: "Heading 1 — large" },
       { value: "2", label: "Heading 2 — medium" },
       { value: "3", label: "Heading 3 — small" }
-    ].forEach(opt => {
-      const row = document.createElement("option");
-      row.value = opt.value;
-      row.textContent = opt.label;
-      if (String(tile.props.level || 1) === opt.value) row.selected = true;
-      select.appendChild(row);
-    });
-    label.appendChild(select);
-    box.appendChild(label);
-    readValues = () => ({ level: Number(select.value) || 1 });
+    ], tile.props.level || 1);
+    box.appendChild(field.label);
+    readValues = () => ({ level: Number(field.select.value) || 1 });
   } else if (tile.type === "list") {
-    const label = document.createElement("label");
-    label.textContent = "List style";
-    const select = document.createElement("select");
-    select.className = "settings-select";
-    [
+    const field = profileSelectField("List style", [
       { value: "bullet", label: "Bullets" },
       { value: "number", label: "Numbered" }
-    ].forEach(opt => {
-      const row = document.createElement("option");
-      row.value = opt.value;
-      row.textContent = opt.label;
-      if ((tile.props.style || "bullet") === opt.value) row.selected = true;
-      select.appendChild(row);
-    });
-    label.appendChild(select);
-    box.appendChild(label);
-    readValues = () => ({ style: select.value === "number" ? "number" : "bullet" });
+    ], tile.props.style || "bullet");
+    box.appendChild(field.label);
+    readValues = () => ({ style: field.select.value === "number" ? "number" : "bullet" });
+  } else if (tile.type === "divider") {
+    const field = profileSelectField("Line style", [
+      { value: "solid", label: "Solid" },
+      { value: "dashed", label: "Dashed" },
+      { value: "dotted", label: "Dotted" }
+    ], tile.props.style || "solid");
+    box.appendChild(field.label);
+    readValues = () => ({ style: field.select.value });
+  } else if (tile.type === "link_tree") {
+    box.classList.add("is-wide");
+    readValues = fillLinkTreeOptions(box, tile);
   } else {
     const label = document.createElement("label");
     label.className = "settings-check";

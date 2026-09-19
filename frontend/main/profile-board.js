@@ -15,8 +15,17 @@ const PROFILE_TILE_TYPES = {
   header: { w: 16, h: 2, minW: 4, minH: 1, maxW: 32, maxH: 3, label: "Header" },
   body: { w: 14, h: 4, minW: 6, minH: 2, maxW: 32, maxH: 12, label: "Body" },
   footnote: { w: 12, h: 1, minW: 4, minH: 1, maxW: 32, maxH: 3, label: "Footnote" },
-  list: { w: 10, h: 6, minW: 6, minH: 3, maxW: 20, maxH: 16, label: "List" }
+  list: { w: 10, h: 6, minW: 6, minH: 3, maxW: 20, maxH: 16, label: "List" },
+  divider: { w: 32, h: 1, minW: 6, minH: 1, maxW: 32, maxH: 2, label: "Divider" },
+  spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
+  link_tree: { w: 10, h: 8, minW: 8, minH: 4, maxW: 16, maxH: 18, label: "Link Tree" }
 };
+
+const PROFILE_LINK_PLATFORMS = [
+  "YouTube", "Twitch", "Steam", "Discord", "X", "Instagram", "TikTok",
+  "GitHub", "Spotify", "Reddit", "Roblox", "Battle.net", "PlayStation",
+  "Patreon", "Bluesky", "Crunchyroll", "eBay", "Other"
+];
 
 function profileTileBounds(type) {
   const meta = PROFILE_TILE_TYPES[type] || {};
@@ -99,6 +108,8 @@ function defaultProfileTileProps(type, existing) {
   if (type === "body") return { text: prev.text || "", show_border: false };
   if (type === "footnote") return { text: prev.text || "", show_border: false };
   if (type === "list") return { style: "bullet", items: Array.isArray(prev.items) ? prev.items.slice() : [] };
+  if (type === "divider") return { style: "solid" };
+  if (type === "link_tree") return { links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [] };
   return {};
 }
 
@@ -154,6 +165,76 @@ function profileOwnerName() {
 function profileOwnerHandle() {
   if (!profileUser) return myUsername || "";
   return profileUser.username || "";
+}
+
+function profilePlatformLetter(name) {
+  if (name === "Battle.net") return "Bn";
+  if (name === "PlayStation") return "PS";
+  if (name === "Crunchyroll") return "Cr";
+  if (name === "GitHub") return "GH";
+  if (name === "TikTok") return "TT";
+  if (name === "Twitch") return "Tw";
+  if (name === "Instagram") return "Ig";
+  if (name === "Spotify") return "Sp";
+  return (name || "?").slice(0, 1);
+}
+
+function paintProfileDivider(tile, el) {
+  const style = (tile.props && tile.props.style) || "solid";
+  const line = document.createElement("div");
+  line.className = "profile-divider is-" + style;
+  el.appendChild(line);
+}
+
+function paintProfileSpacer(el) {
+  if (!(profileEditing && profileIsOwn)) return;
+  const note = document.createElement("div");
+  note.className = "profile-spacer-label";
+  note.textContent = "Spacer";
+  el.appendChild(note);
+}
+
+function paintProfileLinkTree(tile, el) {
+  const head = document.createElement("div");
+  head.className = "profile-tile-head";
+  head.textContent = "Links";
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  const links = Array.isArray(tile.props && tile.props.links) ? tile.props.links : [];
+  if (!links.length) {
+    const empty = document.createElement("div");
+    empty.className = "settings-opt-desc";
+    empty.textContent = profileEditing ? "Right-click, then Options, to add links." : "No links yet.";
+    body.appendChild(empty);
+  } else {
+    links.forEach(row => {
+      const item = document.createElement(profileEditing ? "div" : "a");
+      item.className = "profile-link-row";
+      if (!profileEditing) {
+        item.href = row.url;
+        item.target = "_blank";
+        item.rel = "noopener noreferrer";
+      }
+      const icon = document.createElement("div");
+      icon.className = "avatar-dot";
+      icon.textContent = profilePlatformLetter(row.platform);
+      const meta = document.createElement("div");
+      meta.className = "profile-link-meta";
+      const site = document.createElement("div");
+      site.className = "profile-link-site";
+      site.textContent = row.platform || "Link";
+      const user = document.createElement("div");
+      user.className = "profile-link-user";
+      user.textContent = row.username || row.url;
+      meta.appendChild(site);
+      meta.appendChild(user);
+      item.appendChild(icon);
+      item.appendChild(meta);
+      body.appendChild(item);
+    });
+  }
+  el.appendChild(head);
+  el.appendChild(body);
 }
 
 function paintProfileFriends(host) {
@@ -331,6 +412,18 @@ function paintProfileTileContent(tile, el) {
     paintProfileList(tile, el);
     return;
   }
+  if (tile.type === "divider") {
+    paintProfileDivider(tile, el);
+    return;
+  }
+  if (tile.type === "spacer") {
+    paintProfileSpacer(el);
+    return;
+  }
+  if (tile.type === "link_tree") {
+    paintProfileLinkTree(tile, el);
+    return;
+  }
   const head = document.createElement("div");
   head.className = "profile-tile-head";
   head.textContent = tile.type === "bio" ? "About" : "Friends";
@@ -388,8 +481,14 @@ function renderProfileBoard() {
       el.appendChild(handle);
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
-        if (!profileTileIsText(tile.type)) return;
         if (e.target.closest(".profile-resize")) return;
+        if (tile.type === "link_tree") {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);
+          return;
+        }
+        if (!profileTileIsText(tile.type)) return;
         e.preventDefault();
         e.stopPropagation();
         armProfileTileTyping(el);

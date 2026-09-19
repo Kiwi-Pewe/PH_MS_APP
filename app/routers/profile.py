@@ -16,7 +16,7 @@ router = APIRouter()
 
 GRID_COLS = 32
 OLD_GRID_COLS = 12
-TILE_TYPES = {"banner", "avatar", "display_name", "bio", "friends", "header", "body", "footnote", "list"}
+TILE_TYPES = {"banner", "avatar", "display_name", "bio", "friends", "header", "body", "footnote", "list", "divider", "spacer", "link_tree"}
 PAGE_VIS = {"public", "owner"}
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 BIO_MAX = 1000
@@ -24,9 +24,18 @@ HEADER_MAX = 120
 FOOTNOTE_MAX = 300
 LIST_ITEM_MAX = 200
 LIST_MAX_ITEMS = 20
+LINK_MAX = 12
+LINK_USER_MAX = 32
+LINK_URL_MAX = 500
 TITLE_MAX = 32
 HEADER_LEVELS = {1, 2, 3}
 LIST_STYLES = {"bullet", "number"}
+DIVIDER_STYLES = {"solid", "dashed", "dotted"}
+LINK_PLATFORMS = (
+    "YouTube", "Twitch", "Steam", "Discord", "X", "Instagram", "TikTok",
+    "GitHub", "Spotify", "Reddit", "Roblox", "Battle.net", "PlayStation",
+    "Patreon", "Bluesky", "Crunchyroll", "eBay", "Other",
+)
 
 STARTER_PAGES = (
     ("profile", "Profile", "public"),
@@ -76,6 +85,9 @@ def tile_bounds(kind):
         "body": (6, 2, 32, 12),
         "footnote": (4, 1, 32, 3),
         "list": (6, 3, 20, 16),
+        "divider": (6, 1, 32, 2),
+        "spacer": (2, 1, 32, 8),
+        "link_tree": (8, 4, 16, 18),
     }.get(kind, (1, 1, GRID_COLS, 24))
 
 
@@ -90,6 +102,9 @@ def default_sizes(kind):
         "body": (14, 4),
         "footnote": (12, 1),
         "list": (10, 6),
+        "divider": (32, 1),
+        "spacer": (8, 2),
+        "link_tree": (10, 8),
     }.get(kind, (8, 3))
 
 
@@ -209,6 +224,42 @@ def normalize_list_items(data):
     return items
 
 
+def clean_link_url(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if "://" not in text:
+        text = "https://" + text
+    lower = text.lower()
+    if not (lower.startswith("https://") or lower.startswith("http://")):
+        return ""
+    if any(ch in text for ch in (" ", "<", ">", '"', "'")):
+        return ""
+    return text[:LINK_URL_MAX]
+
+
+def normalize_links(data):
+    out = []
+    raw = data.get("links")
+    if not isinstance(raw, list):
+        return out
+    allowed = set(LINK_PLATFORMS)
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        url = clean_link_url(row.get("url"))
+        if not url:
+            continue
+        platform = clip_text(row.get("platform"), 32).strip() or "Other"
+        if platform not in allowed:
+            platform = platform[:32]
+        username = clip_text(row.get("username"), LINK_USER_MAX).strip()
+        out.append({"platform": platform, "username": username, "url": url})
+        if len(out) >= LINK_MAX:
+            break
+    return out
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
     if kind == "banner":
@@ -232,6 +283,15 @@ def normalize_props(kind, props, banner_fallback):
         if style not in LIST_STYLES:
             style = "bullet"
         return {"style": style, "items": normalize_list_items(data)}
+    if kind == "divider":
+        style = str(data.get("style") or "solid")
+        if style not in DIVIDER_STYLES:
+            style = "solid"
+        return {"style": style}
+    if kind == "spacer":
+        return {}
+    if kind == "link_tree":
+        return {"links": normalize_links(data)}
     return {}
 
 

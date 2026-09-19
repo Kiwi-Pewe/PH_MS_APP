@@ -2547,6 +2547,67 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   background: var(--rail); border: 1px solid var(--border); border-radius: 6px;
   color: var(--text); font-size: 14px; padding: 8px;
 }
+.profile-tile.is-header,
+.profile-tile.is-body,
+.profile-tile.is-footnote,
+.profile-tile.is-list {
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: stretch;
+}
+.profile-tile.is-header,
+.profile-tile.is-footnote { align-items: center; }
+.profile-tile.has-border {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+}
+.profile-tile-header,
+.profile-tile-copy,
+.profile-tile-footnote,
+.profile-tile-list-edit {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  resize: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 4px 8px;
+  line-height: 1.35;
+}
+.profile-tile-header {
+  font-weight: 800;
+  font-size: 28px;
+}
+.profile-tile-header.is-level-2 { font-size: 20px; font-weight: 700; }
+.profile-tile-header.is-level-3 { font-size: 16px; font-weight: 700; }
+.profile-tile-copy { font-size: 14px; white-space: pre-wrap; }
+.profile-tile-footnote { font-size: 12px; color: var(--text-dim); white-space: pre-wrap; }
+.profile-tile-header.is-empty,
+.profile-tile-copy.is-empty,
+.profile-tile-footnote.is-empty,
+.profile-tile-list .is-empty { color: var(--text-dim); font-weight: 500; }
+.profile-tile-list {
+  margin: 0;
+  padding: 8px 8px 8px 28px;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.45;
+  width: 100%;
+}
+.profile-tile-list.is-number { padding-left: 32px; }
+.profile-tile-list-edit { font-size: 14px; white-space: pre-wrap; }
+.settings-form select {
+  display: block; width: 100%; margin-top: 6px;
+  background: var(--rail); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; padding: 8px 10px;
+}
+.settings-form .settings-check {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text); font-weight: 600;
+}
+.settings-form .settings-check input { width: auto; margin: 0; }
 .profile-friend-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
 .profile-friend-row .avatar-dot { width: 28px; height: 28px; font-size: 11px; }
 .profile-tile.is-editing { outline: 2px solid var(--accent); cursor: grab; user-select: none; }

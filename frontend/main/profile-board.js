@@ -11,7 +11,11 @@ const PROFILE_TILE_TYPES = {
   avatar: { w: 4, h: 4, minW: 2, minH: 2, maxW: 4, maxH: 4, label: "Avatar" },
   display_name: { w: 5, h: 2, minW: 3, minH: 2, maxW: 5, maxH: 3, label: "Display name" },
   bio: { w: 14, h: 5, minW: 6, minH: 5, maxW: 14, maxH: 6, label: "Bio" },
-  friends: { w: 6, h: 11, minW: 4, minH: 11, maxW: 6, maxH: 15, label: "Friends" }
+  friends: { w: 6, h: 11, minW: 4, minH: 11, maxW: 6, maxH: 15, label: "Friends" },
+  header: { w: 16, h: 2, minW: 4, minH: 1, maxW: 32, maxH: 3, label: "Header" },
+  body: { w: 14, h: 4, minW: 6, minH: 2, maxW: 32, maxH: 12, label: "Body" },
+  footnote: { w: 12, h: 1, minW: 4, minH: 1, maxW: 32, maxH: 3, label: "Footnote" },
+  list: { w: 10, h: 6, minW: 6, minH: 3, maxW: 20, maxH: 16, label: "List" }
 };
 
 function profileTileBounds(type) {
@@ -85,11 +89,16 @@ function profileFirstFit(page, w, h, skipId) {
 }
 
 function defaultProfileTileProps(type, existing) {
-  if (type === "bio") return { text: "" };
+  const prev = existing || {};
+  if (type === "bio") return { text: prev.text || "" };
   if (type === "banner") {
-    const color = existing && existing.color ? existing.color : "#1e6b8a";
+    const color = prev.color ? prev.color : "#1e6b8a";
     return { color };
   }
+  if (type === "header") return { text: prev.text || "", level: 1 };
+  if (type === "body") return { text: prev.text || "", show_border: false };
+  if (type === "footnote") return { text: prev.text || "", show_border: false };
+  if (type === "list") return { style: "bullet", items: Array.isArray(prev.items) ? prev.items.slice() : [] };
   return {};
 }
 
@@ -175,6 +184,88 @@ function paintProfileFriends(host) {
   });
 }
 
+function bindProfileTextField(area, tile, onValue) {
+  area.addEventListener("pointerdown", (e) => e.stopPropagation());
+  area.addEventListener("input", () => {
+    tile.props = tile.props || {};
+    onValue(area.value);
+    profileDirty = true;
+  });
+}
+
+function paintProfileHeader(tile, el) {
+  const level = Math.max(1, Math.min(3, Number((tile.props && tile.props.level) || 1)));
+  const text = (tile.props && tile.props.text) || "";
+  if (profileEditing && profileIsOwn) {
+    const area = document.createElement("textarea");
+    area.className = "profile-tile-header is-level-" + level;
+    area.value = text;
+    area.maxLength = 120;
+    area.placeholder = "Header";
+    area.rows = 1;
+    bindProfileTextField(area, tile, (value) => { tile.props.text = value; });
+    el.appendChild(area);
+    return;
+  }
+  const node = document.createElement("div");
+  node.className = "profile-tile-header is-level-" + level;
+  node.textContent = text || "Header";
+  if (!text) node.classList.add("is-empty");
+  el.appendChild(node);
+}
+
+function paintProfileCopy(tile, el, kind) {
+  const text = (tile.props && tile.props.text) || "";
+  const max = kind === "footnote" ? 300 : 1000;
+  if (profileEditing && profileIsOwn) {
+    const area = document.createElement("textarea");
+    area.className = kind === "footnote" ? "profile-tile-footnote" : "profile-tile-copy";
+    area.value = text;
+    area.maxLength = max;
+    area.placeholder = kind === "footnote" ? "Footnote" : "Write something.";
+    bindProfileTextField(area, tile, (value) => { tile.props.text = value; });
+    el.appendChild(area);
+    return;
+  }
+  const node = document.createElement("div");
+  node.className = kind === "footnote" ? "profile-tile-footnote" : "profile-tile-copy";
+  node.textContent = text || (kind === "footnote" ? "Footnote" : "Write something.");
+  if (!text) node.classList.add("is-empty");
+  el.appendChild(node);
+}
+
+function paintProfileList(tile, el) {
+  const items = Array.isArray(tile.props && tile.props.items) ? tile.props.items : [];
+  const style = (tile.props && tile.props.style) === "number" ? "number" : "bullet";
+  if (profileEditing && profileIsOwn) {
+    const area = document.createElement("textarea");
+    area.className = "profile-tile-list-edit";
+    area.value = items.join("\n");
+    area.placeholder = "One item per line";
+    bindProfileTextField(area, tile, (value) => {
+      tile.props.items = value.split("\n").slice(0, 20);
+    });
+    el.appendChild(area);
+    return;
+  }
+  const shown = items.map(row => String(row || "").trim()).filter(Boolean);
+  const list = document.createElement(style === "number" ? "ol" : "ul");
+  list.className = "profile-tile-list is-" + style;
+  if (!shown.length) {
+    const empty = document.createElement("li");
+    empty.className = "is-empty";
+    empty.textContent = "Empty list.";
+    list.appendChild(empty);
+  } else {
+    shown.forEach(row => {
+      const item = document.createElement("li");
+      item.textContent = row;
+      list.appendChild(item);
+    });
+  }
+  el.appendChild(list);
+}
+
 function paintProfileTileContent(tile, el) {
   el.innerHTML = "";
   if (tile.type === "banner") {
@@ -198,6 +289,22 @@ function paintProfileTileContent(tile, el) {
     handle.textContent = "@" + profileOwnerHandle();
     el.appendChild(name);
     el.appendChild(handle);
+    return;
+  }
+  if (tile.type === "header") {
+    paintProfileHeader(tile, el);
+    return;
+  }
+  if (tile.type === "body") {
+    paintProfileCopy(tile, el, "body");
+    return;
+  }
+  if (tile.type === "footnote") {
+    paintProfileCopy(tile, el, "footnote");
+    return;
+  }
+  if (tile.type === "list") {
+    paintProfileList(tile, el);
     return;
   }
   const head = document.createElement("div");
@@ -251,6 +358,7 @@ function renderProfileBoard() {
   tiles.forEach((tile, index) => {
     const el = document.createElement("div");
     el.className = "profile-tile is-" + tile.type + (profileEditing ? " is-editing" : "") + (tile.allow_overlap ? " allows-overlap" : "");
+    if (tile.props && tile.props.show_border) el.classList.add("has-border");
     el.dataset.tileId = tile.id;
     el.style.zIndex = String(10 + index);
     applyProfileTileStyle(el, tile);

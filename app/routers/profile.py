@@ -16,11 +16,17 @@ router = APIRouter()
 
 GRID_COLS = 32
 OLD_GRID_COLS = 12
-TILE_TYPES = {"banner", "avatar", "display_name", "bio", "friends"}
+TILE_TYPES = {"banner", "avatar", "display_name", "bio", "friends", "header", "body", "footnote", "list"}
 PAGE_VIS = {"public", "owner"}
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 BIO_MAX = 1000
+HEADER_MAX = 120
+FOOTNOTE_MAX = 300
+LIST_ITEM_MAX = 200
+LIST_MAX_ITEMS = 20
 TITLE_MAX = 32
+HEADER_LEVELS = {1, 2, 3}
+LIST_STYLES = {"bullet", "number"}
 
 STARTER_PAGES = (
     ("profile", "Profile", "public"),
@@ -66,6 +72,10 @@ def tile_bounds(kind):
         "display_name": (3, 2, 5, 3),
         "bio": (6, 5, 14, 6),
         "friends": (4, 11, 6, 15),
+        "header": (4, 1, 32, 3),
+        "body": (6, 2, 32, 12),
+        "footnote": (4, 1, 32, 3),
+        "list": (6, 3, 20, 16),
     }.get(kind, (1, 1, GRID_COLS, 24))
 
 
@@ -76,6 +86,10 @@ def default_sizes(kind):
         "display_name": (5, 2),
         "bio": (14, 5),
         "friends": (6, 11),
+        "header": (16, 2),
+        "body": (14, 4),
+        "footnote": (12, 1),
+        "list": (10, 6),
     }.get(kind, (8, 3))
 
 
@@ -174,15 +188,50 @@ def clean_hex(value, fallback):
     return fallback
 
 
+def clip_text(value, cap):
+    text = str(value or "")
+    if len(text) > cap:
+        return text[:cap]
+    return text
+
+
+def normalize_list_items(data):
+    items = []
+    raw = data.get("items")
+    if isinstance(raw, list):
+        source = raw
+    else:
+        source = str(data.get("text") or "").split("\n")
+    for row in source:
+        items.append(clip_text(row, LIST_ITEM_MAX))
+        if len(items) >= LIST_MAX_ITEMS:
+            break
+    return items
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
     if kind == "banner":
         return {"color": clean_hex(data.get("color"), banner_fallback or random_banner_hex())}
     if kind == "bio":
-        text = str(data.get("text") or "")
-        if len(text) > BIO_MAX:
-            text = text[:BIO_MAX]
-        return {"text": text}
+        return {"text": clip_text(data.get("text"), BIO_MAX)}
+    if kind == "header":
+        try:
+            level = int(data.get("level") or 1)
+        except (TypeError, ValueError):
+            level = 1
+        if level not in HEADER_LEVELS:
+            level = 1
+        return {"text": clip_text(data.get("text"), HEADER_MAX), "level": level}
+    if kind == "body":
+        return {"text": clip_text(data.get("text"), BIO_MAX), "show_border": bool(data.get("show_border"))}
+    if kind == "footnote":
+        return {"text": clip_text(data.get("text"), FOOTNOTE_MAX), "show_border": bool(data.get("show_border"))}
+    if kind == "list":
+        style = str(data.get("style") or "bullet")
+        if style not in LIST_STYLES:
+            style = "bullet"
+        return {"style": style, "items": normalize_list_items(data)}
     return {}
 
 

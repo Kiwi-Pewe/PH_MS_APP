@@ -15,6 +15,16 @@ const PROFILE_PALETTE = [
     ]
   },
   {
+    id: "text",
+    label: "Text",
+    items: [
+      { type: "header", label: "Header" },
+      { type: "body", label: "Body" },
+      { type: "footnote", label: "Footnote" },
+      { type: "list", label: "List" }
+    ]
+  },
+  {
     id: "about",
     label: "About",
     items: [
@@ -219,13 +229,106 @@ function bindProfileTileDrag(el, tile, handle) {
   });
 }
 
+function profileTileHasOptions(type) {
+  return type === "header" || type === "body" || type === "footnote" || type === "list";
+}
+
+function openProfileTileOptions(tile) {
+  tile.props = tile.props || {};
+  const overlay = document.createElement("div");
+  overlay.className = "settings-form-overlay";
+  const box = document.createElement("div");
+  box.className = "settings-form";
+  const heading = document.createElement("h3");
+  heading.textContent = "Options";
+  box.appendChild(heading);
+
+  let readValues = () => ({});
+  if (tile.type === "header") {
+    const label = document.createElement("label");
+    label.textContent = "Header style";
+    const select = document.createElement("select");
+    select.className = "settings-select";
+    [
+      { value: "1", label: "Heading 1 — large" },
+      { value: "2", label: "Heading 2 — medium" },
+      { value: "3", label: "Heading 3 — small" }
+    ].forEach(opt => {
+      const row = document.createElement("option");
+      row.value = opt.value;
+      row.textContent = opt.label;
+      if (String(tile.props.level || 1) === opt.value) row.selected = true;
+      select.appendChild(row);
+    });
+    label.appendChild(select);
+    box.appendChild(label);
+    readValues = () => ({ level: Number(select.value) || 1 });
+  } else if (tile.type === "list") {
+    const label = document.createElement("label");
+    label.textContent = "List style";
+    const select = document.createElement("select");
+    select.className = "settings-select";
+    [
+      { value: "bullet", label: "Bullets" },
+      { value: "number", label: "Numbered" }
+    ].forEach(opt => {
+      const row = document.createElement("option");
+      row.value = opt.value;
+      row.textContent = opt.label;
+      if ((tile.props.style || "bullet") === opt.value) row.selected = true;
+      select.appendChild(row);
+    });
+    label.appendChild(select);
+    box.appendChild(label);
+    readValues = () => ({ style: select.value === "number" ? "number" : "bullet" });
+  } else {
+    const label = document.createElement("label");
+    label.className = "settings-check";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = !!tile.props.show_border;
+    const name = document.createElement("span");
+    name.textContent = "Show border";
+    label.appendChild(check);
+    label.appendChild(name);
+    box.appendChild(label);
+    readValues = () => ({ show_border: !!check.checked });
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "settings-form-actions";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", () => overlay.remove());
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "settings-form-save";
+  save.textContent = "Save";
+  save.addEventListener("click", () => {
+    Object.assign(tile.props, readValues());
+    overlay.remove();
+    markProfileDirty();
+  });
+  actions.appendChild(cancel);
+  actions.appendChild(save);
+  box.appendChild(actions);
+  overlay.appendChild(box);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
 function showProfileTileMenu(e, tile) {
   const meta = PROFILE_TILE_TYPES[tile.type] || { label: "Element" };
   if (typeof openContextMenu !== "function") return;
-  openContextMenu(e.clientX, e.clientY, {
-    avatarText: (meta.label || "?").slice(0, 1),
-    title: meta.label
-  }, [
+  const items = [];
+  if (profileTileHasOptions(tile.type)) {
+    items.push({
+      label: "Options",
+      onSelect: () => openProfileTileOptions(tile)
+    });
+  }
+  items.push(
     {
       label: tile.allow_overlap ? "Allow overlap \u2713" : "Allow overlap",
       onSelect: () => {
@@ -250,7 +353,11 @@ function showProfileTileMenu(e, tile) {
         markProfileDirty();
       }
     }
-  ]);
+  );
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: (meta.label || "?").slice(0, 1),
+    title: meta.label
+  }, items);
 }
 
 function addProfilePage() {

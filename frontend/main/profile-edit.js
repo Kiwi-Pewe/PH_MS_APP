@@ -171,16 +171,13 @@ function renderProfilePalette() {
 function profileCellFromPoint(clientX, clientY) {
   const board = document.getElementById("profile-board");
   const rect = board.getBoundingClientRect();
-  const styles = window.getComputedStyle(board);
-  const padX = parseFloat(styles.paddingLeft) || 0;
-  const padY = parseFloat(styles.paddingTop) || 0;
-  const gap = PROFILE_GAP;
-  const cell = (typeof profileCellSize === "function") ? profileCellSize() : PROFILE_ROW_H;
-  const stepX = cell + gap;
-  const stepY = cell + gap;
-  const x = Math.max(0, Math.min(PROFILE_COLS - 1, Math.floor((clientX - rect.left - padX + board.scrollLeft) / stepX)));
-  const y = Math.max(0, Math.floor((clientY - rect.top - padY + board.scrollTop) / stepY));
-  return { x, y };
+  const pad = profileBoardPad();
+  const scale = profileBoardScale || 1;
+  const x = (clientX - rect.left) / scale - (parseFloat(window.getComputedStyle(board).paddingLeft) || 0);
+  const y = (clientY - rect.top) / scale - pad.y;
+  const col = Math.max(0, Math.min(PROFILE_COLS - 1, Math.floor(x / PROFILE_ROW_H)));
+  const row = Math.max(0, Math.floor(y / PROFILE_ROW_H));
+  return { x: col, y: row };
 }
 
 function tryMoveTile(tile, x, y) {
@@ -861,19 +858,9 @@ function openProfileTileOptions(tile) {
     addTab('text', 'Text', 'Size and alignment for the text in this widget.');
   }
 
-  function profilePreviewCellWidth() {
-    const board = document.getElementById('profile-board');
-    if (!board) return 24;
-    const styles = window.getComputedStyle(board);
-    const padX = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
-    const inner = Math.max(1, board.clientWidth - padX);
-    return inner / PROFILE_COLS;
-  }
-
   function paintPreview() {
-    const cellW = profilePreviewCellWidth();
-    const nativeW = Math.max(80, tile.w * cellW);
-    const nativeH = Math.max(cellW, tile.h * ((typeof profileCellSize === "function") ? profileCellSize() : PROFILE_ROW_H));
+    const nativeW = Math.max(80, tile.w * PROFILE_ROW_H);
+    const nativeH = Math.max(PROFILE_ROW_H, tile.h * PROFILE_ROW_H);
     const leftW = 300;
     const pad = 80;
     const maxW = Math.max(360, window.innerWidth - 48);

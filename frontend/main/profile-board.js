@@ -5,31 +5,40 @@
 
 const PROFILE_COLS = 32;
 const PROFILE_ROW_H = 36;
-const PROFILE_CELL_MIN = 22;
-const PROFILE_CELL_MAX = 48;
 const PROFILE_GAP = 0;
-let profileLiveCell = PROFILE_ROW_H;
+let profileBoardScale = 1;
 
 function profileCellSize() {
-  return profileLiveCell || PROFILE_ROW_H;
+  return PROFILE_ROW_H;
+}
+
+function profileBoardPad() {
+  const board = document.getElementById("profile-board");
+  if (!board) return { x: 40, y: 16 };
+  const styles = window.getComputedStyle(board);
+  return {
+    x: (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0),
+    y: parseFloat(styles.paddingTop) || 0
+  };
 }
 
 function syncProfileBoardScale() {
   const scroll = document.getElementById("profile-board-scroll");
+  const fit = document.getElementById("profile-board-fit");
   const board = document.getElementById("profile-board");
-  if (!board) return profileCellSize();
-  const styles = window.getComputedStyle(board);
-  const padX = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
-  const host = scroll || board.parentElement;
-  const avail = host ? Math.max(1, host.clientWidth - padX) : PROFILE_COLS * PROFILE_ROW_H;
-  profileLiveCell = Math.max(
-    PROFILE_CELL_MIN,
-    Math.min(PROFILE_CELL_MAX, Math.floor(avail / PROFILE_COLS))
-  );
-  board.style.setProperty("--profile-cell", profileLiveCell + "px");
-  board.style.setProperty("--profile-row", profileLiveCell + "px");
-  board.style.width = (profileLiveCell * PROFILE_COLS) + "px";
-  return profileLiveCell;
+  if (!scroll || !board) return;
+  const pad = profileBoardPad();
+  const designW = PROFILE_COLS * PROFILE_ROW_H + pad.x;
+  board.style.transform = "none";
+  const designH = Math.max(board.offsetHeight, 1);
+  const availW = Math.max(1, scroll.clientWidth);
+  profileBoardScale = availW / designW;
+  board.style.transformOrigin = "top left";
+  board.style.transform = "scale(" + profileBoardScale + ")";
+  if (fit) {
+    fit.style.width = Math.round(designW * profileBoardScale) + "px";
+    fit.style.height = Math.round(designH * profileBoardScale) + "px";
+  }
 }
 
 function bindProfileBoardScale() {
@@ -1058,7 +1067,7 @@ function renderProfileBoard() {
   const board = document.getElementById("profile-board");
   if (!board) return;
   bindProfileBoardScale();
-  syncProfileBoardScale();
+  board.style.transform = "none";
   board.innerHTML = "";
   board.classList.toggle("is-editing", !!(profileEditing && profileIsOwn));
   board.style.gap = PROFILE_GAP + "px";
@@ -1119,6 +1128,7 @@ function renderProfileBoard() {
     }
     board.appendChild(el);
   });
+  syncProfileBoardScale();
 }
 
 function paintProfileGrid(board, page) {
@@ -1126,7 +1136,7 @@ function paintProfileGrid(board, page) {
   const overlay = document.createElement("div");
   overlay.className = "profile-grid-overlay";
   overlay.setAttribute("aria-hidden", "true");
-  overlay.style.gridTemplateRows = "repeat(" + rows + ", var(--profile-row))";
+  overlay.style.gridTemplateRows = "repeat(" + rows + ", " + PROFILE_ROW_H + "px)";
   const count = PROFILE_COLS * rows;
   for (let i = 0; i < count; i++) {
     overlay.appendChild(document.createElement("div"));

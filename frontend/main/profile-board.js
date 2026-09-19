@@ -22,7 +22,7 @@ const PROFILE_TILE_TYPES = {
   callout: { w: 12, h: 3, minW: 6, minH: 2, maxW: 24, maxH: 8, label: "Callout" },
   divider: { w: 32, h: 1, minW: 6, minH: 1, maxW: 32, maxH: 2, label: "Divider" },
   spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
-  link_tree: { w: 10, h: 8, minW: 6, minH: 5, maxW: 12, maxH: 8, label: "Link Tree" }
+  link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" }
 };
 
 const PROFILE_PLACEHOLDERS = {

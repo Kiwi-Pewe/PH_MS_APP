@@ -2545,6 +2545,9 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .profile-tile-handle { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
 .profile-tile-status { font-size: 13px; color: var(--text-dim); margin-top: 4px; text-align: center; }
 .profile-tile-pronouns { font-size: 12px; color: var(--text-dim); margin-top: 2px; text-align: center; }
+.profile-tile.is-member_since {
+  display: flex; flex-direction: column; justify-content: center;
+}
 .profile-tile-head {
   font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--text-dim); padding: 10px 12px 0;

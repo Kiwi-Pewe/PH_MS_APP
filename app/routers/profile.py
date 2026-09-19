@@ -18,7 +18,7 @@ router = APIRouter()
 GRID_COLS = 32
 OLD_GRID_COLS = 12
 TILE_TYPES = {
-    "banner", "avatar", "display_name", "bio", "friends", "header", "body", "footnote", "list",
+    "banner", "avatar", "display_name", "member_since", "bio", "friends", "header", "body", "footnote", "list",
     "divider", "spacer", "link_tree",
     "spoiler", "stats", "callout", "button",
     "details", "interests", "looking_for", "fun_facts", "schedule", "setup",
@@ -93,6 +93,7 @@ def tile_bounds(kind):
         "banner": (6, 3, 32, 5),
         "avatar": (2, 2, 4, 4),
         "display_name": (3, 2, 5, 5),
+        "member_since": (6, 2, 16, 4),
         "bio": (6, 5, 14, 6),
         "friends": (4, 11, 6, 15),
         "header": (4, 1, 32, 3),
@@ -150,6 +151,7 @@ def default_sizes(kind):
         "banner": (32, 3),
         "avatar": (4, 4),
         "display_name": (5, 2),
+        "member_since": (8, 3),
         "bio": (14, 5),
         "friends": (6, 11),
         "header": (16, 2),
@@ -406,6 +408,8 @@ def normalize_props(kind, props, banner_fallback):
         return {}
     if kind == "link_tree":
         return {"links": normalize_links(data)}
+    if kind == "member_since":
+        return {}
     return {}
 
 
@@ -550,7 +554,7 @@ def identity_only_layout(layout):
             break
     if not source and layout.get("pages"):
         source = layout["pages"][0]
-    keep_types = {"banner", "avatar", "display_name"}
+    keep_types = {"banner", "avatar", "display_name", "member_since"}
     tiles = [tile for tile in (source.get("tiles") or []) if tile.get("type") in keep_types] if source else []
     return {
         "grid_cols": GRID_COLS,
@@ -561,6 +565,18 @@ def identity_only_layout(layout):
             "tiles": tiles,
         }]
     }
+
+
+def member_since_iso(user):
+    dt = getattr(user, "created_at", None)
+    if not dt:
+        return ""
+    if isinstance(dt, str):
+        return dt
+    try:
+        return dt.isoformat()
+    except Exception:
+        return ""
 
 
 def friend_preview(database: Session, owner_id, limit=8):
@@ -593,6 +609,7 @@ def profile_payload(user, layout, limited, friends):
             "status": clip_text(user.profile_status, STATUS_MAX),
             "pronouns": clip_text(user.profile_pronouns, PRONOUNS_MAX),
             "aliases": parse_display_name_history(user),
+            "member_since": member_since_iso(user),
         },
         "limited": bool(limited),
         "layout": layout,

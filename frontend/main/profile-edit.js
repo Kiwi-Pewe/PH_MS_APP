@@ -11,7 +11,8 @@ const PROFILE_PALETTE = [
     items: [
       { type: "banner", label: "Banner" },
       { type: "avatar", label: "Avatar" },
-      { type: "display_name", label: "Display name" }
+      { type: "display_name", label: "Display name" },
+      { type: "member_since", label: "Member since" }
     ]
   },
   {

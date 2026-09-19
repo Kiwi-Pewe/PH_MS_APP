@@ -10,6 +10,7 @@ const PROFILE_TILE_TYPES = {
   banner: { w: 32, h: 3, minW: 6, minH: 3, maxW: 32, maxH: 5, label: "Banner" },
   avatar: { w: 4, h: 4, minW: 2, minH: 2, maxW: 4, maxH: 4, label: "Avatar" },
   display_name: { w: 5, h: 2, minW: 3, minH: 2, maxW: 5, maxH: 5, label: "Display name" },
+  member_since: { w: 8, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 4, label: "Member since" },
   bio: { w: 14, h: 5, minW: 6, minH: 5, maxW: 14, maxH: 6, label: "Bio" },
   friends: { w: 6, h: 11, minW: 4, minH: 11, maxW: 6, maxH: 15, label: "Friends" },
   header: { w: 16, h: 2, minW: 4, minH: 1, maxW: 32, maxH: 3, label: "Header" },
@@ -233,6 +234,14 @@ function profileOwnerAliases() {
   const names = (profileUser && profileUser.aliases) || [];
   const current = profileOwnerName();
   return names.filter(name => name && name !== current);
+}
+
+function profileOwnerMemberSince() {
+  const raw = profileUser && profileUser.member_since;
+  if (!raw) return "";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 function profileOwnerName() {
@@ -524,6 +533,17 @@ function paintProfileTileContent(tile, el) {
       status.textContent = profileOwnerStatus() || (profileEditing && profileIsOwn ? "Status" : "");
       if (status.textContent) el.appendChild(status);
     }
+    return;
+  }
+  if (tile.type === "member_since") {
+    const head = document.createElement("div");
+    head.className = "profile-tile-head";
+    head.textContent = "Member since";
+    el.appendChild(head);
+    const body = document.createElement("div");
+    body.className = "profile-tile-body";
+    body.textContent = profileOwnerMemberSince() || "—";
+    el.appendChild(body);
     return;
   }
   if (tile.type === "header") {

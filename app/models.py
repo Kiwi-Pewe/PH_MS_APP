@@ -45,6 +45,7 @@ class UserInfo(Base):
     profile_status = Column(String, nullable= True)
     profile_pronouns = Column(String, nullable= True)
     display_name_history = Column(String, nullable= True)
+    created_at = Column(DateTime, server_default= func.now())
 
 class Message(Base):
     __tablename__ = "messages"

@@ -120,6 +120,7 @@ def ensure_account_columns():
         ("users", "profile_status", "VARCHAR"),
         ("users", "profile_pronouns", "VARCHAR"),
         ("users", "display_name_history", "VARCHAR"),
+        ("users", "created_at", "DATETIME"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:
@@ -222,6 +223,20 @@ def ensure_account_columns():
             conn.rollback()
         try:
             conn.execute(text("UPDATE users SET profile_layout = '{}' WHERE profile_layout IS NULL OR profile_layout = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "UPDATE users SET created_at = ("
+                "SELECT MIN(sessions.created_at) FROM sessions WHERE sessions.account_id = users.id"
+                ") WHERE created_at IS NULL"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
             conn.commit()
         except Exception:
             conn.rollback()

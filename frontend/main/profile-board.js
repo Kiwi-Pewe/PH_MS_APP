@@ -510,19 +510,19 @@ function paintProfileTileContent(tile, el) {
     el.appendChild(row);
     const handle = document.createElement("div");
     handle.className = "profile-tile-handle";
-    handle.textContent = "@" + profileOwnerHandle();
+    let handleText = "@" + profileOwnerHandle();
+    if (tile.props && tile.props.show_pronouns) {
+      const pronouns = profileOwnerPronouns() || (profileEditing && profileIsOwn ? "Pronouns" : "");
+      if (pronouns) handleText += " | " + pronouns;
+      if (!profileOwnerPronouns() && profileEditing && profileIsOwn) handle.classList.add("is-empty");
+    }
+    handle.textContent = handleText;
     el.appendChild(handle);
     if (tile.props && tile.props.show_status) {
       const status = document.createElement("div");
       status.className = "profile-tile-status" + (profileOwnerStatus() ? "" : " is-empty");
       status.textContent = profileOwnerStatus() || (profileEditing && profileIsOwn ? "Status" : "");
       if (status.textContent) el.appendChild(status);
-    }
-    if (tile.props && tile.props.show_pronouns) {
-      const pronouns = document.createElement("div");
-      pronouns.className = "profile-tile-pronouns" + (profileOwnerPronouns() ? "" : " is-empty");
-      pronouns.textContent = profileOwnerPronouns() || (profileEditing && profileIsOwn ? "Pronouns" : "");
-      if (pronouns.textContent) el.appendChild(pronouns);
     }
     return;
   }
@@ -604,7 +604,9 @@ function renderProfileBoard() {
   tiles.forEach((tile, index) => {
     const el = document.createElement("div");
     el.className = "profile-tile is-" + tile.type + (profileEditing ? " is-editing" : "") + (tile.allow_overlap ? " allows-overlap" : "");
-    if (tile.props && tile.props.show_border) el.classList.add("has-border");
+    if (tile.props && tile.props.show_border && (tile.type === "body" || tile.type === "footnote")) {
+      el.classList.add("has-border");
+    }
     el.dataset.tileId = tile.id;
     el.style.zIndex = String(10 + index);
     applyProfileTileStyle(el, tile);

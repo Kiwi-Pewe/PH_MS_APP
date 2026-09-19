@@ -2570,6 +2570,11 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   background: var(--panel-alt);
   border: 1px solid var(--border);
 }
+.profile-tile.is-avatar.has-border,
+.profile-tile.is-banner.has-border {
+  background: transparent;
+  border: none;
+}
 .profile-tile-header,
 .profile-tile-copy,
 .profile-tile-footnote,

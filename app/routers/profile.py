@@ -48,10 +48,8 @@ DIVIDER_STYLES = {"solid", "dashed", "dotted"}
 CALLOUT_TONES = {"tip", "warning"}
 STAT_MAX_ROWS = 20
 STAT_FIELD_MAX = 80
-TEXT_SCALES = {1, 2, 3}
+TEXT_SIZES = (8, 9, 10, 11, 12, 14, 18, 24)
 TEXT_ALIGNS = {"left", "center", "right"}
-TEXT_VALIGNS = {"top", "center"}
-TEXT_WEIGHTS = {"regular", "bold"}
 LINK_PLATFORMS = (
     "YouTube", "Twitch", "Steam", "Discord", "X", "Instagram", "TikTok",
     "GitHub", "Spotify", "Reddit", "Roblox", "Battle.net", "PlayStation",
@@ -381,31 +379,31 @@ def normalize_links(data):
     return out
 
 
-def normalize_text_chrome(data, default_bg=False):
-    scale = clamp_int(data.get("text_scale"), 1, 3, 2)
+def snap_text_size(value, default=14):
+    try:
+        size = int(value)
+    except (TypeError, ValueError):
+        size = default
+    if size in TEXT_SIZES:
+        return size
+    return min(TEXT_SIZES, key=lambda item: abs(item - size))
+
+
+def normalize_text_chrome(data, default_size=14):
+    if "text_size" in data:
+        size = snap_text_size(data.get("text_size"), default_size)
+    else:
+        try:
+            old = int(data.get("text_scale") or 0)
+        except (TypeError, ValueError):
+            old = 0
+        size = {1: 12, 2: 14, 3: 18}.get(old, default_size)
     align = str(data.get("text_align") or "left")
     if align not in TEXT_ALIGNS:
         align = "left"
-    valign = str(data.get("text_valign") or "top")
-    if valign not in TEXT_VALIGNS:
-        valign = "top"
-    weight = str(data.get("text_weight") or "regular")
-    if weight not in TEXT_WEIGHTS:
-        weight = "regular"
-    if "show_background" in data:
-        show_bg = bool(data.get("show_background"))
-    elif "show_border" in data:
-        show_bg = bool(data.get("show_border"))
-    else:
-        show_bg = bool(default_bg)
-    show_title = True if "show_title" not in data else bool(data.get("show_title"))
     return {
-        "text_scale": scale,
+        "text_size": size,
         "text_align": align,
-        "text_valign": valign,
-        "text_weight": weight,
-        "show_background": show_bg,
-        "show_title": show_title,
     }
 
 
@@ -434,7 +432,7 @@ def normalize_props(kind, props, banner_fallback):
             "show_pronouns": bool(data.get("show_pronouns")),
         }
     if kind == "bio":
-        out = normalize_text_chrome(data, True)
+        out = normalize_text_chrome(data, 14)
         out["text"] = clip_text(data.get("text"), BIO_MAX)
         return out
     if kind == "header":
@@ -444,41 +442,41 @@ def normalize_props(kind, props, banner_fallback):
             level = 1
         if level not in HEADER_LEVELS:
             level = 1
-        out = normalize_text_chrome(data, False)
+        out = normalize_text_chrome(data, 18)
         out["text"] = clip_text(data.get("text"), HEADER_MAX)
         out["level"] = level
         return out
     if kind == "body":
-        out = normalize_text_chrome(data, False)
+        out = normalize_text_chrome(data, 14)
         out["text"] = clip_text(data.get("text"), BIO_MAX)
         return out
     if kind == "footnote":
-        out = normalize_text_chrome(data, False)
+        out = normalize_text_chrome(data, 12)
         out["text"] = clip_text(data.get("text"), FOOTNOTE_MAX)
         return out
     if kind == "list":
         style = str(data.get("style") or "bullet")
         if style not in LIST_STYLES:
             style = "bullet"
-        out = normalize_text_chrome(data, False)
+        out = normalize_text_chrome(data, 14)
         out["style"] = style
         out["items"] = normalize_list_items(data)
         return out
     if kind == "spoiler":
-        out = normalize_text_chrome(data, False)
+        out = normalize_text_chrome(data, 14)
         out["title"] = clip_text(data.get("title"), SPOILER_TITLE_MAX)
         out["text"] = clip_text(data.get("text"), BIO_MAX)
         out["start_open"] = bool(data.get("start_open"))
         return out
     if kind == "stats":
-        out = normalize_text_chrome(data, False)
+        out = normalize_text_chrome(data, 14)
         out["rows"] = normalize_stat_rows(data)
         return out
     if kind == "callout":
         tone = str(data.get("tone") or "tip")
         if tone not in CALLOUT_TONES:
             tone = "tip"
-        out = normalize_text_chrome(data, False)
+        out = normalize_text_chrome(data, 14)
         out["text"] = clip_text(data.get("text"), FOOTNOTE_MAX)
         out["tone"] = tone
         return out

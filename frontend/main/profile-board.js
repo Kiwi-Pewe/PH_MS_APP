@@ -145,18 +145,25 @@ function profileFirstFit(page, w, h, skipId) {
   return { x: 0, y: maxY };
 }
 
+const PROFILE_TEXT_SIZES = [8, 9, 10, 11, 12, 14, 18, 24];
+
+function defaultTextSize(type, prev) {
+  if (prev && prev.text_size != null && PROFILE_TEXT_SIZES.indexOf(Number(prev.text_size)) >= 0) {
+    return Number(prev.text_size);
+  }
+  const old = Number(prev && prev.text_scale);
+  if (old === 1) return 12;
+  if (old === 3) return 18;
+  if (type === "header") return 18;
+  if (type === "footnote") return 12;
+  return 14;
+}
+
 function defaultTextChrome(type, prev) {
-  const card = type !== "header" && type !== "footnote";
-  const showBg = prev.show_background != null
-    ? !!prev.show_background
-    : (prev.show_border != null ? !!prev.show_border : card);
+  const row = prev || {};
   return {
-    text_scale: Math.max(1, Math.min(3, Number(prev.text_scale) || 2)),
-    text_align: prev.text_align === "center" || prev.text_align === "right" ? prev.text_align : "left",
-    text_valign: prev.text_valign === "center" ? "center" : "top",
-    text_weight: prev.text_weight === "bold" ? "bold" : "regular",
-    show_title: prev.show_title !== false,
-    show_background: showBg
+    text_size: defaultTextSize(type, row),
+    text_align: row.text_align === "center" || row.text_align === "right" ? row.text_align : "left"
   };
 }
 
@@ -236,26 +243,40 @@ function profileUsesTextChrome(type) {
   return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "spoiler" || type === "stats" || type === "callout" || type === "bio";
 }
 
+function profileHasFixedTitle(type) {
+  return type === "bio" || type === "link_tree" || type === "friends";
+}
+
+function profileHasTextFormat(type) {
+  return profileUsesTextChrome(type);
+}
+
 function profileTextChrome(props, type) {
   return defaultTextChrome(type, props || {});
+}
+
+function mountProfileFixedTitle(el, label) {
+  const title = document.createElement("div");
+  title.className = "profile-tile-head";
+  title.textContent = label;
+  const rule = document.createElement("div");
+  rule.className = "profile-text-rule";
+  el.appendChild(title);
+  el.appendChild(rule);
 }
 
 function mountProfileTextChrome(el, tile) {
   const chrome = profileTextChrome(tile.props, tile.type);
   el.classList.add("is-text-chrome");
-  el.classList.toggle("has-surface", chrome.show_background);
-  el.classList.toggle("is-clear", !chrome.show_background);
-  el.dataset.textScale = String(chrome.text_scale);
   el.dataset.textAlign = chrome.text_align;
-  el.dataset.textValign = chrome.text_valign;
-  el.dataset.textWeight = chrome.text_weight;
+  el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
+  if (!profileHasFixedTitle(tile.type)) el.classList.add("is-clear");
   const shell = document.createElement("div");
   shell.className = "profile-text-shell";
-  if (chrome.show_title) {
+  if (profileHasFixedTitle(tile.type)) {
     const title = document.createElement("div");
     title.className = "profile-text-title";
-    const meta = PROFILE_TILE_TYPES[tile.type] || {};
-    title.textContent = tile.type === "bio" ? "About" : (meta.label || tile.type);
+    title.textContent = tile.type === "bio" ? "About" : ((PROFILE_TILE_TYPES[tile.type] || {}).label || tile.type);
     const rule = document.createElement("div");
     rule.className = "profile-text-rule";
     shell.appendChild(title);
@@ -337,9 +358,7 @@ function paintProfileSpacer(el) {
 }
 
 function paintProfileLinkTree(tile, el) {
-  const head = document.createElement("div");
-  head.className = "profile-tile-head";
-  head.textContent = "Links";
+  mountProfileFixedTitle(el, "Links");
   const body = document.createElement("div");
   body.className = "profile-tile-body";
   const links = Array.isArray(tile.props && tile.props.links) ? tile.props.links : [];
@@ -372,10 +391,9 @@ function paintProfileLinkTree(tile, el) {
       meta.appendChild(user);
       item.appendChild(icon);
       item.appendChild(meta);
-      body.appendChild(item);
+  body.appendChild(item);
     });
   }
-  el.appendChild(head);
   el.appendChild(body);
 }
 
@@ -776,13 +794,10 @@ function paintProfileTileContent(tile, el) {
     paintProfilePlaceholder(tile, el);
     return;
   }
-  const head = document.createElement("div");
-  head.className = "profile-tile-head";
-  head.textContent = "Friends";
+  mountProfileFixedTitle(el, "Friends");
   const body = document.createElement("div");
   body.className = "profile-tile-body";
   paintProfileFriends(body);
-  el.appendChild(head);
   el.appendChild(body);
 }
 

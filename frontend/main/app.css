@@ -2594,9 +2594,13 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   background: transparent;
   border: none;
 }
-.profile-tile.is-text-chrome.has-surface {
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
+.profile-text-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  font-size: var(--profile-text-size, 14pt);
 }
 .profile-text-shell {
   display: flex;
@@ -2617,23 +2621,11 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .profile-text-rule {
   height: 1px;
   background: var(--border);
-  margin: 6px 0 8px;
+  margin: 6px 12px 8px;
   flex: 0 0 auto;
-}
-.profile-text-slot {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
 }
 .profile-tile[data-text-align="center"] .profile-text-slot { text-align: center; }
 .profile-tile[data-text-align="right"] .profile-text-slot { text-align: right; }
-.profile-tile[data-text-valign="center"] .profile-text-slot { justify-content: center; }
-.profile-tile[data-text-scale="1"] .profile-text-slot { font-size: 12px; }
-.profile-tile[data-text-scale="2"] .profile-text-slot { font-size: 14px; }
-.profile-tile[data-text-scale="3"] .profile-text-slot { font-size: 18px; }
-.profile-tile[data-text-weight="bold"] .profile-text-slot { font-weight: 700; }
 .profile-text-slot > textarea,
 .profile-text-slot > .profile-tile-header,
 .profile-text-slot > .profile-tile-copy,
@@ -2816,3 +2808,84 @@ a.profile-link-row:hover { color: var(--accent); }
   background: var(--panel-alt); color: var(--text);
   font-size: 13px; font-weight: 700; padding: 8px 12px; border-radius: 6px;
 }
+.profile-opt {
+  width: min(920px, calc(100vw - 40px));
+  height: min(560px, calc(100vh - 40px));
+  display: grid;
+  grid-template-rows: 48px 1fr 52px;
+  background: var(--panel);
+  border: 1px solid var(--accent-submenu);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.profile-opt-top {
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--rail);
+}
+.profile-opt-name {
+  font-size: 15px; font-weight: 800; color: var(--text);
+  margin-right: auto;
+}
+.profile-opt-tabs { display: flex; gap: 6px; }
+.profile-opt-tabs button {
+  background: transparent; color: var(--text-dim);
+  font-size: 13px; font-weight: 700; padding: 6px 10px; border-radius: 6px;
+}
+.profile-opt-tabs button:hover { color: var(--text); background: var(--panel-alt); }
+.profile-opt-tabs button.is-on { color: var(--text); background: var(--panel-alt); }
+.profile-opt-main {
+  display: grid; grid-template-columns: 1fr 1fr; min-height: 0;
+}
+.profile-opt-left {
+  overflow: auto; padding: 16px 18px;
+  border-right: 1px solid var(--border);
+}
+.profile-opt-left label {
+  display: block; font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 12px;
+}
+.profile-opt-left input, .profile-opt-left select {
+  display: block; width: 100%; margin-top: 6px;
+  background: var(--rail); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 14px; padding: 9px 10px;
+}
+.profile-opt-preview {
+  overflow: auto; padding: 18px;
+  background: var(--bg);
+  display: flex; align-items: flex-start; justify-content: center;
+}
+.profile-opt-preview .profile-tile.is-opt-preview {
+  width: 100%; max-width: 360px;
+  min-height: 120px;
+  position: relative;
+}
+.profile-opt-bottom {
+  display: grid; grid-template-columns: 110px 1fr 110px;
+  align-items: center; gap: 12px;
+  padding: 0 12px;
+  border-top: 1px solid var(--border);
+  background: var(--rail);
+}
+.profile-opt-bottom > button {
+  background: var(--panel-alt); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px;
+  font-size: 13px; font-weight: 600; padding: 7px 14px;
+}
+.profile-opt-bottom .settings-form-save { justify-self: end; }
+.profile-opt-hint {
+  font-size: 12px; color: var(--text-dim); line-height: 1.35;
+  text-align: center; min-height: 16px;
+}
+.profile-opt-empty { font-size: 13px; color: var(--text-dim); }
+.profile-opt-field-label {
+  font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 8px;
+}
+.profile-opt-seg { display: flex; gap: 6px; margin-bottom: 14px; }
+.profile-opt-seg button {
+  background: var(--panel-alt); color: var(--text-dim);
+  font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 6px;
+}
+.profile-opt-seg button.is-on { background: var(--accent); color: #fff; }
+.profile-opt-align { margin-top: 8px; }

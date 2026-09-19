@@ -300,53 +300,141 @@ function bindProfileTileDrag(el, tile, handle) {
   });
 }
 
-function fillTextChromeOptions(box, tile) {
-  const chrome = profileTextChrome(tile.props, tile.type);
-  const scale = profileSelectField("Text size", [
-    { value: "1", label: "Small" },
-    { value: "2", label: "Medium" },
-    { value: "3", label: "Large" }
-  ], chrome.text_scale);
-  box.appendChild(scale.label);
-  const align = profileSelectField("Alignment", [
-    { value: "left", label: "Left" },
-    { value: "center", label: "Center" },
-    { value: "right", label: "Right" }
-  ], chrome.text_align);
-  box.appendChild(align.label);
-  const valign = profileSelectField("Position", [
-    { value: "top", label: "Top" },
-    { value: "center", label: "Middle" }
-  ], chrome.text_valign);
-  box.appendChild(valign.label);
-  const weight = profileSelectField("Weight", [
-    { value: "regular", label: "Regular" },
-    { value: "bold", label: "Bold" }
-  ], chrome.text_weight);
-  box.appendChild(weight.label);
-  const titleLabel = document.createElement("label");
-  titleLabel.className = "settings-check";
-  const titleCheck = document.createElement("input");
-  titleCheck.type = "checkbox";
-  titleCheck.checked = chrome.show_title;
-  titleLabel.appendChild(titleCheck);
-  titleLabel.appendChild(document.createTextNode(" Show title"));
-  box.appendChild(titleLabel);
-  const bgLabel = document.createElement("label");
-  bgLabel.className = "settings-check";
-  const bgCheck = document.createElement("input");
-  bgCheck.type = "checkbox";
-  bgCheck.checked = chrome.show_background;
-  bgLabel.appendChild(bgCheck);
-  bgLabel.appendChild(document.createTextNode(" Show background"));
-  box.appendChild(bgLabel);
-  return () => ({
-    text_scale: Number(scale.select.value) || 2,
-    text_align: align.select.value,
-    text_valign: valign.select.value,
-    text_weight: weight.select.value === "bold" ? "bold" : "regular",
-    show_title: !!titleCheck.checked,
-    show_background: !!bgCheck.checked
+function profileOptHint(node, text, hintEl) {
+  node.addEventListener("mouseenter", () => { hintEl.textContent = text; });
+  node.addEventListener("mouseleave", () => {
+    if (hintEl.textContent === text) hintEl.textContent = "";
+  });
+}
+
+function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
+  const chrome = defaultTextChrome(type, draft);
+  const size = profileSelectField("Size", PROFILE_TEXT_SIZES.map(pt => ({
+    value: String(pt),
+    label: String(pt)
+  })), chrome.text_size);
+  box.appendChild(size.label);
+  profileOptHint(size.label, "Point size for this widget’s text, same scale Docs uses.", hintEl);
+  size.select.addEventListener("change", () => {
+    draft.text_size = Number(size.select.value) || 14;
+    onChange();
+  });
+  const alignWrap = document.createElement("div");
+  alignWrap.className = "profile-opt-align";
+  const alignLabel = document.createElement("div");
+  alignLabel.className = "profile-opt-field-label";
+  alignLabel.textContent = "Alignment";
+  alignWrap.appendChild(alignLabel);
+  const row = document.createElement("div");
+  row.className = "profile-opt-seg";
+  [["left", "L", "Align text to the left."], ["center", "C", "Center text."], ["right", "R", "Align text to the right."]].forEach(item => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = item[1];
+    btn.className = draft.text_align === item[0] ? "is-on" : "";
+    profileOptHint(btn, item[2], hintEl);
+    btn.addEventListener("click", () => {
+      draft.text_align = item[0];
+      Array.from(row.children).forEach(child => child.classList.toggle("is-on", child === btn));
+      onChange();
+    });
+    row.appendChild(btn);
+  });
+  alignWrap.appendChild(row);
+  box.appendChild(alignWrap);
+}
+
+function fillWidgetDesignOptions(box, tile, draft, onChange, hintEl) {
+  const fake = { type: tile.type, props: draft };
+  let readValues = () => ({});
+  if (tile.type === "divider") {
+    const field = profileSelectField("Line style", [
+      { value: "solid", label: "Solid" },
+      { value: "dashed", label: "Dashed" },
+      { value: "dotted", label: "Dotted" }
+    ], draft.style || "solid");
+    box.appendChild(field.label);
+    profileOptHint(field.label, "How the divider line is drawn.", hintEl);
+    field.select.addEventListener("change", () => {
+      draft.style = field.select.value;
+      onChange();
+    });
+    return;
+  }
+  if (tile.type === "banner" || tile.type === "avatar") {
+    readValues = fillBorderOptions(box, fake);
+    profileOptHint(box, "Border sits on the image itself, not a panel behind it.", hintEl);
+  } else if (tile.type === "display_name") {
+    readValues = fillNameClusterOptions(box, fake);
+  } else if (tile.type === "link_tree") {
+    box.classList.add("is-wide");
+    readValues = fillLinkTreeOptions(box, fake);
+  } else if (tile.type === "header") {
+    const field = profileSelectField("Header style", [
+      { value: "1", label: "Heading 1 — large" },
+      { value: "2", label: "Heading 2 — medium" },
+      { value: "3", label: "Heading 3 — small" }
+    ], draft.level || 1);
+    box.appendChild(field.label);
+    profileOptHint(field.label, "Heading size relative to this widget’s text size.", hintEl);
+    field.select.addEventListener("change", () => {
+      draft.level = Number(field.select.value) || 1;
+      onChange();
+    });
+    return;
+  } else if (tile.type === "list") {
+    const field = profileSelectField("List style", [
+      { value: "bullet", label: "Bullets" },
+      { value: "number", label: "Numbered" }
+    ], draft.style || "bullet");
+    box.appendChild(field.label);
+    profileOptHint(field.label, "Markers in front of each list item.", hintEl);
+    field.select.addEventListener("change", () => {
+      draft.style = field.select.value === "number" ? "number" : "bullet";
+      onChange();
+    });
+    return;
+  } else if (tile.type === "spoiler") {
+    const label = document.createElement("label");
+    label.className = "settings-check";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = !!draft.start_open;
+    label.appendChild(check);
+    label.appendChild(document.createTextNode(" Start open"));
+    box.appendChild(label);
+    profileOptHint(label, "When on, visitors see the hidden text already revealed.", hintEl);
+    check.addEventListener("change", () => {
+      draft.start_open = !!check.checked;
+      onChange();
+    });
+    return;
+  } else if (tile.type === "callout") {
+    const field = profileSelectField("Callout tone", [
+      { value: "tip", label: "Tip" },
+      { value: "warning", label: "Warning" }
+    ], draft.tone || "tip");
+    box.appendChild(field.label);
+    profileOptHint(field.label, "Tip uses the accent bar. Warning uses the away color.", hintEl);
+    field.select.addEventListener("change", () => {
+      draft.tone = field.select.value === "warning" ? "warning" : "tip";
+      onChange();
+    });
+    return;
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "profile-opt-empty";
+    empty.textContent = "No layout settings for this widget yet.";
+    box.appendChild(empty);
+    return;
+  }
+  box.addEventListener("input", () => {
+    Object.assign(draft, readValues());
+    onChange();
+  });
+  box.addEventListener("change", () => {
+    Object.assign(draft, readValues());
+    onChange();
   });
 }
 
@@ -482,6 +570,7 @@ function fillLinkTreeOptions(box, tile) {
       del.addEventListener("click", () => {
         links.splice(index, 1);
         paintList();
+        box.dispatchEvent(new Event("change"));
       });
       line.appendChild(label);
       line.appendChild(del);
@@ -528,6 +617,7 @@ function fillLinkTreeOptions(box, tile) {
     userInput.value = "";
     urlInput.value = "";
     paintList();
+    box.dispatchEvent(new Event("change"));
   });
   box.appendChild(platformField.label);
   box.appendChild(userLabel);
@@ -538,104 +628,121 @@ function fillLinkTreeOptions(box, tile) {
 
 function openProfileTileOptions(tile) {
   tile.props = tile.props || {};
-  const overlay = document.createElement("div");
-  overlay.className = "settings-form-overlay";
-  const box = document.createElement("div");
-  box.className = "settings-form";
-  const heading = document.createElement("h3");
-  heading.textContent = "Options";
-  box.appendChild(heading);
+  const draft = Object.assign({}, tile.props);
+  if (Array.isArray(draft.links)) draft.links = draft.links.map(row => Object.assign({}, row));
+  if (Array.isArray(draft.rows)) draft.rows = draft.rows.map(row => Object.assign({}, row));
+  if (Array.isArray(draft.items)) draft.items = draft.items.slice();
+  Object.assign(draft, defaultTextChrome(tile.type, draft));
+  let tab = 'design';
+  const overlay = document.createElement('div');
+  overlay.className = 'settings-form-overlay';
+  const box = document.createElement('div');
+  box.className = 'profile-opt';
 
-  let readValues = () => ({});
-  if (tile.type === "divider") {
-    const field = profileSelectField("Line style", [
-      { value: "solid", label: "Solid" },
-      { value: "dashed", label: "Dashed" },
-      { value: "dotted", label: "Dotted" }
-    ], tile.props.style || "solid");
-    box.appendChild(field.label);
-    readValues = () => ({ style: field.select.value });
-  } else if (tile.type === "banner" || tile.type === "avatar") {
-    readValues = fillBorderOptions(box, tile);
-  } else if (tile.type === "display_name") {
-    readValues = fillNameClusterOptions(box, tile);
-  } else if (tile.type === "link_tree") {
-    box.classList.add("is-wide");
-    readValues = fillLinkTreeOptions(box, tile);
-  } else if (typeof profileUsesTextChrome === "function" && profileUsesTextChrome(tile.type)) {
-    let readExtra = () => ({});
-    if (tile.type === "header") {
-      const field = profileSelectField("Header style", [
-        { value: "1", label: "Heading 1 — large" },
-        { value: "2", label: "Heading 2 — medium" },
-        { value: "3", label: "Heading 3 — small" }
-      ], tile.props.level || 1);
-      box.appendChild(field.label);
-      readExtra = () => ({ level: Number(field.select.value) || 1 });
-    } else if (tile.type === "list") {
-      const field = profileSelectField("List style", [
-        { value: "bullet", label: "Bullets" },
-        { value: "number", label: "Numbered" }
-      ], tile.props.style || "bullet");
-      box.appendChild(field.label);
-      readExtra = () => ({ style: field.select.value === "number" ? "number" : "bullet" });
-    } else if (tile.type === "spoiler") {
-      const label = document.createElement("label");
-      label.className = "settings-check";
-      const check = document.createElement("input");
-      check.type = "checkbox";
-      check.checked = !!tile.props.start_open;
-      label.appendChild(check);
-      label.appendChild(document.createTextNode(" Start open"));
-      box.appendChild(label);
-      readExtra = () => ({ start_open: !!check.checked });
-    } else if (tile.type === "callout") {
-      const field = profileSelectField("Callout tone", [
-        { value: "tip", label: "Tip" },
-        { value: "warning", label: "Warning" }
-      ], tile.props.tone || "tip");
-      box.appendChild(field.label);
-      readExtra = () => ({ tone: field.select.value === "warning" ? "warning" : "tip" });
-    }
-    const readChrome = fillTextChromeOptions(box, tile);
-    readValues = () => Object.assign({}, readExtra(), readChrome());
+  const top = document.createElement('div');
+  top.className = 'profile-opt-top';
+  const name = document.createElement('div');
+  name.className = 'profile-opt-name';
+  name.textContent = (PROFILE_TILE_TYPES[tile.type] && PROFILE_TILE_TYPES[tile.type].label) || tile.type;
+  const tabs = document.createElement('div');
+  tabs.className = 'profile-opt-tabs';
+
+  const main = document.createElement('div');
+  main.className = 'profile-opt-main';
+  const left = document.createElement('div');
+  left.className = 'profile-opt-left';
+  const preview = document.createElement('div');
+  preview.className = 'profile-opt-preview';
+  const previewCard = document.createElement('div');
+  preview.appendChild(previewCard);
+  main.appendChild(left);
+  main.appendChild(preview);
+
+  const bottom = document.createElement('div');
+  bottom.className = 'profile-opt-bottom';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = 'Cancel';
+  const hintEl = document.createElement('div');
+  hintEl.className = 'profile-opt-hint';
+  const confirm = document.createElement('button');
+  confirm.type = 'button';
+  confirm.className = 'settings-form-save';
+  confirm.textContent = 'Confirm';
+  bottom.appendChild(cancel);
+  bottom.appendChild(hintEl);
+  bottom.appendChild(confirm);
+
+  function addTab(id, label, hint) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = label;
+    btn.className = tab === id ? 'is-on' : '';
+    profileOptHint(btn, hint, hintEl);
+    btn.addEventListener('click', () => {
+      tab = id;
+      Array.from(tabs.children).forEach(child => child.classList.toggle('is-on', child === btn));
+      paintLeft();
+    });
+    tabs.appendChild(btn);
+  }
+  addTab('design', 'Widget Design', 'Layout and behavior for this widget.');
+  if (profileHasTextFormat(tile.type)) {
+    addTab('format', 'Text Format', 'Size and alignment for the text in this widget.');
   }
 
-  const actions = document.createElement("div");
-  actions.className = "settings-form-actions";
-  const cancel = document.createElement("button");
-  cancel.type = "button";
-  cancel.textContent = "Cancel";
-  cancel.addEventListener("click", () => overlay.remove());
-  const save = document.createElement("button");
-  save.type = "button";
-  save.className = "settings-form-save";
-  save.textContent = "Save";
-  save.addEventListener("click", async () => {
-    const next = readValues();
-    const identity = next.identity;
-    delete next.identity;
-    if (identity && typeof saveProfileIdentity === "function") {
-      save.disabled = true;
+  function paintPreview() {
+    previewCard.className = 'profile-tile is-' + tile.type + ' is-opt-preview';
+    const fake = { type: tile.type, props: draft, id: tile.id, w: tile.w, h: tile.h, x: 0, y: 0 };
+    const wasEditing = profileEditing;
+    profileEditing = false;
+    try {
+      paintProfileTileContent(fake, previewCard);
+    } finally {
+      profileEditing = wasEditing;
+    }
+  }
+
+  function paintLeft() {
+    left.innerHTML = '';
+    left.classList.remove('is-wide');
+    if (tab === 'format' && profileHasTextFormat(tile.type)) {
+      fillTextFormatOptions(left, draft, tile.type, paintPreview, hintEl);
+    } else {
+      fillWidgetDesignOptions(left, tile, draft, paintPreview, hintEl);
+    }
+  }
+
+  cancel.addEventListener('click', () => overlay.remove());
+  confirm.addEventListener('click', async () => {
+    const identity = draft.identity;
+    delete draft.identity;
+    if (identity && typeof saveProfileIdentity === 'function') {
+      confirm.disabled = true;
       try {
         await saveProfileIdentity(identity);
       } catch (e) {
-        save.disabled = false;
-        window.alert(e.message || "Could not save.");
+        confirm.disabled = false;
+        window.alert(e.message || 'Could not save.');
         return;
       }
     }
-    Object.assign(tile.props, next);
-    if (tile.type === "display_name") growNameClusterTile(tile);
+    Object.assign(tile.props, draft);
+    if (tile.type === 'display_name') growNameClusterTile(tile);
     overlay.remove();
     markProfileDirty();
   });
-  actions.appendChild(cancel);
-  actions.appendChild(save);
-  box.appendChild(actions);
+
+  top.appendChild(name);
+  top.appendChild(tabs);
+  box.appendChild(top);
+  box.appendChild(main);
+  box.appendChild(bottom);
   overlay.appendChild(box);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
+  paintLeft();
+  paintPreview();
 }
 
 function showProfileTileMenu(e, tile) {

@@ -2584,14 +2584,69 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .profile-tile.is-list,
 .profile-tile.is-spoiler,
 .profile-tile.is-stats,
-.profile-tile.is-callout {
-  background: transparent;
-  border: none;
+.profile-tile.is-callout,
+.profile-tile.is-bio.is-text-chrome {
   display: flex;
+  flex-direction: column;
   align-items: stretch;
 }
-.profile-tile.is-header,
-.profile-tile.is-footnote { align-items: center; }
+.profile-tile.is-text-chrome.is-clear {
+  background: transparent;
+  border: none;
+}
+.profile-tile.is-text-chrome.has-surface {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+}
+.profile-text-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  padding: 8px 12px 10px;
+}
+.profile-text-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  flex: 0 0 auto;
+}
+.profile-text-rule {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0 8px;
+  flex: 0 0 auto;
+}
+.profile-text-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.profile-tile[data-text-align="center"] .profile-text-slot { text-align: center; }
+.profile-tile[data-text-align="right"] .profile-text-slot { text-align: right; }
+.profile-tile[data-text-valign="center"] .profile-text-slot { justify-content: center; }
+.profile-tile[data-text-scale="1"] .profile-text-slot { font-size: 12px; }
+.profile-tile[data-text-scale="2"] .profile-text-slot { font-size: 14px; }
+.profile-tile[data-text-scale="3"] .profile-text-slot { font-size: 18px; }
+.profile-tile[data-text-weight="bold"] .profile-text-slot { font-weight: 700; }
+.profile-text-slot > textarea,
+.profile-text-slot > .profile-tile-header,
+.profile-text-slot > .profile-tile-copy,
+.profile-text-slot > .profile-tile-footnote,
+.profile-text-slot > .profile-tile-list,
+.profile-text-slot > .profile-tile-list-edit,
+.profile-text-slot > .profile-spoiler,
+.profile-text-slot > .profile-stats,
+.profile-text-slot > .profile-callout-copy {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+}
 .profile-tile.has-border {
   background: var(--panel-alt);
   border: 1px solid var(--border);
@@ -2606,35 +2661,36 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .profile-tile-footnote,
 .profile-tile-list-edit {
   width: 100%;
-  height: 100%;
   min-height: 0;
   resize: none;
   background: transparent;
   border: none;
   color: var(--text);
-  padding: 4px 8px;
+  padding: 0;
   line-height: 1.35;
 }
 .profile-tile-header {
   font-weight: 800;
-  font-size: 28px;
+  font-size: 1.75em;
 }
-.profile-tile-header.is-level-2 { font-size: 20px; font-weight: 700; }
-.profile-tile-header.is-level-3 { font-size: 16px; font-weight: 700; }
-.profile-tile-copy { font-size: 14px; white-space: pre-wrap; }
-.profile-tile-footnote { font-size: 12px; color: var(--text-dim); white-space: pre-wrap; }
+.profile-tile-header.is-level-2 { font-size: 1.3em; font-weight: 700; }
+.profile-tile-header.is-level-3 { font-size: 1.1em; font-weight: 700; }
+.profile-tile-copy { font-size: 1em; white-space: pre-wrap; }
+.profile-tile-footnote { font-size: 0.85em; color: var(--text-dim); white-space: pre-wrap; }
 .profile-tile-header.is-empty,
 .profile-tile-copy.is-empty,
 .profile-tile-footnote.is-empty,
 .profile-tile-list .is-empty { color: var(--text-dim); font-weight: 500; }
 .profile-tile-list {
   margin: 0;
-  padding: 8px 8px 8px 28px;
-  font-size: 14px;
+  padding: 0 8px 0 1.4em;
+  font-size: 1em;
   color: var(--text);
   line-height: 1.45;
   width: 100%;
 }
+.profile-tile[data-text-align="center"] .profile-tile-list,
+.profile-tile[data-text-align="right"] .profile-tile-list { list-style-position: inside; padding-left: 0; }
 .profile-tile-list.is-number { padding-left: 32px; }
 .profile-tile-list-edit { font-size: 14px; white-space: pre-wrap; }
 .profile-tile.is-spoiler,
@@ -2643,7 +2699,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   flex-direction: column;
 }
 .profile-spoiler {
-  display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 6px 8px;
+  display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 0;
 }
 .profile-spoiler-title {
   width: 100%;
@@ -2665,16 +2721,16 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .profile-spoiler.is-open .profile-spoiler-title::before { content: "▾ "; color: var(--text-dim); }
 .profile-stats {
   display: grid; grid-template-columns: 1fr auto; gap: 6px 16px;
-  width: 100%; padding: 8px 10px; align-content: start;
+  width: 100%; padding: 0; align-content: start;
 }
 .profile-stat-label { color: var(--text-dim); font-size: 13px; }
 .profile-stat-value { color: var(--text); font-size: 13px; font-weight: 700; text-align: right; }
 .profile-stats .is-empty { grid-column: 1 / -1; color: var(--text-dim); }
 .profile-callout-copy {
-  width: 100%; height: 100%; min-height: 0; resize: none;
+  width: 100%; min-height: 0; resize: none;
   background: transparent; border: none; border-left: 4px solid var(--accent);
-  color: var(--text); font-size: 14px; line-height: 1.4; white-space: pre-wrap;
-  padding: 6px 10px;
+  color: var(--text); font-size: 1em; line-height: 1.4; white-space: pre-wrap;
+  padding: 2px 10px;
 }
 .profile-callout-copy.is-warning { border-left-color: var(--away); }
 .profile-callout-copy.is-empty { color: var(--text-dim); }

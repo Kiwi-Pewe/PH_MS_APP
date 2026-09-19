@@ -145,9 +145,25 @@ function profileFirstFit(page, w, h, skipId) {
   return { x: 0, y: maxY };
 }
 
+function defaultTextChrome(type, prev) {
+  const card = type !== "header" && type !== "footnote";
+  const showBg = prev.show_background != null
+    ? !!prev.show_background
+    : (prev.show_border != null ? !!prev.show_border : card);
+  return {
+    text_scale: Math.max(1, Math.min(3, Number(prev.text_scale) || 2)),
+    text_align: prev.text_align === "center" || prev.text_align === "right" ? prev.text_align : "left",
+    text_valign: prev.text_valign === "center" ? "center" : "top",
+    text_weight: prev.text_weight === "bold" ? "bold" : "regular",
+    show_title: prev.show_title !== false,
+    show_background: showBg
+  };
+}
+
 function defaultProfileTileProps(type, existing) {
   const prev = existing || {};
-  if (type === "bio") return { text: prev.text || "" };
+  const chrome = defaultTextChrome(type, prev);
+  if (type === "bio") return Object.assign({ text: prev.text || "" }, chrome);
   if (type === "banner") {
     return {
       color: prev.color ? prev.color : "#1e6b8a",
@@ -160,13 +176,13 @@ function defaultProfileTileProps(type, existing) {
     return { show_border: false, border_width: 3, border_color: "#ffffff" };
   }
   if (type === "display_name") return { show_status: false, show_pronouns: false };
-  if (type === "header") return { text: prev.text || "", level: 1 };
-  if (type === "body") return { text: prev.text || "", show_border: false };
-  if (type === "footnote") return { text: prev.text || "", show_border: false };
-  if (type === "list") return { style: "bullet", items: Array.isArray(prev.items) ? prev.items.slice() : [] };
-  if (type === "spoiler") return { title: prev.title || "", text: prev.text || "", start_open: !!prev.start_open };
-  if (type === "stats") return { rows: Array.isArray(prev.rows) ? prev.rows.map(row => Object.assign({}, row)) : [] };
-  if (type === "callout") return { text: prev.text || "", tone: prev.tone === "warning" ? "warning" : "tip" };
+  if (type === "header") return Object.assign({ text: prev.text || "", level: 1 }, chrome);
+  if (type === "body") return Object.assign({ text: prev.text || "" }, chrome);
+  if (type === "footnote") return Object.assign({ text: prev.text || "" }, chrome);
+  if (type === "list") return Object.assign({ style: "bullet", items: Array.isArray(prev.items) ? prev.items.slice() : [] }, chrome);
+  if (type === "spoiler") return Object.assign({ title: prev.title || "", text: prev.text || "", start_open: !!prev.start_open }, chrome);
+  if (type === "stats") return Object.assign({ rows: Array.isArray(prev.rows) ? prev.rows.map(row => Object.assign({}, row)) : [] }, chrome);
+  if (type === "callout") return Object.assign({ text: prev.text || "", tone: prev.tone === "warning" ? "warning" : "tip" }, chrome);
   if (type === "divider") return { style: "solid" };
   if (type === "link_tree") return { links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [] };
   return {};
@@ -214,6 +230,42 @@ function profileTileStyle(tile) {
 function applyProfileTileStyle(el, tile) {
   el.style.gridColumn = (tile.x + 1) + " / span " + tile.w;
   el.style.gridRow = (tile.y + 1) + " / span " + tile.h;
+}
+
+function profileUsesTextChrome(type) {
+  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "spoiler" || type === "stats" || type === "callout" || type === "bio";
+}
+
+function profileTextChrome(props, type) {
+  return defaultTextChrome(type, props || {});
+}
+
+function mountProfileTextChrome(el, tile) {
+  const chrome = profileTextChrome(tile.props, tile.type);
+  el.classList.add("is-text-chrome");
+  el.classList.toggle("has-surface", chrome.show_background);
+  el.classList.toggle("is-clear", !chrome.show_background);
+  el.dataset.textScale = String(chrome.text_scale);
+  el.dataset.textAlign = chrome.text_align;
+  el.dataset.textValign = chrome.text_valign;
+  el.dataset.textWeight = chrome.text_weight;
+  const shell = document.createElement("div");
+  shell.className = "profile-text-shell";
+  if (chrome.show_title) {
+    const title = document.createElement("div");
+    title.className = "profile-text-title";
+    const meta = PROFILE_TILE_TYPES[tile.type] || {};
+    title.textContent = tile.type === "bio" ? "About" : (meta.label || tile.type);
+    const rule = document.createElement("div");
+    rule.className = "profile-text-rule";
+    shell.appendChild(title);
+    shell.appendChild(rule);
+  }
+  const slot = document.createElement("div");
+  slot.className = "profile-text-slot";
+  shell.appendChild(slot);
+  el.appendChild(shell);
+  return slot;
 }
 
 function applyProfileTileBorder(el, tile, face) {
@@ -417,19 +469,20 @@ function paintProfileHeader(tile, el) {
 function paintProfileCopy(tile, el, kind) {
   const text = (tile.props && tile.props.text) || "";
   const max = kind === "footnote" ? 300 : 1000;
+  const emptyLabel = kind === "footnote" ? "Footnote" : kind === "bio" ? "Write something about yourself." : "Write something.";
   if (profileEditing && profileIsOwn) {
     const area = document.createElement("textarea");
     area.className = kind === "footnote" ? "profile-tile-footnote" : "profile-tile-copy";
     area.value = text;
     area.maxLength = max;
-    area.placeholder = kind === "footnote" ? "Footnote" : "Write something.";
+    area.placeholder = emptyLabel;
     bindProfileTextField(area, tile, (value) => { tile.props.text = value; });
     el.appendChild(area);
     return;
   }
   const node = document.createElement("div");
   node.className = kind === "footnote" ? "profile-tile-footnote" : "profile-tile-copy";
-  node.textContent = text || (kind === "footnote" ? "Footnote" : "Write something.");
+  node.textContent = text || (kind === "bio" ? "No bio yet." : emptyLabel);
   if (!text) node.classList.add("is-empty");
   el.appendChild(node);
 }
@@ -674,32 +727,37 @@ function paintProfileTileContent(tile, el) {
     el.appendChild(date);
     return;
   }
+  const host = profileUsesTextChrome(tile.type) ? mountProfileTextChrome(el, tile) : el;
   if (tile.type === "header") {
-    paintProfileHeader(tile, el);
+    paintProfileHeader(tile, host);
     return;
   }
   if (tile.type === "body") {
-    paintProfileCopy(tile, el, "body");
+    paintProfileCopy(tile, host, "body");
     return;
   }
   if (tile.type === "footnote") {
-    paintProfileCopy(tile, el, "footnote");
+    paintProfileCopy(tile, host, "footnote");
     return;
   }
   if (tile.type === "list") {
-    paintProfileList(tile, el);
+    paintProfileList(tile, host);
     return;
   }
   if (tile.type === "spoiler") {
-    paintProfileSpoiler(tile, el);
+    paintProfileSpoiler(tile, host);
     return;
   }
   if (tile.type === "stats") {
-    paintProfileStats(tile, el);
+    paintProfileStats(tile, host);
     return;
   }
   if (tile.type === "callout") {
-    paintProfileCallout(tile, el);
+    paintProfileCallout(tile, host);
+    return;
+  }
+  if (tile.type === "bio") {
+    paintProfileCopy(tile, host, "bio");
     return;
   }
   if (tile.type === "divider") {
@@ -720,23 +778,10 @@ function paintProfileTileContent(tile, el) {
   }
   const head = document.createElement("div");
   head.className = "profile-tile-head";
-  head.textContent = tile.type === "bio" ? "About" : "Friends";
+  head.textContent = "Friends";
   const body = document.createElement("div");
   body.className = "profile-tile-body";
-  if (tile.type === "bio") {
-    if (profileEditing && profileIsOwn) {
-      const area = document.createElement("textarea");
-      area.value = (tile.props && tile.props.text) || "";
-      area.maxLength = 1000;
-      area.placeholder = "Write something about yourself.";
-      bindProfileTextField(area, tile, (value) => { tile.props.text = value; });
-      body.appendChild(area);
-    } else {
-      body.textContent = (tile.props && tile.props.text) || "No bio yet.";
-    }
-  } else {
-    paintProfileFriends(body);
-  }
+  paintProfileFriends(body);
   el.appendChild(head);
   el.appendChild(body);
 }
@@ -767,9 +812,6 @@ function renderProfileBoard() {
     tile.h = size.h;
     const el = document.createElement("div");
     el.className = "profile-tile is-" + tile.type + (profileEditing ? " is-editing" : "") + (tile.allow_overlap ? " allows-overlap" : "");
-    if (tile.props && tile.props.show_border && (tile.type === "body" || tile.type === "footnote")) {
-      el.classList.add("has-border");
-    }
     el.dataset.tileId = tile.id;
     el.style.zIndex = String(10 + index);
     applyProfileTileStyle(el, tile);

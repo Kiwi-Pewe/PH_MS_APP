@@ -300,8 +300,58 @@ function bindProfileTileDrag(el, tile, handle) {
   });
 }
 
+function fillTextChromeOptions(box, tile) {
+  const chrome = profileTextChrome(tile.props, tile.type);
+  const scale = profileSelectField("Text size", [
+    { value: "1", label: "Small" },
+    { value: "2", label: "Medium" },
+    { value: "3", label: "Large" }
+  ], chrome.text_scale);
+  box.appendChild(scale.label);
+  const align = profileSelectField("Alignment", [
+    { value: "left", label: "Left" },
+    { value: "center", label: "Center" },
+    { value: "right", label: "Right" }
+  ], chrome.text_align);
+  box.appendChild(align.label);
+  const valign = profileSelectField("Position", [
+    { value: "top", label: "Top" },
+    { value: "center", label: "Middle" }
+  ], chrome.text_valign);
+  box.appendChild(valign.label);
+  const weight = profileSelectField("Weight", [
+    { value: "regular", label: "Regular" },
+    { value: "bold", label: "Bold" }
+  ], chrome.text_weight);
+  box.appendChild(weight.label);
+  const titleLabel = document.createElement("label");
+  titleLabel.className = "settings-check";
+  const titleCheck = document.createElement("input");
+  titleCheck.type = "checkbox";
+  titleCheck.checked = chrome.show_title;
+  titleLabel.appendChild(titleCheck);
+  titleLabel.appendChild(document.createTextNode(" Show title"));
+  box.appendChild(titleLabel);
+  const bgLabel = document.createElement("label");
+  bgLabel.className = "settings-check";
+  const bgCheck = document.createElement("input");
+  bgCheck.type = "checkbox";
+  bgCheck.checked = chrome.show_background;
+  bgLabel.appendChild(bgCheck);
+  bgLabel.appendChild(document.createTextNode(" Show background"));
+  box.appendChild(bgLabel);
+  return () => ({
+    text_scale: Number(scale.select.value) || 2,
+    text_align: align.select.value,
+    text_valign: valign.select.value,
+    text_weight: weight.select.value === "bold" ? "bold" : "regular",
+    show_title: !!titleCheck.checked,
+    show_background: !!bgCheck.checked
+  });
+}
+
 function profileTileHasOptions(type) {
-  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "divider" || type === "link_tree" || type === "banner" || type === "avatar" || type === "display_name" || type === "spoiler" || type === "callout";
+  return profileUsesTextChrome(type) || type === "divider" || type === "link_tree" || type === "banner" || type === "avatar" || type === "display_name";
 }
 
 function fillBorderOptions(box, tile) {
@@ -497,22 +547,7 @@ function openProfileTileOptions(tile) {
   box.appendChild(heading);
 
   let readValues = () => ({});
-  if (tile.type === "header") {
-    const field = profileSelectField("Header style", [
-      { value: "1", label: "Heading 1 — large" },
-      { value: "2", label: "Heading 2 — medium" },
-      { value: "3", label: "Heading 3 — small" }
-    ], tile.props.level || 1);
-    box.appendChild(field.label);
-    readValues = () => ({ level: Number(field.select.value) || 1 });
-  } else if (tile.type === "list") {
-    const field = profileSelectField("List style", [
-      { value: "bullet", label: "Bullets" },
-      { value: "number", label: "Numbered" }
-    ], tile.props.style || "bullet");
-    box.appendChild(field.label);
-    readValues = () => ({ style: field.select.value === "number" ? "number" : "bullet" });
-  } else if (tile.type === "divider") {
+  if (tile.type === "divider") {
     const field = profileSelectField("Line style", [
       { value: "solid", label: "Solid" },
       { value: "dashed", label: "Dashed" },
@@ -520,23 +555,6 @@ function openProfileTileOptions(tile) {
     ], tile.props.style || "solid");
     box.appendChild(field.label);
     readValues = () => ({ style: field.select.value });
-  } else if (tile.type === "spoiler") {
-    const label = document.createElement("label");
-    label.className = "settings-check";
-    const check = document.createElement("input");
-    check.type = "checkbox";
-    check.checked = !!tile.props.start_open;
-    label.appendChild(check);
-    label.appendChild(document.createTextNode(" Start open"));
-    box.appendChild(label);
-    readValues = () => ({ start_open: !!check.checked });
-  } else if (tile.type === "callout") {
-    const field = profileSelectField("Callout tone", [
-      { value: "tip", label: "Tip" },
-      { value: "warning", label: "Warning" }
-    ], tile.props.tone || "tip");
-    box.appendChild(field.label);
-    readValues = () => ({ tone: field.select.value === "warning" ? "warning" : "tip" });
   } else if (tile.type === "banner" || tile.type === "avatar") {
     readValues = fillBorderOptions(box, tile);
   } else if (tile.type === "display_name") {
@@ -544,18 +562,43 @@ function openProfileTileOptions(tile) {
   } else if (tile.type === "link_tree") {
     box.classList.add("is-wide");
     readValues = fillLinkTreeOptions(box, tile);
-  } else {
-    const label = document.createElement("label");
-    label.className = "settings-check";
-    const check = document.createElement("input");
-    check.type = "checkbox";
-    check.checked = !!tile.props.show_border;
-    const name = document.createElement("span");
-    name.textContent = "Show border";
-    label.appendChild(check);
-    label.appendChild(name);
-    box.appendChild(label);
-    readValues = () => ({ show_border: !!check.checked });
+  } else if (typeof profileUsesTextChrome === "function" && profileUsesTextChrome(tile.type)) {
+    let readExtra = () => ({});
+    if (tile.type === "header") {
+      const field = profileSelectField("Header style", [
+        { value: "1", label: "Heading 1 — large" },
+        { value: "2", label: "Heading 2 — medium" },
+        { value: "3", label: "Heading 3 — small" }
+      ], tile.props.level || 1);
+      box.appendChild(field.label);
+      readExtra = () => ({ level: Number(field.select.value) || 1 });
+    } else if (tile.type === "list") {
+      const field = profileSelectField("List style", [
+        { value: "bullet", label: "Bullets" },
+        { value: "number", label: "Numbered" }
+      ], tile.props.style || "bullet");
+      box.appendChild(field.label);
+      readExtra = () => ({ style: field.select.value === "number" ? "number" : "bullet" });
+    } else if (tile.type === "spoiler") {
+      const label = document.createElement("label");
+      label.className = "settings-check";
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = !!tile.props.start_open;
+      label.appendChild(check);
+      label.appendChild(document.createTextNode(" Start open"));
+      box.appendChild(label);
+      readExtra = () => ({ start_open: !!check.checked });
+    } else if (tile.type === "callout") {
+      const field = profileSelectField("Callout tone", [
+        { value: "tip", label: "Tip" },
+        { value: "warning", label: "Warning" }
+      ], tile.props.tone || "tip");
+      box.appendChild(field.label);
+      readExtra = () => ({ tone: field.select.value === "warning" ? "warning" : "tip" });
+    }
+    const readChrome = fillTextChromeOptions(box, tile);
+    readValues = () => Object.assign({}, readExtra(), readChrome());
   }
 
   const actions = document.createElement("div");

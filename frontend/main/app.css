@@ -2819,10 +2819,12 @@ a.profile-link-row:hover { color: var(--accent); }
   font-size: 13px; font-weight: 700; padding: 8px 12px; border-radius: 6px;
 }
 .profile-opt {
-  width: min(920px, calc(100vw - 40px));
-  height: min(560px, calc(100vh - 40px));
+  width: min(960px, calc(100vw - 48px));
+  height: min(640px, calc(100vh - 48px));
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
   display: grid;
-  grid-template-rows: 48px 1fr 52px;
+  grid-template-rows: 48px minmax(0, 1fr) 52px;
   background: var(--panel);
   border: 1px solid var(--accent-submenu);
   border-radius: 10px;
@@ -2856,8 +2858,9 @@ a.profile-link-row:hover { color: var(--accent); }
   display: grid; grid-template-columns: 1fr 1fr; min-height: 0;
 }
 .profile-opt-left {
-  overflow: auto; padding: 16px 18px;
+  overflow: hidden; padding: 16px 18px;
   border-right: 1px solid var(--border);
+  min-width: 0;
 }
 .profile-opt-left label {
   display: block; font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 12px;
@@ -2868,15 +2871,20 @@ a.profile-link-row:hover { color: var(--accent); }
   color: var(--text); font-size: 14px; padding: 9px 10px;
 }
 .profile-opt-preview {
-  overflow: auto;
-  padding: 48px;
+  overflow: hidden;
+  padding: 40px;
   background: var(--bg);
   display: flex; align-items: center; justify-content: center;
+  min-width: 0; min-height: 0;
+}
+.profile-opt-preview-stage {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
 }
 .profile-opt-preview .profile-tile.is-opt-preview {
-  position: relative;
-  flex: 0 0 auto;
-  transform: none;
+  position: absolute;
+  left: 0; top: 0;
 }
 .profile-opt-bottom {
   display: grid; grid-template-columns: 110px 1fr 110px;

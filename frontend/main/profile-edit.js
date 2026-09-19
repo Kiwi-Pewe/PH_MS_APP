@@ -630,8 +630,11 @@ function openProfileTileOptions(tile) {
   left.className = 'profile-opt-left';
   const preview = document.createElement('div');
   preview.className = 'profile-opt-preview';
+  const stage = document.createElement('div');
+  stage.className = 'profile-opt-preview-stage';
   const previewCard = document.createElement('div');
-  preview.appendChild(previewCard);
+  stage.appendChild(previewCard);
+  preview.appendChild(stage);
   main.appendChild(left);
   main.appendChild(preview);
 
@@ -679,12 +682,12 @@ function openProfileTileOptions(tile) {
 
   function paintPreview() {
     const cellW = profilePreviewCellWidth();
-    const width = Math.max(80, tile.w * cellW);
-    const height = Math.max(36, tile.h * PROFILE_ROW_H);
+    const nativeW = Math.max(80, tile.w * cellW);
+    const nativeH = Math.max(36, tile.h * PROFILE_ROW_H);
     previewCard.className = 'profile-tile is-' + tile.type + ' is-opt-preview';
-    previewCard.style.width = width + 'px';
-    previewCard.style.height = height + 'px';
-    previewCard.style.maxWidth = 'none';
+    previewCard.style.width = nativeW + 'px';
+    previewCard.style.height = nativeH + 'px';
+    previewCard.style.transform = 'none';
     const fake = { type: tile.type, props: draft, id: tile.id, w: tile.w, h: tile.h, x: 0, y: 0 };
     const wasEditing = profileEditing;
     profileEditing = false;
@@ -694,13 +697,14 @@ function openProfileTileOptions(tile) {
       profileEditing = wasEditing;
     }
     applyProfileWidgetSurface(previewCard, fake);
-    const margin = 56;
-    const leftW = 340;
-    const rails = 100;
-    const nextW = Math.min(window.innerWidth - 40, Math.max(760, leftW + width + margin * 2));
-    const nextH = Math.min(window.innerHeight - 40, Math.max(420, height + margin * 2 + rails));
-    box.style.width = nextW + 'px';
-    box.style.height = nextH + 'px';
+    const pad = 80;
+    const availW = Math.max(80, preview.clientWidth - pad);
+    const availH = Math.max(80, preview.clientHeight - pad);
+    const scale = Math.min(1, availW / nativeW, availH / nativeH);
+    stage.style.width = Math.round(nativeW * scale) + 'px';
+    stage.style.height = Math.round(nativeH * scale) + 'px';
+    previewCard.style.transformOrigin = 'top left';
+    previewCard.style.transform = 'scale(' + scale + ')';
   }
 
   function paintLeft() {

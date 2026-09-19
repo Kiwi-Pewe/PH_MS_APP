@@ -7,10 +7,11 @@ import uuid
 import random
 import colorsys
 from app.models import UserInfo, Friend_request
-from app.schemas import Profile_layout_in
+from app.schemas import Profile_layout_in, Profile_identity_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.privacy import can_see_full_profile
+from app.routers.account import parse_display_name_history
 
 router = APIRouter()
 
@@ -39,6 +40,8 @@ LINK_MAX = 12
 LINK_USER_MAX = 32
 LINK_URL_MAX = 500
 TITLE_MAX = 32
+STATUS_MAX = 80
+PRONOUNS_MAX = 32
 HEADER_LEVELS = {1, 2, 3}
 LIST_STYLES = {"bullet", "number"}
 DIVIDER_STYLES = {"solid", "dashed", "dotted"}
@@ -89,7 +92,7 @@ def tile_bounds(kind):
     return {
         "banner": (6, 3, 32, 5),
         "avatar": (2, 2, 4, 4),
-        "display_name": (3, 2, 5, 3),
+        "display_name": (3, 2, 5, 5),
         "bio": (6, 5, 14, 6),
         "friends": (4, 11, 6, 15),
         "header": (4, 1, 32, 3),
@@ -351,10 +354,30 @@ def normalize_links(data):
     return out
 
 
+def normalize_border_props(data):
+    width = clamp_int(data.get("border_width"), 1, 12, 3)
+    return {
+        "show_border": bool(data.get("show_border")),
+        "border_width": width,
+        "border_color": clean_hex(data.get("border_color"), "#ffffff"),
+    }
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
     if kind == "banner":
-        return {"color": clean_hex(data.get("color"), banner_fallback or random_banner_hex())}
+        out = {
+            "color": clean_hex(data.get("color"), banner_fallback or random_banner_hex()),
+        }
+        out.update(normalize_border_props(data))
+        return out
+    if kind == "avatar":
+        return normalize_border_props(data)
+    if kind == "display_name":
+        return {
+            "show_status": bool(data.get("show_status")),
+            "show_pronouns": bool(data.get("show_pronouns")),
+        }
     if kind == "bio":
         return {"text": clip_text(data.get("text"), BIO_MAX)}
     if kind == "header":
@@ -567,11 +590,23 @@ def profile_payload(user, layout, limited, friends):
             "id": user.id,
             "username": user.username,
             "display_name": public_display_name(user),
+            "status": clip_text(user.profile_status, STATUS_MAX),
+            "pronouns": clip_text(user.profile_pronouns, PRONOUNS_MAX),
+            "aliases": parse_display_name_history(user),
         },
         "limited": bool(limited),
         "layout": layout,
         "friends": friends if not limited else [],
     }
+
+
+@router.post("/profile_identity")
+def update_own_profile_identity(body: Profile_identity_in, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    current_user.profile_status = clip_text(body.status, STATUS_MAX).strip()
+    current_user.profile_pronouns = clip_text(body.pronouns, PRONOUNS_MAX).strip()
+    database.commit()
+    layout = ensure_layout(current_user, database)
+    return profile_payload(current_user, layout, False, friend_preview(database, current_user.id))
 
 
 @router.get("/profile_layout")

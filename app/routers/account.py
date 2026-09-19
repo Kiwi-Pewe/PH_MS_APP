@@ -12,8 +12,11 @@ from app.routers.appearance import appearance_payload
 from app.routers.accessibility import accessibility_payload
 from app.routers.language_time import language_time_payload
 from datetime import datetime, timedelta
+import json
 import re
 import secrets
+
+ALIAS_MAX = 10
 
 try:
     import pyotp
@@ -24,6 +27,33 @@ router = APIRouter()
 
 def public_display_name(user):
     return (user.display_name or user.username or "").strip() or user.username
+
+
+def parse_display_name_history(user):
+    try:
+        raw = json.loads(user.display_name_history or "[]")
+    except (TypeError, ValueError):
+        raw = []
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for row in raw:
+        name = str(row or "").strip()
+        if name and name not in out:
+            out.append(name[:32])
+        if len(out) >= ALIAS_MAX:
+            break
+    return out
+
+
+def remember_display_name(user, previous):
+    prev = str(previous or "").strip()
+    current = public_display_name(user)
+    if not prev or prev == current:
+        return
+    hist = [name for name in parse_display_name_history(user) if name != prev]
+    hist.insert(0, prev)
+    user.display_name_history = json.dumps(hist[:ALIAS_MAX])
 
 def require_password(user, password):
     if not password or not pwd_context.verify(password, user.hashed_password):
@@ -282,9 +312,14 @@ def update_account_username(edit: Account_field_edit, current_user: UserInfo = D
 
 @router.post("/account_display_name")
 def update_account_display_name(edit: Account_field_edit, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    previous = public_display_name(current_user)
     current_user.display_name = clean_display_name(edit.value)
+    remember_display_name(current_user, previous)
     database.commit()
-    return {"display_name": public_display_name(current_user)}
+    return {
+        "display_name": public_display_name(current_user),
+        "aliases": parse_display_name_history(current_user),
+    }
 
 @router.post("/account_email")
 def update_account_email(edit: Account_field_edit, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):

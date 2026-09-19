@@ -127,7 +127,7 @@ function renderProfilePalette() {
   host.innerHTML = "";
   PROFILE_PALETTE.forEach(group => {
     const wrap = document.createElement("div");
-    wrap.className = "profile-palette-group is-open";
+    wrap.className = "profile-palette-group";
     const toggle = document.createElement("button");
     toggle.type = "button";
     const caret = document.createElement("span");
@@ -300,7 +300,91 @@ function bindProfileTileDrag(el, tile, handle) {
 }
 
 function profileTileHasOptions(type) {
-  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "divider" || type === "link_tree";
+  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "divider" || type === "link_tree" || type === "banner" || type === "avatar" || type === "display_name";
+}
+
+function fillBorderOptions(box, tile) {
+  const props = tile.props || {};
+  const label = document.createElement("label");
+  label.className = "settings-check";
+  const check = document.createElement("input");
+  check.type = "checkbox";
+  check.checked = !!props.show_border;
+  const name = document.createElement("span");
+  name.textContent = "Show border";
+  label.appendChild(check);
+  label.appendChild(name);
+  box.appendChild(label);
+  const thick = document.createElement("label");
+  thick.textContent = "Thickness";
+  const thickInput = document.createElement("input");
+  thickInput.type = "number";
+  thickInput.min = "1";
+  thickInput.max = "12";
+  thickInput.value = String(props.border_width || 3);
+  thick.appendChild(thickInput);
+  box.appendChild(thick);
+  const color = document.createElement("label");
+  color.textContent = "Color";
+  const colorInput = document.createElement("input");
+  colorInput.type = "color";
+  colorInput.value = props.border_color || "#ffffff";
+  color.appendChild(colorInput);
+  box.appendChild(color);
+  return () => ({
+    show_border: !!check.checked,
+    border_width: Number(thickInput.value) || 3,
+    border_color: colorInput.value || "#ffffff"
+  });
+}
+
+function fillNameClusterOptions(box, tile) {
+  const props = tile.props || {};
+  const statusCheckLabel = document.createElement("label");
+  statusCheckLabel.className = "settings-check";
+  const statusCheck = document.createElement("input");
+  statusCheck.type = "checkbox";
+  statusCheck.checked = !!props.show_status;
+  statusCheckLabel.appendChild(statusCheck);
+  statusCheckLabel.appendChild(document.createTextNode(" Show status"));
+  box.appendChild(statusCheckLabel);
+  const statusLabel = document.createElement("label");
+  statusLabel.textContent = "Status";
+  const statusInput = document.createElement("input");
+  statusInput.type = "text";
+  statusInput.maxLength = 80;
+  statusInput.value = profileOwnerStatus();
+  statusLabel.appendChild(statusInput);
+  box.appendChild(statusLabel);
+  const proCheckLabel = document.createElement("label");
+  proCheckLabel.className = "settings-check";
+  const proCheck = document.createElement("input");
+  proCheck.type = "checkbox";
+  proCheck.checked = !!props.show_pronouns;
+  proCheckLabel.appendChild(proCheck);
+  proCheckLabel.appendChild(document.createTextNode(" Show pronouns"));
+  box.appendChild(proCheckLabel);
+  const proLabel = document.createElement("label");
+  proLabel.textContent = "Pronouns";
+  const proInput = document.createElement("input");
+  proInput.type = "text";
+  proInput.maxLength = 32;
+  proInput.value = profileOwnerPronouns();
+  proLabel.appendChild(proInput);
+  box.appendChild(proLabel);
+  return () => ({
+    show_status: !!statusCheck.checked,
+    show_pronouns: !!proCheck.checked,
+    identity: { status: statusInput.value, pronouns: proInput.value }
+  });
+}
+
+function growNameClusterTile(tile) {
+  let need = 2;
+  if (tile.props && tile.props.show_status) need += 1;
+  if (tile.props && tile.props.show_pronouns) need += 1;
+  const maxH = (PROFILE_TILE_TYPES.display_name && PROFILE_TILE_TYPES.display_name.maxH) || 5;
+  if (tile.h < need) tile.h = Math.min(maxH, need);
 }
 
 function profileSelectField(labelText, options, selected) {
@@ -436,6 +520,10 @@ function openProfileTileOptions(tile) {
     ], tile.props.style || "solid");
     box.appendChild(field.label);
     readValues = () => ({ style: field.select.value });
+  } else if (tile.type === "banner" || tile.type === "avatar") {
+    readValues = fillBorderOptions(box, tile);
+  } else if (tile.type === "display_name") {
+    readValues = fillNameClusterOptions(box, tile);
   } else if (tile.type === "link_tree") {
     box.classList.add("is-wide");
     readValues = fillLinkTreeOptions(box, tile);
@@ -463,8 +551,22 @@ function openProfileTileOptions(tile) {
   save.type = "button";
   save.className = "settings-form-save";
   save.textContent = "Save";
-  save.addEventListener("click", () => {
-    Object.assign(tile.props, readValues());
+  save.addEventListener("click", async () => {
+    const next = readValues();
+    const identity = next.identity;
+    delete next.identity;
+    if (identity && typeof saveProfileIdentity === "function") {
+      save.disabled = true;
+      try {
+        await saveProfileIdentity(identity);
+      } catch (e) {
+        save.disabled = false;
+        window.alert(e.message || "Could not save.");
+        return;
+      }
+    }
+    Object.assign(tile.props, next);
+    if (tile.type === "display_name") growNameClusterTile(tile);
     overlay.remove();
     markProfileDirty();
   });

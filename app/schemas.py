@@ -116,6 +116,10 @@ class Profile_layout_in(BaseModel):
     grid_cols: int = 32
     pages: list[Profile_page_in] = []
 
+class Profile_identity_in(BaseModel):
+    status: str = ""
+    pronouns: str = ""
+
 class Attachment_in(BaseModel):
     key: str
     mime: str

@@ -9,7 +9,7 @@ const PROFILE_GAP = 0;
 const PROFILE_TILE_TYPES = {
   banner: { w: 32, h: 3, minW: 6, minH: 3, maxW: 32, maxH: 5, label: "Banner" },
   avatar: { w: 4, h: 4, minW: 2, minH: 2, maxW: 4, maxH: 4, label: "Avatar" },
-  display_name: { w: 5, h: 2, minW: 3, minH: 2, maxW: 5, maxH: 3, label: "Display name" },
+  display_name: { w: 5, h: 2, minW: 3, minH: 2, maxW: 5, maxH: 5, label: "Display name" },
   bio: { w: 14, h: 5, minW: 6, minH: 5, maxW: 14, maxH: 6, label: "Bio" },
   friends: { w: 6, h: 11, minW: 4, minH: 11, maxW: 6, maxH: 15, label: "Friends" },
   header: { w: 16, h: 2, minW: 4, minH: 1, maxW: 32, maxH: 3, label: "Header" },
@@ -148,9 +148,17 @@ function defaultProfileTileProps(type, existing) {
   const prev = existing || {};
   if (type === "bio") return { text: prev.text || "" };
   if (type === "banner") {
-    const color = prev.color ? prev.color : "#1e6b8a";
-    return { color };
+    return {
+      color: prev.color ? prev.color : "#1e6b8a",
+      show_border: false,
+      border_width: 3,
+      border_color: "#ffffff"
+    };
   }
+  if (type === "avatar") {
+    return { show_border: false, border_width: 3, border_color: "#ffffff" };
+  }
+  if (type === "display_name") return { show_status: false, show_pronouns: false };
   if (type === "header") return { text: prev.text || "", level: 1 };
   if (type === "body") return { text: prev.text || "", show_border: false };
   if (type === "footnote") return { text: prev.text || "", show_border: false };
@@ -202,6 +210,29 @@ function profileTileStyle(tile) {
 function applyProfileTileStyle(el, tile) {
   el.style.gridColumn = (tile.x + 1) + " / span " + tile.w;
   el.style.gridRow = (tile.y + 1) + " / span " + tile.h;
+}
+
+function applyProfileTileBorder(el, tile, face) {
+  const props = tile.props || {};
+  if (!props.show_border) return;
+  const width = Math.max(1, Math.min(12, Number(props.border_width) || 3));
+  const color = props.border_color || "#ffffff";
+  const target = face || el;
+  target.style.border = width + "px solid " + color;
+}
+
+function profileOwnerStatus() {
+  return (profileUser && profileUser.status) || "";
+}
+
+function profileOwnerPronouns() {
+  return (profileUser && profileUser.pronouns) || "";
+}
+
+function profileOwnerAliases() {
+  const names = (profileUser && profileUser.aliases) || [];
+  const current = profileOwnerName();
+  return names.filter(name => name && name !== current);
 }
 
 function profileOwnerName() {
@@ -438,6 +469,7 @@ function paintProfileTileContent(tile, el) {
   el.innerHTML = "";
   if (tile.type === "banner") {
     el.style.background = (tile.props && tile.props.color) || "#1e6b8a";
+    applyProfileTileBorder(el, tile);
     return;
   }
   el.style.background = "";
@@ -445,18 +477,53 @@ function paintProfileTileContent(tile, el) {
     const face = document.createElement("div");
     face.className = "profile-tile-avatar";
     face.textContent = typeof avatarLetter === "function" ? avatarLetter(profileOwnerName()) : (profileOwnerName() || "?").slice(0, 1);
+    applyProfileTileBorder(el, tile, face);
     el.appendChild(face);
     return;
   }
   if (tile.type === "display_name") {
+    const row = document.createElement("div");
+    row.className = "profile-tile-name-row";
     const name = document.createElement("div");
     name.className = "profile-tile-name";
     name.textContent = profileOwnerName();
+    row.appendChild(name);
+    const aliases = profileOwnerAliases();
+    if (aliases.length) {
+      const arrow = document.createElement("button");
+      arrow.type = "button";
+      arrow.className = "profile-alias-btn";
+      arrow.textContent = "▾";
+      arrow.title = "Previous names";
+      arrow.addEventListener("pointerdown", (e) => e.stopPropagation());
+      arrow.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof openContextMenu !== "function") return;
+        openContextMenu(e.clientX, e.clientY, {
+          avatarText: (profileOwnerName() || "?").slice(0, 1),
+          title: "Previous names"
+        }, aliases.map(label => ({ label, onSelect: () => {} })));
+      });
+      row.appendChild(arrow);
+    }
+    el.appendChild(row);
     const handle = document.createElement("div");
     handle.className = "profile-tile-handle";
     handle.textContent = "@" + profileOwnerHandle();
-    el.appendChild(name);
     el.appendChild(handle);
+    if (tile.props && tile.props.show_status) {
+      const status = document.createElement("div");
+      status.className = "profile-tile-status" + (profileOwnerStatus() ? "" : " is-empty");
+      status.textContent = profileOwnerStatus() || (profileEditing && profileIsOwn ? "Status" : "");
+      if (status.textContent) el.appendChild(status);
+    }
+    if (tile.props && tile.props.show_pronouns) {
+      const pronouns = document.createElement("div");
+      pronouns.className = "profile-tile-pronouns" + (profileOwnerPronouns() ? "" : " is-empty");
+      pronouns.textContent = profileOwnerPronouns() || (profileEditing && profileIsOwn ? "Pronouns" : "");
+      if (pronouns.textContent) el.appendChild(pronouns);
+    }
     return;
   }
   if (tile.type === "header") {

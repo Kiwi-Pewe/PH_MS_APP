@@ -42,6 +42,9 @@ class UserInfo(Base):
     accessibility_prefs = Column(String, nullable= True)
     language_time_prefs = Column(String, nullable= True)
     profile_layout = Column(String, nullable= True)
+    profile_status = Column(String, nullable= True)
+    profile_pronouns = Column(String, nullable= True)
+    display_name_history = Column(String, nullable= True)
 
 class Message(Base):
     __tablename__ = "messages"

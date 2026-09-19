@@ -117,6 +117,9 @@ def ensure_account_columns():
         ("users", "accessibility_prefs", "VARCHAR"),
         ("users", "language_time_prefs", "VARCHAR"),
         ("users", "profile_layout", "VARCHAR"),
+        ("users", "profile_status", "VARCHAR"),
+        ("users", "profile_pronouns", "VARCHAR"),
+        ("users", "display_name_history", "VARCHAR"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:

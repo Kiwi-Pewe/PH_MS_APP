@@ -2426,7 +2426,8 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   font-size: 13px; font-weight: 700; padding: 8px 8px; border-radius: 6px;
 }
 .profile-palette-group > button:hover { background: var(--panel-alt); }
-.profile-palette-caret { font-size: 10px; color: var(--text-dim); }
+.profile-palette-caret { font-size: 10px; color: var(--text-dim); transform: rotate(-90deg); }
+.profile-palette-group.is-open .profile-palette-caret { transform: none; }
 .profile-palette-items { display: none; padding: 0 2px 6px; }
 .profile-palette-group.is-open .profile-palette-items { display: block; }
 .profile-palette-item {
@@ -2536,7 +2537,14 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   flex: 0 0 auto;
 }
 .profile-tile-name { font-size: 22px; font-weight: 800; color: var(--text); }
+.profile-tile-name-row { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.profile-alias-btn {
+  background: transparent; color: var(--text-dim); font-size: 12px; padding: 2px 4px;
+}
+.profile-alias-btn:hover { color: var(--text); }
 .profile-tile-handle { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+.profile-tile-status { font-size: 13px; color: var(--text-dim); margin-top: 4px; text-align: center; }
+.profile-tile-pronouns { font-size: 12px; color: var(--text-dim); margin-top: 2px; text-align: center; }
 .profile-tile-head {
   font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--text-dim); padding: 10px 12px 0;
@@ -2608,6 +2616,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   font-size: 13px; color: var(--text); font-weight: 600;
 }
 .settings-form .settings-check input { width: auto; margin: 0; }
+.settings-form input[type="color"] { width: 48px; height: 32px; padding: 2px; }
 .profile-friend-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
 .profile-friend-row .avatar-dot { width: 28px; height: 28px; font-size: 11px; }
 .profile-tile.is-editing { outline: 2px solid var(--accent); cursor: grab; user-select: none; }

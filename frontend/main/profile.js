@@ -183,6 +183,20 @@ async function openOwnProfile() {
   await openUserProfile(myUserId);
 }
 
+async function saveProfileIdentity(identity) {
+  const response = await profileApi("/profile_identity", {
+    method: "POST",
+    body: JSON.stringify(identity || {})
+  });
+  if (!response.ok) throw new Error("Could not save profile.");
+  const data = await response.json();
+  if (data.user && profileUser) {
+    profileUser.status = data.user.status || "";
+    profileUser.pronouns = data.user.pronouns || "";
+    profileUser.aliases = data.user.aliases || [];
+  }
+}
+
 function enterProfileEdit() {
   if (!profileIsOwn) return;
   profileEditing = true;
@@ -229,7 +243,10 @@ function editProfileIdentity(tile) {
     ], "Save", async (values) => {
       const data = await postAccount("/account_display_name", { value: values.value });
       applyLocalIdentity(data);
-      if (profileUser) profileUser.display_name = data.display_name;
+      if (profileUser) {
+        profileUser.display_name = data.display_name;
+        if (data.aliases) profileUser.aliases = data.aliases;
+      }
       renderProfileBoard();
     });
     return;

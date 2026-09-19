@@ -10,7 +10,7 @@ const PROFILE_TILE_TYPES = {
   banner: { w: 32, h: 3, minW: 6, minH: 3, maxW: 32, maxH: 5, label: "Banner" },
   avatar: { w: 4, h: 4, minW: 2, minH: 2, maxW: 4, maxH: 4, label: "Avatar" },
   display_name: { w: 5, h: 2, minW: 3, minH: 2, maxW: 5, maxH: 5, label: "Display name" },
-  member_since: { w: 8, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 4, label: "Member since" },
+  member_since: { w: 6, h: 2, minW: 4, minH: 2, maxW: 10, maxH: 3, label: "Member since" },
   bio: { w: 14, h: 5, minW: 6, minH: 5, maxW: 14, maxH: 6, label: "Bio" },
   friends: { w: 6, h: 11, minW: 4, minH: 11, maxW: 6, maxH: 15, label: "Friends" },
   header: { w: 16, h: 2, minW: 4, minH: 1, maxW: 32, maxH: 3, label: "Header" },
@@ -540,10 +540,10 @@ function paintProfileTileContent(tile, el) {
     head.className = "profile-tile-head";
     head.textContent = "Member since";
     el.appendChild(head);
-    const body = document.createElement("div");
-    body.className = "profile-tile-body";
-    body.textContent = profileOwnerMemberSince() || "—";
-    el.appendChild(body);
+    const date = document.createElement("div");
+    date.className = "profile-since-date";
+    date.textContent = profileOwnerMemberSince() || "—";
+    el.appendChild(date);
     return;
   }
   if (tile.type === "header") {
@@ -622,6 +622,9 @@ function renderProfileBoard() {
     board.appendChild(empty);
   }
   tiles.forEach((tile, index) => {
+    const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x);
+    tile.w = size.w;
+    tile.h = size.h;
     const el = document.createElement("div");
     el.className = "profile-tile is-" + tile.type + (profileEditing ? " is-editing" : "") + (tile.allow_overlap ? " allows-overlap" : "");
     if (tile.props && tile.props.show_border && (tile.type === "body" || tile.type === "footnote")) {

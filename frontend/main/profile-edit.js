@@ -380,7 +380,7 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     return;
   }
   if (tile.type === "link_tree") {
-    bindDraftReaders(box, draft, fillLinkTreeOptions(box, fake), onChange);
+    bindDraftReaders(box, draft, fillLinkTreeOptions(box, fake, hintEl), onChange);
     return;
   }
   const empty = document.createElement("div");
@@ -559,7 +559,34 @@ function profileSelectField(labelText, options, selected) {
   return { label, select };
 }
 
-function fillLinkTreeOptions(box, tile) {
+function fillLinkTreeOptions(box, tile, hintEl) {
+  let linkSize = clampProfileLinkSize(tile.props && tile.props.link_size);
+  const sizeLabel = document.createElement("div");
+  sizeLabel.className = "profile-opt-field-label";
+  sizeLabel.textContent = "Size";
+  const sizeRow = document.createElement("div");
+  sizeRow.className = "profile-opt-slider-row";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = "1";
+  slider.max = "10";
+  slider.step = "1";
+  slider.className = "settings-slider";
+  slider.value = String(linkSize);
+  const val = document.createElement("div");
+  val.className = "profile-opt-slider-val";
+  val.textContent = slider.value;
+  slider.addEventListener("input", () => {
+    linkSize = Number(slider.value) || 5;
+    val.textContent = String(linkSize);
+    box.dispatchEvent(new Event("change"));
+  });
+  sizeRow.appendChild(slider);
+  sizeRow.appendChild(val);
+  if (hintEl) profileOptHint(slider, "Scale the icon and name for every link.", hintEl);
+  box.appendChild(sizeLabel);
+  box.appendChild(sizeRow);
+
   const links = (Array.isArray(tile.props.links) ? tile.props.links : []).map(row => ({
     platform: row.platform || "Other",
     username: row.username || "",
@@ -641,7 +668,7 @@ function fillLinkTreeOptions(box, tile) {
   box.appendChild(userLabel);
   box.appendChild(urlLabel);
   box.appendChild(add);
-  return () => ({ links: links.slice() });
+  return () => ({ links: links.slice(), link_size: linkSize });
 }
 
 function openProfileTileOptions(tile) {

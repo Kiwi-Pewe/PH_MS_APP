@@ -108,7 +108,7 @@ def tile_bounds(kind):
         "list": (6, 3, 20, 16),
         "divider": (6, 1, 32, 2),
         "spacer": (2, 1, 32, 8),
-        "link_tree": (8, 4, 16, 18),
+        "link_tree": (6, 5, 12, 8),
         "spoiler": (6, 2, 20, 10),
         "stats": (6, 2, 20, 10),
         "callout": (6, 2, 24, 8),
@@ -515,6 +515,7 @@ def normalize_props(kind, props, banner_fallback):
     if kind == "link_tree":
         out = normalize_text_chrome(data, 14, True)
         out["links"] = normalize_links(data)
+        out["link_size"] = clamp_int(data.get("link_size"), 1, 10, 5)
         return out
     if kind == "friends":
         return normalize_text_chrome(data, 14, True)

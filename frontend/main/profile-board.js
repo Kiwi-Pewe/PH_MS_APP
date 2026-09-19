@@ -22,7 +22,7 @@ const PROFILE_TILE_TYPES = {
   callout: { w: 12, h: 3, minW: 6, minH: 2, maxW: 24, maxH: 8, label: "Callout" },
   divider: { w: 32, h: 1, minW: 6, minH: 1, maxW: 32, maxH: 2, label: "Divider" },
   spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
-  link_tree: { w: 10, h: 8, minW: 8, minH: 4, maxW: 16, maxH: 18, label: "Link Tree" }
+  link_tree: { w: 10, h: 8, minW: 6, minH: 5, maxW: 12, maxH: 8, label: "Link Tree" }
 };
 
 const PROFILE_PLACEHOLDERS = {
@@ -224,7 +224,12 @@ function defaultProfileTileProps(type, existing) {
   if (type === "stats") return Object.assign({ rows: Array.isArray(prev.rows) ? prev.rows.map(row => Object.assign({}, row)) : [] }, chrome);
   if (type === "callout") return Object.assign({ text: prev.text || "", tone: prev.tone === "warning" ? "warning" : "tip" }, chrome);
   if (type === "divider") return Object.assign({ style: prev.style || "solid" }, chrome);
-  if (type === "link_tree") return Object.assign({ links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [] }, chrome);
+  if (type === "link_tree") {
+    return Object.assign({
+      links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [],
+      link_size: clampProfileLinkSize(prev.link_size)
+    }, chrome);
+  }
   if (type === "friends") return Object.assign({}, chrome);
   return Object.assign({}, chrome);
 }
@@ -385,6 +390,18 @@ function profileOwnerHandle() {
   return profileUser.username || "";
 }
 
+function clampProfileLinkSize(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 5;
+  return Math.max(1, Math.min(10, Math.round(n)));
+}
+
+function applyProfileLinkSize(el, tile) {
+  const size = clampProfileLinkSize(tile.props && tile.props.link_size);
+  el.style.setProperty("--profile-link-icon", (14 + size * 2) + "px");
+  el.style.setProperty("--profile-link-text", (10.5 + size * 0.7) + "px");
+}
+
 function profilePlatformLetter(name) {
   if (name === "Battle.net") return "Bn";
   if (name === "PlayStation") return "PS";
@@ -415,6 +432,7 @@ function paintProfileSpacer(el) {
 
 function paintProfileLinkTree(tile, el) {
   applyProfileWidgetSurface(el, tile);
+  applyProfileLinkSize(el, tile);
   mountProfileFixedTitle(el, "Links");
   const body = document.createElement("div");
   body.className = "profile-tile-body";
@@ -436,19 +454,14 @@ function paintProfileLinkTree(tile, el) {
       const icon = document.createElement("div");
       icon.className = "avatar-dot";
       icon.textContent = profilePlatformLetter(row.platform);
-      const meta = document.createElement("div");
-      meta.className = "profile-link-meta";
-      const site = document.createElement("div");
-      site.className = "profile-link-site";
-      site.textContent = row.platform || "Link";
-      const user = document.createElement("div");
-      user.className = "profile-link-user";
-      user.textContent = row.username || row.url;
-      meta.appendChild(site);
-      meta.appendChild(user);
+      const label = document.createElement("div");
+      label.className = "profile-link-label";
+      const site = row.platform || "Link";
+      const who = (row.username || "").trim();
+      label.textContent = who ? site + " | " + who : site;
       item.appendChild(icon);
-      item.appendChild(meta);
-  body.appendChild(item);
+      item.appendChild(label);
+      body.appendChild(item);
     });
   }
   el.appendChild(body);

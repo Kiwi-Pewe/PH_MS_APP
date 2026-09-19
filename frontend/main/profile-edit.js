@@ -345,7 +345,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "divider" || type === "display_name" || type === "link_tree" || type === "friends";
+  return type === "divider" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -385,6 +385,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "friends") {
     fillFriendsOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "button") {
+    fillButtonOptions(box, draft, onChange, hintEl);
     return;
   }
   const empty = document.createElement("div");
@@ -561,6 +565,83 @@ function profileSelectField(labelText, options, selected) {
   });
   label.appendChild(select);
   return { label, select };
+}
+
+function fillButtonOptions(box, draft, onChange, hintEl) {
+  if (draft.action !== "page" && draft.action !== "friend") draft.action = "link";
+  draft.label = String(draft.label || "Button");
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = "Label";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.maxLength = 48;
+  nameInput.value = draft.label;
+  nameInput.placeholder = "Button";
+  profileOptHint(nameLabel, "Text shown on the button.", hintEl);
+  nameInput.addEventListener("input", () => {
+    draft.label = nameInput.value;
+    onChange();
+  });
+  nameLabel.appendChild(nameInput);
+  box.appendChild(nameLabel);
+
+  const fn = profileSelectField("Function", [
+    { value: "link", label: "External Link" },
+    { value: "page", label: "Page Transfer" },
+    { value: "friend", label: "Add Friend" }
+  ], draft.action);
+  profileOptHint(fn.label, "What happens when someone presses the button.", hintEl);
+  box.appendChild(fn.label);
+  const extras = document.createElement("div");
+  box.appendChild(extras);
+
+  function paintExtras() {
+    extras.innerHTML = "";
+    if (draft.action === "link") {
+      const urlLabel = document.createElement("label");
+      urlLabel.textContent = "Link";
+      const urlInput = document.createElement("input");
+      urlInput.type = "url";
+      urlInput.placeholder = "https://";
+      urlInput.value = draft.url || "";
+      profileOptHint(urlLabel, "Opens this site in a new tab.", hintEl);
+      urlInput.addEventListener("input", () => {
+        draft.url = urlInput.value;
+        onChange();
+      });
+      urlLabel.appendChild(urlInput);
+      extras.appendChild(urlLabel);
+      return;
+    }
+    if (draft.action === "page") {
+      const pages = ((profileDraft && profileDraft.pages) || []).map(page => ({
+        value: page.id,
+        label: page.title + (page.visibility === "owner" ? " (only you)" : "")
+      }));
+      if (!pages.length) {
+        const empty = document.createElement("div");
+        empty.className = "profile-opt-empty";
+        empty.textContent = "No pages to send people to yet.";
+        extras.appendChild(empty);
+        return;
+      }
+      if (!pages.some(page => page.value === draft.page_id)) draft.page_id = pages[0].value;
+      const pageField = profileSelectField("Page", pages, draft.page_id);
+      profileOptHint(pageField.label, "Switches to this page on the profile.", hintEl);
+      pageField.select.addEventListener("change", () => {
+        draft.page_id = pageField.select.value;
+        onChange();
+      });
+      extras.appendChild(pageField.label);
+    }
+  }
+
+  fn.select.addEventListener("change", () => {
+    draft.action = fn.select.value;
+    paintExtras();
+    onChange();
+  });
+  paintExtras();
 }
 
 function fillFriendsOptions(box, draft, onChange, hintEl) {

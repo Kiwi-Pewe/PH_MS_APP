@@ -23,11 +23,11 @@ const PROFILE_TILE_TYPES = {
   callout: { w: 12, h: 3, minW: 6, minH: 2, maxW: 24, maxH: 8, label: "Callout" },
   divider: { w: 32, h: 1, minW: 6, minH: 1, maxW: 32, maxH: 2, label: "Divider" },
   spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
-  link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" }
+  link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" },
+  button: { w: 8, h: 2, minW: 4, minH: 1, maxW: 16, maxH: 3, label: "Button" }
 };
 
 const PROFILE_PLACEHOLDERS = {
-  button: { label: "Button", w: 8, h: 2, minW: 4, minH: 1, maxW: 16, maxH: 3 },
   details: { label: "Details", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
   interests: { label: "Interests", w: 10, h: 3, minW: 6, minH: 2, maxW: 20, maxH: 8 },
   looking_for: { label: "Looking for", w: 10, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 8 },
@@ -232,6 +232,15 @@ function defaultProfileTileProps(type, existing) {
     }, chrome);
   }
   if (type === "friends") return Object.assign({ friend_size: clampProfileEntrySize(prev.friend_size) }, chrome);
+  if (type === "button") {
+    const action = prev.action === "page" || prev.action === "friend" ? prev.action : "link";
+    return Object.assign({
+      label: prev.label || "Button",
+      action,
+      url: prev.url || "",
+      page_id: prev.page_id || ""
+    }, chrome);
+  }
   return Object.assign({}, chrome);
 }
 
@@ -288,7 +297,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type);
+  return profileUsesTextChrome(type) || type === "button";
 }
 
 function profileTextChrome(props, type) {
@@ -478,6 +487,121 @@ function paintProfileLinkTree(tile, el) {
     });
   }
   el.appendChild(body);
+}
+
+function profileCleanHttpUrl(value) {
+  let text = String(value || "").trim();
+  if (!text) return "";
+  if (text.indexOf("://") < 0) text = "https://" + text;
+  const lower = text.toLowerCase();
+  if (lower.indexOf("https://") !== 0 && lower.indexOf("http://") !== 0) return "";
+  if (/[\s<>"']/.test(text)) return "";
+  return text;
+}
+
+function profileVisiblePages() {
+  const layout = profileDraft || profileSavedLayout || { pages: [] };
+  return (layout.pages || []).filter(page => page.visibility !== "owner" || profileIsOwn);
+}
+
+function profileSwitchPage(pageId) {
+  const page = profileVisiblePages().find(row => row.id === pageId);
+  if (!page) return;
+  profileActivePageId = page.id;
+  if (typeof renderProfilePages === "function") renderProfilePages();
+  renderProfileBoard();
+}
+
+function profileButtonLabel(tile, relation) {
+  const props = tile.props || {};
+  const custom = String(props.label || "Button").trim() || "Button";
+  if (props.action !== "friend") return custom;
+  if (relation && relation.friend) return "Friends";
+  if (relation && relation.pending_out) return "Pending";
+  return custom;
+}
+
+function bindProfileButtonAction(btn, tile) {
+  const props = tile.props || {};
+  const preview = btn.closest(".profile-opt-preview");
+  const editing = !!(profileEditing && profileIsOwn);
+  if (preview || editing) {
+    btn.disabled = true;
+    return;
+  }
+  if (props.action === "link") {
+    const url = profileCleanHttpUrl(props.url);
+    if (!url) {
+      btn.disabled = true;
+      return;
+    }
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
+    return;
+  }
+  if (props.action === "page") {
+    const page = profileVisiblePages().find(row => row.id === props.page_id);
+    if (!page) {
+      btn.disabled = true;
+      return;
+    }
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      profileSwitchPage(page.id);
+    });
+    return;
+  }
+  if (props.action === "friend") {
+    if (profileIsOwn || !profileOwnerId) {
+      btn.disabled = true;
+      return;
+    }
+    btn.disabled = true;
+    const run = async () => {
+      if (typeof fetchRelationship !== "function") return;
+      const relation = await fetchRelationship(profileOwnerId);
+      btn.textContent = profileButtonLabel(tile, relation);
+      if (relation.self || relation.friend || relation.pending_out || relation.blocked) {
+        btn.disabled = true;
+        return;
+      }
+      btn.disabled = false;
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        btn.disabled = true;
+        const username = profileOwnerHandle();
+        if (typeof addFriendFromContextMenu === "function" && username) {
+          await addFriendFromContextMenu(username);
+        }
+        const next = typeof fetchRelationship === "function"
+          ? await fetchRelationship(profileOwnerId)
+          : {};
+        btn.textContent = profileButtonLabel(tile, next);
+        if (next.friend || next.pending_out || next.self) btn.disabled = true;
+        else btn.disabled = false;
+      });
+    };
+    run();
+  }
+}
+
+function paintProfileButton(tile, el) {
+  const chrome = profileTextChrome(tile.props, tile.type);
+  el.classList.add("is-text-chrome");
+  el.dataset.textAlign = chrome.text_align;
+  el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
+  applyProfileWidgetSurface(el, tile);
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "profile-action-btn";
+  btn.textContent = profileButtonLabel(tile, null);
+  bindProfileButtonAction(btn, tile);
+  el.appendChild(btn);
 }
 
 function paintProfileFriends(host) {
@@ -874,6 +998,10 @@ function paintProfileTileContent(tile, el) {
   }
   if (tile.type === "link_tree") {
     paintProfileLinkTree(tile, el);
+    return;
+  }
+  if (tile.type === "button") {
+    paintProfileButton(tile, el);
     return;
   }
   if (PROFILE_TILE_TYPES[tile.type] && PROFILE_TILE_TYPES[tile.type].placeholder) {

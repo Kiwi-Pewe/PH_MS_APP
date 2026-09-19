@@ -2792,6 +2792,36 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   border-right: 2px solid var(--text-dim); border-bottom: 2px solid var(--text-dim);
   cursor: nwse-resize;
 }
+.profile-tile.is-button {
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 8px;
+}
+.profile-action-btn {
+  width: 100%;
+  min-height: 100%;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--profile-text-size, 14pt);
+  font-weight: 800;
+  cursor: pointer;
+  padding: 8px 12px;
+}
+.profile-tile[data-text-align="left"] .profile-action-btn { text-align: left; }
+.profile-tile[data-text-align="center"] .profile-action-btn { text-align: center; }
+.profile-tile[data-text-align="right"] .profile-action-btn { text-align: right; }
+.profile-action-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.profile-tile.is-editing .profile-action-btn,
+.profile-tile.is-opt-preview .profile-action-btn {
+  pointer-events: none;
+  cursor: inherit;
+}
 .profile-placeholder-note {
   font-size: 13px; color: var(--text-dim); line-height: 1.4;
 }

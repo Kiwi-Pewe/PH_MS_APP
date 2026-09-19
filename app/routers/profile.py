@@ -48,6 +48,8 @@ DIVIDER_STYLES = {"solid", "dashed", "dotted"}
 CALLOUT_TONES = {"tip", "warning"}
 STAT_MAX_ROWS = 20
 STAT_FIELD_MAX = 80
+BUTTON_ACTIONS = {"link", "page", "friend"}
+BUTTON_LABEL_MAX = 48
 TEXT_SIZES = (8, 9, 10, 11, 12, 14, 18, 24)
 TEXT_ALIGNS = {"left", "center", "right"}
 BORDER_STYLES = {"solid", "dashed", "dotted", "double"}
@@ -502,6 +504,16 @@ def normalize_props(kind, props, banner_fallback):
         out = normalize_text_chrome(data, 14, True)
         out["text"] = clip_text(data.get("text"), FOOTNOTE_MAX)
         out["tone"] = tone
+        return out
+    if kind == "button":
+        action = str(data.get("action") or "link")
+        if action not in BUTTON_ACTIONS:
+            action = "link"
+        out = normalize_text_chrome(data, 14, True)
+        out["label"] = clip_text(data.get("label"), BUTTON_LABEL_MAX).strip() or "Button"
+        out["action"] = action
+        out["url"] = clean_link_url(data.get("url")) if action == "link" else ""
+        out["page_id"] = clip_text(data.get("page_id"), 40).strip() if action == "page" else ""
         return out
     if kind == "divider":
         style = str(data.get("style") or "solid")

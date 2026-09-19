@@ -21,14 +21,24 @@ const PROFILE_PALETTE = [
       { type: "header", label: "Header" },
       { type: "body", label: "Body" },
       { type: "footnote", label: "Footnote" },
-      { type: "list", label: "List" }
+      { type: "list", label: "List" },
+      { type: "spoiler", label: "Spoiler" },
+      { type: "stats", label: "Stats" },
+      { type: "callout", label: "Callout" },
+      { type: "button", label: "Button" }
     ]
   },
   {
     id: "about",
     label: "About",
     items: [
-      { type: "bio", label: "Bio" }
+      { type: "bio", label: "Bio" },
+      { type: "details", label: "Details" },
+      { type: "interests", label: "Interests" },
+      { type: "looking_for", label: "Looking for" },
+      { type: "fun_facts", label: "Fun facts" },
+      { type: "schedule", label: "Schedule" },
+      { type: "setup", label: "Setup" }
     ]
   },
   {
@@ -36,7 +46,10 @@ const PROFILE_PALETTE = [
     label: "Social",
     items: [
       { type: "friends", label: "Friends" },
-      { type: "link_tree", label: "Link Tree" }
+      { type: "link_tree", label: "Link Tree" },
+      { type: "connections", label: "Connections" },
+      { type: "featured_friend", label: "Featured friend" },
+      { type: "mutuals", label: "Mutuals" }
     ]
   },
   {
@@ -44,13 +57,57 @@ const PROFILE_PALETTE = [
     label: "Decoration",
     items: [
       { type: "divider", label: "Divider" },
-      { type: "spacer", label: "Spacer" }
+      { type: "frame", label: "Frame" },
+      { type: "color_block", label: "Color block" },
+      { type: "icon", label: "Icon" },
+      { type: "meter", label: "Meter" },
+      { type: "clock", label: "Clock" },
+      { type: "countdown", label: "Countdown" }
+    ]
+  },
+  {
+    id: "media",
+    label: "Media",
+    items: [
+      { type: "image", label: "Image" },
+      { type: "video", label: "Video" },
+      { type: "music", label: "Music" },
+      { type: "twitch", label: "Twitch" },
+      { type: "gallery", label: "Gallery" },
+      { type: "slideshow", label: "Slideshow" },
+      { type: "youtube", label: "YouTube" },
+      { type: "gif", label: "GIF" },
+      { type: "artwork", label: "Artwork" }
+    ]
+  },
+  {
+    id: "community",
+    label: "Community",
+    items: [
+      { type: "comments", label: "Comments" },
+      { type: "server_list", label: "Server list" },
+      { type: "featured_server", label: "Featured server" }
+    ]
+  },
+  {
+    id: "games",
+    label: "Games",
+    items: [
+      { type: "achievements", label: "Achievements" },
+      { type: "recently_played", label: "Recently played" },
+      { type: "favorite_game", label: "Favorite game" },
+      { type: "currently_playing", label: "Currently playing" },
+      { type: "want_to_play", label: "Want to play" },
+      { type: "games_played", label: "Games played" },
+      { type: "game_stats", label: "Game stats" },
+      { type: "library", label: "Library" },
+      { type: "review", label: "Review" }
     ]
   },
   {
     id: "later",
     label: "Later",
-    later: ["Badges", "Connections", "Games", "Media"]
+    later: ["Contact (mail system)", "Events widget", "Applications widget", "Rep (chrome, not a tile)"]
   }
 ];
 

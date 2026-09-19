@@ -21,6 +21,53 @@ const PROFILE_TILE_TYPES = {
   link_tree: { w: 10, h: 8, minW: 8, minH: 4, maxW: 16, maxH: 18, label: "Link Tree" }
 };
 
+const PROFILE_PLACEHOLDERS = {
+  spoiler: { label: "Spoiler", w: 10, h: 3, minW: 6, minH: 2, maxW: 20, maxH: 10 },
+  stats: { label: "Stats", w: 10, h: 4, minW: 6, minH: 2, maxW: 20, maxH: 10 },
+  callout: { label: "Callout", w: 12, h: 3, minW: 6, minH: 2, maxW: 24, maxH: 8 },
+  button: { label: "Button", w: 8, h: 2, minW: 4, minH: 1, maxW: 16, maxH: 3 },
+  details: { label: "Details", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
+  interests: { label: "Interests", w: 10, h: 3, minW: 6, minH: 2, maxW: 20, maxH: 8 },
+  looking_for: { label: "Looking for", w: 10, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 8 },
+  fun_facts: { label: "Fun facts", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 12 },
+  schedule: { label: "Schedule", w: 10, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 8 },
+  setup: { label: "Setup", w: 10, h: 4, minW: 6, minH: 2, maxW: 16, maxH: 10 },
+  connections: { label: "Connections", w: 10, h: 6, minW: 8, minH: 4, maxW: 16, maxH: 14 },
+  featured_friend: { label: "Featured friend", w: 8, h: 4, minW: 6, minH: 3, maxW: 12, maxH: 8 },
+  mutuals: { label: "Mutuals", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 12 },
+  frame: { label: "Frame", w: 12, h: 8, minW: 6, minH: 4, maxW: 32, maxH: 18 },
+  color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
+  icon: { label: "Icon", w: 3, h: 3, minW: 2, minH: 2, maxW: 6, maxH: 6 },
+  meter: { label: "Meter", w: 10, h: 2, minW: 6, minH: 1, maxW: 24, maxH: 4 },
+  clock: { label: "Clock", w: 6, h: 3, minW: 4, minH: 2, maxW: 12, maxH: 5 },
+  countdown: { label: "Countdown", w: 8, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 6 },
+  image: { label: "Image", w: 10, h: 6, minW: 4, minH: 3, maxW: 24, maxH: 16 },
+  video: { label: "Video", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
+  music: { label: "Music", w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 8 },
+  twitch: { label: "Twitch", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
+  gallery: { label: "Gallery", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 16 },
+  slideshow: { label: "Slideshow", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 16 },
+  youtube: { label: "YouTube", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
+  gif: { label: "GIF", w: 8, h: 6, minW: 4, minH: 3, maxW: 16, maxH: 12 },
+  artwork: { label: "Artwork", w: 10, h: 7, minW: 6, minH: 4, maxW: 20, maxH: 16 },
+  comments: { label: "Comments", w: 12, h: 8, minW: 8, minH: 5, maxW: 24, maxH: 18 },
+  server_list: { label: "Server list", w: 10, h: 8, minW: 8, minH: 4, maxW: 16, maxH: 18 },
+  featured_server: { label: "Featured server", w: 10, h: 5, minW: 8, minH: 4, maxW: 16, maxH: 10 },
+  achievements: { label: "Achievements", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
+  recently_played: { label: "Recently played", w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 10 },
+  favorite_game: { label: "Favorite game", w: 10, h: 5, minW: 6, minH: 3, maxW: 20, maxH: 10 },
+  currently_playing: { label: "Currently playing", w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 10 },
+  want_to_play: { label: "Want to play", w: 10, h: 5, minW: 6, minH: 3, maxW: 20, maxH: 12 },
+  games_played: { label: "Games played", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
+  game_stats: { label: "Game stats", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
+  library: { label: "Library", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 14 },
+  review: { label: "Review", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 }
+};
+
+Object.keys(PROFILE_PLACEHOLDERS).forEach(type => {
+  PROFILE_TILE_TYPES[type] = Object.assign({ placeholder: true }, PROFILE_PLACEHOLDERS[type]);
+});
+
 const PROFILE_LINK_PLATFORMS = [
   "YouTube", "Twitch", "Steam", "Discord", "X", "Instagram", "TikTok",
   "GitHub", "Spotify", "Reddit", "Roblox", "Battle.net", "PlayStation",
@@ -371,6 +418,22 @@ function paintProfileList(tile, el) {
   el.appendChild(list);
 }
 
+function paintProfilePlaceholder(tile, el) {
+  const meta = PROFILE_TILE_TYPES[tile.type] || { label: "Element" };
+  const head = document.createElement("div");
+  head.className = "profile-tile-head";
+  head.textContent = meta.label;
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  const note = document.createElement("div");
+  note.className = "profile-placeholder-note";
+  note.textContent = "Placeholder. This piece isn't wired yet.";
+  body.appendChild(note);
+  el.classList.add("is-placeholder");
+  el.appendChild(head);
+  el.appendChild(body);
+}
+
 function paintProfileTileContent(tile, el) {
   el.innerHTML = "";
   if (tile.type === "banner") {
@@ -422,6 +485,10 @@ function paintProfileTileContent(tile, el) {
   }
   if (tile.type === "link_tree") {
     paintProfileLinkTree(tile, el);
+    return;
+  }
+  if (PROFILE_TILE_TYPES[tile.type] && PROFILE_TILE_TYPES[tile.type].placeholder) {
+    paintProfilePlaceholder(tile, el);
     return;
   }
   const head = document.createElement("div");

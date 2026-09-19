@@ -2621,6 +2621,12 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   border-right: 2px solid var(--text-dim); border-bottom: 2px solid var(--text-dim);
   cursor: nwse-resize;
 }
+.profile-placeholder-note {
+  font-size: 13px; color: var(--text-dim); line-height: 1.4;
+}
+.profile-tile.is-placeholder {
+  opacity: 0.92;
+}
 .profile-drop-hint {
   pointer-events: none;
   border: 2px dashed var(--accent); border-radius: 10px; background: transparent;

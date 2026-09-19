@@ -2639,8 +2639,21 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   margin: 6px 12px 8px;
   flex: 0 0 auto;
 }
-.profile-tile[data-text-align="center"] .profile-text-slot { text-align: center; }
-.profile-tile[data-text-align="right"] .profile-text-slot { text-align: right; }
+.profile-tile[data-text-align="left"] .profile-text-slot,
+.profile-tile[data-text-align="left"] .profile-text-slot textarea,
+.profile-tile[data-text-align="left"] .profile-text-slot input {
+  text-align: left;
+}
+.profile-tile[data-text-align="center"] .profile-text-slot,
+.profile-tile[data-text-align="center"] .profile-text-slot textarea,
+.profile-tile[data-text-align="center"] .profile-text-slot input {
+  text-align: center;
+}
+.profile-tile[data-text-align="right"] .profile-text-slot,
+.profile-tile[data-text-align="right"] .profile-text-slot textarea,
+.profile-tile[data-text-align="right"] .profile-text-slot input {
+  text-align: right;
+}
 .profile-text-slot > textarea,
 .profile-text-slot > .profile-tile-header,
 .profile-text-slot > .profile-tile-copy,

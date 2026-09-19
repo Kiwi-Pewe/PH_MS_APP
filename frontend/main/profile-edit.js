@@ -344,7 +344,52 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
   box.appendChild(alignWrap);
 }
 
-function fillWidgetDesignOptions(box, tile, draft, onChange, hintEl) {
+function profileHasWidgetSettings(type) {
+  return type === "divider" || type === "display_name" || type === "link_tree";
+}
+
+function bindDraftReaders(box, draft, readValues, onChange) {
+  box.addEventListener("input", () => {
+    Object.assign(draft, readValues());
+    onChange();
+  });
+  box.addEventListener("change", () => {
+    Object.assign(draft, readValues());
+    onChange();
+  });
+}
+
+function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
+  const fake = { type: tile.type, props: draft };
+  if (tile.type === "divider") {
+    const field = profileSelectField("Line style", [
+      { value: "solid", label: "Solid" },
+      { value: "dashed", label: "Dashed" },
+      { value: "dotted", label: "Dotted" }
+    ], draft.style || "solid");
+    box.appendChild(field.label);
+    profileOptHint(field.label, "How the divider line is drawn.", hintEl);
+    field.select.addEventListener("change", () => {
+      draft.style = field.select.value;
+      onChange();
+    });
+    return;
+  }
+  if (tile.type === "display_name") {
+    bindDraftReaders(box, draft, fillNameClusterOptions(box, fake), onChange);
+    return;
+  }
+  if (tile.type === "link_tree") {
+    bindDraftReaders(box, draft, fillLinkTreeOptions(box, fake), onChange);
+    return;
+  }
+  const empty = document.createElement("div");
+  empty.className = "profile-opt-empty";
+  empty.textContent = "No extra settings for this widget yet.";
+  box.appendChild(empty);
+}
+
+function fillDesignOptions(box, tile, draft, onChange, hintEl) {
   const chrome = defaultTextChrome(tile.type, draft);
   draft.show_background = chrome.show_background;
   draft.show_border = chrome.show_border;
@@ -370,41 +415,11 @@ function fillWidgetDesignOptions(box, tile, draft, onChange, hintEl) {
     profileOptHint(borderRow, "Draw a line around the widget.", hintEl);
     box.appendChild(borderRow);
   }
-
-  const fake = { type: tile.type, props: draft };
-  let readValues = () => ({});
-  if (tile.type === "divider") {
-    const field = profileSelectField("Line style", [
-      { value: "solid", label: "Solid" },
-      { value: "dashed", label: "Dashed" },
-      { value: "dotted", label: "Dotted" }
-    ], draft.style || "solid");
-    box.appendChild(field.label);
-    profileOptHint(field.label, "How the divider line is drawn.", hintEl);
-    field.select.addEventListener("change", () => {
-      draft.style = field.select.value;
-      onChange();
-    });
-    return;
-  }
   if (tile.type === "banner" || tile.type === "avatar") {
-    readValues = fillBorderOptions(box, fake);
+    const fake = { type: tile.type, props: draft };
+    bindDraftReaders(box, draft, fillBorderOptions(box, fake), onChange);
     profileOptHint(box, "Border sits on the image itself, not a panel behind it.", hintEl);
-  } else if (tile.type === "display_name") {
-    readValues = fillNameClusterOptions(box, fake);
-  } else if (tile.type === "link_tree") {
-    readValues = fillLinkTreeOptions(box, fake);
-  } else {
-    return;
   }
-  box.addEventListener("input", () => {
-    Object.assign(draft, readValues());
-    onChange();
-  });
-  box.addEventListener("change", () => {
-    Object.assign(draft, readValues());
-    onChange();
-  });
 }
 
 function profileTileHasOptions(type) {
@@ -602,7 +617,7 @@ function openProfileTileOptions(tile) {
   if (Array.isArray(draft.rows)) draft.rows = draft.rows.map(row => Object.assign({}, row));
   if (Array.isArray(draft.items)) draft.items = draft.items.slice();
   Object.assign(draft, defaultTextChrome(tile.type, draft));
-  let tab = 'design';
+  let tab = profileHasWidgetSettings(tile.type) ? 'widget' : 'design';
   const overlay = document.createElement('div');
   overlay.className = 'settings-form-overlay';
   const box = document.createElement('div');
@@ -666,9 +681,10 @@ function openProfileTileOptions(tile) {
     });
     tabs.appendChild(btn);
   }
-  addTab('design', 'Widget Design', 'Layout and behavior for this widget.');
+  addTab('widget', 'Widget', 'Basic settings unique to this widget.');
+  addTab('design', 'Design', 'Background, border, thickness, and colors.');
   if (profileHasTextFormat(tile.type)) {
-    addTab('format', 'Text Format', 'Size and alignment for the text in this widget.');
+    addTab('text', 'Text', 'Size and alignment for the text in this widget.');
   }
 
   function profilePreviewCellWidth() {
@@ -684,6 +700,11 @@ function openProfileTileOptions(tile) {
     const cellW = profilePreviewCellWidth();
     const nativeW = Math.max(80, tile.w * cellW);
     const nativeH = Math.max(36, tile.h * PROFILE_ROW_H);
+    const leftW = 300;
+    const pad = 80;
+    const maxW = Math.max(360, window.innerWidth - 48);
+    const want = leftW + nativeW + pad;
+    box.style.width = Math.round(Math.min(maxW, Math.max(Math.min(960, maxW), want))) + 'px';
     previewCard.className = 'profile-tile is-' + tile.type + ' is-opt-preview';
     previewCard.style.width = nativeW + 'px';
     previewCard.style.height = nativeH + 'px';
@@ -697,23 +718,26 @@ function openProfileTileOptions(tile) {
       profileEditing = wasEditing;
     }
     applyProfileWidgetSurface(previewCard, fake);
-    const pad = 80;
-    const availW = Math.max(80, preview.clientWidth - pad);
-    const availH = Math.max(80, preview.clientHeight - pad);
-    const scale = Math.min(1, availW / nativeW, availH / nativeH);
-    stage.style.width = Math.round(nativeW * scale) + 'px';
-    stage.style.height = Math.round(nativeH * scale) + 'px';
-    previewCard.style.transformOrigin = 'top left';
-    previewCard.style.transform = 'scale(' + scale + ')';
+    requestAnimationFrame(() => {
+      const availW = Math.max(80, preview.clientWidth - pad);
+      const availH = Math.max(80, preview.clientHeight - pad);
+      const scale = Math.min(1, availW / nativeW, availH / nativeH);
+      stage.style.width = Math.round(nativeW * scale) + 'px';
+      stage.style.height = Math.round(nativeH * scale) + 'px';
+      previewCard.style.transformOrigin = 'top left';
+      previewCard.style.transform = 'scale(' + scale + ')';
+    });
   }
 
   function paintLeft() {
     left.innerHTML = '';
     left.classList.remove('is-wide');
-    if (tab === 'format' && profileHasTextFormat(tile.type)) {
+    if (tab === 'widget') {
+      fillWidgetOptions(left, tile, draft, paintPreview, hintEl);
+    } else if (tab === 'text' && profileHasTextFormat(tile.type)) {
       fillTextFormatOptions(left, draft, tile.type, paintPreview, hintEl);
     } else {
-      fillWidgetDesignOptions(left, tile, draft, paintPreview, hintEl);
+      fillDesignOptions(left, tile, draft, paintPreview, hintEl);
     }
   }
 

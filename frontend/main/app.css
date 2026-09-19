@@ -2855,7 +2855,7 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .profile-opt-close:hover { color: var(--text); background: var(--panel-alt); }
 .profile-opt-main {
-  display: grid; grid-template-columns: 1fr 1fr; min-height: 0;
+  display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: 0;
 }
 .profile-opt-left {
   overflow: hidden; padding: 16px 18px;

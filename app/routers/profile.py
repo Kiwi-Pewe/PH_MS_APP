@@ -50,6 +50,7 @@ STAT_MAX_ROWS = 20
 STAT_FIELD_MAX = 80
 TEXT_SIZES = (8, 9, 10, 11, 12, 14, 18, 24)
 TEXT_ALIGNS = {"left", "center", "right"}
+BORDER_STYLES = {"solid", "dashed", "dotted", "double"}
 LINK_PLATFORMS = (
     "YouTube", "Twitch", "Steam", "Discord", "X", "Instagram", "TikTok",
     "GitHub", "Spotify", "Reddit", "Roblox", "Battle.net", "PlayStation",
@@ -409,21 +410,31 @@ def normalize_text_chrome(data, default_size=14, default_surface=False):
         show_border = bool(data.get("show_border"))
     else:
         show_border = bool(default_surface)
-    return {
+    out = {
         "text_size": size,
         "text_align": align,
         "show_background": show_bg,
         "show_border": show_border,
     }
+    out.update(normalize_border_look(data, 1))
+    return out
+
+
+def normalize_border_look(data, default_width=1):
+    style = str(data.get("border_style") or "solid").lower()
+    if style not in BORDER_STYLES:
+        style = "solid"
+    return {
+        "border_width": clamp_int(data.get("border_width"), 1, 10, default_width),
+        "border_color": clean_hex(data.get("border_color"), "#ffffff"),
+        "border_style": style,
+    }
 
 
 def normalize_border_props(data):
-    width = clamp_int(data.get("border_width"), 1, 12, 3)
-    return {
-        "show_border": bool(data.get("show_border")),
-        "border_width": width,
-        "border_color": clean_hex(data.get("border_color"), "#ffffff"),
-    }
+    out = {"show_border": bool(data.get("show_border"))}
+    out.update(normalize_border_look(data, 3))
+    return out
 
 
 def normalize_props(kind, props, banner_fallback):
@@ -437,10 +448,12 @@ def normalize_props(kind, props, banner_fallback):
     if kind == "avatar":
         return normalize_border_props(data)
     if kind == "display_name":
-        return {
+        out = {
             "show_status": bool(data.get("show_status")),
             "show_pronouns": bool(data.get("show_pronouns")),
         }
+        out.update(normalize_border_props(data))
+        return out
     if kind == "bio":
         out = normalize_text_chrome(data, 14, True)
         out["text"] = clip_text(data.get("text"), BIO_MAX)
@@ -494,7 +507,9 @@ def normalize_props(kind, props, banner_fallback):
         style = str(data.get("style") or "solid")
         if style not in DIVIDER_STYLES:
             style = "solid"
-        return {"style": style}
+        out = normalize_text_chrome(data, 14, False)
+        out["style"] = style
+        return out
     if kind == "spacer":
         return {}
     if kind == "link_tree":

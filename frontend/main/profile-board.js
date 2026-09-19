@@ -159,15 +159,45 @@ function defaultTextSize(type, prev) {
   return 14;
 }
 
+const PROFILE_BORDER_STYLES = [
+  { value: "solid", label: "Solid" },
+  { value: "dashed", label: "Dashed" },
+  { value: "dotted", label: "Dotted" },
+  { value: "double", label: "Double" }
+];
+
+function clampProfileBorderWidth(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(1, Math.min(10, Math.round(n)));
+}
+
+function profileBorderColor(value) {
+  const raw = String(value || "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw.toLowerCase() : "";
+}
+
+function defaultBorderChrome(type, row) {
+  const prev = row || {};
+  const fallbackW = (type === "avatar" || type === "banner") ? 3 : 1;
+  const style = String(prev.border_style || "solid").toLowerCase();
+  const known = PROFILE_BORDER_STYLES.some(item => item.value === style);
+  return {
+    border_width: clampProfileBorderWidth(prev.border_width, fallbackW),
+    border_color: profileBorderColor(prev.border_color) || "#ffffff",
+    border_style: known ? style : "solid"
+  };
+}
+
 function defaultTextChrome(type, prev) {
   const row = prev || {};
-  const card = type !== "header" && type !== "footnote" && type !== "avatar" && type !== "display_name" && type !== "banner";
-  return {
+  const card = type !== "header" && type !== "footnote" && type !== "avatar" && type !== "display_name" && type !== "banner" && type !== "divider";
+  return Object.assign({
     text_size: defaultTextSize(type, row),
     text_align: row.text_align === "center" || row.text_align === "right" ? row.text_align : "left",
     show_background: row.show_background != null ? !!row.show_background : card,
     show_border: row.show_border != null ? !!row.show_border : card
-  };
+  }, defaultBorderChrome(type, row));
 }
 
 function defaultProfileTileProps(type, existing) {
@@ -175,17 +205,17 @@ function defaultProfileTileProps(type, existing) {
   const chrome = defaultTextChrome(type, prev);
   if (type === "bio") return Object.assign({ text: prev.text || "" }, chrome);
   if (type === "banner") {
-    return {
+    return Object.assign({
       color: prev.color ? prev.color : "#1e6b8a",
-      show_border: false,
-      border_width: 3,
-      border_color: "#ffffff"
-    };
+      show_border: false
+    }, defaultBorderChrome(type, prev));
   }
   if (type === "avatar") {
-    return { show_border: false, border_width: 3, border_color: "#ffffff" };
+    return Object.assign({ show_border: false }, defaultBorderChrome(type, prev));
   }
-  if (type === "display_name") return { show_status: false, show_pronouns: false };
+  if (type === "display_name") {
+    return Object.assign({ show_status: false, show_pronouns: false, show_border: false }, defaultBorderChrome(type, prev));
+  }
   if (type === "header") return Object.assign({ text: prev.text || "", level: 1 }, chrome);
   if (type === "body") return Object.assign({ text: prev.text || "" }, chrome);
   if (type === "footnote") return Object.assign({ text: prev.text || "" }, chrome);
@@ -193,7 +223,7 @@ function defaultProfileTileProps(type, existing) {
   if (type === "spoiler") return Object.assign({ title: prev.title || "", text: prev.text || "", start_open: !!prev.start_open }, chrome);
   if (type === "stats") return Object.assign({ rows: Array.isArray(prev.rows) ? prev.rows.map(row => Object.assign({}, row)) : [] }, chrome);
   if (type === "callout") return Object.assign({ text: prev.text || "", tone: prev.tone === "warning" ? "warning" : "tip" }, chrome);
-  if (type === "divider") return { style: "solid" };
+  if (type === "divider") return Object.assign({ style: prev.style || "solid" }, chrome);
   if (type === "link_tree") return Object.assign({ links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [] }, chrome);
   if (type === "friends") return Object.assign({}, chrome);
   return {};
@@ -270,11 +300,22 @@ function mountProfileFixedTitle(el, label) {
 }
 
 function applyProfileWidgetSurface(el, tile) {
-  if (tile.type === "avatar" || tile.type === "banner" || tile.type === "display_name") return;
+  if (tile.type === "avatar" || tile.type === "banner") return;
   const chrome = profileTextChrome(tile.props, tile.type);
-  el.classList.toggle("is-clear", !chrome.show_background);
-  el.classList.toggle("has-surface", !!chrome.show_background);
+  if (tile.type !== "display_name") {
+    el.classList.toggle("is-clear", !chrome.show_background);
+    el.classList.toggle("has-surface", !!chrome.show_background);
+  }
   el.classList.toggle("has-widget-border", !!chrome.show_border);
+  if (chrome.show_border) {
+    el.style.setProperty("--profile-widget-border-width", chrome.border_width + "px");
+    el.style.setProperty("--profile-widget-border-color", chrome.border_color);
+    el.style.setProperty("--profile-widget-border-style", chrome.border_style);
+  } else {
+    el.style.removeProperty("--profile-widget-border-width");
+    el.style.removeProperty("--profile-widget-border-color");
+    el.style.removeProperty("--profile-widget-border-style");
+  }
 }
 
 function mountProfileTextChrome(el, tile) {
@@ -303,11 +344,13 @@ function mountProfileTextChrome(el, tile) {
 
 function applyProfileTileBorder(el, tile, face) {
   const props = tile.props || {};
-  if (!props.show_border) return;
-  const width = Math.max(1, Math.min(12, Number(props.border_width) || 3));
-  const color = props.border_color || "#ffffff";
   const target = face || el;
-  target.style.border = width + "px solid " + color;
+  if (!props.show_border) {
+    target.style.border = "";
+    return;
+  }
+  const chrome = defaultBorderChrome(tile.type, props);
+  target.style.border = chrome.border_width + "px " + chrome.border_style + " " + chrome.border_color;
 }
 
 function profileOwnerStatus() {
@@ -355,6 +398,7 @@ function profilePlatformLetter(name) {
 }
 
 function paintProfileDivider(tile, el) {
+  applyProfileWidgetSurface(el, tile);
   const style = (tile.props && tile.props.style) || "solid";
   const line = document.createElement("div");
   line.className = "profile-divider is-" + style;
@@ -745,6 +789,7 @@ function paintProfileTileContent(tile, el) {
       status.textContent = profileOwnerStatus() || (profileEditing && profileIsOwn ? "Status" : "");
       if (status.textContent) el.appendChild(status);
     }
+    applyProfileWidgetSurface(el, tile);
     return;
   }
   if (tile.type === "member_since") {

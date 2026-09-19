@@ -389,10 +389,79 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   box.appendChild(empty);
 }
 
+function fillBorderExtras(host, draft, onChange, hintEl) {
+  const wrap = document.createElement("div");
+  wrap.className = "profile-opt-border-extras" + (draft.show_border ? " is-open" : "");
+
+  const thickLabel = document.createElement("div");
+  thickLabel.className = "profile-opt-field-label";
+  thickLabel.textContent = "Thickness";
+  const thickRow = document.createElement("div");
+  thickRow.className = "profile-opt-slider-row";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = "1";
+  slider.max = "10";
+  slider.step = "1";
+  slider.className = "settings-slider";
+  slider.value = String(draft.border_width || 1);
+  const val = document.createElement("div");
+  val.className = "profile-opt-slider-val";
+  val.textContent = slider.value;
+  profileOptHint(slider, "How thick the border is, from 1 to 10.", hintEl);
+  slider.addEventListener("input", () => {
+    draft.border_width = Number(slider.value) || 1;
+    val.textContent = String(draft.border_width);
+    onChange();
+  });
+  thickRow.appendChild(slider);
+  thickRow.appendChild(val);
+  wrap.appendChild(thickLabel);
+  wrap.appendChild(thickRow);
+
+  const colorLabel = document.createElement("div");
+  colorLabel.className = "profile-opt-field-label";
+  colorLabel.textContent = "Color";
+  const colorRow = document.createElement("div");
+  colorRow.className = "profile-opt-color-row";
+  const picker = document.createElement("input");
+  picker.type = "color";
+  picker.value = draft.border_color || "#ffffff";
+  const hex = document.createElement("input");
+  hex.type = "text";
+  hex.maxLength = 7;
+  hex.spellcheck = false;
+  hex.value = (draft.border_color || "#ffffff").toUpperCase();
+  function setColor(next) {
+    const clean = profileBorderColor(next) || draft.border_color || "#ffffff";
+    draft.border_color = clean;
+    picker.value = clean;
+    hex.value = clean.toUpperCase();
+    onChange();
+  }
+  profileOptHint(picker, "Pick a border color.", hintEl);
+  profileOptHint(hex, "Hex color for the border.", hintEl);
+  picker.addEventListener("input", () => setColor(picker.value));
+  hex.addEventListener("change", () => setColor(hex.value));
+  colorRow.appendChild(picker);
+  colorRow.appendChild(hex);
+  wrap.appendChild(colorLabel);
+  wrap.appendChild(colorRow);
+
+  const typeField = profileSelectField("Type", PROFILE_BORDER_STYLES, draft.border_style || "solid");
+  profileOptHint(typeField.label, "How the border line is drawn.", hintEl);
+  typeField.select.addEventListener("change", () => {
+    draft.border_style = typeField.select.value;
+    onChange();
+  });
+  wrap.appendChild(typeField.label);
+  host.appendChild(wrap);
+  return wrap;
+}
+
 function fillDesignOptions(box, tile, draft, onChange, hintEl) {
   const chrome = defaultTextChrome(tile.type, draft);
-  draft.show_background = chrome.show_background;
-  draft.show_border = chrome.show_border;
+  Object.assign(draft, chrome);
   if (tile.type !== "avatar" && tile.type !== "banner" && tile.type !== "display_name") {
     const bgRow = settingsOpt(
       "Background",
@@ -404,61 +473,25 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
     );
     profileOptHint(bgRow, "Fill the widget with the panel color.", hintEl);
     box.appendChild(bgRow);
-    const borderRow = settingsOpt(
-      "Border",
-      "",
-      settingsToggle(draft.show_border, false, (on) => {
-        draft.show_border = on;
-        onChange();
-      })
-    );
-    profileOptHint(borderRow, "Draw a line around the widget.", hintEl);
-    box.appendChild(borderRow);
   }
-  if (tile.type === "banner" || tile.type === "avatar") {
-    const fake = { type: tile.type, props: draft };
-    bindDraftReaders(box, draft, fillBorderOptions(box, fake), onChange);
-    profileOptHint(box, "Border sits on the image itself, not a panel behind it.", hintEl);
-  }
+  const extrasHost = document.createElement("div");
+  const borderRow = settingsOpt(
+    "Border",
+    "",
+    settingsToggle(draft.show_border, false, (on) => {
+      draft.show_border = on;
+      extrasHost.querySelector(".profile-opt-border-extras").classList.toggle("is-open", on);
+      onChange();
+    })
+  );
+  profileOptHint(borderRow, "Draw a line around the widget.", hintEl);
+  box.appendChild(borderRow);
+  box.appendChild(extrasHost);
+  fillBorderExtras(extrasHost, draft, onChange, hintEl);
 }
 
 function profileTileHasOptions(type) {
   return profileUsesTextChrome(type) || type === "divider" || type === "link_tree" || type === "banner" || type === "avatar" || type === "display_name";
-}
-
-function fillBorderOptions(box, tile) {
-  const props = tile.props || {};
-  const label = document.createElement("label");
-  label.className = "settings-check";
-  const check = document.createElement("input");
-  check.type = "checkbox";
-  check.checked = !!props.show_border;
-  const name = document.createElement("span");
-  name.textContent = "Show border";
-  label.appendChild(check);
-  label.appendChild(name);
-  box.appendChild(label);
-  const thick = document.createElement("label");
-  thick.textContent = "Thickness";
-  const thickInput = document.createElement("input");
-  thickInput.type = "number";
-  thickInput.min = "1";
-  thickInput.max = "12";
-  thickInput.value = String(props.border_width || 3);
-  thick.appendChild(thickInput);
-  box.appendChild(thick);
-  const color = document.createElement("label");
-  color.textContent = "Color";
-  const colorInput = document.createElement("input");
-  colorInput.type = "color";
-  colorInput.value = props.border_color || "#ffffff";
-  color.appendChild(colorInput);
-  box.appendChild(color);
-  return () => ({
-    show_border: !!check.checked,
-    border_width: Number(thickInput.value) || 3,
-    border_color: colorInput.value || "#ffffff"
-  });
 }
 
 function fillNameClusterOptions(box, tile) {

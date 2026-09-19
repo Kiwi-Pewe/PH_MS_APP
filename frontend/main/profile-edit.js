@@ -475,6 +475,7 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
     box.appendChild(bgRow);
   }
   const extrasHost = document.createElement("div");
+  extrasHost.className = "profile-opt-border-block";
   const borderRow = settingsOpt(
     "Border",
     "",
@@ -485,13 +486,13 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
     })
   );
   profileOptHint(borderRow, "Draw a line around the widget.", hintEl);
-  box.appendChild(borderRow);
-  box.appendChild(extrasHost);
+  extrasHost.appendChild(borderRow);
   fillBorderExtras(extrasHost, draft, onChange, hintEl);
+  box.appendChild(extrasHost);
 }
 
 function profileTileHasOptions(type) {
-  return profileUsesTextChrome(type) || type === "divider" || type === "link_tree" || type === "banner" || type === "avatar" || type === "display_name";
+  return !!PROFILE_TILE_TYPES[type];
 }
 
 function fillNameClusterOptions(box, tile) {

@@ -409,7 +409,7 @@ def normalize_text_chrome(data, default_size=14, default_surface=False):
     if "show_border" in data:
         show_border = bool(data.get("show_border"))
     else:
-        show_border = bool(default_surface)
+        show_border = False
     out = {
         "text_size": size,
         "text_align": align,
@@ -511,7 +511,7 @@ def normalize_props(kind, props, banner_fallback):
         out["style"] = style
         return out
     if kind == "spacer":
-        return {}
+        return normalize_text_chrome(data, 14, False)
     if kind == "link_tree":
         out = normalize_text_chrome(data, 14, True)
         out["links"] = normalize_links(data)
@@ -519,8 +519,8 @@ def normalize_props(kind, props, banner_fallback):
     if kind == "friends":
         return normalize_text_chrome(data, 14, True)
     if kind == "member_since":
-        return {}
-    return {}
+        return normalize_text_chrome(data, 14, True)
+    return normalize_text_chrome(data, 14, True)
 
 
 def normalize_tile(raw, used_ids, banner_fallback):

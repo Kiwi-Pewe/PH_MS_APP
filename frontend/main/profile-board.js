@@ -196,7 +196,7 @@ function defaultTextChrome(type, prev) {
     text_size: defaultTextSize(type, row),
     text_align: row.text_align === "center" || row.text_align === "right" ? row.text_align : "left",
     show_background: row.show_background != null ? !!row.show_background : card,
-    show_border: row.show_border != null ? !!row.show_border : card
+    show_border: row.show_border != null ? !!row.show_border : false
   }, defaultBorderChrome(type, row));
 }
 
@@ -226,7 +226,7 @@ function defaultProfileTileProps(type, existing) {
   if (type === "divider") return Object.assign({ style: prev.style || "solid" }, chrome);
   if (type === "link_tree") return Object.assign({ links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [] }, chrome);
   if (type === "friends") return Object.assign({}, chrome);
-  return {};
+  return Object.assign({}, chrome);
 }
 
 function placeProfileTile(page, type) {
@@ -746,6 +746,7 @@ function paintProfileTileContent(tile, el) {
     el.appendChild(face);
     return;
   }
+  applyProfileWidgetSurface(el, tile);
   if (tile.type === "display_name") {
     const row = document.createElement("div");
     row.className = "profile-tile-name-row";

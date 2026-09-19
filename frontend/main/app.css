@@ -2508,7 +2508,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   padding: 8px 20px 20px; font-size: 13px; color: var(--text-dim);
 }
 .profile-tile {
-  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel-alt); border: none; border-radius: 10px;
   min-width: 0; min-height: 0; overflow: hidden;
   position: relative; z-index: 1;
   box-sizing: border-box;
@@ -2875,8 +2875,12 @@ a.profile-link-row:hover { color: var(--accent); }
   background: var(--rail); border: 1px solid var(--border); border-radius: 6px;
   color: var(--text); font-size: 14px; padding: 9px 10px;
 }
-.profile-opt-border-extras { display: none; padding: 4px 0 8px; }
+.profile-opt-border-extras { display: none; padding: 0 0 8px; }
 .profile-opt-border-extras.is-open { display: block; }
+.profile-opt-border-block {
+  border-bottom: 1px solid var(--border);
+}
+.profile-opt-border-block .settings-opt { border-bottom: none; }
 .profile-opt-slider-row {
   display: flex; align-items: center; gap: 10px;
   margin-bottom: 12px;

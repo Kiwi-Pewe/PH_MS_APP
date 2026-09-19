@@ -345,6 +345,32 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function fillWidgetDesignOptions(box, tile, draft, onChange, hintEl) {
+  const chrome = defaultTextChrome(tile.type, draft);
+  draft.show_background = chrome.show_background;
+  draft.show_border = chrome.show_border;
+  if (tile.type !== "avatar" && tile.type !== "banner" && tile.type !== "display_name") {
+    const bgRow = settingsOpt(
+      "Background",
+      "",
+      settingsToggle(draft.show_background, false, (on) => {
+        draft.show_background = on;
+        onChange();
+      })
+    );
+    profileOptHint(bgRow, "Fill the widget with the panel color.", hintEl);
+    box.appendChild(bgRow);
+    const borderRow = settingsOpt(
+      "Border",
+      "",
+      settingsToggle(draft.show_border, false, (on) => {
+        draft.show_border = on;
+        onChange();
+      })
+    );
+    profileOptHint(borderRow, "Draw a line around the widget.", hintEl);
+    box.appendChild(borderRow);
+  }
+
   const fake = { type: tile.type, props: draft };
   let readValues = () => ({});
   if (tile.type === "divider") {
@@ -367,65 +393,8 @@ function fillWidgetDesignOptions(box, tile, draft, onChange, hintEl) {
   } else if (tile.type === "display_name") {
     readValues = fillNameClusterOptions(box, fake);
   } else if (tile.type === "link_tree") {
-    box.classList.add("is-wide");
     readValues = fillLinkTreeOptions(box, fake);
-  } else if (tile.type === "header") {
-    const field = profileSelectField("Header style", [
-      { value: "1", label: "Heading 1 — large" },
-      { value: "2", label: "Heading 2 — medium" },
-      { value: "3", label: "Heading 3 — small" }
-    ], draft.level || 1);
-    box.appendChild(field.label);
-    profileOptHint(field.label, "Heading size relative to this widget’s text size.", hintEl);
-    field.select.addEventListener("change", () => {
-      draft.level = Number(field.select.value) || 1;
-      onChange();
-    });
-    return;
-  } else if (tile.type === "list") {
-    const field = profileSelectField("List style", [
-      { value: "bullet", label: "Bullets" },
-      { value: "number", label: "Numbered" }
-    ], draft.style || "bullet");
-    box.appendChild(field.label);
-    profileOptHint(field.label, "Markers in front of each list item.", hintEl);
-    field.select.addEventListener("change", () => {
-      draft.style = field.select.value === "number" ? "number" : "bullet";
-      onChange();
-    });
-    return;
-  } else if (tile.type === "spoiler") {
-    const label = document.createElement("label");
-    label.className = "settings-check";
-    const check = document.createElement("input");
-    check.type = "checkbox";
-    check.checked = !!draft.start_open;
-    label.appendChild(check);
-    label.appendChild(document.createTextNode(" Start open"));
-    box.appendChild(label);
-    profileOptHint(label, "When on, visitors see the hidden text already revealed.", hintEl);
-    check.addEventListener("change", () => {
-      draft.start_open = !!check.checked;
-      onChange();
-    });
-    return;
-  } else if (tile.type === "callout") {
-    const field = profileSelectField("Callout tone", [
-      { value: "tip", label: "Tip" },
-      { value: "warning", label: "Warning" }
-    ], draft.tone || "tip");
-    box.appendChild(field.label);
-    profileOptHint(field.label, "Tip uses the accent bar. Warning uses the away color.", hintEl);
-    field.select.addEventListener("change", () => {
-      draft.tone = field.select.value === "warning" ? "warning" : "tip";
-      onChange();
-    });
-    return;
   } else {
-    const empty = document.createElement("div");
-    empty.className = "profile-opt-empty";
-    empty.textContent = "No layout settings for this widget yet.";
-    box.appendChild(empty);
     return;
   }
   box.addEventListener("input", () => {
@@ -644,8 +613,16 @@ function openProfileTileOptions(tile) {
   const name = document.createElement('div');
   name.className = 'profile-opt-name';
   name.textContent = (PROFILE_TILE_TYPES[tile.type] && PROFILE_TILE_TYPES[tile.type].label) || tile.type;
+  const split = document.createElement('div');
+  split.className = 'profile-opt-split';
+  split.textContent = '|';
   const tabs = document.createElement('div');
   tabs.className = 'profile-opt-tabs';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'profile-opt-close';
+  close.setAttribute('aria-label', 'Close');
+  close.textContent = '\u00d7';
 
   const main = document.createElement('div');
   main.className = 'profile-opt-main';
@@ -691,8 +668,23 @@ function openProfileTileOptions(tile) {
     addTab('format', 'Text Format', 'Size and alignment for the text in this widget.');
   }
 
+  function profilePreviewCellWidth() {
+    const board = document.getElementById('profile-board');
+    if (!board) return 24;
+    const styles = window.getComputedStyle(board);
+    const padX = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
+    const inner = Math.max(1, board.clientWidth - padX);
+    return inner / PROFILE_COLS;
+  }
+
   function paintPreview() {
+    const cellW = profilePreviewCellWidth();
+    const width = Math.max(80, tile.w * cellW);
+    const height = Math.max(36, tile.h * PROFILE_ROW_H);
     previewCard.className = 'profile-tile is-' + tile.type + ' is-opt-preview';
+    previewCard.style.width = width + 'px';
+    previewCard.style.height = height + 'px';
+    previewCard.style.maxWidth = 'none';
     const fake = { type: tile.type, props: draft, id: tile.id, w: tile.w, h: tile.h, x: 0, y: 0 };
     const wasEditing = profileEditing;
     profileEditing = false;
@@ -701,6 +693,14 @@ function openProfileTileOptions(tile) {
     } finally {
       profileEditing = wasEditing;
     }
+    applyProfileWidgetSurface(previewCard, fake);
+    const margin = 56;
+    const leftW = 340;
+    const rails = 100;
+    const nextW = Math.min(window.innerWidth - 40, Math.max(760, leftW + width + margin * 2));
+    const nextH = Math.min(window.innerHeight - 40, Math.max(420, height + margin * 2 + rails));
+    box.style.width = nextW + 'px';
+    box.style.height = nextH + 'px';
   }
 
   function paintLeft() {
@@ -714,6 +714,8 @@ function openProfileTileOptions(tile) {
   }
 
   cancel.addEventListener('click', () => overlay.remove());
+  close.addEventListener('click', () => overlay.remove());
+  profileOptHint(close, 'Close without saving.', hintEl);
   confirm.addEventListener('click', async () => {
     const identity = draft.identity;
     delete draft.identity;
@@ -734,7 +736,9 @@ function openProfileTileOptions(tile) {
   });
 
   top.appendChild(name);
+  top.appendChild(split);
   top.appendChild(tabs);
+  top.appendChild(close);
   box.appendChild(top);
   box.appendChild(main);
   box.appendChild(bottom);

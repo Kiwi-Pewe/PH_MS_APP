@@ -161,9 +161,12 @@ function defaultTextSize(type, prev) {
 
 function defaultTextChrome(type, prev) {
   const row = prev || {};
+  const card = type !== "header" && type !== "footnote" && type !== "avatar" && type !== "display_name" && type !== "banner";
   return {
     text_size: defaultTextSize(type, row),
-    text_align: row.text_align === "center" || row.text_align === "right" ? row.text_align : "left"
+    text_align: row.text_align === "center" || row.text_align === "right" ? row.text_align : "left",
+    show_background: row.show_background != null ? !!row.show_background : card,
+    show_border: row.show_border != null ? !!row.show_border : card
   };
 }
 
@@ -191,7 +194,8 @@ function defaultProfileTileProps(type, existing) {
   if (type === "stats") return Object.assign({ rows: Array.isArray(prev.rows) ? prev.rows.map(row => Object.assign({}, row)) : [] }, chrome);
   if (type === "callout") return Object.assign({ text: prev.text || "", tone: prev.tone === "warning" ? "warning" : "tip" }, chrome);
   if (type === "divider") return { style: "solid" };
-  if (type === "link_tree") return { links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [] };
+  if (type === "link_tree") return Object.assign({ links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [] }, chrome);
+  if (type === "friends") return Object.assign({}, chrome);
   return {};
 }
 
@@ -265,12 +269,20 @@ function mountProfileFixedTitle(el, label) {
   el.appendChild(rule);
 }
 
+function applyProfileWidgetSurface(el, tile) {
+  if (tile.type === "avatar" || tile.type === "banner" || tile.type === "display_name") return;
+  const chrome = profileTextChrome(tile.props, tile.type);
+  el.classList.toggle("is-clear", !chrome.show_background);
+  el.classList.toggle("has-surface", !!chrome.show_background);
+  el.classList.toggle("has-widget-border", !!chrome.show_border);
+}
+
 function mountProfileTextChrome(el, tile) {
   const chrome = profileTextChrome(tile.props, tile.type);
   el.classList.add("is-text-chrome");
   el.dataset.textAlign = chrome.text_align;
   el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
-  if (!profileHasFixedTitle(tile.type)) el.classList.add("is-clear");
+  applyProfileWidgetSurface(el, tile);
   const shell = document.createElement("div");
   shell.className = "profile-text-shell";
   if (profileHasFixedTitle(tile.type)) {
@@ -358,6 +370,7 @@ function paintProfileSpacer(el) {
 }
 
 function paintProfileLinkTree(tile, el) {
+  applyProfileWidgetSurface(el, tile);
   mountProfileFixedTitle(el, "Links");
   const body = document.createElement("div");
   body.className = "profile-tile-body";
@@ -795,6 +808,7 @@ function paintProfileTileContent(tile, el) {
     return;
   }
   mountProfileFixedTitle(el, "Friends");
+  applyProfileWidgetSurface(el, tile);
   const body = document.createElement("div");
   body.className = "profile-tile-body";
   paintProfileFriends(body);

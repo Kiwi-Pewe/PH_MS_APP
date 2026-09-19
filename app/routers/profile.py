@@ -389,7 +389,7 @@ def snap_text_size(value, default=14):
     return min(TEXT_SIZES, key=lambda item: abs(item - size))
 
 
-def normalize_text_chrome(data, default_size=14):
+def normalize_text_chrome(data, default_size=14, default_surface=False):
     if "text_size" in data:
         size = snap_text_size(data.get("text_size"), default_size)
     else:
@@ -401,9 +401,19 @@ def normalize_text_chrome(data, default_size=14):
     align = str(data.get("text_align") or "left")
     if align not in TEXT_ALIGNS:
         align = "left"
+    if "show_background" in data:
+        show_bg = bool(data.get("show_background"))
+    else:
+        show_bg = bool(default_surface)
+    if "show_border" in data:
+        show_border = bool(data.get("show_border"))
+    else:
+        show_border = bool(default_surface)
     return {
         "text_size": size,
         "text_align": align,
+        "show_background": show_bg,
+        "show_border": show_border,
     }
 
 
@@ -432,7 +442,7 @@ def normalize_props(kind, props, banner_fallback):
             "show_pronouns": bool(data.get("show_pronouns")),
         }
     if kind == "bio":
-        out = normalize_text_chrome(data, 14)
+        out = normalize_text_chrome(data, 14, True)
         out["text"] = clip_text(data.get("text"), BIO_MAX)
         return out
     if kind == "header":
@@ -442,41 +452,41 @@ def normalize_props(kind, props, banner_fallback):
             level = 1
         if level not in HEADER_LEVELS:
             level = 1
-        out = normalize_text_chrome(data, 18)
+        out = normalize_text_chrome(data, 18, False)
         out["text"] = clip_text(data.get("text"), HEADER_MAX)
         out["level"] = level
         return out
     if kind == "body":
-        out = normalize_text_chrome(data, 14)
+        out = normalize_text_chrome(data, 14, True)
         out["text"] = clip_text(data.get("text"), BIO_MAX)
         return out
     if kind == "footnote":
-        out = normalize_text_chrome(data, 12)
+        out = normalize_text_chrome(data, 12, False)
         out["text"] = clip_text(data.get("text"), FOOTNOTE_MAX)
         return out
     if kind == "list":
         style = str(data.get("style") or "bullet")
         if style not in LIST_STYLES:
             style = "bullet"
-        out = normalize_text_chrome(data, 14)
+        out = normalize_text_chrome(data, 14, True)
         out["style"] = style
         out["items"] = normalize_list_items(data)
         return out
     if kind == "spoiler":
-        out = normalize_text_chrome(data, 14)
+        out = normalize_text_chrome(data, 14, True)
         out["title"] = clip_text(data.get("title"), SPOILER_TITLE_MAX)
         out["text"] = clip_text(data.get("text"), BIO_MAX)
         out["start_open"] = bool(data.get("start_open"))
         return out
     if kind == "stats":
-        out = normalize_text_chrome(data, 14)
+        out = normalize_text_chrome(data, 14, True)
         out["rows"] = normalize_stat_rows(data)
         return out
     if kind == "callout":
         tone = str(data.get("tone") or "tip")
         if tone not in CALLOUT_TONES:
             tone = "tip"
-        out = normalize_text_chrome(data, 14)
+        out = normalize_text_chrome(data, 14, True)
         out["text"] = clip_text(data.get("text"), FOOTNOTE_MAX)
         out["tone"] = tone
         return out
@@ -488,7 +498,11 @@ def normalize_props(kind, props, banner_fallback):
     if kind == "spacer":
         return {}
     if kind == "link_tree":
-        return {"links": normalize_links(data)}
+        out = normalize_text_chrome(data, 14, True)
+        out["links"] = normalize_links(data)
+        return out
+    if kind == "friends":
+        return normalize_text_chrome(data, 14, True)
     if kind == "member_since":
         return {}
     return {}

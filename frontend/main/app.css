@@ -2765,8 +2765,20 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .settings-form .settings-check input { width: auto; margin: 0; }
 .settings-form input[type="color"] { width: 48px; height: 32px; padding: 2px; }
-.profile-friend-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
-.profile-friend-row .avatar-dot { width: 28px; height: 28px; font-size: 11px; }
+.profile-friend-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; min-width: 0; }
+.profile-friend-row .avatar-dot {
+  width: var(--profile-friend-icon, 28px);
+  height: var(--profile-friend-icon, 28px);
+  font-size: calc(var(--profile-friend-icon, 28px) * 0.4);
+}
+.profile-friend-name {
+  min-width: 0;
+  font-size: var(--profile-friend-text, 13px);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .profile-tile.is-editing { outline: 2px solid var(--accent); cursor: grab; user-select: none; }
 .profile-tile.is-editing textarea,
 .profile-tile.is-editing input.profile-spoiler-title { pointer-events: none; cursor: inherit; }

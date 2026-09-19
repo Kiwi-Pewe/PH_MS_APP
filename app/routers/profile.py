@@ -518,7 +518,9 @@ def normalize_props(kind, props, banner_fallback):
         out["link_size"] = clamp_int(data.get("link_size"), 1, 10, 5)
         return out
     if kind == "friends":
-        return normalize_text_chrome(data, 14, True)
+        out = normalize_text_chrome(data, 14, True)
+        out["friend_size"] = clamp_int(data.get("friend_size"), 1, 10, 5)
+        return out
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)

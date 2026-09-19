@@ -345,7 +345,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "divider" || type === "display_name" || type === "link_tree";
+  return type === "divider" || type === "display_name" || type === "link_tree" || type === "friends";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -381,6 +381,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "link_tree") {
     bindDraftReaders(box, draft, fillLinkTreeOptions(box, fake, hintEl), onChange);
+    return;
+  }
+  if (tile.type === "friends") {
+    fillFriendsOptions(box, draft, onChange, hintEl);
     return;
   }
   const empty = document.createElement("div");
@@ -557,6 +561,35 @@ function profileSelectField(labelText, options, selected) {
   });
   label.appendChild(select);
   return { label, select };
+}
+
+function fillFriendsOptions(box, draft, onChange, hintEl) {
+  draft.friend_size = clampProfileEntrySize(draft.friend_size);
+  const sizeLabel = document.createElement("div");
+  sizeLabel.className = "profile-opt-field-label";
+  sizeLabel.textContent = "Size";
+  const sizeRow = document.createElement("div");
+  sizeRow.className = "profile-opt-slider-row";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = "1";
+  slider.max = "10";
+  slider.step = "1";
+  slider.className = "settings-slider";
+  slider.value = String(draft.friend_size);
+  const val = document.createElement("div");
+  val.className = "profile-opt-slider-val";
+  val.textContent = slider.value;
+  profileOptHint(slider, "Scale the picture and name for every friend.", hintEl);
+  slider.addEventListener("input", () => {
+    draft.friend_size = Number(slider.value) || 5;
+    val.textContent = String(draft.friend_size);
+    onChange();
+  });
+  sizeRow.appendChild(slider);
+  sizeRow.appendChild(val);
+  box.appendChild(sizeLabel);
+  box.appendChild(sizeRow);
 }
 
 function fillLinkTreeOptions(box, tile, hintEl) {

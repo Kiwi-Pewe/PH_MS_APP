@@ -6,6 +6,7 @@
 const PROFILE_COLS = 32;
 const PROFILE_ROW_H = 36;
 const PROFILE_GAP = 0;
+// Kiwi lists min/max as (Height, Width). Fields below are minH/minW, maxH/maxW.
 const PROFILE_TILE_TYPES = {
   banner: { w: 32, h: 3, minW: 6, minH: 3, maxW: 32, maxH: 5, label: "Banner" },
   avatar: { w: 4, h: 4, minW: 2, minH: 2, maxW: 4, maxH: 4, label: "Avatar" },
@@ -230,7 +231,7 @@ function defaultProfileTileProps(type, existing) {
       link_size: clampProfileLinkSize(prev.link_size)
     }, chrome);
   }
-  if (type === "friends") return Object.assign({}, chrome);
+  if (type === "friends") return Object.assign({ friend_size: clampProfileEntrySize(prev.friend_size) }, chrome);
   return Object.assign({}, chrome);
 }
 
@@ -390,16 +391,28 @@ function profileOwnerHandle() {
   return profileUser.username || "";
 }
 
-function clampProfileLinkSize(value) {
+function clampProfileEntrySize(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 5;
   return Math.max(1, Math.min(10, Math.round(n)));
 }
 
+function applyProfileEntrySize(el, size, iconVar, textVar) {
+  const n = clampProfileEntrySize(size);
+  el.style.setProperty(iconVar, (14 + n * 2) + "px");
+  el.style.setProperty(textVar, (10.5 + n * 0.7) + "px");
+}
+
+function clampProfileLinkSize(value) {
+  return clampProfileEntrySize(value);
+}
+
 function applyProfileLinkSize(el, tile) {
-  const size = clampProfileLinkSize(tile.props && tile.props.link_size);
-  el.style.setProperty("--profile-link-icon", (14 + size * 2) + "px");
-  el.style.setProperty("--profile-link-text", (10.5 + size * 0.7) + "px");
+  applyProfileEntrySize(el, tile.props && tile.props.link_size, "--profile-link-icon", "--profile-link-text");
+}
+
+function applyProfileFriendSize(el, tile) {
+  applyProfileEntrySize(el, tile.props && tile.props.friend_size, "--profile-friend-icon", "--profile-friend-text");
 }
 
 function profilePlatformLetter(name) {
@@ -484,6 +497,7 @@ function paintProfileFriends(host) {
     const shown = person.display_name || person.username || "?";
     dot.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : shown.slice(0, 1);
     const name = document.createElement("div");
+    name.className = "profile-friend-name";
     name.textContent = shown;
     row.appendChild(dot);
     row.appendChild(name);
@@ -868,6 +882,7 @@ function paintProfileTileContent(tile, el) {
   }
   mountProfileFixedTitle(el, "Friends");
   applyProfileWidgetSurface(el, tile);
+  applyProfileFriendSize(el, tile);
   const body = document.createElement("div");
   body.className = "profile-tile-body";
   paintProfileFriends(body);

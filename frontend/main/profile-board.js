@@ -623,7 +623,7 @@ function clampProfileEntrySize(value) {
 function clampProfileZIndex(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
-  return Math.max(-50, Math.min(50, Math.round(n)));
+  return Math.max(0, Math.min(100, Math.round(n)));
 }
 
 function profileTileZIndex(tile) {

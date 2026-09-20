@@ -3180,6 +3180,14 @@ a.profile-link-row:hover { color: var(--accent); }
   width: 72px;
   margin-top: 0;
   text-align: right;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.profile-opt-left .profile-opt-z-input::-webkit-outer-spin-button,
+.profile-opt-left .profile-opt-z-input::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
 }
 .profile-opt-color-row {
   display: flex; align-items: center; gap: 8px;

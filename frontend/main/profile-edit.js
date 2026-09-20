@@ -566,22 +566,39 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
   zBlock.className = "profile-opt-border-block";
   draft.z_index = clampProfileZIndex(draft.z_index);
   const zInput = document.createElement("input");
-  zInput.type = "number";
+  zInput.type = "text";
   zInput.className = "profile-opt-z-input";
-  zInput.min = "-50";
-  zInput.max = "50";
-  zInput.step = "1";
+  zInput.inputMode = "numeric";
+  zInput.autocomplete = "off";
+  zInput.spellcheck = false;
   zInput.value = String(draft.z_index);
-  zInput.addEventListener("input", () => {
-    if (zInput.value === "" || zInput.value === "-") return;
-    const n = Number(zInput.value);
-    if (!Number.isFinite(n)) return;
+  const commitZ = (raw, rewrite) => {
+    const trimmed = String(raw ?? "").trim();
+    if (!rewrite && trimmed === "") return false;
+    if (/^-/.test(trimmed)) {
+      draft.z_index = 0;
+      zInput.value = "0";
+      return true;
+    }
+    const digits = trimmed.replace(/\D/g, "");
+    if (!rewrite && digits === "") return false;
+    const n = digits === "" ? 0 : Number(digits);
     draft.z_index = clampProfileZIndex(n);
+    if (rewrite || draft.z_index !== n || digits !== trimmed) {
+      zInput.value = String(draft.z_index);
+    }
+    return true;
+  };
+  zInput.addEventListener("input", () => {
+    if (!commitZ(zInput.value, false)) return;
     onChange();
   });
   zInput.addEventListener("change", () => {
-    draft.z_index = clampProfileZIndex(zInput.value);
-    zInput.value = String(draft.z_index);
+    commitZ(zInput.value, true);
+    onChange();
+  });
+  zInput.addEventListener("blur", () => {
+    commitZ(zInput.value, true);
     onChange();
   });
   const zRow = settingsOpt("Z-Index", "", zInput);

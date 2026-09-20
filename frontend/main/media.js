@@ -373,3 +373,55 @@ document.getElementById("media-file-input").addEventListener("change", () => {
 
 bindComposerMedia("composer", "composer-input", "composer-plus-btn");
 bindComposerMedia("channel-composer", "channel-composer-input", "channel-composer-plus-btn");
+
+const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+function rejectProfileImage(file) {
+  const mime = fileMime(file);
+  if (!mime || MEDIA_MIME[mime] !== "image") return "Only jpeg, png, gif, or webp.";
+  if (file.size > PROFILE_IMAGE_MAX_BYTES) return "File is over 5 MB.";
+  return "";
+}
+
+async function uploadProfileImageFile(file) {
+  const reason = rejectProfileImage(file);
+  if (reason) throw new Error(reason);
+  const mime = fileMime(file);
+  let intentRes;
+  try {
+    intentRes = await fetch(`https://${serverAddress}/upload_intent`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content_type: mime,
+        size: file.size,
+        filename: file.name || "",
+        purpose: "profile"
+      })
+    });
+  } catch (e) {
+    throw new Error("Could not reach the API to start the upload. Is uvicorn running?");
+  }
+  const intent = await intentRes.json().catch(() => ({}));
+  if (!intentRes.ok) throw new Error(intent.detail || "Could not start upload.");
+  let putRes;
+  try {
+    putRes = await fetch(intent.upload_url, {
+      method: "PUT",
+      headers: { "Content-Type": intent.mime },
+      body: file
+    });
+  } catch (e) {
+    throw new Error("R2 blocked the browser upload. Re-save the bucket CORS policy.");
+  }
+  if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
+  return {
+    key: intent.key,
+    mime: intent.mime,
+    size: file.size,
+    name: file.name || "",
+    url: intent.public_url,
+    kind: intent.kind
+  };
+}

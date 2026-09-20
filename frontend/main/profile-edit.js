@@ -319,7 +319,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
+  return type === "banner" || type === "image" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -337,6 +337,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   const fake = { type: tile.type, props: draft };
   if (tile.type === "banner") {
     fillBannerOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "image") {
+    fillImageOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "divider") {
@@ -424,6 +428,81 @@ function fillBannerOptions(box, draft, onChange, hintEl) {
   colorRow.appendChild(hex);
   box.appendChild(colorLabel);
   box.appendChild(colorRow);
+}
+
+function dropProfileImageDraft(draft) {
+  if (!draft) return;
+  if (draft._previewUrl) URL.revokeObjectURL(draft._previewUrl);
+  delete draft._previewUrl;
+  delete draft._file;
+}
+
+function fillImageOptions(box, draft, onChange, hintEl) {
+  const note = document.createElement("div");
+  note.className = "settings-opt-desc";
+  note.textContent = "Jpeg, png, gif, or webp. Max 5 MB. Fits inside the widget without stretching.";
+  box.appendChild(note);
+
+  const status = document.createElement("div");
+  status.className = "profile-opt-image-name";
+  const actions = document.createElement("div");
+  actions.className = "profile-opt-image-actions";
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/jpeg,image/png,image/gif,image/webp";
+  fileInput.hidden = true;
+  const choose = document.createElement("button");
+  choose.type = "button";
+  choose.className = "profile-link-add";
+  choose.textContent = draft.key || draft.url ? "Replace image" : "Choose image";
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.textContent = "Remove";
+
+  function paintStatus() {
+    const has = !!(draft._file || draft.key || (draft.url && !String(draft.url).startsWith("blob:")));
+    status.textContent = draft._file ? draft._file.name : (draft.name || (has ? "Image" : "No image yet."));
+    choose.textContent = has || draft._file ? "Replace image" : "Choose image";
+    remove.hidden = !has && !draft._file;
+  }
+
+  profileOptHint(choose, "Pick a picture for this widget.", hintEl);
+  choose.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files && fileInput.files[0];
+    fileInput.value = "";
+    if (!file) return;
+    const reason = typeof rejectProfileImage === "function" ? rejectProfileImage(file) : "Upload is not available.";
+    if (reason) {
+      window.alert(reason);
+      return;
+    }
+    if (draft._previewUrl) URL.revokeObjectURL(draft._previewUrl);
+    draft._file = file;
+    draft._previewUrl = URL.createObjectURL(file);
+    draft.url = draft._previewUrl;
+    draft.name = file.name || "Image";
+    draft.mime = typeof fileMime === "function" ? fileMime(file) : file.type;
+    draft.size = file.size;
+    paintStatus();
+    onChange();
+  });
+  remove.addEventListener("click", () => {
+    dropProfileImageDraft(draft);
+    draft.key = "";
+    draft.url = "";
+    draft.mime = "";
+    draft.size = 0;
+    draft.name = "";
+    paintStatus();
+    onChange();
+  });
+  actions.appendChild(choose);
+  actions.appendChild(remove);
+  box.appendChild(fileInput);
+  box.appendChild(actions);
+  box.appendChild(status);
+  paintStatus();
 }
 
 function fillRailOptions(box, draft, onChange, hintEl) {
@@ -1411,8 +1490,14 @@ function openProfileTileOptions(tile) {
     }
   }
 
-  cancel.addEventListener('click', () => overlay.remove());
-  close.addEventListener('click', () => overlay.remove());
+  cancel.addEventListener('click', () => {
+    dropProfileImageDraft(draft);
+    overlay.remove();
+  });
+  close.addEventListener('click', () => {
+    dropProfileImageDraft(draft);
+    overlay.remove();
+  });
   profileOptHint(close, 'Close without saving.', hintEl);
   confirm.addEventListener('click', async () => {
     const identity = draft.identity;
@@ -1427,6 +1512,23 @@ function openProfileTileOptions(tile) {
         return;
       }
     }
+    if (tile.type === 'image' && draft._file) {
+      confirm.disabled = true;
+      try {
+        if (typeof uploadProfileImageFile !== 'function') throw new Error('Upload is not available.');
+        const att = await uploadProfileImageFile(draft._file);
+        draft.key = att.key;
+        draft.url = att.url;
+        draft.mime = att.mime;
+        draft.size = att.size;
+        draft.name = att.name || draft.name || '';
+      } catch (e) {
+        confirm.disabled = false;
+        window.alert(e.message || 'Could not upload that image.');
+        return;
+      }
+    }
+    dropProfileImageDraft(draft);
     tile.z_index = clampProfileZIndex(draft.z_index);
     delete draft.z_index;
     if (draft.props) delete draft.props;
@@ -1444,7 +1546,12 @@ function openProfileTileOptions(tile) {
   box.appendChild(main);
   box.appendChild(bottom);
   overlay.appendChild(box);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      dropProfileImageDraft(draft);
+      overlay.remove();
+    }
+  });
   document.body.appendChild(overlay);
   paintLeft();
   paintPreview();

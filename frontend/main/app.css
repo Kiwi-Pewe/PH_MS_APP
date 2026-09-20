@@ -2645,6 +2645,52 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   align-items: center;
   justify-content: center;
 }
+.profile-tile.is-image {
+  overflow: hidden;
+}
+.profile-tile-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+.profile-image-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.profile-opt-image-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 8px;
+}
+.profile-opt-image-actions .profile-link-add {
+  margin: 0;
+}
+.profile-opt-image-actions button {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--panel-alt);
+  color: var(--text);
+}
+.profile-opt-image-name {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .profile-icon-body {
   display: flex;
   align-items: center;

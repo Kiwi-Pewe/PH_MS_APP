@@ -35,6 +35,7 @@ R2_ENDPOINT = _endpoint()
 R2_PUBLIC_BASE = _env("R2_PUBLIC_BASE").rstrip("/")
 
 BASE_UPLOAD_BYTES = 20 * 1024 * 1024
+PROFILE_IMAGE_BYTES = 5 * 1024 * 1024
 
 ALLOWED_MIME = {
     "image/jpeg": (".jpg", "image"),
@@ -45,13 +46,25 @@ ALLOWED_MIME = {
     "video/mp4": (".mp4", "video"),
     "video/webm": (".webm", "video"),
 }
+PROFILE_IMAGE_MIME = {
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+}
 
 KEY_RE = re.compile(
     r"^chat/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp|mp4|webm)$"
 )
+PROFILE_KEY_RE = re.compile(
+    r"^profile/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp)$"
+)
 
 
-def max_upload_bytes(user=None):
+def max_upload_bytes(user=None, purpose="chat"):
+    if purpose == "profile":
+        return PROFILE_IMAGE_BYTES
     return BASE_UPLOAD_BYTES
 
 
@@ -73,10 +86,13 @@ def public_url_for(key):
     return f"{_env('R2_PUBLIC_BASE').rstrip('/')}/{key}"
 
 
-def new_object_key(mime):
+def new_object_key(mime, purpose="chat"):
     ext, kind = ALLOWED_MIME[mime]
+    folder = "profile" if purpose == "profile" else "chat"
+    if folder == "profile" and kind != "image":
+        raise HTTPException(status_code=400, detail="Profile tiles only accept images here.")
     now = datetime.utcnow()
-    key = f"chat/{now.year:04d}/{now.month:02d}/{now.day:02d}/{uuid.uuid4().hex}{ext}"
+    key = f"{folder}/{now.year:04d}/{now.month:02d}/{now.day:02d}/{uuid.uuid4().hex}{ext}"
     return key, kind
 
 

@@ -75,7 +75,8 @@ const PROFILE_TILE_TYPES = {
   details: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" },
   local_time: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" },
   icon: { w: 3, h: 3, minW: 2, minH: 2, maxW: 6, maxH: 6, label: "Icon" },
-  clock: { w: 6, h: 3, minW: 4, minH: 2, maxW: 12, maxH: 5, label: "Clock" }
+  clock: { w: 6, h: 3, minW: 4, minH: 2, maxW: 12, maxH: 5, label: "Clock" },
+  image: { w: 10, h: 6, minW: 4, minH: 3, maxW: 24, maxH: 16, label: "Image" }
 };
 
 const PROFILE_PLACEHOLDERS = {
@@ -90,7 +91,6 @@ const PROFILE_PLACEHOLDERS = {
   frame: { label: "Frame", w: 12, h: 8, minW: 6, minH: 4, maxW: 32, maxH: 18 },
   color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
   meter: { label: "Meter", w: 10, h: 2, minW: 6, minH: 1, maxW: 24, maxH: 4 },
-  image: { label: "Image", w: 10, h: 6, minW: 4, minH: 3, maxW: 24, maxH: 16 },
   video: { label: "Video", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   music: { label: "Music", w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 8 },
   twitch: { label: "Twitch", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
@@ -417,6 +417,15 @@ function defaultProfileTileProps(type, existing) {
     return Object.assign({
       emoji: profileIconEmoji(prev.emoji),
       icon_size: clampProfileEntrySize(prev.icon_size)
+    }, chrome);
+  }
+  if (type === "image") {
+    return Object.assign({
+      key: prev.key || "",
+      url: prev.url || "",
+      mime: prev.mime || "",
+      size: prev.size || 0,
+      name: prev.name || ""
     }, chrome);
   }
   if (type === "clock" || type === "countdown") {
@@ -1092,6 +1101,31 @@ function paintProfileIcon(tile, el) {
   el.appendChild(body);
 }
 
+function profileImageSrc(props) {
+  const row = props || {};
+  const src = String(row.url || "").trim();
+  return src;
+}
+
+function paintProfileImage(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  const src = profileImageSrc(tile.props);
+  const name = String((tile.props && tile.props.name) || "Image");
+  if (!src) {
+    const empty = document.createElement("div");
+    empty.className = "profile-image-empty";
+    empty.textContent = profileEditing && profileIsOwn ? "Choose an image in Options." : "";
+    el.appendChild(empty);
+    return;
+  }
+  const img = document.createElement("img");
+  img.className = "profile-tile-image";
+  img.src = src;
+  img.alt = name;
+  img.draggable = false;
+  el.appendChild(img);
+}
+
 function paintProfileClock(tile, el) {
   const chrome = profileTextChrome(tile.props, "clock");
   el.classList.add("is-text-chrome");
@@ -1583,6 +1617,10 @@ function paintProfileTileContent(tile, el) {
     paintProfileIcon(tile, el);
     return;
   }
+  if (tile.type === "image") {
+    paintProfileImage(tile, el);
+    return;
+  }
   if (tile.type === "clock") {
     paintProfileClock(tile, el);
     return;
@@ -1643,7 +1681,7 @@ function renderProfileBoard() {
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
-        if (tile.type === "banner" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
+        if (tile.type === "banner" || tile.type === "image" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

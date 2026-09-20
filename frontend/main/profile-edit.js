@@ -249,6 +249,7 @@ function bindProfileTileDrag(el, tile, handle) {
     if (e.button === 2) return;
     if (e.detail >= 2) return;
     if (e.target.closest(".profile-resize")) return;
+    if (e.target.closest(".oneira-player-chrome, .oneira-player-menu")) return;
     if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
     e.preventDefault();
     mode = "move";
@@ -319,7 +320,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "image" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
+  return type === "banner" || type === "image" || type === "video" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -341,6 +342,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "image") {
     fillImageOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "video") {
+    fillVideoOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "divider") {
@@ -437,10 +442,10 @@ function dropProfileImageDraft(draft) {
   delete draft._file;
 }
 
-function fillImageOptions(box, draft, onChange, hintEl) {
+function fillMediaFileOptions(box, draft, onChange, hintEl, spec) {
   const note = document.createElement("div");
   note.className = "settings-opt-desc";
-  note.textContent = "Jpeg, png, gif, or webp. Max 5 MB. Fits inside the widget without stretching.";
+  note.textContent = spec.note;
   box.appendChild(note);
 
   const status = document.createElement("div");
@@ -449,30 +454,29 @@ function fillImageOptions(box, draft, onChange, hintEl) {
   actions.className = "profile-opt-image-actions";
   const fileInput = document.createElement("input");
   fileInput.type = "file";
-  fileInput.accept = "image/jpeg,image/png,image/gif,image/webp";
+  fileInput.accept = spec.accept;
   fileInput.hidden = true;
   const choose = document.createElement("button");
   choose.type = "button";
   choose.className = "profile-link-add";
-  choose.textContent = draft.key || draft.url ? "Replace image" : "Choose image";
   const remove = document.createElement("button");
   remove.type = "button";
   remove.textContent = "Remove";
 
   function paintStatus() {
     const has = !!(draft._file || draft.key || (draft.url && !String(draft.url).startsWith("blob:")));
-    status.textContent = draft._file ? draft._file.name : (draft.name || (has ? "Image" : "No image yet."));
-    choose.textContent = has || draft._file ? "Replace image" : "Choose image";
+    status.textContent = draft._file ? draft._file.name : (draft.name || (has ? spec.noun : spec.empty));
+    choose.textContent = has || draft._file ? spec.replace : spec.choose;
     remove.hidden = !has && !draft._file;
   }
 
-  profileOptHint(choose, "Pick a picture for this widget.", hintEl);
+  profileOptHint(choose, spec.hint, hintEl);
   choose.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", () => {
     const file = fileInput.files && fileInput.files[0];
     fileInput.value = "";
     if (!file) return;
-    const reason = typeof rejectProfileImage === "function" ? rejectProfileImage(file) : "Upload is not available.";
+    const reason = spec.reject(file);
     if (reason) {
       window.alert(reason);
       return;
@@ -481,7 +485,7 @@ function fillImageOptions(box, draft, onChange, hintEl) {
     draft._file = file;
     draft._previewUrl = URL.createObjectURL(file);
     draft.url = draft._previewUrl;
-    draft.name = file.name || "Image";
+    draft.name = file.name || spec.noun;
     draft.mime = typeof fileMime === "function" ? fileMime(file) : file.type;
     draft.size = file.size;
     paintStatus();
@@ -503,6 +507,32 @@ function fillImageOptions(box, draft, onChange, hintEl) {
   box.appendChild(actions);
   box.appendChild(status);
   paintStatus();
+}
+
+function fillImageOptions(box, draft, onChange, hintEl) {
+  fillMediaFileOptions(box, draft, onChange, hintEl, {
+    note: "Jpeg, png, gif, or webp. Max 5 MB. Fits inside the widget without stretching.",
+    accept: "image/jpeg,image/png,image/gif,image/webp",
+    noun: "Image",
+    empty: "No image yet.",
+    choose: "Choose image",
+    replace: "Replace image",
+    hint: "Pick a picture for this widget.",
+    reject: (file) => typeof rejectProfileImage === "function" ? rejectProfileImage(file) : "Upload is not available."
+  });
+}
+
+function fillVideoOptions(box, draft, onChange, hintEl) {
+  fillMediaFileOptions(box, draft, onChange, hintEl, {
+    note: "Mp4 or webm. Max 20 MB. Uses the Oneira player. No sound until you press play.",
+    accept: "video/mp4,video/webm",
+    noun: "Video",
+    empty: "No video yet.",
+    choose: "Choose video",
+    replace: "Replace video",
+    hint: "Pick a clip for this widget.",
+    reject: (file) => typeof rejectProfileVideo === "function" ? rejectProfileVideo(file) : "Upload is not available."
+  });
 }
 
 function fillRailOptions(box, draft, onChange, hintEl) {
@@ -1525,6 +1555,22 @@ function openProfileTileOptions(tile) {
       } catch (e) {
         confirm.disabled = false;
         window.alert(e.message || 'Could not upload that image.');
+        return;
+      }
+    }
+    if (tile.type === 'video' && draft._file) {
+      confirm.disabled = true;
+      try {
+        if (typeof uploadProfileVideoFile !== 'function') throw new Error('Upload is not available.');
+        const att = await uploadProfileVideoFile(draft._file);
+        draft.key = att.key;
+        draft.url = att.url;
+        draft.mime = att.mime;
+        draft.size = att.size;
+        draft.name = att.name || draft.name || '';
+      } catch (e) {
+        confirm.disabled = false;
+        window.alert(e.message || 'Could not upload that video.');
         return;
       }
     }

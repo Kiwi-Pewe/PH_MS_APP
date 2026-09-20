@@ -36,6 +36,7 @@ R2_PUBLIC_BASE = _env("R2_PUBLIC_BASE").rstrip("/")
 
 BASE_UPLOAD_BYTES = 20 * 1024 * 1024
 PROFILE_IMAGE_BYTES = 5 * 1024 * 1024
+PROFILE_VIDEO_BYTES = 20 * 1024 * 1024
 
 ALLOWED_MIME = {
     "image/jpeg": (".jpg", "image"),
@@ -53,6 +54,10 @@ PROFILE_IMAGE_MIME = {
     "image/gif",
     "image/webp",
 }
+PROFILE_VIDEO_MIME = {
+    "video/mp4",
+    "video/webm",
+}
 
 KEY_RE = re.compile(
     r"^chat/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp|mp4|webm)$"
@@ -60,12 +65,18 @@ KEY_RE = re.compile(
 PROFILE_KEY_RE = re.compile(
     r"^profile/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp)$"
 )
+PROFILE_VIDEO_KEY_RE = re.compile(
+    r"^profile/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(mp4|webm)$"
+)
 
 
-def max_upload_bytes(user=None, purpose="chat"):
-    if purpose == "profile":
-        return PROFILE_IMAGE_BYTES
-    return BASE_UPLOAD_BYTES
+def max_upload_bytes(user=None, purpose="chat", mime=""):
+    if purpose != "profile":
+        return BASE_UPLOAD_BYTES
+    kind = ALLOWED_MIME.get(normalize_mime(mime), ("", ""))[1]
+    if kind == "video":
+        return PROFILE_VIDEO_BYTES
+    return PROFILE_IMAGE_BYTES
 
 
 def r2_is_configured():
@@ -89,8 +100,8 @@ def public_url_for(key):
 def new_object_key(mime, purpose="chat"):
     ext, kind = ALLOWED_MIME[mime]
     folder = "profile" if purpose == "profile" else "chat"
-    if folder == "profile" and kind != "image":
-        raise HTTPException(status_code=400, detail="Profile tiles only accept images here.")
+    if folder == "profile" and kind not in ("image", "video"):
+        raise HTTPException(status_code=400, detail="That file type cannot go on a profile tile.")
     now = datetime.utcnow()
     key = f"{folder}/{now.year:04d}/{now.month:02d}/{now.day:02d}/{uuid.uuid4().hex}{ext}"
     return key, kind

@@ -1,0 +1,177 @@
+.oneira-player {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: radial-gradient(ellipse at center, #16324a 0%, #071018 72%);
+  color: #dceaf4;
+  user-select: none;
+}
+.oneira-player-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.oneira-player-stage video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  background: transparent;
+}
+.oneira-player.is-empty video { visibility: hidden; }
+.oneira-player-empty {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.oneira-player.is-empty .oneira-player-empty { display: flex; }
+.oneira-player-emblem {
+  width: min(42%, 120px);
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(170, 210, 230, 0.28), rgba(40, 90, 120, 0.18));
+  box-shadow: inset 0 0 0 1px rgba(180, 220, 240, 0.35), 0 8px 24px rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+.oneira-player-emblem::after {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  background: #c5e4f4;
+  clip-path: polygon(38% 12%, 62% 12%, 62% 48%, 82% 70%, 68% 82%, 50% 58%, 32% 82%, 18% 70%, 38% 48%);
+  opacity: 0.92;
+}
+.oneira-player-chrome {
+  flex: 0 0 auto;
+  padding: 4px 8px 8px;
+  background: linear-gradient(180deg, rgba(8, 18, 28, 0.2), rgba(8, 18, 28, 0.92));
+}
+.oneira-player-scrub {
+  width: 100%;
+  height: 6px;
+  margin: 0 0 6px;
+  accent-color: #3aa0d8;
+}
+.oneira-player-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.oneira-player-time {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #9ec3d8;
+  min-width: 4.6em;
+}
+.oneira-player-cluster {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+.oneira-player-play {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #7ec8ea;
+  background: radial-gradient(circle at 50% 40%, #4aa3d4, #1b5f86);
+  color: #e8f6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.oneira-player-play svg { width: 16px; height: 16px; }
+.oneira-player-skip,
+.oneira-player-icon {
+  background: transparent;
+  color: #c5e2f2;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+}
+.oneira-player-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.oneira-player-icon svg { width: 16px; height: 16px; }
+.oneira-player-vol {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 88px;
+  min-width: 0;
+}
+.oneira-player-vol-slider {
+  width: 64px;
+  min-width: 0;
+  flex: 1 1 auto;
+  height: 4px;
+  accent-color: #3aa0d8;
+}
+.oneira-player-gear-wrap { position: relative; flex: 0 0 auto; }
+.oneira-player-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  width: 168px;
+  padding: 8px;
+  background: rgba(10, 22, 34, 0.96);
+  border: 1px solid rgba(120, 170, 200, 0.35);
+  border-radius: 8px;
+  z-index: 3;
+}
+.oneira-player-menu-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8fb6cc;
+  margin: 6px 0 4px;
+}
+.oneira-player-menu-title:first-child { margin-top: 0; }
+.oneira-player-menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.oneira-player-menu-chip {
+  background: #163044;
+  color: #d5eaf6;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 999px;
+}
+.oneira-player-menu-chip.is-on {
+  background: #2e7eab;
+  color: #fff;
+}
+.oneira-player-menu-chip:disabled { opacity: 0.85; cursor: default; }
+.oneira-player.is-empty .oneira-player-chrome { opacity: 0.85; }
+.profile-tile.is-video {
+  overflow: hidden;
+  padding: 0;
+  background: #071018;
+}
+.profile-tile.is-video.has-widget-border {
+  padding: 0;
+}

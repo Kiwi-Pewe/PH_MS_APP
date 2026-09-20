@@ -12,7 +12,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.privacy import can_see_full_profile
 from app.routers.account import parse_display_name_history
-from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, normalize_mime, public_url_for
+from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for
 
 router = APIRouter()
 
@@ -541,6 +541,34 @@ def normalize_profile_image_props(data):
     return out
 
 
+def empty_profile_video(data):
+    out = normalize_text_chrome(data, 14, True)
+    out.update({"key": "", "url": "", "mime": "", "size": 0, "name": ""})
+    return out
+
+
+def normalize_profile_video_props(data):
+    key = str(data.get("key") or "").strip()
+    mime = normalize_mime(data.get("mime"))
+    if not PROFILE_VIDEO_KEY_RE.match(key) or mime not in ALLOWED_MIME or ALLOWED_MIME[mime][1] != "video":
+        return empty_profile_video(data)
+    if not key.endswith(ALLOWED_MIME[mime][0]):
+        return empty_profile_video(data)
+    try:
+        size = int(data.get("size") or 0)
+    except (TypeError, ValueError):
+        size = 0
+    if size < 0 or size > PROFILE_VIDEO_BYTES:
+        return empty_profile_video(data)
+    out = normalize_text_chrome(data, 14, True)
+    out["key"] = key
+    out["url"] = public_url_for(key)
+    out["mime"] = mime
+    out["size"] = size
+    out["name"] = clip_text(data.get("name"), 200)
+    return out
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
     if kind == "banner":
@@ -681,6 +709,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_clock_props(data)
     if kind == "image":
         return normalize_profile_image_props(data)
+    if kind == "video":
+        return normalize_profile_video_props(data)
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)

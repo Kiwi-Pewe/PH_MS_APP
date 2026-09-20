@@ -374,6 +374,7 @@ def normalize_clock_props(data):
     out["time_format"] = time_format
     out["show_date"] = bool(data.get("show_date"))
     out["show_zone"] = bool(data.get("show_zone"))
+    out["show_seconds"] = bool(data.get("show_seconds"))
     out["month_style"] = month_style
     out["year_style"] = year_style
     out["label"] = clip_text(data.get("label"), CLOCK_LABEL_MAX).strip()

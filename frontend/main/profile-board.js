@@ -431,6 +431,7 @@ function defaultProfileTileProps(type, existing) {
       time_format: format,
       show_date: !!prev.show_date,
       show_zone: !!prev.show_zone,
+      show_seconds: !!prev.show_seconds,
       month_style: prev.month_style === "name" ? "name" : "num",
       year_style: prev.year_style === "2" ? "2" : "full",
       label: prev.label || "",
@@ -968,15 +969,18 @@ function profilePad2(n) {
   return String(n).padStart(2, "0");
 }
 
-function profileDurationText(ms, ended) {
+function profileDurationText(ms, ended, showSeconds) {
   if (ended && ms <= 0) return "Ended";
   const total = Math.max(0, Math.floor(Math.abs(ms) / 1000));
   const days = Math.floor(total / 86400);
   const hours = Math.floor((total % 86400) / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
-  if (days > 0) return days + "d " + profilePad2(hours) + ":" + profilePad2(minutes) + ":" + profilePad2(seconds);
-  return profilePad2(hours) + ":" + profilePad2(minutes) + ":" + profilePad2(seconds);
+  let text = days > 0
+    ? days + "d " + profilePad2(hours) + ":" + profilePad2(minutes)
+    : profilePad2(hours) + ":" + profilePad2(minutes);
+  if (showSeconds) text += ":" + profilePad2(seconds);
+  return text;
 }
 
 function tickProfileInstrumentClocks() {
@@ -989,8 +993,9 @@ function tickProfileInstrumentClocks() {
     }
     const at = Date.parse(el.dataset.at || "");
     if (!Number.isFinite(at)) return;
-    if (mode === "countdown") el.textContent = profileDurationText(at - Date.now(), true);
-    if (mode === "timer") el.textContent = profileDurationText(Date.now() - at, false);
+    const showSeconds = el.dataset.seconds === "1";
+    if (mode === "countdown") el.textContent = profileDurationText(at - Date.now(), true, showSeconds);
+    if (mode === "timer") el.textContent = profileDurationText(Date.now() - at, false, showSeconds);
   });
 }
 
@@ -1115,7 +1120,8 @@ function paintProfileClock(tile, el) {
     const at = Date.parse(props.target_at || "");
     if (Number.isFinite(at)) {
       face.dataset.at = props.target_at;
-      face.textContent = profileDurationText(at - Date.now(), true);
+      face.dataset.seconds = props.show_seconds ? "1" : "0";
+      face.textContent = profileDurationText(at - Date.now(), true, !!props.show_seconds);
       body.appendChild(face);
     } else {
       const empty = document.createElement("div");
@@ -1127,7 +1133,8 @@ function paintProfileClock(tile, el) {
     const at = Date.parse(props.start_at || "");
     if (Number.isFinite(at)) {
       face.dataset.at = props.start_at;
-      face.textContent = profileDurationText(Date.now() - at, false);
+      face.dataset.seconds = props.show_seconds ? "1" : "0";
+      face.textContent = profileDurationText(Date.now() - at, false, !!props.show_seconds);
       body.appendChild(face);
     } else {
       const empty = document.createElement("div");

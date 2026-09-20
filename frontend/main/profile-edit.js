@@ -845,6 +845,7 @@ function fillClockOptions(box, draft, onChange, hintEl) {
   if (draft.year_style !== "2") draft.year_style = "full";
   draft.show_date = !!draft.show_date;
   draft.show_zone = !!draft.show_zone;
+  draft.show_seconds = !!draft.show_seconds;
   draft.label = String(draft.label || "");
   draft.timezone = String(draft.timezone || "");
   draft.target_at = String(draft.target_at || "");
@@ -875,12 +876,12 @@ function fillClockOptions(box, draft, onChange, hintEl) {
   profileOptHint(mode.label, "World is a chosen city. Countdown is until a date. Timer counts up from a start.", hintEl);
   modeBlock.appendChild(mode.label);
   const extras = document.createElement("div");
-  box.appendChild(extras);
+  extras.className = "profile-opt-mode-extras";
+  modeBlock.appendChild(extras);
 
   function paintExtras() {
     extras.innerHTML = "";
     if (draft.mode === "world") {
-      const cityBlock = profileOptSection(extras);
       const cities = profileClockCityList();
       const options = cities.map(item => ({ value: item.zone, label: item.city }));
       if (draft.timezone && !cities.some(item => item.zone === draft.timezone)) {
@@ -893,9 +894,8 @@ function fillClockOptions(box, draft, onChange, hintEl) {
         draft.timezone = city.select.value;
         onChange();
       });
-      cityBlock.appendChild(city.label);
+      extras.appendChild(city.label);
 
-      const fmtBlock = profileOptSection(extras);
       const fmt = profileSelectField("Time Format", [
         { value: "12", label: "12H" },
         { value: "24", label: "24H" },
@@ -906,9 +906,8 @@ function fillClockOptions(box, draft, onChange, hintEl) {
         draft.time_format = fmt.select.value;
         onChange();
       });
-      fmtBlock.appendChild(fmt.label);
+      extras.appendChild(fmt.label);
 
-      const dateBlock = profileOptSection(extras);
       const dateExtras = document.createElement("div");
       dateExtras.className = "profile-opt-border-extras" + (draft.show_date ? " is-open" : "");
       const dateRow = settingsOpt(
@@ -921,7 +920,7 @@ function fillClockOptions(box, draft, onChange, hintEl) {
         })
       );
       profileOptHint(dateRow, "Show the current date under the time.", hintEl);
-      dateBlock.appendChild(dateRow);
+      extras.appendChild(dateRow);
       const month = profileSelectField("Month", [
         { value: "num", label: "Numerical" },
         { value: "name", label: "Name" }
@@ -942,9 +941,8 @@ function fillClockOptions(box, draft, onChange, hintEl) {
         onChange();
       });
       dateExtras.appendChild(year.label);
-      dateBlock.appendChild(dateExtras);
+      extras.appendChild(dateExtras);
 
-      const zoneBlock = profileOptSection(extras);
       const zoneRow = settingsOpt(
         "Timezone",
         "",
@@ -954,10 +952,9 @@ function fillClockOptions(box, draft, onChange, hintEl) {
         })
       );
       profileOptHint(zoneRow, "Show the city name under the clock.", hintEl);
-      zoneBlock.appendChild(zoneRow);
+      extras.appendChild(zoneRow);
       return;
     }
-    const whenBlock = profileOptSection(extras);
     const whenLabel = document.createElement("label");
     whenLabel.textContent = draft.mode === "countdown" ? "Ends" : "Started";
     const when = document.createElement("input");
@@ -973,7 +970,17 @@ function fillClockOptions(box, draft, onChange, hintEl) {
       onChange();
     });
     whenLabel.appendChild(when);
-    whenBlock.appendChild(whenLabel);
+    extras.appendChild(whenLabel);
+    const secondsRow = settingsOpt(
+      "Seconds",
+      "",
+      settingsToggle(draft.show_seconds, false, (on) => {
+        draft.show_seconds = on;
+        onChange();
+      })
+    );
+    profileOptHint(secondsRow, "Off matches a normal clock. On shows ticking seconds.", hintEl);
+    extras.appendChild(secondsRow);
   }
 
   mode.select.addEventListener("change", () => {

@@ -249,7 +249,7 @@ function bindProfileTileDrag(el, tile, handle) {
     if (e.button === 2) return;
     if (e.detail >= 2) return;
     if (e.target.closest(".profile-resize")) return;
-    if (e.target.closest(".oneira-player-chrome, .oneira-player-menu")) return;
+    if (e.target.closest(".oneira-player-chrome, .oneira-player-menu, .oneira-player-gear-wrap")) return;
     if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
     e.preventDefault();
     mode = "move";

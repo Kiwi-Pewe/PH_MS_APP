@@ -1,7 +1,7 @@
 // ==================================================================
 // media-player.js - Shared Oneira video chrome. Profile widget now;
-// chat can mount the same player later. No fullscreen in this pass.
-// Empty stage uses our own emblem, not a Windows Media Player asset.
+// chat can mount the same player later. Gear is top-right; fullscreen
+// sits where the gear used to be on the bar.
 // ==================================================================
 
 const ONEIRA_PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -52,6 +52,19 @@ function mountOneiraPlayer(host, options) {
   empty.innerHTML = '<div class="oneira-player-emblem" aria-hidden="true"></div>';
   stage.appendChild(video);
   stage.appendChild(empty);
+  const gearWrap = document.createElement("div");
+  gearWrap.className = "oneira-player-gear-wrap";
+  const gearBtn = document.createElement("button");
+  gearBtn.type = "button";
+  gearBtn.className = "oneira-player-icon oneira-player-gear";
+  gearBtn.setAttribute("aria-label", "Settings");
+  gearBtn.appendChild(oneiraPlayerSvg("M19.14 12.94a7.07 7.07 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.1 7.1 0 00-1.63-.94l-.36-2.54A.5.5 0 0014.9 2h-3.8a.5.5 0 00-.49.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 00-.6.22L3.71 8.84a.5.5 0 00.12.64L5.86 11.06a7.07 7.07 0 000 1.88L3.83 14.52a.5.5 0 00-.12.64l1.92 3.32a.5.5 0 00.6.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54a.5.5 0 00.49.42h3.8a.5.5 0 00.49-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96a.5.5 0 00.6-.22l1.92-3.32a.5.5 0 00.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1115.5 12 3.5 3.5 0 0112 15.5z"));
+  const menu = document.createElement("div");
+  menu.className = "oneira-player-menu";
+  menu.hidden = true;
+  gearWrap.appendChild(gearBtn);
+  gearWrap.appendChild(menu);
+  stage.appendChild(gearWrap);
 
   const bar = document.createElement("div");
   bar.className = "oneira-player-chrome";
@@ -102,22 +115,26 @@ function mountOneiraPlayer(host, options) {
   vol.setAttribute("aria-label", "Volume");
   volWrap.appendChild(muteBtn);
   volWrap.appendChild(vol);
-  const gearWrap = document.createElement("div");
-  gearWrap.className = "oneira-player-gear-wrap";
-  const gearBtn = document.createElement("button");
-  gearBtn.type = "button";
-  gearBtn.className = "oneira-player-icon";
-  gearBtn.setAttribute("aria-label", "Settings");
-  gearBtn.appendChild(oneiraPlayerSvg("M19.14 12.94a7.07 7.07 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.1 7.1 0 00-1.63-.94l-.36-2.54A.5.5 0 0014.9 2h-3.8a.5.5 0 00-.49.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 00-.6.22L3.71 8.84a.5.5 0 00.12.64L5.86 11.06a7.07 7.07 0 000 1.88L3.83 14.52a.5.5 0 00-.12.64l1.92 3.32a.5.5 0 00.6.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54a.5.5 0 00.49.42h3.8a.5.5 0 00.49-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96a.5.5 0 00.6-.22l1.92-3.32a.5.5 0 00.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1115.5 12 3.5 3.5 0 0112 15.5z"));
-  const menu = document.createElement("div");
-  menu.className = "oneira-player-menu";
-  menu.hidden = true;
-  gearWrap.appendChild(gearBtn);
-  gearWrap.appendChild(menu);
+  const fsBtn = document.createElement("button");
+  fsBtn.type = "button";
+  fsBtn.className = "oneira-player-icon";
+  fsBtn.setAttribute("aria-label", "Full screen");
+  function paintFsIcon() {
+    const on = document.fullscreenElement === root;
+    fsBtn.setAttribute("aria-label", on ? "Exit full screen" : "Full screen");
+    fsBtn.innerHTML = "";
+    fsBtn.appendChild(on
+      ? oneiraPlayerSvg("M7 14H5v5h5v-2H7v-3zm0-4h2V7h3V5H5v5h2zm10 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z")
+      : oneiraPlayerSvg("M7 14H5v5h5v-2H7v-3zm12-9h-5v2h3v3h2V5zM5 5v5h2V7h3V5H5zm14 9h-2v3h-3v2h5v-5z"));
+  }
+  paintFsIcon();
+  const end = document.createElement("div");
+  end.className = "oneira-player-end";
+  end.appendChild(volWrap);
+  end.appendChild(fsBtn);
   row.appendChild(timeEl);
   row.appendChild(cluster);
-  row.appendChild(volWrap);
-  row.appendChild(gearWrap);
+  row.appendChild(end);
   bar.appendChild(scrub);
   bar.appendChild(row);
   root.appendChild(stage);
@@ -199,7 +216,7 @@ function mountOneiraPlayer(host, options) {
   function setEnabled() {
     root.classList.toggle("is-empty", !hasSrc());
     const off = !hasSrc();
-    [scrub, backBtn, playBtn, fwdBtn, muteBtn, vol, gearBtn].forEach((el) => {
+    [scrub, backBtn, playBtn, fwdBtn, muteBtn, vol, gearBtn, fsBtn].forEach((el) => {
       el.disabled = off;
     });
   }
@@ -239,6 +256,7 @@ function mountOneiraPlayer(host, options) {
   }
 
   bar.addEventListener("pointerdown", (e) => e.stopPropagation());
+  gearWrap.addEventListener("pointerdown", (e) => e.stopPropagation());
   menu.addEventListener("pointerdown", (e) => e.stopPropagation());
   playBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -295,6 +313,20 @@ function mountOneiraPlayer(host, options) {
       menu.hidden = false;
     } else closeMenu();
   });
+  fsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!hasSrc()) return;
+    const req = root.requestFullscreen || root.webkitRequestFullscreen;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (document.fullscreenElement === root || document.webkitFullscreenElement === root) {
+      if (exit) exit.call(document);
+      return;
+    }
+    if (req) req.call(root);
+  });
+  const onFsChange = () => paintFsIcon();
+  document.addEventListener("fullscreenchange", onFsChange);
+  document.addEventListener("webkitfullscreenchange", onFsChange);
   video.addEventListener("play", () => setPlayingUi(true));
   video.addEventListener("pause", () => setPlayingUi(false));
   video.addEventListener("ended", () => setPlayingUi(false));
@@ -313,8 +345,11 @@ function mountOneiraPlayer(host, options) {
     pause,
     setSource,
     destroy() {
-      pause();
-      oneiraPlayers.delete(handle);
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+      if ((document.fullscreenElement === root || document.webkitFullscreenElement === root) && (document.exitFullscreen || document.webkitExitFullscreen)) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      }
       if (host && host._oneiraPlayer === handle) host._oneiraPlayer = null;
       if (root.parentNode) root.remove();
     }

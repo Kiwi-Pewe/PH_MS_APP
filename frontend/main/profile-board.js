@@ -496,7 +496,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock";
 }
 
 function profileTextChrome(props, type) {

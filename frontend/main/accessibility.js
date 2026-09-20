@@ -76,27 +76,15 @@ function applyAccessibility(prefs) {
   if (typeof refreshAccessibilityPreview === "function") refreshAccessibilityPreview();
 }
 
-function uiZoomFactor() {
-  const z = (Number(accessibilityPrefs && accessibilityPrefs.zoom) || 100) / 100;
-  if (!Number.isFinite(z) || z <= 0) return 1;
-  return Math.min(2, Math.max(0.5, z));
-}
-
 function applyAccessibilityZoom(percent) {
   const z = Math.min(2, Math.max(0.5, (Number(percent) || 100) / 100));
-  const root = document.documentElement;
-  root.style.zoom = "";
+  document.documentElement.style.zoom = Math.abs(z - 1) < 0.001 ? "" : String(z);
   const shell = document.getElementById("app-shell");
-  if (!shell) return;
-  if (Math.abs(z - 1) < 0.001) {
+  if (shell) {
     shell.style.zoom = "";
     shell.style.width = "";
     shell.style.height = "";
-    return;
   }
-  shell.style.zoom = String(z);
-  shell.style.width = (100 / z) + "%";
-  shell.style.height = (100 / z) + "%";
 }
 
 function hydrateAccessibility(payload) {

@@ -1,4 +1,4 @@
-#app-shell { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+#app-shell { height: 100%; display: flex; flex-direction: column; }
 
 #topbar {
   height: 52px;
@@ -3109,8 +3109,8 @@ a.profile-link-row:hover { color: var(--accent); }
   font-size: 13px; font-weight: 700; padding: 8px 12px; border-radius: 6px;
 }
 .profile-opt {
-  width: min(720px, calc(100% - 48px));
-  height: min(560px, calc(100% - 48px));
+  width: min(960px, calc(100% - 48px));
+  height: min(640px, calc(100% - 48px));
   max-width: calc(100% - 48px);
   max-height: calc(100% - 48px);
   display: grid;

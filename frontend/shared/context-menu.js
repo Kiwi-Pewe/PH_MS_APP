@@ -111,23 +111,23 @@ function closeContextMenu() {
 
 // Keeps the menu on-screen — flips to open leftward/upward from the
 // click point if it would otherwise overflow the viewport edge.
+function pageZoom() {
+  const raw = document.documentElement.style.zoom;
+  const z = Number(raw);
+  return raw && Number.isFinite(z) && z > 0 ? z : 1;
+}
+
 function positionMenu(menu, x, y) {
-  const vv = window.visualViewport;
-  const viewW = vv ? vv.width : window.innerWidth;
-  const viewH = vv ? vv.height : window.innerHeight;
-  const originX = vv ? vv.offsetLeft : 0;
-  const originY = vv ? vv.offsetTop : 0;
-  let left = x;
-  let top = y;
-  menu.style.left = left + "px";
-  menu.style.top = top + "px";
+  const z = pageZoom();
+  menu.style.left = (x / z) + "px";
+  menu.style.top = (y / z) + "px";
   const rect = menu.getBoundingClientRect();
-  if (rect.right > originX + viewW) left = Math.max(originX, x - rect.width);
-  if (rect.bottom > originY + viewH) top = Math.max(originY, y - rect.height);
-  if (left < originX) left = originX;
-  if (top < originY) top = originY;
-  menu.style.left = left + "px";
-  menu.style.top = top + "px";
+  if (rect.right > window.innerWidth) {
+    menu.style.left = (Math.max(0, x - rect.width) / z) + "px";
+  }
+  if (rect.bottom > window.innerHeight) {
+    menu.style.top = (Math.max(0, y - rect.height) / z) + "px";
+  }
 }
 
 // Truncates message preview text for a context menu's reference area.

@@ -112,15 +112,22 @@ function closeContextMenu() {
 // Keeps the menu on-screen — flips to open leftward/upward from the
 // click point if it would otherwise overflow the viewport edge.
 function positionMenu(menu, x, y) {
-  menu.style.left = `${x}px`;
-  menu.style.top = `${y}px`;
+  const vv = window.visualViewport;
+  const viewW = vv ? vv.width : window.innerWidth;
+  const viewH = vv ? vv.height : window.innerHeight;
+  const originX = vv ? vv.offsetLeft : 0;
+  const originY = vv ? vv.offsetTop : 0;
+  let left = x;
+  let top = y;
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
   const rect = menu.getBoundingClientRect();
-  if (rect.right > window.innerWidth) {
-    menu.style.left = `${Math.max(0, x - rect.width)}px`;
-  }
-  if (rect.bottom > window.innerHeight) {
-    menu.style.top = `${Math.max(0, y - rect.height)}px`;
-  }
+  if (rect.right > originX + viewW) left = Math.max(originX, x - rect.width);
+  if (rect.bottom > originY + viewH) top = Math.max(originY, y - rect.height);
+  if (left < originX) left = originX;
+  if (top < originY) top = originY;
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
 }
 
 // Truncates message preview text for a context menu's reference area.

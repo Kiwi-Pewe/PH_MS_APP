@@ -1291,9 +1291,10 @@ function openProfileTileOptions(tile) {
     const nativeH = Math.max(PROFILE_ROW_H, tile.h * PROFILE_ROW_H);
     const leftW = 300;
     const pad = 80;
-    const maxW = Math.max(360, window.innerWidth - 48);
+    const overlayW = overlay.clientWidth || window.innerWidth;
+    const maxW = Math.max(360, overlayW - 48);
     const want = leftW + nativeW + pad;
-    box.style.width = Math.round(Math.min(maxW, Math.max(Math.min(960, maxW), want))) + 'px';
+    box.style.width = Math.round(Math.min(maxW, Math.max(want, Math.min(720, maxW)))) + "px";
     previewCard.className = 'profile-tile is-' + tile.type + ' is-opt-preview';
     previewCard.style.width = nativeW + 'px';
     previewCard.style.height = nativeH + 'px';

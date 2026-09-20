@@ -3164,6 +3164,7 @@ a.profile-link-row:hover { color: var(--accent); }
 .profile-opt-border-extras.is-open { display: block; }
 .profile-opt-border-block {
   border-bottom: 1px solid var(--border);
+  padding: 4px 0 2px;
 }
 .profile-opt-border-block .settings-opt { border-bottom: none; }
 .profile-opt-slider-row {

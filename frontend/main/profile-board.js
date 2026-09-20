@@ -123,6 +123,66 @@ const PROFILE_LINK_PLATFORMS = [
   "Patreon", "Bluesky", "Crunchyroll", "eBay", "Other"
 ];
 
+const PROFILE_CLOCK_CITIES = [
+  { group: "UTC", items: [{ zone: "UTC", city: "UTC" }] },
+  {
+    group: "Americas",
+    items: [
+      { zone: "Pacific/Honolulu", city: "Honolulu" },
+      { zone: "America/Anchorage", city: "Anchorage" },
+      { zone: "America/Los_Angeles", city: "Los Angeles" },
+      { zone: "America/Denver", city: "Denver" },
+      { zone: "America/Chicago", city: "Chicago" },
+      { zone: "America/New_York", city: "New York" },
+      { zone: "America/Mexico_City", city: "Mexico City" },
+      { zone: "America/Sao_Paulo", city: "São Paulo" },
+      { zone: "America/Argentina/Buenos_Aires", city: "Buenos Aires" }
+    ]
+  },
+  {
+    group: "Europe & Africa",
+    items: [
+      { zone: "Europe/London", city: "London" },
+      { zone: "Europe/Paris", city: "Paris" },
+      { zone: "Europe/Athens", city: "Athens" },
+      { zone: "Europe/Moscow", city: "Moscow" },
+      { zone: "Africa/Lagos", city: "Lagos" },
+      { zone: "Africa/Cairo", city: "Cairo" },
+      { zone: "Africa/Johannesburg", city: "Johannesburg" }
+    ]
+  },
+  {
+    group: "Asia & Pacific",
+    items: [
+      { zone: "Asia/Dubai", city: "Dubai" },
+      { zone: "Asia/Kolkata", city: "Mumbai" },
+      { zone: "Asia/Bangkok", city: "Bangkok" },
+      { zone: "Asia/Singapore", city: "Singapore" },
+      { zone: "Asia/Hong_Kong", city: "Hong Kong" },
+      { zone: "Asia/Shanghai", city: "Shanghai" },
+      { zone: "Asia/Seoul", city: "Seoul" },
+      { zone: "Asia/Tokyo", city: "Tokyo" },
+      { zone: "Australia/Sydney", city: "Sydney" },
+      { zone: "Pacific/Auckland", city: "Auckland" }
+    ]
+  }
+];
+
+function profileClockCityList() {
+  const rows = [];
+  PROFILE_CLOCK_CITIES.forEach(group => {
+    group.items.forEach(item => rows.push(item));
+  });
+  return rows;
+}
+
+function profileClockCityName(zone) {
+  const id = String(zone || "").trim();
+  const hit = profileClockCityList().find(item => item.zone === id);
+  if (hit) return hit.city;
+  return id.replace(/_/g, " ");
+}
+
 function profileTileBounds(type, tile) {
   const meta = PROFILE_TILE_TYPES[type] || {};
   const bounds = {
@@ -367,7 +427,7 @@ function defaultProfileTileProps(type, existing) {
     const format = prev.time_format === "24" || prev.time_format === "system" ? prev.time_format : "12";
     return Object.assign({}, chrome, {
       mode,
-      timezone: prev.timezone || "",
+      timezone: prev.timezone || "UTC",
       time_format: format,
       show_date: !!prev.show_date,
       show_zone: !!prev.show_zone,
@@ -1042,7 +1102,7 @@ function paintProfileClock(tile, el) {
       if (props.show_zone) {
         const zoneEl = document.createElement("div");
         zoneEl.className = "profile-clock-zone";
-        zoneEl.textContent = zone.replace(/_/g, " ");
+        zoneEl.textContent = profileClockCityName(zone);
         body.appendChild(zoneEl);
       }
     } else {

@@ -370,7 +370,7 @@ def normalize_clock_props(data):
         year_style = "full"
     out = normalize_text_chrome(data, 18, True)
     out["mode"] = mode
-    out["timezone"] = clean_timezone(data.get("timezone"))
+    out["timezone"] = clean_timezone(data.get("timezone")) or ("UTC" if mode == "world" else "")
     out["time_format"] = time_format
     out["show_date"] = bool(data.get("show_date"))
     out["show_zone"] = bool(data.get("show_zone"))

@@ -561,6 +561,33 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
   extrasHost.appendChild(borderRow);
   fillBorderExtras(extrasHost, draft, onChange, hintEl);
   box.appendChild(extrasHost);
+
+  const zBlock = document.createElement("div");
+  zBlock.className = "profile-opt-border-block";
+  draft.z_index = clampProfileZIndex(draft.z_index);
+  const zInput = document.createElement("input");
+  zInput.type = "number";
+  zInput.className = "profile-opt-z-input";
+  zInput.min = "-50";
+  zInput.max = "50";
+  zInput.step = "1";
+  zInput.value = String(draft.z_index);
+  zInput.addEventListener("input", () => {
+    if (zInput.value === "" || zInput.value === "-") return;
+    const n = Number(zInput.value);
+    if (!Number.isFinite(n)) return;
+    draft.z_index = clampProfileZIndex(n);
+    onChange();
+  });
+  zInput.addEventListener("change", () => {
+    draft.z_index = clampProfileZIndex(zInput.value);
+    zInput.value = String(draft.z_index);
+    onChange();
+  });
+  const zRow = settingsOpt("Z-Index", "", zInput);
+  profileOptHint(zRow, "Higher sits above lower. Same number: the newer widget stays on top.", hintEl);
+  zBlock.appendChild(zRow);
+  box.appendChild(zBlock);
 }
 
 function profileTileHasOptions(type) {
@@ -1216,6 +1243,7 @@ function openProfileTileOptions(tile) {
   if (Array.isArray(draft.rows)) draft.rows = draft.rows.map(row => Object.assign({}, row));
   if (Array.isArray(draft.items)) draft.items = draft.items.slice();
   Object.assign(draft, defaultTextChrome(tile.type, draft));
+  draft.z_index = clampProfileZIndex(tile.z_index != null ? tile.z_index : draft.z_index);
   let tab = profileHasWidgetSettings(tile.type) ? 'widget' : 'design';
   const overlay = document.createElement('div');
   overlay.className = 'settings-form-overlay';
@@ -1281,7 +1309,7 @@ function openProfileTileOptions(tile) {
     tabs.appendChild(btn);
   }
   addTab('widget', 'Widget', 'Basic settings unique to this widget.');
-  addTab('design', 'Design', 'Background, border, thickness, and colors.');
+  addTab('design', 'Design', 'Background, border, stacking, thickness, and colors.');
   if (profileHasTextFormat(tile.type)) {
     addTab('text', 'Text', 'Size and alignment for the text in this widget.');
   }
@@ -1299,7 +1327,7 @@ function openProfileTileOptions(tile) {
     previewCard.style.width = nativeW + 'px';
     previewCard.style.height = nativeH + 'px';
     previewCard.style.transform = 'none';
-    const fake = { type: tile.type, props: draft, id: tile.id, w: tile.w, h: tile.h, x: 0, y: 0 };
+    const fake = { type: tile.type, props: draft, id: tile.id, w: tile.w, h: tile.h, x: 0, y: 0, z_index: clampProfileZIndex(draft.z_index) };
     const wasEditing = profileEditing;
     profileEditing = false;
     try {
@@ -1347,6 +1375,9 @@ function openProfileTileOptions(tile) {
         return;
       }
     }
+    tile.z_index = clampProfileZIndex(draft.z_index);
+    delete draft.z_index;
+    if (draft.props) delete draft.props;
     Object.assign(tile.props, draft);
     if (tile.type === 'display_name') growNameClusterTile(tile);
     overlay.remove();

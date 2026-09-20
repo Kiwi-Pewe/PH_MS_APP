@@ -454,6 +454,7 @@ function placeProfileTile(page, type) {
     w: size.w,
     h: size.h,
     allow_overlap: false,
+    z_index: 0,
     props: defaultProfileTileProps(type)
   };
   page.tiles = (page.tiles || []).concat([tile]);
@@ -465,6 +466,7 @@ function resetProfileTile(tile) {
   tile.w = size.w;
   tile.h = size.h;
   tile.allow_overlap = false;
+  tile.z_index = 0;
   tile.props = defaultProfileTileProps(tile.type, tile.props);
   if (tile.x + tile.w > PROFILE_COLS) tile.x = Math.max(0, PROFILE_COLS - tile.w);
   const page = profilePageById(profileDraft, profileActivePageId);
@@ -616,6 +618,27 @@ function clampProfileEntrySize(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 5;
   return Math.max(1, Math.min(10, Math.round(n)));
+}
+
+function clampProfileZIndex(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-50, Math.min(50, Math.round(n)));
+}
+
+function profileTileZIndex(tile) {
+  if (!tile) return 0;
+  if (tile.z_index != null) return clampProfileZIndex(tile.z_index);
+  return clampProfileZIndex(tile.props && tile.props.z_index);
+}
+
+function profileTilesForPaint(tiles) {
+  return (tiles || []).map((tile, index) => ({ tile, index })).sort((a, b) => {
+    const za = profileTileZIndex(a.tile);
+    const zb = profileTileZIndex(b.tile);
+    if (za !== zb) return za - zb;
+    return a.index - b.index;
+  });
 }
 
 function profileIconEmoji(value) {
@@ -1597,7 +1620,7 @@ function renderProfileBoard() {
       : "Nothing on this page yet.";
     board.appendChild(empty);
   }
-  tiles.forEach((tile, index) => {
+  profileTilesForPaint(tiles).forEach(({ tile }, stack) => {
     if (tile.type === "details") tile.type = "local_time";
     if (tile.type === "countdown") {
       tile.type = "clock";
@@ -1610,7 +1633,7 @@ function renderProfileBoard() {
     const el = document.createElement("div");
     el.className = "profile-tile is-" + tile.type + (profileEditing ? " is-editing" : "") + (tile.allow_overlap ? " allows-overlap" : "");
     el.dataset.tileId = tile.id;
-    el.style.zIndex = String(10 + index);
+    el.style.zIndex = String(20 + stack);
     applyProfileTileStyle(el, tile);
     paintProfileTileContent(tile, el);
     if (profileEditing && profileIsOwn && typeof bindProfileTileDrag === "function") {

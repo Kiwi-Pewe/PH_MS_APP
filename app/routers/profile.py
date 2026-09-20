@@ -51,6 +51,8 @@ STAT_FIELD_MAX = 80
 BUTTON_ACTIONS = {"link", "page", "friend"}
 BUTTON_LABEL_MAX = 48
 BODY_TITLE_MAX = 48
+TILE_Z_MIN = -50
+TILE_Z_MAX = 50
 CLOCK_MODES = {"world", "countdown", "timer"}
 CLOCK_LABEL_MAX = 48
 ICON_EMOJI_MAX = 16
@@ -677,6 +679,13 @@ def normalize_tile(raw, used_ids, banner_fallback):
     y = clamp_int(data.get("y"), 0, 80, 0)
     if x + w > GRID_COLS:
         x = max(0, GRID_COLS - w)
+    z_src = data.get("z_index")
+    if z_src is None:
+        z_src = props_in.get("z_index")
+    z_index = clamp_int(z_src, TILE_Z_MIN, TILE_Z_MAX, 0)
+    if isinstance(props, dict) and "z_index" in props:
+        props = dict(props)
+        props.pop("z_index", None)
     return {
         "id": tile_id,
         "type": kind,
@@ -685,6 +694,7 @@ def normalize_tile(raw, used_ids, banner_fallback):
         "w": w,
         "h": h,
         "allow_overlap": bool(data.get("allow_overlap")),
+        "z_index": z_index,
         "props": props,
     }
 

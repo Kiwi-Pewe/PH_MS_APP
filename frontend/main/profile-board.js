@@ -73,7 +73,9 @@ const PROFILE_TILE_TYPES = {
   link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" },
   button: { w: 8, h: 2, minW: 4, minH: 1, maxW: 16, maxH: 3, label: "Button" },
   details: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" },
-  local_time: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" }
+  local_time: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" },
+  icon: { w: 3, h: 3, minW: 2, minH: 2, maxW: 6, maxH: 6, label: "Icon" },
+  clock: { w: 6, h: 3, minW: 4, minH: 2, maxW: 12, maxH: 5, label: "Clock" }
 };
 
 const PROFILE_PLACEHOLDERS = {
@@ -87,10 +89,7 @@ const PROFILE_PLACEHOLDERS = {
   mutuals: { label: "Mutuals", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 12 },
   frame: { label: "Frame", w: 12, h: 8, minW: 6, minH: 4, maxW: 32, maxH: 18 },
   color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
-  icon: { label: "Icon", w: 3, h: 3, minW: 2, minH: 2, maxW: 6, maxH: 6 },
   meter: { label: "Meter", w: 10, h: 2, minW: 6, minH: 1, maxW: 24, maxH: 4 },
-  clock: { label: "Clock", w: 6, h: 3, minW: 4, minH: 2, maxW: 12, maxH: 5 },
-  countdown: { label: "Countdown", w: 8, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 6 },
   image: { label: "Image", w: 10, h: 6, minW: 4, minH: 3, maxW: 24, maxH: 16 },
   video: { label: "Video", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   music: { label: "Music", w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 8 },
@@ -231,7 +230,7 @@ function defaultTextSize(type, prev) {
   if (old === 1) return 12;
   if (old === 3) return 18;
   if (type === "header") return 18;
-  if (type === "local_time" || type === "details") return 18;
+  if (type === "local_time" || type === "details" || type === "clock") return 18;
   if (type === "footnote") return 12;
   return 14;
 }
@@ -268,7 +267,7 @@ function defaultBorderChrome(type, row) {
 
 function defaultTextChrome(type, prev) {
   const row = prev || {};
-  const card = type !== "header" && type !== "footnote" && type !== "avatar" && type !== "display_name" && type !== "banner" && type !== "divider" && type !== "rail";
+  const card = type !== "header" && type !== "footnote" && type !== "avatar" && type !== "display_name" && type !== "banner" && type !== "divider" && type !== "rail" && type !== "icon";
   return Object.assign({
     text_size: defaultTextSize(type, row),
     text_align: row.text_align === "center" || row.text_align === "right" ? row.text_align : "left",
@@ -353,6 +352,32 @@ function defaultProfileTileProps(type, existing) {
       url: prev.url || "",
       page_id: prev.page_id || ""
     }, chrome);
+  }
+  if (type === "icon") {
+    return Object.assign({
+      emoji: profileIconEmoji(prev.emoji),
+      icon_size: clampProfileEntrySize(prev.icon_size)
+    }, chrome);
+  }
+  if (type === "clock" || type === "countdown") {
+    const mode = prev.mode === "countdown" || prev.mode === "timer" ? prev.mode : (type === "countdown" ? "countdown" : "world");
+    const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center"
+      ? prev.text_align
+      : "center";
+    const format = prev.time_format === "24" || prev.time_format === "system" ? prev.time_format : "12";
+    return Object.assign({}, chrome, {
+      mode,
+      timezone: prev.timezone || "",
+      time_format: format,
+      show_date: !!prev.show_date,
+      show_zone: !!prev.show_zone,
+      month_style: prev.month_style === "name" ? "name" : "num",
+      year_style: prev.year_style === "2" ? "2" : "full",
+      label: prev.label || "",
+      target_at: prev.target_at || "",
+      start_at: prev.start_at || "",
+      text_align: align
+    });
   }
   return Object.assign({}, chrome);
 }
@@ -532,6 +557,19 @@ function clampProfileEntrySize(value) {
   return Math.max(1, Math.min(10, Math.round(n)));
 }
 
+function profileIconEmoji(value) {
+  const text = String(value || "").trim();
+  if (!text) return "⭐";
+  if (typeof EMOJI_CHARS_DESC !== "undefined") {
+    for (let i = 0; i < EMOJI_CHARS_DESC.length; i++) {
+      const ch = EMOJI_CHARS_DESC[i];
+      if (ch && text.indexOf(ch) !== -1) return ch;
+    }
+  }
+  const chars = Array.from(text);
+  return chars[0] || "⭐";
+}
+
 function applyProfileEntrySize(el, size, iconVar, textVar) {
   const n = clampProfileEntrySize(size);
   el.style.setProperty(iconVar, (14 + n * 2) + "px");
@@ -548,6 +586,11 @@ function applyProfileLinkSize(el, tile) {
 
 function applyProfileFriendSize(el, tile) {
   applyProfileEntrySize(el, tile.props && tile.props.friend_size, "--profile-friend-icon", "--profile-friend-text");
+}
+
+function applyProfileIconSize(el, tile) {
+  const n = clampProfileEntrySize(tile.props && tile.props.icon_size);
+  el.style.setProperty("--profile-icon-glyph", (20 + n * 8) + "px");
 }
 
 function profilePlatformLetter(name) {
@@ -861,6 +904,36 @@ function stampOwnLocalTimeTimezone(layout) {
 
 let profileLocalTimeClock = 0;
 
+function profilePad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function profileDurationText(ms, ended) {
+  if (ended && ms <= 0) return "Ended";
+  const total = Math.max(0, Math.floor(Math.abs(ms) / 1000));
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (days > 0) return days + "d " + profilePad2(hours) + ":" + profilePad2(minutes) + ":" + profilePad2(seconds);
+  return profilePad2(hours) + ":" + profilePad2(minutes) + ":" + profilePad2(seconds);
+}
+
+function tickProfileInstrumentClocks() {
+  document.querySelectorAll(".profile-clock-live").forEach(el => {
+    const mode = el.dataset.mode;
+    if (mode === "world") {
+      const time = profileTimezoneTime(el.dataset.zone, profileLocalTimeHour12(el.dataset.format));
+      if (time) el.textContent = time;
+      return;
+    }
+    const at = Date.parse(el.dataset.at || "");
+    if (!Number.isFinite(at)) return;
+    if (mode === "countdown") el.textContent = profileDurationText(at - Date.now(), true);
+    if (mode === "timer") el.textContent = profileDurationText(Date.now() - at, false);
+  });
+}
+
 function tickProfileLocalTimeClocks() {
   document.querySelectorAll(".profile-local-clock[data-zone]").forEach(el => {
     const time = profileTimezoneTime(el.dataset.zone, profileLocalTimeHour12(el.dataset.format));
@@ -870,6 +943,7 @@ function tickProfileLocalTimeClocks() {
     const date = profileLocalDateText(el.dataset.zone, el.dataset.month, el.dataset.year);
     if (date) el.textContent = date;
   });
+  tickProfileInstrumentClocks();
 }
 
 function syncProfileLocalTimeClock() {
@@ -877,7 +951,7 @@ function syncProfileLocalTimeClock() {
     clearInterval(profileLocalTimeClock);
     profileLocalTimeClock = 0;
   }
-  if (!document.querySelector(".profile-local-clock[data-zone]")) return;
+  if (!document.querySelector(".profile-local-clock[data-zone], .profile-clock-live")) return;
   tickProfileLocalTimeClocks();
   profileLocalTimeClock = setInterval(tickProfileLocalTimeClocks, 1000);
 }
@@ -913,6 +987,94 @@ function paintProfileLocalTime(tile, el) {
     empty.className = "profile-local-empty";
     empty.textContent = profileIsOwn ? "Could not read your local time." : "Time unavailable.";
     body.appendChild(empty);
+  }
+  el.appendChild(body);
+  syncProfileLocalTimeClock();
+}
+
+function paintProfileIcon(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  applyProfileIconSize(el, tile);
+  const body = document.createElement("div");
+  body.className = "profile-tile-body profile-icon-body";
+  const glyph = document.createElement("div");
+  glyph.className = "profile-icon-glyph";
+  glyph.textContent = profileIconEmoji(tile.props && tile.props.emoji);
+  body.appendChild(glyph);
+  el.appendChild(body);
+}
+
+function paintProfileClock(tile, el) {
+  const chrome = profileTextChrome(tile.props, "clock");
+  el.classList.add("is-text-chrome");
+  el.dataset.textAlign = chrome.text_align;
+  el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
+  applyProfileWidgetSurface(el, tile);
+  const props = tile.props || {};
+  const mode = props.mode === "countdown" || props.mode === "timer" ? props.mode : "world";
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  if (props.label) {
+    const label = document.createElement("div");
+    label.className = "profile-clock-label";
+    label.textContent = props.label;
+    body.appendChild(label);
+  }
+  const face = document.createElement("div");
+  face.className = "profile-clock-live";
+  face.dataset.mode = mode;
+  if (mode === "world") {
+    const zone = String(props.timezone || "").trim();
+    if (profileTimezoneValid(zone)) {
+      face.dataset.zone = zone;
+      face.dataset.format = props.time_format === "24" || props.time_format === "system" ? props.time_format : "12";
+      face.textContent = profileTimezoneTime(zone, profileLocalTimeHour12(face.dataset.format));
+      body.appendChild(face);
+      if (props.show_date) {
+        const date = document.createElement("div");
+        date.className = "profile-local-date";
+        date.dataset.zone = zone;
+        date.dataset.month = props.month_style === "name" ? "name" : "num";
+        date.dataset.year = props.year_style === "2" ? "2" : "full";
+        date.textContent = profileLocalDateText(zone, date.dataset.month, date.dataset.year);
+        body.appendChild(date);
+      }
+      if (props.show_zone) {
+        const zoneEl = document.createElement("div");
+        zoneEl.className = "profile-clock-zone";
+        zoneEl.textContent = zone.replace(/_/g, " ");
+        body.appendChild(zoneEl);
+      }
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "profile-local-empty";
+      empty.textContent = "Pick a timezone in Options.";
+      body.appendChild(empty);
+    }
+  } else if (mode === "countdown") {
+    const at = Date.parse(props.target_at || "");
+    if (Number.isFinite(at)) {
+      face.dataset.at = props.target_at;
+      face.textContent = profileDurationText(at - Date.now(), true);
+      body.appendChild(face);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "profile-local-empty";
+      empty.textContent = "Set a date in Options.";
+      body.appendChild(empty);
+    }
+  } else {
+    const at = Date.parse(props.start_at || "");
+    if (Number.isFinite(at)) {
+      face.dataset.at = props.start_at;
+      face.textContent = profileDurationText(Date.now() - at, false);
+      body.appendChild(face);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "profile-local-empty";
+      empty.textContent = "Set a start time in Options.";
+      body.appendChild(empty);
+    }
   }
   el.appendChild(body);
   syncProfileLocalTimeClock();
@@ -1327,6 +1489,14 @@ function paintProfileTileContent(tile, el) {
     paintProfileLocalTime(tile, el);
     return;
   }
+  if (tile.type === "icon") {
+    paintProfileIcon(tile, el);
+    return;
+  }
+  if (tile.type === "clock") {
+    paintProfileClock(tile, el);
+    return;
+  }
   if (PROFILE_TILE_TYPES[tile.type] && PROFILE_TILE_TYPES[tile.type].placeholder) {
     paintProfilePlaceholder(tile, el);
     return;
@@ -1362,6 +1532,11 @@ function renderProfileBoard() {
   }
   tiles.forEach((tile, index) => {
     if (tile.type === "details") tile.type = "local_time";
+    if (tile.type === "countdown") {
+      tile.type = "clock";
+      tile.props = tile.props || {};
+      if (tile.props.mode !== "timer" && tile.props.mode !== "world") tile.props.mode = "countdown";
+    }
     const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x, tile);
     tile.w = size.w;
     tile.h = size.h;
@@ -1378,7 +1553,7 @@ function renderProfileBoard() {
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
-        if (tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details") {
+        if (tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

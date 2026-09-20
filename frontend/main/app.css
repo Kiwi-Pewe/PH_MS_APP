@@ -2603,13 +2603,15 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   padding: 4px 12px 12px;
 }
 .profile-tile.is-local_time,
-.profile-tile.is-details {
+.profile-tile.is-details,
+.profile-tile.is-clock {
   display: flex;
   flex-direction: column;
   align-items: stretch;
 }
 .profile-tile.is-local_time .profile-tile-body,
-.profile-tile.is-details .profile-tile-body {
+.profile-tile.is-details .profile-tile-body,
+.profile-tile.is-clock .profile-tile-body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -2638,10 +2640,68 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   color: var(--text-dim);
   font-size: 13px;
 }
+.profile-tile.is-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.profile-icon-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+}
+.profile-icon-glyph {
+  font-size: var(--profile-icon-glyph, 60px);
+  line-height: 1;
+  user-select: none;
+}
+.profile-opt-icon-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.profile-opt-icon-preview {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--rail);
+}
+.profile-opt-icon-value {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.profile-clock-label,
+.profile-clock-zone {
+  font-size: calc(var(--profile-text-size, 18pt) * 0.45);
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.profile-clock-live {
+  font-size: var(--profile-text-size, 18pt);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.profile-tile.is-clock[data-text-align="left"] .profile-tile-body,
 .profile-tile.is-local_time[data-text-align="left"] .profile-tile-body,
 .profile-tile.is-details[data-text-align="left"] .profile-tile-body {
   align-items: flex-start;
 }
+.profile-tile.is-clock[data-text-align="right"] .profile-tile-body,
 .profile-tile.is-local_time[data-text-align="right"] .profile-tile-body,
 .profile-tile.is-details[data-text-align="right"] .profile-tile-body {
   align-items: flex-end;

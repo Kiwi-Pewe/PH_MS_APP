@@ -103,6 +103,13 @@ function pickEmoji(item) {
   }
   if (!emojiPickerTarget || emojiPickerTarget.disabled) return;
   const el = emojiPickerTarget;
+  if (el.dataset.emojiReplace === "1") {
+    el.value = item.ch;
+    el.dispatchEvent(new Event("input"));
+    recordEmojiUse(item.name);
+    closeEmojiPicker();
+    return;
+  }
   const start = el.selectionStart;
   const end = el.selectionEnd;
   el.value = el.value.slice(0, start) + item.ch + el.value.slice(end);

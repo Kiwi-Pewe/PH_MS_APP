@@ -51,6 +51,10 @@ STAT_FIELD_MAX = 80
 BUTTON_ACTIONS = {"link", "page", "friend"}
 BUTTON_LABEL_MAX = 48
 BODY_TITLE_MAX = 48
+CLOCK_MODES = {"world", "countdown", "timer"}
+CLOCK_LABEL_MAX = 48
+ICON_EMOJI_MAX = 16
+ISO_DT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$")
 TEXT_SIZES = (8, 9, 10, 11, 12, 14, 18, 24)
 TEXT_ALIGNS = {"left", "center", "right"}
 BORDER_STYLES = {"solid", "dashed", "dotted", "double"}
@@ -150,7 +154,7 @@ def tile_bounds(kind, props=None):
         "icon": (2, 2, 6, 6),
         "meter": (6, 1, 24, 4),
         "clock": (4, 2, 12, 5),
-        "countdown": (6, 2, 16, 6),
+        "countdown": (4, 2, 12, 5),
         "image": (4, 3, 24, 16),
         "video": (8, 4, 24, 16),
         "music": (6, 3, 20, 8),
@@ -210,7 +214,7 @@ def default_sizes(kind):
         "icon": (3, 3),
         "meter": (10, 2),
         "clock": (6, 3),
-        "countdown": (8, 3),
+        "countdown": (6, 3),
         "image": (10, 6),
         "video": (12, 7),
         "music": (10, 4),
@@ -335,6 +339,47 @@ def clip_text(value, cap):
     if len(text) > cap:
         return text[:cap]
     return text
+
+
+def clean_timezone(value):
+    zone = clip_text(value, 64).strip().replace(" ", "_")
+    if zone and not all(ch.isalnum() or ch in "_+-/" for ch in zone):
+        return ""
+    return zone
+
+
+def clean_iso_dt(value):
+    text = clip_text(value, 40).strip()
+    if not text or not ISO_DT.match(text):
+        return ""
+    return text
+
+
+def normalize_clock_props(data):
+    mode = str(data.get("mode") or "world")
+    if mode not in CLOCK_MODES:
+        mode = "world"
+    time_format = str(data.get("time_format") or "12")
+    if time_format not in ("12", "24", "system"):
+        time_format = "12"
+    month_style = str(data.get("month_style") or "num")
+    if month_style not in ("num", "name"):
+        month_style = "num"
+    year_style = str(data.get("year_style") or "full")
+    if year_style not in ("2", "full"):
+        year_style = "full"
+    out = normalize_text_chrome(data, 18, True)
+    out["mode"] = mode
+    out["timezone"] = clean_timezone(data.get("timezone"))
+    out["time_format"] = time_format
+    out["show_date"] = bool(data.get("show_date"))
+    out["show_zone"] = bool(data.get("show_zone"))
+    out["month_style"] = month_style
+    out["year_style"] = year_style
+    out["label"] = clip_text(data.get("label"), CLOCK_LABEL_MAX).strip()
+    out["target_at"] = clean_iso_dt(data.get("target_at"))
+    out["start_at"] = clean_iso_dt(data.get("start_at"))
+    return out
 
 
 def normalize_list_items(data):
@@ -484,9 +529,6 @@ def normalize_props(kind, props, banner_fallback):
         out["text"] = clip_text(data.get("text"), BIO_MAX)
         return out
     if kind == "details" or kind == "local_time":
-        zone = clip_text(data.get("timezone"), 64).strip().replace(" ", "_")
-        if zone and not all(ch.isalnum() or ch in "_+-/" for ch in zone):
-            zone = ""
         time_format = str(data.get("time_format") or "12")
         if time_format not in ("12", "24", "system"):
             time_format = "12"
@@ -497,7 +539,7 @@ def normalize_props(kind, props, banner_fallback):
         if year_style not in ("2", "full"):
             year_style = "full"
         out = normalize_text_chrome(data, 18, True)
-        out["timezone"] = zone
+        out["timezone"] = clean_timezone(data.get("timezone"))
         out["time_format"] = time_format
         out["show_date"] = bool(data.get("show_date"))
         out["month_style"] = month_style
@@ -595,6 +637,14 @@ def normalize_props(kind, props, banner_fallback):
         out = normalize_text_chrome(data, 14, True)
         out["friend_size"] = clamp_int(data.get("friend_size"), 1, 10, 5)
         return out
+    if kind == "icon":
+        out = normalize_text_chrome(data, 14, False)
+        emoji = clip_text(data.get("emoji"), ICON_EMOJI_MAX).strip() or "⭐"
+        out["emoji"] = emoji
+        out["icon_size"] = clamp_int(data.get("icon_size"), 1, 10, 5)
+        return out
+    if kind == "clock":
+        return normalize_clock_props(data)
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)
@@ -603,15 +653,21 @@ def normalize_props(kind, props, banner_fallback):
 def normalize_tile(raw, used_ids, banner_fallback):
     data = raw if isinstance(raw, dict) else {}
     kind = str(data.get("type") or "")
+    props_in = data.get("props") if isinstance(data.get("props"), dict) else {}
     if kind == "details":
         kind = "local_time"
+    if kind == "countdown":
+        kind = "clock"
+        props_in = dict(props_in)
+        if props_in.get("mode") not in CLOCK_MODES:
+            props_in["mode"] = "countdown"
     if kind not in TILE_TYPES:
         return None
     tile_id = str(data.get("id") or "").strip() or new_id("tile")
     if tile_id in used_ids:
         tile_id = new_id("tile")
     used_ids.add(tile_id)
-    props = normalize_props(kind, data.get("props"), banner_fallback)
+    props = normalize_props(kind, props_in, banner_fallback)
     default_w, default_h = default_sizes(kind)
     min_w, min_h, max_w, max_h = tile_bounds(kind, props)
     w = clamp_int(data.get("w"), min_w, min(max_w, GRID_COLS), default_w)

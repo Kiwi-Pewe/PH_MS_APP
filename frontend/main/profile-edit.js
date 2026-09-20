@@ -49,8 +49,7 @@ const PROFILE_PALETTE = [
       { type: "color_block", label: "Color block" },
       { type: "icon", label: "Icon" },
       { type: "meter", label: "Meter" },
-      { type: "clock", label: "Clock" },
-      { type: "countdown", label: "Countdown" }
+      { type: "clock", label: "Clock" }
     ]
   },
   {
@@ -320,7 +319,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body";
+  return type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -376,6 +375,14 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "body") {
     fillBodyTitleOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "icon") {
+    fillIconOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "clock") {
+    fillClockOptions(box, draft, onChange, hintEl);
     return;
   }
   const empty = document.createElement("div");
@@ -745,6 +752,243 @@ function fillLocalTimeOptions(box, draft, onChange, hintEl) {
   block.appendChild(row);
   block.appendChild(extras);
   box.appendChild(block);
+}
+
+function fillIconOptions(box, draft, onChange, hintEl) {
+  draft.emoji = profileIconEmoji(draft.emoji);
+  draft.icon_size = clampProfileEntrySize(draft.icon_size);
+
+  const pickRow = document.createElement("div");
+  pickRow.className = "profile-opt-icon-pick";
+  const preview = document.createElement("div");
+  preview.className = "profile-opt-icon-preview";
+  preview.textContent = draft.emoji;
+  const hidden = document.createElement("input");
+  hidden.type = "text";
+  hidden.className = "profile-opt-icon-value";
+  hidden.dataset.emojiReplace = "1";
+  hidden.value = draft.emoji;
+  hidden.maxLength = 16;
+  const pick = document.createElement("button");
+  pick.type = "button";
+  pick.textContent = "Choose emoji";
+  profileOptHint(pick, "The emoji shown on this tile. Stickers wait.", hintEl);
+  pick.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof openEmojiPicker === "function") openEmojiPicker(pick, hidden);
+  });
+  hidden.addEventListener("input", () => {
+    draft.emoji = profileIconEmoji(hidden.value);
+    hidden.value = draft.emoji;
+    preview.textContent = draft.emoji;
+    onChange();
+  });
+  pickRow.appendChild(preview);
+  pickRow.appendChild(pick);
+  pickRow.appendChild(hidden);
+  box.appendChild(pickRow);
+
+  const sizeLabel = document.createElement("div");
+  sizeLabel.className = "profile-opt-field-label";
+  sizeLabel.textContent = "Size";
+  const sizeRow = document.createElement("div");
+  sizeRow.className = "profile-opt-slider-row";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = "1";
+  slider.max = "10";
+  slider.step = "1";
+  slider.className = "settings-slider";
+  slider.value = String(draft.icon_size);
+  const val = document.createElement("div");
+  val.className = "profile-opt-slider-val";
+  val.textContent = slider.value;
+  slider.addEventListener("input", () => {
+    draft.icon_size = clampProfileEntrySize(slider.value);
+    val.textContent = String(draft.icon_size);
+    onChange();
+  });
+  profileOptHint(slider, "How large the emoji is inside the tile.", hintEl);
+  sizeRow.appendChild(slider);
+  sizeRow.appendChild(val);
+  box.appendChild(sizeLabel);
+  box.appendChild(sizeRow);
+}
+
+function profileTimezoneChoices() {
+  try {
+    if (typeof Intl !== "undefined" && Intl.supportedValuesOf) return Intl.supportedValuesOf("timeZone");
+  } catch (e) {}
+  return ["UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London", "Europe/Paris", "Asia/Tokyo", "Australia/Sydney"];
+}
+
+function profileIsoToLocalInput(iso) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = n => String(n).padStart(2, "0");
+  return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate()) + "T" + pad(date.getHours()) + ":" + pad(date.getMinutes());
+}
+
+function profileLocalInputToIso(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
+}
+
+function fillClockOptions(box, draft, onChange, hintEl) {
+  if (draft.mode !== "countdown" && draft.mode !== "timer") draft.mode = "world";
+  if (draft.time_format !== "24" && draft.time_format !== "system") draft.time_format = "12";
+  if (draft.month_style !== "name") draft.month_style = "num";
+  if (draft.year_style !== "2") draft.year_style = "full";
+  draft.show_date = !!draft.show_date;
+  draft.show_zone = !!draft.show_zone;
+  draft.label = String(draft.label || "");
+  draft.timezone = String(draft.timezone || "");
+  draft.target_at = String(draft.target_at || "");
+  draft.start_at = String(draft.start_at || "");
+
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = "Label";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.maxLength = 48;
+  nameInput.value = draft.label;
+  nameInput.placeholder = "Optional";
+  profileOptHint(nameLabel, "Small caption above the time. Leave blank to hide.", hintEl);
+  nameInput.addEventListener("input", () => {
+    draft.label = nameInput.value;
+    onChange();
+  });
+  nameLabel.appendChild(nameInput);
+  box.appendChild(nameLabel);
+
+  const mode = profileSelectField("Mode", [
+    { value: "world", label: "World" },
+    { value: "countdown", label: "Countdown" },
+    { value: "timer", label: "Timer" }
+  ], draft.mode);
+  profileOptHint(mode.label, "World is a chosen timezone. Countdown is until a date. Timer counts up from a start.", hintEl);
+  box.appendChild(mode.label);
+  const extras = document.createElement("div");
+  box.appendChild(extras);
+
+  function paintExtras() {
+    extras.innerHTML = "";
+    if (draft.mode === "world") {
+      const listId = "profile-clock-zones";
+      let list = document.getElementById(listId);
+      if (!list) {
+        list = document.createElement("datalist");
+        list.id = listId;
+        profileTimezoneChoices().forEach(zone => {
+          const opt = document.createElement("option");
+          opt.value = zone;
+          list.appendChild(opt);
+        });
+        document.body.appendChild(list);
+      }
+      const zoneLabel = document.createElement("label");
+      zoneLabel.textContent = "Timezone";
+      const zoneInput = document.createElement("input");
+      zoneInput.type = "text";
+      zoneInput.setAttribute("list", listId);
+      zoneInput.placeholder = "Search a city or zone";
+      zoneInput.value = draft.timezone;
+      profileOptHint(zoneLabel, "Not your identity time. Pick any zone to watch.", hintEl);
+      zoneInput.addEventListener("input", () => {
+        draft.timezone = zoneInput.value.trim().replace(/ /g, "_");
+        onChange();
+      });
+      zoneLabel.appendChild(zoneInput);
+      extras.appendChild(zoneLabel);
+
+      const fmt = profileSelectField("Time Format", [
+        { value: "12", label: "12H" },
+        { value: "24", label: "24H" },
+        { value: "system", label: "Computer" }
+      ], draft.time_format);
+      profileOptHint(fmt.label, "12-hour with AM/PM, 24-hour, or this computer’s setting.", hintEl);
+      fmt.select.addEventListener("change", () => {
+        draft.time_format = fmt.select.value;
+        onChange();
+      });
+      extras.appendChild(fmt.label);
+
+      const dateExtras = document.createElement("div");
+      extras.appendChild(profileOptToggle("Show date", draft.show_date, on => {
+        draft.show_date = on;
+        dateExtras.classList.toggle("is-open", on);
+        onChange();
+      }, hintEl, "Show the current date under the time."));
+      extras.appendChild(profileOptToggle("Show timezone", draft.show_zone, on => {
+        draft.show_zone = on;
+        onChange();
+      }, hintEl, "Print the zone name under the clock."));
+
+      dateExtras.className = "profile-opt-border-extras" + (draft.show_date ? " is-open" : "");
+      const month = profileSelectField("Month", [
+        { value: "num", label: "Numerical" },
+        { value: "name", label: "Name" }
+      ], draft.month_style);
+      profileOptHint(month.label, "9 or Sept.", hintEl);
+      month.select.addEventListener("change", () => {
+        draft.month_style = month.select.value;
+        onChange();
+      });
+      dateExtras.appendChild(month.label);
+      const year = profileSelectField("Year", [
+        { value: "2", label: "2-digit" },
+        { value: "full", label: "Full year" }
+      ], draft.year_style);
+      profileOptHint(year.label, "26 or 2026.", hintEl);
+      year.select.addEventListener("change", () => {
+        draft.year_style = year.select.value;
+        onChange();
+      });
+      dateExtras.appendChild(year.label);
+      extras.appendChild(dateExtras);
+      return;
+    }
+    const whenLabel = document.createElement("label");
+    whenLabel.textContent = draft.mode === "countdown" ? "Ends" : "Started";
+    const when = document.createElement("input");
+    when.type = "datetime-local";
+    when.value = profileIsoToLocalInput(draft.mode === "countdown" ? draft.target_at : draft.start_at);
+    profileOptHint(whenLabel, draft.mode === "countdown"
+      ? "Everyone sees time remaining until this moment."
+      : "Everyone sees time elapsed since this moment.", hintEl);
+    when.addEventListener("change", () => {
+      const iso = profileLocalInputToIso(when.value);
+      if (draft.mode === "countdown") draft.target_at = iso;
+      else draft.start_at = iso;
+      onChange();
+    });
+    whenLabel.appendChild(when);
+    extras.appendChild(whenLabel);
+  }
+
+  mode.select.addEventListener("change", () => {
+    draft.mode = mode.select.value;
+    paintExtras();
+    onChange();
+  });
+  paintExtras();
+}
+
+function profileOptToggle(labelText, on, setOn, hintEl, hint) {
+  const row = document.createElement("label");
+  row.className = "settings-check";
+  const check = document.createElement("input");
+  check.type = "checkbox";
+  check.checked = !!on;
+  row.appendChild(check);
+  row.appendChild(document.createTextNode(" " + labelText));
+  if (hint) profileOptHint(row, hint, hintEl);
+  check.addEventListener("change", () => setOn(!!check.checked));
+  return row;
 }
 
 function fillButtonOptions(box, draft, onChange, hintEl) {

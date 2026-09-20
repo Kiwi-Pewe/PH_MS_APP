@@ -70,7 +70,7 @@ const PROFILE_TILE_TYPES = {
   divider: { w: 32, h: 1, minW: 6, minH: 1, maxW: 32, maxH: 2, label: "Divider" },
   spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
   link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" },
-  button: { w: 8, h: 2, minW: 4, minH: 1, maxW: 16, maxH: 3, label: "Button" }
+  button: { w: 8, h: 2, minW: 4, minH: 2, maxW: 16, maxH: 3, label: "Button" }
 };
 
 const PROFILE_PLACEHOLDERS = {

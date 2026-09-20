@@ -114,7 +114,7 @@ def tile_bounds(kind):
         "spoiler": (6, 2, 20, 10),
         "stats": (6, 2, 20, 10),
         "callout": (6, 2, 24, 8),
-        "button": (4, 1, 16, 3),
+        "button": (4, 2, 16, 3),
         "details": (6, 3, 16, 10),
         "interests": (6, 2, 20, 8),
         "looking_for": (6, 2, 16, 8),

@@ -19,7 +19,7 @@ GRID_COLS = 32
 OLD_GRID_COLS = 12
 TILE_TYPES = {
     "banner", "avatar", "display_name", "member_since", "bio", "friends", "header", "body", "footnote", "list",
-    "divider", "spacer", "link_tree",
+    "divider", "rail", "spacer", "link_tree",
     "spoiler", "stats", "callout", "button",
     "local_time", "details", "interests", "looking_for", "fun_facts", "schedule", "setup",
     "connections", "featured_friend", "mutuals",
@@ -97,7 +97,26 @@ def random_banner_hex():
 
 
 # Bounds are (min_w, min_h, max_w, max_h).
-def tile_bounds(kind):
+def strip_orientation(kind, props):
+    data = props if isinstance(props, dict) else {}
+    if kind not in ("divider", "rail"):
+        return ""
+    if data.get("orientation") == "vertical":
+        return "vertical"
+    if data.get("orientation") == "horizontal":
+        return "horizontal"
+    return "vertical" if kind == "rail" else "horizontal"
+
+
+def tile_bounds(kind, props=None):
+    if kind == "divider":
+        if strip_orientation(kind, props) == "vertical":
+            return (1, 1, 1, 24)
+        return (1, 1, 32, 1)
+    if kind == "rail":
+        if strip_orientation(kind, props) == "vertical":
+            return (1, 1, 1, 8)
+        return (1, 1, 8, 1)
     return {
         "banner": (6, 3, 32, 5),
         "avatar": (2, 2, 4, 4),
@@ -169,6 +188,7 @@ def default_sizes(kind):
         "footnote": (12, 1),
         "list": (10, 6),
         "divider": (32, 1),
+        "rail": (1, 4),
         "spacer": (8, 2),
         "link_tree": (8, 10),
         "spoiler": (10, 3),
@@ -548,7 +568,20 @@ def normalize_props(kind, props, banner_fallback):
         style = str(data.get("style") or "solid")
         if style not in DIVIDER_STYLES:
             style = "solid"
+        orientation = "vertical" if data.get("orientation") == "vertical" else "horizontal"
         out = normalize_text_chrome(data, 14, False)
+        out["style"] = style
+        out["orientation"] = orientation
+        return out
+    if kind == "rail":
+        style = str(data.get("style") or "solid").lower()
+        if style not in BORDER_STYLES:
+            style = "solid"
+        orientation = "horizontal" if data.get("orientation") == "horizontal" else "vertical"
+        out = normalize_text_chrome(data, 14, False)
+        out["orientation"] = orientation
+        out["thickness"] = clamp_int(data.get("thickness"), 1, 10, 4)
+        out["color"] = clean_hex(data.get("color"), "#ffffff")
         out["style"] = style
         return out
     if kind == "spacer":
@@ -578,8 +611,9 @@ def normalize_tile(raw, used_ids, banner_fallback):
     if tile_id in used_ids:
         tile_id = new_id("tile")
     used_ids.add(tile_id)
+    props = normalize_props(kind, data.get("props"), banner_fallback)
     default_w, default_h = default_sizes(kind)
-    min_w, min_h, max_w, max_h = tile_bounds(kind)
+    min_w, min_h, max_w, max_h = tile_bounds(kind, props)
     w = clamp_int(data.get("w"), min_w, min(max_w, GRID_COLS), default_w)
     h = clamp_int(data.get("h"), min_h, max_h, default_h)
     x = clamp_int(data.get("x"), 0, GRID_COLS - 1, 0)
@@ -594,7 +628,7 @@ def normalize_tile(raw, used_ids, banner_fallback):
         "w": w,
         "h": h,
         "allow_overlap": bool(data.get("allow_overlap")),
-        "props": normalize_props(kind, data.get("props"), banner_fallback),
+        "props": props,
     }
 
 

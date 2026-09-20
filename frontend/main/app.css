@@ -2943,6 +2943,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   border: 2px dashed var(--accent); border-radius: 10px; background: transparent;
 }
 .profile-tile.is-divider,
+.profile-tile.is-rail,
 .profile-tile.is-spacer {
   background: transparent;
   border: none;
@@ -2956,6 +2957,53 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .profile-divider.is-dashed { border-top-style: dashed; }
 .profile-divider.is-dotted { border-top-style: dotted; border-top-width: 3px; }
+.profile-divider.is-vertical {
+  width: 0;
+  height: calc(100% - 16px);
+  border-top: none;
+  border-left: 2px solid var(--border);
+}
+.profile-divider.is-vertical.is-dashed { border-left-style: dashed; }
+.profile-divider.is-vertical.is-dotted { border-left-style: dotted; border-left-width: 3px; }
+.profile-rail {
+  flex: 0 0 auto;
+  background: var(--profile-rail-color, #ffffff);
+  border-radius: 999px;
+}
+.profile-rail.is-horizontal {
+  width: calc(100% - 8px);
+  height: var(--profile-rail-thickness, 4px);
+}
+.profile-rail.is-vertical {
+  height: calc(100% - 8px);
+  width: var(--profile-rail-thickness, 4px);
+}
+.profile-rail.is-dashed,
+.profile-rail.is-dotted,
+.profile-rail.is-double {
+  background: transparent;
+  border-radius: 0;
+}
+.profile-rail.is-horizontal.is-dashed,
+.profile-rail.is-horizontal.is-dotted,
+.profile-rail.is-horizontal.is-double {
+  height: 0;
+  border-top-width: var(--profile-rail-thickness, 4px);
+  border-top-style: dashed;
+  border-top-color: var(--profile-rail-color, #ffffff);
+}
+.profile-rail.is-horizontal.is-dotted { border-top-style: dotted; }
+.profile-rail.is-horizontal.is-double { border-top-style: double; }
+.profile-rail.is-vertical.is-dashed,
+.profile-rail.is-vertical.is-dotted,
+.profile-rail.is-vertical.is-double {
+  width: 0;
+  border-left-width: var(--profile-rail-thickness, 4px);
+  border-left-style: dashed;
+  border-left-color: var(--profile-rail-color, #ffffff);
+}
+.profile-rail.is-vertical.is-dotted { border-left-style: dotted; }
+.profile-rail.is-vertical.is-double { border-left-style: double; }
 .profile-spacer-label {
   font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--text-dim);

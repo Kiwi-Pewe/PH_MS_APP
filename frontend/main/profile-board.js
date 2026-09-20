@@ -67,7 +67,8 @@ const PROFILE_TILE_TYPES = {
   spoiler: { w: 10, h: 3, minW: 6, minH: 2, maxW: 20, maxH: 10, label: "Spoiler" },
   stats: { w: 10, h: 4, minW: 6, minH: 2, maxW: 20, maxH: 10, label: "Stats" },
   callout: { w: 12, h: 3, minW: 6, minH: 2, maxW: 24, maxH: 8, label: "Callout" },
-  divider: { w: 32, h: 1, minW: 6, minH: 1, maxW: 32, maxH: 2, label: "Divider" },
+  divider: { w: 32, h: 1, minW: 1, minH: 1, maxW: 32, maxH: 24, label: "Divider" },
+  rail: { w: 1, h: 4, minW: 1, minH: 1, maxW: 8, maxH: 8, label: "Rail" },
   spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
   link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" },
   button: { w: 8, h: 2, minW: 4, minH: 1, maxW: 16, maxH: 3, label: "Button" },
@@ -123,9 +124,9 @@ const PROFILE_LINK_PLATFORMS = [
   "Patreon", "Bluesky", "Crunchyroll", "eBay", "Other"
 ];
 
-function profileTileBounds(type) {
+function profileTileBounds(type, tile) {
   const meta = PROFILE_TILE_TYPES[type] || {};
-  return {
+  const bounds = {
     minW: meta.minW || 1,
     minH: meta.minH || 1,
     maxW: Math.min(meta.maxW || PROFILE_COLS, PROFILE_COLS),
@@ -133,10 +134,37 @@ function profileTileBounds(type) {
     w: meta.w || 4,
     h: meta.h || 3
   };
+  const orient = profileStripOrientation(type, tile && tile.props, tile && tile.w, tile && tile.h);
+  if (orient === "horizontal") {
+    bounds.minH = 1;
+    bounds.maxH = 1;
+    bounds.h = 1;
+    if (type === "rail") {
+      bounds.minW = 1;
+      bounds.maxW = 8;
+      bounds.w = Math.min(bounds.w, 8);
+    } else {
+      bounds.minW = 1;
+      bounds.maxW = PROFILE_COLS;
+    }
+  } else if (orient === "vertical") {
+    bounds.minW = 1;
+    bounds.maxW = 1;
+    bounds.w = 1;
+    if (type === "rail") {
+      bounds.minH = 1;
+      bounds.maxH = 8;
+      bounds.h = Math.min(bounds.h, 8);
+    } else {
+      bounds.minH = 1;
+      bounds.maxH = 24;
+    }
+  }
+  return bounds;
 }
 
-function clampProfileTileSize(type, w, h, originX) {
-  const b = profileTileBounds(type);
+function clampProfileTileSize(type, w, h, originX, tile) {
+  const b = profileTileBounds(type, tile || { type, w, h });
   const maxW = originX == null ? b.maxW : Math.min(b.maxW, PROFILE_COLS - originX);
   return {
     w: Math.max(b.minW, Math.min(maxW, w)),
@@ -240,7 +268,7 @@ function defaultBorderChrome(type, row) {
 
 function defaultTextChrome(type, prev) {
   const row = prev || {};
-  const card = type !== "header" && type !== "footnote" && type !== "avatar" && type !== "display_name" && type !== "banner" && type !== "divider";
+  const card = type !== "header" && type !== "footnote" && type !== "avatar" && type !== "display_name" && type !== "banner" && type !== "divider" && type !== "rail";
   return Object.assign({
     text_size: defaultTextSize(type, row),
     text_align: row.text_align === "center" || row.text_align === "right" ? row.text_align : "left",
@@ -294,7 +322,22 @@ function defaultProfileTileProps(type, existing) {
   if (type === "spoiler") return Object.assign({ title: prev.title || "", text: prev.text || "", start_open: !!prev.start_open }, chrome);
   if (type === "stats") return Object.assign({ rows: Array.isArray(prev.rows) ? prev.rows.map(row => Object.assign({}, row)) : [] }, chrome);
   if (type === "callout") return Object.assign({ text: prev.text || "", tone: prev.tone === "warning" ? "warning" : "tip" }, chrome);
-  if (type === "divider") return Object.assign({ style: prev.style || "solid" }, chrome);
+  if (type === "divider") {
+    return Object.assign({
+      style: prev.style || "solid",
+      orientation: prev.orientation === "vertical" ? "vertical" : "horizontal"
+    }, chrome);
+  }
+  if (type === "rail") {
+    const style = String(prev.style || "solid").toLowerCase();
+    const known = PROFILE_BORDER_STYLES.some(item => item.value === style);
+    return Object.assign({
+      orientation: prev.orientation === "horizontal" ? "horizontal" : "vertical",
+      thickness: clampProfileBorderWidth(prev.thickness, 4),
+      color: profileBorderColor(prev.color) || "#ffffff",
+      style: known ? style : "solid"
+    }, chrome);
+  }
   if (type === "link_tree") {
     return Object.assign({
       links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [],
@@ -519,12 +562,51 @@ function profilePlatformLetter(name) {
   return (name || "?").slice(0, 1);
 }
 
+function profileStripOrientation(type, props, w, h) {
+  if (type !== "divider" && type !== "rail") return "";
+  if (props && props.orientation === "vertical") return "vertical";
+  if (props && props.orientation === "horizontal") return "horizontal";
+  if (Number(w) === 1 && Number(h) > 1) return "vertical";
+  return type === "rail" ? "vertical" : "horizontal";
+}
+
+function rotateProfileStrip(tile) {
+  if (tile.type !== "divider" && tile.type !== "rail") return;
+  tile.props = defaultProfileTileProps(tile.type, tile.props);
+  const vertical = profileStripOrientation(tile.type, tile.props, tile.w, tile.h) === "vertical";
+  const long = vertical ? tile.h : tile.w;
+  tile.props.orientation = vertical ? "horizontal" : "vertical";
+  if (tile.props.orientation === "vertical") {
+    tile.w = 1;
+    tile.h = long;
+  } else {
+    tile.h = 1;
+    tile.w = long;
+  }
+  const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x, tile);
+  tile.w = size.w;
+  tile.h = size.h;
+  if (tile.x + tile.w > PROFILE_COLS) tile.x = Math.max(0, PROFILE_COLS - tile.w);
+}
+
 function paintProfileDivider(tile, el) {
   applyProfileWidgetSurface(el, tile);
+  const vertical = profileStripOrientation(tile.type, tile.props, tile.w, tile.h) === "vertical";
   const style = (tile.props && tile.props.style) || "solid";
   const line = document.createElement("div");
-  line.className = "profile-divider is-" + style;
+  line.className = "profile-divider is-" + style + (vertical ? " is-vertical" : "");
   el.appendChild(line);
+}
+
+function paintProfileRail(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  const props = defaultProfileTileProps("rail", tile.props);
+  const vertical = profileStripOrientation("rail", props, tile.w, tile.h) === "vertical";
+  const bar = document.createElement("div");
+  bar.className = "profile-rail is-" + (props.style || "solid") + (vertical ? " is-vertical" : " is-horizontal");
+  bar.style.setProperty("--profile-rail-thickness", (props.thickness || 4) + "px");
+  bar.style.setProperty("--profile-rail-color", props.color || "#ffffff");
+  el.appendChild(bar);
 }
 
 function paintProfileSpacer(el) {
@@ -1225,6 +1307,10 @@ function paintProfileTileContent(tile, el) {
     paintProfileDivider(tile, el);
     return;
   }
+  if (tile.type === "rail") {
+    paintProfileRail(tile, el);
+    return;
+  }
   if (tile.type === "spacer") {
     paintProfileSpacer(el);
     return;
@@ -1276,7 +1362,7 @@ function renderProfileBoard() {
   }
   tiles.forEach((tile, index) => {
     if (tile.type === "details") tile.type = "local_time";
-    const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x);
+    const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x, tile);
     tile.w = size.w;
     tile.h = size.h;
     const el = document.createElement("div");

@@ -12,7 +12,8 @@ const PROFILE_PALETTE = [
       { type: "banner", label: "Banner" },
       { type: "avatar", label: "Avatar" },
       { type: "display_name", label: "Display name" },
-      { type: "member_since", label: "Member since" }
+      { type: "member_since", label: "Member since" },
+      { type: "local_time", label: "Local Time" }
     ]
   },
   {
@@ -24,16 +25,7 @@ const PROFILE_PALETTE = [
       { type: "footnote", label: "Footnote" },
       { type: "list", label: "List" },
       { type: "spoiler", label: "Spoiler" },
-      { type: "stats", label: "Stats" },
-      { type: "callout", label: "Callout" },
       { type: "button", label: "Button" }
-    ]
-  },
-  {
-    id: "about",
-    label: "About",
-    items: [
-      { type: "local_time", label: "Local Time" }
     ]
   },
   {
@@ -52,6 +44,7 @@ const PROFILE_PALETTE = [
     label: "Decoration",
     items: [
       { type: "divider", label: "Divider" },
+      { type: "rail", label: "Rail" },
       { type: "frame", label: "Frame" },
       { type: "color_block", label: "Color block" },
       { type: "icon", label: "Icon" },
@@ -195,7 +188,7 @@ function tryMoveTile(tile, x, y) {
 function tryResizeTile(tile, w, h) {
   const page = currentProfilePage();
   if (!page) return false;
-  const size = clampProfileTileSize(tile.type, w, h, tile.x);
+  const size = clampProfileTileSize(tile.type, w, h, tile.x, tile);
   const next = {
     type: tile.type,
     x: tile.x,
@@ -233,7 +226,7 @@ function bindProfileTileDrag(el, tile, handle) {
       el.style.gridColumn = (next.x + 1) + " / span " + tile.w;
       el.style.gridRow = (next.y + 1) + " / span " + tile.h;
     } else {
-      const size = clampProfileTileSize(tile.type, cell.x - origin.x + 1, cell.y - origin.y + 1, origin.x);
+      const size = clampProfileTileSize(tile.type, cell.x - origin.x + 1, cell.y - origin.y + 1, origin.x, tile);
       el.style.gridColumn = (origin.x + 1) + " / span " + size.w;
       el.style.gridRow = (origin.y + 1) + " / span " + size.h;
     }
@@ -335,7 +328,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "divider" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body";
+  return type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -363,6 +356,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
       draft.style = field.select.value;
       onChange();
     });
+    return;
+  }
+  if (tile.type === "rail") {
+    fillRailOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "display_name") {
@@ -393,6 +390,76 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   empty.className = "profile-opt-empty";
   empty.textContent = "No extra settings for this widget yet.";
   box.appendChild(empty);
+}
+
+function fillRailOptions(box, draft, onChange, hintEl) {
+  if (draft.orientation !== "horizontal") draft.orientation = "vertical";
+  draft.thickness = clampProfileBorderWidth(draft.thickness, 4);
+  draft.color = profileBorderColor(draft.color) || "#ffffff";
+  const known = PROFILE_BORDER_STYLES.some(item => item.value === draft.style);
+  if (!known) draft.style = "solid";
+
+  const thickLabel = document.createElement("div");
+  thickLabel.className = "profile-opt-field-label";
+  thickLabel.textContent = "Thickness";
+  const thickRow = document.createElement("div");
+  thickRow.className = "profile-opt-slider-row";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = "1";
+  slider.max = "10";
+  slider.step = "1";
+  slider.className = "settings-slider";
+  slider.value = String(draft.thickness);
+  const val = document.createElement("div");
+  val.className = "profile-opt-slider-val";
+  val.textContent = slider.value;
+  profileOptHint(slider, "How thick the rail is, from 1 to 10.", hintEl);
+  slider.addEventListener("input", () => {
+    draft.thickness = Number(slider.value) || 4;
+    val.textContent = String(draft.thickness);
+    onChange();
+  });
+  thickRow.appendChild(slider);
+  thickRow.appendChild(val);
+  box.appendChild(thickLabel);
+  box.appendChild(thickRow);
+
+  const colorLabel = document.createElement("div");
+  colorLabel.className = "profile-opt-field-label";
+  colorLabel.textContent = "Color";
+  const colorRow = document.createElement("div");
+  colorRow.className = "profile-opt-color-row";
+  const picker = document.createElement("input");
+  picker.type = "color";
+  picker.value = draft.color;
+  const hex = document.createElement("input");
+  hex.type = "text";
+  hex.maxLength = 7;
+  hex.spellcheck = false;
+  hex.value = draft.color.toUpperCase();
+  function setColor(next) {
+    const clean = profileBorderColor(next) || draft.color;
+    draft.color = clean;
+    picker.value = clean;
+    hex.value = clean.toUpperCase();
+    onChange();
+  }
+  profileOptHint(colorRow, "Color of the rail.", hintEl);
+  picker.addEventListener("input", () => setColor(picker.value));
+  hex.addEventListener("change", () => setColor(hex.value));
+  colorRow.appendChild(picker);
+  colorRow.appendChild(hex);
+  box.appendChild(colorLabel);
+  box.appendChild(colorRow);
+
+  const typeField = profileSelectField("Style", PROFILE_BORDER_STYLES, draft.style);
+  profileOptHint(typeField.label, "Solid, dashed, dotted, or double.", hintEl);
+  typeField.select.addEventListener("change", () => {
+    draft.style = typeField.select.value;
+    onChange();
+  });
+  box.appendChild(typeField.label);
 }
 
 function fillBorderExtras(host, draft, onChange, hintEl) {
@@ -1071,6 +1138,15 @@ function showProfileTileMenu(e, tile) {
     items.push({
       label: "Options",
       onSelect: () => openProfileTileOptions(tile)
+    });
+  }
+  if (tile.type === "divider" || tile.type === "rail") {
+    items.push({
+      label: "Rotate",
+      onSelect: () => {
+        rotateProfileStrip(tile);
+        markProfileDirty();
+      }
     });
   }
   items.push(

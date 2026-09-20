@@ -319,7 +319,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
+  return type === "banner" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -335,6 +335,10 @@ function bindDraftReaders(box, draft, readValues, onChange) {
 
 function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   const fake = { type: tile.type, props: draft };
+  if (tile.type === "banner") {
+    fillBannerOptions(box, draft, onChange, hintEl);
+    return;
+  }
   if (tile.type === "divider") {
     const field = profileSelectField("Line style", [
       { value: "solid", label: "Solid" },
@@ -389,6 +393,37 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   empty.className = "profile-opt-empty";
   empty.textContent = "No extra settings for this widget yet.";
   box.appendChild(empty);
+}
+
+function fillBannerOptions(box, draft, onChange, hintEl) {
+  draft.color = profileBorderColor(draft.color) || "#1e6b8a";
+  const colorLabel = document.createElement("div");
+  colorLabel.className = "profile-opt-field-label";
+  colorLabel.textContent = "Color";
+  const colorRow = document.createElement("div");
+  colorRow.className = "profile-opt-color-row";
+  const picker = document.createElement("input");
+  picker.type = "color";
+  picker.value = draft.color;
+  const hex = document.createElement("input");
+  hex.type = "text";
+  hex.maxLength = 7;
+  hex.spellcheck = false;
+  hex.value = draft.color.toUpperCase();
+  function setColor(next) {
+    const clean = profileBorderColor(next) || draft.color;
+    draft.color = clean;
+    picker.value = clean;
+    hex.value = clean.toUpperCase();
+    onChange();
+  }
+  profileOptHint(colorRow, "Fill color for the banner. New accounts still get a random color.", hintEl);
+  picker.addEventListener("input", () => setColor(picker.value));
+  hex.addEventListener("change", () => setColor(hex.value));
+  colorRow.appendChild(picker);
+  colorRow.appendChild(hex);
+  box.appendChild(colorLabel);
+  box.appendChild(colorRow);
 }
 
 function fillRailOptions(box, draft, onChange, hintEl) {

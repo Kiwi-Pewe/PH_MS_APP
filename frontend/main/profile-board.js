@@ -1643,7 +1643,7 @@ function renderProfileBoard() {
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
-        if (tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
+        if (tile.type === "banner" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

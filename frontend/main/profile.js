@@ -219,7 +219,7 @@ async function saveProfileLayout() {
   const saveBtn = document.getElementById("profile-save-btn");
   if (saveBtn) saveBtn.disabled = true;
   try {
-    stampOwnDetailsTimezone(profileDraft);
+    stampOwnLocalTimeTimezone(profileDraft);
     const response = await profileApi("/profile_layout", {
       method: "POST",
       body: JSON.stringify(Object.assign({ grid_cols: PROFILE_COLS }, profileDraft || { pages: [] }))

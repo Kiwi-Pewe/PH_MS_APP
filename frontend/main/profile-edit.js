@@ -33,7 +33,7 @@ const PROFILE_PALETTE = [
     id: "about",
     label: "About",
     items: [
-      { type: "details", label: "Details" }
+      { type: "local_time", label: "Local Time" }
     ]
   },
   {
@@ -335,7 +335,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "divider" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "details";
+  return type === "divider" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -381,8 +381,8 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillButtonOptions(box, draft, onChange, hintEl);
     return;
   }
-  if (tile.type === "details") {
-    fillDetailsOptions(box, draft, onChange, hintEl);
+  if (tile.type === "local_time" || tile.type === "details") {
+    fillLocalTimeOptions(box, draft, onChange, hintEl);
     return;
   }
   const empty = document.createElement("div");
@@ -561,14 +561,64 @@ function profileSelectField(labelText, options, selected) {
   return { label, select };
 }
 
-function fillDetailsOptions(box, draft, onChange, hintEl) {
+function fillLocalTimeOptions(box, draft, onChange, hintEl) {
   const zone = profileTimezoneGuess();
   if (profileTimezoneValid(zone)) draft.timezone = zone;
-  const note = document.createElement("div");
-  note.className = "profile-opt-empty";
-  note.textContent = "Live time for your current location. Visitors see that time on your profile.";
-  box.appendChild(note);
-  profileOptHint(note, "Uses the timezone from this device. No extra fields.", hintEl);
+  if (draft.time_format !== "24" && draft.time_format !== "system") draft.time_format = "12";
+  draft.show_date = !!draft.show_date;
+  if (draft.month_style !== "name") draft.month_style = "num";
+  if (draft.year_style !== "2") draft.year_style = "full";
+
+  const fmt = profileSelectField("Time Format", [
+    { value: "12", label: "12H" },
+    { value: "24", label: "24H" },
+    { value: "system", label: "Computer" }
+  ], draft.time_format);
+  profileOptHint(fmt.label, "12-hour with AM/PM, 24-hour, or this computer’s setting.", hintEl);
+  fmt.select.addEventListener("change", () => {
+    draft.time_format = fmt.select.value;
+    onChange();
+  });
+  box.appendChild(fmt.label);
+
+  const extras = document.createElement("div");
+  extras.className = "profile-opt-border-extras" + (draft.show_date ? " is-open" : "");
+  const month = profileSelectField("Month", [
+    { value: "num", label: "Numerical" },
+    { value: "name", label: "Name" }
+  ], draft.month_style);
+  profileOptHint(month.label, "9 or Sept.", hintEl);
+  month.select.addEventListener("change", () => {
+    draft.month_style = month.select.value;
+    onChange();
+  });
+  extras.appendChild(month.label);
+  const year = profileSelectField("Year", [
+    { value: "2", label: "2-digit" },
+    { value: "full", label: "Full year" }
+  ], draft.year_style);
+  profileOptHint(year.label, "26 or 2026.", hintEl);
+  year.select.addEventListener("change", () => {
+    draft.year_style = year.select.value;
+    onChange();
+  });
+  extras.appendChild(year.label);
+
+  const block = document.createElement("div");
+  block.className = "profile-opt-border-block";
+  const row = settingsOpt(
+    "Date",
+    "",
+    settingsToggle(draft.show_date, false, (on) => {
+      draft.show_date = on;
+      extras.classList.toggle("is-open", on);
+      onChange();
+    })
+  );
+  profileOptHint(row, "Show the current date under the time.", hintEl);
+  block.appendChild(row);
+  block.appendChild(extras);
+  box.appendChild(block);
 }
 
 function fillButtonOptions(box, draft, onChange, hintEl) {

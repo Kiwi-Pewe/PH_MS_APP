@@ -21,7 +21,7 @@ TILE_TYPES = {
     "banner", "avatar", "display_name", "member_since", "bio", "friends", "header", "body", "footnote", "list",
     "divider", "spacer", "link_tree",
     "spoiler", "stats", "callout", "button",
-    "details", "interests", "looking_for", "fun_facts", "schedule", "setup",
+    "local_time", "details", "interests", "looking_for", "fun_facts", "schedule", "setup",
     "connections", "featured_friend", "mutuals",
     "frame", "color_block", "icon", "meter", "clock", "countdown",
     "image", "video", "music", "twitch", "gallery", "slideshow", "youtube", "gif", "artwork",
@@ -115,7 +115,8 @@ def tile_bounds(kind):
         "stats": (6, 2, 20, 10),
         "callout": (6, 2, 24, 8),
         "button": (4, 2, 16, 3),
-        "details": (6, 3, 16, 10),
+        "local_time": (5, 2, 6, 3),
+        "details": (5, 2, 6, 3),
         "interests": (6, 2, 20, 8),
         "looking_for": (6, 2, 16, 8),
         "fun_facts": (6, 3, 16, 12),
@@ -173,7 +174,8 @@ def default_sizes(kind):
         "stats": (10, 4),
         "callout": (12, 3),
         "button": (8, 2),
-        "details": (8, 3),
+        "local_time": (6, 2),
+        "details": (6, 2),
         "interests": (10, 3),
         "looking_for": (10, 3),
         "fun_facts": (10, 5),
@@ -233,7 +235,7 @@ def default_profile_tiles(banner_hex):
         {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 32, "h": 3, "props": {"color": banner_hex}, "allow_overlap": False},
         {"id": new_id("tile"), "type": "avatar", "x": 14, "y": 3, "w": 4, "h": 4, "props": {}, "allow_overlap": True},
         {"id": new_id("tile"), "type": "display_name", "x": 13, "y": 6, "w": 5, "h": 2, "props": {}, "allow_overlap": True},
-        {"id": new_id("tile"), "type": "details", "x": 12, "y": 10, "w": 8, "h": 3, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "local_time", "x": 13, "y": 10, "w": 6, "h": 2, "props": {}, "allow_overlap": False},
         {"id": new_id("tile"), "type": "friends", "x": 26, "y": 10, "w": 6, "h": 11, "props": {}, "allow_overlap": False},
     ]
 
@@ -460,12 +462,25 @@ def normalize_props(kind, props, banner_fallback):
         out = normalize_text_chrome(data, 14, True)
         out["text"] = clip_text(data.get("text"), BIO_MAX)
         return out
-    if kind == "details":
+    if kind == "details" or kind == "local_time":
         zone = clip_text(data.get("timezone"), 64).strip().replace(" ", "_")
         if zone and not all(ch.isalnum() or ch in "_+-/" for ch in zone):
             zone = ""
+        time_format = str(data.get("time_format") or "12")
+        if time_format not in ("12", "24", "system"):
+            time_format = "12"
+        month_style = str(data.get("month_style") or "num")
+        if month_style not in ("num", "name"):
+            month_style = "num"
+        year_style = str(data.get("year_style") or "full")
+        if year_style not in ("2", "full"):
+            year_style = "full"
         out = normalize_text_chrome(data, 18, True)
         out["timezone"] = zone
+        out["time_format"] = time_format
+        out["show_date"] = bool(data.get("show_date"))
+        out["month_style"] = month_style
+        out["year_style"] = year_style
         return out
     if kind == "header":
         try:
@@ -548,6 +563,8 @@ def normalize_props(kind, props, banner_fallback):
 def normalize_tile(raw, used_ids, banner_fallback):
     data = raw if isinstance(raw, dict) else {}
     kind = str(data.get("type") or "")
+    if kind == "details":
+        kind = "local_time"
     if kind not in TILE_TYPES:
         return None
     tile_id = str(data.get("id") or "").strip() or new_id("tile")

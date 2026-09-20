@@ -2583,19 +2583,24 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--text-dim); padding: 10px 12px 0;
 }
+.profile-tile.is-local_time,
 .profile-tile.is-details {
   display: flex;
   flex-direction: column;
   align-items: stretch;
 }
+.profile-tile.is-local_time .profile-tile-body,
 .profile-tile.is-details .profile-tile-body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  gap: 2px;
 }
+.profile-local-clock,
 .profile-detail-clock {
   font-size: var(--profile-text-size, 18pt);
   font-weight: 800;
@@ -2603,15 +2608,24 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   line-height: 1.15;
   letter-spacing: 0.02em;
 }
+.profile-local-date {
+  font-size: calc(var(--profile-text-size, 18pt) * 0.55);
+  font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.profile-local-empty,
 .profile-detail-empty {
   color: var(--text-dim);
   font-size: 13px;
 }
+.profile-tile.is-local_time[data-text-align="left"] .profile-tile-body,
 .profile-tile.is-details[data-text-align="left"] .profile-tile-body {
-  justify-content: flex-start;
+  align-items: flex-start;
 }
+.profile-tile.is-local_time[data-text-align="right"] .profile-tile-body,
 .profile-tile.is-details[data-text-align="right"] .profile-tile-body {
-  justify-content: flex-end;
+  align-items: flex-end;
 }
 .profile-tile-body textarea {
   width: 100%; min-height: 120px; resize: none;

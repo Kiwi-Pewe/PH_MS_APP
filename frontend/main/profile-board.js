@@ -71,7 +71,8 @@ const PROFILE_TILE_TYPES = {
   spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
   link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" },
   button: { w: 8, h: 2, minW: 4, minH: 2, maxW: 16, maxH: 3, label: "Button" },
-  details: { w: 8, h: 3, minW: 6, minH: 3, maxW: 16, maxH: 10, label: "Details" }
+  details: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" },
+  local_time: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" }
 };
 
 const PROFILE_PLACEHOLDERS = {
@@ -202,7 +203,7 @@ function defaultTextSize(type, prev) {
   if (old === 1) return 12;
   if (old === 3) return 18;
   if (type === "header") return 18;
-  if (type === "details") return 18;
+  if (type === "local_time" || type === "details") return 18;
   if (type === "footnote") return 12;
   return 14;
 }
@@ -252,12 +253,17 @@ function defaultProfileTileProps(type, existing) {
   const prev = existing || {};
   const chrome = defaultTextChrome(type, prev);
   if (type === "bio") return Object.assign({ text: prev.text || "" }, chrome);
-  if (type === "details") {
+  if (type === "local_time" || type === "details") {
     const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center"
       ? prev.text_align
       : "center";
+    const format = prev.time_format === "24" || prev.time_format === "system" ? prev.time_format : "12";
     return Object.assign({}, chrome, {
       timezone: prev.timezone || (profileIsOwn ? profileTimezoneGuess() : "") || "",
+      time_format: format,
+      show_date: !!prev.show_date,
+      month_style: prev.month_style === "name" ? "name" : "num",
+      year_style: prev.year_style === "2" ? "2" : "full",
       text_align: align
     });
   }
@@ -353,7 +359,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "details";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details";
 }
 
 function profileTextChrome(props, type) {
@@ -679,21 +685,57 @@ function profileTimezoneValid(zone) {
   }
 }
 
-function profileTimezoneTime(zone) {
+function profileTimezoneTime(zone, hour12) {
   if (!profileTimezoneValid(zone)) return "";
   try {
-    return new Date().toLocaleTimeString(undefined, {
+    return new Date().toLocaleTimeString(hour12 ? "en-US" : "en-GB", {
       timeZone: zone,
-      hour: "numeric",
+      hour: hour12 ? "numeric" : "2-digit",
       minute: "2-digit",
-      second: "2-digit"
+      hour12: !!hour12
     });
   } catch (e) {
     return "";
   }
 }
 
-function profileDetailsZone(tile) {
+function profileLocalTimeHour12(format) {
+  if (format === "24") return false;
+  if (format === "12") return true;
+  try {
+    const opts = new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions();
+    if (opts.hourCycle === "h23" || opts.hourCycle === "h24") return false;
+    if (opts.hourCycle === "h11" || opts.hourCycle === "h12") return true;
+    return opts.hour12 !== false;
+  } catch (e) {
+    return true;
+  }
+}
+
+const PROFILE_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
+
+function profileLocalDateText(zone, monthStyle, yearStyle) {
+  if (!profileTimezoneValid(zone)) return "";
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      month: "numeric",
+      day: "numeric",
+      year: "numeric"
+    }).formatToParts(new Date());
+    const map = {};
+    parts.forEach(part => { map[part.type] = part.value; });
+    const monthNum = Number(map.month);
+    const month = monthStyle === "name" ? (PROFILE_MONTH_NAMES[monthNum - 1] || map.month) : String(monthNum);
+    const year = yearStyle === "2" ? String(map.year).slice(-2) : map.year;
+    if (monthStyle === "name") return month + " " + map.day + ", " + year;
+    return month + "/" + map.day + "/" + year;
+  } catch (e) {
+    return "";
+  }
+}
+
+function profileLocalTimeZone(tile) {
   if (profileIsOwn) {
     const guess = profileTimezoneGuess();
     if (profileTimezoneValid(guess)) return guess;
@@ -701,38 +743,43 @@ function profileDetailsZone(tile) {
   return String((tile && tile.props && tile.props.timezone) || "").trim();
 }
 
-function stampOwnDetailsTimezone(layout) {
+function stampOwnLocalTimeTimezone(layout) {
   if (!profileIsOwn || !layout) return;
   const zone = profileTimezoneGuess();
   if (!profileTimezoneValid(zone)) return;
   (layout.pages || []).forEach(page => {
     (page.tiles || []).forEach(tile => {
-      if (tile.type !== "details") return;
-      tile.props = defaultProfileTileProps("details", Object.assign({}, tile.props || {}, { timezone: zone }));
+      if (tile.type === "details") tile.type = "local_time";
+      if (tile.type !== "local_time") return;
+      tile.props = defaultProfileTileProps("local_time", Object.assign({}, tile.props || {}, { timezone: zone }));
     });
   });
 }
 
-let profileDetailsClock = 0;
+let profileLocalTimeClock = 0;
 
-function tickProfileDetailClocks() {
-  document.querySelectorAll(".profile-detail-clock[data-zone]").forEach(el => {
-    const time = profileTimezoneTime(el.dataset.zone);
+function tickProfileLocalTimeClocks() {
+  document.querySelectorAll(".profile-local-clock[data-zone]").forEach(el => {
+    const time = profileTimezoneTime(el.dataset.zone, profileLocalTimeHour12(el.dataset.format));
     if (time) el.textContent = time;
+  });
+  document.querySelectorAll(".profile-local-date[data-zone]").forEach(el => {
+    const date = profileLocalDateText(el.dataset.zone, el.dataset.month, el.dataset.year);
+    if (date) el.textContent = date;
   });
 }
 
-function syncProfileDetailsClock() {
-  if (profileDetailsClock) {
-    clearInterval(profileDetailsClock);
-    profileDetailsClock = 0;
+function syncProfileLocalTimeClock() {
+  if (profileLocalTimeClock) {
+    clearInterval(profileLocalTimeClock);
+    profileLocalTimeClock = 0;
   }
-  if (!document.querySelector(".profile-detail-clock[data-zone]")) return;
-  tickProfileDetailClocks();
-  profileDetailsClock = setInterval(tickProfileDetailClocks, 1000);
+  if (!document.querySelector(".profile-local-clock[data-zone]")) return;
+  tickProfileLocalTimeClocks();
+  profileLocalTimeClock = setInterval(tickProfileLocalTimeClocks, 1000);
 }
 
-function paintProfileDetails(tile, el) {
+function paintProfileLocalTime(tile, el) {
   const chrome = profileTextChrome(tile.props, tile.type);
   el.classList.add("is-text-chrome");
   el.dataset.textAlign = chrome.text_align;
@@ -740,21 +787,32 @@ function paintProfileDetails(tile, el) {
   applyProfileWidgetSurface(el, tile);
   const body = document.createElement("div");
   body.className = "profile-tile-body";
-  const zone = profileDetailsZone(tile);
+  const zone = profileLocalTimeZone(tile);
+  const props = tile.props || {};
   if (profileTimezoneValid(zone)) {
     const clock = document.createElement("div");
-    clock.className = "profile-detail-clock";
+    clock.className = "profile-local-clock";
     clock.dataset.zone = zone;
-    clock.textContent = profileTimezoneTime(zone);
+    clock.dataset.format = props.time_format === "24" || props.time_format === "system" ? props.time_format : "12";
+    clock.textContent = profileTimezoneTime(zone, profileLocalTimeHour12(clock.dataset.format));
     body.appendChild(clock);
+    if (props.show_date) {
+      const date = document.createElement("div");
+      date.className = "profile-local-date";
+      date.dataset.zone = zone;
+      date.dataset.month = props.month_style === "name" ? "name" : "num";
+      date.dataset.year = props.year_style === "2" ? "2" : "full";
+      date.textContent = profileLocalDateText(zone, date.dataset.month, date.dataset.year);
+      body.appendChild(date);
+    }
   } else {
     const empty = document.createElement("div");
-    empty.className = "profile-detail-empty";
+    empty.className = "profile-local-empty";
     empty.textContent = profileIsOwn ? "Could not read your local time." : "Time unavailable.";
     body.appendChild(empty);
   }
   el.appendChild(body);
-  syncProfileDetailsClock();
+  syncProfileLocalTimeClock();
 }
 
 function paintProfileFriends(host) {
@@ -1157,8 +1215,8 @@ function paintProfileTileContent(tile, el) {
     paintProfileButton(tile, el);
     return;
   }
-  if (tile.type === "details") {
-    paintProfileDetails(tile, el);
+  if (tile.type === "local_time" || tile.type === "details") {
+    paintProfileLocalTime(tile, el);
     return;
   }
   if (PROFILE_TILE_TYPES[tile.type] && PROFILE_TILE_TYPES[tile.type].placeholder) {
@@ -1195,6 +1253,7 @@ function renderProfileBoard() {
     board.appendChild(empty);
   }
   tiles.forEach((tile, index) => {
+    if (tile.type === "details") tile.type = "local_time";
     const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x);
     tile.w = size.w;
     tile.h = size.h;
@@ -1211,7 +1270,7 @@ function renderProfileBoard() {
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
-        if (tile.type === "link_tree" || tile.type === "details") {
+        if (tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);
@@ -1240,7 +1299,7 @@ function renderProfileBoard() {
     board.appendChild(el);
   });
   syncProfileBoardScale();
-  syncProfileDetailsClock();
+  syncProfileLocalTimeClock();
 }
 
 function paintProfileGrid(board, page) {

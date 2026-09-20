@@ -2264,7 +2264,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
    faces are hittable; a later global UI scale can still sit on top. */
 #emoji-picker {
   position: fixed;
-  z-index: 800;
+  z-index: 980;
   width: 520px;
   height: 520px;
   display: none;

@@ -561,116 +561,14 @@ function profileSelectField(labelText, options, selected) {
   return { label, select };
 }
 
-function fillDetailsFieldBlock(box, draft, onChange, hintEl, title, hint, showKey, buildInput) {
-  const block = document.createElement("div");
-  block.className = "profile-opt-border-block";
-  const extras = document.createElement("div");
-  extras.className = "profile-opt-border-extras" + (draft[showKey] ? " is-open" : "");
-  const built = buildInput();
-  const row = settingsOpt(
-    title,
-    "",
-    settingsToggle(!!draft[showKey], false, (on) => {
-      draft[showKey] = on;
-      if (on && typeof built.onShow === "function") built.onShow();
-      extras.classList.toggle("is-open", on);
-      onChange();
-    })
-  );
-  profileOptHint(row, hint, hintEl);
-  block.appendChild(row);
-  extras.appendChild(built.node);
-  block.appendChild(extras);
-  box.appendChild(block);
-}
-
 function fillDetailsOptions(box, draft, onChange, hintEl) {
-  draft.show_timezone = !!draft.show_timezone;
-  draft.show_location = !!draft.show_location;
-  draft.show_languages = !!draft.show_languages;
-  if (Array.isArray(draft.languages)) draft.languages = draft.languages.slice();
-  fillDetailsFieldBlock(box, draft, onChange, hintEl, "Timezone", "Show your timezone and local time.", "show_timezone", () => {
-    const wrap = document.createElement("div");
-    const label = document.createElement("label");
-    label.textContent = "Zone";
-    const listId = "profile-tz-" + Math.random().toString(36).slice(2, 8);
-    const input = document.createElement("input");
-    input.type = "text";
-    input.setAttribute("list", listId);
-    input.autocomplete = "off";
-    input.placeholder = "Start typing a city or region";
-    input.value = draft.timezone || "";
-    const list = document.createElement("datalist");
-    list.id = listId;
-    profileTimezoneList().forEach(zone => {
-      const opt = document.createElement("option");
-      opt.value = zone;
-      list.appendChild(opt);
-    });
-    const live = document.createElement("div");
-    live.className = "profile-opt-live-time";
-    function applyZone(value, paint) {
-      const raw = String(value || "").trim();
-      draft.timezone = raw;
-      if (profileTimezoneValid(raw)) {
-        live.textContent = "Local time: " + profileTimezoneTime(raw);
-      } else {
-        live.textContent = raw ? "Unknown timezone." : "";
-      }
-      if (paint) onChange();
-    }
-    input.addEventListener("input", () => applyZone(input.value, true));
-    input.addEventListener("change", () => applyZone(input.value, true));
-    label.appendChild(input);
-    wrap.appendChild(label);
-    wrap.appendChild(list);
-    wrap.appendChild(live);
-    applyZone(input.value, false);
-    const built = {
-      node: wrap,
-      onShow: () => {
-        if (!profileTimezoneValid(draft.timezone)) {
-          const guess = profileTimezoneGuess();
-          if (profileTimezoneValid(guess)) {
-            input.value = guess;
-            applyZone(guess, false);
-          }
-        }
-      }
-    };
-    if (draft.show_timezone) built.onShow();
-    return built;
-  });
-  fillDetailsFieldBlock(box, draft, onChange, hintEl, "Location", "Show a location you type yourself.", "show_location", () => {
-    const label = document.createElement("label");
-    label.textContent = "Location";
-    const input = document.createElement("input");
-    input.type = "text";
-    input.maxLength = 80;
-    input.value = draft.location || "";
-    input.placeholder = "City, region";
-    input.addEventListener("input", () => {
-      draft.location = input.value;
-      onChange();
-    });
-    label.appendChild(input);
-    return { node: label };
-  });
-  fillDetailsFieldBlock(box, draft, onChange, hintEl, "Languages", "Show languages, separated by commas.", "show_languages", () => {
-    const label = document.createElement("label");
-    label.textContent = "Languages";
-    const input = document.createElement("input");
-    input.type = "text";
-    input.maxLength = 160;
-    input.value = profileDetailLanguages(draft.languages).join(", ");
-    input.placeholder = "English, Spanish";
-    input.addEventListener("input", () => {
-      draft.languages = profileDetailLanguages(input.value);
-      onChange();
-    });
-    label.appendChild(input);
-    return { node: label };
-  });
+  const zone = profileTimezoneGuess();
+  if (profileTimezoneValid(zone)) draft.timezone = zone;
+  const note = document.createElement("div");
+  note.className = "profile-opt-empty";
+  note.textContent = "Live time for your current location. Visitors see that time on your profile.";
+  box.appendChild(note);
+  profileOptHint(note, "Uses the timezone from this device. No extra fields.", hintEl);
 }
 
 function fillButtonOptions(box, draft, onChange, hintEl) {
@@ -897,7 +795,6 @@ function openProfileTileOptions(tile) {
   if (Array.isArray(draft.links)) draft.links = draft.links.map(row => Object.assign({}, row));
   if (Array.isArray(draft.rows)) draft.rows = draft.rows.map(row => Object.assign({}, row));
   if (Array.isArray(draft.items)) draft.items = draft.items.slice();
-  if (Array.isArray(draft.languages)) draft.languages = draft.languages.slice();
   Object.assign(draft, defaultTextChrome(tile.type, draft));
   let tab = profileHasWidgetSettings(tile.type) ? 'widget' : 'design';
   const overlay = document.createElement('div');

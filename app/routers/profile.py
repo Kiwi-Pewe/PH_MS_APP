@@ -173,7 +173,7 @@ def default_sizes(kind):
         "stats": (10, 4),
         "callout": (12, 3),
         "button": (8, 2),
-        "details": (10, 5),
+        "details": (8, 3),
         "interests": (10, 3),
         "looking_for": (10, 3),
         "fun_facts": (10, 5),
@@ -233,7 +233,7 @@ def default_profile_tiles(banner_hex):
         {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 32, "h": 3, "props": {"color": banner_hex}, "allow_overlap": False},
         {"id": new_id("tile"), "type": "avatar", "x": 14, "y": 3, "w": 4, "h": 4, "props": {}, "allow_overlap": True},
         {"id": new_id("tile"), "type": "display_name", "x": 13, "y": 6, "w": 5, "h": 2, "props": {}, "allow_overlap": True},
-        {"id": new_id("tile"), "type": "details", "x": 7, "y": 10, "w": 10, "h": 5, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "details", "x": 12, "y": 10, "w": 8, "h": 3, "props": {}, "allow_overlap": False},
         {"id": new_id("tile"), "type": "friends", "x": 26, "y": 10, "w": 6, "h": 11, "props": {}, "allow_overlap": False},
     ]
 
@@ -461,28 +461,11 @@ def normalize_props(kind, props, banner_fallback):
         out["text"] = clip_text(data.get("text"), BIO_MAX)
         return out
     if kind == "details":
-        langs = []
-        raw_langs = data.get("languages")
-        if isinstance(raw_langs, list):
-            source = raw_langs
-        else:
-            source = str(raw_langs or "").replace("|", ",").split(",")
-        for row in source:
-            item = clip_text(row, 24).strip()
-            if item:
-                langs.append(item)
-            if len(langs) >= 8:
-                break
         zone = clip_text(data.get("timezone"), 64).strip().replace(" ", "_")
         if zone and not all(ch.isalnum() or ch in "_+-/" for ch in zone):
             zone = ""
-        out = normalize_text_chrome(data, 14, True)
-        out["show_timezone"] = bool(data.get("show_timezone"))
+        out = normalize_text_chrome(data, 18, True)
         out["timezone"] = zone
-        out["show_location"] = bool(data.get("show_location"))
-        out["location"] = clip_text(data.get("location"), 80).strip()
-        out["show_languages"] = bool(data.get("show_languages"))
-        out["languages"] = langs
         return out
     if kind == "header":
         try:

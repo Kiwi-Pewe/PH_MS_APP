@@ -71,7 +71,7 @@ const PROFILE_TILE_TYPES = {
   spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
   link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" },
   button: { w: 8, h: 2, minW: 4, minH: 2, maxW: 16, maxH: 3, label: "Button" },
-  details: { w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10, label: "Details" }
+  details: { w: 8, h: 3, minW: 6, minH: 3, maxW: 16, maxH: 10, label: "Details" }
 };
 
 const PROFILE_PLACEHOLDERS = {
@@ -202,6 +202,7 @@ function defaultTextSize(type, prev) {
   if (old === 1) return 12;
   if (old === 3) return 18;
   if (type === "header") return 18;
+  if (type === "details") return 18;
   if (type === "footnote") return 12;
   return 14;
 }
@@ -252,14 +253,13 @@ function defaultProfileTileProps(type, existing) {
   const chrome = defaultTextChrome(type, prev);
   if (type === "bio") return Object.assign({ text: prev.text || "" }, chrome);
   if (type === "details") {
-    return Object.assign({
-      show_timezone: !!prev.show_timezone,
-      timezone: prev.timezone || "",
-      show_location: !!prev.show_location,
-      location: prev.location || "",
-      show_languages: !!prev.show_languages,
-      languages: Array.isArray(prev.languages) ? prev.languages.slice() : profileDetailLanguages(prev.languages)
-    }, chrome);
+    const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center"
+      ? prev.text_align
+      : "center";
+    return Object.assign({}, chrome, {
+      timezone: prev.timezone || (profileIsOwn ? profileTimezoneGuess() : "") || "",
+      text_align: align
+    });
   }
   if (type === "banner") {
     return Object.assign({
@@ -349,7 +349,7 @@ function profileUsesTextChrome(type) {
 }
 
 function profileHasFixedTitle(type) {
-  return type === "bio" || type === "link_tree" || type === "friends" || type === "details";
+  return type === "bio" || type === "link_tree" || type === "friends";
 }
 
 function profileHasTextFormat(type) {
@@ -660,22 +660,6 @@ function paintProfileButton(tile, el) {
   el.appendChild(btn);
 }
 
-function profileDetailLanguages(value) {
-  if (Array.isArray(value)) {
-    return value.map(row => String(row || "").trim()).filter(Boolean).slice(0, 8);
-  }
-  return String(value || "").split(/[,|\n]/).map(row => row.trim()).filter(Boolean).slice(0, 8);
-}
-
-function profileTimezoneList() {
-  try {
-    if (typeof Intl !== "undefined" && Intl.supportedValuesOf) {
-      return Intl.supportedValuesOf("timeZone");
-    }
-  } catch (e) { /* fall through */ }
-  return ["UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London", "Europe/Paris", "Asia/Tokyo", "Australia/Sydney"];
-}
-
 function profileTimezoneGuess() {
   try {
     return (Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || "";
@@ -701,17 +685,38 @@ function profileTimezoneTime(zone) {
     return new Date().toLocaleTimeString(undefined, {
       timeZone: zone,
       hour: "numeric",
-      minute: "2-digit"
+      minute: "2-digit",
+      second: "2-digit"
     });
   } catch (e) {
     return "";
   }
 }
 
+function profileDetailsZone(tile) {
+  if (profileIsOwn) {
+    const guess = profileTimezoneGuess();
+    if (profileTimezoneValid(guess)) return guess;
+  }
+  return String((tile && tile.props && tile.props.timezone) || "").trim();
+}
+
+function stampOwnDetailsTimezone(layout) {
+  if (!profileIsOwn || !layout) return;
+  const zone = profileTimezoneGuess();
+  if (!profileTimezoneValid(zone)) return;
+  (layout.pages || []).forEach(page => {
+    (page.tiles || []).forEach(tile => {
+      if (tile.type !== "details") return;
+      tile.props = defaultProfileTileProps("details", Object.assign({}, tile.props || {}, { timezone: zone }));
+    });
+  });
+}
+
 let profileDetailsClock = 0;
 
 function tickProfileDetailClocks() {
-  document.querySelectorAll(".profile-detail-time[data-zone]").forEach(el => {
+  document.querySelectorAll(".profile-detail-clock[data-zone]").forEach(el => {
     const time = profileTimezoneTime(el.dataset.zone);
     if (time) el.textContent = time;
   });
@@ -722,23 +727,9 @@ function syncProfileDetailsClock() {
     clearInterval(profileDetailsClock);
     profileDetailsClock = 0;
   }
-  if (!document.querySelector(".profile-detail-time[data-zone]")) return;
+  if (!document.querySelector(".profile-detail-clock[data-zone]")) return;
   tickProfileDetailClocks();
-  profileDetailsClock = setInterval(tickProfileDetailClocks, 15000);
-}
-
-function paintProfileDetailRow(host, label, valueNode) {
-  const row = document.createElement("div");
-  row.className = "profile-detail-row";
-  const key = document.createElement("div");
-  key.className = "profile-detail-key";
-  key.textContent = label;
-  const val = document.createElement("div");
-  val.className = "profile-detail-val";
-  val.appendChild(valueNode);
-  row.appendChild(key);
-  row.appendChild(val);
-  host.appendChild(row);
+  profileDetailsClock = setInterval(tickProfileDetailClocks, 1000);
 }
 
 function paintProfileDetails(tile, el) {
@@ -747,70 +738,19 @@ function paintProfileDetails(tile, el) {
   el.dataset.textAlign = chrome.text_align;
   el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
   applyProfileWidgetSurface(el, tile);
-  mountProfileFixedTitle(el, "Details");
-  const props = tile.props || {};
-  const preview = el.classList.contains("is-opt-preview");
-  const guide = preview || !!(profileEditing && profileIsOwn);
   const body = document.createElement("div");
   body.className = "profile-tile-body";
-  let shown = 0;
-  if (props.show_timezone) {
-    const zone = String(props.timezone || "").trim();
-    const valid = profileTimezoneValid(zone);
-    const wrap = document.createElement("div");
-    const name = document.createElement("div");
-    name.textContent = valid
-      ? zone.replace(/_/g, " ")
-      : (preview ? "Type a timezone." : (guide ? "Pick a timezone in Options." : ""));
-    wrap.appendChild(name);
-    if (valid) {
-      const clock = document.createElement("div");
-      clock.className = "profile-detail-time";
-      clock.dataset.zone = zone;
-      clock.textContent = profileTimezoneTime(zone);
-      wrap.appendChild(clock);
-    }
-    if (valid || guide) {
-      paintProfileDetailRow(body, "Timezone", wrap);
-      shown += 1;
-    }
-  }
-  if (props.show_location) {
-    const location = String(props.location || "").trim();
-    const node = document.createElement("div");
-    node.textContent = location || (preview ? "Type a location." : (guide ? "Add a location in Options." : ""));
-    if (location || guide) {
-      paintProfileDetailRow(body, "Location", node);
-      shown += 1;
-    }
-  }
-  if (props.show_languages) {
-    const langs = profileDetailLanguages(props.languages);
-    const chips = document.createElement("div");
-    chips.className = "profile-detail-chips";
-    if (langs.length) {
-      langs.forEach(lang => {
-        const chip = document.createElement("span");
-        chip.className = "profile-detail-chip";
-        chip.textContent = lang;
-        chips.appendChild(chip);
-      });
-    } else if (guide) {
-      chips.textContent = preview ? "Type languages." : "Add languages in Options.";
-    }
-    if (langs.length || guide) {
-      paintProfileDetailRow(body, "Languages", chips);
-      shown += 1;
-    }
-  }
-  if (!shown) {
+  const zone = profileDetailsZone(tile);
+  if (profileTimezoneValid(zone)) {
+    const clock = document.createElement("div");
+    clock.className = "profile-detail-clock";
+    clock.dataset.zone = zone;
+    clock.textContent = profileTimezoneTime(zone);
+    body.appendChild(clock);
+  } else {
     const empty = document.createElement("div");
     empty.className = "profile-detail-empty";
-    empty.textContent = preview
-      ? "Turn on timezone, location, or languages."
-      : (profileEditing && profileIsOwn
-        ? "Right-click, then Options, to choose what to show."
-        : "No details yet.");
+    empty.textContent = profileIsOwn ? "Could not read your local time." : "Time unavailable.";
     body.appendChild(empty);
   }
   el.appendChild(body);

@@ -50,6 +50,7 @@ STAT_MAX_ROWS = 20
 STAT_FIELD_MAX = 80
 BUTTON_ACTIONS = {"link", "page", "friend"}
 BUTTON_LABEL_MAX = 48
+BODY_TITLE_MAX = 48
 TEXT_SIZES = (8, 9, 10, 11, 12, 14, 18, 24)
 TEXT_ALIGNS = {"left", "center", "right"}
 BORDER_STYLES = {"solid", "dashed", "dotted", "double"}
@@ -114,7 +115,7 @@ def tile_bounds(kind):
         "spoiler": (6, 2, 20, 10),
         "stats": (6, 2, 20, 10),
         "callout": (6, 2, 24, 8),
-        "button": (4, 2, 16, 3),
+        "button": (4, 1, 16, 3),
         "local_time": (5, 2, 6, 3),
         "details": (5, 2, 6, 3),
         "interests": (6, 2, 20, 8),
@@ -494,8 +495,14 @@ def normalize_props(kind, props, banner_fallback):
         out["level"] = level
         return out
     if kind == "body":
+        align = str(data.get("title_align") or "left")
+        if align not in TEXT_ALIGNS:
+            align = "left"
         out = normalize_text_chrome(data, 14, True)
         out["text"] = clip_text(data.get("text"), BIO_MAX)
+        out["show_title"] = bool(data.get("show_title"))
+        out["title"] = clip_text(data.get("title"), BODY_TITLE_MAX).strip()
+        out["title_align"] = align
         return out
     if kind == "footnote":
         out = normalize_text_chrome(data, 12, False)

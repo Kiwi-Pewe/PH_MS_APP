@@ -70,7 +70,7 @@ const PROFILE_TILE_TYPES = {
   divider: { w: 32, h: 1, minW: 6, minH: 1, maxW: 32, maxH: 2, label: "Divider" },
   spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
   link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" },
-  button: { w: 8, h: 2, minW: 4, minH: 2, maxW: 16, maxH: 3, label: "Button" },
+  button: { w: 8, h: 2, minW: 4, minH: 1, maxW: 16, maxH: 3, label: "Button" },
   details: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" },
   local_time: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" }
 };
@@ -280,7 +280,15 @@ function defaultProfileTileProps(type, existing) {
     return Object.assign({ show_status: false, show_pronouns: false, show_border: false }, defaultBorderChrome(type, prev));
   }
   if (type === "header") return Object.assign({ text: prev.text || "", level: 1 }, chrome);
-  if (type === "body") return Object.assign({ text: prev.text || "" }, chrome);
+  if (type === "body") {
+    const titleAlign = prev.title_align === "center" || prev.title_align === "right" ? prev.title_align : "left";
+    return Object.assign({
+      text: prev.text || "",
+      show_title: !!prev.show_title,
+      title: prev.title || "",
+      title_align: titleAlign
+    }, chrome);
+  }
   if (type === "footnote") return Object.assign({ text: prev.text || "" }, chrome);
   if (type === "list") return Object.assign({ style: "bullet", items: Array.isArray(prev.items) ? prev.items.slice() : [] }, chrome);
   if (type === "spoiler") return Object.assign({ title: prev.title || "", text: prev.text || "", start_open: !!prev.start_open }, chrome);
@@ -348,6 +356,7 @@ function profileTileStyle(tile) {
 function applyProfileTileStyle(el, tile) {
   el.style.gridColumn = (tile.x + 1) + " / span " + tile.w;
   el.style.gridRow = (tile.y + 1) + " / span " + tile.h;
+  el.classList.toggle("is-compact-row", Number(tile.h) === 1);
 }
 
 function profileUsesTextChrome(type) {
@@ -411,6 +420,18 @@ function mountProfileTextChrome(el, tile) {
     rule.className = "profile-text-rule";
     shell.appendChild(title);
     shell.appendChild(rule);
+  } else if (tile.type === "body" && tile.props && tile.props.show_title) {
+    const titleText = String(tile.props.title || "").trim();
+    if (titleText || (profileEditing && profileIsOwn)) {
+      el.dataset.titleAlign = tile.props.title_align === "center" || tile.props.title_align === "right" ? tile.props.title_align : "left";
+      const title = document.createElement("div");
+      title.className = "profile-text-title" + (titleText ? "" : " is-empty");
+      title.textContent = titleText || "Title";
+      const rule = document.createElement("div");
+      rule.className = "profile-text-rule";
+      shell.appendChild(title);
+      shell.appendChild(rule);
+    }
   }
   const slot = document.createElement("div");
   slot.className = "profile-text-slot";
@@ -1094,6 +1115,7 @@ function paintProfilePlaceholder(tile, el) {
 
 function paintProfileTileContent(tile, el) {
   el.innerHTML = "";
+  el.classList.toggle("is-compact-row", Number(tile.h) === 1);
   if (tile.type === "banner") {
     el.style.background = (tile.props && tile.props.color) || "#1e6b8a";
     applyProfileTileBorder(el, tile);

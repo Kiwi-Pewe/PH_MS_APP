@@ -335,7 +335,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "divider" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details";
+  return type === "divider" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -383,6 +383,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "local_time" || tile.type === "details") {
     fillLocalTimeOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "body") {
+    fillBodyTitleOptions(box, draft, onChange, hintEl);
     return;
   }
   const empty = document.createElement("div");
@@ -559,6 +563,69 @@ function profileSelectField(labelText, options, selected) {
   });
   label.appendChild(select);
   return { label, select };
+}
+
+function fillBodyTitleOptions(box, draft, onChange, hintEl) {
+  draft.show_title = !!draft.show_title;
+  if (draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = "left";
+  draft.title = String(draft.title || "");
+  const extras = document.createElement("div");
+  extras.className = "profile-opt-border-extras" + (draft.show_title ? " is-open" : "");
+
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = "Title";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.maxLength = 48;
+  nameInput.value = draft.title;
+  nameInput.placeholder = "About";
+  profileOptHint(nameLabel, "Label above the body. Double-click still edits the body.", hintEl);
+  nameInput.addEventListener("input", () => {
+    draft.title = nameInput.value;
+    onChange();
+  });
+  nameLabel.appendChild(nameInput);
+  extras.appendChild(nameLabel);
+
+  const alignWrap = document.createElement("div");
+  alignWrap.className = "profile-opt-align";
+  const alignLabel = document.createElement("div");
+  alignLabel.className = "profile-opt-field-label";
+  alignLabel.textContent = "Title alignment";
+  alignWrap.appendChild(alignLabel);
+  const row = document.createElement("div");
+  row.className = "profile-opt-seg";
+  [["left", "L", "Put the title on the left."], ["center", "C", "Center the title."], ["right", "R", "Put the title on the right."]].forEach(item => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = item[1];
+    btn.className = draft.title_align === item[0] ? "is-on" : "";
+    profileOptHint(btn, item[2], hintEl);
+    btn.addEventListener("click", () => {
+      draft.title_align = item[0];
+      Array.from(row.children).forEach(child => child.classList.toggle("is-on", child === btn));
+      onChange();
+    });
+    row.appendChild(btn);
+  });
+  alignWrap.appendChild(row);
+  extras.appendChild(alignWrap);
+
+  const block = document.createElement("div");
+  block.className = "profile-opt-border-block";
+  const toggleRow = settingsOpt(
+    "Title",
+    "",
+    settingsToggle(draft.show_title, false, (on) => {
+      draft.show_title = on;
+      extras.classList.toggle("is-open", on);
+      onChange();
+    })
+  );
+  profileOptHint(toggleRow, "Add a labeled heading and divider above the body.", hintEl);
+  block.appendChild(toggleRow);
+  block.appendChild(extras);
+  box.appendChild(block);
 }
 
 function fillLocalTimeOptions(box, draft, onChange, hintEl) {

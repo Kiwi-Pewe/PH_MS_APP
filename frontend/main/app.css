@@ -2686,11 +2686,46 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   color: var(--text-dim);
   flex: 0 0 auto;
 }
+.profile-text-title.is-empty { font-weight: 500; }
+.profile-tile[data-title-align="left"] .profile-text-title { text-align: left; }
+.profile-tile[data-title-align="center"] .profile-text-title { text-align: center; }
+.profile-tile[data-title-align="right"] .profile-text-title { text-align: right; }
 .profile-text-rule {
   height: 1px;
   background: var(--border);
-  margin: 6px 12px 8px;
+  margin: 6px 0 8px;
   flex: 0 0 auto;
+}
+.profile-tile.is-compact-row .profile-text-shell {
+  padding: 0 10px;
+  justify-content: center;
+}
+.profile-tile.is-compact-row .profile-text-slot {
+  overflow: hidden;
+  justify-content: center;
+}
+.profile-tile.is-compact-row .profile-tile-header,
+.profile-tile.is-compact-row .profile-tile-header.is-level-2,
+.profile-tile.is-compact-row .profile-tile-header.is-level-3 {
+  font-size: min(var(--profile-text-size, 18pt), 28px);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 100%;
+}
+.profile-tile.is-button.is-compact-row {
+  padding: 0;
+}
+.profile-tile.is-button.is-compact-row .profile-action-btn {
+  padding: 0 10px;
+  line-height: 1;
+  height: 100%;
+  min-height: 0;
+  font-size: min(var(--profile-text-size, 14pt), 16px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .profile-tile[data-text-align="left"] .profile-text-slot,
 .profile-tile[data-text-align="left"] .profile-text-slot textarea,

@@ -68,7 +68,7 @@ const PROFILE_TILE_TYPES = {
   stats: { w: 10, h: 4, minW: 6, minH: 2, maxW: 20, maxH: 10, label: "Stats" },
   callout: { w: 12, h: 3, minW: 6, minH: 2, maxW: 24, maxH: 8, label: "Callout" },
   divider: { w: 32, h: 1, minW: 1, minH: 1, maxW: 32, maxH: 24, label: "Divider" },
-  rail: { w: 1, h: 4, minW: 1, minH: 1, maxW: 8, maxH: 8, label: "Rail" },
+  rail: { w: 8, h: 1, minW: 1, minH: 1, maxW: 8, maxH: 8, label: "Rail" },
   spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
   link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" },
   button: { w: 8, h: 2, minW: 4, minH: 1, maxW: 16, maxH: 3, label: "Button" },
@@ -206,7 +206,7 @@ function profileColliders(page, candidate, skipId) {
 
 function profileFits(tile) {
   if (tile.x < 0 || tile.y < 0 || tile.x + tile.w > PROFILE_COLS) return false;
-  const b = profileTileBounds(tile.type);
+  const b = profileTileBounds(tile.type, tile);
   return tile.w >= b.minW && tile.h >= b.minH && tile.w <= b.maxW && tile.h <= b.maxH;
 }
 
@@ -332,7 +332,7 @@ function defaultProfileTileProps(type, existing) {
     const style = String(prev.style || "solid").toLowerCase();
     const known = PROFILE_BORDER_STYLES.some(item => item.value === style);
     return Object.assign({
-      orientation: prev.orientation === "horizontal" ? "horizontal" : "vertical",
+      orientation: prev.orientation === "vertical" ? "vertical" : "horizontal",
       thickness: clampProfileBorderWidth(prev.thickness, 4),
       color: profileBorderColor(prev.color) || "#ffffff",
       style: known ? style : "solid"
@@ -567,7 +567,7 @@ function profileStripOrientation(type, props, w, h) {
   if (props && props.orientation === "vertical") return "vertical";
   if (props && props.orientation === "horizontal") return "horizontal";
   if (Number(w) === 1 && Number(h) > 1) return "vertical";
-  return type === "rail" ? "vertical" : "horizontal";
+  return "horizontal";
 }
 
 function rotateProfileStrip(tile) {

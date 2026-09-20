@@ -105,7 +105,7 @@ def strip_orientation(kind, props):
         return "vertical"
     if data.get("orientation") == "horizontal":
         return "horizontal"
-    return "vertical" if kind == "rail" else "horizontal"
+    return "horizontal"
 
 
 def tile_bounds(kind, props=None):
@@ -188,7 +188,7 @@ def default_sizes(kind):
         "footnote": (12, 1),
         "list": (10, 6),
         "divider": (32, 1),
-        "rail": (1, 4),
+        "rail": (8, 1),
         "spacer": (8, 2),
         "link_tree": (8, 10),
         "spoiler": (10, 3),
@@ -577,7 +577,7 @@ def normalize_props(kind, props, banner_fallback):
         style = str(data.get("style") or "solid").lower()
         if style not in BORDER_STYLES:
             style = "solid"
-        orientation = "horizontal" if data.get("orientation") == "horizontal" else "vertical"
+        orientation = "vertical" if data.get("orientation") == "vertical" else "horizontal"
         out = normalize_text_chrome(data, 14, False)
         out["orientation"] = orientation
         out["thickness"] = clamp_int(data.get("thickness"), 1, 10, 4)

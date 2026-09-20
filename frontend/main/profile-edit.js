@@ -170,16 +170,12 @@ function profileCellFromPoint(clientX, clientY) {
 function tryMoveTile(tile, x, y) {
   const page = currentProfilePage();
   if (!page) return false;
-  const next = {
-    type: tile.type,
+  const next = Object.assign({}, tile, {
     x: Math.max(0, Math.min(PROFILE_COLS - tile.w, x)),
-    y: Math.max(0, y),
-    w: tile.w,
-    h: tile.h,
-    allow_overlap: tile.allow_overlap
-  };
+    y: Math.max(0, y)
+  });
   if (!profileFits(next)) return false;
-  if (profileColliders(page, Object.assign({}, tile, next), tile.id).length) return false;
+  if (profileColliders(page, next, tile.id).length) return false;
   tile.x = next.x;
   tile.y = next.y;
   return true;
@@ -189,16 +185,12 @@ function tryResizeTile(tile, w, h) {
   const page = currentProfilePage();
   if (!page) return false;
   const size = clampProfileTileSize(tile.type, w, h, tile.x, tile);
-  const next = {
-    type: tile.type,
-    x: tile.x,
-    y: tile.y,
+  const next = Object.assign({}, tile, {
     w: size.w,
-    h: size.h,
-    allow_overlap: tile.allow_overlap
-  };
+    h: size.h
+  });
   if (!profileFits(next)) return false;
-  if (profileColliders(page, Object.assign({}, tile, next), tile.id).length) return false;
+  if (profileColliders(page, next, tile.id).length) return false;
   tile.w = next.w;
   tile.h = next.h;
   return true;
@@ -393,7 +385,7 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
 }
 
 function fillRailOptions(box, draft, onChange, hintEl) {
-  if (draft.orientation !== "horizontal") draft.orientation = "vertical";
+  if (draft.orientation !== "vertical") draft.orientation = "horizontal";
   draft.thickness = clampProfileBorderWidth(draft.thickness, 4);
   draft.color = profileBorderColor(draft.color) || "#ffffff";
   const known = PROFILE_BORDER_STYLES.some(item => item.value === draft.style);

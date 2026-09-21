@@ -1,0 +1,127 @@
+.oneira-music {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 8px 10px 10px;
+  background: linear-gradient(180deg, #16324a 0%, #071018 100%);
+  color: #dceaf4;
+  user-select: none;
+  container-type: size;
+  container-name: oneira-music;
+}
+.oneira-music-lcd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: #041018;
+  box-shadow: inset 0 0 0 1px rgba(80, 160, 200, 0.22);
+}
+.oneira-music-time {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: #7ec8ea;
+}
+.oneira-music-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ec3d8;
+}
+.oneira-music-title.is-empty {
+  color: rgba(158, 195, 216, 0.45);
+  letter-spacing: 0.16em;
+}
+.oneira-music-seek {
+  width: 100%;
+  height: 6px;
+  margin: 0;
+  accent-color: #3aa0d8;
+}
+.oneira-music-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.oneira-music-cluster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+}
+.oneira-music-play {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #7ec8ea;
+  background: radial-gradient(circle at 50% 40%, #4aa3d4, #1b5f86);
+  color: #e8f6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.oneira-music-play svg { width: 14px; height: 14px; }
+.oneira-music button {
+  appearance: none;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.oneira-music-skip,
+.oneira-music-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: #c5e2f2;
+  border-radius: 6px;
+}
+.oneira-music-skip svg,
+.oneira-music-icon svg { width: 16px; height: 16px; }
+.oneira-music-vol {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 110px;
+  min-width: 0;
+}
+.oneira-music-vol-slider {
+  width: 72px;
+  max-width: 100%;
+  min-width: 0;
+  height: 4px;
+  accent-color: #3aa0d8;
+}
+@container oneira-music (max-width: 280px) {
+  .oneira-music-vol { flex-basis: 72px; }
+  .oneira-music-vol-slider { width: 40px; }
+}
+.profile-tile.is-music {
+  overflow: hidden;
+  padding: 0;
+  background: #071018;
+}

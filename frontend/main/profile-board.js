@@ -77,7 +77,8 @@ const PROFILE_TILE_TYPES = {
   icon: { w: 3, h: 3, minW: 2, minH: 2, maxW: 6, maxH: 6, label: "Icon" },
   clock: { w: 6, h: 3, minW: 4, minH: 2, maxW: 12, maxH: 5, label: "Clock" },
   image: { w: 10, h: 6, minW: 4, minH: 3, maxW: 24, maxH: 16, label: "Image" },
-  video: { w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Video" }
+  video: { w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Video" },
+  music: { w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 8, label: "Music" }
 };
 
 const PROFILE_PLACEHOLDERS = {
@@ -92,7 +93,6 @@ const PROFILE_PLACEHOLDERS = {
   frame: { label: "Frame", w: 12, h: 8, minW: 6, minH: 4, maxW: 32, maxH: 18 },
   color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
   meter: { label: "Meter", w: 10, h: 2, minW: 6, minH: 1, maxW: 24, maxH: 4 },
-  music: { label: "Music", w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 8 },
   embed: { label: "Embed", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   gallery: { label: "Gallery", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   slideshow: { label: "Slideshow", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 16 },
@@ -1136,6 +1136,21 @@ function paintProfileImage(tile, el) {
   el.appendChild(img);
 }
 
+function paintProfileMusic(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  if (typeof mountOneiraMusicPlayer !== "function") {
+    const empty = document.createElement("div");
+    empty.className = "profile-image-empty";
+    empty.textContent = "Player is missing.";
+    el.appendChild(empty);
+    return;
+  }
+  const props = tile.props || {};
+  mountOneiraMusicPlayer(el, {
+    title: String(props.name || props.title || "")
+  });
+}
+
 function paintProfileVideo(tile, el) {
   applyProfileWidgetSurface(el, tile);
   if (typeof mountOneiraPlayer !== "function") {
@@ -1653,6 +1668,10 @@ function paintProfileTileContent(tile, el) {
     paintProfileVideo(tile, el);
     return;
   }
+  if (tile.type === "music") {
+    paintProfileMusic(tile, el);
+    return;
+  }
   if (tile.type === "clock") {
     paintProfileClock(tile, el);
     return;
@@ -1714,7 +1733,7 @@ function renderProfileBoard() {
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
-        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
+        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

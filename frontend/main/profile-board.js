@@ -76,7 +76,7 @@ const PROFILE_TILE_TYPES = {
   local_time: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" },
   icon: { w: 3, h: 3, minW: 2, minH: 2, maxW: 6, maxH: 6, label: "Icon" },
   clock: { w: 6, h: 3, minW: 4, minH: 2, maxW: 12, maxH: 5, label: "Clock" },
-  image: { w: 10, h: 6, minW: 4, minH: 3, maxW: 24, maxH: 16, label: "Image" },
+  image: { w: 10, h: 6, minW: 4, minH: 3, maxW: 32, maxH: 32, label: "Image" },
   video: { w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Video" },
   music: { w: 10, h: 4, minW: 6, minH: 3, maxW: 10, maxH: 4, label: "Music" },
   embed: { w: 12, h: 7, minW: 8, minH: 5, maxW: 20, maxH: 12, label: "Embed" },

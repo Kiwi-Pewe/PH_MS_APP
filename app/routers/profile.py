@@ -182,7 +182,7 @@ def tile_bounds(kind, props=None):
         "meter": (6, 1, 24, 4),
         "clock": (4, 2, 12, 5),
         "countdown": (4, 2, 12, 5),
-        "image": (4, 3, 24, 16),
+        "image": (4, 3, 32, 32),
         "video": (8, 4, 24, 16),
         "music": (6, 3, 10, 4),
         "embed": (8, 5, 20, 12),

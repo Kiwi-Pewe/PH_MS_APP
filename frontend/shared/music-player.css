@@ -109,13 +109,9 @@
   flex: 0 1 110px;
   min-width: 0;
 }
-.oneira-music-vol-slider {
-  width: 72px;
-  max-width: 100%;
-  min-width: 0;
-  height: 4px;
-  accent-color: #3aa0d8;
-}
+.oneira-music audio { display: none; }
+.oneira-music button:disabled,
+.oneira-music input:disabled { opacity: 0.45; cursor: default; }
 @container oneira-music (max-width: 280px) {
   .oneira-music-vol { flex-basis: 72px; }
   .oneira-music-vol-slider { width: 40px; }

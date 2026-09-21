@@ -58,15 +58,6 @@ CLOCK_MODES = {"world", "countdown", "timer"}
 CLOCK_LABEL_MAX = 48
 ICON_EMOJI_MAX = 16
 MUSIC_TRACK_MAX = 5
-MUSIC_SOURCES = {"file", "youtube", "spotify"}
-YOUTUBE_ID_RE = re.compile(
-    r"(?:youtube\.com/(?:watch\?(?:[^#]*&)?v=|embed/|shorts/)|youtu\.be/|music\.youtube\.com/watch\?(?:[^#]*&)?v=)([\w-]{11})",
-    re.I,
-)
-SPOTIFY_URL_RE = re.compile(
-    r"(?:open\.spotify\.com/(?:intl-[a-z]{2}/)?(track|album|playlist|episode|show)/([A-Za-z0-9]+)|spotify:(track|album|playlist|episode|show):([A-Za-z0-9]+))",
-    re.I,
-)
 ISO_DT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$")
 TEXT_SIZES = (8, 9, 10, 11, 12, 14, 18, 24)
 TEXT_ALIGNS = {"left", "center", "right"}
@@ -587,24 +578,6 @@ def normalize_profile_video_props(data):
     return out
 
 
-def youtube_watch_url(raw):
-    match = YOUTUBE_ID_RE.search(str(raw or "").strip())
-    if not match:
-        return ""
-    return "https://www.youtube.com/watch?v=" + match.group(1)
-
-
-def spotify_open_url(raw):
-    match = SPOTIFY_URL_RE.search(str(raw or "").strip())
-    if not match:
-        return ""
-    kind = (match.group(1) or match.group(3) or "").lower()
-    sid = match.group(2) or match.group(4) or ""
-    if not kind or not sid:
-        return ""
-    return "https://open.spotify.com/" + kind + "/" + sid
-
-
 def normalize_music_file_track(row, name):
     key = str(row.get("key") or "").strip()
     mime = normalize_mime(row.get("mime"))
@@ -642,29 +615,13 @@ def normalize_music_tracks(data):
     for row in rows:
         if not isinstance(row, dict) or len(out) >= MUSIC_TRACK_MAX:
             continue
-        source = str(row.get("source") or "").strip().lower()
-        if source not in MUSIC_SOURCES:
+        source = str(row.get("source") or "file").strip().lower()
+        if source and source != "file":
             continue
         name = clip_text(row.get("name"), 200)
-        if source == "file":
-            track = normalize_music_file_track(row, name)
-            if track:
-                out.append(track)
-            continue
-        if source == "youtube":
-            url = youtube_watch_url(row.get("url"))
-        else:
-            url = spotify_open_url(row.get("url"))
-        if not url:
-            continue
-        out.append({
-            "source": source,
-            "name": name,
-            "url": url,
-            "key": "",
-            "mime": "",
-            "size": 0,
-        })
+        track = normalize_music_file_track(row, name)
+        if track:
+            out.append(track)
     return out
 
 

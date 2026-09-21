@@ -1151,11 +1151,11 @@ function paintProfileMusic(tile, el) {
     return;
   }
   const props = tile.props || {};
-  const tracks = Array.isArray(props.tracks) ? props.tracks : [];
-  const first = tracks[0] || {};
-  mountOneiraMusicPlayer(el, {
-    title: String(first.name || first.url || "")
+  const tracks = (Array.isArray(props.tracks) ? props.tracks : []).filter((row) => {
+    if (!row || (row.source && row.source !== "file")) return false;
+    return !!String(row.url || "").trim();
   });
+  mountOneiraMusicPlayer(el, { tracks });
 }
 
 function paintProfileVideo(tile, el) {

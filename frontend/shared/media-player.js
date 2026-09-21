@@ -49,7 +49,7 @@ function mountOneiraPlayer(host, options) {
   video.autoplay = false;
   const empty = document.createElement("div");
   empty.className = "oneira-player-empty";
-  empty.innerHTML = '<div class="oneira-player-emblem" aria-hidden="true"></div>';
+  empty.innerHTML = '<div class="oneira-player-emblem" aria-hidden="true">O</div>';
   stage.appendChild(video);
   stage.appendChild(empty);
   const gearWrap = document.createElement("div");

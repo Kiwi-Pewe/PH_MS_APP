@@ -3301,6 +3301,18 @@ a.profile-link-row:hover { color: var(--accent); }
   min-height: 0;
   overflow: hidden;
 }
+.profile-tile.is-editing.is-comments {
+  user-select: none;
+}
+.profile-tile.is-editing.is-comments .oneira-wall {
+  pointer-events: none;
+}
+.profile-tile.is-editing.is-comments .oneira-wall-input,
+.profile-tile.is-editing.is-comments .oneira-wall-edit,
+.profile-tile.is-editing.is-comments .oneira-wall-pager,
+.profile-tile.is-editing.is-comments .oneira-wall-notify {
+  pointer-events: auto;
+}
 .oneira-wall {
   display: flex;
   flex-direction: column;

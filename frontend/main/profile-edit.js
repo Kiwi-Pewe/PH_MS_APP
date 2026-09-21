@@ -257,7 +257,7 @@ function bindProfileTileDrag(el, tile, handle) {
     };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
-  });
+  }, true);
 
   handle.addEventListener("pointerdown", (e) => {
     e.preventDefault();

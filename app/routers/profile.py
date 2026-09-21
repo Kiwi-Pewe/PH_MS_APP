@@ -6,12 +6,13 @@ import re
 import uuid
 import random
 import colorsys
-from app.models import UserInfo, Friend_request, Profile_comment, Block_user
-from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in
+from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user
+from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.privacy import are_friends, can_see_full_profile
 from app.routers.account import parse_display_name_history
+from app.routers.realtime import notify_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for
 
 router = APIRouter()
@@ -1238,12 +1239,18 @@ def list_profile_comments(user_id: int, page: int = 1, current_user: UserInfo = 
         "total": total,
         "friends_only": comments_wall_friends_only(layout),
         "can_post": can_post_profile_comment(database, current_user, owner, layout),
+        "watching": False if current_user.id == owner.id else bool(
+            database.query(Profile_comment_watch).filter(
+                Profile_comment_watch.owner_id == owner.id,
+                Profile_comment_watch.user_id == current_user.id,
+            ).first()
+        ),
         "comments": [serialize_profile_comment(row, lookup.get(row.sender_id)) for row in rows],
     }
 
 
 @router.post("/profile/{user_id}/comments")
-def create_profile_comment(user_id: int, body: Profile_comment_in, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+async def create_profile_comment(user_id: int, body: Profile_comment_in, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
     owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -1263,7 +1270,40 @@ def create_profile_comment(user_id: int, body: Profile_comment_in, current_user:
     database.add(row)
     database.commit()
     database.refresh(row)
+    payload = {"type": "profile_comment", "owner_id": owner.id, "comment": serialize_profile_comment(row, current_user)}
+    recipients = {owner.id}
+    watchers = database.query(Profile_comment_watch).filter(Profile_comment_watch.owner_id == owner.id).all()
+    for watch in watchers:
+        recipients.add(watch.user_id)
+    recipients.discard(current_user.id)
+    for uid in recipients:
+        database.add(Profile_comment_notice(user_id=uid, owner_id=owner.id, comment_id=row.id, read=False))
+    database.commit()
+    for uid in recipients:
+        await notify_user(uid, payload)
     return serialize_profile_comment(row, current_user)
+
+
+@router.post("/profile/{user_id}/comments/watch")
+def set_profile_comment_watch(user_id: int, body: Profile_comment_watch_in, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if current_user.id == owner.id:
+        raise HTTPException(status_code=403, detail="You always get notifications for your own profile.")
+    if not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    row = database.query(Profile_comment_watch).filter(
+        Profile_comment_watch.owner_id == owner.id,
+        Profile_comment_watch.user_id == current_user.id,
+    ).first()
+    if body.watching and not row:
+        database.add(Profile_comment_watch(owner_id=owner.id, user_id=current_user.id))
+        database.commit()
+    elif not body.watching and row:
+        database.delete(row)
+        database.commit()
+    return {"watching": bool(body.watching)}
 
 
 @router.post("/profile_comment/{comment_id}/edit")

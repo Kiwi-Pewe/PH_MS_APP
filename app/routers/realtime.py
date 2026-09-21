@@ -52,6 +52,12 @@ async def notify_presence(database, user_id, status):
                 if peer.user_id in active_connections:
                     await active_connections[peer.user_id].send_json(payload)
 
+async def notify_user(user_id, payload):
+    socket = active_connections.get(user_id)
+    if socket:
+        await socket.send_json(payload)
+
+
 async def heartbeat(socket):
     while True:
         await(asyncio.sleep(45))

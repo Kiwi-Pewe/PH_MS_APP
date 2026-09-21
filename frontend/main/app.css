@@ -3314,7 +3314,6 @@ a.profile-link-row:hover { color: var(--accent); }
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
   flex: 0 0 auto;
 }
 .oneira-wall-title {
@@ -3322,11 +3321,19 @@ a.profile-link-row:hover { color: var(--accent); }
   font-weight: 700;
   color: var(--text);
 }
+.oneira-wall-rule {
+  flex: 0 0 auto;
+  height: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+}
 .oneira-wall-pager {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+.oneira-wall-pager[hidden] { display: none; }
 .oneira-wall-pager button {
   width: 22px;
   height: 22px;
@@ -3406,6 +3413,23 @@ a.profile-link-row:hover { color: var(--accent); }
 .oneira-wall-foot {
   flex: 0 0 auto;
   display: flex;
-  justify-content: flex-end;
-  padding-top: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 22px;
+}
+.oneira-wall-notify {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.oneira-wall-notify[hidden] { display: none; }
+.oneira-wall-notify input {
+  margin: 0;
+  width: 14px;
+  height: 14px;
 }

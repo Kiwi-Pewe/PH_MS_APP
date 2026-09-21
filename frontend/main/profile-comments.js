@@ -36,6 +36,8 @@ function mountProfileComments(host, tile) {
   topPager.className = "oneira-wall-pager";
   head.appendChild(title);
   head.appendChild(topPager);
+  const topRule = document.createElement("div");
+  topRule.className = "oneira-wall-rule";
   const compose = document.createElement("div");
   compose.className = "oneira-wall-compose";
   compose.hidden = true;
@@ -50,21 +52,37 @@ function mountProfileComments(host, tile) {
   const empty = document.createElement("div");
   empty.className = "oneira-wall-empty";
   empty.textContent = "No comments yet.";
+  const botRule = document.createElement("div");
+  botRule.className = "oneira-wall-rule";
   const foot = document.createElement("div");
   foot.className = "oneira-wall-foot";
+  const notifyLabel = document.createElement("label");
+  notifyLabel.className = "oneira-wall-notify";
+  const notifyBox = document.createElement("input");
+  notifyBox.type = "checkbox";
+  const notifyText = document.createElement("span");
+  notifyText.textContent = "Get Notifications";
+  notifyLabel.appendChild(notifyBox);
+  notifyLabel.appendChild(notifyText);
   const botPager = document.createElement("div");
   botPager.className = "oneira-wall-pager";
+  foot.appendChild(notifyLabel);
   foot.appendChild(botPager);
   root.appendChild(head);
+  root.appendChild(topRule);
   root.appendChild(compose);
   root.appendChild(list);
   root.appendChild(empty);
+  root.appendChild(botRule);
   root.appendChild(foot);
   host.appendChild(root);
 
   let page = 1;
   let pages = 1;
+  let total = 0;
   let canPost = false;
+  let isOwner = ownerId === myUserId;
+  let watching = false;
   let rows = [];
   let loading = false;
   let editingId = null;
@@ -87,11 +105,16 @@ function mountProfileComments(host, tile) {
       if (!response.ok) throw new Error(data.detail || "Could not load comments.");
       page = Number(data.page) || 1;
       pages = Math.max(1, Number(data.pages) || 1);
+      total = Number(data.total) || 0;
       canPost = !!data.can_post;
+      watching = !!data.watching;
       rows = Array.isArray(data.comments) ? data.comments : [];
     } catch (e) {
       rows = [];
       canPost = false;
+      watching = false;
+      total = 0;
+      pages = 1;
       empty.textContent = e.message || "Could not load comments.";
     }
     loading = false;
@@ -126,7 +149,7 @@ function mountProfileComments(host, tile) {
     hostEl.appendChild(prev);
     hostEl.appendChild(label);
     hostEl.appendChild(next);
-    hostEl.hidden = pages <= 1 && !rows.length;
+    hostEl.hidden = total < 7;
   }
 
   function bindMenu(rowEl, row) {
@@ -215,9 +238,10 @@ function mountProfileComments(host, tile) {
 
   function paint() {
     compose.hidden = !canPost;
+    notifyLabel.hidden = isOwner;
+    notifyBox.checked = watching;
     paintPager(topPager);
     paintPager(botPager);
-    foot.hidden = pages <= 1;
     list.innerHTML = "";
     if (loading && !rows.length) {
       empty.hidden = false;
@@ -282,6 +306,23 @@ function mountProfileComments(host, tile) {
     }
     input.disabled = false;
     input.focus();
+  });
+
+  notifyBox.addEventListener("change", async () => {
+    const on = notifyBox.checked;
+    try {
+      const response = await profileApi("/profile/" + ownerId + "/comments/watch", {
+        method: "POST",
+        body: JSON.stringify({ watching: on })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save that.");
+      watching = !!data.watching;
+      notifyBox.checked = watching;
+    } catch (err) {
+      notifyBox.checked = watching;
+      window.alert(err.message || "Could not save that.");
+    }
   });
 
   const handle = {

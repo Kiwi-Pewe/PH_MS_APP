@@ -69,8 +69,7 @@ const PROFILE_PALETTE = [
     label: "Community",
     items: [
       { type: "comments", label: "Comments" },
-      { type: "server_list", label: "Server list" },
-      { type: "featured_server", label: "Featured server" }
+      { type: "display_server", label: "Display Server" }
     ]
   },
   {
@@ -315,7 +314,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
+  return type === "banner" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -357,6 +356,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "comments") {
     fillCommentsOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "display_server") {
+    fillDisplayServerOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "divider") {
@@ -974,6 +977,81 @@ function fillCommentsOptions(box, draft, onChange, hintEl) {
   );
   profileOptHint(row, "Off: anyone who can see this profile can post. On: only friends.", hintEl);
   box.appendChild(row);
+}
+
+function fillDisplayServerOptions(box, draft, onChange, hintEl) {
+  if (!Array.isArray(draft.server_ids)) draft.server_ids = [];
+  else draft.server_ids = draft.server_ids.slice();
+  draft.title = String(draft.title || "").trim() || "Server List";
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = "Title";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.maxLength = 48;
+  nameInput.value = draft.title;
+  nameInput.placeholder = "Server List";
+  profileOptHint(nameLabel, "Label at the top of this tile.", hintEl);
+  nameInput.addEventListener("input", () => {
+    draft.title = nameInput.value;
+    onChange();
+  });
+  nameLabel.appendChild(nameInput);
+  box.appendChild(nameLabel);
+  const heading = document.createElement("div");
+  heading.className = "profile-opt-field-label";
+  heading.textContent = "Servers";
+  profileOptHint(heading, "Pick which of your servers this tile shows. Visitors only see the ones you check.", hintEl);
+  box.appendChild(heading);
+  const list = document.createElement("div");
+  list.className = "profile-opt-server-picks";
+  list.textContent = "Loading servers…";
+  box.appendChild(list);
+  fetch("https://" + serverAddress + "/get_servers", { credentials: "include" })
+    .then((res) => res.ok ? res.json() : Promise.reject())
+    .then((data) => {
+      if (!list.isConnected) return;
+      const servers = (data && data.servers) || [];
+      list.innerHTML = "";
+      if (!servers.length) {
+        const note = document.createElement("div");
+        note.className = "settings-opt-desc";
+        note.textContent = "Join a server first, then pick it here.";
+        list.appendChild(note);
+        return;
+      }
+      const cap = typeof DISPLAY_SERVER_MAX === "number" ? DISPLAY_SERVER_MAX : 20;
+      servers.forEach((server) => {
+        const row = document.createElement("label");
+        row.className = "settings-check";
+        const boxEl = document.createElement("input");
+        boxEl.type = "checkbox";
+        boxEl.checked = draft.server_ids.indexOf(server.id) >= 0;
+        const label = document.createElement("span");
+        label.textContent = server.name || "Server";
+        boxEl.addEventListener("change", () => {
+          const i = draft.server_ids.indexOf(server.id);
+          if (boxEl.checked) {
+            if (i < 0) {
+              if (draft.server_ids.length >= cap) {
+                boxEl.checked = false;
+                return;
+              }
+              draft.server_ids.push(server.id);
+            }
+          } else if (i >= 0) {
+            draft.server_ids.splice(i, 1);
+          }
+          onChange();
+        });
+        row.appendChild(boxEl);
+        row.appendChild(label);
+        list.appendChild(row);
+      });
+    })
+    .catch(() => {
+      if (!list.isConnected) return;
+      list.textContent = "Could not load your servers.";
+    });
 }
 
 function fillRailOptions(box, draft, onChange, hintEl) {
@@ -1847,6 +1925,7 @@ function openProfileTileOptions(tile) {
     draft.items = draft.items.map((row) => (row && typeof row === "object") ? Object.assign({}, row) : row);
   }
   if (Array.isArray(draft.tracks)) draft.tracks = draft.tracks.map(row => Object.assign({}, row));
+  if (Array.isArray(draft.server_ids)) draft.server_ids = draft.server_ids.slice();
   Object.assign(draft, defaultTextChrome(tile.type, draft));
   draft.z_index = clampProfileZIndex(tile.z_index != null ? tile.z_index : draft.z_index);
   let tab = profileHasWidgetSettings(tile.type) ? 'widget' : 'design';

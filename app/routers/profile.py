@@ -6,7 +6,7 @@ import re
 import uuid
 import random
 import colorsys
-from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user
+from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user, Servers, Server_members
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
 from app.database import get_db
 from app.auth import get_current_user
@@ -27,7 +27,7 @@ TILE_TYPES = {
     "connections", "featured_friend", "mutuals",
     "frame", "color_block", "icon", "meter", "clock", "countdown",
     "image", "video", "music", "embed", "gallery", "slideshow", "gif",
-    "comments", "server_list", "featured_server",
+    "comments", "display_server", "server_list", "featured_server",
     "achievements", "recently_played", "favorite_game", "currently_playing",
     "want_to_play", "games_played", "game_stats", "library", "review",
 }
@@ -40,6 +40,8 @@ LIST_ITEM_MAX = 200
 LIST_MAX_ITEMS = 20
 PROFILE_COMMENT_MAX = 1000
 PROFILE_COMMENT_PAGE = 6
+DISPLAY_SERVER_MAX = 20
+SERVER_ID_RE = re.compile(r"^[234679ACDEFGHJKLMNPQRTUVWXYZ]{10}$")
 LINK_MAX = 12
 LINK_USER_MAX = 32
 LINK_URL_MAX = 500
@@ -190,8 +192,9 @@ def tile_bounds(kind, props=None):
         "slideshow": (3, 3, 9, 9),
         "gif": (4, 3, 16, 12),
         "comments": (8, 6, 24, 18),
-        "server_list": (8, 4, 16, 18),
-        "featured_server": (8, 4, 16, 10),
+        "display_server": (6, 4, 16, 18),
+        "server_list": (6, 4, 16, 18),
+        "featured_server": (6, 4, 16, 18),
         "achievements": (8, 3, 24, 12),
         "recently_played": (6, 3, 20, 10),
         "favorite_game": (6, 3, 20, 10),
@@ -248,8 +251,9 @@ def default_sizes(kind):
         "slideshow": (6, 6),
         "gif": (8, 6),
         "comments": (12, 10),
+        "display_server": (10, 8),
         "server_list": (10, 8),
-        "featured_server": (10, 5),
+        "featured_server": (10, 8),
         "achievements": (12, 5),
         "recently_played": (10, 4),
         "favorite_game": (10, 5),
@@ -595,6 +599,63 @@ def normalize_gallery_props(data):
     return out
 
 
+def normalize_display_server_props(data):
+    ids = []
+    raw = data.get("server_ids")
+    if not isinstance(raw, list):
+        raw = []
+    one = str(data.get("server_id") or "").strip().upper()
+    if one:
+        raw = [one] + list(raw)
+    seen = set()
+    for item in raw:
+        code = str(item or "").strip().upper()
+        if not SERVER_ID_RE.match(code) or code in seen:
+            continue
+        seen.add(code)
+        ids.append(code)
+        if len(ids) >= DISPLAY_SERVER_MAX:
+            break
+    title = clip_text(data.get("title"), BODY_TITLE_MAX).strip() or "Server List"
+    out = normalize_text_chrome(data, 14, True)
+    out["title"] = title
+    out["server_ids"] = ids
+    return out
+
+
+def pinned_server_ids_from_layout(raw_layout):
+    allowed = set()
+    try:
+        data = json.loads(raw_layout or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return allowed
+    pages = data.get("pages") if isinstance(data, dict) else None
+    if not isinstance(pages, list):
+        return allowed
+    for page in pages:
+        tiles = page.get("tiles") if isinstance(page, dict) else None
+        if not isinstance(tiles, list):
+            continue
+        for tile in tiles:
+            if not isinstance(tile, dict):
+                continue
+            kind = str(tile.get("type") or "")
+            props = tile.get("props") if isinstance(tile.get("props"), dict) else {}
+            if kind in ("server_list", "featured_server"):
+                kind = "display_server"
+            if kind != "display_server":
+                continue
+            raw = list(props.get("server_ids") or [])
+            one = str(props.get("server_id") or "").strip().upper()
+            if one:
+                raw = [one] + raw
+            for item in raw:
+                code = str(item or "").strip().upper()
+                if SERVER_ID_RE.match(code):
+                    allowed.add(code)
+    return allowed
+
+
 def video_overlay_flags(data):
     paused = data.get("show_player_when_paused")
     return {
@@ -894,6 +955,8 @@ def normalize_props(kind, props, banner_fallback):
         out = normalize_text_chrome(data, 14, True)
         out["friends_only"] = bool(data.get("friends_only"))
         return out
+    if kind == "display_server":
+        return normalize_display_server_props(data)
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)
@@ -919,6 +982,16 @@ def normalize_tile(raw, used_ids, banner_fallback):
         props_in = dict(props_in)
         if props_in.get("mode") not in ("manual", "slideshow"):
             props_in["mode"] = "slideshow"
+    if kind in ("server_list", "featured_server"):
+        kind = "display_server"
+        props_in = dict(props_in)
+        ids = list(props_in.get("server_ids") or [])
+        one = str(props_in.get("server_id") or "").strip().upper()
+        if one and one not in ids:
+            ids = [one] + ids
+        props_in["server_ids"] = ids
+        if not str(props_in.get("title") or "").strip():
+            props_in["title"] = "Server List"
     if kind not in TILE_TYPES:
         return None
     tile_id = str(data.get("id") or "").strip() or new_id("tile")
@@ -1335,3 +1408,38 @@ def delete_profile_comment(comment_id: int, current_user: UserInfo = Depends(get
     database.delete(row)
     database.commit()
     return {"ok": True}
+
+
+@router.get("/profile/{user_id}/pinned_servers")
+def list_pinned_profile_servers(user_id: int, ids: str = "", current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    wanted = []
+    seen = set()
+    for part in str(ids or "").split(","):
+        code = part.strip().upper()
+        if not SERVER_ID_RE.match(code) or code in seen:
+            continue
+        seen.add(code)
+        wanted.append(code)
+        if len(wanted) >= DISPLAY_SERVER_MAX:
+            break
+    if current_user.id != owner.id:
+        allowed = pinned_server_ids_from_layout(owner.profile_layout)
+        wanted = [code for code in wanted if code in allowed]
+    out = []
+    for code in wanted:
+        member = database.query(Server_members).filter(
+            Server_members.user_id == owner.id,
+            Server_members.server_id == code,
+        ).first()
+        if not member:
+            continue
+        server = database.query(Servers).filter(Servers.id == code).first()
+        if not server:
+            continue
+        out.append({"id": server.id, "name": server.name or "Server"})
+    return {"servers": out}

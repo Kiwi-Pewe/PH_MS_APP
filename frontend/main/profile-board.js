@@ -81,8 +81,11 @@ const PROFILE_TILE_TYPES = {
   music: { w: 10, h: 4, minW: 6, minH: 3, maxW: 10, maxH: 4, label: "Music" },
   embed: { w: 12, h: 7, minW: 8, minH: 5, maxW: 20, maxH: 12, label: "Embed" },
   gallery: { w: 6, h: 6, minW: 3, minH: 3, maxW: 9, maxH: 9, label: "Gallery" },
-  comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" }
+  comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" },
+  display_server: { w: 10, h: 8, minW: 6, minH: 4, maxW: 16, maxH: 18, label: "Display Server" }
 };
+
+const DISPLAY_SERVER_MAX = 20;
 
 const PROFILE_PLACEHOLDERS = {
   interests: { label: "Interests", w: 10, h: 3, minW: 6, minH: 2, maxW: 20, maxH: 8 },
@@ -97,8 +100,6 @@ const PROFILE_PLACEHOLDERS = {
   color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
   meter: { label: "Meter", w: 10, h: 2, minW: 6, minH: 1, maxW: 24, maxH: 4 },
   gif: { label: "GIF", w: 8, h: 6, minW: 4, minH: 3, maxW: 16, maxH: 12 },
-  server_list: { label: "Server list", w: 10, h: 8, minW: 8, minH: 4, maxW: 16, maxH: 18 },
-  featured_server: { label: "Featured server", w: 10, h: 5, minW: 8, minH: 4, maxW: 16, maxH: 10 },
   achievements: { label: "Achievements", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
   recently_played: { label: "Recently played", w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 10 },
   favorite_game: { label: "Favorite game", w: 10, h: 5, minW: 6, minH: 3, maxW: 20, maxH: 10 },
@@ -463,6 +464,24 @@ function defaultProfileTileProps(type, existing) {
       friends_only: !!prev.friends_only
     }, chrome);
   }
+  if (type === "display_server") {
+    const ids = [];
+    const seen = {};
+    const raw = Array.isArray(prev.server_ids) ? prev.server_ids.slice() : [];
+    const one = String(prev.server_id || "").trim().toUpperCase();
+    if (one) raw.unshift(one);
+    raw.forEach((item) => {
+      const code = String(item || "").trim().toUpperCase();
+      if (!/^[234679ACDEFGHJKLMNPQRTUVWXYZ]{10}$/.test(code) || seen[code]) return;
+      if (ids.length >= DISPLAY_SERVER_MAX) return;
+      seen[code] = true;
+      ids.push(code);
+    });
+    return Object.assign({
+      title: String(prev.title || "").trim() || "Server List",
+      server_ids: ids
+    }, chrome);
+  }
   if (type === "clock" || type === "countdown") {
     const mode = prev.mode === "countdown" || prev.mode === "timer" ? prev.mode : (type === "countdown" ? "countdown" : "world");
     const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center"
@@ -543,7 +562,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server";
 }
 
 function profileTextChrome(props, type) {
@@ -1228,6 +1247,80 @@ function paintProfileComments(tile, el) {
   mountProfileComments(el, tile);
 }
 
+function displayServerIdOk(code) {
+  return /^[234679ACDEFGHJKLMNPQRTUVWXYZ]{10}$/.test(String(code || ""));
+}
+
+function paintProfileDisplayServer(tile, el) {
+  const chrome = typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : null;
+  if (chrome && chrome.text_size) el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
+  if (chrome && chrome.text_align) el.dataset.textAlign = chrome.text_align;
+  applyProfileWidgetSurface(el, tile);
+  const props = defaultProfileTileProps("display_server", tile.props);
+  const head = document.createElement("div");
+  head.className = "oneira-wall-head";
+  const title = document.createElement("div");
+  title.className = "oneira-wall-title";
+  title.textContent = props.title || "Server List";
+  head.appendChild(title);
+  const rule = document.createElement("div");
+  rule.className = "oneira-wall-rule";
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  const empty = document.createElement("div");
+  empty.className = "settings-opt-desc";
+  empty.textContent = props.server_ids.length ? "Loading servers…" : "No servers selected.";
+  body.appendChild(empty);
+  el.appendChild(head);
+  el.appendChild(rule);
+  el.appendChild(body);
+  if (!props.server_ids.length || !profileOwnerId) return;
+  const stamp = (el._displayServerStamp || 0) + 1;
+  el._displayServerStamp = stamp;
+  const qs = props.server_ids.filter(displayServerIdOk).join(",");
+  fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(profileOwnerId) + "/pinned_servers?ids=" + encodeURIComponent(qs), { credentials: "include" })
+    .then((res) => res.ok ? res.json() : Promise.reject())
+    .then((data) => {
+      if (el._displayServerStamp !== stamp) return;
+      const rows = (data && data.servers) || [];
+      body.innerHTML = "";
+      if (!rows.length) {
+        const note = document.createElement("div");
+        note.className = "settings-opt-desc";
+        note.textContent = "No servers to show.";
+        body.appendChild(note);
+        return;
+      }
+      rows.forEach((server) => {
+        const row = document.createElement("div");
+        row.className = "profile-friend-row profile-server-row";
+        const dot = document.createElement("div");
+        dot.className = "avatar-dot";
+        dot.textContent = typeof serverAvatarLetters === "function" ? serverAvatarLetters(server.name) : String(server.name || "?").slice(0, 2);
+        const name = document.createElement("div");
+        name.className = "profile-friend-name";
+        name.textContent = server.name || "Server";
+        row.appendChild(dot);
+        row.appendChild(name);
+        row.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (profileEditing && profileIsOwn) return;
+          if (el.classList.contains("is-opt-preview")) return;
+          const mine = Array.isArray(serverList) && serverList.some((item) => item.id === server.id);
+          if (!mine || typeof openServer !== "function") return;
+          const icon = document.querySelector('.server-icon[data-server-id="' + server.id + '"]');
+          if (!icon) return;
+          openServer(server.id, icon);
+        });
+        body.appendChild(row);
+      });
+    })
+    .catch(() => {
+      if (el._displayServerStamp !== stamp) return;
+      empty.textContent = "Could not load those servers.";
+    });
+}
+
 function paintProfileVideo(tile, el) {
   applyProfileWidgetSurface(el, tile);
   if (typeof mountOneiraPlayer !== "function") {
@@ -1761,6 +1854,10 @@ function paintProfileTileContent(tile, el) {
     paintProfileComments(tile, el);
     return;
   }
+  if (tile.type === "display_server") {
+    paintProfileDisplayServer(tile, el);
+    return;
+  }
   if (tile.type === "clock") {
     paintProfileClock(tile, el);
     return;
@@ -1812,6 +1909,15 @@ function renderProfileBoard() {
       tile.props = tile.props || {};
       if (tile.props.mode !== "manual") tile.props.mode = "slideshow";
     }
+    if (tile.type === "server_list" || tile.type === "featured_server") {
+      tile.type = "display_server";
+      tile.props = tile.props || {};
+      const ids = Array.isArray(tile.props.server_ids) ? tile.props.server_ids.slice() : [];
+      const one = String(tile.props.server_id || "").trim().toUpperCase();
+      if (one && ids.indexOf(one) < 0) ids.unshift(one);
+      tile.props.server_ids = ids;
+      if (!String(tile.props.title || "").trim()) tile.props.title = "Server List";
+    }
     const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x, tile);
     tile.w = size.w;
     tile.h = size.h;
@@ -1828,7 +1934,7 @@ function renderProfileBoard() {
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
-        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
+        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

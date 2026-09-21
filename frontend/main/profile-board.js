@@ -78,7 +78,7 @@ const PROFILE_TILE_TYPES = {
   clock: { w: 6, h: 3, minW: 4, minH: 2, maxW: 12, maxH: 5, label: "Clock" },
   image: { w: 10, h: 6, minW: 4, minH: 3, maxW: 24, maxH: 16, label: "Image" },
   video: { w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Video" },
-  music: { w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 8, label: "Music" }
+  music: { w: 10, h: 4, minW: 6, minH: 3, maxW: 10, maxH: 4, label: "Music" }
 };
 
 const PROFILE_PLACEHOLDERS = {
@@ -436,6 +436,11 @@ function defaultProfileTileProps(type, existing) {
       name: prev.name || "",
       transparent_player: !!prev.transparent_player,
       show_player_when_paused: prev.show_player_when_paused == null ? true : !!prev.show_player_when_paused
+    }, chrome);
+  }
+  if (type === "music") {
+    return Object.assign({
+      tracks: Array.isArray(prev.tracks) ? prev.tracks.map(row => Object.assign({}, row || {})) : []
     }, chrome);
   }
   if (type === "clock" || type === "countdown") {
@@ -1146,8 +1151,10 @@ function paintProfileMusic(tile, el) {
     return;
   }
   const props = tile.props || {};
+  const tracks = Array.isArray(props.tracks) ? props.tracks : [];
+  const first = tracks[0] || {};
   mountOneiraMusicPlayer(el, {
-    title: String(props.name || props.title || "")
+    title: String(first.name || first.url || "")
   });
 }
 

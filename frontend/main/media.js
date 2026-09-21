@@ -477,3 +477,110 @@ async function uploadProfileVideoFile(file) {
     kind: intent.kind
   };
 }
+
+const PROFILE_MUSIC_MAX_BYTES = 20 * 1024 * 1024;
+
+function musicFileMime(file) {
+  const type = ((file && file.type) || "").toLowerCase();
+  if (type === "audio/mpeg" || type === "audio/mp3") return "audio/mpeg";
+  if (type === "video/mp4") return "video/mp4";
+  const name = ((file && file.name) || "").toLowerCase();
+  if (name.endsWith(".mp3")) return "audio/mpeg";
+  if (name.endsWith(".mp4")) return "video/mp4";
+  return "";
+}
+
+function rejectProfileMusic(file) {
+  const name = ((file && file.name) || "").toLowerCase();
+  if (name.endsWith(".m4a") || name.endsWith(".wav") || name.endsWith(".flac") || name.endsWith(".ogg") || name.endsWith(".webm")) {
+    return "Use mp3 or mp4.";
+  }
+  const mime = musicFileMime(file);
+  if (!mime) return "Only mp3 or mp4.";
+  if (file.size > PROFILE_MUSIC_MAX_BYTES) return "File is over 20 MB.";
+  return "";
+}
+
+async function uploadProfileMusicFile(file) {
+  const reason = rejectProfileMusic(file);
+  if (reason) throw new Error(reason);
+  const mime = musicFileMime(file);
+  let intentRes;
+  try {
+    intentRes = await fetch(`https://${serverAddress}/upload_intent`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content_type: mime,
+        size: file.size,
+        filename: file.name || "",
+        purpose: "profile"
+      })
+    });
+  } catch (e) {
+    throw new Error("Could not reach the API to start the upload. Is uvicorn running?");
+  }
+  const intent = await intentRes.json().catch(() => ({}));
+  if (!intentRes.ok) throw new Error(intent.detail || "Could not start upload.");
+  let putRes;
+  try {
+    putRes = await fetch(intent.upload_url, {
+      method: "PUT",
+      headers: { "Content-Type": intent.mime },
+      body: file
+    });
+  } catch (e) {
+    throw new Error("R2 blocked the browser upload. Re-save the bucket CORS policy.");
+  }
+  if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
+  return {
+    key: intent.key,
+    mime: intent.mime,
+    size: file.size,
+    name: file.name || "",
+    url: intent.public_url,
+    kind: intent.kind
+  };
+}
+  const reason = rejectProfileVideo(file);
+  if (reason) throw new Error(reason);
+  const mime = fileMime(file);
+  let intentRes;
+  try {
+    intentRes = await fetch(`https://${serverAddress}/upload_intent`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content_type: mime,
+        size: file.size,
+        filename: file.name || "",
+        purpose: "profile"
+      })
+    });
+  } catch (e) {
+    throw new Error("Could not reach the API to start the upload. Is uvicorn running?");
+  }
+  const intent = await intentRes.json().catch(() => ({}));
+  if (!intentRes.ok) throw new Error(intent.detail || "Could not start upload.");
+  let putRes;
+  try {
+    putRes = await fetch(intent.upload_url, {
+      method: "PUT",
+      headers: { "Content-Type": intent.mime },
+      body: file
+    });
+  } catch (e) {
+    throw new Error("R2 blocked the browser upload. Re-save the bucket CORS policy.");
+  }
+  if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
+  return {
+    key: intent.key,
+    mime: intent.mime,
+    size: file.size,
+    name: file.name || "",
+    url: intent.public_url,
+    kind: intent.kind
+  };
+}

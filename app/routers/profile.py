@@ -12,7 +12,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.privacy import can_see_full_profile
 from app.routers.account import parse_display_name_history
-from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for
+from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for
 
 router = APIRouter()
 
@@ -57,6 +57,16 @@ TILE_Z_MAX = 100
 CLOCK_MODES = {"world", "countdown", "timer"}
 CLOCK_LABEL_MAX = 48
 ICON_EMOJI_MAX = 16
+MUSIC_TRACK_MAX = 5
+MUSIC_SOURCES = {"file", "youtube", "spotify"}
+YOUTUBE_ID_RE = re.compile(
+    r"(?:youtube\.com/(?:watch\?(?:[^#]*&)?v=|embed/|shorts/)|youtu\.be/|music\.youtube\.com/watch\?(?:[^#]*&)?v=)([\w-]{11})",
+    re.I,
+)
+SPOTIFY_URL_RE = re.compile(
+    r"(?:open\.spotify\.com/(?:intl-[a-z]{2}/)?(track|album|playlist|episode|show)/([A-Za-z0-9]+)|spotify:(track|album|playlist|episode|show):([A-Za-z0-9]+))",
+    re.I,
+)
 ISO_DT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$")
 TEXT_SIZES = (8, 9, 10, 11, 12, 14, 18, 24)
 TEXT_ALIGNS = {"left", "center", "right"}
@@ -160,7 +170,7 @@ def tile_bounds(kind, props=None):
         "countdown": (4, 2, 12, 5),
         "image": (4, 3, 24, 16),
         "video": (8, 4, 24, 16),
-        "music": (6, 3, 20, 8),
+        "music": (6, 3, 10, 4),
         "embed": (8, 4, 24, 16),
         "gallery": (8, 4, 24, 16),
         "slideshow": (8, 4, 24, 16),
@@ -577,6 +587,93 @@ def normalize_profile_video_props(data):
     return out
 
 
+def youtube_watch_url(raw):
+    match = YOUTUBE_ID_RE.search(str(raw or "").strip())
+    if not match:
+        return ""
+    return "https://www.youtube.com/watch?v=" + match.group(1)
+
+
+def spotify_open_url(raw):
+    match = SPOTIFY_URL_RE.search(str(raw or "").strip())
+    if not match:
+        return ""
+    kind = (match.group(1) or match.group(3) or "").lower()
+    sid = match.group(2) or match.group(4) or ""
+    if not kind or not sid:
+        return ""
+    return "https://open.spotify.com/" + kind + "/" + sid
+
+
+def normalize_music_file_track(row, name):
+    key = str(row.get("key") or "").strip()
+    mime = normalize_mime(row.get("mime"))
+    if mime == "audio/mp3":
+        mime = "audio/mpeg"
+    try:
+        size = int(row.get("size") or 0)
+    except (TypeError, ValueError):
+        size = 0
+    if mime == "audio/mpeg":
+        if not PROFILE_MUSIC_KEY_RE.match(key) or size < 1 or size > PROFILE_MUSIC_BYTES:
+            return None
+        if not key.endswith(".mp3"):
+            return None
+    elif mime == "video/mp4":
+        if not PROFILE_VIDEO_KEY_RE.match(key) or not key.endswith(".mp4"):
+            return None
+        if size < 1 or size > PROFILE_VIDEO_BYTES:
+            return None
+    else:
+        return None
+    return {
+        "source": "file",
+        "name": name or clip_text(row.get("name"), 200),
+        "url": public_url_for(key),
+        "key": key,
+        "mime": mime,
+        "size": size,
+    }
+
+
+def normalize_music_tracks(data):
+    out = []
+    rows = data.get("tracks") if isinstance(data.get("tracks"), list) else []
+    for row in rows:
+        if not isinstance(row, dict) or len(out) >= MUSIC_TRACK_MAX:
+            continue
+        source = str(row.get("source") or "").strip().lower()
+        if source not in MUSIC_SOURCES:
+            continue
+        name = clip_text(row.get("name"), 200)
+        if source == "file":
+            track = normalize_music_file_track(row, name)
+            if track:
+                out.append(track)
+            continue
+        if source == "youtube":
+            url = youtube_watch_url(row.get("url"))
+        else:
+            url = spotify_open_url(row.get("url"))
+        if not url:
+            continue
+        out.append({
+            "source": source,
+            "name": name,
+            "url": url,
+            "key": "",
+            "mime": "",
+            "size": 0,
+        })
+    return out
+
+
+def normalize_music_props(data):
+    out = normalize_text_chrome(data, 14, True)
+    out["tracks"] = normalize_music_tracks(data)
+    return out
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
     if kind == "banner":
@@ -719,6 +816,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_profile_image_props(data)
     if kind == "video":
         return normalize_profile_video_props(data)
+    if kind == "music":
+        return normalize_music_props(data)
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)

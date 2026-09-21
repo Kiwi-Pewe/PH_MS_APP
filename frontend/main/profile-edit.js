@@ -320,7 +320,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "image" || type === "video" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
+  return type === "banner" || type === "image" || type === "video" || type === "music" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -346,6 +346,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "video") {
     fillVideoOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "music") {
+    fillMusicOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "divider") {
@@ -440,6 +444,7 @@ function dropProfileImageDraft(draft) {
   if (draft._previewUrl) URL.revokeObjectURL(draft._previewUrl);
   delete draft._previewUrl;
   delete draft._file;
+  if (Array.isArray(draft.tracks)) draft.tracks.forEach(dropProfileImageDraft);
 }
 
 function fillMediaFileOptions(box, draft, onChange, hintEl, spec) {
@@ -564,6 +569,208 @@ function fillVideoOptions(box, draft, onChange, hintEl) {
   block.appendChild(row);
   block.appendChild(extras);
   box.appendChild(block);
+}
+
+const MUSIC_TRACK_MAX = 5;
+
+function youtubeWatchUrl(raw) {
+  const text = String(raw || "").trim();
+  const match = text.match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/)|youtu\.be\/|music\.youtube\.com\/watch\?(?:[^#]*&)?v=)([\w-]{11})/i);
+  return match ? "https://www.youtube.com/watch?v=" + match[1] : "";
+}
+
+function spotifyOpenUrl(raw) {
+  const text = String(raw || "").trim();
+  const match = text.match(/(?:open\.spotify\.com\/(?:intl-[a-z]{2}\/)?(track|album|playlist|episode|show)\/([A-Za-z0-9]+)|spotify:(track|album|playlist|episode|show):([A-Za-z0-9]+))/i);
+  if (!match) return "";
+  const kind = (match[1] || match[3] || "").toLowerCase();
+  const sid = match[2] || match[4] || "";
+  return kind && sid ? "https://open.spotify.com/" + kind + "/" + sid : "";
+}
+
+function emptyMusicTrack(source) {
+  return {
+    source: source === "youtube" || source === "spotify" ? source : "file",
+    name: "",
+    url: "",
+    key: "",
+    mime: "",
+    size: 0
+  };
+}
+
+function fillMusicOptions(box, draft, onChange, hintEl) {
+  if (!Array.isArray(draft.tracks)) draft.tracks = [];
+  draft.tracks = draft.tracks.slice(0, MUSIC_TRACK_MAX).map(row => Object.assign(emptyMusicTrack(), row || {}));
+
+  const note = document.createElement("div");
+  note.className = "settings-opt-desc";
+  note.textContent = "Up to 5 tracks. Each can be an mp3 or mp4 file (max 20 MB), a YouTube link, or a Spotify link. Playback comes later.";
+  box.appendChild(note);
+
+  const group = document.createElement("div");
+  group.className = "profile-opt-border-block";
+  const heading = document.createElement("div");
+  heading.className = "profile-opt-field-label";
+  heading.textContent = "Tracks";
+  profileOptHint(heading, "This player’s playlist. Skip walks these tracks later, not ±5 seconds.", hintEl);
+  group.appendChild(heading);
+
+  const list = document.createElement("div");
+  list.className = "profile-music-tracks";
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "profile-link-add";
+  add.textContent = "Add track";
+
+  function paintTracks() {
+    list.innerHTML = "";
+    draft.tracks.forEach((track, index) => {
+      if (track.source !== "youtube" && track.source !== "spotify") track.source = "file";
+      const card = document.createElement("div");
+      card.className = "profile-music-track";
+      const head = document.createElement("div");
+      head.className = "profile-link-edit-row";
+      const title = document.createElement("div");
+      title.className = "profile-link-edit-label";
+      title.textContent = "Track " + (index + 1);
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "Remove";
+      del.addEventListener("click", () => {
+        dropProfileImageDraft(track);
+        draft.tracks.splice(index, 1);
+        paintTracks();
+        onChange();
+      });
+      head.appendChild(title);
+      head.appendChild(del);
+      card.appendChild(head);
+
+      const source = profileSelectField("Source", [
+        { value: "file", label: "File" },
+        { value: "youtube", label: "YouTube" },
+        { value: "spotify", label: "Spotify" }
+      ], track.source);
+      profileOptHint(source.label, "File is stored on Oneira. YouTube and Spotify stay as links.", hintEl);
+      card.appendChild(source.label);
+
+      const extras = document.createElement("div");
+      extras.className = "profile-opt-mode-extras";
+      card.appendChild(extras);
+
+      const nameLabel = document.createElement("label");
+      nameLabel.textContent = "Title";
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.maxLength = 200;
+      nameInput.placeholder = "Shown on the player";
+      nameInput.value = track.name || "";
+      profileOptHint(nameLabel, "Name on the display. Defaults to the file name if you leave it blank.", hintEl);
+      nameInput.addEventListener("input", () => {
+        track.name = nameInput.value;
+        onChange();
+      });
+      nameLabel.appendChild(nameInput);
+      card.appendChild(nameLabel);
+
+      function paintExtras() {
+        extras.innerHTML = "";
+        if (track.source === "file") {
+          const actions = document.createElement("div");
+          actions.className = "profile-opt-image-actions";
+          const fileInput = document.createElement("input");
+          fileInput.type = "file";
+          fileInput.accept = "audio/mpeg,audio/mp3,video/mp4,.mp3,.mp4";
+          fileInput.hidden = true;
+          const choose = document.createElement("button");
+          choose.type = "button";
+          choose.className = "profile-link-add";
+          const status = document.createElement("div");
+          status.className = "profile-opt-image-name";
+          function paintStatus() {
+            const has = !!(track._file || track.key);
+            status.textContent = track._file ? track._file.name : (track.name || (has ? "Audio file" : "No file yet."));
+            choose.textContent = has ? "Replace file" : "Choose file";
+          }
+          profileOptHint(choose, "Mp3 or mp4, max 20 MB. Mp4 is treated as audio here, not a video stage.", hintEl);
+          choose.addEventListener("click", () => fileInput.click());
+          fileInput.addEventListener("change", () => {
+            const file = fileInput.files && fileInput.files[0];
+            fileInput.value = "";
+            if (!file) return;
+            const reason = typeof rejectProfileMusic === "function" ? rejectProfileMusic(file) : "Upload is not available.";
+            if (reason) {
+              window.alert(reason);
+              return;
+            }
+            if (track._previewUrl) URL.revokeObjectURL(track._previewUrl);
+            track._file = file;
+            track._previewUrl = URL.createObjectURL(file);
+            track.key = "";
+            track.url = track._previewUrl;
+            track.mime = typeof musicFileMime === "function" ? musicFileMime(file) : file.type;
+            track.size = file.size;
+            if (!String(nameInput.value || "").trim()) {
+              track.name = file.name || "";
+              nameInput.value = track.name;
+            }
+            paintStatus();
+            onChange();
+          });
+          actions.appendChild(choose);
+          extras.appendChild(fileInput);
+          extras.appendChild(actions);
+          extras.appendChild(status);
+          paintStatus();
+          return;
+        }
+        const urlLabel = document.createElement("label");
+        urlLabel.textContent = "Link";
+        const urlInput = document.createElement("input");
+        urlInput.type = "url";
+        urlInput.placeholder = track.source === "youtube" ? "https://youtu.be/…" : "https://open.spotify.com/track/…";
+        urlInput.value = track.url || "";
+        profileOptHint(urlLabel, track.source === "youtube"
+          ? "A YouTube watch, share, or shorts link."
+          : "A Spotify track, album, or playlist link.", hintEl);
+        urlInput.addEventListener("input", () => {
+          track.url = urlInput.value;
+          onChange();
+        });
+        urlLabel.appendChild(urlInput);
+        extras.appendChild(urlLabel);
+      }
+
+      source.select.addEventListener("change", () => {
+        const next = source.select.value;
+        if (next === track.source) return;
+        dropProfileImageDraft(track);
+        track.source = next;
+        track.key = "";
+        track.url = "";
+        track.mime = "";
+        track.size = 0;
+        paintExtras();
+        onChange();
+      });
+      paintExtras();
+      list.appendChild(card);
+    });
+    add.hidden = draft.tracks.length >= MUSIC_TRACK_MAX;
+  }
+
+  profileOptHint(add, "At most 5 tracks on this player.", hintEl);
+  add.addEventListener("click", () => {
+    if (draft.tracks.length >= MUSIC_TRACK_MAX) return;
+    draft.tracks.push(emptyMusicTrack("file"));
+    paintTracks();
+    onChange();
+  });
+  group.appendChild(list);
+  group.appendChild(add);
+  box.appendChild(group);
+  paintTracks();
 }
 
 function fillRailOptions(box, draft, onChange, hintEl) {
@@ -1434,6 +1641,7 @@ function openProfileTileOptions(tile) {
   if (Array.isArray(draft.links)) draft.links = draft.links.map(row => Object.assign({}, row));
   if (Array.isArray(draft.rows)) draft.rows = draft.rows.map(row => Object.assign({}, row));
   if (Array.isArray(draft.items)) draft.items = draft.items.slice();
+  if (Array.isArray(draft.tracks)) draft.tracks = draft.tracks.map(row => Object.assign({}, row));
   Object.assign(draft, defaultTextChrome(tile.type, draft));
   draft.z_index = clampProfileZIndex(tile.z_index != null ? tile.z_index : draft.z_index);
   let tab = profileHasWidgetSettings(tile.type) ? 'widget' : 'design';
@@ -1602,6 +1810,62 @@ function openProfileTileOptions(tile) {
       } catch (e) {
         confirm.disabled = false;
         window.alert(e.message || 'Could not upload that video.');
+        return;
+      }
+    }
+    if (tile.type === 'music') {
+      confirm.disabled = true;
+      try {
+        const kept = [];
+        const rows = Array.isArray(draft.tracks) ? draft.tracks : [];
+        for (let i = 0; i < rows.length; i += 1) {
+          const track = rows[i];
+          const source = track.source === 'youtube' || track.source === 'spotify' ? track.source : 'file';
+          const title = String(track.name || '').trim();
+          if (source === 'file') {
+            if (track._file) {
+              if (typeof uploadProfileMusicFile !== 'function') throw new Error('Upload is not available.');
+              const att = await uploadProfileMusicFile(track._file);
+              track.key = att.key;
+              track.url = att.url;
+              track.mime = att.mime;
+              track.size = att.size;
+              if (!title) track.name = att.name || '';
+            }
+            if (!track.key) continue;
+            kept.push({
+              source: 'file',
+              name: String(track.name || '').trim(),
+              url: track.url || '',
+              key: track.key,
+              mime: track.mime || '',
+              size: track.size || 0
+            });
+            continue;
+          }
+          const url = source === 'youtube' ? youtubeWatchUrl(track.url) : spotifyOpenUrl(track.url);
+          if (!url) {
+            if (String(track.url || '').trim()) {
+              throw new Error('Track ' + (i + 1) + ' needs a valid ' + (source === 'youtube' ? 'YouTube' : 'Spotify') + ' link.');
+            }
+            continue;
+          }
+          kept.push({
+            source,
+            name: title,
+            url,
+            key: '',
+            mime: '',
+            size: 0
+          });
+        }
+        if (kept.length > MUSIC_TRACK_MAX) {
+          throw new Error('A player can hold at most 5 tracks.');
+        }
+        draft.tracks = kept;
+      } catch (e) {
+        confirm.disabled = false;
+        window.alert(e.message || 'Could not save those tracks.');
         return;
       }
     }

@@ -37,6 +37,7 @@ R2_PUBLIC_BASE = _env("R2_PUBLIC_BASE").rstrip("/")
 BASE_UPLOAD_BYTES = 20 * 1024 * 1024
 PROFILE_IMAGE_BYTES = 5 * 1024 * 1024
 PROFILE_VIDEO_BYTES = 20 * 1024 * 1024
+PROFILE_MUSIC_BYTES = 20 * 1024 * 1024
 
 ALLOWED_MIME = {
     "image/jpeg": (".jpg", "image"),
@@ -46,6 +47,8 @@ ALLOWED_MIME = {
     "image/webp": (".webp", "image"),
     "video/mp4": (".mp4", "video"),
     "video/webm": (".webm", "video"),
+    "audio/mpeg": (".mp3", "audio"),
+    "audio/mp3": (".mp3", "audio"),
 }
 PROFILE_IMAGE_MIME = {
     "image/jpeg",
@@ -58,6 +61,11 @@ PROFILE_VIDEO_MIME = {
     "video/mp4",
     "video/webm",
 }
+PROFILE_MUSIC_MIME = {
+    "audio/mpeg",
+    "audio/mp3",
+    "video/mp4",
+}
 
 KEY_RE = re.compile(
     r"^chat/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp|mp4|webm)$"
@@ -68,14 +76,17 @@ PROFILE_KEY_RE = re.compile(
 PROFILE_VIDEO_KEY_RE = re.compile(
     r"^profile/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(mp4|webm)$"
 )
+PROFILE_MUSIC_KEY_RE = re.compile(
+    r"^profile/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.mp3$"
+)
 
 
 def max_upload_bytes(user=None, purpose="chat", mime=""):
     if purpose != "profile":
         return BASE_UPLOAD_BYTES
     kind = ALLOWED_MIME.get(normalize_mime(mime), ("", ""))[1]
-    if kind == "video":
-        return PROFILE_VIDEO_BYTES
+    if kind in ("video", "audio"):
+        return PROFILE_VIDEO_BYTES if kind == "video" else PROFILE_MUSIC_BYTES
     return PROFILE_IMAGE_BYTES
 
 
@@ -100,7 +111,9 @@ def public_url_for(key):
 def new_object_key(mime, purpose="chat"):
     ext, kind = ALLOWED_MIME[mime]
     folder = "profile" if purpose == "profile" else "chat"
-    if folder == "profile" and kind not in ("image", "video"):
+    if folder == "chat" and kind == "audio":
+        raise HTTPException(status_code=400, detail="Chat cannot take mp3 files yet.")
+    if folder == "profile" and kind not in ("image", "video", "audio"):
         raise HTTPException(status_code=400, detail="That file type cannot go on a profile tile.")
     now = datetime.utcnow()
     key = f"{folder}/{now.year:04d}/{now.month:02d}/{now.day:02d}/{uuid.uuid4().hex}{ext}"

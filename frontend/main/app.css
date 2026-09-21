@@ -2691,6 +2691,10 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.profile-music-tracks { margin-bottom: 8px; }
+.profile-music-track { padding: 4px 0 10px; }
+.profile-music-track .profile-link-edit-row { margin-bottom: 8px; }
+.profile-music-track .profile-opt-image-name { margin-bottom: 0; }
 .profile-icon-body {
   display: flex;
   align-items: center;

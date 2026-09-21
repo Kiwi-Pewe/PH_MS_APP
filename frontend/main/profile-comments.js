@@ -88,9 +88,13 @@ function mountProfileComments(host, tile) {
   let editingId = null;
 
   function stopTileDrag(node) {
+    if (!node) return;
     node.addEventListener("pointerdown", (e) => e.stopPropagation());
   }
-  stopTileDrag(root);
+  stopTileDrag(compose);
+  stopTileDrag(topPager);
+  stopTileDrag(botPager);
+  stopTileDrag(notifyLabel);
 
   async function load() {
     if (!ownerId || typeof profileApi !== "function") {

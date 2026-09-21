@@ -244,7 +244,7 @@ function bindProfileTileDrag(el, tile, handle) {
     if (e.target.closest(".oneira-player-chrome, .oneira-player-menu, .oneira-player-gear-wrap")) return;
     if (e.target.closest(".oneira-music-seek, .oneira-music-row")) return;
     if (e.target.closest(".oneira-gallery-nav")) return;
-    if (e.target.closest(".oneira-wall")) return;
+    if (e.target.closest(".oneira-wall-compose, .oneira-wall-pager, .oneira-wall-notify, .oneira-wall-edit, .oneira-wall-input")) return;
     if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
     e.preventDefault();
     mode = "move";

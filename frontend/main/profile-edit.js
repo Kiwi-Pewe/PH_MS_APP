@@ -87,11 +87,6 @@ const PROFILE_PALETTE = [
       { type: "library", label: "Library" },
       { type: "review", label: "Review" }
     ]
-  },
-  {
-    id: "later",
-    label: "Later",
-    later: ["Contact (mail system)", "Events widget", "Applications widget", "Rep (chrome, not a tile)"]
   }
 ];
 
@@ -249,6 +244,7 @@ function bindProfileTileDrag(el, tile, handle) {
     if (e.target.closest(".oneira-player-chrome, .oneira-player-menu, .oneira-player-gear-wrap")) return;
     if (e.target.closest(".oneira-music-seek, .oneira-music-row")) return;
     if (e.target.closest(".oneira-gallery-nav")) return;
+    if (e.target.closest(".oneira-wall")) return;
     if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
     e.preventDefault();
     mode = "move";
@@ -319,7 +315,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
+  return type === "banner" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -357,6 +353,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "gallery") {
     fillGalleryOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "comments") {
+    fillCommentsOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "divider") {
@@ -956,6 +956,24 @@ function fillGalleryOptions(box, draft, onChange, hintEl) {
     onChange();
   });
   paintExtras();
+}
+
+function fillCommentsOptions(box, draft, onChange, hintEl) {
+  draft.friends_only = !!draft.friends_only;
+  const note = document.createElement("div");
+  note.className = "settings-opt-desc";
+  note.textContent = "Visitors write here. You cannot comment on your own profile. Newest sits at the top, six per page.";
+  box.appendChild(note);
+  const row = settingsOpt(
+    "Friends only",
+    "",
+    settingsToggle(draft.friends_only, false, (on) => {
+      draft.friends_only = on;
+      onChange();
+    })
+  );
+  profileOptHint(row, "Off: anyone who can see this profile can post. On: only friends.", hintEl);
+  box.appendChild(row);
 }
 
 function fillRailOptions(box, draft, onChange, hintEl) {

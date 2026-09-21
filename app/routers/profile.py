@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 import json
 import re
 import uuid
 import random
 import colorsys
-from app.models import UserInfo, Friend_request
-from app.schemas import Profile_layout_in, Profile_identity_in
+from app.models import UserInfo, Friend_request, Profile_comment, Block_user
+from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in
 from app.database import get_db
 from app.auth import get_current_user
-from app.privacy import can_see_full_profile
+from app.privacy import are_friends, can_see_full_profile
 from app.routers.account import parse_display_name_history
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for
 
@@ -37,6 +37,8 @@ HEADER_MAX = 120
 FOOTNOTE_MAX = 300
 LIST_ITEM_MAX = 200
 LIST_MAX_ITEMS = 20
+PROFILE_COMMENT_MAX = 1000
+PROFILE_COMMENT_PAGE = 6
 LINK_MAX = 12
 LINK_USER_MAX = 32
 LINK_URL_MAX = 500
@@ -186,7 +188,7 @@ def tile_bounds(kind, props=None):
         "gallery": (3, 3, 9, 9),
         "slideshow": (3, 3, 9, 9),
         "gif": (4, 3, 16, 12),
-        "comments": (8, 5, 24, 18),
+        "comments": (8, 6, 24, 18),
         "server_list": (8, 4, 16, 18),
         "featured_server": (8, 4, 16, 10),
         "achievements": (8, 3, 24, 12),
@@ -244,7 +246,7 @@ def default_sizes(kind):
         "gallery": (6, 6),
         "slideshow": (6, 6),
         "gif": (8, 6),
-        "comments": (12, 8),
+        "comments": (12, 10),
         "server_list": (10, 8),
         "featured_server": (10, 5),
         "achievements": (12, 5),
@@ -887,6 +889,10 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_embed_props(data)
     if kind == "gallery":
         return normalize_gallery_props(data)
+    if kind == "comments":
+        out = normalize_text_chrome(data, 14, True)
+        out["friends_only"] = bool(data.get("friends_only"))
+        return out
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)
@@ -1156,3 +1162,136 @@ def get_public_profile(user_id: int, current_user: UserInfo = Depends(get_curren
     if not can_see_full_profile(database, current_user, owner):
         return profile_payload(owner, identity_only_layout(layout), True, [])
     return profile_payload(owner, public_pages(layout), False, friend_preview(database, owner.id))
+
+
+def comments_wall_friends_only(layout):
+    for page in (layout or {}).get("pages") or []:
+        for tile in page.get("tiles") or []:
+            if tile.get("type") == "comments" and (tile.get("props") or {}).get("friends_only"):
+                return True
+    return False
+
+
+def users_are_blocked(database: Session, user_a, user_b):
+    return bool(database.query(Block_user).filter(
+        or_(
+            and_(Block_user.initiated_by == user_a, Block_user.blocked_user == user_b),
+            and_(Block_user.initiated_by == user_b, Block_user.blocked_user == user_a),
+        )
+    ).first())
+
+
+def serialize_profile_comment(row, sender):
+    return {
+        "id": row.id,
+        "owner_id": row.owner_id,
+        "sender_id": row.sender_id,
+        "content": row.content or "",
+        "created_at": str(row.created_at) if row.created_at else "",
+        "edited": bool(row.edited),
+        "username": sender.username if sender else "Unknown",
+        "display_name": public_display_name(sender) if sender else "Unknown",
+    }
+
+
+def can_post_profile_comment(database: Session, viewer: UserInfo, owner: UserInfo, layout):
+    if not viewer or not owner:
+        return False
+    if viewer.id == owner.id:
+        return False
+    if not can_see_full_profile(database, viewer, owner):
+        return False
+    if users_are_blocked(database, viewer.id, owner.id):
+        return False
+    if comments_wall_friends_only(layout) and not are_friends(database, viewer.id, owner.id):
+        return False
+    return True
+
+
+@router.get("/profile/{user_id}/comments")
+def list_profile_comments(user_id: int, page: int = 1, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    layout = ensure_layout(owner, database)
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    total = database.query(Profile_comment).filter(Profile_comment.owner_id == owner.id).count()
+    pages = max(1, (total + PROFILE_COMMENT_PAGE - 1) // PROFILE_COMMENT_PAGE) if total else 1
+    page = clamp_int(page, 1, pages, 1)
+    offset = (page - 1) * PROFILE_COMMENT_PAGE
+    rows = (
+        database.query(Profile_comment)
+        .filter(Profile_comment.owner_id == owner.id)
+        .order_by(Profile_comment.created_at.desc(), Profile_comment.id.desc())
+        .offset(offset)
+        .limit(PROFILE_COMMENT_PAGE)
+        .all()
+    )
+    sender_ids = list({row.sender_id for row in rows})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all() if sender_ids else []
+    lookup = {account.id: account for account in accounts}
+    return {
+        "owner_id": owner.id,
+        "page": page,
+        "pages": pages,
+        "total": total,
+        "friends_only": comments_wall_friends_only(layout),
+        "can_post": can_post_profile_comment(database, current_user, owner, layout),
+        "comments": [serialize_profile_comment(row, lookup.get(row.sender_id)) for row in rows],
+    }
+
+
+@router.post("/profile/{user_id}/comments")
+def create_profile_comment(user_id: int, body: Profile_comment_in, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    layout = ensure_layout(owner, database)
+    if current_user.id == owner.id:
+        raise HTTPException(status_code=403, detail="You cannot comment on your own profile.")
+    if not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    if users_are_blocked(database, current_user.id, owner.id):
+        raise HTTPException(status_code=403, detail="You cannot comment here.")
+    if comments_wall_friends_only(layout) and not are_friends(database, current_user.id, owner.id):
+        raise HTTPException(status_code=403, detail="Only friends can comment here.")
+    text = clip_text(body.content, PROFILE_COMMENT_MAX).strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Write a comment first.")
+    row = Profile_comment(owner_id=owner.id, sender_id=current_user.id, content=text, edited=False)
+    database.add(row)
+    database.commit()
+    database.refresh(row)
+    return serialize_profile_comment(row, current_user)
+
+
+@router.post("/profile_comment/{comment_id}/edit")
+def edit_profile_comment(comment_id: int, body: Profile_comment_in, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    row = database.query(Profile_comment).filter(Profile_comment.id == comment_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Comment not found.")
+    if row.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only edit your own comment.")
+    text = clip_text(body.content, PROFILE_COMMENT_MAX).strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Write a comment first.")
+    if text != (row.content or ""):
+        row.content = text
+        row.edited = True
+        database.commit()
+        database.refresh(row)
+    sender = database.query(UserInfo).filter(UserInfo.id == row.sender_id).first()
+    return serialize_profile_comment(row, sender or current_user)
+
+
+@router.post("/profile_comment/{comment_id}/delete")
+def delete_profile_comment(comment_id: int, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    row = database.query(Profile_comment).filter(Profile_comment.id == comment_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Comment not found.")
+    if row.sender_id != current_user.id and row.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You cannot remove that comment.")
+    database.delete(row)
+    database.commit()
+    return {"ok": True}

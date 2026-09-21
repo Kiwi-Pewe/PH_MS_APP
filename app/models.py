@@ -203,6 +203,17 @@ class Announcement_post(Base):
     attachment = Column(String, nullable=True)
     edited = Column(Boolean, default= False)
 
+class Profile_comment(Base):
+    __tablename__ = "profile_comments"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+    edited = Column(Boolean, default=False)
+    __table_args__ = (Index("ix_profile_comments_owner_created", "owner_id", "created_at"),)
+
+
 class Announcement_comment(Base):
     __tablename__= "announcement_comments"
     id = Column(Integer, primary_key = True)

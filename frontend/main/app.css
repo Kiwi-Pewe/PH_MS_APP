@@ -3292,3 +3292,120 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .profile-opt-seg button.is-on { background: var(--accent); color: #fff; }
 .profile-opt-align { margin-top: 8px; }
+
+.profile-tile.is-comments {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.oneira-wall {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 10px 12px 8px;
+  box-sizing: border-box;
+}
+.oneira-wall-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex: 0 0 auto;
+}
+.oneira-wall-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.oneira-wall-pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.oneira-wall-pager button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  background: var(--panel-alt);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1;
+}
+.oneira-wall-pager button:disabled { opacity: 0.35; }
+.oneira-wall-page { font-size: 12px; font-weight: 700; color: var(--text-dim); min-width: 1em; text-align: center; }
+.oneira-wall-compose { flex: 0 0 auto; margin-bottom: 10px; }
+.oneira-wall-input,
+.oneira-wall-edit {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  background: var(--rail);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+.oneira-wall-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.oneira-wall-empty {
+  flex: 1 1 auto;
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 12px 0;
+}
+.oneira-wall-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.oneira-wall-row:last-child { border-bottom: 0; }
+.oneira-wall-avatar {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--panel-alt);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+.oneira-wall-body { min-width: 0; flex: 1 1 auto; }
+.oneira-wall-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.oneira-wall-name { font-weight: 700; font-size: 13px; color: var(--text); }
+.oneira-wall-time { font-size: 12px; color: var(--text-dim); }
+.oneira-wall-text {
+  font-size: var(--profile-text-size, 14px);
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+}
+.oneira-wall-foot {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+}

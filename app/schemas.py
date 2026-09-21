@@ -117,6 +117,10 @@ class Profile_layout_in(BaseModel):
     grid_cols: int = 32
     pages: list[Profile_page_in] = []
 
+class Profile_comment_in(BaseModel):
+    content: str = ""
+
+
 class Profile_identity_in(BaseModel):
     status: str = ""
     pronouns: str = ""

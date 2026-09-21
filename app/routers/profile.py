@@ -58,6 +58,10 @@ CLOCK_MODES = {"world", "countdown", "timer"}
 CLOCK_LABEL_MAX = 48
 ICON_EMOJI_MAX = 16
 MUSIC_TRACK_MAX = 5
+GALLERY_ITEM_MAX = 6
+GALLERY_SPEED_MIN = 2
+GALLERY_SPEED_MAX = 12
+GALLERY_SPEED_DEF = 4
 YOUTUBE_ID_RE = re.compile(
     r"(?:youtube\.com/(?:watch\?(?:[^#]*&)?v=|embed/|shorts/|live/)|youtu\.be/|music\.youtube\.com/watch\?(?:[^#]*&)?v=)([\w-]{11})",
     re.I,
@@ -179,8 +183,8 @@ def tile_bounds(kind, props=None):
         "video": (8, 4, 24, 16),
         "music": (6, 3, 10, 4),
         "embed": (8, 5, 20, 12),
-        "gallery": (8, 4, 24, 16),
-        "slideshow": (8, 4, 24, 16),
+        "gallery": (3, 3, 9, 9),
+        "slideshow": (3, 3, 9, 9),
         "gif": (4, 3, 16, 12),
         "comments": (8, 5, 24, 18),
         "server_list": (8, 4, 16, 18),
@@ -237,8 +241,8 @@ def default_sizes(kind):
         "video": (12, 7),
         "music": (10, 4),
         "embed": (12, 7),
-        "gallery": (12, 6),
-        "slideshow": (12, 6),
+        "gallery": (6, 6),
+        "slideshow": (6, 6),
         "gif": (8, 6),
         "comments": (12, 8),
         "server_list": (10, 8),
@@ -554,6 +558,40 @@ def normalize_profile_image_props(data):
     return out
 
 
+def normalize_gallery_item(row):
+    if not isinstance(row, dict):
+        return None
+    img = normalize_profile_image_props(row)
+    if not img.get("key"):
+        return None
+    return {
+        "key": img["key"],
+        "url": img["url"],
+        "mime": img["mime"],
+        "size": img["size"],
+        "name": img["name"],
+    }
+
+
+def normalize_gallery_props(data):
+    items = []
+    raw = data.get("items")
+    if isinstance(raw, list):
+        for row in raw:
+            if len(items) >= GALLERY_ITEM_MAX:
+                break
+            item = normalize_gallery_item(row)
+            if item:
+                items.append(item)
+    out = normalize_text_chrome(data, 14, True)
+    out["items"] = items
+    out["mode"] = "slideshow" if data.get("mode") == "slideshow" else "manual"
+    out["transition"] = "fade" if data.get("transition") == "fade" else "cut"
+    out["speed"] = clamp_int(data.get("speed"), GALLERY_SPEED_MIN, GALLERY_SPEED_MAX, GALLERY_SPEED_DEF)
+    out["shuffle"] = bool(data.get("shuffle"))
+    return out
+
+
 def video_overlay_flags(data):
     paused = data.get("show_player_when_paused")
     return {
@@ -847,6 +885,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_music_props(data)
     if kind == "embed":
         return normalize_embed_props(data)
+    if kind == "gallery":
+        return normalize_gallery_props(data)
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)
@@ -867,6 +907,11 @@ def normalize_tile(raw, used_ids, banner_fallback):
         kind = "embed"
     if kind == "artwork":
         kind = "image"
+    if kind == "slideshow":
+        kind = "gallery"
+        props_in = dict(props_in)
+        if props_in.get("mode") not in ("manual", "slideshow"):
+            props_in["mode"] = "slideshow"
     if kind not in TILE_TYPES:
         return None
     tile_id = str(data.get("id") or "").strip() or new_id("tile")

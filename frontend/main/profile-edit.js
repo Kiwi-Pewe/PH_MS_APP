@@ -61,7 +61,6 @@ const PROFILE_PALETTE = [
       { type: "embed", label: "Embed" },
       { type: "music", label: "Music" },
       { type: "gallery", label: "Gallery" },
-      { type: "slideshow", label: "Slideshow" },
       { type: "gif", label: "GIF" }
     ]
   },
@@ -249,6 +248,7 @@ function bindProfileTileDrag(el, tile, handle) {
     if (e.target.closest(".profile-resize")) return;
     if (e.target.closest(".oneira-player-chrome, .oneira-player-menu, .oneira-player-gear-wrap")) return;
     if (e.target.closest(".oneira-music-seek, .oneira-music-row")) return;
+    if (e.target.closest(".oneira-gallery-nav")) return;
     if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
     e.preventDefault();
     mode = "move";
@@ -319,7 +319,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
+  return type === "banner" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -353,6 +353,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "embed") {
     fillEmbedOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "gallery") {
+    fillGalleryOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "divider") {
@@ -448,6 +452,7 @@ function dropProfileImageDraft(draft) {
   delete draft._previewUrl;
   delete draft._file;
   if (Array.isArray(draft.tracks)) draft.tracks.forEach(dropProfileImageDraft);
+  if (Array.isArray(draft.items)) draft.items.forEach(dropProfileImageDraft);
 }
 
 function fillMediaFileOptions(box, draft, onChange, hintEl, spec) {
@@ -746,6 +751,211 @@ function fillEmbedOptions(box, draft, onChange, hintEl) {
   urlLabel.appendChild(urlInput);
   group.appendChild(urlLabel);
   box.appendChild(group);
+}
+
+const GALLERY_ITEM_MAX = 6;
+const GALLERY_SPEED_MIN = 2;
+const GALLERY_SPEED_MAX = 12;
+const GALLERY_SPEED_DEF = 4;
+
+function emptyGalleryItem() {
+  return { name: "", url: "", key: "", mime: "", size: 0 };
+}
+
+function clampGallerySpeed(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return GALLERY_SPEED_DEF;
+  return Math.max(GALLERY_SPEED_MIN, Math.min(GALLERY_SPEED_MAX, Math.round(n)));
+}
+
+function fillGalleryOptions(box, draft, onChange, hintEl) {
+  if (!Array.isArray(draft.items)) draft.items = [];
+  draft.items = draft.items
+    .filter((row) => row && typeof row === "object")
+    .slice(0, GALLERY_ITEM_MAX)
+    .map((row) => Object.assign(emptyGalleryItem(), row || {}));
+  if (draft.mode !== "slideshow") draft.mode = "manual";
+  if (draft.transition !== "fade") draft.transition = "cut";
+  draft.speed = clampGallerySpeed(draft.speed);
+  draft.shuffle = !!draft.shuffle;
+
+  const note = document.createElement("div");
+  note.className = "settings-opt-desc";
+  note.textContent = "Up to 6 pictures. Jpeg, png, gif, or webp. Max 5 MB each. Fits inside the widget without stretching.";
+  box.appendChild(note);
+
+  const group = document.createElement("div");
+  group.className = "profile-opt-border-block";
+  const heading = document.createElement("div");
+  heading.className = "profile-opt-field-label";
+  heading.textContent = "Pictures";
+  profileOptHint(heading, "Shown in this order unless Slideshow is set to random.", hintEl);
+  group.appendChild(heading);
+
+  const list = document.createElement("div");
+  list.className = "profile-music-tracks";
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "profile-link-add";
+  add.textContent = "Add picture";
+
+  function paintItems() {
+    list.innerHTML = "";
+    draft.items.forEach((item, index) => {
+      const card = document.createElement("div");
+      card.className = "profile-music-track";
+      const head = document.createElement("div");
+      head.className = "profile-link-edit-row";
+      const label = document.createElement("div");
+      label.className = "profile-link-edit-label";
+      label.textContent = "Picture " + (index + 1);
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "Remove";
+      del.addEventListener("click", () => {
+        dropProfileImageDraft(item);
+        draft.items.splice(index, 1);
+        paintItems();
+        onChange();
+      });
+      head.appendChild(label);
+      head.appendChild(del);
+      card.appendChild(head);
+
+      const actions = document.createElement("div");
+      actions.className = "profile-opt-image-actions";
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "image/jpeg,image/png,image/gif,image/webp";
+      fileInput.hidden = true;
+      const choose = document.createElement("button");
+      choose.type = "button";
+      choose.className = "profile-link-add";
+      const status = document.createElement("div");
+      status.className = "profile-opt-image-name";
+      function paintStatus() {
+        const has = !!(item._file || item.key);
+        status.textContent = item._file ? item._file.name : (has ? (item.name || "Picture") : "No picture yet.");
+        choose.textContent = has ? "Replace picture" : "Choose picture";
+      }
+      profileOptHint(choose, "Jpeg, png, gif, or webp. Max 5 MB.", hintEl);
+      choose.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files && fileInput.files[0];
+        fileInput.value = "";
+        if (!file) return;
+        const reason = typeof rejectProfileImage === "function" ? rejectProfileImage(file) : "Upload is not available.";
+        if (reason) {
+          window.alert(reason);
+          return;
+        }
+        if (item._previewUrl) URL.revokeObjectURL(item._previewUrl);
+        item._file = file;
+        item._previewUrl = URL.createObjectURL(file);
+        item.key = "";
+        item.url = item._previewUrl;
+        item.mime = typeof fileMime === "function" ? fileMime(file) : file.type;
+        item.size = file.size;
+        item.name = file.name || "";
+        paintStatus();
+        onChange();
+      });
+      actions.appendChild(choose);
+      card.appendChild(fileInput);
+      card.appendChild(actions);
+      card.appendChild(status);
+      paintStatus();
+      list.appendChild(card);
+    });
+    add.hidden = draft.items.length >= GALLERY_ITEM_MAX;
+  }
+
+  profileOptHint(add, "At most 6 pictures on this gallery.", hintEl);
+  add.addEventListener("click", () => {
+    if (draft.items.length >= GALLERY_ITEM_MAX) return;
+    draft.items.push(emptyGalleryItem());
+    paintItems();
+    onChange();
+  });
+  group.appendChild(list);
+  group.appendChild(add);
+  box.appendChild(group);
+  paintItems();
+
+  const modeBlock = profileOptSection(box);
+  const mode = profileSelectField("Progression Type", [
+    { value: "manual", label: "Manual" },
+    { value: "slideshow", label: "Slideshow" }
+  ], draft.mode);
+  profileOptHint(mode.label, "Manual uses arrows. Slideshow advances on its own.", hintEl);
+  modeBlock.appendChild(mode.label);
+  const extras = document.createElement("div");
+  extras.className = "profile-opt-mode-extras";
+  modeBlock.appendChild(extras);
+
+  function paintExtras() {
+    extras.innerHTML = "";
+    extras.classList.toggle("is-open", draft.mode === "slideshow");
+    if (draft.mode !== "slideshow") return;
+
+    const transition = profileSelectField("Transition", [
+      { value: "cut", label: "Cut" },
+      { value: "fade", label: "Fade" }
+    ], draft.transition);
+    profileOptHint(transition.label, "Cut swaps instantly. Fade briefly dims between pictures.", hintEl);
+    transition.select.addEventListener("change", () => {
+      draft.transition = transition.select.value === "fade" ? "fade" : "cut";
+      onChange();
+    });
+    extras.appendChild(transition.label);
+
+    const speedLabel = document.createElement("div");
+    speedLabel.className = "profile-opt-field-label";
+    speedLabel.textContent = "Speed";
+    const speedRow = document.createElement("div");
+    speedRow.className = "profile-opt-slider-row";
+    const speed = document.createElement("input");
+    speed.type = "range";
+    speed.min = String(GALLERY_SPEED_MIN);
+    speed.max = String(GALLERY_SPEED_MAX);
+    speed.step = "1";
+    speed.className = "settings-slider";
+    speed.value = String(draft.speed);
+    const speedVal = document.createElement("div");
+    speedVal.className = "profile-opt-slider-val";
+    function paintSpeed() {
+      speedVal.textContent = String(draft.speed);
+    }
+    profileOptHint(speed, "Seconds each picture stays before the next one.", hintEl);
+    speed.addEventListener("input", () => {
+      draft.speed = clampGallerySpeed(speed.value);
+      paintSpeed();
+      onChange();
+    });
+    speedRow.appendChild(speed);
+    speedRow.appendChild(speedVal);
+    extras.appendChild(speedLabel);
+    extras.appendChild(speedRow);
+    paintSpeed();
+
+    const shuffleRow = settingsOpt(
+      "Random order",
+      "",
+      settingsToggle(draft.shuffle, false, (on) => {
+        draft.shuffle = on;
+        onChange();
+      })
+    );
+    profileOptHint(shuffleRow, "On: shuffle the list. Off: keep the order you added.", hintEl);
+    extras.appendChild(shuffleRow);
+  }
+
+  mode.select.addEventListener("change", () => {
+    draft.mode = mode.select.value === "slideshow" ? "slideshow" : "manual";
+    paintExtras();
+    onChange();
+  });
+  paintExtras();
 }
 
 function fillRailOptions(box, draft, onChange, hintEl) {
@@ -1615,7 +1825,9 @@ function openProfileTileOptions(tile) {
   const draft = Object.assign({}, tile.props);
   if (Array.isArray(draft.links)) draft.links = draft.links.map(row => Object.assign({}, row));
   if (Array.isArray(draft.rows)) draft.rows = draft.rows.map(row => Object.assign({}, row));
-  if (Array.isArray(draft.items)) draft.items = draft.items.slice();
+  if (Array.isArray(draft.items)) {
+    draft.items = draft.items.map((row) => (row && typeof row === "object") ? Object.assign({}, row) : row);
+  }
   if (Array.isArray(draft.tracks)) draft.tracks = draft.tracks.map(row => Object.assign({}, row));
   Object.assign(draft, defaultTextChrome(tile.type, draft));
   draft.z_index = clampProfileZIndex(tile.z_index != null ? tile.z_index : draft.z_index);
@@ -1843,6 +2055,46 @@ function openProfileTileOptions(tile) {
         draft.provider = parsed.provider;
         draft.embed_id = parsed.id;
         draft.kind = parsed.kind;
+      }
+    }
+    if (tile.type === 'gallery') {
+      confirm.disabled = true;
+      try {
+        const kept = [];
+        const rows = Array.isArray(draft.items) ? draft.items : [];
+        for (let i = 0; i < rows.length; i += 1) {
+          const item = rows[i];
+          if (!item || typeof item !== 'object') continue;
+          if (item._file) {
+            if (typeof uploadProfileImageFile !== 'function') throw new Error('Upload is not available.');
+            const att = await uploadProfileImageFile(item._file);
+            item.key = att.key;
+            item.url = att.url;
+            item.mime = att.mime;
+            item.size = att.size;
+            item.name = att.name || item.name || '';
+          }
+          if (!item.key) continue;
+          kept.push({
+            name: String(item.name || '').trim(),
+            url: item.url || '',
+            key: item.key,
+            mime: item.mime || '',
+            size: item.size || 0
+          });
+        }
+        if (kept.length > GALLERY_ITEM_MAX) {
+          throw new Error('A gallery can hold at most 6 pictures.');
+        }
+        draft.items = kept;
+        draft.mode = draft.mode === 'slideshow' ? 'slideshow' : 'manual';
+        draft.transition = draft.transition === 'fade' ? 'fade' : 'cut';
+        draft.speed = clampGallerySpeed(draft.speed);
+        draft.shuffle = !!draft.shuffle;
+      } catch (e) {
+        confirm.disabled = false;
+        window.alert(e.message || 'Could not save those pictures.');
+        return;
       }
     }
     dropProfileImageDraft(draft);

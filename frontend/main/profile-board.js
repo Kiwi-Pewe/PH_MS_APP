@@ -79,7 +79,8 @@ const PROFILE_TILE_TYPES = {
   image: { w: 10, h: 6, minW: 4, minH: 3, maxW: 24, maxH: 16, label: "Image" },
   video: { w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Video" },
   music: { w: 10, h: 4, minW: 6, minH: 3, maxW: 10, maxH: 4, label: "Music" },
-  embed: { w: 12, h: 7, minW: 8, minH: 5, maxW: 20, maxH: 12, label: "Embed" }
+  embed: { w: 12, h: 7, minW: 8, minH: 5, maxW: 20, maxH: 12, label: "Embed" },
+  gallery: { w: 6, h: 6, minW: 3, minH: 3, maxW: 9, maxH: 9, label: "Gallery" }
 };
 
 const PROFILE_PLACEHOLDERS = {
@@ -94,8 +95,6 @@ const PROFILE_PLACEHOLDERS = {
   frame: { label: "Frame", w: 12, h: 8, minW: 6, minH: 4, maxW: 32, maxH: 18 },
   color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
   meter: { label: "Meter", w: 10, h: 2, minW: 6, minH: 1, maxW: 24, maxH: 4 },
-  gallery: { label: "Gallery", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 16 },
-  slideshow: { label: "Slideshow", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   gif: { label: "GIF", w: 8, h: 6, minW: 4, minH: 3, maxW: 16, maxH: 12 },
   comments: { label: "Comments", w: 12, h: 8, minW: 8, minH: 5, maxW: 24, maxH: 18 },
   server_list: { label: "Server list", w: 10, h: 8, minW: 8, minH: 4, maxW: 16, maxH: 18 },
@@ -448,6 +447,15 @@ function defaultProfileTileProps(type, existing) {
       provider: prev.provider || "",
       embed_id: prev.embed_id || "",
       kind: prev.kind || ""
+    }, chrome);
+  }
+  if (type === "gallery") {
+    return Object.assign({
+      items: Array.isArray(prev.items) ? prev.items.map(row => Object.assign({}, row || {})) : [],
+      mode: prev.mode === "slideshow" ? "slideshow" : "manual",
+      transition: prev.transition === "fade" ? "fade" : "cut",
+      speed: typeof clampGallerySpeed === "function" ? clampGallerySpeed(prev.speed) : (Number(prev.speed) || 4),
+      shuffle: !!prev.shuffle
     }, chrome);
   }
   if (type === "clock" || type === "countdown") {
@@ -1180,6 +1188,26 @@ function paintProfileEmbed(tile, el) {
   });
 }
 
+function paintProfileGallery(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  if (typeof mountOneiraGallery !== "function") {
+    const empty = document.createElement("div");
+    empty.className = "profile-image-empty";
+    empty.textContent = "Gallery is missing.";
+    el.appendChild(empty);
+    return;
+  }
+  const props = tile.props || {};
+  mountOneiraGallery(el, {
+    items: Array.isArray(props.items) ? props.items : [],
+    mode: props.mode,
+    transition: props.transition,
+    speed: props.speed,
+    shuffle: props.shuffle,
+    editHint: !!(profileEditing && profileIsOwn)
+  });
+}
+
 function paintProfileVideo(tile, el) {
   applyProfileWidgetSurface(el, tile);
   if (typeof mountOneiraPlayer !== "function") {
@@ -1705,6 +1733,10 @@ function paintProfileTileContent(tile, el) {
     paintProfileEmbed(tile, el);
     return;
   }
+  if (tile.type === "gallery") {
+    paintProfileGallery(tile, el);
+    return;
+  }
   if (tile.type === "clock") {
     paintProfileClock(tile, el);
     return;
@@ -1751,6 +1783,11 @@ function renderProfileBoard() {
     }
     if (tile.type === "youtube" || tile.type === "twitch") tile.type = "embed";
     if (tile.type === "artwork") tile.type = "image";
+    if (tile.type === "slideshow") {
+      tile.type = "gallery";
+      tile.props = tile.props || {};
+      if (tile.props.mode !== "manual") tile.props.mode = "slideshow";
+    }
     const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x, tile);
     tile.w = size.w;
     tile.h = size.h;
@@ -1767,7 +1804,7 @@ function renderProfileBoard() {
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
-        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
+        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

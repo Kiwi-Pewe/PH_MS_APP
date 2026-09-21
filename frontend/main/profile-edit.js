@@ -58,11 +58,10 @@ const PROFILE_PALETTE = [
     items: [
       { type: "image", label: "Image" },
       { type: "video", label: "Video" },
+      { type: "embed", label: "Embed" },
       { type: "music", label: "Music" },
-      { type: "twitch", label: "Twitch" },
       { type: "gallery", label: "Gallery" },
       { type: "slideshow", label: "Slideshow" },
-      { type: "youtube", label: "YouTube" },
       { type: "gif", label: "GIF" },
       { type: "artwork", label: "Artwork" }
     ]

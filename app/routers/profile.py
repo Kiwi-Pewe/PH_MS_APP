@@ -25,7 +25,7 @@ TILE_TYPES = {
     "local_time", "details", "interests", "looking_for", "fun_facts", "schedule", "setup",
     "connections", "featured_friend", "mutuals",
     "frame", "color_block", "icon", "meter", "clock", "countdown",
-    "image", "video", "music", "twitch", "gallery", "slideshow", "youtube", "gif", "artwork",
+    "image", "video", "music", "embed", "gallery", "slideshow", "gif", "artwork",
     "comments", "server_list", "featured_server",
     "achievements", "recently_played", "favorite_game", "currently_playing",
     "want_to_play", "games_played", "game_stats", "library", "review",
@@ -161,10 +161,9 @@ def tile_bounds(kind, props=None):
         "image": (4, 3, 24, 16),
         "video": (8, 4, 24, 16),
         "music": (6, 3, 20, 8),
-        "twitch": (8, 4, 24, 16),
+        "embed": (8, 4, 24, 16),
         "gallery": (8, 4, 24, 16),
         "slideshow": (8, 4, 24, 16),
-        "youtube": (8, 4, 24, 16),
         "gif": (4, 3, 16, 12),
         "artwork": (6, 4, 20, 16),
         "comments": (8, 5, 24, 18),
@@ -221,10 +220,9 @@ def default_sizes(kind):
         "image": (10, 6),
         "video": (12, 7),
         "music": (10, 4),
-        "twitch": (12, 7),
+        "embed": (12, 7),
         "gallery": (12, 6),
         "slideshow": (12, 6),
-        "youtube": (12, 7),
         "gif": (8, 6),
         "artwork": (10, 7),
         "comments": (12, 8),
@@ -737,6 +735,8 @@ def normalize_tile(raw, used_ids, banner_fallback):
         props_in = dict(props_in)
         if props_in.get("mode") not in CLOCK_MODES:
             props_in["mode"] = "countdown"
+    if kind in ("youtube", "twitch"):
+        kind = "embed"
     if kind not in TILE_TYPES:
         return None
     tile_id = str(data.get("id") or "").strip() or new_id("tile")

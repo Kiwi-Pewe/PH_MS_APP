@@ -93,10 +93,9 @@ const PROFILE_PLACEHOLDERS = {
   color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
   meter: { label: "Meter", w: 10, h: 2, minW: 6, minH: 1, maxW: 24, maxH: 4 },
   music: { label: "Music", w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 8 },
-  twitch: { label: "Twitch", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
+  embed: { label: "Embed", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   gallery: { label: "Gallery", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   slideshow: { label: "Slideshow", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 16 },
-  youtube: { label: "YouTube", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   gif: { label: "GIF", w: 8, h: 6, minW: 4, minH: 3, maxW: 16, maxH: 12 },
   artwork: { label: "Artwork", w: 10, h: 7, minW: 6, minH: 4, maxW: 20, maxH: 16 },
   comments: { label: "Comments", w: 12, h: 8, minW: 8, minH: 5, maxW: 24, maxH: 18 },
@@ -1698,6 +1697,7 @@ function renderProfileBoard() {
       tile.props = tile.props || {};
       if (tile.props.mode !== "timer" && tile.props.mode !== "world") tile.props.mode = "countdown";
     }
+    if (tile.type === "youtube" || tile.type === "twitch") tile.type = "embed";
     const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x, tile);
     tile.w = size.w;
     tile.h = size.h;

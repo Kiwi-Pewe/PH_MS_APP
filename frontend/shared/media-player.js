@@ -9,6 +9,17 @@ const oneiraPlayers = new Set();
 let oneiraPlayerVolume = 1;
 let oneiraPlayerMuted = false;
 
+function pauseAllOneiraPlayers() {
+  [...oneiraPlayers].forEach((api) => {
+    if (api && api.pause) api.pause();
+  });
+  const fs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fs && fs.classList && fs.classList.contains("oneira-player")) {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (exit) exit.call(document);
+  }
+}
+
 function oneiraPlayerTime(seconds) {
   const n = Math.max(0, Math.floor(Number(seconds) || 0));
   const m = Math.floor(n / 60);
@@ -115,7 +126,10 @@ function mountOneiraPlayer(host, options) {
   vol.className = "oneira-player-vol-slider";
   vol.setAttribute("aria-label", "Volume");
   volWrap.appendChild(muteBtn);
-  volWrap.appendChild(vol);
+  const volPop = document.createElement("div");
+  volPop.className = "oneira-player-vol-pop";
+  volPop.appendChild(vol);
+  volWrap.appendChild(volPop);
   const fsBtn = document.createElement("button");
   fsBtn.type = "button";
   fsBtn.className = "oneira-player-icon";
@@ -258,6 +272,9 @@ function mountOneiraPlayer(host, options) {
 
   bar.addEventListener("pointerdown", (e) => e.stopPropagation());
   gearWrap.addEventListener("pointerdown", (e) => e.stopPropagation());
+  volWrap.addEventListener("pointerenter", () => volWrap.classList.add("is-open"));
+  volWrap.addEventListener("pointerleave", () => volWrap.classList.remove("is-open"));
+  volWrap.addEventListener("pointerdown", (e) => e.stopPropagation());
   menu.addEventListener("pointerdown", (e) => e.stopPropagation());
   playBtn.addEventListener("click", (e) => {
     e.stopPropagation();

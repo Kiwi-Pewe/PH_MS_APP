@@ -47,6 +47,7 @@ function hideProfileChromeBits() {
 }
 
 function closeProfileChrome() {
+  if (typeof pauseAllOneiraPlayers === "function") pauseAllOneiraPlayers();
   if (!isProfileOpen) {
     hideProfileChromeBits();
     return true;

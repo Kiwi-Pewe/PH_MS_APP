@@ -8,7 +8,7 @@
   background: radial-gradient(ellipse at center, #16324a 0%, #071018 72%);
   color: #dceaf4;
   user-select: none;
-  container-type: inline-size;
+  container-type: size;
   container-name: oneira-player;
 }
 .oneira-player-stage {
@@ -147,11 +147,17 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 10px 7px 12px;
+    box-sizing: border-box;
+    width: 28px;
+    height: min(25cqh, 25vh);
+    max-height: 25vh;
+    min-height: 40px;
+    padding: 8px 0;
     background: rgba(10, 22, 34, 0.96);
     border: 1px solid rgba(120, 170, 200, 0.35);
     border-radius: 8px;
     z-index: 6;
+    overflow: hidden;
   }
   .oneira-player-vol::before {
     content: "";
@@ -168,10 +174,14 @@
   }
   .oneira-player-vol-slider {
     display: block;
-    width: 6px;
-    max-width: none;
     flex: none;
-    height: 88px;
+    margin: 0;
+    padding: 0;
+    width: 16px;
+    max-width: 16px;
+    min-width: 0;
+    height: 100%;
+    max-height: 100%;
     writing-mode: vertical-lr;
     direction: rtl;
     appearance: slider-vertical;

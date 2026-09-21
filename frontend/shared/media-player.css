@@ -149,8 +149,8 @@
     justify-content: center;
     box-sizing: border-box;
     width: 28px;
-    height: min(25cqh, 25vh);
-    max-height: 25vh;
+    height: 50cqh;
+    max-height: 50cqh;
     min-height: 40px;
     padding: 8px 0;
     background: rgba(10, 22, 34, 0.96);

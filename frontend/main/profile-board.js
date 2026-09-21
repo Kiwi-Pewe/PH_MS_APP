@@ -543,7 +543,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments";
 }
 
 function profileTextChrome(props, type) {
@@ -1216,6 +1216,7 @@ function paintProfileGallery(tile, el) {
 function paintProfileComments(tile, el) {
   const chrome = typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : null;
   if (chrome && chrome.text_size) el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
+  if (chrome && chrome.text_align) el.dataset.textAlign = chrome.text_align;
   applyProfileWidgetSurface(el, tile);
   if (typeof mountProfileComments !== "function") {
     const empty = document.createElement("div");

@@ -254,7 +254,7 @@ function mountProfileComments(host, tile) {
       item.className = "oneira-wall-row";
       item.dataset.commentId = String(row.id);
       const avatar = document.createElement("div");
-      avatar.className = "oneira-wall-avatar";
+      avatar.className = "cluster-avatar oneira-wall-avatar";
       avatar.textContent = typeof avatarLetter === "function" ? avatarLetter(profileCommentShownName(row)) : "?";
       const body = document.createElement("div");
       body.className = "oneira-wall-body";

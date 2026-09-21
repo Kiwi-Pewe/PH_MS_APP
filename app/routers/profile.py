@@ -541,9 +541,18 @@ def normalize_profile_image_props(data):
     return out
 
 
+def video_overlay_flags(data):
+    paused = data.get("show_player_when_paused")
+    return {
+        "transparent_player": bool(data.get("transparent_player")),
+        "show_player_when_paused": True if paused is None else bool(paused),
+    }
+
+
 def empty_profile_video(data):
     out = normalize_text_chrome(data, 14, True)
     out.update({"key": "", "url": "", "mime": "", "size": 0, "name": ""})
+    out.update(video_overlay_flags(data))
     return out
 
 
@@ -566,6 +575,7 @@ def normalize_profile_video_props(data):
     out["mime"] = mime
     out["size"] = size
     out["name"] = clip_text(data.get("name"), 200)
+    out.update(video_overlay_flags(data))
     return out
 
 

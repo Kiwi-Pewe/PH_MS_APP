@@ -237,6 +237,33 @@
 }
 .oneira-player-menu-chip:disabled { opacity: 0.85; cursor: default; }
 .oneira-player.is-empty .oneira-player-chrome { opacity: 0.85; }
+.oneira-player.is-overlay {
+  overflow: hidden;
+}
+.oneira-player.is-overlay .oneira-player-stage {
+  position: absolute;
+  inset: 0;
+  flex: none;
+  height: auto;
+}
+.oneira-player.is-overlay .oneira-player-chrome {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  background: linear-gradient(180deg, rgba(8, 18, 28, 0), rgba(8, 18, 28, 0.78) 42%);
+  transition: opacity 0.25s ease;
+}
+.oneira-player.is-overlay .oneira-player-gear-wrap {
+  z-index: 4;
+  transition: opacity 0.25s ease;
+}
+.oneira-player.is-overlay.is-chrome-hidden .oneira-player-chrome,
+.oneira-player.is-overlay.is-chrome-hidden .oneira-player-gear-wrap {
+  opacity: 0;
+  pointer-events: none;
+}
 .oneira-player:fullscreen,
 .oneira-player:-webkit-full-screen {
   width: 100%;

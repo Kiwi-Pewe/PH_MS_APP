@@ -49,7 +49,7 @@ function mountOneiraPlayer(host, options) {
   }
   const opts = options || {};
   const root = document.createElement("div");
-  root.className = "oneira-player is-empty";
+  root.className = "oneira-player is-empty" + (opts.transparent ? " is-overlay" : "");
   const stage = document.createElement("div");
   stage.className = "oneira-player-stage";
   const video = document.createElement("video");
@@ -236,6 +236,46 @@ function mountOneiraPlayer(host, options) {
     });
   }
 
+  let hideTimer = null;
+
+  function showChrome() {
+    root.classList.remove("is-chrome-hidden");
+  }
+
+  function hideChrome() {
+    if (!opts.transparent) return;
+    if (!menu.hidden) return;
+    root.classList.add("is-chrome-hidden");
+  }
+
+  function chromeShouldStay() {
+    if (!opts.transparent || !hasSrc()) return true;
+    if (!menu.hidden) return true;
+    if (video.paused && opts.showWhenPaused !== false) return true;
+    return false;
+  }
+
+  function armChromeHide() {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+    if (chromeShouldStay()) {
+      showChrome();
+      return;
+    }
+    hideTimer = setTimeout(() => {
+      hideTimer = null;
+      if (!chromeShouldStay()) hideChrome();
+    }, 3000);
+  }
+
+  function noteChromeInteraction() {
+    if (!opts.transparent) return;
+    showChrome();
+    armChromeHide();
+  }
+
   let handle = null;
 
   function pause() {
@@ -268,6 +308,8 @@ function mountOneiraPlayer(host, options) {
     }
     setEnabled();
     paintTime();
+    showChrome();
+    armChromeHide();
   }
 
   bar.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -329,7 +371,15 @@ function mountOneiraPlayer(host, options) {
     if (menu.hidden) {
       paintMenu();
       menu.hidden = false;
-    } else closeMenu();
+      showChrome();
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    } else {
+      closeMenu();
+      armChromeHide();
+    }
   });
   fsBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -345,9 +395,19 @@ function mountOneiraPlayer(host, options) {
   const onFsChange = () => paintFsIcon();
   document.addEventListener("fullscreenchange", onFsChange);
   document.addEventListener("webkitfullscreenchange", onFsChange);
-  video.addEventListener("play", () => setPlayingUi(true));
-  video.addEventListener("pause", () => setPlayingUi(false));
-  video.addEventListener("ended", () => setPlayingUi(false));
+  video.addEventListener("play", () => {
+    setPlayingUi(true);
+    showChrome();
+    armChromeHide();
+  });
+  video.addEventListener("pause", () => {
+    setPlayingUi(false);
+    armChromeHide();
+  });
+  video.addEventListener("ended", () => {
+    setPlayingUi(false);
+    armChromeHide();
+  });
   video.addEventListener("timeupdate", paintTime);
   video.addEventListener("loadedmetadata", paintTime);
   video.addEventListener("click", (e) => {
@@ -357,12 +417,20 @@ function mountOneiraPlayer(host, options) {
     if (video.paused) play();
     else pause();
   });
+  root.addEventListener("pointermove", noteChromeInteraction);
+  root.addEventListener("pointerdown", noteChromeInteraction);
 
   handle = {
     root,
     pause,
     setSource,
     destroy() {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+      pause();
+      oneiraPlayers.delete(handle);
       document.removeEventListener("fullscreenchange", onFsChange);
       document.removeEventListener("webkitfullscreenchange", onFsChange);
       if ((document.fullscreenElement === root || document.webkitFullscreenElement === root) && (document.exitFullscreen || document.webkitExitFullscreen)) {

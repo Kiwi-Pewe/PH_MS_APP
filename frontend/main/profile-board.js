@@ -434,7 +434,9 @@ function defaultProfileTileProps(type, existing) {
       url: prev.url || "",
       mime: prev.mime || "",
       size: prev.size || 0,
-      name: prev.name || ""
+      name: prev.name || "",
+      transparent_player: !!prev.transparent_player,
+      show_player_when_paused: prev.show_player_when_paused == null ? true : !!prev.show_player_when_paused
     }, chrome);
   }
   if (type === "clock" || type === "countdown") {
@@ -1147,7 +1149,9 @@ function paintProfileVideo(tile, el) {
   mountOneiraPlayer(el, {
     src: profileImageSrc(tile.props),
     name: String((tile.props && tile.props.name) || ""),
-    stageIsDrag: !!(profileEditing && profileIsOwn)
+    stageIsDrag: !!(profileEditing && profileIsOwn),
+    transparent: !!(tile.props && tile.props.transparent_player),
+    showWhenPaused: !(tile.props && tile.props.show_player_when_paused === false)
   });
 }
 

@@ -533,6 +533,37 @@ function fillVideoOptions(box, draft, onChange, hintEl) {
     hint: "Pick a clip for this widget.",
     reject: (file) => typeof rejectProfileVideo === "function" ? rejectProfileVideo(file) : "Upload is not available."
   });
+  draft.transparent_player = !!draft.transparent_player;
+  if (draft.show_player_when_paused == null) draft.show_player_when_paused = true;
+
+  const extras = document.createElement("div");
+  extras.className = "profile-opt-border-extras" + (draft.transparent_player ? " is-open" : "");
+  const pausedRow = settingsOpt(
+    "Show Player on paused video",
+    "",
+    settingsToggle(draft.show_player_when_paused, false, (on) => {
+      draft.show_player_when_paused = on;
+      onChange();
+    })
+  );
+  profileOptHint(pausedRow, "Keep the overlay visible while paused. Off: hide it after 3 seconds with no mouse or click.", hintEl);
+  extras.appendChild(pausedRow);
+
+  const block = document.createElement("div");
+  block.className = "profile-opt-border-block";
+  const row = settingsOpt(
+    "Transparent Player",
+    "",
+    settingsToggle(draft.transparent_player, false, (on) => {
+      draft.transparent_player = on;
+      extras.classList.toggle("is-open", on);
+      onChange();
+    })
+  );
+  profileOptHint(row, "Video fills the widget. Player chrome sits as a see-through overlay and can autohide.", hintEl);
+  block.appendChild(row);
+  block.appendChild(extras);
+  box.appendChild(block);
 }
 
 function fillRailOptions(box, draft, onChange, hintEl) {

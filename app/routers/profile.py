@@ -25,7 +25,7 @@ TILE_TYPES = {
     "local_time", "details", "interests", "looking_for", "fun_facts", "schedule", "setup",
     "connections", "featured_friend", "mutuals",
     "frame", "color_block", "icon", "meter", "clock", "countdown",
-    "image", "video", "music", "embed", "gallery", "slideshow", "gif", "artwork",
+    "image", "video", "music", "embed", "gallery", "slideshow", "gif",
     "comments", "server_list", "featured_server",
     "achievements", "recently_played", "favorite_game", "currently_playing",
     "want_to_play", "games_played", "game_stats", "library", "review",
@@ -58,6 +58,22 @@ CLOCK_MODES = {"world", "countdown", "timer"}
 CLOCK_LABEL_MAX = 48
 ICON_EMOJI_MAX = 16
 MUSIC_TRACK_MAX = 5
+YOUTUBE_ID_RE = re.compile(
+    r"(?:youtube\.com/(?:watch\?(?:[^#]*&)?v=|embed/|shorts/|live/)|youtu\.be/|music\.youtube\.com/watch\?(?:[^#]*&)?v=)([\w-]{11})",
+    re.I,
+)
+SPOTIFY_EMBED_RE = re.compile(
+    r"(?:open\.spotify\.com/(?:intl-[a-z]{2}/)?(track|album|playlist|episode|show)/([A-Za-z0-9]+)|spotify:(track|album|playlist|episode|show):([A-Za-z0-9]+))",
+    re.I,
+)
+TWITCH_CLIP_HOST_RE = re.compile(r"clips\.twitch\.tv/([A-Za-z0-9_-]+)", re.I)
+TWITCH_VOD_RE = re.compile(r"twitch\.tv/videos/(\d+)", re.I)
+TWITCH_CHANNEL_CLIP_RE = re.compile(r"twitch\.tv/[A-Za-z0-9_]+/clip/([A-Za-z0-9_-]+)", re.I)
+TWITCH_CHANNEL_RE = re.compile(r"twitch\.tv/([A-Za-z0-9_]{4,25})(?:[/?#]|$)", re.I)
+TWITCH_RESERVED = {
+    "videos", "clips", "directory", "settings", "downloads", "search", "turbo", "jobs",
+    "broadcast", "login", "signup", "p", "inventory", "subscriptions", "wallet", "bits",
+}
 ISO_DT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$")
 TEXT_SIZES = (8, 9, 10, 11, 12, 14, 18, 24)
 TEXT_ALIGNS = {"left", "center", "right"}
@@ -162,11 +178,10 @@ def tile_bounds(kind, props=None):
         "image": (4, 3, 24, 16),
         "video": (8, 4, 24, 16),
         "music": (6, 3, 10, 4),
-        "embed": (8, 4, 24, 16),
+        "embed": (8, 5, 20, 12),
         "gallery": (8, 4, 24, 16),
         "slideshow": (8, 4, 24, 16),
         "gif": (4, 3, 16, 12),
-        "artwork": (6, 4, 20, 16),
         "comments": (8, 5, 24, 18),
         "server_list": (8, 4, 16, 18),
         "featured_server": (8, 4, 16, 10),
@@ -225,7 +240,6 @@ def default_sizes(kind):
         "gallery": (12, 6),
         "slideshow": (12, 6),
         "gif": (8, 6),
-        "artwork": (10, 7),
         "comments": (12, 8),
         "server_list": (10, 8),
         "featured_server": (10, 5),
@@ -631,6 +645,62 @@ def normalize_music_props(data):
     return out
 
 
+def parse_oneira_embed(raw):
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    match = YOUTUBE_ID_RE.search(text)
+    if match:
+        vid = match.group(1)
+        return {"provider": "youtube", "kind": "video", "embed_id": vid, "url": "https://www.youtube.com/watch?v=" + vid}
+    match = SPOTIFY_EMBED_RE.search(text)
+    if match:
+        kind = (match.group(1) or match.group(3) or "").lower()
+        sid = match.group(2) or match.group(4) or ""
+        if not kind or not sid:
+            return None
+        return {
+            "provider": "spotify",
+            "kind": kind,
+            "embed_id": sid,
+            "url": "https://open.spotify.com/" + kind + "/" + sid,
+        }
+    match = TWITCH_CLIP_HOST_RE.search(text)
+    if match:
+        slug = match.group(1)
+        return {"provider": "twitch", "kind": "clip", "embed_id": slug, "url": "https://clips.twitch.tv/" + slug}
+    match = TWITCH_VOD_RE.search(text)
+    if match:
+        vid = match.group(1)
+        return {"provider": "twitch", "kind": "video", "embed_id": vid, "url": "https://www.twitch.tv/videos/" + vid}
+    match = TWITCH_CHANNEL_CLIP_RE.search(text)
+    if match:
+        slug = match.group(1)
+        return {"provider": "twitch", "kind": "clip", "embed_id": slug, "url": "https://clips.twitch.tv/" + slug}
+    match = TWITCH_CHANNEL_RE.search(text)
+    if match:
+        name = match.group(1).lower()
+        if name in TWITCH_RESERVED:
+            return None
+        return {"provider": "twitch", "kind": "channel", "embed_id": name, "url": "https://www.twitch.tv/" + name}
+    return None
+
+
+def empty_embed_props(data):
+    out = normalize_text_chrome(data, 14, True)
+    out.update({"url": "", "provider": "", "embed_id": "", "kind": ""})
+    return out
+
+
+def normalize_embed_props(data):
+    parsed = parse_oneira_embed(data.get("url"))
+    if not parsed:
+        return empty_embed_props(data)
+    out = normalize_text_chrome(data, 14, True)
+    out.update(parsed)
+    return out
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
     if kind == "banner":
@@ -775,6 +845,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_profile_video_props(data)
     if kind == "music":
         return normalize_music_props(data)
+    if kind == "embed":
+        return normalize_embed_props(data)
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)
@@ -793,6 +865,8 @@ def normalize_tile(raw, used_ids, banner_fallback):
             props_in["mode"] = "countdown"
     if kind in ("youtube", "twitch"):
         kind = "embed"
+    if kind == "artwork":
+        kind = "image"
     if kind not in TILE_TYPES:
         return None
     tile_id = str(data.get("id") or "").strip() or new_id("tile")

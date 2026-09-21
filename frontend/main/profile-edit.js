@@ -62,8 +62,7 @@ const PROFILE_PALETTE = [
       { type: "music", label: "Music" },
       { type: "gallery", label: "Gallery" },
       { type: "slideshow", label: "Slideshow" },
-      { type: "gif", label: "GIF" },
-      { type: "artwork", label: "Artwork" }
+      { type: "gif", label: "GIF" }
     ]
   },
   {
@@ -320,7 +319,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "image" || type === "video" || type === "music" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
+  return type === "banner" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -350,6 +349,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "music") {
     fillMusicOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "embed") {
+    fillEmbedOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "divider") {
@@ -713,6 +716,36 @@ function fillMusicOptions(box, draft, onChange, hintEl) {
   group.appendChild(add);
   box.appendChild(group);
   paintTracks();
+}
+
+function fillEmbedOptions(box, draft, onChange, hintEl) {
+  draft.url = String(draft.url || "");
+  const note = document.createElement("div");
+  note.className = "settings-opt-desc";
+  note.textContent = "One YouTube, Spotify, or Twitch link. The player is theirs, inside this widget. Other sites are not allowed.";
+  box.appendChild(note);
+
+  const group = document.createElement("div");
+  group.className = "profile-opt-border-block";
+  const urlLabel = document.createElement("label");
+  urlLabel.textContent = "Link";
+  const urlInput = document.createElement("input");
+  urlInput.type = "url";
+  urlInput.maxLength = 500;
+  urlInput.placeholder = "https://";
+  urlInput.value = draft.url;
+  profileOptHint(urlLabel, "Paste a watch, track, stream, or VOD link. We detect the site.", hintEl);
+  urlInput.addEventListener("input", () => {
+    draft.url = urlInput.value;
+    const parsed = typeof parseOneiraEmbed === "function" ? parseOneiraEmbed(draft.url) : null;
+    draft.provider = parsed ? parsed.provider : "";
+    draft.embed_id = parsed ? parsed.id : "";
+    draft.kind = parsed ? parsed.kind : "";
+    onChange();
+  });
+  urlLabel.appendChild(urlInput);
+  group.appendChild(urlLabel);
+  box.appendChild(group);
 }
 
 function fillRailOptions(box, draft, onChange, hintEl) {
@@ -1791,6 +1824,25 @@ function openProfileTileOptions(tile) {
         confirm.disabled = false;
         window.alert(e.message || 'Could not save those tracks.');
         return;
+      }
+    }
+    if (tile.type === 'embed') {
+      const text = String(draft.url || '').trim();
+      if (!text) {
+        draft.url = '';
+        draft.provider = '';
+        draft.embed_id = '';
+        draft.kind = '';
+      } else {
+        const parsed = typeof parseOneiraEmbed === 'function' ? parseOneiraEmbed(text) : null;
+        if (!parsed) {
+          window.alert('Use a YouTube, Spotify, or Twitch link.');
+          return;
+        }
+        draft.url = parsed.url;
+        draft.provider = parsed.provider;
+        draft.embed_id = parsed.id;
+        draft.kind = parsed.kind;
       }
     }
     dropProfileImageDraft(draft);

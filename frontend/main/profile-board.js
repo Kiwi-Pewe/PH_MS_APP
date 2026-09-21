@@ -78,7 +78,8 @@ const PROFILE_TILE_TYPES = {
   clock: { w: 6, h: 3, minW: 4, minH: 2, maxW: 12, maxH: 5, label: "Clock" },
   image: { w: 10, h: 6, minW: 4, minH: 3, maxW: 24, maxH: 16, label: "Image" },
   video: { w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Video" },
-  music: { w: 10, h: 4, minW: 6, minH: 3, maxW: 10, maxH: 4, label: "Music" }
+  music: { w: 10, h: 4, minW: 6, minH: 3, maxW: 10, maxH: 4, label: "Music" },
+  embed: { w: 12, h: 7, minW: 8, minH: 5, maxW: 20, maxH: 12, label: "Embed" }
 };
 
 const PROFILE_PLACEHOLDERS = {
@@ -93,11 +94,9 @@ const PROFILE_PLACEHOLDERS = {
   frame: { label: "Frame", w: 12, h: 8, minW: 6, minH: 4, maxW: 32, maxH: 18 },
   color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
   meter: { label: "Meter", w: 10, h: 2, minW: 6, minH: 1, maxW: 24, maxH: 4 },
-  embed: { label: "Embed", w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   gallery: { label: "Gallery", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   slideshow: { label: "Slideshow", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 16 },
   gif: { label: "GIF", w: 8, h: 6, minW: 4, minH: 3, maxW: 16, maxH: 12 },
-  artwork: { label: "Artwork", w: 10, h: 7, minW: 6, minH: 4, maxW: 20, maxH: 16 },
   comments: { label: "Comments", w: 12, h: 8, minW: 8, minH: 5, maxW: 24, maxH: 18 },
   server_list: { label: "Server list", w: 10, h: 8, minW: 8, minH: 4, maxW: 16, maxH: 18 },
   featured_server: { label: "Featured server", w: 10, h: 5, minW: 8, minH: 4, maxW: 16, maxH: 10 },
@@ -441,6 +440,14 @@ function defaultProfileTileProps(type, existing) {
   if (type === "music") {
     return Object.assign({
       tracks: Array.isArray(prev.tracks) ? prev.tracks.map(row => Object.assign({}, row || {})) : []
+    }, chrome);
+  }
+  if (type === "embed") {
+    return Object.assign({
+      url: prev.url || "",
+      provider: prev.provider || "",
+      embed_id: prev.embed_id || "",
+      kind: prev.kind || ""
     }, chrome);
   }
   if (type === "clock" || type === "countdown") {
@@ -1158,6 +1165,21 @@ function paintProfileMusic(tile, el) {
   mountOneiraMusicPlayer(el, { tracks });
 }
 
+function paintProfileEmbed(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  if (typeof mountOneiraEmbed !== "function") {
+    const empty = document.createElement("div");
+    empty.className = "profile-image-empty";
+    empty.textContent = "Embed is missing.";
+    el.appendChild(empty);
+    return;
+  }
+  mountOneiraEmbed(el, {
+    url: String((tile.props && tile.props.url) || ""),
+    editOverlay: !!(profileEditing && profileIsOwn)
+  });
+}
+
 function paintProfileVideo(tile, el) {
   applyProfileWidgetSurface(el, tile);
   if (typeof mountOneiraPlayer !== "function") {
@@ -1679,6 +1701,10 @@ function paintProfileTileContent(tile, el) {
     paintProfileMusic(tile, el);
     return;
   }
+  if (tile.type === "embed") {
+    paintProfileEmbed(tile, el);
+    return;
+  }
   if (tile.type === "clock") {
     paintProfileClock(tile, el);
     return;
@@ -1724,6 +1750,7 @@ function renderProfileBoard() {
       if (tile.props.mode !== "timer" && tile.props.mode !== "world") tile.props.mode = "countdown";
     }
     if (tile.type === "youtube" || tile.type === "twitch") tile.type = "embed";
+    if (tile.type === "artwork") tile.type = "image";
     const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x, tile);
     tile.w = size.w;
     tile.h = size.h;
@@ -1740,7 +1767,7 @@ function renderProfileBoard() {
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
-        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
+        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

@@ -6,6 +6,9 @@ function switchMainView(viewName) {
   if (viewName !== "profile" && typeof pauseAllOneiraPlayers === "function") {
     pauseAllOneiraPlayers();
   }
+  if (viewName === "profile" && typeof restoreAllOneiraPlayers === "function") {
+    restoreAllOneiraPlayers();
+  }
   document.querySelectorAll(".main-view").forEach(v => v.classList.remove("active"));
   document.getElementById(`view-${viewName}`).classList.add("active");
   updateHomeBadge();

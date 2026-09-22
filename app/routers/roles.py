@@ -174,6 +174,33 @@ def hoist_role_for_user(database, server_id, user_id):
     return hoist_roles_by_user(database, server_id, [user_id]).get(user_id)
 
 
+def name_color_roles_by_user(database, server_id, user_ids=None):
+    colored = database.query(Server_roles).filter(
+        Server_roles.server_id == server_id,
+        Server_roles.name_color == True,
+    ).all()
+    if not colored:
+        return {}
+    colored_ids = [row.id for row in colored]
+    by_id = {row.id: row for row in colored}
+    query = database.query(Server_role_members).filter(Server_role_members.role_id.in_(colored_ids))
+    if user_ids is not None:
+        query = query.filter(Server_role_members.user_id.in_(list(user_ids)))
+    best = {}
+    for row in query.all():
+        role = by_id.get(row.role_id)
+        if not role:
+            continue
+        current = best.get(row.user_id)
+        if current is None or (int(role.position or 0), role.id) < (int(current.position or 0), current.id):
+            best[row.user_id] = role
+    return {user_id: serialize_hoist_role(role) for user_id, role in best.items()}
+
+
+def name_color_role_for_user(database, server_id, user_id):
+    return name_color_roles_by_user(database, server_id, [user_id]).get(user_id)
+
+
 def assigned_roles_for_user(database, server_id, user_id):
     rows = (
         database.query(Server_roles)
@@ -323,6 +350,7 @@ async def set_server_role_member(body: Server_role_member_in, database: Session 
     database.commit()
 
     hoist = hoist_role_for_user(database, server.id, body.user_id)
+    name_role = name_color_role_for_user(database, server.id, body.user_id)
     await server_broadcast(
         server_id=server.id,
         payload={
@@ -330,6 +358,7 @@ async def set_server_role_member(body: Server_role_member_in, database: Session 
             "server_id": server.id,
             "user_id": body.user_id,
             "hoist_role": hoist,
+            "name_role": name_role,
         },
         database=database,
         exclude_user_id=current_user.id,
@@ -339,4 +368,5 @@ async def set_server_role_member(body: Server_role_member_in, database: Session 
         "roles": assigned_roles_for_user(database, server.id, body.user_id),
         "highest_role": highest_role_for_user(database, server.id, body.user_id),
         "hoist_role": hoist,
+        "name_role": name_role,
     }

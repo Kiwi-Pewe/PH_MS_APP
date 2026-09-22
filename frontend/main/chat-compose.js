@@ -211,6 +211,7 @@ async function sendChannelMessage() {
     mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {},
     mentionRoles: typeof mentionRolesFromText === "function" ? mentionRolesFromText(storedContent) : {},
     avatar: typeof faceForUser === "function" ? faceForUser(myUserId) : null,
+    nameRole: typeof nameRoleForUser === "function" ? nameRoleForUser(myUserId) : null,
     replyTo: pendingReply && pendingReply.chatKind === chatKind ? {
       id: pendingReply.id,
       sender_id: pendingReply.senderId,

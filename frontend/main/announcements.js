@@ -100,6 +100,7 @@ function buildAnnouncementPostCard(post) {
   const name = document.createElement("div");
   name.className = "announce-post-name";
   name.textContent = post.username || "Unknown";
+  if (typeof applyServerNameColor === "function") applyServerNameColor(name, post.sender_id, post.name_role || post.nameRole);
   const role = document.createElement("div");
   role.className = "announce-post-role";
   // Only the owner can post right now (server-enforced) - accurate

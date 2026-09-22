@@ -92,7 +92,8 @@ async function loadOlderChannelMessages() {
         // branch keeps bare Date() so it stays consistent with its own
         // initial load until the queued timestamp fix lands everywhere.
         time: isForum ? parseUtcTimestamp(msg.timestamp) : new Date(msg.timestamp),
-        avatar: msg.avatar || null
+        avatar: msg.avatar || null,
+        nameRole: msg.name_role || null
       }, msg);
       if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);

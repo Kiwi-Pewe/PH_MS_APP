@@ -222,6 +222,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 users_map = mention_user_map(database, new_server_msg.content)
                 roles_map = mention_role_map(database, new_server_msg.content)
                 reply_to = live_reply_to(database, Channel_messages, new_server_msg.reply_to_id)
+                from app.routers.roles import name_color_role_for_user
+                name_role = name_color_role_for_user(database, server.id, current_user.id)
                 for member in all_members:
                     if member.user_id != current_user.id and member.user_id in active_connections:
                         await active_connections[member.user_id].send_json({
@@ -238,7 +240,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "mention_users": users_map,
                             "mention_roles": roles_map,
                             "reply_to": reply_to,
-                            "avatar": public_avatar(current_user)
+                            "avatar": public_avatar(current_user),
+                            "name_role": name_role,
                         })
             elif data["type"] == "forum_message":
                 try:
@@ -268,6 +271,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 pinged_ids = mentioned_user_ids(database, "forum", new_forum_msg["id"])
                 users_map = mention_user_map(database, new_forum_msg.get("content") or "")
                 roles_map = mention_role_map(database, new_forum_msg.get("content") or "")
+                from app.routers.roles import name_color_role_for_user
+                name_role = name_color_role_for_user(database, server.id, current_user.id)
                 for member in all_members:
                     if member.user_id != current_user.id and member.user_id in active_connections:
                         await active_connections[member.user_id].send_json({
@@ -285,7 +290,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "mention_users": users_map,
                             "mention_roles": roles_map,
                             "reply_to": new_forum_msg.get("reply_to"),
-                            "avatar": public_avatar(current_user)
+                            "avatar": public_avatar(current_user),
+                            "name_role": name_role,
                         })
             elif data["type"] == "typing":
                 await relay_typing(data, current_user, database)

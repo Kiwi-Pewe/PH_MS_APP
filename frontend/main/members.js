@@ -44,6 +44,7 @@ async function loadMemberList(scope, scopeId) {
     });
     showMemberListPanel();
     renderMemberList();
+    if (scope === "server" && typeof refreshServerNameColors === "function") refreshServerNameColors();
     if (typeof refreshComposerMentions === "function") {
       const input = typeof activeMentionComposer === "function" ? activeMentionComposer() : null;
       if (input) refreshComposerMentions(input);
@@ -131,6 +132,9 @@ function buildMemberRow(member) {
   const name = document.createElement("span");
   name.className = "member-name";
   name.textContent = member.username;
+  if (memberListScope === "server" && typeof applyServerNameColor === "function") {
+    applyServerNameColor(name, member.id, member.name_role);
+  }
   row.appendChild(name);
 
   if (member.is_owner) {
@@ -148,16 +152,60 @@ function buildMemberRow(member) {
   return row;
 }
 
-function applyMemberRolesUpdated(serverId, userId, hoistRole) {
+function applyMemberRolesUpdated(serverId, userId, hoistRole, nameRole) {
   if (memberListScope !== "server" || String(memberListScopeId) !== String(serverId)) return;
   const member = memberList.find((row) => row.id === userId);
   if (!member) return;
   if (hoistRole) member.hoist_role = hoistRole;
   else delete member.hoist_role;
+  if (nameRole) member.name_role = nameRole;
+  else delete member.name_role;
   renderMemberList();
+  if (typeof refreshServerNameColors === "function") refreshServerNameColors();
   if (typeof miniProfileOpen !== "undefined" && miniProfileOpen && miniProfileUserId === userId) {
     if (typeof reloadOpenMiniProfile === "function") reloadOpenMiniProfile();
   }
+}
+
+function nameColorPref() {
+  return (typeof accessibilityPrefs !== "undefined" && accessibilityPrefs && accessibilityPrefs.role_colors) || "names";
+}
+
+function nameRoleForUser(userId, fallback) {
+  if (typeof memberList !== "undefined" && memberListScope === "server") {
+    const member = memberList.find((row) => String(row.id) === String(userId));
+    if (member) return member.name_role || null;
+  }
+  return fallback && fallback.color ? fallback : null;
+}
+
+function applyServerNameColor(el, userId, fallbackRole) {
+  if (!el) return;
+  if (userId != null) el.dataset.nameUser = String(userId);
+  const existing = el.querySelector(":scope > .name-color-dot");
+  if (existing) existing.remove();
+  el.classList.remove("has-name-color-dot");
+  el.style.color = "";
+  const pref = nameColorPref();
+  if (pref === "off") return;
+  const role = nameRoleForUser(userId, fallbackRole);
+  const color = role && role.color;
+  if (!color) return;
+  if (pref === "next") {
+    const dot = document.createElement("span");
+    dot.className = "name-color-dot";
+    dot.style.background = color;
+    el.insertBefore(dot, el.firstChild);
+    el.classList.add("has-name-color-dot");
+    return;
+  }
+  el.style.color = color;
+}
+
+function refreshServerNameColors() {
+  document.querySelectorAll("[data-name-user]").forEach((el) => {
+    applyServerNameColor(el, el.dataset.nameUser);
+  });
 }
 
 function applyPresence(userId, status) {

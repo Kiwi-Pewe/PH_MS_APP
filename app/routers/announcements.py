@@ -8,6 +8,7 @@ from app.r2 import delete_attachment, delete_r2_object, normalize_post_attachmen
 from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions
 from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
+from app.routers.roles import name_color_role_for_user, name_color_roles_by_user
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 
@@ -47,7 +48,7 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
     payload = {
         "type": "announcement_created",
         "server_id": server.id,
-        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user), "reactions": [], "edited": False, "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids}
+        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user), "reactions": [], "edited": False, "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids, "name_role": name_color_role_for_user(database, server.id, current_user.id)}
         }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "edited": False, "mention_users": users_map, "mention_roles": roles_map}
@@ -76,6 +77,7 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
     faces = avatar_lookup(accounts)
     reaction_map = reactions_for_messages(database, "announcement", [post.id for post in post_history], current_user.id)
     mention_meta = decorate_ids(database, "announcement", [post.id for post in post_history], [post.body for post in post_history], current_user.id)
+    name_map = name_color_roles_by_user(database, server.id, sender_ids)
 
     recent_post = []
     for index, post in enumerate(post_history):
@@ -84,6 +86,7 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
             "sender_id": post.sender_id,
             "username": username_lookup[post.sender_id],
             "avatar": faces.get(post.sender_id),
+            "name_role": name_map.get(post.sender_id),
             "title": post.title,
             "body": post.body,
             "attachment": post_attachments_public(post.attachment),
@@ -132,7 +135,7 @@ async def post_comment(comment: Comment_create, database: Session = Depends(get_
         "post_id": comment.post_id,
         "channel_id": channel.id,
         "server_id": server.id,
-        "comment": {"id": new_comment.id, "post_id": new_comment.post_id, "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user), "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": [], "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids}
+        "comment": {"id": new_comment.id, "post_id": new_comment.post_id, "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user), "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": [], "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids, "name_role": name_color_role_for_user(database, server.id, current_user.id)}
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return {"id": new_comment.id, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": [], "mention_users": users_map, "mention_roles": roles_map}
@@ -162,6 +165,7 @@ def get_post_comments(post_id: int, database: Session = Depends(get_db), current
     faces = avatar_lookup(accounts)
     reaction_map = reactions_for_messages(database, "comment", [user_comment.id for user_comment in comment_history], current_user.id)
     mention_meta = decorate_ids(database, "comment", [user_comment.id for user_comment in comment_history], [user_comment.content for user_comment in comment_history], current_user.id)
+    name_map = name_color_roles_by_user(database, server.id, sender_ids)
 
     picked_comments = []
     for index, user_comment in enumerate(comment_history):
@@ -172,6 +176,7 @@ def get_post_comments(post_id: int, database: Session = Depends(get_db), current
             "content": user_comment.content,
             "username": username_lookup[user_comment.sender_id],
             "avatar": faces.get(user_comment.sender_id),
+            "name_role": name_map.get(user_comment.sender_id),
             "created_at": str(user_comment.created_at),
             "reactions": reaction_map.get(user_comment.id, []),
             "mentioned": mention_meta[index]["mentioned"],

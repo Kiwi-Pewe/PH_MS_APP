@@ -422,7 +422,8 @@ async function selectChannel(channel, rowEl) {
         time: new Date(msg.timestamp),
         edited: !!msg.edited,
         reactions: applyReactionMe(msg.reactions || []),
-        avatar: msg.avatar || null
+        avatar: msg.avatar || null,
+        nameRole: msg.name_role || null
       };
       if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;

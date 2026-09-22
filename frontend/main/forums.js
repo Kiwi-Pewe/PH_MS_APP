@@ -221,7 +221,8 @@ async function openForumPost(post) {
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
         time: parseUtcTimestamp(msg.timestamp),
-        avatar: msg.avatar || null
+        avatar: msg.avatar || null,
+        nameRole: msg.name_role || null
       }, msg);
       if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
@@ -472,6 +473,7 @@ function fillForumPostContent(card, post) {
   const author = document.createElement("span");
   author.className = "forum-post-author";
   author.textContent = `${post.author_username || "Unknown"}:`;
+  if (typeof applyServerNameColor === "function") applyServerNameColor(author, post.author_id, post.name_role || post.nameRole);
   const body = document.createElement("span");
   body.className = "forum-post-body";
   if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers, post.mentionRoles);

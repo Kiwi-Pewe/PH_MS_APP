@@ -47,7 +47,7 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
         )
         database.add(new_member)
 
-        from app.routers.roles import assign_members_role, hoist_role_for_user
+        from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user
         assign_members_role(database, invite.server_id, current_user.id)
 
         category = database.query(Server_categories).filter(Server_categories.server_id == invite.server_id).order_by(Server_categories.position).first()
@@ -64,7 +64,12 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
             "type": "member_joined",
             "scope": "server",
             "scope_id": invite.server_id,
-            "member": serialize_member(current_user, current_user.id == server.owner_id, hoist_role_for_user(database, invite.server_id, current_user.id))
+            "member": serialize_member(
+                current_user,
+                current_user.id == server.owner_id,
+                hoist_role_for_user(database, invite.server_id, current_user.id),
+                name_color_role_for_user(database, invite.server_id, current_user.id),
+            )
         }, database= database, exclude_user_id= current_user.id)
         return {"type": "server", "id": invite.server_id, "server_name": server.name, "position": new_member.position,}
 

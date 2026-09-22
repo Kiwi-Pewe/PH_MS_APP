@@ -507,7 +507,7 @@ def get_server_members(server_id: str, database: Session = Depends(get_db), curr
     if not server:
         raise HTTPException(status_code=404, detail="Server not found")
 
-    from app.routers.roles import seed_server_roles, hoist_roles_by_user
+    from app.routers.roles import seed_server_roles, hoist_roles_by_user, name_color_roles_by_user
     seed_server_roles(database, server_id)
     database.commit()
 
@@ -516,12 +516,18 @@ def get_server_members(server_id: str, database: Session = Depends(get_db), curr
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all()
     account_lookup = {account.id: account for account in accounts}
     hoist_map = hoist_roles_by_user(database, server_id, user_ids)
+    name_map = name_color_roles_by_user(database, server_id, user_ids)
 
     members = []
     for row in memberships:
         account = account_lookup.get(row.user_id)
         if account:
-            members.append(serialize_member(account, account.id == server.owner_id, hoist_map.get(account.id)))
+            members.append(serialize_member(
+                account,
+                account.id == server.owner_id,
+                hoist_map.get(account.id),
+                name_map.get(account.id),
+            ))
     return {"server_id": server_id, "members": members}
 
 @router.post("/message_server_channel")
@@ -584,6 +590,8 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
     reaction_map = reactions_for_messages(database, "channel", [message.id for message in channel_history], current_user.id)
     mention_meta = decorate_history(database, "channel", channel_history, current_user.id)
     reply_map = reply_map_for(database, Channel_messages, channel_history)
+    from app.routers.roles import name_color_roles_by_user
+    name_map = name_color_roles_by_user(database, server.id, sender_ids)
 
     message_history = []
     for index, message in enumerate(channel_history):
@@ -601,6 +609,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
             "mention_roles": mention_meta[index]["mention_roles"],
             "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,
             "avatar": faces.get(message.sender_id),
+            "name_role": name_map.get(message.sender_id),
         })
 
     message_history.reverse()

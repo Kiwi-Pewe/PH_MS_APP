@@ -160,7 +160,8 @@ function connectSocket() {
           time: data.timestamp ? new Date(data.timestamp) : new Date(),
           edited: false,
           reactions: [],
-          avatar: data.avatar || null
+          avatar: data.avatar || null,
+          nameRole: data.name_role || null
         };
         if (typeof takeMessageAvatar === "function") takeMessageAvatar(row, data);
         if (typeof applyMentionFields === "function") applyMentionFields(row, data);
@@ -191,7 +192,8 @@ function connectSocket() {
           time: data.timestamp ? parseUtcTimestamp(data.timestamp) : new Date(),
           edited: false,
           reactions: [],
-          avatar: data.avatar || null
+          avatar: data.avatar || null,
+          nameRole: data.name_role || null
         };
         if (typeof takeMessageAvatar === "function") takeMessageAvatar(row, data);
         if (typeof applyMentionFields === "function") applyMentionFields(row, data);
@@ -306,7 +308,7 @@ function connectSocket() {
 
     if (data.type === "server_member_roles_updated") {
       if (typeof applyMemberRolesUpdated === "function") {
-        applyMemberRolesUpdated(data.server_id, data.user_id, data.hoist_role || null);
+        applyMemberRolesUpdated(data.server_id, data.user_id, data.hoist_role || null, data.name_role || null);
       }
     }
 

@@ -9,6 +9,7 @@ from app.r2 import attachment_public, delete_attachment, delete_r2_object, norma
 from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions, accepted_reply_parent, reply_map_for, reply_to_payload
 from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
+from app.routers.roles import name_color_role_for_user, name_color_roles_by_user
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from datetime import datetime
@@ -54,7 +55,7 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
         "post_id": new_post.id,
         "server_id": server.id,
         "channel_id": channel_exist.id,
-        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "avatar": public_avatar(current_user), "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids}
+        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "avatar": public_avatar(current_user), "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids, "name_role": name_color_role_for_user(database, server.id, current_user.id)}
     }
     await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
     return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map, "mention_roles": roles_map}
@@ -88,6 +89,7 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
     faces = avatar_lookup(accounts)
     reaction_map = reactions_for_messages(database, "forum_post", [post.id for post in post_list], current_user.id)
     mention_meta = decorate_ids(database, "forum_post", [post.id for post in post_list], [post.body for post in post_list], current_user.id)
+    name_map = name_color_roles_by_user(database, server.id, author_ids)
 
     picked_posts = []
     for index, post in enumerate(post_list):
@@ -96,6 +98,7 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
             "author_id": post.author_id,
             "author_username": username_lookup[post.author_id],
             "avatar": faces.get(post.author_id),
+            "name_role": name_map.get(post.author_id),
             "title": post.title,
             "body": post.body,
             "attachment": post_attachments_public(post.attachment),
@@ -258,6 +261,7 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
         "author_id": new_message.author_id,
         "username": current_user.username,
         "avatar": public_avatar(current_user),
+        "name_role": name_color_role_for_user(database, server.id, current_user.id),
         "content": new_message.content,
         "attachment": attachment_public(new_message.attachment),
         "timestamp": str(new_message.created_at),
@@ -292,6 +296,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
     mention_meta = decorate_ids(database, "forum", [message.id for message in message_list], [message.content for message in message_list], current_user.id)
     reaction_map = reactions_for_messages(database, "forum", [message.id for message in message_list], current_user.id)
     reply_map = reply_map_for(database, Forum_messages, message_list, author_attr= "author_id")
+    name_map = name_color_roles_by_user(database, server.id, author_ids)
 
     forum_messages = []
     for index, message in enumerate(message_list):
@@ -301,6 +306,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
             "author_id": message.author_id,
             "username": username_lookup[message.author_id],
             "avatar": faces.get(message.author_id),
+            "name_role": name_map.get(message.author_id),
             "content": message.content,
             "attachment": attachment_public(message.attachment),
             "timestamp": str(message.created_at),

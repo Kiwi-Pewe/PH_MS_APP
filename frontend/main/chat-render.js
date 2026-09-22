@@ -411,6 +411,9 @@ function startNewCluster(wrap, msg) {
   const name = document.createElement("span");
   name.className = "cluster-name";
   name.textContent = msg.username;
+  if ((msg.chatKind === "channel" || msg.chatKind === "forum") && typeof applyServerNameColor === "function") {
+    applyServerNameColor(name, msg.senderId, msg.nameRole);
+  }
   name.addEventListener("contextmenu", (e) => showProfileContextMenu(e, msg.senderId, msg.username, msg.isMine));
   if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(name, msg.senderId);
   const time = document.createElement("span");
@@ -438,7 +441,7 @@ function startNewCluster(wrap, msg) {
   }
   attachReactionsIfNeeded(bubble, msg);
 
-  if (msg.replyTo) body.appendChild(buildReplySnippet(msg.replyTo));
+  if (msg.replyTo) body.appendChild(buildReplySnippet(msg.replyTo, msg.chatKind));
   body.appendChild(header);
   body.appendChild(bubble);
   cluster.appendChild(avatar);
@@ -448,7 +451,7 @@ function startNewCluster(wrap, msg) {
   return { isMine: msg.isMine, username: msg.username, lastTime: msg.time, bubbleEl: bubble };
 }
 
-function buildReplySnippet(replyTo) {
+function buildReplySnippet(replyTo, chatKind) {
   const row = document.createElement("div");
   row.className = "msg-reply";
   const bar = document.createElement("span");
@@ -462,6 +465,9 @@ function buildReplySnippet(replyTo) {
     text.textContent = "Original message was deleted";
   } else {
     name.textContent = replyTo.username || "user";
+    if ((chatKind === "channel" || chatKind === "forum") && typeof applyServerNameColor === "function") {
+      applyServerNameColor(name, replyTo.sender_id, replyTo.name_role || replyTo.nameRole);
+    }
     const raw = replyTo.content || "";
     text.textContent = typeof mentionDisplayText === "function"
       ? mentionDisplayText(raw, {})

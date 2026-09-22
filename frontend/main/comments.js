@@ -19,6 +19,7 @@ function buildCommentElement(comment) {
   const name = document.createElement("span");
   name.className = "announce-comment-name";
   name.textContent = comment.username || "Unknown";
+  if (typeof applyServerNameColor === "function") applyServerNameColor(name, comment.sender_id, comment.name_role || comment.nameRole);
   const time = document.createElement("span");
   time.className = "announce-comment-time";
   time.textContent = formatClusterTime(parseUtcTimestamp(comment.created_at));

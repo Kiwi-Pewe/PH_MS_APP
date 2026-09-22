@@ -1,6 +1,7 @@
 // ==================================================================
 // server-settings.js - Server Settings overlay. Overview is live.
-// Every other index row stays grey.
+// Roles is a shape pass (see server-roles.js). Every other index row
+// stays grey.
 // ==================================================================
 
 function currentServerIconUrl() {
@@ -744,6 +745,8 @@ function openServerSettings() {
   if (typeof closeContextMenu === "function") closeContextMenu();
 
   isServerSettingsOpen = true;
+  if (typeof resetServerRolesDraft === "function") resetServerRolesDraft();
+  if (typeof showServerSettingsTab === "function") showServerSettingsTab("overview");
   const name = currentServerSettingsName();
   const label = document.getElementById("server-settings-index-label");
   if (label) label.textContent = name;

@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=139">
+<link rel="stylesheet" href="app.css?v=140">
 </head>
 <body>
 
@@ -456,14 +456,14 @@
   </div>
 
   <!-- Server Settings overlay. Covers everything below the top rail.
-       Shape-only this pass: Overview is the one drawn page; other
-       index rows are greyed. Nothing here saves. -->
+       Overview is live. Roles is shape this pass (nothing saves).
+       Other index rows stay grey. -->
   <div id="server-settings-overlay" hidden>
     <aside id="server-settings-index">
       <div id="server-settings-index-label"></div>
       <nav id="server-settings-nav">
         <button type="button" class="server-settings-nav-item active" data-tab="overview">Overview</button>
-        <button type="button" class="server-settings-nav-item is-later" disabled>Roles</button>
+        <button type="button" class="server-settings-nav-item" data-tab="roles">Roles</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Members</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Invites</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Bans</button>
@@ -480,7 +480,7 @@
         <span aria-hidden="true">&times;</span>
         <span>ESC</span>
       </button>
-      <div id="server-settings-page">
+      <div id="server-settings-overview" class="server-settings-page">
         <h2 class="server-settings-page-title">Overview</h2>
 
         <div class="server-settings-field">
@@ -590,6 +590,20 @@
             </button>
           </div>
           <p id="server-settings-notify-status" class="server-settings-help" hidden></p>
+        </div>
+      </div>
+
+      <div id="server-settings-roles" class="server-roles-page" hidden>
+        <h2 class="server-settings-page-title">Roles</h2>
+        <div class="server-roles-layout">
+          <aside class="server-roles-rail">
+            <button type="button" id="server-roles-add" class="server-roles-add">+ Add another role</button>
+            <div id="server-roles-list" class="server-roles-list"></div>
+            <p class="server-settings-help">Members display the highest role on this list. Drag the roles to reorder.</p>
+          </aside>
+          <div class="server-roles-editor">
+            <div id="server-roles-editor"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -908,7 +922,8 @@
 <script src="boot.js?v=74"></script>
 <script src="app-shell.js?v=54"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=10"></script>
+<script src="server-settings.js?v=11"></script>
+<script src="server-roles.js?v=1"></script>
 <script src="settings-account.js?v=4"></script>
 <script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=1"></script>

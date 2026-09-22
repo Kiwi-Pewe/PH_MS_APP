@@ -3608,7 +3608,7 @@ a.profile-link-row:hover { color: var(--accent); }
   height: 14px;
 }
 
-/* ---- Server Settings overlay (shape-only Overview pass) ---- */
+/* ---- Server Settings overlay ---- */
 #server-settings-overlay {
   position: absolute;
   left: 0;
@@ -3728,7 +3728,8 @@ a.profile-link-row:hover { color: var(--accent); }
 #server-settings-close:hover { color: var(--text); }
 #server-settings-close:hover span:first-child { border-color: var(--text); }
 
-#server-settings-page {
+#server-settings-page,
+.server-settings-page {
   width: 100%;
   max-width: 640px;
   padding: 28px 36px 64px;
@@ -3862,3 +3863,105 @@ a.profile-link-row:hover { color: var(--accent); }
   padding-top: 8px;
   border-top: 1px solid var(--border);
 }
+
+/* ---- Server Settings Roles (shape pass) ---- */
+.server-roles-page {
+  width: 100%;
+  max-width: none;
+  padding: 28px 72px 64px 36px;
+}
+.server-roles-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+.server-roles-rail {
+  flex: 0 0 220px;
+  width: 220px;
+  position: sticky;
+  top: 28px;
+}
+.server-roles-add {
+  width: 100%;
+  background: transparent;
+  color: var(--accent);
+  text-align: left;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+.server-roles-add:hover { background: var(--panel-alt); }
+.server-roles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+.server-role-item {
+  width: 100%;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+.server-role-item:hover,
+.server-role-item.is-on { background: var(--panel-alt); }
+.server-roles-editor { flex: 1 1 auto; min-width: 0; max-width: 560px; }
+.server-roles-seg { margin: 8px 0 12px; width: fit-content; }
+.server-roles-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.server-role-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  background: var(--swatch, var(--panel-alt));
+  box-sizing: border-box;
+}
+.server-role-swatch.is-on {
+  border-color: var(--text);
+  outline: 2px solid var(--bg);
+  outline-offset: -4px;
+}
+.server-role-swatch-custom {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px dashed var(--text-dim);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+}
+.server-role-swatch-custom:hover { border-color: var(--text); color: var(--text); }
+.server-role-swatch-custom.is-on {
+  border-style: solid;
+  border-color: var(--text);
+  color: transparent;
+}
+.server-roles-bulk { display: flex; gap: 8px; margin: 8px 0 18px; }
+.server-roles-group { margin: 0 0 22px; }
+.server-roles-group-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0 0 4px;
+}
+.server-roles-editor .settings-opt { padding: 12px 0; }
+.server-roles-editor .settings-opt.is-later { opacity: 0.55; }

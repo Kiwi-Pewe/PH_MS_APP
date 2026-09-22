@@ -226,9 +226,20 @@
   cursor: pointer;
 }
 .dm-item:hover, .dm-item.active { background: var(--panel-alt); color: var(--text); }
-.dm-item .avatar-dot { width: 32px; height: 32px; flex: 0 0 32px; font-size: 13px; }
+.dm-item .avatar-dot {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  aspect-ratio: 1;
+  align-self: center;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 1;
+  overflow: hidden;
+}
 .avatar-dot {
   width: 32px; height: 32px; border-radius: 50%;
+  aspect-ratio: 1; align-self: center; overflow: hidden; line-height: 1;
   background: #3b3e4a; border: 1px solid var(--border); flex: 0 0 auto;
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 700; color: #cfd1e0; text-transform: uppercase;
@@ -873,7 +884,7 @@ html.ui-density-compact .friend-row { padding: 4px 6px; }
 html.ui-density-compact .dm-item .avatar-dot,
 html.ui-density-compact .member-row .avatar-dot,
 html.ui-density-compact .friend-row .avatar-dot {
-  width: 24px; height: 24px; font-size: 11px;
+  width: 24px; height: 24px; flex: none; font-size: 11px;
 }
 
 html.ui-density-spacious #server-rail { padding: 16px 0; gap: 16px; }
@@ -893,7 +904,7 @@ html.ui-density-spacious .friend-row { padding: 12px 8px; }
 html.ui-density-spacious .dm-item .avatar-dot,
 html.ui-density-spacious .member-row .avatar-dot,
 html.ui-density-spacious .friend-row .avatar-dot {
-  width: 40px; height: 40px; font-size: 15px;
+  width: 40px; height: 40px; flex: none; font-size: 15px;
 }
 
 html.chat-compact .cluster-avatar { display: none; }

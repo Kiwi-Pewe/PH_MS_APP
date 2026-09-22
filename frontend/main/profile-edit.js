@@ -221,7 +221,7 @@ function bindProfileTileDrag(el, tile, handle) {
     const rerender = !dragging || dist >= 6;
     if (dragging) {
       if (dist < 6) {
-        if (typeof editProfileIdentity === "function") editProfileIdentity(tile);
+        if (typeof editProfileIdentity === "function") editProfileIdentity(tile, e);
       } else {
         const next = moveTarget(e.clientX, e.clientY);
         if (tryMoveTile(tile, next.x, next.y)) profileDirty = true;
@@ -2231,7 +2231,12 @@ function showProfileTileMenu(e, tile) {
   const meta = PROFILE_TILE_TYPES[tile.type] || { label: "Element" };
   if (typeof openContextMenu !== "function") return;
   const items = [];
-  if (profileTileHasOptions(tile.type)) {
+  if (typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) {
+    items.push({
+      label: "Edit " + miniProfileIdentitySubject(tile.type),
+      onSelect: () => openMiniProfileEditorPage()
+    });
+  } else if (profileTileHasOptions(tile.type)) {
     items.push({
       label: "Options",
       onSelect: () => openProfileTileOptions(tile)

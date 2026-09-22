@@ -1901,7 +1901,10 @@ function paintMiniProfileEditorPage(board) {
   const host = document.createElement("div");
   host.className = "mini-profile-card is-page";
   if (typeof paintMiniProfileInto === "function") {
-    paintMiniProfileInto(host, miniProfileDataFromOpenProfile(), { page: true });
+    paintMiniProfileInto(host, miniProfileDataFromOpenProfile(), {
+      page: true,
+      editing: !!(profileEditing && profileIsOwn)
+    });
   }
   board.appendChild(host);
 }
@@ -2003,6 +2006,7 @@ function renderProfileBoard() {
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
+        if (typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) return;
         if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
           e.preventDefault();
           e.stopPropagation();

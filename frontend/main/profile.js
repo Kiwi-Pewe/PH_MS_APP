@@ -44,7 +44,29 @@ function isMiniProfilePageId(pageId) {
 }
 
 function isMiniProfileIdentityTile(type) {
-  return type === "banner" || type === "avatar" || type === "display_name";
+  return type === "banner" || type === "avatar" || type === "display_name" || type === "bio";
+}
+
+function miniProfileIdentitySubject(type) {
+  if (type === "banner") return "Banner";
+  if (type === "avatar") return "Profile Picture";
+  if (type === "display_name") return "Name";
+  if (type === "bio") return "Bio";
+  return "Mini Profile";
+}
+
+function showMiniProfileIdentityMenu(e, type) {
+  if (!profileIsOwn || typeof openContextMenu !== "function") return;
+  if (e && e.preventDefault) e.preventDefault();
+  if (e && e.stopPropagation) e.stopPropagation();
+  const subject = miniProfileIdentitySubject(type);
+  const name = (typeof profileOwnerName === "function" && profileOwnerName()) || myDisplayName || myUsername || subject;
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: typeof avatarLetter === "function" ? avatarLetter(name) : (name || "?").slice(0, 1),
+    title: subject
+  }, [
+    { label: "Edit " + subject, onSelect: () => openMiniProfileEditorPage() }
+  ]);
 }
 
 function openMiniProfileEditorPage() {
@@ -283,17 +305,17 @@ async function saveProfileLayout() {
   }
 }
 
-function editProfileIdentity(tile) {
+function editProfileIdentity(tile, e) {
   if (!profileIsOwn) return;
   if (isMiniProfileIdentityTile(tile.type)) {
-    openMiniProfileEditorPage();
+    showMiniProfileIdentityMenu(e, tile.type);
   }
 }
 
 function bindProfileQuickEdit(el, tile) {
   if (!isMiniProfileIdentityTile(tile.type)) return;
   el.style.cursor = "pointer";
-  el.addEventListener("click", () => openMiniProfileEditorPage());
+  el.addEventListener("click", (e) => showMiniProfileIdentityMenu(e, tile.type));
 }
 
 document.getElementById("profile-edit-btn").addEventListener("click", enterProfileEdit);

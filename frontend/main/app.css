@@ -4158,11 +4158,25 @@ a.profile-link-row:hover { color: var(--accent); }
   position: relative;
   padding: 0 16px 12px;
 }
+.mini-profile-face {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -36px;
+}
+.mini-profile-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding-top: 8px;
+}
 .mini-profile-avatar {
   position: relative;
   width: 72px;
   height: 72px;
-  margin-top: -36px;
+  flex: 0 0 auto;
   border-radius: 50%;
   background: #3b3e4a;
   border: 6px solid var(--panel-alt);
@@ -4219,16 +4233,64 @@ a.profile-link-row:hover { color: var(--accent); }
 .mini-profile-icon-btn:hover { color: var(--text); background: var(--border); }
 .mini-profile-icon-btn svg { width: 16px; height: 16px; display: block; }
 .mini-profile-status {
-  margin-top: 6px;
-  font-size: 13px;
+  align-self: flex-start;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 1.35;
   color: var(--text);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 6px 10px;
+}
+.mini-profile-pronouns {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.mini-profile-status.is-empty,
+.mini-profile-pronouns.is-empty,
+.mini-profile-about.is-empty {
+  color: var(--text-dim);
+  font-style: italic;
 }
 .mini-profile-about {
-  margin-top: 4px;
+  margin-top: 8px;
   font-size: 13px;
   color: var(--text-dim);
   line-height: 1.35;
   white-space: pre-wrap;
+  border-radius: 6px;
+  padding: 2px 0;
+}
+.mini-profile-card.is-editing .is-mini-edit {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: 2px;
+  cursor: pointer;
+}
+.mini-profile-card.is-editing .mini-profile-banner.is-mini-edit {
+  outline-offset: -3px;
+}
+.mini-profile-card.is-editing .mini-profile-about.is-empty {
+  min-height: 36px;
+  padding: 8px;
+}
+.mini-profile-widgets {
+  padding: 0 16px 16px;
+}
+.mini-profile-widget-add {
+  width: 100%;
+  height: 72px;
+  background: transparent;
+  border: 1px dashed var(--text-dim);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+  padding: 0;
+}
+.mini-profile-widget-add:hover {
+  color: var(--text);
+  border-color: var(--text);
 }
 .mini-profile-section-label {
   font-size: 12px;

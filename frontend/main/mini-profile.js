@@ -164,12 +164,24 @@ function paintMiniProfile(data) {
   paintMiniProfileInto(card, data, { page: false });
 }
 
+function bindMiniProfileEditTarget(el, type, editing) {
+  if (!editing || !el) return;
+  el.classList.add("is-mini-edit");
+  el.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof showMiniProfileIdentityMenu === "function") showMiniProfileIdentityMenu(e, type);
+  });
+}
+
 function paintMiniProfileInto(card, data, opts) {
   if (!card) return;
   const page = !!(opts && opts.page);
+  const editing = !!(opts && opts.editing);
   card.innerHTML = "";
   card.classList.add("mini-profile-card");
   card.classList.toggle("is-page", page);
+  card.classList.toggle("is-editing", editing);
   const user = data.user || {};
   const name = user.display_name || user.username || "";
   const presence = data.presence === "online" || data.presence === "away" || data.presence === "dnd"
@@ -179,10 +191,14 @@ function paintMiniProfileInto(card, data, opts) {
   const banner = document.createElement("div");
   banner.className = "mini-profile-banner";
   banner.style.background = data.banner_color || "#1e6b8a";
+  bindMiniProfileEditTarget(banner, "banner", editing);
   card.appendChild(banner);
 
   const identity = document.createElement("div");
   identity.className = "mini-profile-identity";
+
+  const face = document.createElement("div");
+  face.className = "mini-profile-face";
 
   const avatar = document.createElement("div");
   avatar.className = "mini-profile-avatar";
@@ -190,7 +206,25 @@ function paintMiniProfileInto(card, data, opts) {
   const pip = document.createElement("div");
   pip.className = "status-dot status-" + presence;
   avatar.appendChild(pip);
-  identity.appendChild(avatar);
+  bindMiniProfileEditTarget(avatar, "avatar", editing);
+  face.appendChild(avatar);
+
+  const side = document.createElement("div");
+  side.className = "mini-profile-side";
+  if (user.status || editing) {
+    const status = document.createElement("div");
+    status.className = "mini-profile-status" + (user.status ? "" : " is-empty");
+    status.textContent = user.status || "Status";
+    side.appendChild(status);
+  }
+  if (user.pronouns || editing) {
+    const pronouns = document.createElement("div");
+    pronouns.className = "mini-profile-pronouns" + (user.pronouns ? "" : " is-empty");
+    pronouns.textContent = user.pronouns || "Pronouns";
+    side.appendChild(pronouns);
+  }
+  if (side.childNodes.length) face.appendChild(side);
+  identity.appendChild(face);
 
   if (data.in_server && data.highest_role) {
     const roleLine = document.createElement("div");
@@ -205,6 +239,14 @@ function paintMiniProfileInto(card, data, opts) {
   const nameEl = document.createElement("div");
   nameEl.className = "mini-profile-name";
   nameEl.textContent = name;
+  if (editing) {
+    nameEl.style.cursor = "pointer";
+    nameEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof showMiniProfileIdentityMenu === "function") showMiniProfileIdentityMenu(e, "display_name");
+    });
+  }
   nameRow.appendChild(nameEl);
   const actions = document.createElement("div");
   actions.className = "mini-profile-actions";
@@ -230,22 +272,30 @@ function paintMiniProfileInto(card, data, opts) {
   nameRow.appendChild(actions);
   identity.appendChild(nameRow);
 
-  if (user.status) {
-    const status = document.createElement("div");
-    status.className = "mini-profile-status";
-    status.textContent = user.status;
-    identity.appendChild(status);
-  }
-  if (data.about) {
+  if (data.about || editing) {
     const about = document.createElement("div");
-    about.className = "mini-profile-about";
-    about.textContent = data.about;
+    about.className = "mini-profile-about" + (data.about ? "" : " is-empty");
+    about.textContent = data.about || "Bio";
+    bindMiniProfileEditTarget(about, "bio", editing);
     identity.appendChild(about);
   }
   card.appendChild(identity);
 
   if (data.in_server) {
     card.appendChild(buildMiniProfileRoles(data));
+  }
+
+  if (page && editing) {
+    const widgets = document.createElement("div");
+    widgets.className = "mini-profile-widgets";
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "mini-profile-widget-add";
+    add.title = "Add widget";
+    add.textContent = "+";
+    add.addEventListener("click", (e) => e.stopPropagation());
+    widgets.appendChild(add);
+    card.appendChild(widgets);
   }
 
   if (page) return;

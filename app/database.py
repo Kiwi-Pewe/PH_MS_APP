@@ -284,3 +284,12 @@ def ensure_server_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+
+
+def ensure_role_columns():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE server_roles ADD COLUMN self_assignable BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            conn.rollback()

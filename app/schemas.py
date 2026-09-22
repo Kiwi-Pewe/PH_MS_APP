@@ -223,6 +223,7 @@ class Server_role_in(BaseModel):
     mentionable: bool = False
     hoist: bool = False
     name_color: bool = False
+    self_assignable: bool = False
     permissions: dict[str, bool] = {}
 
 class Server_roles_save(BaseModel):

@@ -162,6 +162,7 @@ class Server_roles(Base):
     mentionable = Column(Boolean, default=False)
     hoist = Column(Boolean, default=False)
     name_color = Column(Boolean, default=False)
+    self_assignable = Column(Boolean, default=False)
     is_members = Column(Boolean, default=False)
     permissions = Column(String)
     created_at = Column(DateTime, server_default=func.now())

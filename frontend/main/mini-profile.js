@@ -1,7 +1,7 @@
 // ==================================================================
 // mini-profile.js - Left-click card. Guilded shell, Discord status /
-// description, no widgets on this pass. Roles + is owner-only until
-// Self-assignable is un-greyed. Notes are private to you.
+// description, no widgets on this pass. Roles + is owner assign or
+// self-assignable on your own card. Notes are private to you.
 // ==================================================================
 
 const MINI_PROFILE_ROLE_CAP = 5;
@@ -465,7 +465,8 @@ function buildMiniProfileRolePill(role, data) {
   name.textContent = role.name || "Role";
   pill.appendChild(dot);
   pill.appendChild(name);
-  if (data.can_assign && !role.is_members) {
+  const removable = (data.removable_ids || []).map(String).includes(String(role.id));
+  if (removable && !role.is_members) {
     pill.classList.add("is-removable");
     pill.title = "Remove role";
     pill.addEventListener("click", (e) => {
@@ -535,6 +536,7 @@ async function setMiniProfileRole(roleId, assigned) {
     }
     await reloadOpenMiniProfile();
     if (typeof refreshServerMemberList === "function") refreshServerMemberList(currentServerId);
+    if (miniProfileUserId === myUserId && typeof refreshServerPerms === "function") refreshServerPerms();
   } catch (e) {
     window.alert("Could not change that role.");
   }

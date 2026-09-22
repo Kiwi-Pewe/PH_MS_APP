@@ -188,7 +188,7 @@ const SERVER_ROLE_PERMS = [
 ];
 
 const SERVER_ROLE_SETTING_ROWS = [
-  { id: "selfAssign", title: "Self-assignable", desc: "Allows members to assign this role to themselves.", later: "Mini Profile +" },
+  { id: "selfAssign", title: "Self-assignable", desc: "Allows members to assign this role to themselves." },
   { id: "mentionable", title: "Mentionable", desc: "Allow members to notify others by mentioning this role." },
   { id: "hoist", title: "Display Separately", desc: "If enabled, members with this role will display separately from other online members." },
   { id: "nameColor", title: "Name color", desc: "This role’s color is used on members’ display names in this server. If they have more than one, the highest role on the list wins." }
@@ -275,7 +275,7 @@ function roleChanges(role) {
   if (normRoleColor(role.color) !== normRoleColor(origin.color)) {
     changes.push({ key: "color", kind: "color", label: "Role color", from: origin.color, to: role.color });
   }
-  ["mentionable", "hoist", "nameColor"].forEach((field) => {
+  ["selfAssign", "mentionable", "hoist", "nameColor"].forEach((field) => {
     if (!!role[field] !== !!origin[field]) {
       changes.push({ key: field, kind: "toggle", label: settingTitle(field), from: !!origin[field], to: !!role[field] });
     }
@@ -309,7 +309,7 @@ function applyServerRolesFromApi(rows) {
       builtin: !!row.is_members,
       color: normRoleColor(row.color),
       colorMode: "solid",
-      selfAssign: false,
+      selfAssign: !!row.self_assignable,
       mentionable: !!row.mentionable,
       hoist: !!row.hoist,
       nameColor: !!row.name_color,
@@ -567,10 +567,11 @@ function paintServerRolesEditor() {
   settingsField.appendChild(settingsTitle);
   SERVER_ROLE_SETTING_ROWS.forEach((row) => {
     const later = row.later;
+    const locked = !!later || (row.id === "selfAssign" && role.builtin);
     settingsField.appendChild(roleOptRow(
       row.title,
       row.desc,
-      roleToggle(!!role[row.id], !!later, (on) => { role[row.id] = on; afterRoleChange(false); }),
+      roleToggle(!!role[row.id], locked, (on) => { role[row.id] = on; afterRoleChange(false); }),
       later
     ));
   });
@@ -857,6 +858,7 @@ async function confirmServerRoles() {
           mentionable: !!role.mentionable,
           hoist: !!role.hoist,
           name_color: !!role.nameColor,
+          self_assignable: !!role.selfAssign,
           permissions: role.perms
         }))
       })

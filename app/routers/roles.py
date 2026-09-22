@@ -90,6 +90,7 @@ def serialize_role(row):
         "mentionable": bool(row.mentionable),
         "hoist": bool(row.hoist),
         "name_color": bool(row.name_color),
+        "self_assignable": bool(getattr(row, "self_assignable", False)),
         "is_members": bool(row.is_members),
         "permissions": parse_role_perms(row),
     }
@@ -111,6 +112,7 @@ def ensure_members_role(database, server_id):
             mentionable=False,
             hoist=False,
             name_color=False,
+            self_assignable=False,
             is_members=True,
             permissions=json.dumps(members_default_perms()),
         )
@@ -299,6 +301,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
         mentionable = bool(item.mentionable)
         hoist = bool(item.hoist)
         name_color = bool(item.name_color)
+        self_assignable = bool(item.self_assignable)
 
         if item.id and item.id in existing:
             row = existing[item.id]
@@ -311,6 +314,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
             row.mentionable = mentionable
             row.hoist = hoist
             row.name_color = name_color
+            row.self_assignable = False if row.is_members else self_assignable
             row.permissions = json.dumps(perms)
             saved.append({"client_id": item.client_id or "", "role": row})
         elif item.id:
@@ -324,6 +328,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
                 mentionable=mentionable,
                 hoist=hoist,
                 name_color=name_color,
+                self_assignable=self_assignable,
                 is_members=False,
                 permissions=json.dumps(perms),
             )
@@ -358,8 +363,6 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
 @router.post("/set_server_role_member")
 async def set_server_role_member(body: Server_role_member_in, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server = require_server_member(database, body.server_id, current_user.id)
-    if server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the server owner can assign roles.")
     require_server_member(database, body.server_id, body.user_id)
     seed_server_roles(database, server.id)
     role = database.query(Server_roles).filter(
@@ -370,6 +373,11 @@ async def set_server_role_member(body: Server_role_member_in, database: Session 
         raise HTTPException(status_code=404, detail="Role not found")
     if role.is_members:
         raise HTTPException(status_code=400, detail="The Members role cannot be changed.")
+    is_owner = server.owner_id == current_user.id
+    is_self = body.user_id == current_user.id
+    if not is_owner:
+        if not is_self or not bool(getattr(role, "self_assignable", False)):
+            raise HTTPException(status_code=403, detail="You can only assign that role to yourself.")
 
     existing = database.query(Server_role_members).filter(
         Server_role_members.role_id == role.id,

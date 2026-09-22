@@ -65,6 +65,7 @@ def get_mini_profile(user_id: int, server_id: str | None = None, current_user: U
         "highest_role": None,
         "roles": [],
         "assignable": [],
+        "removable_ids": [],
     }
     if not server_id:
         return payload
@@ -87,21 +88,27 @@ def get_mini_profile(user_id: int, server_id: str | None = None, current_user: U
     database.commit()
     assigned = assigned_roles_for_user(database, server.id, owner.id)
     assigned_ids = {role["id"] for role in assigned}
-    can_assign = server.owner_id == current_user.id
+    is_owner = server.owner_id == current_user.id
+    is_self = current_user.id == owner.id
     assignable = []
-    if can_assign:
-        for role in list_server_roles(database, server.id):
-            if role.get("is_members"):
-                continue
-            if role["id"] in assigned_ids:
-                continue
+    removable_ids = []
+    for role in list_server_roles(database, server.id):
+        if role.get("is_members"):
+            continue
+        can_touch = is_owner or (is_self and role.get("self_assignable"))
+        if not can_touch:
+            continue
+        if role["id"] in assigned_ids:
+            removable_ids.append(role["id"])
+        else:
             assignable.append(role)
     payload.update({
         "in_server": True,
-        "can_assign": can_assign,
+        "can_assign": bool(assignable),
         "highest_role": highest_role_for_user(database, server.id, owner.id),
         "roles": assigned,
         "assignable": assignable,
+        "removable_ids": removable_ids,
     })
     return payload
 

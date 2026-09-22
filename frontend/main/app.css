@@ -540,7 +540,9 @@
 .settings-radio {
   display: flex; align-items: flex-start; gap: 12px;
   width: 100%; padding: 10px 0; background: transparent; color: inherit; text-align: left;
+  cursor: pointer; border: none; font: inherit;
 }
+.settings-radio:disabled { cursor: default; opacity: 0.7; }
 .settings-radio-dot {
   flex: 0 0 auto; width: 18px; height: 18px; margin-top: 2px; border-radius: 50%;
   border: 2px solid var(--text-dim); box-sizing: border-box;

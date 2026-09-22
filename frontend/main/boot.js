@@ -275,6 +275,12 @@ function connectSocket() {
       if (typeof applyServerTimezone === "function") applyServerTimezone(data.server_id, data.timezone || "");
     }
 
+    if (data.type === "server_notifications_updated") {
+      if (typeof applyServerNotifications === "function") {
+        applyServerNotifications(data.server_id, data.default_notifications || "mentions");
+      }
+    }
+
     if (data.type === "presence") {
       applyPresence(data.user_id, data.status);
     }

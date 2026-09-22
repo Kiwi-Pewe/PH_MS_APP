@@ -142,6 +142,7 @@ class Servers(Base):
     url_slug = Column(String)
     server_type = Column(String)
     timezone = Column(String)
+    default_notifications = Column(String)
 
 class Server_members(Base):
     __tablename__ = "server_members"

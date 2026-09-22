@@ -1,7 +1,6 @@
 // ==================================================================
-// server-settings.js - Server Settings overlay. Overview Avatar,
-// Banner, Name, About, URL, Type, and Timezone are live. Default
-// notifications stay grey, as does every other index row.
+// server-settings.js - Server Settings overlay. Overview is live.
+// Every other index row stays grey.
 // ==================================================================
 
 function currentServerIconUrl() {
@@ -643,6 +642,71 @@ async function saveServerSettingsTimezone(zone) {
   }
 }
 
+const SERVER_NOTIFICATIONS = { all: true, mentions: true };
+const SERVER_NOTIFICATIONS_DEFAULT = "mentions";
+
+function savedServerSettingsNotifications() {
+  if (currentServerData && currentServerId && typeof currentServerData.default_notifications === "string") {
+    const kind = currentServerData.default_notifications;
+    if (SERVER_NOTIFICATIONS[kind]) return kind;
+  }
+  const meta = serverList.find(s => s.id === currentServerId) || {};
+  if (SERVER_NOTIFICATIONS[meta.default_notifications]) return meta.default_notifications;
+  return SERVER_NOTIFICATIONS_DEFAULT;
+}
+
+function setServerSettingsNotifyStatus(text) {
+  const status = document.getElementById("server-settings-notify-status");
+  if (!status) return;
+  status.hidden = !text;
+  status.textContent = text || "";
+}
+
+function syncServerSettingsNotifications(kind) {
+  const next = SERVER_NOTIFICATIONS[kind] ? kind : SERVER_NOTIFICATIONS_DEFAULT;
+  const list = document.getElementById("server-settings-notify");
+  if (!list) return;
+  list.querySelectorAll("[data-notify]").forEach((row) => {
+    const on = row.getAttribute("data-notify") === next;
+    row.classList.toggle("is-on", on);
+    row.setAttribute("aria-checked", on ? "true" : "false");
+    row.setAttribute("role", "radio");
+  });
+  setServerSettingsNotifyStatus("");
+}
+
+async function saveServerSettingsNotifications(kind) {
+  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  const next = (kind || "").trim().toLowerCase();
+  if (!SERVER_NOTIFICATIONS[next]) {
+    setServerSettingsNotifyStatus("Pick All Messages or Only @mentions.");
+    syncServerSettingsNotifications(savedServerSettingsNotifications());
+    return;
+  }
+  if (next === savedServerSettingsNotifications()) return;
+  const list = document.getElementById("server-settings-notify");
+  if (list) list.querySelectorAll("[data-notify]").forEach((row) => { row.disabled = true; });
+  setServerSettingsNotifyStatus("");
+  try {
+    const response = await fetch(`https://${serverAddress}/update_server_notifications`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server_id: currentServerId, default_notifications: next })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save the default notifications.");
+    if (typeof applyServerNotifications === "function") {
+      applyServerNotifications(currentServerId, data.default_notifications || next);
+    }
+  } catch (err) {
+    setServerSettingsNotifyStatus(err.message || "Could not save the default notifications.");
+    syncServerSettingsNotifications(savedServerSettingsNotifications());
+  } finally {
+    if (list) list.querySelectorAll("[data-notify]").forEach((row) => { row.disabled = false; });
+  }
+}
+
 async function saveServerSettingsType(kind) {
   if (!currentServerId || currentServerOwnerId !== myUserId) return;
   const next = (kind || "").trim().toLowerCase();
@@ -688,6 +752,7 @@ function openServerSettings() {
   syncServerSettingsUrl(savedServerSettingsUrl());
   syncServerSettingsType(savedServerSettingsType());
   syncServerSettingsTimezone(savedServerSettingsTimezone());
+  syncServerSettingsNotifications(savedServerSettingsNotifications());
   setServerSettingsAvatarStatus("");
   setServerSettingsBannerStatus("");
   paintServerSettingsAvatar();
@@ -847,6 +912,13 @@ document.getElementById("server-settings-type").addEventListener("change", (e) =
 
 document.getElementById("server-settings-timezone").addEventListener("change", (e) => {
   saveServerSettingsTimezone(e.target.value);
+});
+
+document.getElementById("server-settings-notify").addEventListener("click", (e) => {
+  const row = e.target.closest("[data-notify]");
+  if (!row || !document.getElementById("server-settings-notify").contains(row)) return;
+  syncServerSettingsNotifications(row.getAttribute("data-notify"));
+  saveServerSettingsNotifications(row.getAttribute("data-notify"));
 });
 
 document.addEventListener("keydown", (e) => {

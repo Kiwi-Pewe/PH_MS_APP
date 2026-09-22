@@ -279,3 +279,8 @@ def ensure_server_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN default_notifications VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()

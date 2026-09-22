@@ -207,6 +207,10 @@ class Server_timezone_update(BaseModel):
     server_id: str
     timezone: str = ""
 
+class Server_notifications_update(BaseModel):
+    server_id: str
+    default_notifications: str = ""
+
 class Server_message(BaseModel):
     sender_id: int
     channel_id: int

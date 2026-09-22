@@ -204,9 +204,15 @@ function paintIdentityMedia(host, media, opts) {
   img.alt = "";
   img.draggable = false;
   img.src = identitySrc(media);
+  let tries = 0;
   function layout() {
     const fw = host.clientWidth;
     const fh = host.clientHeight;
+    if ((!fw || !fh) && tries < 40) {
+      tries += 1;
+      requestAnimationFrame(layout);
+      return;
+    }
     if (!fw || !fh || !img.naturalWidth) return;
     applyIdentityCropToImg(img, media.crop, fw, fh);
   }
@@ -215,6 +221,7 @@ function paintIdentityMedia(host, media, opts) {
   host.appendChild(layer);
   if (opts.border !== false) applyIdentityBorder(host, media);
   if (img.complete) layout();
+  else requestAnimationFrame(layout);
 }
 
 function rememberOwnIdentity(layout) {
@@ -236,7 +243,7 @@ function takeMessageAvatar(mapped, raw) {
 }
 
 function rememberIdentityFace(userId, avatar) {
-  if (!userId || !avatar) return;
+  if (!userId || !identityHasImage(avatar)) return;
   identityFaceCache[userId] = cloneIdentityMedia(avatar);
 }
 
@@ -244,14 +251,15 @@ function faceForUser(userId, fallback) {
   if (userId && typeof myUserId !== "undefined" && userId === myUserId && ownIdentityCache) {
     return ownIdentityCache.avatar;
   }
-  return fallback || identityFaceCache[userId] || null;
+  if (identityHasImage(fallback)) return fallback;
+  return identityFaceCache[userId] || null;
 }
 
 function resolveIdentityAvatar(source, userId) {
-  if (source && source.avatar) return cloneIdentityMedia(source.avatar);
-  if (source && source.identity && source.identity.avatar) return cloneIdentityMedia(source.identity.avatar);
+  if (source && identityHasImage(source.avatar)) return cloneIdentityMedia(source.avatar);
+  if (source && source.identity && identityHasImage(source.identity.avatar)) return cloneIdentityMedia(source.identity.avatar);
   if (source && (source.url || source._file || source._previewUrl || source.key)) return cloneIdentityMedia(source);
-  return cloneIdentityMedia(faceForUser(userId, null));
+  return cloneIdentityMedia(faceForUser(userId, source && source.avatar));
 }
 
 function applyIdentityBorder(el, media) {
@@ -271,6 +279,9 @@ function paintUserFace(host, source, opts) {
   const media = resolveIdentityAvatar(source, userId);
   if (userId && (identityHasImage(media) || media.show_border)) rememberIdentityFace(userId, media);
   const pip = host.querySelector(":scope > .status-dot");
+  Array.from(host.childNodes).forEach((node) => {
+    if (node.nodeType === 3) node.remove();
+  });
   host.querySelectorAll(":scope > .identity-media").forEach((node) => node.remove());
   let letter = host.querySelector(":scope > .face-letter, :scope > #footer-avatar-letter");
   if (!letter) {

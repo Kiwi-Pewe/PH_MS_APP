@@ -39,6 +39,9 @@ async function loadMemberList(scope, scopeId) {
     const data = await response.json();
     if (memberListScope !== scope || memberListScopeId !== scopeId) return;
     memberList = data.members || [];
+    memberList.forEach((member) => {
+      if (typeof rememberIdentityFace === "function") rememberIdentityFace(member.id, member && member.avatar);
+    });
     showMemberListPanel();
     renderMemberList();
     if (typeof refreshComposerMentions === "function") {
@@ -103,7 +106,14 @@ function appendMemberGroup(body, label, members, color) {
   header.textContent = `${label} — ${members.length}`;
   if (color) header.style.color = color;
   body.appendChild(header);
-  members.forEach(member => body.appendChild(buildMemberRow(member)));
+  members.forEach((member) => {
+    const row = buildMemberRow(member);
+    body.appendChild(row);
+    const face = row.querySelector(".avatar-dot");
+    if (face && typeof paintUserFace === "function") {
+      paintUserFace(face, member, { name: member.username, userId: member.id });
+    }
+  });
 }
 
 function buildMemberRow(member) {
@@ -113,8 +123,6 @@ function buildMemberRow(member) {
 
   const avatar = document.createElement("div");
   avatar.className = "avatar-dot";
-  if (typeof paintUserFace === "function") paintUserFace(avatar, member, { name: member.username, userId: member.id });
-  else avatar.textContent = avatarLetter(member.username);
   const pip = document.createElement("div");
   pip.className = "status-dot status-" + status;
   avatar.appendChild(pip);

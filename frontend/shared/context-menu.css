@@ -101,3 +101,9 @@
 .context-menu-item.disabled:hover {
   background: none;
 }
+
+.context-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--border);
+}

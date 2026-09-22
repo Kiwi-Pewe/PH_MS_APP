@@ -369,6 +369,10 @@ function enterApp() {
   // is static markup, never rebuilt. Category/channel rows call
   // e.stopPropagation() so this only fires for genuine blank space.
   document.getElementById("server-sidebar-body").addEventListener("contextmenu", showServerAreaContextMenu);
+
+  const serverHeader = document.getElementById("server-sidebar-header");
+  serverHeader.addEventListener("click", showServerHeaderMenu);
+  serverHeader.addEventListener("contextmenu", showServerHeaderMenu);
 }
 
 // Handles arriving fresh from invite.html after accepting an invite

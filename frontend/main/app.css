@@ -37,8 +37,8 @@
    including #chat-body, since a Grid row's sizing doesn't automatically
    inherit a constrained height from its flex parent the way nested
    Flexbox containers do. */
-#main-grid { flex: 1 1 auto; display: grid; grid-template-columns: 72px minmax(240px, 280px) 1fr; grid-template-rows: 1fr; min-height: 0; }
-#main-grid.has-member-list { grid-template-columns: 72px minmax(240px, 280px) 1fr 240px; }
+#main-grid { flex: 1 1 auto; display: grid; grid-template-columns: 72px 240px 1fr; grid-template-rows: 1fr; min-height: 0; }
+#main-grid.has-member-list { grid-template-columns: 72px 240px 1fr 240px; }
 
 #server-rail { background: var(--rail); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 0; min-height: 0; }
 #server-rail-main {
@@ -109,9 +109,9 @@
   padding: 0 4px; border: 2px solid var(--rail);
 }
 
-#secondary-panel { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
-#secondary-nav { padding: 12px 10px 8px; display: flex; flex-direction: column; gap: 6px; }
-.nav-item { position: relative; width: 100%; background: transparent; color: var(--text-dim); text-align: left; font-size: 14px; font-weight: 600; padding: 10px 12px; border-radius: 6px; }
+#secondary-panel { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; min-width: 0; width: 100%; }
+#secondary-nav { padding: 8px; display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; box-sizing: border-box; }
+.nav-item { position: relative; display: flex; align-items: center; align-self: stretch; width: 100%; box-sizing: border-box; min-height: 32px; background: transparent; color: var(--text-dim); text-align: left; font-size: 14px; font-weight: 600; padding: 6px 8px; border-radius: 6px; }
 .nav-item:hover, .nav-item.active { background: var(--panel-alt); color: var(--text); }
 .nav-item.is-later,
 .nav-item:disabled {
@@ -135,14 +135,36 @@
    goHome(), and openSettings(). Each needs its own flex column so
    the nav/header + scrolling body layout inside it still works exactly
    like #secondary-panel's own flex column did before the split. */
-#dm-sidebar-view, #server-sidebar-view, #settings-sidebar-view, #profile-sidebar-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#dm-sidebar-view, #server-sidebar-view, #settings-sidebar-view, #profile-sidebar-view { flex: 1 1 auto; min-height: 0; min-width: 0; width: 100%; display: flex; flex-direction: column; align-items: stretch; }
 
-#secondary-body { flex: 1 1 auto; overflow-y: auto; padding: 12px 10px; }
+#secondary-body { flex: 1 1 auto; overflow-y: auto; padding: 4px 8px 8px; width: 100%; box-sizing: border-box; min-width: 0; }
 
 /* ---- Server sidebar (categories + channels) ---- */
 #server-sidebar-header {
-  flex: 0 0 auto; padding: 12px 14px; border-bottom: 1px solid var(--border);
-  font-size: 14px; font-weight: 700;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+#server-sidebar-header:hover { background: var(--panel-alt); }
+#server-sidebar-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#server-sidebar-caret {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1;
 }
 #server-sidebar-body { flex: 1 1 auto; overflow-y: auto; padding: 8px 6px; }
 
@@ -185,11 +207,26 @@
 .channel-icon { font-size: 13px; flex: 0 0 auto; }
 #secondary-body h3 {
   font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim);
-  margin: 16px 6px 10px; padding-top: 12px; border-top: 1px solid var(--border);
+  margin: 12px 8px 8px; padding-top: 10px; border-top: 1px solid var(--border);
 }
-#dm-rows { display: flex; flex-direction: column; gap: 6px; }
-.dm-item { display: flex; align-items: center; width: 100%; gap: 10px; padding: 10px 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; }
+#dm-rows { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; }
+.dm-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
+  height: 44px;
+  min-height: 44px;
+  gap: 10px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
 .dm-item:hover, .dm-item.active { background: var(--panel-alt); color: var(--text); }
+.dm-item .avatar-dot { width: 32px; height: 32px; flex: 0 0 32px; font-size: 13px; }
 .avatar-dot {
   width: 32px; height: 32px; border-radius: 50%;
   background: #3b3e4a; border: 1px solid var(--border); flex: 0 0 auto;
@@ -824,7 +861,7 @@ html.ui-density-compact #server-list { gap: 8px; }
 html.ui-density-compact .nav-item { padding: 4px 10px; }
 html.ui-density-compact #secondary-nav { padding: 8px 8px 6px; }
 html.ui-density-compact #secondary-body { padding: 8px 8px; }
-html.ui-density-compact .dm-item { padding: 4px 6px; gap: 8px; }
+html.ui-density-compact .dm-item { height: 36px; min-height: 36px; padding: 0 6px; gap: 8px; }
 html.ui-density-compact #server-sidebar-header { padding: 8px 10px; }
 html.ui-density-compact #server-sidebar-body { padding: 4px 4px; }
 html.ui-density-compact .category-header { padding: 4px 6px; }
@@ -844,7 +881,7 @@ html.ui-density-spacious #server-list { gap: 22px; }
 html.ui-density-spacious .nav-item { padding: 12px 10px; }
 html.ui-density-spacious #secondary-nav { padding: 16px 10px 12px; }
 html.ui-density-spacious #secondary-body { padding: 16px 12px; }
-html.ui-density-spacious .dm-item { padding: 12px 8px; gap: 12px; }
+html.ui-density-spacious .dm-item { height: 52px; min-height: 52px; padding: 0 8px; gap: 12px; }
 html.ui-density-spacious #server-sidebar-header { padding: 16px 14px; }
 html.ui-density-spacious #server-sidebar-body { padding: 12px 8px; }
 html.ui-density-spacious .category-header { padding: 10px 6px; }
@@ -1800,10 +1837,22 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .msg-cluster.self .reaction-pill { background: rgba(0, 0, 0, 0.18); color: #fff; border-color: rgba(255,255,255,0.25); }
 .msg-cluster.self .reaction-pill.mine { border-color: #fff; }
 
-.dm-item .who { font-size: 13px; font-weight: 600; }
+.dm-item .who { font-size: 14px; font-weight: 600; line-height: 1.2; }
 .dm-item.has-unread .who { color: var(--text); font-weight: 700; }
-.dm-item .dm-close { opacity: 0; background: transparent; color: var(--text-dim); font-size: 14px; padding: 2px 6px; border-radius: 4px; }
+.dm-item .dm-close {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
 .dm-item:hover .dm-close { opacity: 1; }
+.dm-item:hover .dm-item-text { padding-right: 18px; }
 .dm-item .dm-close:hover { background: var(--rail); color: var(--text); }
 
 .dm-unread-badge {
@@ -1816,9 +1865,9 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
    its own flex column since .who and .dm-subtitle previously sat
    directly in the row; min-width: 0 is required for the ellipsis rules
    below to actually take effect inside a flex child. */
-.dm-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dm-item-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
 .dm-item-text .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dm-subtitle { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-subtitle { font-size: 12px; line-height: 1.2; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- Party creation modal ---- */
 /* A sub-menu (pop-up, not a main screen) — border uses --accent-submenu
@@ -2430,8 +2479,8 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   font-family: ui-monospace, Consolas, monospace;
 }
 
-#main-grid.is-profile-edit { grid-template-columns: 260px minmax(240px, 280px) 1fr; }
-#main-grid.is-profile-edit.has-member-list { grid-template-columns: 260px minmax(240px, 280px) 1fr 240px; }
+#main-grid.is-profile-edit { grid-template-columns: 260px 240px 1fr; }
+#main-grid.is-profile-edit.has-member-list { grid-template-columns: 260px 240px 1fr 240px; }
 #main-grid.is-profile-edit #server-rail-main { display: none; }
 #profile-palette {
   display: none;

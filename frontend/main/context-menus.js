@@ -346,6 +346,47 @@ function showServerAreaContextMenu(e) {
   ]);
 }
 
+// Click / right-click on the server name in the middle rail. Owner
+// (admin roles do not exist yet) sees create + settings rows; everyone
+// sees invite plus the greyed notification rows. Server Settings stays
+// disabled until this menu is signed off and the next settings pass
+// starts. Create Channel needs a category id — first category if any,
+// otherwise the row is greyed so we do not invent a picker this pass.
+function showServerHeaderMenu(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!currentServerId) return;
+  if (e.type === "click" && activeMenuEl) {
+    closeContextMenu();
+    return;
+  }
+
+  const header = document.getElementById("server-sidebar-header");
+  const rect = header.getBoundingClientRect();
+  const isOwner = currentServerOwnerId === myUserId;
+  const name = document.getElementById("server-sidebar-name").textContent || "";
+  const firstCategory = ((currentServerData && currentServerData.categories) || [])[0];
+
+  const options = isOwner ? [
+    { label: "Invite to Server", onSelect: () => openInviteModal("server", currentServerId, name) },
+    { label: "Server Settings", disabled: true },
+    firstCategory
+      ? { label: "Create Channel", onSelect: () => openChannelModal(firstCategory.id) }
+      : { label: "Create Channel", disabled: true },
+    { label: "Create Category", onSelect: () => openCategoryModal() },
+    { separator: true },
+    { label: "Notification Settings", disabled: true },
+    { label: "Hide Muted Channels", disabled: true }
+  ] : [
+    { label: "Invite to Server", onSelect: () => openInviteModal("server", currentServerId, name) },
+    { separator: true },
+    { label: "Notification Settings", disabled: true },
+    { label: "Hide Muted Channels", disabled: true }
+  ];
+
+  openContextMenu(rect.left, rect.bottom, null, options);
+}
+
 function showCategoryContextMenu(e, category, isOwner) {
   e.preventDefault();
   e.stopPropagation();

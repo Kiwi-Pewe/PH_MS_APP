@@ -12,12 +12,14 @@ let activeMenuEl = null;
 //   renders the header block that shows what was right-clicked. Pass
 //   null/undefined for a menu with no reference area (e.g. right-
 //   clicking empty space) — the menu will just be a plain option list.
-// options: array of { label, danger, disabled, onSelect }. `danger` is
-//   optional (styles the item red, e.g. for Delete/Block). `disabled`
-//   is optional (dims the item, blocks clicks, no onSelect required —
-//   for a feature that's shown but not built yet, e.g. Edit). Falsy
-//   entries in the array are skipped, so callers can build the list
-//   with plain `condition && {...}` entries instead of filtering by hand.
+// options: array of { label, danger, disabled, onSelect } or
+//   { separator: true }. `danger` is optional (styles the item red,
+//   e.g. for Delete/Block). `disabled` is optional (dims the item,
+//   blocks clicks, no onSelect required — for a feature that's shown
+//   but not built yet, e.g. Edit). A separator draws a divider between
+//   groups. Falsy entries in the array are skipped, so callers can
+//   build the list with plain `condition && {...}` entries instead of
+//   filtering by hand.
 function openContextMenu(x, y, reference, options) {
   closeContextMenu();
 
@@ -29,6 +31,12 @@ function openContextMenu(x, y, reference, options) {
   }
 
   options.filter(Boolean).forEach(opt => {
+    if (opt.separator) {
+      const line = document.createElement("div");
+      line.className = "context-menu-separator";
+      menu.appendChild(line);
+      return;
+    }
     const item = document.createElement("div");
     item.className = "context-menu-item" + (opt.danger ? " danger" : "") + (opt.disabled ? " disabled" : "");
     item.textContent = opt.label;

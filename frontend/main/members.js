@@ -1,10 +1,9 @@
 // ==================================================================
 // members.js - Right-rail member list for servers and parties.
-// Roles do not exist yet. Online users share one "Online" group;
-// everyone who appears offline shares one "Offline" group. When role
-// settings ship, the owner picks which roles hoist here — only the
-// online half splits. Offline stays one list. Owner is not a group;
-// they get a crown next to their name in whichever group they sit.
+// Server hoist: a role with Display Separately on gets its own online
+// group, named and colored like the role, above Online. Offline stays
+// one list. Parties have no roles. Owner is not a group; they get a
+// crown next to their name in whichever group they sit.
 // ==================================================================
 
 function memberAppearsOnline(status) {
@@ -51,6 +50,12 @@ async function loadMemberList(scope, scopeId) {
   }
 }
 
+function refreshServerMemberList(serverId) {
+  if (memberListScope !== "server") return;
+  if (String(memberListScopeId) !== String(serverId)) return;
+  loadMemberList("server", serverId);
+}
+
 function renderMemberList() {
   const body = document.getElementById("member-list-body");
   body.innerHTML = "";
@@ -66,15 +71,37 @@ function renderMemberList() {
   online.sort(byName);
   offline.sort(byName);
 
-  appendMemberGroup(body, "Online", online);
+  if (memberListScope === "server") {
+    const groups = new Map();
+    const leftover = [];
+    online.forEach((member) => {
+      const hoist = member.hoist_role;
+      if (hoist && hoist.id != null) {
+        const key = String(hoist.id);
+        if (!groups.has(key)) groups.set(key, { role: hoist, members: [] });
+        groups.get(key).members.push(member);
+      } else {
+        leftover.push(member);
+      }
+    });
+    Array.from(groups.values())
+      .sort((a, b) => (a.role.position || 0) - (b.role.position || 0) || (a.role.id - b.role.id))
+      .forEach((group) => {
+        appendMemberGroup(body, group.role.name || "Role", group.members, group.role.color);
+      });
+    appendMemberGroup(body, "Online", leftover);
+  } else {
+    appendMemberGroup(body, "Online", online);
+  }
   appendMemberGroup(body, "Offline", offline);
 }
 
-function appendMemberGroup(body, label, members) {
+function appendMemberGroup(body, label, members, color) {
   if (members.length === 0) return;
   const header = document.createElement("div");
   header.className = "member-group-header";
   header.textContent = `${label} — ${members.length}`;
+  if (color) header.style.color = color;
   body.appendChild(header);
   members.forEach(member => body.appendChild(buildMemberRow(member)));
 }

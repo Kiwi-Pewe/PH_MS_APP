@@ -292,6 +292,7 @@ function connectSocket() {
           if (typeof paintServerRolesPage === "function") paintServerRolesPage();
         }
       }
+      if (typeof refreshServerMemberList === "function") refreshServerMemberList(data.server_id);
     }
 
     if (data.type === "presence") {

@@ -506,16 +506,21 @@ def get_server_members(server_id: str, database: Session = Depends(get_db), curr
     if not server:
         raise HTTPException(status_code=404, detail="Server not found")
 
+    from app.routers.roles import seed_server_roles, hoist_roles_by_user
+    seed_server_roles(database, server_id)
+    database.commit()
+
     memberships = database.query(Server_members).filter(Server_members.server_id == server_id).all()
     user_ids = [row.user_id for row in memberships]
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all()
     account_lookup = {account.id: account for account in accounts}
+    hoist_map = hoist_roles_by_user(database, server_id, user_ids)
 
     members = []
     for row in memberships:
         account = account_lookup.get(row.user_id)
         if account:
-            members.append(serialize_member(account, account.id == server.owner_id))
+            members.append(serialize_member(account, account.id == server.owner_id, hoist_map.get(account.id)))
     return {"server_id": server_id, "members": members}
 
 @router.post("/message_server_channel")

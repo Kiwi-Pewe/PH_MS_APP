@@ -8,13 +8,16 @@ active_connections = {}
 def presence_status(user_id):
     return "online" if user_id in active_connections else "offline"
 
-def serialize_member(user, is_owner):
-    return {
+def serialize_member(user, is_owner, hoist_role=None):
+    payload = {
         "id": user.id,
         "username": user.username,
         "status": presence_status(user.id),
         "is_owner": bool(is_owner),
     }
+    if hoist_role:
+        payload["hoist_role"] = hoist_role
+    return payload
 
 async def server_broadcast(server_id, payload, database, exclude_user_id=None):
     all_members = database.query(Server_members).filter(Server_members.server_id == server_id).all()

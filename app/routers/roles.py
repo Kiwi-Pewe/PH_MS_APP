@@ -138,6 +138,42 @@ def seed_server_roles(database, server_id):
     return role
 
 
+def serialize_hoist_role(row):
+    return {
+        "id": row.id,
+        "name": row.name or "Role",
+        "color": clean_role_color(getattr(row, "color", None)),
+        "position": int(row.position or 0),
+    }
+
+
+def hoist_roles_by_user(database, server_id, user_ids=None):
+    hoisted = database.query(Server_roles).filter(
+        Server_roles.server_id == server_id,
+        Server_roles.hoist == True,
+    ).all()
+    if not hoisted:
+        return {}
+    hoisted_ids = [row.id for row in hoisted]
+    by_id = {row.id: row for row in hoisted}
+    query = database.query(Server_role_members).filter(Server_role_members.role_id.in_(hoisted_ids))
+    if user_ids is not None:
+        query = query.filter(Server_role_members.user_id.in_(list(user_ids)))
+    best = {}
+    for row in query.all():
+        role = by_id.get(row.role_id)
+        if not role:
+            continue
+        current = best.get(row.user_id)
+        if current is None or (int(role.position or 0), role.id) < (int(current.position or 0), current.id):
+            best[row.user_id] = role
+    return {user_id: serialize_hoist_role(role) for user_id, role in best.items()}
+
+
+def hoist_role_for_user(database, server_id, user_id):
+    return hoist_roles_by_user(database, server_id, [user_id]).get(user_id)
+
+
 def require_server_member(database, server_id, user_id):
     server = database.query(Servers).filter(Servers.id == server_id).first()
     if not server:

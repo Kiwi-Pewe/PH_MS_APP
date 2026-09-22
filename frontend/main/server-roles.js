@@ -865,6 +865,7 @@ async function confirmServerRoles() {
     if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save roles.");
     applyServerRolesFromApi(data.roles || []);
     serverRolesLoadedFor = currentServerId;
+    if (typeof refreshServerMemberList === "function") refreshServerMemberList(currentServerId);
   } catch (err) {
     serverRolesSaveError = err.message || "Could not save roles.";
   } finally {

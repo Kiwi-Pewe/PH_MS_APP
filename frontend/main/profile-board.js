@@ -27,6 +27,15 @@ function syncProfileBoardScale() {
   const fit = document.getElementById("profile-board-fit");
   const board = document.getElementById("profile-board");
   if (!scroll || !board) return;
+  if (board.classList.contains("is-mini-profile-page")) {
+    board.style.transform = "none";
+    profileBoardScale = 1;
+    if (fit) {
+      fit.style.width = "100%";
+      fit.style.height = "100%";
+    }
+    return;
+  }
   const pad = profileBoardPad();
   const designW = PROFILE_COLS * PROFILE_ROW_H + pad.x;
   board.style.transform = "none";
@@ -1881,16 +1890,70 @@ function paintProfileTileContent(tile, el) {
   el.appendChild(body);
 }
 
+function syncProfilePaletteForPage() {
+  const palette = document.getElementById("profile-palette");
+  if (palette) palette.hidden = !(profileIsOwn && profileEditing && !isMiniProfilePageId(profileActivePageId));
+}
+
+function paintMiniProfileEditorPage(board) {
+  board.classList.add("is-mini-profile-page");
+  board.classList.remove("is-editing");
+  const host = document.createElement("div");
+  host.className = "mini-profile-card is-page";
+  if (typeof paintMiniProfileInto === "function") {
+    paintMiniProfileInto(host, miniProfileDataFromOpenProfile(), { page: true });
+  }
+  board.appendChild(host);
+}
+
+function miniProfileDataFromOpenProfile() {
+  const layout = profileDraft || profileSavedLayout || {};
+  let banner = "#1e6b8a";
+  let about = "";
+  (layout.pages || []).forEach((page) => {
+    (page.tiles || []).forEach((tile) => {
+      const props = tile.props || {};
+      if (tile.type === "banner" && props.color && banner === "#1e6b8a") banner = props.color;
+      if (tile.type === "bio" && !about) about = String(props.text || "").trim();
+    });
+  });
+  const user = profileUser || {};
+  return {
+    user: {
+      id: user.id || myUserId,
+      username: user.username || myUsername,
+      display_name: user.display_name || myDisplayName || myUsername,
+      status: user.status || "",
+      pronouns: user.pronouns || ""
+    },
+    banner_color: banner,
+    about,
+    presence: "online",
+    is_self: true,
+    in_server: false,
+    note: "",
+    roles: [],
+    assignable: []
+  };
+}
+
 function renderProfileBoard() {
   const board = document.getElementById("profile-board");
   if (!board) return;
   bindProfileBoardScale();
   board.style.transform = "none";
   board.innerHTML = "";
+  board.classList.remove("is-mini-profile-page");
   board.classList.toggle("is-editing", !!(profileEditing && profileIsOwn));
   board.style.gap = PROFILE_GAP + "px";
+  syncProfilePaletteForPage();
   const layout = profileDraft || profileSavedLayout;
   const page = profilePageById(layout, profileActivePageId);
+  if (page && isMiniProfilePageId(page.id)) {
+    paintMiniProfileEditorPage(board);
+    syncProfileBoardScale();
+    return;
+  }
   const tiles = (page && page.tiles) || [];
   if (profileEditing && profileIsOwn) paintProfileGrid(board, page);
   if (!tiles.length) {

@@ -10,6 +10,51 @@ function profileApi(path, options) {
   }, options || {}));
 }
 
+const MINI_PROFILE_PAGE_ID = "mini_profile";
+
+function ensureMiniProfilePage(layout) {
+  const pages = (layout && layout.pages) ? layout.pages.slice() : [];
+  const existing = pages.find(page => page.id === MINI_PROFILE_PAGE_ID);
+  if (existing) {
+    existing.title = "Mini Profile";
+    existing.visibility = "owner";
+    existing.tiles = [];
+    layout.pages = pages;
+    return layout;
+  }
+  let insertAt = pages.length;
+  for (let i = 0; i < pages.length; i++) {
+    if (pages[i].visibility === "owner") {
+      insertAt = i;
+      break;
+    }
+  }
+  pages.splice(insertAt, 0, {
+    id: MINI_PROFILE_PAGE_ID,
+    title: "Mini Profile",
+    visibility: "owner",
+    tiles: []
+  });
+  layout.pages = pages;
+  return layout;
+}
+
+function isMiniProfilePageId(pageId) {
+  return pageId === MINI_PROFILE_PAGE_ID;
+}
+
+function isMiniProfileIdentityTile(type) {
+  return type === "banner" || type === "avatar" || type === "display_name";
+}
+
+function openMiniProfileEditorPage() {
+  if (!profileIsOwn) return;
+  if (typeof closeMiniProfile === "function") closeMiniProfile();
+  profileActivePageId = MINI_PROFILE_PAGE_ID;
+  if (!profileEditing) enterProfileEdit();
+  else paintProfileChrome();
+}
+
 function applyProfilePayload(data) {
   profileUser = data.user || null;
   profileOwnerId = profileUser ? profileUser.id : null;
@@ -17,6 +62,7 @@ function applyProfilePayload(data) {
   profileLimited = !!data.limited;
   profileFriends = data.friends || [];
   profileSavedLayout = data.layout || { pages: [], grid_cols: PROFILE_COLS };
+  if (profileIsOwn) profileSavedLayout = ensureMiniProfilePage(profileSavedLayout);
   profileDraft = cloneProfileLayout(profileSavedLayout);
   profileDirty = false;
   const pages = profileDraft.pages || [];
@@ -120,7 +166,7 @@ function renderProfilePages() {
       renderProfilePages();
       renderProfileBoard();
     });
-    if (profileIsOwn && profileEditing) {
+    if (profileIsOwn && profileEditing && !isMiniProfilePageId(page.id)) {
       row.addEventListener("dblclick", () => renameProfilePage(page.id));
     }
     host.appendChild(row);
@@ -151,7 +197,7 @@ function paintProfileChrome() {
   if (note) note.hidden = !profileLimited;
   document.getElementById("main-grid").classList.toggle("is-profile-edit", !!(profileIsOwn && profileEditing));
   const palette = document.getElementById("profile-palette");
-  if (palette) palette.hidden = !(profileIsOwn && profileEditing);
+  if (palette) palette.hidden = !(profileIsOwn && profileEditing && !isMiniProfilePageId(profileActivePageId));
   if (profileIsOwn && profileEditing && typeof renderProfilePalette === "function") renderProfilePalette();
   renderProfilePages();
   renderProfileBoard();
@@ -239,32 +285,15 @@ async function saveProfileLayout() {
 
 function editProfileIdentity(tile) {
   if (!profileIsOwn) return;
-  if (tile.type === "display_name") {
-    if (typeof openSettingsForm !== "function") return;
-    openSettingsForm("Change display name", [
-      { name: "value", label: "Display name", value: profileOwnerName(), maxlength: 32 }
-    ], "Save", async (values) => {
-      const data = await postAccount("/account_display_name", { value: values.value });
-      applyLocalIdentity(data);
-      if (profileUser) {
-        profileUser.display_name = data.display_name;
-        if (data.aliases) profileUser.aliases = data.aliases;
-      }
-      renderProfileBoard();
-    });
-    return;
-  }
-  if (tile.type === "avatar" || tile.type === "banner") {
-    window.alert(tile.type === "avatar"
-      ? "Avatar upload isn't built yet."
-      : "Banner upload isn't built yet.");
+  if (isMiniProfileIdentityTile(tile.type)) {
+    openMiniProfileEditorPage();
   }
 }
 
 function bindProfileQuickEdit(el, tile) {
-  if (tile.type !== "display_name" && tile.type !== "avatar" && tile.type !== "banner") return;
+  if (!isMiniProfileIdentityTile(tile.type)) return;
   el.style.cursor = "pointer";
-  el.addEventListener("click", () => editProfileIdentity(tile));
+  el.addEventListener("click", () => openMiniProfileEditorPage());
 }
 
 document.getElementById("profile-edit-btn").addEventListener("click", enterProfileEdit);

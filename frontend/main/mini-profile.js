@@ -140,16 +140,36 @@ function openMiniProfileMenu(btn, data) {
   }
 }
 
+async function openOwnProfilePageEdit() {
+  closeMiniProfile();
+  if (!isProfileOpen || !profileIsOwn) {
+    if (typeof openUserProfile === "function") await openUserProfile(myUserId);
+  }
+  profileActivePageId = "profile";
+  if (!profileEditing && typeof enterProfileEdit === "function") enterProfileEdit();
+  else if (typeof paintProfileChrome === "function") paintProfileChrome();
+}
+
 async function openOwnMiniProfileEdit() {
   closeMiniProfile();
-  if (typeof openUserProfile === "function") await openUserProfile(myUserId);
-  if (typeof enterProfileEdit === "function") enterProfileEdit();
+  if (!isProfileOpen || !profileIsOwn) {
+    if (typeof openUserProfile === "function") await openUserProfile(myUserId);
+  }
+  if (typeof openMiniProfileEditorPage === "function") openMiniProfileEditorPage();
 }
 
 function paintMiniProfile(data) {
   const card = document.getElementById("mini-profile");
   if (!card) return;
+  paintMiniProfileInto(card, data, { page: false });
+}
+
+function paintMiniProfileInto(card, data, opts) {
+  if (!card) return;
+  const page = !!(opts && opts.page);
   card.innerHTML = "";
+  card.classList.add("mini-profile-card");
+  card.classList.toggle("is-page", page);
   const user = data.user || {};
   const name = user.display_name || user.username || "";
   const presence = data.presence === "online" || data.presence === "away" || data.presence === "dnd"
@@ -191,6 +211,11 @@ function paintMiniProfile(data) {
   const profileBtn = miniProfileIconButton("profile", "Profile");
   profileBtn.addEventListener("click", (e) => {
     e.stopPropagation();
+    if (page) {
+      profileActivePageId = "profile";
+      if (typeof paintProfileChrome === "function") paintProfileChrome();
+      return;
+    }
     closeMiniProfile();
     if (typeof openUserProfile === "function") openUserProfile(user.id);
   });
@@ -223,6 +248,8 @@ function paintMiniProfile(data) {
     card.appendChild(buildMiniProfileRoles(data));
   }
 
+  if (page) return;
+
   const footer = document.createElement("div");
   footer.className = "mini-profile-footer";
   if (data.is_self) {
@@ -230,7 +257,7 @@ function paintMiniProfile(data) {
     edit.type = "button";
     edit.className = "pill-btn mini-profile-edit-btn";
     edit.textContent = "Edit Profile";
-    edit.addEventListener("click", () => openOwnMiniProfileEdit());
+    edit.addEventListener("click", () => openOwnProfilePageEdit());
     const editMini = document.createElement("button");
     editMini.type = "button";
     editMini.className = "ghost-btn mini-profile-edit-btn";

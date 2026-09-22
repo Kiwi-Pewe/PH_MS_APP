@@ -124,7 +124,7 @@ function renderProfilePalette() {
         btn.textContent = item.label;
         btn.addEventListener("click", () => {
           const page = currentProfilePage();
-          if (!page) return;
+          if (!page || isMiniProfilePageId(page.id)) return;
           placeProfileTile(page, item.type);
           markProfileDirty();
         });
@@ -1917,6 +1917,10 @@ function fillLinkTreeOptions(box, tile, hintEl) {
 }
 
 function openProfileTileOptions(tile) {
+  if (isMiniProfileIdentityTile(tile.type)) {
+    openMiniProfileEditorPage();
+    return;
+  }
   tile.props = tile.props || {};
   const draft = Object.assign({}, tile.props);
   if (Array.isArray(draft.links)) draft.links = draft.links.map(row => Object.assign({}, row));
@@ -2292,6 +2296,7 @@ function addProfilePage() {
 }
 
 function renameProfilePage(pageId) {
+  if (isMiniProfilePageId(pageId)) return;
   const page = profilePageById(profileDraft, pageId);
   if (!page || typeof openSettingsForm !== "function") return;
   openSettingsForm("Rename page", [

@@ -97,11 +97,13 @@ STARTER_PAGES = (
     ("profile", "Profile", "public"),
     ("games", "Games", "public"),
     ("media", "Media", "public"),
+    ("mini_profile", "Mini Profile", "owner"),
     ("servers", "Servers", "owner"),
     ("friends", "Friends", "owner"),
     ("applications", "Applications", "owner"),
     ("events", "Events", "owner"),
 )
+MINI_PROFILE_PAGE_ID = "mini_profile"
 
 # Midnight Purple background family sits around hue 265.
 PURPLE_HUE_MIN = 250
@@ -1056,6 +1058,24 @@ def normalize_page(raw, used_page_ids, banner_fallback):
     return {"id": page_id, "title": title, "visibility": vis, "tiles": kept}
 
 
+def ensure_mini_profile_page(pages):
+    out = list(pages or [])
+    for page in out:
+        if page.get("id") == MINI_PROFILE_PAGE_ID:
+            page["title"] = "Mini Profile"
+            page["visibility"] = "owner"
+            page["tiles"] = []
+            return out
+    insert_at = next((i for i, page in enumerate(out) if page.get("visibility") == "owner"), len(out))
+    out.insert(insert_at, {
+        "id": MINI_PROFILE_PAGE_ID,
+        "title": "Mini Profile",
+        "visibility": "owner",
+        "tiles": [],
+    })
+    return out
+
+
 def normalize_layout(raw):
     data = raw if isinstance(raw, dict) else {}
     pages_in = data.get("pages")
@@ -1092,7 +1112,7 @@ def normalize_layout(raw):
             pages.append(page)
     if not pages:
         return seed_layout()
-    return {"grid_cols": GRID_COLS, "pages": pages}
+    return {"grid_cols": GRID_COLS, "pages": ensure_mini_profile_page(pages)}
 
 
 def parse_layout(user):
@@ -1118,7 +1138,9 @@ def ensure_layout(user, database: Session):
         user.profile_layout = json.dumps(layout)
         database.commit()
         return layout
-    if layout_col_count(raw) != GRID_COLS:
+    had_mini = any(page.get("id") == MINI_PROFILE_PAGE_ID for page in (layout.get("pages") or []))
+    layout["pages"] = ensure_mini_profile_page(layout.get("pages"))
+    if layout_col_count(raw) != GRID_COLS or not had_mini:
         user.profile_layout = json.dumps(layout)
         database.commit()
     return layout

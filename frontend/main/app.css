@@ -2562,6 +2562,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   overflow: hidden;
 }
 #main-grid.is-profile-edit #profile-palette { display: flex; }
+#main-grid.is-profile-edit #profile-palette[hidden] { display: none; }
 .profile-palette-title {
   font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-dim); padding: 4px 6px 10px;
@@ -2644,6 +2645,22 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   align-content: start;
   box-sizing: content-box;
   transform-origin: top left;
+}
+#profile-board-fit:has(.is-mini-profile-page) {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+#profile-board.is-mini-profile-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100%;
+  padding: 40px 20px;
+  grid-template-columns: none;
+  grid-auto-rows: auto;
 }
 .profile-grid-overlay {
   position: absolute;
@@ -4114,16 +4131,22 @@ a.profile-link-row:hover { color: var(--accent); }
 /* Mini Profile — Guilded card shell. Placement will move after this
    first pass; keep the look (banner, overlapping avatar, section
    labels, + / pills, note box) and the stated Oneira moves. */
-#mini-profile {
-  position: fixed;
-  z-index: 900;
+.mini-profile-card {
   width: 300px;
-  max-height: calc(100vh - 16px);
   overflow: auto;
   background: var(--panel-alt);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
+}
+#mini-profile {
+  position: fixed;
+  z-index: 900;
+  max-height: calc(100vh - 16px);
+}
+.mini-profile-card.is-page {
+  position: relative;
+  flex: 0 0 auto;
 }
 #mini-profile[hidden],
 #mini-profile-role-picker[hidden] { display: none !important; }

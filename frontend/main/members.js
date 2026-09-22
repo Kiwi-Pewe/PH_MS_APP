@@ -4,6 +4,8 @@
 // group, named and colored like the role, above Online. Offline stays
 // one list. Parties have no roles. Owner is not a group; they get a
 // crown next to their name in whichever group they sit.
+// Role / presence / join / leave patch that one row. Do not rebuild
+// the rail unless the whole member set is loading.
 // ==================================================================
 
 function memberAppearsOnline(status) {
@@ -91,24 +93,185 @@ function renderMemberList() {
     Array.from(groups.values())
       .sort((a, b) => (a.role.position || 0) - (b.role.position || 0) || (a.role.id - b.role.id))
       .forEach((group) => {
-        appendMemberGroup(body, group.role.name || "Role", group.members, group.role.color);
+        appendMemberGroup(body, group.role.name || "Role", group.members, group.role.color, "hoist-" + group.role.id, group.role);
       });
-    appendMemberGroup(body, "Online", leftover);
+    appendMemberGroup(body, "Online", leftover, null, "online");
   } else {
-    appendMemberGroup(body, "Online", online);
+    appendMemberGroup(body, "Online", online, null, "online");
   }
-  appendMemberGroup(body, "Offline", offline);
+  appendMemberGroup(body, "Offline", offline, null, "offline");
 }
 
-function appendMemberGroup(body, label, members, color) {
+function memberGroupKey(member) {
+  if (!memberAppearsOnline(member.status)) return "offline";
+  if (memberListScope === "server" && member.hoist_role && member.hoist_role.id != null) {
+    return "hoist-" + member.hoist_role.id;
+  }
+  return "online";
+}
+
+function memberGroupMeta(member) {
+  const key = memberGroupKey(member);
+  if (key === "offline") return { key: key, label: "Offline" };
+  if (key === "online") return { key: key, label: "Online" };
+  const hoist = member.hoist_role || {};
+  return {
+    key: key,
+    label: hoist.name || "Role",
+    color: hoist.color,
+    position: hoist.position,
+    id: hoist.id
+  };
+}
+
+function cssAttr(value) {
+  const text = String(value);
+  return (typeof CSS !== "undefined" && CSS.escape) ? CSS.escape(text) : text;
+}
+
+function findMemberRow(userId) {
+  return document.querySelector("#member-list-body .member-row[data-member-id=\"" + cssAttr(userId) + "\"]");
+}
+
+function findMemberGroupHeader(key) {
+  return document.querySelector("#member-list-body .member-group-header[data-member-group=\"" + cssAttr(key) + "\"]");
+}
+
+function memberGroupCount(key) {
+  return document.querySelectorAll("#member-list-body .member-row[data-member-group=\"" + cssAttr(key) + "\"]").length;
+}
+
+function paintMemberGroupHeader(header, label, count, color) {
+  if (!header) return;
+  header.textContent = label + " — " + count;
+  header.style.color = color || "";
+}
+
+function refreshMemberGroupHeader(meta) {
+  const header = findMemberGroupHeader(meta.key);
+  if (!header) return;
+  const count = memberGroupCount(meta.key);
+  if (count === 0) {
+    header.remove();
+    return;
+  }
+  paintMemberGroupHeader(header, meta.label || header.dataset.groupLabel || "Online", count, meta.color);
+}
+
+function insertMemberGroupHeader(body, header, meta) {
+  header.dataset.groupPosition = String(meta.position || 0);
+  header.dataset.groupRoleId = String(meta.id || "");
+  if (meta.key === "offline") {
+    body.appendChild(header);
+    return;
+  }
+  if (meta.key === "online") {
+    const offline = findMemberGroupHeader("offline");
+    body.insertBefore(header, offline);
+    return;
+  }
+  const pos = Number(meta.position || 0);
+  const id = Number(meta.id || 0);
+  const headers = body.querySelectorAll(".member-group-header");
+  for (let i = 0; i < headers.length; i += 1) {
+    const existing = headers[i];
+    const key = existing.dataset.memberGroup;
+    if (key === "online" || key === "offline") {
+      body.insertBefore(header, existing);
+      return;
+    }
+    const epos = Number(existing.dataset.groupPosition || 0);
+    const eid = Number(existing.dataset.groupRoleId || 0);
+    if (pos < epos || (pos === epos && id < eid)) {
+      body.insertBefore(header, existing);
+      return;
+    }
+  }
+  body.appendChild(header);
+}
+
+function ensureMemberGroup(meta) {
+  const body = document.getElementById("member-list-body");
+  let header = findMemberGroupHeader(meta.key);
+  if (header) return header;
+  header = document.createElement("div");
+  header.className = "member-group-header";
+  header.dataset.memberGroup = meta.key;
+  header.dataset.groupLabel = meta.label || "Online";
+  paintMemberGroupHeader(header, meta.label || "Online", 0, meta.color);
+  insertMemberGroupHeader(body, header, meta);
+  return header;
+}
+
+function insertMemberRowSorted(row, member, meta) {
+  const header = ensureMemberGroup(meta);
+  const body = header.parentNode;
+  let cursor = header.nextSibling;
+  while (cursor && !cursor.classList.contains("member-group-header")) {
+    if (cursor !== row) {
+      const other = memberList.find((item) => String(item.id) === String(cursor.dataset.memberId));
+      if (other && member.username.localeCompare(other.username, undefined, { sensitivity: "base" }) < 0) break;
+    }
+    cursor = cursor.nextSibling;
+  }
+  body.insertBefore(row, cursor);
+}
+
+function paintMemberRowState(row, member) {
+  const status = memberAppearsOnline(member.status) ? member.status : "offline";
+  row.className = "member-row" + (status === "offline" ? " offline" : "");
+  row.dataset.memberId = String(member.id);
+  row.dataset.memberGroup = memberGroupKey(member);
+  const pip = row.querySelector(".status-dot");
+  if (pip) pip.className = "status-dot status-" + status;
+  const name = row.querySelector(".member-name");
+  if (name && memberListScope === "server" && typeof applyServerNameColor === "function") {
+    applyServerNameColor(name, member.id, member.name_role);
+  }
+}
+
+function placeMemberRow(member) {
+  const meta = memberGroupMeta(member);
+  let row = findMemberRow(member.id);
+  const oldKey = row ? row.dataset.memberGroup : "";
+  if (!row) {
+    row = buildMemberRow(member);
+    const face = row.querySelector(".avatar-dot");
+    if (face && typeof paintUserFace === "function") {
+      paintUserFace(face, member, { name: member.username, userId: member.id });
+    }
+  } else {
+    paintMemberRowState(row, member);
+  }
+  row.dataset.memberGroup = meta.key;
+  insertMemberRowSorted(row, member, meta);
+  refreshMemberGroupHeader(meta);
+  if (oldKey && oldKey !== meta.key) refreshMemberGroupHeader({ key: oldKey });
+}
+
+function removePlacedMemberRow(userId) {
+  const row = findMemberRow(userId);
+  const oldKey = row ? row.dataset.memberGroup : "";
+  if (row) row.remove();
+  if (oldKey) refreshMemberGroupHeader({ key: oldKey });
+}
+
+function appendMemberGroup(body, label, members, color, key, role) {
   if (members.length === 0) return;
   const header = document.createElement("div");
   header.className = "member-group-header";
+  header.dataset.memberGroup = key;
+  header.dataset.groupLabel = label;
+  if (role) {
+    header.dataset.groupPosition = String(role.position || 0);
+    header.dataset.groupRoleId = String(role.id || "");
+  }
   header.textContent = `${label} — ${members.length}`;
   if (color) header.style.color = color;
   body.appendChild(header);
   members.forEach((member) => {
     const row = buildMemberRow(member);
+    row.dataset.memberGroup = key;
     body.appendChild(row);
     const face = row.querySelector(".avatar-dot");
     if (face && typeof paintUserFace === "function") {
@@ -120,6 +283,8 @@ function appendMemberGroup(body, label, members, color) {
 function buildMemberRow(member) {
   const row = document.createElement("div");
   const status = memberAppearsOnline(member.status) ? member.status : "offline";
+  row.dataset.memberId = String(member.id);
+  row.dataset.memberGroup = memberGroupKey(member);
   row.className = "member-row" + (status === "offline" ? " offline" : "");
 
   const avatar = document.createElement("div");
@@ -152,7 +317,7 @@ function buildMemberRow(member) {
   return row;
 }
 
-function applyMemberRolesUpdated(serverId, userId, hoistRole, nameRole) {
+function applyMemberRolesUpdated(serverId, userId, hoistRole, nameRole, opts) {
   if (memberListScope !== "server" || String(memberListScopeId) !== String(serverId)) return;
   const member = memberList.find((row) => row.id === userId);
   if (!member) return;
@@ -160,9 +325,9 @@ function applyMemberRolesUpdated(serverId, userId, hoistRole, nameRole) {
   else delete member.hoist_role;
   if (nameRole) member.name_role = nameRole;
   else delete member.name_role;
-  renderMemberList();
-  if (typeof refreshServerNameColors === "function") refreshServerNameColors();
-  if (typeof miniProfileOpen !== "undefined" && miniProfileOpen && miniProfileUserId === userId) {
+  placeMemberRow(member);
+  refreshServerNameColors(userId);
+  if ((!opts || !opts.skipMini) && typeof miniProfileOpen !== "undefined" && miniProfileOpen && miniProfileUserId === userId) {
     if (typeof reloadOpenMiniProfile === "function") reloadOpenMiniProfile();
   }
 }
@@ -202,22 +367,30 @@ function applyServerNameColor(el, userId, fallbackRole) {
   el.style.color = color;
 }
 
-function refreshServerNameColors() {
-  document.querySelectorAll("[data-name-user]").forEach((el) => {
+function refreshServerNameColors(userId) {
+  const sel = userId != null
+    ? "[data-name-user=\"" + cssAttr(userId) + "\"]"
+    : "[data-name-user]";
+  document.querySelectorAll(sel).forEach((el) => {
     applyServerNameColor(el, el.dataset.nameUser);
   });
+}
+
+function paintMiniProfilePresence(status) {
+  const pip = document.querySelector("#mini-profile .mini-profile-avatar .status-dot");
+  if (!pip) return;
+  pip.className = "status-dot status-" + (memberAppearsOnline(status) ? status : "offline");
 }
 
 function applyPresence(userId, status) {
   const member = memberList.find(m => m.id === userId);
   if (member) {
     member.status = status;
-    renderMemberList();
+    placeMemberRow(member);
   }
   if (typeof miniProfileOpen !== "undefined" && miniProfileOpen && miniProfileData && miniProfileUserId === userId) {
     miniProfileData.presence = status;
-    paintMiniProfile(miniProfileData);
-    positionMiniProfile(miniProfileAnchor);
+    paintMiniProfilePresence(status);
   }
 }
 
@@ -225,11 +398,11 @@ function applyMemberJoined(scope, scopeId, member) {
   if (memberListScope !== scope || String(memberListScopeId) !== String(scopeId)) return;
   if (!member || memberList.some(m => m.id === member.id)) return;
   memberList.push(member);
-  renderMemberList();
+  placeMemberRow(member);
 }
 
 function applyMemberLeft(scope, scopeId, userId) {
   if (memberListScope !== scope || String(memberListScopeId) !== String(scopeId)) return;
   memberList = memberList.filter(m => m.id !== userId);
-  renderMemberList();
+  removePlacedMemberRow(userId);
 }

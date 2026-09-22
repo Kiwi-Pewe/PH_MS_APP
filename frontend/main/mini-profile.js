@@ -10,6 +10,7 @@ let miniProfileOpen = false;
 let miniProfileData = null;
 let miniProfileUserId = null;
 let miniProfileAnchor = null;
+let miniProfileAnchorRect = null;
 let miniProfileRolesExpanded = false;
 let miniProfileBoundDoc = false;
 
@@ -45,6 +46,7 @@ function closeMiniProfile() {
   miniProfileData = null;
   miniProfileUserId = null;
   miniProfileAnchor = null;
+  miniProfileAnchorRect = null;
   miniProfileRolesExpanded = false;
   closeMiniProfileRolePicker();
   const card = document.getElementById("mini-profile");
@@ -81,11 +83,28 @@ function bindMiniProfileChrome() {
   document.addEventListener("keydown", miniProfileOnKey);
 }
 
+function snapshotRect(rect) {
+  if (!rect) return null;
+  return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+}
+
+function liveAnchorRect(anchorEl) {
+  if (anchorEl && anchorEl.isConnected) {
+    const ar = anchorEl.getBoundingClientRect();
+    if (ar.width || ar.height) {
+      miniProfileAnchorRect = snapshotRect(ar);
+      return miniProfileAnchorRect;
+    }
+  }
+  return miniProfileAnchorRect;
+}
+
 function positionMiniProfile(anchorEl) {
   const card = document.getElementById("mini-profile");
-  if (!card || card.hidden || !anchorEl) return;
+  if (!card || card.hidden) return;
+  const ar = liveAnchorRect(anchorEl || miniProfileAnchor);
+  if (!ar) return;
   const z = typeof pageZoom === "function" ? pageZoom() : 1;
-  const ar = anchorEl.getBoundingClientRect();
   const cr = card.getBoundingClientRect();
   let left = ar.right + 8;
   if (ar.left > window.innerWidth * 0.55) left = ar.left - cr.width - 8;
@@ -162,6 +181,41 @@ function paintMiniProfile(data) {
   const card = document.getElementById("mini-profile");
   if (!card) return;
   paintMiniProfileInto(card, data, { page: false });
+}
+
+function paintMiniProfileHighest(card, data) {
+  if (!card) return;
+  const identity = card.querySelector(".mini-profile-identity");
+  if (!identity) return;
+  const existing = identity.querySelector(".mini-profile-highest");
+  if (!data.in_server || !data.highest_role) {
+    if (existing) existing.remove();
+    return;
+  }
+  const roleLine = existing || document.createElement("div");
+  roleLine.className = "mini-profile-highest";
+  roleLine.textContent = data.highest_role.name || "Role";
+  roleLine.style.color = data.highest_role.color || "";
+  if (!existing) {
+    const nameRow = identity.querySelector(".mini-profile-name-row");
+    if (nameRow) identity.insertBefore(roleLine, nameRow);
+    else identity.appendChild(roleLine);
+  }
+}
+
+function paintMiniProfileRolesOnly(data) {
+  const card = document.getElementById("mini-profile");
+  if (!card || !data) return;
+  paintMiniProfileHighest(card, data);
+  const next = data.in_server ? buildMiniProfileRoles(data) : null;
+  const prev = card.querySelector(".mini-profile-roles");
+  if (prev && next) prev.replaceWith(next);
+  else if (prev && !next) prev.remove();
+  else if (!prev && next) {
+    const footer = card.querySelector(".mini-profile-footer");
+    if (footer) card.insertBefore(next, footer);
+    else card.appendChild(next);
+  }
 }
 
 function bindMiniProfileEditTarget(el, type, editing) {
@@ -446,7 +500,7 @@ function buildMiniProfileRoles(data) {
     more.addEventListener("click", (e) => {
       e.stopPropagation();
       miniProfileRolesExpanded = !miniProfileRolesExpanded;
-      paintMiniProfile(miniProfileData);
+      paintMiniProfileRolesOnly(miniProfileData);
       positionMiniProfile(miniProfileAnchor);
     });
     row.appendChild(more);
@@ -529,13 +583,15 @@ async function setMiniProfileRole(roleId, assigned) {
         assigned: !!assigned
       })
     });
+    const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      window.alert(err.detail || "Could not change that role.");
+      window.alert(result.detail || "Could not change that role.");
       return;
     }
     await reloadOpenMiniProfile();
-    if (typeof refreshServerMemberList === "function") refreshServerMemberList(currentServerId);
+    if (typeof applyMemberRolesUpdated === "function") {
+      applyMemberRolesUpdated(currentServerId, miniProfileUserId, result.hoist_role || null, result.name_role || null, { skipMini: true });
+    }
     if (miniProfileUserId === myUserId && typeof refreshServerPerms === "function") refreshServerPerms();
   } catch (e) {
     window.alert("Could not change that role.");
@@ -559,7 +615,7 @@ async function reloadOpenMiniProfile() {
   const data = await fetchMiniProfile(miniProfileUserId);
   if (!data || !miniProfileOpen) return;
   miniProfileData = data;
-  paintMiniProfile(data);
+  paintMiniProfileRolesOnly(data);
   positionMiniProfile(miniProfileAnchor);
 }
 

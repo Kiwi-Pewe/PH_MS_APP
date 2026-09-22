@@ -1,6 +1,6 @@
 // ==================================================================
 // server-settings.js - Server Settings overlay. Overview Avatar,
-// Banner, Name, About, URL, and Type are live. Timezone and default
+// Banner, Name, About, URL, Type, and Timezone are live. Default
 // notifications stay grey, as does every other index row.
 // ==================================================================
 
@@ -550,6 +550,99 @@ function syncServerSettingsType(kind) {
   setServerSettingsTypeStatus("");
 }
 
+function fillServerSettingsTimezones() {
+  const select = document.getElementById("server-settings-timezone");
+  if (!select || select.dataset.filled === "1") return;
+  let zones = [];
+  try {
+    if (typeof Intl.supportedValuesOf === "function") zones = Intl.supportedValuesOf("timeZone") || [];
+  } catch (e) {
+    zones = [];
+  }
+  if (!zones.length) {
+    zones = ["UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London", "Europe/Paris", "Asia/Tokyo"];
+  }
+  const groups = {};
+  zones.forEach((zone) => {
+    const cut = zone.indexOf("/");
+    const region = cut === -1 ? "Other" : zone.slice(0, cut);
+    const name = (cut === -1 ? zone : zone.slice(cut + 1)).replace(/_/g, " ");
+    if (!groups[region]) groups[region] = [];
+    groups[region].push({ zone, name });
+  });
+  select.innerHTML = "";
+  const blank = document.createElement("option");
+  blank.value = "";
+  blank.textContent = "Select…";
+  select.appendChild(blank);
+  Object.keys(groups).sort().forEach((region) => {
+    const group = document.createElement("optgroup");
+    group.label = region;
+    groups[region].sort((a, b) => a.name.localeCompare(b.name)).forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.zone;
+      option.textContent = item.name;
+      group.appendChild(option);
+    });
+    select.appendChild(group);
+  });
+  select.dataset.filled = "1";
+}
+
+function savedServerSettingsTimezone() {
+  if (currentServerData && currentServerId && typeof currentServerData.timezone === "string") {
+    return currentServerData.timezone;
+  }
+  return (serverList.find(s => s.id === currentServerId) || {}).timezone || "";
+}
+
+function setServerSettingsTimezoneStatus(text) {
+  const status = document.getElementById("server-settings-timezone-status");
+  if (!status) return;
+  status.hidden = !text;
+  status.textContent = text || "";
+}
+
+function syncServerSettingsTimezone(zone) {
+  fillServerSettingsTimezones();
+  const select = document.getElementById("server-settings-timezone");
+  if (!select) return;
+  const next = zone || "";
+  if (next && !Array.from(select.options).some((option) => option.value === next)) {
+    const extra = document.createElement("option");
+    extra.value = next;
+    extra.textContent = next.replace(/_/g, " ");
+    select.appendChild(extra);
+  }
+  select.value = next;
+  setServerSettingsTimezoneStatus("");
+}
+
+async function saveServerSettingsTimezone(zone) {
+  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  const next = (zone || "").trim();
+  if (next === savedServerSettingsTimezone()) return;
+  const select = document.getElementById("server-settings-timezone");
+  if (select) select.disabled = true;
+  setServerSettingsTimezoneStatus("");
+  try {
+    const response = await fetch(`https://${serverAddress}/update_server_timezone`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server_id: currentServerId, timezone: next })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save the timezone.");
+    if (typeof applyServerTimezone === "function") applyServerTimezone(currentServerId, data.timezone || next);
+  } catch (err) {
+    setServerSettingsTimezoneStatus(err.message || "Could not save the timezone.");
+    syncServerSettingsTimezone(savedServerSettingsTimezone());
+  } finally {
+    if (select) select.disabled = false;
+  }
+}
+
 async function saveServerSettingsType(kind) {
   if (!currentServerId || currentServerOwnerId !== myUserId) return;
   const next = (kind || "").trim().toLowerCase();
@@ -594,6 +687,7 @@ function openServerSettings() {
   syncServerSettingsAbout(savedServerSettingsAbout());
   syncServerSettingsUrl(savedServerSettingsUrl());
   syncServerSettingsType(savedServerSettingsType());
+  syncServerSettingsTimezone(savedServerSettingsTimezone());
   setServerSettingsAvatarStatus("");
   setServerSettingsBannerStatus("");
   paintServerSettingsAvatar();
@@ -749,6 +843,10 @@ document.getElementById("server-settings-url-cancel").addEventListener("click", 
 
 document.getElementById("server-settings-type").addEventListener("change", (e) => {
   saveServerSettingsType(e.target.value);
+});
+
+document.getElementById("server-settings-timezone").addEventListener("change", (e) => {
+  saveServerSettingsTimezone(e.target.value);
 });
 
 document.addEventListener("keydown", (e) => {

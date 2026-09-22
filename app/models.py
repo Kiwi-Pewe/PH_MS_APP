@@ -141,6 +141,7 @@ class Servers(Base):
     about = Column(String)
     url_slug = Column(String)
     server_type = Column(String)
+    timezone = Column(String)
 
 class Server_members(Base):
     __tablename__ = "server_members"

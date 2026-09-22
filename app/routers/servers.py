@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update
+from zoneinfo import available_timezones
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
@@ -47,6 +48,18 @@ def clean_server_slug(value):
 
 def server_url_slug(server):
     return (getattr(server, "url_slug", None) or "") if server else ""
+
+
+SERVER_TIMEZONES = available_timezones()
+
+
+def clean_server_timezone(value):
+    zone = (value or "").strip()
+    if not zone:
+        return ""
+    if zone not in SERVER_TIMEZONES:
+        return None
+    return zone
 
 router = APIRouter()
 
@@ -201,6 +214,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "about": getattr(server, "about", None) or "",
         "url_slug": server_url_slug(server),
         "server_type": getattr(server, "server_type", None) or "",
+        "timezone": getattr(server, "timezone", None) or "",
         **server_banner_fields(server)
     }
 
@@ -413,6 +427,30 @@ async def update_server_type(body: Server_type_update, database: Session = Depen
         exclude_user_id=current_user.id,
     )
     return {"ok": True, "server_type": saved}
+
+
+@router.post("/update_server_timezone")
+async def update_server_timezone(body: Server_timezone_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = database.query(Servers).filter(Servers.id == body.server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the server owner can change the timezone.")
+
+    zone = clean_server_timezone(body.timezone)
+    if zone is None:
+        raise HTTPException(status_code=400, detail="That is not a timezone.")
+
+    server.timezone = zone or None
+    database.commit()
+    saved = getattr(server, "timezone", None) or ""
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_timezone_updated", "server_id": server.id, "timezone": saved},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "timezone": saved}
 
 
 @router.get("/get_server_members/{server_id}")

@@ -114,6 +114,16 @@ function applyServerAbout(serverId, about) {
   if (typeof syncServerSettingsAbout === "function") syncServerSettingsAbout(next);
 }
 
+function applyServerTimezone(serverId, zone) {
+  const next = zone || "";
+  const meta = serverList.find(s => s.id === serverId);
+  if (meta) meta.timezone = next;
+  if (currentServerData && currentServerId === serverId) {
+    currentServerData.timezone = next;
+  }
+  if (typeof syncServerSettingsTimezone === "function") syncServerSettingsTimezone(next);
+}
+
 function applyServerType(serverId, kind) {
   const next = kind || "";
   const meta = serverList.find(s => s.id === serverId);

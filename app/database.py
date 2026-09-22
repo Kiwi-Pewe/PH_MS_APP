@@ -274,3 +274,8 @@ def ensure_server_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN timezone VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()

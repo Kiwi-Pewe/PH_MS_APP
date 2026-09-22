@@ -3853,6 +3853,7 @@ a.profile-link-row:hover { color: var(--accent); }
   gap: 16px;
 }
 .server-settings-split .settings-select { width: 100%; }
+.server-settings-select { width: 100%; max-width: 560px; }
 .server-settings-later {
   opacity: 0.45;
   pointer-events: none;

@@ -114,6 +114,16 @@ function applyServerAbout(serverId, about) {
   if (typeof syncServerSettingsAbout === "function") syncServerSettingsAbout(next);
 }
 
+function applyServerType(serverId, kind) {
+  const next = kind || "";
+  const meta = serverList.find(s => s.id === serverId);
+  if (meta) meta.server_type = next;
+  if (currentServerData && currentServerId === serverId) {
+    currentServerData.server_type = next;
+  }
+  if (typeof syncServerSettingsType === "function") syncServerSettingsType(next);
+}
+
 function applyServerUrl(serverId, slug) {
   const next = slug || "";
   const meta = serverList.find(s => s.id === serverId);

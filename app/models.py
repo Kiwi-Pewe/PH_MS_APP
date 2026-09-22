@@ -140,6 +140,7 @@ class Servers(Base):
     banner_color = Column(String)
     about = Column(String)
     url_slug = Column(String)
+    server_type = Column(String)
 
 class Server_members(Base):
     __tablename__ = "server_members"

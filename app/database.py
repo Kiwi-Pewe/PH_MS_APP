@@ -269,3 +269,8 @@ def ensure_server_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN server_type VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()

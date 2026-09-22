@@ -1,7 +1,7 @@
 // ==================================================================
 // server-settings.js - Server Settings overlay. Overview Avatar,
-// Banner, Name, About, and URL are live. Parked Overview fields and
-// every other index row stay grey. Visiting a custom URL is later.
+// Banner, Name, About, URL, and Type are live. Timezone and default
+// notifications stay grey, as does every other index row.
 // ==================================================================
 
 function currentServerIconUrl() {
@@ -519,6 +519,67 @@ function cancelServerSettingsUrl() {
   syncServerSettingsUrl(savedServerSettingsUrl());
 }
 
+const SERVER_TYPES = {
+  community: true,
+  team: true,
+  organization: true,
+  clan: true,
+  guild: true,
+  friends: true,
+  streaming: true,
+  other: true
+};
+
+function savedServerSettingsType() {
+  if (currentServerData && currentServerId && typeof currentServerData.server_type === "string") {
+    return currentServerData.server_type;
+  }
+  return (serverList.find(s => s.id === currentServerId) || {}).server_type || "";
+}
+
+function setServerSettingsTypeStatus(text) {
+  const status = document.getElementById("server-settings-type-status");
+  if (!status) return;
+  status.hidden = !text;
+  status.textContent = text || "";
+}
+
+function syncServerSettingsType(kind) {
+  const select = document.getElementById("server-settings-type");
+  if (select) select.value = kind || "";
+  setServerSettingsTypeStatus("");
+}
+
+async function saveServerSettingsType(kind) {
+  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  const next = (kind || "").trim().toLowerCase();
+  if (next && !SERVER_TYPES[next]) {
+    setServerSettingsTypeStatus("That is not a server type.");
+    syncServerSettingsType(savedServerSettingsType());
+    return;
+  }
+  if (next === savedServerSettingsType()) return;
+  const select = document.getElementById("server-settings-type");
+  if (select) select.disabled = true;
+  setServerSettingsTypeStatus("");
+  try {
+    const response = await fetch(`https://${serverAddress}/update_server_type`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server_id: currentServerId, server_type: next })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save the server type.");
+    if (typeof applyServerType === "function") applyServerType(currentServerId, data.server_type || next);
+  } catch (err) {
+    setServerSettingsTypeStatus(err.message || "Could not save the server type.");
+    syncServerSettingsType(savedServerSettingsType());
+  } finally {
+    if (select) select.disabled = false;
+  }
+}
+
 function openServerSettings() {
   if (!currentServerId) return;
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
@@ -532,6 +593,7 @@ function openServerSettings() {
   syncServerSettingsName(name);
   syncServerSettingsAbout(savedServerSettingsAbout());
   syncServerSettingsUrl(savedServerSettingsUrl());
+  syncServerSettingsType(savedServerSettingsType());
   setServerSettingsAvatarStatus("");
   setServerSettingsBannerStatus("");
   paintServerSettingsAvatar();
@@ -683,6 +745,10 @@ document.getElementById("server-settings-url-confirm").addEventListener("click",
 
 document.getElementById("server-settings-url-cancel").addEventListener("click", () => {
   cancelServerSettingsUrl();
+});
+
+document.getElementById("server-settings-type").addEventListener("change", (e) => {
+  saveServerSettingsType(e.target.value);
 });
 
 document.addEventListener("keydown", (e) => {

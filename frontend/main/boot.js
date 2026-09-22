@@ -267,6 +267,10 @@ function connectSocket() {
       if (typeof applyServerUrl === "function") applyServerUrl(data.server_id, data.url_slug || "");
     }
 
+    if (data.type === "server_type_updated") {
+      if (typeof applyServerType === "function") applyServerType(data.server_id, data.server_type || "");
+    }
+
     if (data.type === "presence") {
       applyPresence(data.user_id, data.status);
     }

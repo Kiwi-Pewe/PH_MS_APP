@@ -199,6 +199,10 @@ class Server_url_update(BaseModel):
     server_id: str
     slug: str = ""
 
+class Server_type_update(BaseModel):
+    server_id: str
+    server_type: str = ""
+
 class Server_message(BaseModel):
     sender_id: int
     channel_id: int

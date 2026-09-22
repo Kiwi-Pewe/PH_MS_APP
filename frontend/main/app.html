@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=136">
+<link rel="stylesheet" href="app.css?v=137">
 </head>
 <body>
 
@@ -550,27 +550,29 @@
           <p id="server-settings-url-status" class="server-settings-help" hidden></p>
         </div>
 
+        <div class="server-settings-field">
+          <label class="server-settings-field-title" for="server-settings-type">Server type</label>
+          <p class="server-settings-help">This category is how people browse to this server.</p>
+          <select id="server-settings-type" class="settings-select server-settings-select">
+            <option value="">Select…</option>
+            <option value="community">Community</option>
+            <option value="team">Team</option>
+            <option value="organization">Organization</option>
+            <option value="clan">Clan</option>
+            <option value="guild">Guild</option>
+            <option value="friends">Friends</option>
+            <option value="streaming">Streaming</option>
+            <option value="other">Other</option>
+          </select>
+          <p id="server-settings-type-status" class="server-settings-help" hidden></p>
+        </div>
+
         <div class="server-settings-later">
-          <div class="server-settings-split">
-            <div class="server-settings-field">
-              <label class="server-settings-field-title" for="server-settings-type">Server type</label>
-              <select id="server-settings-type" class="settings-select" disabled>
-                <option>Community</option>
-                <option>Team</option>
-                <option>Organization</option>
-                <option>Clan</option>
-                <option>Guild</option>
-                <option>Friends</option>
-                <option>Streaming</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div class="server-settings-field">
-              <label class="server-settings-field-title" for="server-settings-timezone">Timezone</label>
-              <select id="server-settings-timezone" class="settings-select" disabled>
-                <option>Select…</option>
-              </select>
-            </div>
+          <div class="server-settings-field">
+            <label class="server-settings-field-title" for="server-settings-timezone">Timezone</label>
+            <select id="server-settings-timezone" class="settings-select" disabled>
+              <option>Select…</option>
+            </select>
           </div>
           <div class="server-settings-field">
             <div class="server-settings-field-title">Default notification settings</div>
@@ -901,10 +903,10 @@
 <script src="util.js?v=49"></script>
 <script src="media.js?v=53"></script>
 <script src="post-media.js?v=51"></script>
-<script src="boot.js?v=71"></script>
+<script src="boot.js?v=72"></script>
 <script src="app-shell.js?v=54"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=7"></script>
+<script src="server-settings.js?v=8"></script>
 <script src="settings-account.js?v=4"></script>
 <script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=1"></script>
@@ -939,7 +941,7 @@
 <script src="invites.js?v=45"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=6"></script>
-<script src="servers.js?v=68"></script>
+<script src="servers.js?v=69"></script>
 <script src="members.js?v=3"></script>
 <script src="server-modals.js?v=47"></script>
 <script src="announcements.js?v=51"></script>

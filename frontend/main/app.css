@@ -3826,6 +3826,27 @@ a.profile-link-row:hover { color: var(--accent); }
   margin-top: 10px;
 }
 .server-settings-name-actions:not([hidden]) { display: flex; }
+.server-settings-url-row {
+  display: flex;
+  align-items: stretch;
+  max-width: 560px;
+}
+.server-settings-url-prefix {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  background: var(--panel-alt);
+  color: var(--text-dim);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.server-settings-url-row .server-settings-input {
+  border-radius: 0 6px 6px 0;
+}
 .server-settings-split {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
@@ -14,6 +14,26 @@ import random
 import re
 
 BANNER_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+SERVER_SLUG_RE = re.compile(r"^[A-Za-z](?:[A-Za-z0-9-]{0,23}[A-Za-z0-9])$")
+RESERVED_SERVER_SLUGS = {
+    "main", "app", "login", "invite", "admin", "shared", "accessibility",
+    "index", "api", "cdn", "settings", "profile", "communities", "games",
+    "announcements", "feedback", "messages", "home", "server", "servers",
+    "about", "help", "support", "legal", "terms", "privacy", "status",
+    "blog", "docs", "static", "assets", "oneira", "www", "mail",
+}
+
+
+def clean_server_slug(value):
+    text = (value or "").strip()
+    text = re.sub(r"^https?://", "", text, flags=re.I)
+    text = re.sub(r"^(www\.)?oneira\.cc/", "", text, flags=re.I)
+    text = text.strip().strip("/")
+    return text
+
+
+def server_url_slug(server):
+    return (getattr(server, "url_slug", None) or "") if server else ""
 
 router = APIRouter()
 
@@ -166,6 +186,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "owner": server.owner_id,
         "icon_url": server_icon_url(server),
         "about": getattr(server, "about", None) or "",
+        "url_slug": server_url_slug(server),
         **server_banner_fields(server)
     }
 
@@ -308,6 +329,49 @@ async def update_server_about(body: Server_about_update, database: Session = Dep
         exclude_user_id=current_user.id,
     )
     return {"ok": True, "about": about}
+
+
+@router.post("/update_server_url")
+async def update_server_url(body: Server_url_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = database.query(Servers).filter(Servers.id == body.server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the server owner can change the URL.")
+
+    slug = clean_server_slug(body.slug)
+    if not slug:
+        server.url_slug = None
+        database.commit()
+        await server_broadcast(
+            server_id=server.id,
+            payload={"type": "server_url_updated", "server_id": server.id, "url_slug": ""},
+            database=database,
+            exclude_user_id=current_user.id,
+        )
+        return {"ok": True, "url_slug": ""}
+
+    if not SERVER_SLUG_RE.fullmatch(slug):
+        raise HTTPException(status_code=400, detail="Use 2–25 letters, numbers, or hyphens, starting with a letter.")
+    if slug.lower() in RESERVED_SERVER_SLUGS:
+        raise HTTPException(status_code=400, detail="That URL is reserved.")
+
+    taken = database.query(Servers).filter(
+        func.lower(Servers.url_slug) == slug.lower(),
+        Servers.id != server.id,
+    ).first()
+    if taken:
+        raise HTTPException(status_code=409, detail="That URL is already taken.")
+
+    server.url_slug = slug
+    database.commit()
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_url_updated", "server_id": server.id, "url_slug": slug},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "url_slug": slug}
 
 
 @router.get("/get_server_members/{server_id}")

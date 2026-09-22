@@ -1,7 +1,7 @@
 // ==================================================================
 // server-settings.js - Server Settings overlay. Overview Avatar,
-// Banner, Name, and About are live. Parked Overview fields and every
-// other index row stay grey. Gradient banner is later.
+// Banner, Name, About, and URL are live. Parked Overview fields and
+// every other index row stay grey. Visiting a custom URL is later.
 // ==================================================================
 
 function currentServerIconUrl() {
@@ -417,6 +417,107 @@ function cancelServerSettingsAbout() {
   syncServerSettingsAbout(savedServerSettingsAbout());
 }
 
+const SERVER_SLUG_RE = /^[A-Za-z](?:[A-Za-z0-9-]{0,23}[A-Za-z0-9])$/;
+const RESERVED_SERVER_SLUGS = {
+  main: true, app: true, login: true, invite: true, admin: true, shared: true,
+  accessibility: true, index: true, api: true, cdn: true, settings: true,
+  profile: true, communities: true, games: true, announcements: true,
+  feedback: true, messages: true, home: true, server: true, servers: true,
+  about: true, help: true, support: true, legal: true, terms: true,
+  privacy: true, status: true, blog: true, docs: true, static: true,
+  assets: true, oneira: true, www: true, mail: true
+};
+
+function cleanServerSettingsSlug(value) {
+  let text = String(value || "").trim();
+  text = text.replace(/^https?:\/\//i, "");
+  text = text.replace(/^(www\.)?oneira\.cc\//i, "");
+  return text.replace(/^\/+|\/+$/g, "").replace(/[^A-Za-z0-9-]/g, "");
+}
+
+function savedServerSettingsUrl() {
+  if (currentServerData && currentServerId && typeof currentServerData.url_slug === "string") {
+    return currentServerData.url_slug;
+  }
+  return (serverList.find(s => s.id === currentServerId) || {}).url_slug || "";
+}
+
+function typedServerSettingsUrl() {
+  const input = document.getElementById("server-settings-url");
+  return input ? cleanServerSettingsSlug(input.value) : "";
+}
+
+function setServerSettingsUrlStatus(text) {
+  const status = document.getElementById("server-settings-url-status");
+  if (!status) return;
+  status.hidden = !text;
+  status.textContent = text || "";
+}
+
+function setServerSettingsUrlBusy(busy) {
+  const input = document.getElementById("server-settings-url");
+  const confirm = document.getElementById("server-settings-url-confirm");
+  const cancel = document.getElementById("server-settings-url-cancel");
+  if (input) input.disabled = !!busy;
+  if (confirm) confirm.disabled = !!busy;
+  if (cancel) cancel.disabled = !!busy;
+}
+
+function paintServerSettingsUrlActions() {
+  const actions = document.getElementById("server-settings-url-actions");
+  if (actions) actions.hidden = typedServerSettingsUrl() === savedServerSettingsUrl();
+}
+
+function syncServerSettingsUrl(slug) {
+  const input = document.getElementById("server-settings-url");
+  if (input) input.value = slug || "";
+  setServerSettingsUrlStatus("");
+  paintServerSettingsUrlActions();
+}
+
+function serverSettingsUrlError(slug) {
+  if (!slug) return "";
+  if (!SERVER_SLUG_RE.test(slug)) return "Use 2–25 letters, numbers, or hyphens, starting with a letter.";
+  if (RESERVED_SERVER_SLUGS[slug.toLowerCase()]) return "That URL is reserved.";
+  return "";
+}
+
+async function confirmServerSettingsUrl() {
+  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  const slug = typedServerSettingsUrl();
+  if (slug === savedServerSettingsUrl()) {
+    paintServerSettingsUrlActions();
+    return;
+  }
+  const reason = serverSettingsUrlError(slug);
+  if (reason) {
+    setServerSettingsUrlStatus(reason);
+    return;
+  }
+  setServerSettingsUrlBusy(true);
+  setServerSettingsUrlStatus("");
+  try {
+    const response = await fetch(`https://${serverAddress}/update_server_url`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server_id: currentServerId, slug })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save that URL.");
+    if (typeof applyServerUrl === "function") applyServerUrl(currentServerId, data.url_slug || slug);
+  } catch (err) {
+    setServerSettingsUrlStatus(err.message || "Could not save that URL.");
+  } finally {
+    setServerSettingsUrlBusy(false);
+    paintServerSettingsUrlActions();
+  }
+}
+
+function cancelServerSettingsUrl() {
+  syncServerSettingsUrl(savedServerSettingsUrl());
+}
+
 function openServerSettings() {
   if (!currentServerId) return;
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
@@ -429,6 +530,7 @@ function openServerSettings() {
   if (label) label.textContent = name;
   syncServerSettingsName(name);
   syncServerSettingsAbout(savedServerSettingsAbout());
+  syncServerSettingsUrl(savedServerSettingsUrl());
   setServerSettingsAvatarStatus("");
   setServerSettingsBannerStatus("");
   paintServerSettingsAvatar();
@@ -451,6 +553,7 @@ function closeServerSettingsChrome() {
   setServerSettingsBannerStatus("");
   cancelServerSettingsName();
   cancelServerSettingsAbout();
+  cancelServerSettingsUrl();
 }
 
 document.getElementById("server-settings-close").addEventListener("click", () => {
@@ -557,6 +660,28 @@ document.getElementById("server-settings-about-confirm").addEventListener("click
 
 document.getElementById("server-settings-about-cancel").addEventListener("click", () => {
   cancelServerSettingsAbout();
+});
+
+document.getElementById("server-settings-url").addEventListener("input", (e) => {
+  const input = e.target;
+  const cleaned = cleanServerSettingsSlug(input.value).slice(0, 25);
+  if (input.value !== cleaned) input.value = cleaned;
+  setServerSettingsUrlStatus("");
+  paintServerSettingsUrlActions();
+});
+
+document.getElementById("server-settings-url").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  confirmServerSettingsUrl();
+});
+
+document.getElementById("server-settings-url-confirm").addEventListener("click", () => {
+  confirmServerSettingsUrl();
+});
+
+document.getElementById("server-settings-url-cancel").addEventListener("click", () => {
+  cancelServerSettingsUrl();
 });
 
 document.addEventListener("keydown", (e) => {

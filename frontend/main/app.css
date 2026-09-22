@@ -3814,6 +3814,13 @@ a.profile-link-row:hover { color: var(--accent); }
 .server-settings-banner-color-row {
   margin-top: 10px;
 }
+.server-settings-name-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
 .server-settings-split {
   display: grid;
   grid-template-columns: 1fr 1fr;

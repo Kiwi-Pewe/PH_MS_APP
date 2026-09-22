@@ -85,6 +85,25 @@ function paintServerSidebarBanner(server) {
   view.classList.toggle("has-banner", !!(url || color));
 }
 
+function applyServerName(serverId, name) {
+  const next = name || "";
+  const meta = serverList.find(s => s.id === serverId);
+  if (meta) meta.name = next;
+  const icon = document.querySelector(`.rail-icon.server-icon[data-server-id="${serverId}"]`);
+  if (icon) {
+    icon.title = next;
+    paintRailServerIcon(icon, { name: next, icon_url: (meta && meta.icon_url) || "" });
+  }
+  if (currentServerId === serverId) {
+    const sidebar = document.getElementById("server-sidebar-name");
+    if (sidebar) sidebar.textContent = next;
+    const label = document.getElementById("server-settings-index-label");
+    if (label) label.textContent = next;
+    if (typeof paintServerSettingsAvatar === "function") paintServerSettingsAvatar();
+  }
+  if (typeof syncServerSettingsName === "function") syncServerSettingsName(next);
+}
+
 function applyServerBanner(serverId, banner) {
   const url = (banner && banner.banner_url) || "";
   const color = (banner && banner.banner_color) || "";

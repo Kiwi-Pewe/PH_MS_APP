@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update, Server_name_update
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
@@ -254,6 +254,31 @@ async def update_server_banner(body: Server_banner_update, database: Session = D
         exclude_user_id=current_user.id,
     )
     return {"ok": True, **fields}
+
+
+@router.post("/update_server_name")
+async def update_server_name(body: Server_name_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = database.query(Servers).filter(Servers.id == body.server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the server owner can change the name.")
+
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Server name cannot be empty.")
+    if len(name) > 100:
+        raise HTTPException(status_code=400, detail="Server name is too long.")
+
+    server.name = name
+    database.commit()
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_name_updated", "server_id": server.id, "name": name},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "name": name}
 
 
 @router.get("/get_server_members/{server_id}")

@@ -1,7 +1,7 @@
 // ==================================================================
-// server-settings.js - Server Settings overlay. Overview Avatar and
-// Banner are live (image or solid color). Other Overview fields and
-// every other index row stay parked. Gradient banner is later.
+// server-settings.js - Server Settings overlay. Overview Avatar,
+// Banner, and Name are live. About and every other index row stay
+// parked. Gradient banner is later.
 // ==================================================================
 
 function currentServerIconUrl() {
@@ -254,6 +254,85 @@ async function removeServerSettingsAvatar() {
   }
 }
 
+function savedServerSettingsName() {
+  return (serverList.find(s => s.id === currentServerId) || {}).name
+    || document.getElementById("server-sidebar-name").textContent
+    || "";
+}
+
+function typedServerSettingsName() {
+  const input = document.getElementById("server-settings-name");
+  return input ? input.value : "";
+}
+
+function setServerSettingsNameStatus(text) {
+  const status = document.getElementById("server-settings-name-status");
+  if (!status) return;
+  status.hidden = !text;
+  status.textContent = text || "";
+}
+
+function setServerSettingsNameBusy(busy) {
+  const input = document.getElementById("server-settings-name");
+  const confirm = document.getElementById("server-settings-name-confirm");
+  const cancel = document.getElementById("server-settings-name-cancel");
+  if (input) input.disabled = !!busy;
+  if (confirm) confirm.disabled = !!busy;
+  if (cancel) cancel.disabled = !!busy;
+}
+
+function paintServerSettingsNameActions() {
+  const actions = document.getElementById("server-settings-name-actions");
+  const confirm = document.getElementById("server-settings-name-confirm");
+  const typed = typedServerSettingsName().trim();
+  const dirty = typed !== savedServerSettingsName().trim();
+  if (actions) actions.hidden = !dirty;
+  if (confirm) confirm.disabled = !typed;
+}
+
+function syncServerSettingsName(name) {
+  const input = document.getElementById("server-settings-name");
+  if (input) input.value = name || "";
+  setServerSettingsNameStatus("");
+  paintServerSettingsNameActions();
+}
+
+async function confirmServerSettingsName() {
+  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  const name = typedServerSettingsName().trim();
+  if (!name) {
+    setServerSettingsNameStatus("Server name cannot be empty.");
+    paintServerSettingsNameActions();
+    return;
+  }
+  if (name === savedServerSettingsName().trim()) {
+    paintServerSettingsNameActions();
+    return;
+  }
+  setServerSettingsNameBusy(true);
+  setServerSettingsNameStatus("");
+  try {
+    const response = await fetch(`https://${serverAddress}/update_server_name`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server_id: currentServerId, name })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save the server name.");
+    if (typeof applyServerName === "function") applyServerName(currentServerId, data.name || name);
+  } catch (err) {
+    setServerSettingsNameStatus(err.message || "Could not save the server name.");
+  } finally {
+    setServerSettingsNameBusy(false);
+    paintServerSettingsNameActions();
+  }
+}
+
+function cancelServerSettingsName() {
+  syncServerSettingsName(savedServerSettingsName());
+}
+
 function openServerSettings() {
   if (!currentServerId) return;
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
@@ -264,8 +343,7 @@ function openServerSettings() {
   const name = currentServerSettingsName();
   const label = document.getElementById("server-settings-index-label");
   if (label) label.textContent = name;
-  const nameInput = document.getElementById("server-settings-name");
-  if (nameInput) nameInput.value = name;
+  syncServerSettingsName(name);
   setServerSettingsAvatarStatus("");
   setServerSettingsBannerStatus("");
   paintServerSettingsAvatar();
@@ -285,6 +363,7 @@ function closeServerSettingsChrome() {
   if (bannerFile) bannerFile.value = "";
   setServerSettingsAvatarStatus("");
   setServerSettingsBannerStatus("");
+  cancelServerSettingsName();
 }
 
 document.getElementById("server-settings-close").addEventListener("click", () => {
@@ -358,6 +437,25 @@ document.getElementById("server-settings-banner-hex").addEventListener("change",
 
 document.getElementById("server-settings-banner-remove").addEventListener("click", () => {
   removeServerSettingsBanner();
+});
+
+document.getElementById("server-settings-name").addEventListener("input", () => {
+  setServerSettingsNameStatus("");
+  paintServerSettingsNameActions();
+});
+
+document.getElementById("server-settings-name").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  confirmServerSettingsName();
+});
+
+document.getElementById("server-settings-name-confirm").addEventListener("click", () => {
+  confirmServerSettingsName();
+});
+
+document.getElementById("server-settings-name-cancel").addEventListener("click", () => {
+  cancelServerSettingsName();
 });
 
 document.addEventListener("keydown", (e) => {

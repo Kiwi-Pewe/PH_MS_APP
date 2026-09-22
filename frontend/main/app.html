@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=131">
+<link rel="stylesheet" href="app.css?v=132">
 </head>
 <body>
 
@@ -517,7 +517,12 @@
 
         <div class="server-settings-field">
           <label class="server-settings-field-title" for="server-settings-name">Server name</label>
-          <input id="server-settings-name" class="server-settings-input" type="text" disabled>
+          <input id="server-settings-name" class="server-settings-input" type="text" maxlength="100" autocomplete="off">
+          <div id="server-settings-name-actions" class="server-settings-name-actions" hidden>
+            <button type="button" id="server-settings-name-confirm" class="settings-row-btn">Confirm</button>
+            <button type="button" id="server-settings-name-cancel" class="ghost-btn">Cancel</button>
+          </div>
+          <p id="server-settings-name-status" class="server-settings-help" hidden></p>
         </div>
 
         <div class="server-settings-field">
@@ -882,10 +887,10 @@
 <script src="util.js?v=49"></script>
 <script src="media.js?v=53"></script>
 <script src="post-media.js?v=51"></script>
-<script src="boot.js?v=68"></script>
+<script src="boot.js?v=69"></script>
 <script src="app-shell.js?v=54"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=3"></script>
+<script src="server-settings.js?v=4"></script>
 <script src="settings-account.js?v=4"></script>
 <script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=1"></script>
@@ -920,7 +925,7 @@
 <script src="invites.js?v=45"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=6"></script>
-<script src="servers.js?v=65"></script>
+<script src="servers.js?v=66"></script>
 <script src="members.js?v=3"></script>
 <script src="server-modals.js?v=47"></script>
 <script src="announcements.js?v=51"></script>

@@ -255,6 +255,10 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "server_name_updated") {
+      if (typeof applyServerName === "function") applyServerName(data.server_id, data.name || "");
+    }
+
     if (data.type === "presence") {
       applyPresence(data.user_id, data.status);
     }

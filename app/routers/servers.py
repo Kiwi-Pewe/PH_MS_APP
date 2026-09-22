@@ -10,6 +10,7 @@ from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.realtime import serialize_member, server_broadcast
+from app.routers.profile import avatar_lookup
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 import random
 import re
@@ -579,6 +580,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
     sender_ids = list({message.sender_id for message in channel_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
+    faces = avatar_lookup(accounts)
     reaction_map = reactions_for_messages(database, "channel", [message.id for message in channel_history], current_user.id)
     mention_meta = decorate_history(database, "channel", channel_history, current_user.id)
     reply_map = reply_map_for(database, Channel_messages, channel_history)
@@ -598,6 +600,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
             "mention_users": mention_meta[index]["mention_users"],
             "mention_roles": mention_meta[index]["mention_roles"],
             "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,
+            "avatar": faces.get(message.sender_id),
         })
 
     message_history.reverse()

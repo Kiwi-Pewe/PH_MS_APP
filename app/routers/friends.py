@@ -7,6 +7,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import active_connections
 from app.privacy import can_send_friend_request
+from app.routers.profile import public_avatar
 
 router = APIRouter()
 
@@ -76,7 +77,7 @@ async def add_user(friends: Friend_user, database: Session = Depends(get_db), cu
     database.refresh(add_friend)
 
     if friend_exists.id in active_connections:
-        await active_connections[friend_exists.id].send_json({"type": "friend_request", "sender_id": current_user.id, "username": current_user.username})
+        await active_connections[friend_exists.id].send_json({"type": "friend_request", "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user)})
     return
 
 @router.get("/get_friends")
@@ -90,16 +91,16 @@ def get_friends(database: Session = Depends(get_db), current_user: UserInfo = De
     for entry in pending_requests:
         other_id = entry.user_2 if entry.user_1 == current_user.id else entry.user_1
         actual_account = database.query(UserInfo).filter(UserInfo.id == other_id).first()
-        all_requests.append({"id": other_id, "username": actual_account.username})
+        all_requests.append({"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account) if actual_account else None})
 
     for friends in accepted_friends:
         other_id = friends.user_2 if friends.user_1 == current_user.id else friends.user_1
         actual_account = database.query(UserInfo).filter(UserInfo.id == other_id).first()
 
         if actual_account.id in active_connections:
-            online_friends.append({"id": other_id, "username": actual_account.username})
+            online_friends.append({"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account)})
         else:
-            offline_friends.append({"id": other_id, "username": actual_account.username})
+            offline_friends.append({"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account)})
 
     return {"pending_requests": all_requests, "online_friends": online_friends, "offline_friends": offline_friends}
 

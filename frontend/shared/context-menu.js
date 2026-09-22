@@ -69,7 +69,11 @@ function buildReferenceArea(reference) {
 
   const avatar = document.createElement("div");
   avatar.className = "context-menu-avatar";
-  avatar.textContent = reference.avatarText || "?";
+  if (typeof paintUserFace === "function" && (reference.avatar || reference.userId)) {
+    paintUserFace(avatar, { avatar: reference.avatar, id: reference.userId, username: reference.title }, { name: reference.title || reference.avatarText, userId: reference.userId });
+  } else {
+    avatar.textContent = reference.avatarText || "?";
+  }
   ref.appendChild(avatar);
 
   const textCol = document.createElement("div");

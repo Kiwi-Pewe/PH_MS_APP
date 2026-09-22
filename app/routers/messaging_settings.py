@@ -5,6 +5,7 @@ from app.schemas import Messaging_friend_prefs, Messaging_dms_pref, Notification
 from app.database import get_db
 from app.auth import get_current_user
 from app.privacy import flag_on, dms_allowed_on_server
+from app.routers.profile import public_avatar
 
 router = APIRouter()
 
@@ -30,7 +31,7 @@ def get_messaging_settings(current_user: UserInfo = Depends(get_current_user), d
     for row in blocked_rows:
         account = database.query(UserInfo).filter(UserInfo.id == row.blocked_user).first()
         if account:
-            blocked.append({"id": account.id, "username": account.username, "display_name": account.display_name or account.username})
+            blocked.append({"id": account.id, "username": account.username, "display_name": account.display_name or account.username, "avatar": public_avatar(account)})
     return {
         "friend_req_everyone": bool_flag(current_user, "friend_req_everyone"),
         "friend_req_friends_of_friends": bool_flag(current_user, "friend_req_friends_of_friends"),

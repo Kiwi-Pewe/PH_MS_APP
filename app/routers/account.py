@@ -275,6 +275,8 @@ def create_account(account: Account_register, database : Session = Depends(get_d
 
 @router.get("/whoami")
 def self_identity(current_user: UserInfo = Depends(get_current_user)):
+    from app.routers.profile import public_identity
+    ident = public_identity(current_user)
     return {
         "username": current_user.username,
         "id": current_user.id,
@@ -282,6 +284,8 @@ def self_identity(current_user: UserInfo = Depends(get_current_user)):
         "appearance": appearance_payload(current_user),
         "accessibility": accessibility_payload(current_user),
         "language_time": language_time_payload(current_user),
+        "identity": ident,
+        "avatar": ident["avatar"],
     }
 
 @router.get("/account_settings")

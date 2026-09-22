@@ -220,8 +220,10 @@ async function openForumPost(post) {
         username: msg.username,
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-        time: parseUtcTimestamp(msg.timestamp)
+        time: parseUtcTimestamp(msg.timestamp),
+        avatar: msg.avatar || null
       }, msg);
+      if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
     });
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;

@@ -59,8 +59,11 @@ function applyLocalIdentity(data) {
     if (card) card.textContent = data.display_name;
     const letter = document.getElementById("settings-card-letter");
     if (letter && typeof avatarLetter === "function") letter.textContent = avatarLetter(data.display_name);
-    const footerLetter = document.getElementById("footer-avatar-letter");
-    if (footerLetter && typeof avatarLetter === "function") footerLetter.textContent = avatarLetter(data.display_name);
+    if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
+    else {
+      const footerLetter = document.getElementById("footer-avatar-letter");
+      if (footerLetter && typeof avatarLetter === "function") footerLetter.textContent = avatarLetter(data.display_name);
+    }
   }
 }
 

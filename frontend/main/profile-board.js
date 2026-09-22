@@ -1461,7 +1461,8 @@ function paintProfileFriends(host) {
     const dot = document.createElement("div");
     dot.className = "avatar-dot";
     const shown = person.display_name || person.username || "?";
-    dot.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : shown.slice(0, 1);
+    if (typeof paintUserFace === "function") paintUserFace(dot, person, { name: shown, userId: person.id });
+    else dot.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : shown.slice(0, 1);
     const name = document.createElement("div");
     name.className = "profile-friend-name";
     name.textContent = shown;

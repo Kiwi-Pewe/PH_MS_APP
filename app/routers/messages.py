@@ -10,6 +10,7 @@ from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
 from app.routers.mentions import accepted_reply_parent, reply_map_for
+from app.routers.profile import avatar_lookup, public_avatar
 from datetime import datetime
 
 router = APIRouter()
@@ -92,6 +93,9 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
     History.reverse()
     reaction_map = reactions_for_messages(database, "dm", [msg.id for msg in History], current_user.id)
     reply_map = reply_map_for(database, Message, History)
+    sender_ids = list({msg.sender_id for msg in History if msg.sender_id})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all() if sender_ids else []
+    faces = avatar_lookup(accounts)
     messages_out = []
     for msg in History:
         fields = deletion_fields(msg, attachment_public(msg.attachment))
@@ -108,8 +112,9 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
             "edited": fields["edited"],
             "reactions": reaction_map.get(msg.id, []),
             "reply_to": reply_map.get(msg.reply_to_id) if msg.reply_to_id else None,
+            "avatar": faces.get(msg.sender_id),
         })
-    return {"other_username": target_user.username, "session_username": current_user.username , "messages": messages_out}
+    return {"other_username": target_user.username, "session_username": current_user.username, "other_avatar": public_avatar(target_user), "messages": messages_out}
 
 @router.get("/conversation_history")
 def conversation_history(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -124,7 +129,7 @@ def conversation_history(database: Session = Depends(get_db), current_user: User
         other_id = convo.user_2 if convo.user_1 == current_user.id else convo.user_1
         other_account = database.query(UserInfo).filter(UserInfo.id == other_id).first()
         message_status = database.query(Message).filter(Message.sender_id == other_id, Message.receiver_id == current_user.id, Message.read == False).count()
-        conversations_out.append({"type": "dm", "id": other_id, "username": other_account.username, "unread_count": message_status, "last_message_at": str(convo.last_message_at)})
+        conversations_out.append({"type": "dm", "id": other_id, "username": other_account.username, "unread_count": message_status, "last_message_at": str(convo.last_message_at), "avatar": public_avatar(other_account) if other_account else None})
 
     return {"conversations": conversations_out}
 

@@ -639,7 +639,11 @@ function renderMentionPicker(items) {
       avatar.style.background = item.color || "#99aab5";
       avatar.textContent = "";
     } else {
-      avatar.textContent = item.type === "special" ? "@" : avatarLetter(item.label);
+      if (item.type !== "special" && item.member && typeof paintUserFace === "function") {
+        paintUserFace(avatar, item.member, { name: item.label, userId: item.member.id });
+      } else {
+        avatar.textContent = item.type === "special" ? "@" : avatarLetter(item.label);
+      }
     }
     row.appendChild(avatar);
 

@@ -31,8 +31,10 @@ async function loadOlderMessages() {
         username: isMine ? myUsername : (openChatType === "party" ? msg.username : openChatName),
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-        time: new Date(msg.timestamp)
+        time: new Date(msg.timestamp),
+        avatar: msg.avatar || null
       }, msg);
+      if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);
       return mapped;
     });
@@ -89,8 +91,10 @@ async function loadOlderChannelMessages() {
         // space-separated str(datetime) the backend sends); the channel
         // branch keeps bare Date() so it stays consistent with its own
         // initial load until the queued timestamp fix lands everywhere.
-        time: isForum ? parseUtcTimestamp(msg.timestamp) : new Date(msg.timestamp)
+        time: isForum ? parseUtcTimestamp(msg.timestamp) : new Date(msg.timestamp),
+        avatar: msg.avatar || null
       }, msg);
+      if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);
       return mapped;
     });

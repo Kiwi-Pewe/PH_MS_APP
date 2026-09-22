@@ -13,6 +13,7 @@ from app.models import (
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import active_connections
+from app.routers.profile import avatar_lookup, public_avatar
 from datetime import datetime, timedelta
 import re
 
@@ -261,6 +262,7 @@ def reply_to_payload(database, parent, author_attr="sender_id"):
         "id": parent.id,
         "sender_id": author_id,
         "username": account.username if account else "user",
+        "avatar": public_avatar(account) if account else None,
         "content": "" if deleted else (parent.content or ""),
         "deleted": bool(deleted),
     }
@@ -272,7 +274,9 @@ def reply_map_for(database, model, messages, author_attr="sender_id"):
     parents = database.query(model).filter(model.id.in_(reply_ids)).all()
     parent_map = {parent.id: parent for parent in parents}
     author_ids = [getattr(parent, author_attr) for parent in parents if getattr(parent, author_attr)]
-    names = {account.id: account.username for account in member_records(database, author_ids)}
+    authors = member_records(database, author_ids)
+    names = {account.id: account.username for account in authors}
+    faces = avatar_lookup(authors)
     out = {}
     for reply_id in set(reply_ids):
         parent = parent_map.get(reply_id)
@@ -285,6 +289,7 @@ def reply_map_for(database, model, messages, author_attr="sender_id"):
             "id": parent.id,
             "sender_id": author_id,
             "username": names.get(author_id, "user") if author_id else "user",
+            "avatar": faces.get(author_id),
             "content": "" if deleted else (parent.content or ""),
             "deleted": bool(deleted),
         }

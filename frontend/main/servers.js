@@ -421,8 +421,10 @@ async function selectChannel(channel, rowEl) {
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
         time: new Date(msg.timestamp),
         edited: !!msg.edited,
-        reactions: applyReactionMe(msg.reactions || [])
+        reactions: applyReactionMe(msg.reactions || []),
+        avatar: msg.avatar || null
       };
+      if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
     });
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;

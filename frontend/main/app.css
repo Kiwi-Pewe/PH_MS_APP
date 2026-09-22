@@ -286,6 +286,7 @@
   overflow: hidden;
 }
 .avatar-dot {
+  position: relative;
   width: 32px; height: 32px; border-radius: 50%;
   aspect-ratio: 1; align-self: center; overflow: hidden; line-height: 1;
   background: #3b3e4a; border: 1px solid var(--border); flex: 0 0 auto;
@@ -1309,6 +1310,8 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   color: var(--text-dim);
 }
 .mention-picker-avatar {
+  position: relative;
+  overflow: hidden;
   width: 32px; height: 32px; border-radius: 50%; flex: 0 0 auto;
   background: #3b3e4a; border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
@@ -1598,6 +1601,8 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
    list, same reflow-from-scratch approach as the clusters below it. */
 .convo-start-card { text-align: center; padding: 24px 16px 28px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
 .convo-start-avatar {
+  position: relative;
+  overflow: hidden;
   width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 12px;
   background: #3b3e4a; border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
@@ -1714,6 +1719,8 @@ html.no-chat-bubbles .msg-cluster { margin-bottom: calc(var(--cluster-gap, 20px)
 #channel-messages:not(.self-right) .msg-cluster.self { flex-direction: row; }
 
 .cluster-avatar {
+  position: relative;
+  overflow: hidden;
   width: calc(40px * var(--message-scale)); height: calc(40px * var(--message-scale));
   border-radius: 50%; flex: 0 0 auto;
   background: #3b3e4a; border: 1px solid var(--border);
@@ -4415,6 +4422,7 @@ a.profile-link-row:hover { color: var(--accent); }
 .cluster-avatar.is-mini-profile-target,
 .cluster-name.is-mini-profile-target { cursor: pointer; }
 
+.face-letter { position: relative; z-index: 1; }
 .identity-media {
   position: absolute;
   inset: 0;

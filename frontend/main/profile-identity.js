@@ -8,13 +8,25 @@ const IDENTITY_RECENT_MAX = 6;
 const IDENTITY_ZOOM_MIN = 1;
 const IDENTITY_ZOOM_MAX = 3;
 let ownIdentityCache = null;
+const identityFaceCache = {};
 
 function defaultIdentityCrop() {
   return { zoom: 1, rotation: 0, x: 0.5, y: 0.5 };
 }
 
 function emptyIdentityMedia() {
-  return { key: "", url: "", mime: "", size: 0, name: "", crop: defaultIdentityCrop() };
+  return {
+    key: "",
+    url: "",
+    mime: "",
+    size: 0,
+    name: "",
+    crop: defaultIdentityCrop(),
+    show_border: false,
+    border_width: 3,
+    border_color: "#ffffff",
+    border_style: "solid"
+  };
 }
 
 function normalizeIdentityCrop(raw) {
@@ -42,6 +54,10 @@ function cloneIdentityMedia(media) {
   out.size = src.size || 0;
   out.name = src.name || "";
   out.crop = normalizeIdentityCrop(src.crop);
+  out.show_border = !!src.show_border;
+  out.border_width = src.border_width || 3;
+  out.border_color = src.border_color || "#ffffff";
+  out.border_style = src.border_style || "solid";
   if (src._file) out._file = src._file;
   if (src._previewUrl) out._previewUrl = src._previewUrl;
   if (src._ownedPreview) out._ownedPreview = true;
@@ -197,32 +213,91 @@ function paintIdentityMedia(host, media, opts) {
   img.addEventListener("load", layout);
   layer.appendChild(img);
   host.appendChild(layer);
+  if (opts.border !== false) applyIdentityBorder(host, media);
   if (img.complete) layout();
 }
 
 function rememberOwnIdentity(layout) {
-  if (!layout || !layout.identity) return;
+  const ident = (layout && layout.identity) || layout;
+  if (!ident || (!ident.avatar && !ident.banner)) return;
   ownIdentityCache = {
-    avatar: cloneIdentityMedia(layout.identity.avatar),
-    banner: cloneIdentityMedia(layout.identity.banner)
+    avatar: cloneIdentityMedia(ident.avatar),
+    banner: cloneIdentityMedia(ident.banner)
   };
+  if (typeof myUserId !== "undefined" && myUserId) rememberIdentityFace(myUserId, ownIdentityCache.avatar);
+}
+
+function takeMessageAvatar(mapped, raw) {
+  if (mapped && raw && raw.avatar) {
+    mapped.avatar = raw.avatar;
+    rememberIdentityFace(mapped.senderId || raw.sender_id || raw.author_id, raw.avatar);
+  }
+  return mapped;
+}
+
+function rememberIdentityFace(userId, avatar) {
+  if (!userId || !avatar) return;
+  identityFaceCache[userId] = cloneIdentityMedia(avatar);
+}
+
+function faceForUser(userId, fallback) {
+  if (userId && typeof myUserId !== "undefined" && userId === myUserId && ownIdentityCache) {
+    return ownIdentityCache.avatar;
+  }
+  return fallback || identityFaceCache[userId] || null;
+}
+
+function resolveIdentityAvatar(source, userId) {
+  if (source && source.avatar) return cloneIdentityMedia(source.avatar);
+  if (source && source.identity && source.identity.avatar) return cloneIdentityMedia(source.identity.avatar);
+  if (source && (source.url || source._file || source._previewUrl || source.key)) return cloneIdentityMedia(source);
+  return cloneIdentityMedia(faceForUser(userId, null));
+}
+
+function applyIdentityBorder(el, media) {
+  if (!el) return;
+  if (media && media.show_border) {
+    el.style.border = (media.border_width || 3) + "px " + (media.border_style || "solid") + " " + (media.border_color || "#ffffff");
+  } else {
+    el.style.border = "";
+  }
+}
+
+function paintUserFace(host, source, opts) {
+  opts = opts || {};
+  if (!host) return;
+  const userId = opts.userId || (source && (source.id || source.senderId || source.sender_id || source.author_id));
+  const name = opts.name || (source && (source.display_name || source.username || source.author_username)) || "";
+  const media = resolveIdentityAvatar(source, userId);
+  if (userId && (identityHasImage(media) || media.show_border)) rememberIdentityFace(userId, media);
+  const pip = host.querySelector(":scope > .status-dot");
+  host.querySelectorAll(":scope > .identity-media").forEach((node) => node.remove());
+  let letter = host.querySelector(":scope > .face-letter, :scope > #footer-avatar-letter");
+  if (!letter) {
+    letter = document.createElement("span");
+    letter.className = "face-letter";
+    host.insertBefore(letter, host.firstChild);
+  }
+  letter.textContent = typeof avatarLetter === "function" ? avatarLetter(name) : (name || "?").slice(0, 1);
+  if (identityHasImage(media)) {
+    letter.hidden = true;
+    paintIdentityMedia(host, media, { circle: opts.circle !== false, border: false });
+  } else {
+    letter.hidden = false;
+  }
+  applyIdentityBorder(host, media);
+  if (pip) host.appendChild(pip);
 }
 
 function paintOwnFooterAvatar() {
   const wrap = document.querySelector("#account-footer .avatar-dot");
-  const letter = document.getElementById("footer-avatar-letter");
   if (!wrap) return;
   const media = (typeof profileIsOwn !== "undefined" && profileIsOwn)
     ? getIdentityMedia("avatar")
     : (ownIdentityCache && ownIdentityCache.avatar);
-  const existing = wrap.querySelector(":scope > .identity-media");
-  if (existing) existing.remove();
-  if (identityHasImage(media)) {
-    if (letter) letter.hidden = true;
-    paintIdentityMedia(wrap, media, { circle: true });
-  } else if (letter) {
-    letter.hidden = false;
-  }
+  paintUserFace(wrap, { id: typeof myUserId !== "undefined" ? myUserId : null, username: myDisplayName || myUsername, avatar: media }, {
+    name: myDisplayName || myUsername
+  });
 }
 
 async function flushIdentityUploads(layout) {
@@ -286,6 +361,10 @@ function seedIdentityOptionsDraft(tile, draft) {
   draft.crop = ident.crop;
   if (ident._file) draft._file = ident._file;
   if (ident._previewUrl) draft._previewUrl = ident._previewUrl;
+  draft.show_border = !!ident.show_border;
+  draft.border_width = ident.border_width || draft.border_width || 3;
+  draft.border_color = ident.border_color || draft.border_color || "#ffffff";
+  draft.border_style = ident.border_style || draft.border_style || "solid";
 }
 
 function dropIdentityOptionsDraft(draft, tile) {

@@ -169,7 +169,8 @@ function wrapDeletionOnSenderSide(msg, inner) {
 
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
-  avatar.textContent = avatarLetter(msg.username);
+  if (typeof paintUserFace === "function") paintUserFace(avatar, msg, { name: msg.username, userId: msg.senderId });
+  else avatar.textContent = avatarLetter(msg.username);
   if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(avatar, msg.senderId);
 
   const body = document.createElement("div");
@@ -252,7 +253,8 @@ function buildEditComposer(msg) {
 
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
-  avatar.textContent = avatarLetter(msg.username);
+  if (typeof paintUserFace === "function") paintUserFace(avatar, msg, { name: msg.username, userId: msg.senderId });
+  else avatar.textContent = avatarLetter(msg.username);
   if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(avatar, msg.senderId);
 
   const body = document.createElement("div");
@@ -396,7 +398,8 @@ function startNewCluster(wrap, msg) {
 
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
-  avatar.textContent = avatarLetter(msg.username);
+  if (typeof paintUserFace === "function") paintUserFace(avatar, msg, { name: msg.username, userId: msg.senderId });
+  else avatar.textContent = avatarLetter(msg.username);
   avatar.addEventListener("contextmenu", (e) => showProfileContextMenu(e, msg.senderId, msg.username, msg.isMine));
   if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(avatar, msg.senderId);
 
@@ -483,7 +486,8 @@ function buildConversationStartCard(id, username) {
 
   const avatar = document.createElement("div");
   avatar.className = "convo-start-avatar";
-  avatar.textContent = avatarLetter(username);
+  if (typeof paintUserFace === "function") paintUserFace(avatar, { id: id, username: username }, { name: username, userId: id });
+  else avatar.textContent = avatarLetter(username);
 
   const name = document.createElement("div");
   name.className = "convo-start-name";

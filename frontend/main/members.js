@@ -113,7 +113,8 @@ function buildMemberRow(member) {
 
   const avatar = document.createElement("div");
   avatar.className = "avatar-dot";
-  avatar.textContent = avatarLetter(member.username);
+  if (typeof paintUserFace === "function") paintUserFace(avatar, member, { name: member.username, userId: member.id });
+  else avatar.textContent = avatarLetter(member.username);
   const pip = document.createElement("div");
   pip.className = "status-dot status-" + status;
   avatar.appendChild(pip);

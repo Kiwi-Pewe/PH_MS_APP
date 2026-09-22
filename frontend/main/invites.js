@@ -65,7 +65,8 @@ async function openInviteModal(type, id, name) {
       const row = document.createElement("div");
       row.className = "friend-row";
       row.innerHTML = `<div class="avatar-dot"></div><div class="who"></div><input type="checkbox">`;
-      row.querySelector(".avatar-dot").textContent = avatarLetter(friend.username);
+      if (typeof paintUserFace === "function") paintUserFace(row.querySelector(".avatar-dot"), friend, { name: friend.username, userId: friend.id });
+      else row.querySelector(".avatar-dot").textContent = avatarLetter(friend.username);
       row.querySelector(".who").textContent = friend.username;
       const checkbox = row.querySelector("input");
       checkbox.addEventListener("change", () => toggleInviteRecipient(friend.id, friend.username, checkbox));

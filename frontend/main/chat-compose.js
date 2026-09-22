@@ -125,6 +125,7 @@ async function sendChatMessage() {
     reactions: [],
     mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {},
     mentionRoles: typeof mentionRolesFromText === "function" ? mentionRolesFromText(storedContent) : {},
+    avatar: typeof faceForUser === "function" ? faceForUser(myUserId) : null,
     replyTo: pendingReply && pendingReply.chatKind === chatKind ? {
       id: pendingReply.id,
       sender_id: pendingReply.senderId,
@@ -209,6 +210,7 @@ async function sendChannelMessage() {
     reactions: [],
     mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {},
     mentionRoles: typeof mentionRolesFromText === "function" ? mentionRolesFromText(storedContent) : {},
+    avatar: typeof faceForUser === "function" ? faceForUser(myUserId) : null,
     replyTo: pendingReply && pendingReply.chatKind === chatKind ? {
       id: pendingReply.id,
       sender_id: pendingReply.senderId,

@@ -9,6 +9,7 @@ from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
 from app.routers.realtime import party_broadcast, serialize_member
+from app.routers.profile import avatar_lookup
 from app.routers.mentions import apply_party_mentions, decorate_history, party_mention_count, accepted_reply_parent, reply_map_for
 from datetime import datetime
 import random
@@ -147,6 +148,7 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
     sender_ids = list({message.sender_id for message in party_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()
     username_lookup = {account.id: account.username for account in accounts}
+    faces = avatar_lookup(accounts)
 
     message_history = []
 
@@ -166,6 +168,7 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
             "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,
+            "avatar": faces.get(message.sender_id),
         })
 
     message_history.reverse()

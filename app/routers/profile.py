@@ -572,7 +572,7 @@ def normalize_identity_crop(data):
 
 
 def empty_identity_media():
-    return {
+    out = {
         "key": "",
         "url": "",
         "mime": "",
@@ -580,6 +580,8 @@ def empty_identity_media():
         "name": "",
         "crop": normalize_identity_crop({}),
     }
+    out.update(normalize_border_props({}))
+    return out
 
 
 def normalize_identity_media(data):
@@ -587,6 +589,7 @@ def normalize_identity_media(data):
     img = normalize_profile_image_props(raw)
     out = empty_identity_media()
     out["crop"] = normalize_identity_crop(raw)
+    out.update(normalize_border_props(raw))
     if img.get("key"):
         out["key"] = img["key"]
         out["url"] = img["url"]
@@ -594,6 +597,46 @@ def normalize_identity_media(data):
         out["size"] = img["size"]
         out["name"] = img["name"]
     return out
+
+
+def slim_identity_media(media):
+    row = media if isinstance(media, dict) else empty_identity_media()
+    return {
+        "url": row.get("url") or "",
+        "mime": row.get("mime") or "",
+        "crop": normalize_identity_crop(row),
+        "show_border": bool(row.get("show_border")),
+        "border_width": row.get("border_width") or 3,
+        "border_color": row.get("border_color") or "#ffffff",
+        "border_style": row.get("border_style") or "solid",
+    }
+
+
+def layout_identity_raw(user):
+    try:
+        raw = json.loads(getattr(user, "profile_layout", None) or "{}")
+    except (TypeError, ValueError):
+        raw = {}
+    if not isinstance(raw, dict):
+        return {}
+    ident = raw.get("identity")
+    return ident if isinstance(ident, dict) else {}
+
+
+def public_identity(user):
+    ident = normalize_identity(layout_identity_raw(user) if user else {})
+    return {
+        "avatar": slim_identity_media(ident.get("avatar")),
+        "banner": slim_identity_media(ident.get("banner")),
+    }
+
+
+def public_avatar(user):
+    return public_identity(user)["avatar"]
+
+
+def avatar_lookup(accounts):
+    return {account.id: public_avatar(account) for account in accounts if account}
 
 
 def normalize_identity(raw):
@@ -1200,6 +1243,15 @@ def normalize_layout(raw):
     out["mini_profile"] = normalize_props("bio", raw_mini, banner_fallback)
     out["identity"] = normalize_identity(data.get("identity"))
     out["image_recents"] = normalize_image_recents(data.get("image_recents"))
+    for page in out.get("pages") or []:
+        for tile in page.get("tiles") or []:
+            kind = tile.get("type")
+            if kind not in ("avatar", "banner"):
+                continue
+            props = tile.get("props") if isinstance(tile.get("props"), dict) else {}
+            slot = out["identity"][kind]
+            if not slot.get("show_border") and props.get("show_border"):
+                slot.update(normalize_border_props(props))
     return out
 
 
@@ -1292,6 +1344,7 @@ def friend_preview(database: Session, owner_id, limit=8):
             "id": other.id,
             "username": other.username,
             "display_name": public_display_name(other),
+            "avatar": public_avatar(other),
         })
         if len(out) >= limit:
             break
@@ -1378,6 +1431,7 @@ def serialize_profile_comment(row, sender):
         "edited": bool(row.edited),
         "username": sender.username if sender else "Unknown",
         "display_name": public_display_name(sender) if sender else "Unknown",
+        "avatar": public_avatar(sender) if sender else slim_identity_media({}),
     }
 
 

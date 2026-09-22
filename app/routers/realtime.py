@@ -17,6 +17,8 @@ def serialize_member(user, is_owner, hoist_role=None):
     }
     if hoist_role:
         payload["hoist_role"] = hoist_role
+    from app.routers.profile import public_avatar
+    payload["avatar"] = public_avatar(user)
     return payload
 
 async def server_broadcast(server_id, payload, database, exclude_user_id=None):

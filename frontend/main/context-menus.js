@@ -9,7 +9,9 @@ function showMessageContextMenu(e, msg) {
     avatarText: avatarLetter(msg.username),
     title: msg.username,
     timestamp: formatClusterTime(msg.time),
-    subtitle: truncateForContextMenu(msg.content)
+    subtitle: truncateForContextMenu(msg.content),
+    userId: msg.senderId,
+    avatar: msg.avatar
   }, [
     { label: "Copy Message", onSelect: () => copyMessageContent(msg) },
     // Hover bar (last-3 emoji / Add Reaction / Edit / Forward) is
@@ -260,7 +262,9 @@ async function showMemberContextMenu(e, member) {
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(member.username),
     title: member.username,
-    subtitle: statusLabel
+    subtitle: statusLabel,
+    userId: member.id,
+    avatar: member.avatar
   }, options);
 }
 
@@ -303,7 +307,8 @@ function showProfileContextMenu(e, id, username, isSelf) {
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(username),
     title: username,
-    subtitle: "{Status}"
+    subtitle: "{Status}",
+    userId: id
   }, options);
 }
 

@@ -251,10 +251,9 @@ function paintMiniProfileInto(card, data, opts) {
   banner.className = "mini-profile-banner";
   banner.style.background = data.banner_color || "#1e6b8a";
   const ident = data.identity || {};
-  if (typeof paintIdentityMedia === "function") {
-    const bannerMedia = ident.banner || (editing && typeof getIdentityMedia === "function" ? getIdentityMedia("banner") : null);
-    paintIdentityMedia(banner, bannerMedia);
-  }
+  const bannerMedia = ident.banner || (editing && typeof getIdentityMedia === "function" ? getIdentityMedia("banner") : null);
+  if (typeof paintIdentityMedia === "function") paintIdentityMedia(banner, bannerMedia, { border: false });
+  if (typeof applyIdentityBorder === "function") applyIdentityBorder(banner, bannerMedia);
   bindMiniProfileEditTarget(banner, "banner", editing);
   card.appendChild(banner);
 
@@ -266,9 +265,8 @@ function paintMiniProfileInto(card, data, opts) {
 
   const avatar = document.createElement("div");
   avatar.className = "mini-profile-avatar";
-  const avatarMedia = ident.avatar || (editing && typeof getIdentityMedia === "function" ? getIdentityMedia("avatar") : null);
-  if (typeof identityHasImage === "function" && identityHasImage(avatarMedia) && typeof paintIdentityMedia === "function") {
-    paintIdentityMedia(avatar, avatarMedia, { circle: true });
+  if (typeof paintUserFace === "function") {
+    paintUserFace(avatar, { username: name, avatar: ident.avatar || (editing && typeof getIdentityMedia === "function" ? getIdentityMedia("avatar") : null) }, { name: name });
   } else {
     avatar.textContent = typeof avatarLetter === "function" ? avatarLetter(name) : (name || "?").slice(0, 1);
   }

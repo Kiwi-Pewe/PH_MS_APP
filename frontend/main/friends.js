@@ -54,7 +54,8 @@ function renderFriendList(kind, list) {
     row.className = "friend-row";
     row.style.cursor = "pointer";
     row.innerHTML = `<div class="avatar-dot"></div><div class="who"></div>`;
-    row.querySelector(".avatar-dot").textContent = avatarLetter(friend.username);
+    if (typeof paintUserFace === "function") paintUserFace(row.querySelector(".avatar-dot"), friend, { name: friend.username, userId: friend.id });
+    else row.querySelector(".avatar-dot").textContent = avatarLetter(friend.username);
     row.querySelector(".who").textContent = friend.username;
     row.addEventListener("click", () => openDirectMessage(friend.id, friend.username));
     row.addEventListener("contextmenu", (e) => showProfileContextMenu(e, friend.id, friend.username, false));
@@ -90,7 +91,8 @@ function buildPendingRow(req) {
       <button class="deny-btn">Deny</button>
     </div>
   `;
-  row.querySelector(".avatar-dot").textContent = avatarLetter(req.username);
+  if (typeof paintUserFace === "function") paintUserFace(row.querySelector(".avatar-dot"), req, { name: req.username, userId: req.id });
+  else row.querySelector(".avatar-dot").textContent = avatarLetter(req.username);
   row.querySelector(".who").textContent = req.username;
   row.querySelector(".accept-btn").addEventListener("click", () => respondToRequest(req, true));
   row.querySelector(".deny-btn").addEventListener("click", () => respondToRequest(req, false));

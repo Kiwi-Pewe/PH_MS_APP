@@ -19,7 +19,8 @@ function loadConversations() {
       id: c.id,
       username: c.username,
       unread: c.unread_count || 0,
-      timestamp: c.last_message_at
+      timestamp: c.last_message_at,
+      avatar: c.avatar || null
     }));
     const parties = (partyData.parties || []).map(p => ({
       type: "party",
@@ -48,7 +49,12 @@ function renderConversationList() {
 
     row.className = "dm-item" + (isActive ? " active" : "");
     row.innerHTML = `<div class="avatar-dot"></div><div class="dm-item-text"><div class="who"></div><div class="dm-subtitle"></div></div><span class="dm-unread-badge"></span>`;
-    row.querySelector(".avatar-dot").textContent = avatarLetter(displayName);
+    const face = row.querySelector(".avatar-dot");
+    if (convo.type !== "party" && typeof paintUserFace === "function") {
+      paintUserFace(face, convo, { name: displayName, userId: convo.id });
+    } else {
+      face.textContent = avatarLetter(displayName);
+    }
     row.querySelector(".who").textContent = displayName;
     row.querySelector(".dm-subtitle").textContent = subtitle;
     if (convo.type === "party") {
@@ -222,8 +228,10 @@ async function openDirectMessage(id, username) {
         username: isMine ? myUsername : username,
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-        time: new Date(msg.timestamp)
+        time: new Date(msg.timestamp),
+        avatar: msg.avatar || null
       }, msg);
+      if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
     });
     if (currentMessages.length < 25) hasMoreHistory = false;
@@ -272,8 +280,10 @@ async function openParty(id, name) {
           username: msg.username,
           content: msg.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-          time: new Date(msg.timestamp)
+          time: new Date(msg.timestamp),
+          avatar: msg.avatar || null
         }, msg);
+        if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
         if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);
         return mapped;
       });

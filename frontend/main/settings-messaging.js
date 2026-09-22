@@ -356,7 +356,8 @@ async function renderMessagingSettings(pane, jumpChildId) {
     who.className = "settings-block-who";
     const letter = document.createElement("div");
     letter.className = "avatar-dot";
-    letter.textContent = typeof avatarLetter === "function" ? avatarLetter(person.display_name || person.username) : (person.username || "?").slice(0, 1);
+    if (typeof paintUserFace === "function") paintUserFace(letter, person, { name: person.display_name || person.username, userId: person.id });
+    else letter.textContent = typeof avatarLetter === "function" ? avatarLetter(person.display_name || person.username) : (person.username || "?").slice(0, 1);
     const names = document.createElement("div");
     const display = document.createElement("div");
     display.className = "settings-opt-title";

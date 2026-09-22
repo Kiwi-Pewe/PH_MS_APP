@@ -93,7 +93,8 @@ function buildAnnouncementPostCard(post) {
   top.className = "announce-post-top";
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
-  avatar.textContent = (post.username || "?").charAt(0).toUpperCase();
+  if (typeof paintUserFace === "function") paintUserFace(avatar, post, { name: post.username, userId: post.sender_id });
+  else avatar.textContent = (post.username || "?").charAt(0).toUpperCase();
   const meta = document.createElement("div");
   meta.className = "announce-post-meta";
   const name = document.createElement("div");

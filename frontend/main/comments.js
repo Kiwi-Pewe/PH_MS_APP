@@ -9,7 +9,8 @@ function buildCommentElement(comment) {
 
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
-  avatar.textContent = (comment.username || "?").charAt(0).toUpperCase();
+  if (typeof paintUserFace === "function") paintUserFace(avatar, comment, { name: comment.username, userId: comment.sender_id });
+  else avatar.textContent = (comment.username || "?").charAt(0).toUpperCase();
 
   const body = document.createElement("div");
   body.className = "announce-comment-body";

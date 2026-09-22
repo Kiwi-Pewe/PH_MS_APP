@@ -22,6 +22,7 @@ window.addEventListener("load", () => {
       if (typeof hydrateAppearance === "function") hydrateAppearance(data.appearance);
       if (typeof hydrateAccessibility === "function") hydrateAccessibility(data.accessibility);
       if (typeof hydrateLanguageTime === "function") hydrateLanguageTime(data.language_time);
+      if (data.identity && typeof rememberOwnIdentity === "function") rememberOwnIdentity(data.identity);
       connectSocket();
     })
     .catch(() => {
@@ -106,8 +107,10 @@ function connectSocket() {
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? new Date(data.timestamp) : new Date(),
           edited: false,
-          reactions: []
+          reactions: [],
+          avatar: data.avatar || null
         };
+        if (typeof takeMessageAvatar === "function") takeMessageAvatar(row, data);
         if (typeof applyMentionFields === "function") applyMentionFields(row, data);
         currentMessages.push(row);
         renderMessages();
@@ -129,8 +132,10 @@ function connectSocket() {
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? new Date(data.timestamp) : new Date(),
-          edited: false
+          edited: false,
+          avatar: data.avatar || null
         };
+        if (typeof takeMessageAvatar === "function") takeMessageAvatar(row, data);
         if (typeof applyMentionFields === "function") applyMentionFields(row, data);
         currentMessages.push(row);
         renderMessages();
@@ -154,8 +159,10 @@ function connectSocket() {
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? new Date(data.timestamp) : new Date(),
           edited: false,
-          reactions: []
+          reactions: [],
+          avatar: data.avatar || null
         };
+        if (typeof takeMessageAvatar === "function") takeMessageAvatar(row, data);
         if (typeof applyMentionFields === "function") applyMentionFields(row, data);
         currentChannelMessages.push(row);
         renderChannelMessages();
@@ -183,8 +190,10 @@ function connectSocket() {
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? parseUtcTimestamp(data.timestamp) : new Date(),
           edited: false,
-          reactions: []
+          reactions: [],
+          avatar: data.avatar || null
         };
+        if (typeof takeMessageAvatar === "function") takeMessageAvatar(row, data);
         if (typeof applyMentionFields === "function") applyMentionFields(row, data);
         currentChannelMessages.push(row);
         renderChannelMessages();
@@ -418,6 +427,7 @@ function enterApp() {
   const shown = myDisplayName || myUsername || "(existing session)";
   document.getElementById("footer-username").textContent = shown;
   document.getElementById("footer-avatar-letter").textContent = avatarLetter(shown);
+  if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
   if (typeof syncAdminTab === "function") syncAdminTab();
   refreshFriendsView();
   loadConversations();

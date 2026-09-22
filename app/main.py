@@ -20,6 +20,7 @@ from app.routers.invites import check_invites
 from app.routers.mentions import mentioned_user_ids, mention_user_map, mention_role_map, live_reply_to
 from app.routers.deletion import sweep_pending_deletes
 from app.routers.typing import relay_typing
+from app.routers.profile import public_avatar
 import asyncio
 
 def ws_attachment(data):
@@ -124,7 +125,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     "content": data.get("content") or "",
                     "attachment": attachment_public(new_message.attachment),
                     "timestamp": str(new_message.timestamp),
-                    "reply_to": live_reply_to(database, Message, new_message.reply_to_id)})
+                    "reply_to": live_reply_to(database, Message, new_message.reply_to_id),
+                    "avatar": public_avatar(current_user)})
             elif data["type"] == "party_message":
                 try:
                     new_party_message = Party_message_schema(
@@ -164,7 +166,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "timestamp": str(new_party_message.timestamp),
                             "mentioned": member.user_id in pinged_ids,
                             "mention_users": users_map,
-                            "reply_to": reply_to
+                            "reply_to": reply_to,
+                            "avatar": public_avatar(current_user)
                         })            
             elif data["type"] == "leave_party":
                     
@@ -234,7 +237,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "mentioned": member.user_id in pinged_ids,
                             "mention_users": users_map,
                             "mention_roles": roles_map,
-                            "reply_to": reply_to
+                            "reply_to": reply_to,
+                            "avatar": public_avatar(current_user)
                         })
             elif data["type"] == "forum_message":
                 try:
@@ -280,7 +284,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "mentioned": member.user_id in pinged_ids,
                             "mention_users": users_map,
                             "mention_roles": roles_map,
-                            "reply_to": new_forum_msg.get("reply_to")
+                            "reply_to": new_forum_msg.get("reply_to"),
+                            "avatar": public_avatar(current_user)
                         })
             elif data["type"] == "typing":
                 await relay_typing(data, current_user, database)

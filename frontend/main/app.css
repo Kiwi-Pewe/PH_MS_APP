@@ -3958,6 +3958,10 @@ a.profile-link-row:hover { color: var(--accent); }
   margin-bottom: 6px;
 }
 .server-roles-add:hover { background: var(--panel-alt); }
+.server-roles-add:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
 .server-roles-list {
   display: flex;
   flex-direction: column;
@@ -3981,6 +3985,7 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .server-role-item:hover,
 .server-role-item.is-on { background: var(--panel-alt); }
+.server-role-item.is-locked { opacity: 0.55; }
 .server-role-item-name {
   flex: 1 1 auto;
   min-width: 0;

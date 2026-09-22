@@ -1,7 +1,7 @@
 // ==================================================================
 // server-settings.js - Server Settings overlay. Overview is live.
-// Update server opens this overlay; Roles stays locked until Manage
-// roles. Every other index row stays grey.
+// Update server or Manage roles opens this overlay. Roles is Manage
+// roles only, and only roles below yours. Every other index row stays grey.
 // ==================================================================
 
 function canServerPerm(perm) {
@@ -14,13 +14,18 @@ function canUpdateServer() {
 }
 
 function canManageRoles() {
-  return currentServerOwnerId === myUserId;
+  return canServerPerm("manage_roles");
 }
 
-function applyServerPerms(perms) {
+function canOpenServerSettings() {
+  return canUpdateServer() || canManageRoles();
+}
+
+function applyServerPerms(perms, highestRole) {
   currentServerPerms = perms && typeof perms === "object" ? perms : {};
+  if (arguments.length > 1) currentServerHighestRole = highestRole || null;
   paintServerSettingsAccess();
-  if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen && !canUpdateServer()) {
+  if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen && !canOpenServerSettings()) {
     closeServerSettingsChrome();
   }
 }
@@ -31,7 +36,7 @@ async function refreshServerPerms() {
     const response = await fetch(`https://${serverAddress}/get_server_perms/${currentServerId}`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
-    applyServerPerms(data.permissions || {});
+    applyServerPerms(data.permissions || {}, data.highest_role);
   } catch (e) { /* keep the last known set */ }
 }
 
@@ -784,7 +789,7 @@ async function saveServerSettingsType(kind) {
 }
 
 function openServerSettings() {
-  if (!currentServerId || !canUpdateServer()) return;
+  if (!currentServerId || !canOpenServerSettings()) return;
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;
   if (typeof closeContextMenu === "function") closeContextMenu();
@@ -792,7 +797,9 @@ function openServerSettings() {
   isServerSettingsOpen = true;
   paintServerSettingsAccess();
   if (typeof resetServerRolesDraft === "function") resetServerRolesDraft();
-  if (typeof showServerSettingsTab === "function") showServerSettingsTab("overview");
+  if (typeof showServerSettingsTab === "function") {
+    showServerSettingsTab(canUpdateServer() ? "overview" : "roles");
+  }
   const name = currentServerSettingsName();
   const label = document.getElementById("server-settings-index-label");
   if (label) label.textContent = name;

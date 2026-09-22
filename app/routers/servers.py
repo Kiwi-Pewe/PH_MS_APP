@@ -11,7 +11,7 @@ from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.realtime import serialize_member, server_broadcast
 from app.routers.profile import avatar_lookup
-from app.routers.roles import effective_perms_for_user, require_server_member, require_server_perm, seed_server_roles
+from app.routers.roles import actor_highest_role, effective_perms_for_user, require_server_member, require_server_perm, seed_server_roles
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 import random
 import re
@@ -241,6 +241,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "timezone": getattr(server, "timezone", None) or "",
         "default_notifications": server_default_notifications(server),
         "permissions": permissions,
+        "highest_role": actor_highest_role(database, server, current_user.id),
         **server_banner_fields(server)
     }
 

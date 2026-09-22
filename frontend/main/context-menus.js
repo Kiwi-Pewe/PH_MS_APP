@@ -347,7 +347,7 @@ function showServerAreaContextMenu(e) {
   const isOwner = currentServerOwnerId === myUserId;
   const options = [];
   if (isOwner) options.push({ label: "Create Category", onSelect: () => openCategoryModal() });
-  if (typeof canUpdateServer === "function" ? canUpdateServer() : isOwner) {
+  if (typeof canOpenServerSettings === "function" ? canOpenServerSettings() : isOwner) {
     options.push({ label: "Server Settings", onSelect: () => openServerSettings() });
   }
   if (!options.length) return;
@@ -375,7 +375,7 @@ function showServerHeaderMenu(e) {
   const options = [
     { label: "Invite to Server", onSelect: () => openInviteModal("server", currentServerId, name) }
   ];
-  if (typeof canUpdateServer === "function" ? canUpdateServer() : isOwner) {
+  if (typeof canOpenServerSettings === "function" ? canOpenServerSettings() : isOwner) {
     options.push({ label: "Server Settings", onSelect: () => openServerSettings() });
   }
   if (isOwner) {

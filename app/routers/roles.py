@@ -245,6 +245,49 @@ def require_server_perm(database, server, user_id, perm, detail="You do not have
     return perms
 
 
+def role_sort_key(role):
+    if isinstance(role, dict):
+        return (int(role.get("position") or 0), int(role.get("id") or 0))
+    return (int(getattr(role, "position", 0) or 0), int(getattr(role, "id", 0) or 0))
+
+
+def actor_highest_role(database, server, user_id):
+    if server.owner_id == user_id:
+        return None
+    return highest_role_for_user(database, server.id, user_id)
+
+
+def can_manage_target_role(is_owner, actor_highest, target):
+    if is_owner:
+        return True
+    if not actor_highest or target is None:
+        return False
+    return role_sort_key(target) > role_sort_key(actor_highest)
+
+
+def clamp_role_perms(incoming, current, actor_perms, is_owner):
+    if is_owner:
+        return incoming
+    out = dict(incoming)
+    for key in LIVE_ROLE_PERMS:
+        if not actor_perms.get(key):
+            out[key] = bool((current or {}).get(key))
+    return out
+
+
+def next_position_below(database, server_id, actor_highest, extra_positions=None):
+    actor_pos = int(actor_highest.get("position") or 0)
+    used = {int(row.position or 0) for row in database.query(Server_roles).filter(Server_roles.server_id == server_id).all()}
+    if extra_positions:
+        used.update(extra_positions)
+    pos = actor_pos + 1
+    while pos in used:
+        pos += 1
+    if pos >= MEMBERS_POSITION:
+        raise HTTPException(status_code=400, detail="There is no room to create a role below yours.")
+    return pos
+
+
 def require_server_member(database, server_id, user_id):
     server = database.query(Servers).filter(Servers.id == server_id).first()
     if not server:
@@ -263,22 +306,30 @@ def get_server_perms(server_id: str, database: Session = Depends(get_db), curren
     server = require_server_member(database, server_id, current_user.id)
     seed_server_roles(database, server.id)
     database.commit()
-    return {"permissions": effective_perms_for_user(database, server, current_user.id)}
+    return {
+        "permissions": effective_perms_for_user(database, server, current_user.id),
+        "highest_role": actor_highest_role(database, server, current_user.id),
+    }
 
 
 @router.get("/get_server_roles/{server_id}")
 def get_server_roles(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    require_server_member(database, server_id, current_user.id)
+    server = require_server_member(database, server_id, current_user.id)
     seed_server_roles(database, server_id)
     database.commit()
-    return {"roles": list_server_roles(database, server_id)}
+    return {
+        "roles": list_server_roles(database, server_id),
+        "permissions": effective_perms_for_user(database, server, current_user.id),
+        "highest_role": actor_highest_role(database, server, current_user.id),
+    }
 
 
 @router.post("/save_server_roles")
 async def save_server_roles(body: Server_roles_save, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server = require_server_member(database, body.server_id, current_user.id)
-    if server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the server owner can change roles.")
+    actor_perms = require_server_perm(database, server, current_user.id, "manage_roles", "You do not have permission to manage roles.")
+    is_owner = server.owner_id == current_user.id
+    actor_highest = None if is_owner else highest_role_for_user(database, server.id, current_user.id)
 
     seed_server_roles(database, server.id)
     members_row = database.query(Server_roles).filter(Server_roles.server_id == server.id, Server_roles.is_members == True).first()
@@ -291,6 +342,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
         Server_roles.is_members == False,
     ).scalar()
     next_position = 100 if lowest is None else int(lowest) - 100
+    created_positions = []
 
     saved = []
     created_ids = []
@@ -305,6 +357,9 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
 
         if item.id and item.id in existing:
             row = existing[item.id]
+            if not can_manage_target_role(is_owner, actor_highest, row):
+                raise HTTPException(status_code=403, detail="You can only change roles below yours.")
+            perms = clamp_role_perms(perms, parse_role_perms(row), actor_perms, is_owner)
             if row.is_members:
                 row.name = clean_role_name(item.name, "Members")
                 row.position = MEMBERS_POSITION
@@ -320,11 +375,20 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
         elif item.id:
             raise HTTPException(status_code=404, detail="Role not found")
         else:
+            if not is_owner:
+                if not actor_highest or actor_highest.get("is_members"):
+                    raise HTTPException(status_code=403, detail="You can only create roles below yours.")
+                create_position = next_position_below(database, server.id, actor_highest, created_positions)
+                created_positions.append(create_position)
+                perms = clamp_role_perms(perms, empty_role_perms(), actor_perms, False)
+            else:
+                create_position = next_position
+                next_position -= 100
             row = Server_roles(
                 server_id=server.id,
                 name=name,
                 color=color,
-                position=next_position,
+                position=create_position,
                 mentionable=mentionable,
                 hoist=hoist,
                 name_color=name_color,
@@ -332,7 +396,6 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
                 is_members=False,
                 permissions=json.dumps(perms),
             )
-            next_position -= 100
             database.add(row)
             database.flush()
             created_ids.append(row.id)

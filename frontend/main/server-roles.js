@@ -225,6 +225,7 @@ function cloneServerRole(role) {
     id: role.id,
     name: role.name || "",
     builtin: !!role.builtin,
+    position: role.position,
     color: role.color || "#99aab5",
     colorMode: role.colorMode || "solid",
     selfAssign: !!role.selfAssign,
@@ -234,6 +235,39 @@ function cloneServerRole(role) {
     perms: Object.assign({}, role.perms || emptyServerRolePerms()),
     created: !!role.created
   };
+}
+
+function roleRankValue(role) {
+  if (!role) return [999999, 999999999];
+  const pos = Number(role.position);
+  const id = parseInt(role.id, 10);
+  return [Number.isFinite(pos) ? pos : 999999, Number.isFinite(id) ? id : 999999999];
+}
+
+function roleIsBelow(role, other) {
+  const a = roleRankValue(role);
+  const b = roleRankValue(other);
+  return a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]);
+}
+
+function canCreateServerRole() {
+  if (currentServerOwnerId === myUserId) return true;
+  if (typeof canManageRoles === "function" && !canManageRoles()) return false;
+  return !!(currentServerHighestRole && !currentServerHighestRole.is_members);
+}
+
+function canEditServerRole(role) {
+  if (!role) return false;
+  if (currentServerOwnerId === myUserId) return true;
+  if (typeof canManageRoles === "function" && !canManageRoles()) return false;
+  if (isCreatedServerRole(role)) return true;
+  if (!currentServerHighestRole) return false;
+  return roleIsBelow(role, currentServerHighestRole);
+}
+
+function canGrantRolePerm(id) {
+  if (currentServerOwnerId === myUserId) return true;
+  return typeof canServerPerm === "function" && canServerPerm(id);
 }
 
 function normRoleColor(value) {
@@ -307,6 +341,7 @@ function applyServerRolesFromApi(rows) {
       id: String(row.id),
       name: row.name || (row.is_members ? "Members" : "New Role"),
       builtin: !!row.is_members,
+      position: row.position,
       color: normRoleColor(row.color),
       colorMode: "solid",
       selfAssign: !!row.self_assignable,
@@ -340,6 +375,7 @@ function resetServerRolesDraft() {
     id: "members",
     name: "Members",
     builtin: true,
+    position: 10000,
     color: "#99aab5",
     colorMode: "solid",
     selfAssign: false,
@@ -428,7 +464,9 @@ function paintServerRolesList() {
   serverRolesDraft.forEach((role) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "server-role-item" + (role.id === serverRolesSelectedId ? " is-on" : "");
+    btn.className = "server-role-item"
+      + (role.id === serverRolesSelectedId ? " is-on" : "")
+      + (!canEditServerRole(role) ? " is-locked" : "");
     const name = document.createElement("span");
     name.className = "server-role-item-name";
     name.textContent = role.name || "New Role";
@@ -456,6 +494,14 @@ function paintServerRolesEditor() {
     return;
   }
   host.innerHTML = "";
+  const locked = !canEditServerRole(role);
+
+  if (locked) {
+    const note = document.createElement("p");
+    note.className = "server-settings-help";
+    note.textContent = "You can only change roles below yours.";
+    host.appendChild(note);
+  }
 
   const nameField = document.createElement("div");
   nameField.className = "server-settings-field";
@@ -470,6 +516,7 @@ function paintServerRolesEditor() {
   nameInput.maxLength = 25;
   nameInput.autocomplete = "off";
   nameInput.value = role.name || "";
+  nameInput.disabled = locked;
   nameInput.addEventListener("input", () => {
     role.name = nameInput.value;
     afterRoleChange(false);
@@ -529,10 +576,14 @@ function paintServerRolesEditor() {
       dot.className = "server-role-swatch" + ((role.color || "").toLowerCase() === hex.toLowerCase() ? " is-on" : "");
       dot.style.background = hex;
       dot.title = hex;
-      dot.addEventListener("click", () => {
-        role.color = hex;
-        afterRoleChange(true);
-      });
+      if (!locked) {
+        dot.addEventListener("click", () => {
+          role.color = hex;
+          afterRoleChange(true);
+        });
+      } else {
+        dot.disabled = true;
+      }
       swatches.appendChild(dot);
     });
     const custom = document.createElement("button");
@@ -546,7 +597,8 @@ function paintServerRolesEditor() {
     native.type = "color";
     native.value = role.color || "#99aab5";
     native.hidden = true;
-    custom.addEventListener("click", () => native.click());
+    if (!locked) custom.addEventListener("click", () => native.click());
+    else custom.disabled = true;
     native.addEventListener("input", () => {
       role.color = native.value;
       custom.className = "server-role-swatch-custom is-on";
@@ -567,11 +619,11 @@ function paintServerRolesEditor() {
   settingsField.appendChild(settingsTitle);
   SERVER_ROLE_SETTING_ROWS.forEach((row) => {
     const later = row.later;
-    const locked = !!later || (row.id === "selfAssign" && role.builtin);
+    const rowLocked = locked || !!later || (row.id === "selfAssign" && role.builtin);
     settingsField.appendChild(roleOptRow(
       row.title,
       row.desc,
-      roleToggle(!!role[row.id], locked, (on) => { role[row.id] = on; afterRoleChange(false); }),
+      roleToggle(!!role[row.id], rowLocked, (on) => { role[row.id] = on; afterRoleChange(false); }),
       later
     ));
   });
@@ -588,16 +640,18 @@ function paintServerRolesEditor() {
   disableAll.type = "button";
   disableAll.className = "settings-row-btn";
   disableAll.textContent = "Disable all";
+  disableAll.disabled = locked;
   disableAll.addEventListener("click", () => {
-    livePermIds().forEach((id) => { role.perms[id] = false; });
+    livePermIds().forEach((id) => { if (canGrantRolePerm(id)) role.perms[id] = false; });
     afterRoleChange(true);
   });
   const enableAll = document.createElement("button");
   enableAll.type = "button";
   enableAll.className = "settings-row-btn";
   enableAll.textContent = "Enable all";
+  enableAll.disabled = locked;
   enableAll.addEventListener("click", () => {
-    livePermIds().forEach((id) => { role.perms[id] = true; });
+    livePermIds().forEach((id) => { if (canGrantRolePerm(id)) role.perms[id] = true; });
     afterRoleChange(true);
   });
   bulkRow.appendChild(disableAll);
@@ -617,7 +671,7 @@ function paintServerRolesEditor() {
       block.appendChild(roleOptRow(
         row.title,
         row.desc,
-        roleToggle(!!role.perms[row.id], !!row.later, (on) => { role.perms[row.id] = on; afterRoleChange(false); }),
+        roleToggle(!!role.perms[row.id], locked || !!row.later || !canGrantRolePerm(row.id), (on) => { role.perms[row.id] = on; afterRoleChange(false); }),
         row.later
       ));
     });
@@ -632,6 +686,8 @@ function afterRoleChange(repaintEditor) {
 }
 
 function paintServerRolesPage() {
+  const addBtn = document.getElementById("server-roles-add");
+  if (addBtn) addBtn.disabled = !canCreateServerRole();
   paintServerRolesList();
   paintServerRolesEditor();
   paintServerRolesReview();
@@ -781,6 +837,7 @@ function paintServerRolesReview() {
 }
 
 function addServerRoleLocal() {
+  if (!canCreateServerRole()) return;
   const id = "draft-" + serverRolesNextId;
   serverRolesNextId += 1;
   const role = {
@@ -797,9 +854,16 @@ function addServerRoleLocal() {
     created: true
   };
   serverRolesOrigin[id] = cloneServerRole(role);
-  const membersAt = serverRolesDraft.findIndex((row) => row.builtin);
-  if (membersAt === -1) serverRolesDraft.push(role);
-  else serverRolesDraft.splice(membersAt, 0, role);
+  let insertAt = serverRolesDraft.findIndex((row) => row.builtin);
+  if (currentServerOwnerId !== myUserId) {
+    let lastLocked = -1;
+    serverRolesDraft.forEach((row, i) => {
+      if (!isCreatedServerRole(row) && !canEditServerRole(row)) lastLocked = i;
+    });
+    insertAt = lastLocked + 1;
+  }
+  if (insertAt === -1) serverRolesDraft.push(role);
+  else serverRolesDraft.splice(insertAt, 0, role);
   serverRolesSelectedId = id;
   serverRolesReviewOpen[id] = true;
   paintServerRolesPage();
@@ -816,6 +880,7 @@ async function loadServerRoles() {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not load roles.");
     applyServerRolesFromApi(data.roles || []);
+    if (typeof applyServerPerms === "function") applyServerPerms(data.permissions || {}, data.highest_role);
     serverRolesLoadedFor = currentServerId;
   } catch (err) {
     resetServerRolesDraft();
@@ -832,12 +897,12 @@ function cancelServerRoles() {
 
 async function confirmServerRoles() {
   if (!currentServerId) return;
-  if (currentServerOwnerId !== myUserId) {
-    serverRolesSaveError = "Only the server owner can change roles.";
+  if (typeof canManageRoles === "function" && !canManageRoles()) {
+    serverRolesSaveError = "You do not have permission to manage roles.";
     paintServerRolesReview();
     return;
   }
-  const dirty = dirtyServerRoles();
+  const dirty = dirtyServerRoles().filter(canEditServerRole);
   if (!dirty.length) return;
   serverRolesSaving = true;
   serverRolesSaveError = "";

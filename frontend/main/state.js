@@ -43,6 +43,7 @@ let mentionRoleList = [];
 let currentServerId = null;
 let currentServerOwnerId = null;
 let currentServerPerms = {};
+let currentServerHighestRole = null;
 // The full get_server_contents payload for whichever server is currently
 // open — kept around (not just currentServerId/OwnerId) so a live
 // category_created/channel_created push can patch it in place and

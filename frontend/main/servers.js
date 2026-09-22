@@ -197,6 +197,8 @@ async function openServer(serverId, iconEl) {
   currentServerId = serverId;
   currentServerOwnerId = data.owner;
   currentServerPerms = data.permissions || {};
+  currentServerHighestRole = data.highest_role || null;
+  if (typeof paintServerSettingsAccess === "function") paintServerSettingsAccess();
   currentServerData = data;
 
   document.getElementById("dm-sidebar-view").style.display = "none";

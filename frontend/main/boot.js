@@ -304,11 +304,15 @@ function connectSocket() {
         }
       }
       if (typeof refreshServerMemberList === "function") refreshServerMemberList(data.server_id);
+      if (data.server_id === currentServerId && typeof refreshServerPerms === "function") refreshServerPerms();
     }
 
     if (data.type === "server_member_roles_updated") {
       if (typeof applyMemberRolesUpdated === "function") {
         applyMemberRolesUpdated(data.server_id, data.user_id, data.hoist_role || null, data.name_role || null);
+      }
+      if (data.server_id === currentServerId && data.user_id === myUserId && typeof refreshServerPerms === "function") {
+        refreshServerPerms();
       }
     }
 

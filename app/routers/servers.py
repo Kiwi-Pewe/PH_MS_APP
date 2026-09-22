@@ -11,6 +11,7 @@ from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.realtime import serialize_member, server_broadcast
 from app.routers.profile import avatar_lookup
+from app.routers.roles import effective_perms_for_user, require_server_member, require_server_perm, seed_server_roles
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 import random
 import re
@@ -202,7 +203,10 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
 
     all_categories = database.query(Server_categories).filter(Server_categories.server_id == server_id).order_by(Server_categories.position).all()
     server = database.query(Servers).filter(Servers.id == server_id).first()
+    seed_server_roles(database, server.id)
+    database.commit()
     is_owner = server.owner_id == current_user.id
+    permissions = effective_perms_for_user(database, server, current_user.id)
     server_info = []
 
     for category in all_categories:
@@ -236,17 +240,15 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "server_type": getattr(server, "server_type", None) or "",
         "timezone": getattr(server, "timezone", None) or "",
         "default_notifications": server_default_notifications(server),
+        "permissions": permissions,
         **server_banner_fields(server)
     }
 
 
 @router.post("/update_server_icon")
 async def update_server_icon(body: Server_icon_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    server = database.query(Servers).filter(Servers.id == body.server_id).first()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-    if server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the server owner can change the icon.")
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
     key = (body.key or "").strip() or None
     old_key = getattr(server, "icon_key", None)
@@ -284,11 +286,8 @@ async def update_server_icon(body: Server_icon_update, database: Session = Depen
 
 @router.post("/update_server_banner")
 async def update_server_banner(body: Server_banner_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    server = database.query(Servers).filter(Servers.id == body.server_id).first()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-    if server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the server owner can change the banner.")
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
     color = clean_banner_hex(body.color)
     key = (body.key or "").strip() or None
@@ -332,11 +331,8 @@ async def update_server_banner(body: Server_banner_update, database: Session = D
 
 @router.post("/update_server_name")
 async def update_server_name(body: Server_name_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    server = database.query(Servers).filter(Servers.id == body.server_id).first()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-    if server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the server owner can change the name.")
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
     name = (body.name or "").strip()
     if not name:
@@ -357,11 +353,8 @@ async def update_server_name(body: Server_name_update, database: Session = Depen
 
 @router.post("/update_server_about")
 async def update_server_about(body: Server_about_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    server = database.query(Servers).filter(Servers.id == body.server_id).first()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-    if server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the server owner can change the about text.")
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
     about = body.about if body.about is not None else ""
     if not isinstance(about, str):
@@ -382,11 +375,8 @@ async def update_server_about(body: Server_about_update, database: Session = Dep
 
 @router.post("/update_server_url")
 async def update_server_url(body: Server_url_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    server = database.query(Servers).filter(Servers.id == body.server_id).first()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-    if server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the server owner can change the URL.")
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
     slug = clean_server_slug(body.slug)
     if not slug:
@@ -425,11 +415,8 @@ async def update_server_url(body: Server_url_update, database: Session = Depends
 
 @router.post("/update_server_type")
 async def update_server_type(body: Server_type_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    server = database.query(Servers).filter(Servers.id == body.server_id).first()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-    if server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the server owner can change the type.")
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
     kind = (body.server_type or "").strip().lower()
     if not kind:
@@ -452,11 +439,8 @@ async def update_server_type(body: Server_type_update, database: Session = Depen
 
 @router.post("/update_server_timezone")
 async def update_server_timezone(body: Server_timezone_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    server = database.query(Servers).filter(Servers.id == body.server_id).first()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-    if server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the server owner can change the timezone.")
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
     zone = clean_server_timezone(body.timezone)
     if zone is None:
@@ -476,11 +460,8 @@ async def update_server_timezone(body: Server_timezone_update, database: Session
 
 @router.post("/update_server_notifications")
 async def update_server_notifications(body: Server_notifications_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    server = database.query(Servers).filter(Servers.id == body.server_id).first()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-    if server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the server owner can change the default notifications.")
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
     kind = clean_server_notifications(body.default_notifications)
     if kind is None:

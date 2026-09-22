@@ -196,6 +196,7 @@ async function openServer(serverId, iconEl) {
 
   currentServerId = serverId;
   currentServerOwnerId = data.owner;
+  currentServerPerms = data.permissions || {};
   currentServerData = data;
 
   document.getElementById("dm-sidebar-view").style.display = "none";

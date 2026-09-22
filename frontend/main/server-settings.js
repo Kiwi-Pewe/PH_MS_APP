@@ -1,8 +1,53 @@
 // ==================================================================
 // server-settings.js - Server Settings overlay. Overview is live.
-// Roles is a shape pass (see server-roles.js). Every other index row
-// stays grey.
+// Update server opens this overlay; Roles stays locked until Manage
+// roles. Every other index row stays grey.
 // ==================================================================
+
+function canServerPerm(perm) {
+  if (currentServerOwnerId === myUserId) return true;
+  return !!(currentServerPerms && currentServerPerms[perm]);
+}
+
+function canUpdateServer() {
+  return canServerPerm("update_server");
+}
+
+function canManageRoles() {
+  return currentServerOwnerId === myUserId;
+}
+
+function applyServerPerms(perms) {
+  currentServerPerms = perms && typeof perms === "object" ? perms : {};
+  paintServerSettingsAccess();
+  if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen && !canUpdateServer()) {
+    closeServerSettingsChrome();
+  }
+}
+
+async function refreshServerPerms() {
+  if (!currentServerId) return;
+  try {
+    const response = await fetch(`https://${serverAddress}/get_server_perms/${currentServerId}`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    applyServerPerms(data.permissions || {});
+  } catch (e) { /* keep the last known set */ }
+}
+
+function paintServerSettingsAccess() {
+  const rolesBtn = document.querySelector('#server-settings-nav [data-tab="roles"]');
+  if (!rolesBtn) return;
+  const allowRoles = canManageRoles();
+  rolesBtn.disabled = !allowRoles;
+  rolesBtn.classList.toggle("is-later", !allowRoles);
+  if (!allowRoles && typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen) {
+    const roles = document.getElementById("server-settings-roles");
+    if (roles && !roles.hidden && typeof showServerSettingsTab === "function") {
+      showServerSettingsTab("overview");
+    }
+  }
+}
 
 function currentServerIconUrl() {
   if (currentServerData && currentServerId && currentServerData.icon_url) {
@@ -75,7 +120,7 @@ async function saveServerIcon(payload) {
 
 async function uploadServerSettingsAvatar(file) {
   if (!currentServerId) return;
-  if (currentServerOwnerId !== myUserId) return;
+  if (!canUpdateServer()) return;
   setServerSettingsAvatarBusy(true);
   setServerSettingsAvatarStatus("Uploading…");
   try {
@@ -180,7 +225,7 @@ function applySavedBanner(saved) {
 
 async function uploadServerSettingsBanner(file) {
   if (!currentServerId) return;
-  if (currentServerOwnerId !== myUserId) return;
+  if (!canUpdateServer()) return;
   setServerSettingsBannerBusy(true);
   setServerSettingsBannerStatus("Uploading…");
   try {
@@ -206,7 +251,7 @@ async function uploadServerSettingsBanner(file) {
 
 async function saveServerSettingsBannerColor(color) {
   if (!currentServerId) return;
-  if (currentServerOwnerId !== myUserId) return;
+  if (!canUpdateServer()) return;
   const hex = (typeof appearanceHex === "function" && appearanceHex(color)) || "";
   if (!hex) {
     setServerSettingsBannerStatus("Use a hex color like #8b5cf6.");
@@ -226,7 +271,7 @@ async function saveServerSettingsBannerColor(color) {
 
 async function removeServerSettingsBanner() {
   if (!currentServerId) return;
-  if (currentServerOwnerId !== myUserId) return;
+  if (!canUpdateServer()) return;
   setServerSettingsBannerBusy(true);
   setServerSettingsBannerStatus("");
   try {
@@ -241,7 +286,7 @@ async function removeServerSettingsBanner() {
 
 async function removeServerSettingsAvatar() {
   if (!currentServerId) return;
-  if (currentServerOwnerId !== myUserId) return;
+  if (!canUpdateServer()) return;
   setServerSettingsAvatarBusy(true);
   setServerSettingsAvatarStatus("");
   try {
@@ -298,7 +343,7 @@ function syncServerSettingsName(name) {
 }
 
 async function confirmServerSettingsName() {
-  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  if (!currentServerId || !canUpdateServer()) return;
   const name = typedServerSettingsName().trim();
   if (!name) {
     setServerSettingsNameStatus("Server name cannot be empty.");
@@ -382,7 +427,7 @@ function syncServerSettingsAbout(about) {
 }
 
 async function confirmServerSettingsAbout() {
-  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  if (!currentServerId || !canUpdateServer()) return;
   const about = typedServerSettingsAbout();
   if (about === savedServerSettingsAbout()) {
     paintServerSettingsAboutActions();
@@ -484,7 +529,7 @@ function serverSettingsUrlError(slug) {
 }
 
 async function confirmServerSettingsUrl() {
-  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  if (!currentServerId || !canUpdateServer()) return;
   const slug = typedServerSettingsUrl();
   if (slug === savedServerSettingsUrl()) {
     paintServerSettingsUrlActions();
@@ -619,7 +664,7 @@ function syncServerSettingsTimezone(zone) {
 }
 
 async function saveServerSettingsTimezone(zone) {
-  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  if (!currentServerId || !canUpdateServer()) return;
   const next = (zone || "").trim();
   if (next === savedServerSettingsTimezone()) return;
   const select = document.getElementById("server-settings-timezone");
@@ -677,7 +722,7 @@ function syncServerSettingsNotifications(kind) {
 }
 
 async function saveServerSettingsNotifications(kind) {
-  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  if (!currentServerId || !canUpdateServer()) return;
   const next = (kind || "").trim().toLowerCase();
   if (!SERVER_NOTIFICATIONS[next]) {
     setServerSettingsNotifyStatus("Pick All Messages or Only @mentions.");
@@ -709,7 +754,7 @@ async function saveServerSettingsNotifications(kind) {
 }
 
 async function saveServerSettingsType(kind) {
-  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  if (!currentServerId || !canUpdateServer()) return;
   const next = (kind || "").trim().toLowerCase();
   if (next && !SERVER_TYPES[next]) {
     setServerSettingsTypeStatus("That is not a server type.");
@@ -739,12 +784,13 @@ async function saveServerSettingsType(kind) {
 }
 
 function openServerSettings() {
-  if (!currentServerId) return;
+  if (!currentServerId || !canUpdateServer()) return;
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;
   if (typeof closeContextMenu === "function") closeContextMenu();
 
   isServerSettingsOpen = true;
+  paintServerSettingsAccess();
   if (typeof resetServerRolesDraft === "function") resetServerRolesDraft();
   if (typeof showServerSettingsTab === "function") showServerSettingsTab("overview");
   const name = currentServerSettingsName();
@@ -786,7 +832,7 @@ document.getElementById("server-settings-close").addEventListener("click", () =>
 });
 
 document.getElementById("server-settings-avatar-upload").addEventListener("click", () => {
-  if (currentServerOwnerId !== myUserId) return;
+  if (!canUpdateServer()) return;
   const input = document.getElementById("server-settings-avatar-file");
   if (input) input.click();
 });
@@ -801,7 +847,7 @@ document.getElementById("server-settings-avatar-remove").addEventListener("click
 });
 
 document.getElementById("server-settings-banner-upload").addEventListener("click", () => {
-  if (currentServerOwnerId !== myUserId) return;
+  if (!canUpdateServer()) return;
   const input = document.getElementById("server-settings-banner-file");
   if (input) input.click();
 });
@@ -812,7 +858,7 @@ document.getElementById("server-settings-banner-file").addEventListener("change"
 });
 
 document.getElementById("server-settings-banner-color-btn").addEventListener("click", () => {
-  if (currentServerOwnerId !== myUserId) return;
+  if (!canUpdateServer()) return;
   const current = currentServerBanner();
   syncServerSettingsBannerColorInputs(current.banner_color || defaultServerBannerColor());
   const native = document.getElementById("server-settings-banner-native");

@@ -219,6 +219,30 @@ def highest_role_for_user(database, server_id, user_id):
     return min(roles, key=lambda role: (int(role.get("position") or 0), int(role.get("id") or 0)))
 
 
+def owner_role_perms():
+    return {key: True for key in LIVE_ROLE_PERMS}
+
+
+def effective_perms_for_user(database, server, user_id):
+    if server.owner_id == user_id:
+        return owner_role_perms()
+    seed_server_roles(database, server.id)
+    merged = empty_role_perms()
+    for role in assigned_roles_for_user(database, server.id, user_id):
+        perms = role.get("permissions") or {}
+        for key in LIVE_ROLE_PERMS:
+            if perms.get(key):
+                merged[key] = True
+    return merged
+
+
+def require_server_perm(database, server, user_id, perm, detail="You do not have permission to do that."):
+    perms = effective_perms_for_user(database, server, user_id)
+    if not perms.get(perm):
+        raise HTTPException(status_code=403, detail=detail)
+    return perms
+
+
 def require_server_member(database, server_id, user_id):
     server = database.query(Servers).filter(Servers.id == server_id).first()
     if not server:
@@ -230,6 +254,14 @@ def require_server_member(database, server_id, user_id):
     if not in_server:
         raise HTTPException(status_code=404, detail="Server membership not found")
     return server
+
+
+@router.get("/get_server_perms/{server_id}")
+def get_server_perms(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, server_id, current_user.id)
+    seed_server_roles(database, server.id)
+    database.commit()
+    return {"permissions": effective_perms_for_user(database, server, current_user.id)}
 
 
 @router.get("/get_server_roles/{server_id}")

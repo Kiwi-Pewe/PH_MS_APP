@@ -345,18 +345,19 @@ function showServerContextMenu(e, id, name, ownerId) {
 function showServerAreaContextMenu(e) {
   e.preventDefault();
   const isOwner = currentServerOwnerId === myUserId;
-  openContextMenu(e.clientX, e.clientY, null, [
-    { label: "Create Category", onSelect: () => { if (isOwner) openCategoryModal(); } },
-    { label: "Server Settings", onSelect: () => console.log("Server Settings — not implemented yet") }
-  ]);
+  const options = [];
+  if (isOwner) options.push({ label: "Create Category", onSelect: () => openCategoryModal() });
+  if (typeof canUpdateServer === "function" ? canUpdateServer() : isOwner) {
+    options.push({ label: "Server Settings", onSelect: () => openServerSettings() });
+  }
+  if (!options.length) return;
+  openContextMenu(e.clientX, e.clientY, null, options);
 }
 
-// Click / right-click on the server name in the middle rail. Owner
-// (admin roles do not exist yet) sees create + settings rows; everyone
-// sees invite plus the greyed notification rows. Server Settings opens
-// the overlay (shape-only this pass). Create Channel needs a category
-// id — first category if any, otherwise the row is greyed so we do not
-// invent a picker this pass.
+// Click / right-click on the server name in the middle rail. Update
+// server (and the owner) get Server Settings. Create Channel / Category
+// stay owner-only until Manage channels. Everyone sees invite plus the
+// greyed notification rows.
 function showServerHeaderMenu(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -371,23 +372,23 @@ function showServerHeaderMenu(e) {
   const isOwner = currentServerOwnerId === myUserId;
   const name = document.getElementById("server-sidebar-name").textContent || "";
   const firstCategory = ((currentServerData && currentServerData.categories) || [])[0];
-
-  const options = isOwner ? [
-    { label: "Invite to Server", onSelect: () => openInviteModal("server", currentServerId, name) },
-    { label: "Server Settings", onSelect: () => openServerSettings() },
-    firstCategory
-      ? { label: "Create Channel", onSelect: () => openChannelModal(firstCategory.id) }
-      : { label: "Create Channel", disabled: true },
-    { label: "Create Category", onSelect: () => openCategoryModal() },
-    { separator: true },
-    { label: "Notification Settings", disabled: true },
-    { label: "Hide Muted Channels", disabled: true }
-  ] : [
-    { label: "Invite to Server", onSelect: () => openInviteModal("server", currentServerId, name) },
-    { separator: true },
-    { label: "Notification Settings", disabled: true },
-    { label: "Hide Muted Channels", disabled: true }
+  const options = [
+    { label: "Invite to Server", onSelect: () => openInviteModal("server", currentServerId, name) }
   ];
+  if (typeof canUpdateServer === "function" ? canUpdateServer() : isOwner) {
+    options.push({ label: "Server Settings", onSelect: () => openServerSettings() });
+  }
+  if (isOwner) {
+    options.push(firstCategory
+      ? { label: "Create Channel", onSelect: () => openChannelModal(firstCategory.id) }
+      : { label: "Create Channel", disabled: true });
+    options.push({ label: "Create Category", onSelect: () => openCategoryModal() });
+  }
+  options.push(
+    { separator: true },
+    { label: "Notification Settings", disabled: true },
+    { label: "Hide Muted Channels", disabled: true }
+  );
 
   openContextMenu(rect.left, rect.bottom, null, options);
 }

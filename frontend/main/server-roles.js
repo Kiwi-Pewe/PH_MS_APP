@@ -866,6 +866,7 @@ async function confirmServerRoles() {
     applyServerRolesFromApi(data.roles || []);
     serverRolesLoadedFor = currentServerId;
     if (typeof refreshServerMemberList === "function") refreshServerMemberList(currentServerId);
+    if (typeof refreshServerPerms === "function") refreshServerPerms();
   } catch (err) {
     serverRolesSaveError = err.message || "Could not save roles.";
   } finally {
@@ -875,6 +876,9 @@ async function confirmServerRoles() {
 }
 
 async function showServerSettingsTab(tab) {
+  if (tab === "roles" && typeof canManageRoles === "function" && !canManageRoles()) {
+    tab = "overview";
+  }
   const overview = document.getElementById("server-settings-overview");
   const roles = document.getElementById("server-settings-roles");
   if (overview) overview.hidden = tab !== "overview";

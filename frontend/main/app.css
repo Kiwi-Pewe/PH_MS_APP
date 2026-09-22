@@ -3922,6 +3922,11 @@ a.profile-link-row:hover { color: var(--accent); }
   box-sizing: border-box;
   padding: 28px 72px 64px 36px;
 }
+#server-settings-overview[hidden],
+#server-settings-roles[hidden],
+.server-roles-page[hidden] {
+  display: none;
+}
 .server-roles-page:has(#server-roles-review:not([hidden])) {
   grid-template-columns: auto minmax(280px, 1fr);
 }

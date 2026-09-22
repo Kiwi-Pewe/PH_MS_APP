@@ -250,6 +250,11 @@ function paintMiniProfileInto(card, data, opts) {
   const banner = document.createElement("div");
   banner.className = "mini-profile-banner";
   banner.style.background = data.banner_color || "#1e6b8a";
+  const ident = data.identity || {};
+  if (typeof paintIdentityMedia === "function") {
+    const bannerMedia = ident.banner || (editing && typeof getIdentityMedia === "function" ? getIdentityMedia("banner") : null);
+    paintIdentityMedia(banner, bannerMedia);
+  }
   bindMiniProfileEditTarget(banner, "banner", editing);
   card.appendChild(banner);
 
@@ -261,7 +266,12 @@ function paintMiniProfileInto(card, data, opts) {
 
   const avatar = document.createElement("div");
   avatar.className = "mini-profile-avatar";
-  avatar.textContent = typeof avatarLetter === "function" ? avatarLetter(name) : (name || "?").slice(0, 1);
+  const avatarMedia = ident.avatar || (editing && typeof getIdentityMedia === "function" ? getIdentityMedia("avatar") : null);
+  if (typeof identityHasImage === "function" && identityHasImage(avatarMedia) && typeof paintIdentityMedia === "function") {
+    paintIdentityMedia(avatar, avatarMedia, { circle: true });
+  } else {
+    avatar.textContent = typeof avatarLetter === "function" ? avatarLetter(name) : (name || "?").slice(0, 1);
+  }
   const pip = document.createElement("div");
   pip.className = "status-dot status-" + presence;
   avatar.appendChild(pip);

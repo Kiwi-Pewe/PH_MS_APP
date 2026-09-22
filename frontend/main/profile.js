@@ -65,7 +65,13 @@ function showMiniProfileIdentityMenu(e, type) {
     avatarText: typeof avatarLetter === "function" ? avatarLetter(name) : (name || "?").slice(0, 1),
     title: subject
   }, [
-    { label: "Edit " + subject, onSelect: () => openMiniProfileEditorPage() }
+    { label: "Edit " + subject, onSelect: () => {
+      openMiniProfileEditorPage();
+      const tile = typeof findIdentityBoardTile === "function"
+        ? findIdentityBoardTile(type)
+        : { type: type, props: {} };
+      if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);
+    } }
   ]);
 }
 
@@ -87,6 +93,10 @@ function applyProfilePayload(data) {
   if (profileIsOwn) profileSavedLayout = ensureMiniProfilePage(profileSavedLayout);
   profileDraft = cloneProfileLayout(profileSavedLayout);
   profileDirty = false;
+  if (profileIsOwn) {
+    if (typeof rememberOwnIdentity === "function") rememberOwnIdentity(profileSavedLayout);
+    if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
+  }
   const pages = profileDraft.pages || [];
   if (!pages.some(page => page.id === profileActivePageId)) {
     profileActivePageId = pages[0] ? pages[0].id : "profile";
@@ -121,6 +131,7 @@ function closeProfileChrome() {
     return true;
   }
   if (profileEditing && profileDirty && !window.confirm("Discard profile changes?")) return false;
+  if (profileEditing && profileDraft && typeof dropIdentityDrafts === "function") dropIdentityDrafts(profileDraft);
   isProfileOpen = false;
   profileEditing = false;
   profileDirty = false;
@@ -278,10 +289,12 @@ function enterProfileEdit() {
 function exitProfileEdit(restore) {
   profileEditing = false;
   if (restore) {
+    if (profileDraft && typeof dropIdentityDrafts === "function") dropIdentityDrafts(profileDraft);
     profileDraft = cloneProfileLayout(profileSavedLayout);
     profileDirty = false;
   }
   paintProfileChrome();
+  if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
 }
 
 async function saveProfileLayout() {
@@ -290,6 +303,7 @@ async function saveProfileLayout() {
   if (saveBtn) saveBtn.disabled = true;
   try {
     stampOwnLocalTimeTimezone(profileDraft);
+    if (typeof flushIdentityUploads === "function") await flushIdentityUploads(profileDraft);
     const response = await profileApi("/profile_layout", {
       method: "POST",
       body: JSON.stringify(Object.assign({ grid_cols: PROFILE_COLS }, profileDraft || { pages: [] }))

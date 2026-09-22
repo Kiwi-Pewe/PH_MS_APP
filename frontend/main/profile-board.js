@@ -243,8 +243,22 @@ function profileNewId(prefix) {
 }
 
 function cloneProfileLayout(layout) {
+  const files = {};
+  const ident = layout && layout.identity;
+  if (ident) {
+    ["avatar", "banner"].forEach((kind) => {
+      const media = ident[kind];
+      if (media && (media._file || media._previewUrl)) {
+        files[kind] = { _file: media._file, _previewUrl: media._previewUrl, _ownedPreview: media._ownedPreview };
+      }
+    });
+  }
   const copy = JSON.parse(JSON.stringify(layout || { pages: [] }));
   copy.grid_cols = PROFILE_COLS;
+  if (typeof ensureIdentityLayout === "function") ensureIdentityLayout(copy);
+  Object.keys(files).forEach((kind) => {
+    copy.identity[kind] = Object.assign({}, copy.identity[kind], files[kind]);
+  });
   return copy;
 }
 
@@ -1715,13 +1729,22 @@ function paintProfileTileContent(tile, el) {
   if (tile.type === "banner") {
     el.style.background = (tile.props && tile.props.color) || "#1e6b8a";
     applyProfileTileBorder(el, tile);
+    if (typeof paintIdentityMedia === "function") {
+      const media = typeof identityMediaForPaint === "function" ? identityMediaForPaint("banner", tile) : null;
+      if (media) paintIdentityMedia(el, media);
+    }
     return;
   }
   el.style.background = "";
   if (tile.type === "avatar") {
     const face = document.createElement("div");
     face.className = "profile-tile-avatar";
-    face.textContent = typeof avatarLetter === "function" ? avatarLetter(profileOwnerName()) : (profileOwnerName() || "?").slice(0, 1);
+    const media = typeof identityMediaForPaint === "function" ? identityMediaForPaint("avatar", tile) : null;
+    if (typeof identityHasImage === "function" && identityHasImage(media) && typeof paintIdentityMedia === "function") {
+      paintIdentityMedia(face, media, { circle: true });
+    } else {
+      face.textContent = typeof avatarLetter === "function" ? avatarLetter(profileOwnerName()) : (profileOwnerName() || "?").slice(0, 1);
+    }
     applyProfileTileBorder(el, tile, face);
     el.appendChild(face);
     return;
@@ -1961,6 +1984,7 @@ function miniProfileDataFromOpenProfile() {
     },
     banner_color: banner,
     about,
+    identity: layout.identity || null,
     presence: "online",
     is_self: true,
     in_server: false,

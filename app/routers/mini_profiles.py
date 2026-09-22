@@ -4,7 +4,7 @@ from app.models import UserInfo, User_notes, Servers, Server_members
 from app.schemas import Mini_profile_note_in
 from app.database import get_db
 from app.auth import get_current_user
-from app.routers.profile import STATUS_MAX, clip_text, ensure_layout, public_display_name
+from app.routers.profile import STATUS_MAX, clip_text, ensure_layout, normalize_identity, public_display_name
 from app.routers.realtime import presence_status
 from app.routers.roles import assigned_roles_for_user, highest_role_for_user, list_server_roles, seed_server_roles
 
@@ -24,6 +24,9 @@ def layout_banner_and_about(layout):
                 banner = (props.get("color") or "").strip()
             if tile.get("type") == "bio" and not about:
                 about = clip_text(props.get("text"), 300).strip()
+    store = (layout or {}).get("mini_profile") if isinstance((layout or {}).get("mini_profile"), dict) else {}
+    if not about:
+        about = clip_text(store.get("text"), 300).strip()
     return banner or DEFAULT_BANNER, about
 
 
@@ -53,6 +56,7 @@ def get_mini_profile(user_id: int, server_id: str | None = None, current_user: U
         },
         "banner_color": banner,
         "about": about,
+        "identity": normalize_identity((layout or {}).get("identity")),
         "presence": presence_status(owner.id),
         "is_self": is_self,
         "note": "" if is_self else load_note(database, current_user.id, owner.id),

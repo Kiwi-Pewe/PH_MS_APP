@@ -97,6 +97,7 @@ function markProfileDirty() {
   profileDirty = true;
   renderProfileBoard();
   renderProfilePages();
+  if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
 }
 
 function renderProfilePalette() {
@@ -314,7 +315,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -332,6 +333,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   const fake = { type: tile.type, props: draft };
   if (tile.type === "banner") {
     fillBannerOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "avatar") {
+    fillAvatarOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "image") {
@@ -447,6 +452,15 @@ function fillBannerOptions(box, draft, onChange, hintEl) {
   colorRow.appendChild(hex);
   box.appendChild(colorLabel);
   box.appendChild(colorRow);
+  if (typeof fillIdentityImageOptions === "function") {
+    fillIdentityImageOptions(box, "banner", draft, onChange, hintEl);
+  }
+}
+
+function fillAvatarOptions(box, draft, onChange, hintEl) {
+  if (typeof fillIdentityImageOptions === "function") {
+    fillIdentityImageOptions(box, "avatar", draft, onChange, hintEl);
+  }
 }
 
 function dropProfileImageDraft(draft) {
@@ -1917,10 +1931,6 @@ function fillLinkTreeOptions(box, tile, hintEl) {
 }
 
 function openProfileTileOptions(tile) {
-  if (isMiniProfileIdentityTile(tile.type)) {
-    openMiniProfileEditorPage();
-    return;
-  }
   tile.props = tile.props || {};
   const draft = Object.assign({}, tile.props);
   if (Array.isArray(draft.links)) draft.links = draft.links.map(row => Object.assign({}, row));
@@ -1932,6 +1942,7 @@ function openProfileTileOptions(tile) {
   if (Array.isArray(draft.server_ids)) draft.server_ids = draft.server_ids.slice();
   Object.assign(draft, defaultTextChrome(tile.type, draft));
   draft.z_index = clampProfileZIndex(tile.z_index != null ? tile.z_index : draft.z_index);
+  if (typeof seedIdentityOptionsDraft === "function") seedIdentityOptionsDraft(tile, draft);
   let tab = profileHasWidgetSettings(tile.type) ? 'widget' : 'design';
   const overlay = document.createElement('div');
   overlay.className = 'settings-form-overlay';
@@ -2048,11 +2059,13 @@ function openProfileTileOptions(tile) {
   }
 
   cancel.addEventListener('click', () => {
-    dropProfileImageDraft(draft);
+    if (typeof dropIdentityOptionsDraft === "function") dropIdentityOptionsDraft(draft, tile);
+    else dropProfileImageDraft(draft);
     overlay.remove();
   });
   close.addEventListener('click', () => {
-    dropProfileImageDraft(draft);
+    if (typeof dropIdentityOptionsDraft === "function") dropIdentityOptionsDraft(draft, tile);
+    else dropProfileImageDraft(draft);
     overlay.remove();
   });
   profileOptHint(close, 'Close without saving.', hintEl);
@@ -2198,7 +2211,11 @@ function openProfileTileOptions(tile) {
         return;
       }
     }
-    dropProfileImageDraft(draft);
+    if (tile.type === "avatar" || tile.type === "banner") {
+      if (typeof applyIdentityDraft === "function") applyIdentityDraft(tile.type, draft);
+    } else {
+      dropProfileImageDraft(draft);
+    }
     tile.z_index = clampProfileZIndex(draft.z_index);
     delete draft.z_index;
     if (draft.props) delete draft.props;
@@ -2218,7 +2235,8 @@ function openProfileTileOptions(tile) {
   overlay.appendChild(box);
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) {
-      dropProfileImageDraft(draft);
+      if (typeof dropIdentityOptionsDraft === "function") dropIdentityOptionsDraft(draft, tile);
+      else dropProfileImageDraft(draft);
       overlay.remove();
     }
   });
@@ -2234,7 +2252,10 @@ function showProfileTileMenu(e, tile) {
   if (typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) {
     items.push({
       label: "Edit " + miniProfileIdentitySubject(tile.type),
-      onSelect: () => openMiniProfileEditorPage()
+      onSelect: () => {
+        if (typeof openMiniProfileEditorPage === "function") openMiniProfileEditorPage();
+        openProfileTileOptions(tile);
+      }
     });
   } else if (profileTileHasOptions(tile.type)) {
     items.push({

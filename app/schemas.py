@@ -116,6 +116,9 @@ class Profile_page_in(BaseModel):
 class Profile_layout_in(BaseModel):
     grid_cols: int = 32
     pages: list[Profile_page_in] = []
+    mini_profile: dict | None = None
+    identity: dict | None = None
+    image_recents: dict | None = None
 
 class Profile_comment_in(BaseModel):
     content: str = ""

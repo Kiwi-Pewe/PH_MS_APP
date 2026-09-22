@@ -280,7 +280,10 @@ def seed_layout():
                 "tiles": default_profile_tiles(banner) if page_id == "profile" else [],
             }
             for page_id, title, vis in STARTER_PAGES
-        ]
+        ],
+        "mini_profile": normalize_props("bio", {}, banner),
+        "identity": normalize_identity({}),
+        "image_recents": normalize_image_recents({}),
     }
 
 
@@ -540,6 +543,86 @@ def normalize_border_props(data):
 def empty_profile_image(data):
     out = normalize_text_chrome(data, 14, True)
     out.update({"key": "", "url": "", "mime": "", "size": 0, "name": ""})
+    return out
+
+
+def normalize_identity_crop(data):
+    crop = data.get("crop") if isinstance(data, dict) and isinstance(data.get("crop"), dict) else {}
+    if isinstance(data, dict) and not crop and any(key in data for key in ("zoom", "rotation", "x", "y")):
+        crop = data
+    try:
+        zoom = float(crop.get("zoom"))
+    except (TypeError, ValueError):
+        zoom = 1.0
+    zoom = min(3.0, max(1.0, zoom))
+    try:
+        rotation = int(crop.get("rotation") or 0)
+    except (TypeError, ValueError):
+        rotation = 0
+    rotation = (round(rotation / 90) * 90) % 360
+
+    def axis(value):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return 0.5
+        return min(1.0, max(0.0, number))
+
+    return {"zoom": zoom, "rotation": rotation, "x": axis(crop.get("x")), "y": axis(crop.get("y"))}
+
+
+def empty_identity_media():
+    return {
+        "key": "",
+        "url": "",
+        "mime": "",
+        "size": 0,
+        "name": "",
+        "crop": normalize_identity_crop({}),
+    }
+
+
+def normalize_identity_media(data):
+    raw = data if isinstance(data, dict) else {}
+    img = normalize_profile_image_props(raw)
+    out = empty_identity_media()
+    out["crop"] = normalize_identity_crop(raw)
+    if img.get("key"):
+        out["key"] = img["key"]
+        out["url"] = img["url"]
+        out["mime"] = img["mime"]
+        out["size"] = img["size"]
+        out["name"] = img["name"]
+    return out
+
+
+def normalize_identity(raw):
+    data = raw if isinstance(raw, dict) else {}
+    return {
+        "avatar": normalize_identity_media(data.get("avatar")),
+        "banner": normalize_identity_media(data.get("banner")),
+    }
+
+
+def normalize_image_recents(raw):
+    data = raw if isinstance(raw, dict) else {}
+    out = {"avatar": [], "banner": []}
+    for kind in out:
+        seen = set()
+        for row in data.get(kind) or []:
+            if len(out[kind]) >= 6:
+                break
+            media = normalize_identity_media(row)
+            if not media["key"] or media["key"] in seen:
+                continue
+            seen.add(media["key"])
+            out[kind].append({
+                "key": media["key"],
+                "url": media["url"],
+                "mime": media["mime"],
+                "size": media["size"],
+                "name": media["name"],
+            })
     return out
 
 
@@ -1115,6 +1198,8 @@ def normalize_layout(raw):
     out = {"grid_cols": GRID_COLS, "pages": ensure_mini_profile_page(pages)}
     raw_mini = data.get("mini_profile") if isinstance(data.get("mini_profile"), dict) else {}
     out["mini_profile"] = normalize_props("bio", raw_mini, banner_fallback)
+    out["identity"] = normalize_identity(data.get("identity"))
+    out["image_recents"] = normalize_image_recents(data.get("image_recents"))
     return out
 
 
@@ -1152,7 +1237,9 @@ def ensure_layout(user, database: Session):
 def public_pages(layout):
     return {
         "grid_cols": GRID_COLS,
-        "pages": [page for page in (layout.get("pages") or []) if page.get("visibility") != "owner"]
+        "pages": [page for page in (layout.get("pages") or []) if page.get("visibility") != "owner"],
+        "identity": normalize_identity((layout or {}).get("identity")),
+        "mini_profile": (layout or {}).get("mini_profile") or {},
     }
 
 
@@ -1173,7 +1260,8 @@ def identity_only_layout(layout):
             "title": "Profile",
             "visibility": "public",
             "tiles": tiles,
-        }]
+        }],
+        "identity": normalize_identity((layout or {}).get("identity")),
     }
 
 

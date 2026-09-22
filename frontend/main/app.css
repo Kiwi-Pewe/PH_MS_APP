@@ -3762,7 +3762,12 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 9px 10px;
 }
 .server-settings-input:disabled { opacity: 0.7; cursor: default; }
-.server-settings-textarea { min-height: 96px; resize: vertical; }
+.server-settings-textarea {
+  min-height: 96px;
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+}
 .server-settings-avatar-row {
   display: flex;
   align-items: center;

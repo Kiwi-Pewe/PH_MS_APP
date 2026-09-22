@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=133">
+<link rel="stylesheet" href="app.css?v=134">
 </head>
 <body>
 
@@ -527,8 +527,13 @@
 
         <div class="server-settings-field">
           <label class="server-settings-field-title" for="server-settings-about">About</label>
-          <p class="server-settings-help">Your server description will be seen by everyone.</p>
-          <textarea id="server-settings-about" class="server-settings-input server-settings-textarea" rows="4" disabled placeholder="Tell people what this server is."></textarea>
+          <p class="server-settings-help">Saved here for now. Communities will show this to everyone later.</p>
+          <textarea id="server-settings-about" class="server-settings-input server-settings-textarea" rows="3" maxlength="2000" placeholder="Tell people what this server is."></textarea>
+          <div id="server-settings-about-actions" class="server-settings-name-actions" hidden>
+            <button type="button" id="server-settings-about-confirm" class="settings-row-btn">Confirm</button>
+            <button type="button" id="server-settings-about-cancel" class="ghost-btn">Cancel</button>
+          </div>
+          <p id="server-settings-about-status" class="server-settings-help" hidden></p>
         </div>
 
         <div class="server-settings-later">
@@ -887,10 +892,10 @@
 <script src="util.js?v=49"></script>
 <script src="media.js?v=53"></script>
 <script src="post-media.js?v=51"></script>
-<script src="boot.js?v=69"></script>
+<script src="boot.js?v=70"></script>
 <script src="app-shell.js?v=54"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=4"></script>
+<script src="server-settings.js?v=5"></script>
 <script src="settings-account.js?v=4"></script>
 <script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=1"></script>
@@ -925,7 +930,7 @@
 <script src="invites.js?v=45"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=6"></script>
-<script src="servers.js?v=66"></script>
+<script src="servers.js?v=67"></script>
 <script src="members.js?v=3"></script>
 <script src="server-modals.js?v=47"></script>
 <script src="announcements.js?v=51"></script>

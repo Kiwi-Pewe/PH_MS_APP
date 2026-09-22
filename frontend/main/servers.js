@@ -104,6 +104,16 @@ function applyServerName(serverId, name) {
   if (typeof syncServerSettingsName === "function") syncServerSettingsName(next);
 }
 
+function applyServerAbout(serverId, about) {
+  const next = about || "";
+  const meta = serverList.find(s => s.id === serverId);
+  if (meta) meta.about = next;
+  if (currentServerData && currentServerId === serverId) {
+    currentServerData.about = next;
+  }
+  if (typeof syncServerSettingsAbout === "function") syncServerSettingsAbout(next);
+}
+
 function applyServerBanner(serverId, banner) {
   const url = (banner && banner.banner_url) || "";
   const color = (banner && banner.banner_color) || "";

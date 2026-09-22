@@ -1,7 +1,7 @@
 // ==================================================================
 // server-settings.js - Server Settings overlay. Overview Avatar,
-// Banner, and Name are live. About and every other index row stay
-// parked. Gradient banner is later.
+// Banner, Name, and About are live. Parked Overview fields and every
+// other index row stay grey. Gradient banner is later.
 // ==================================================================
 
 function currentServerIconUrl() {
@@ -333,6 +333,90 @@ function cancelServerSettingsName() {
   syncServerSettingsName(savedServerSettingsName());
 }
 
+function savedServerSettingsAbout() {
+  if (currentServerData && currentServerId && typeof currentServerData.about === "string") {
+    return currentServerData.about;
+  }
+  return (serverList.find(s => s.id === currentServerId) || {}).about || "";
+}
+
+function typedServerSettingsAbout() {
+  const area = document.getElementById("server-settings-about");
+  return area ? area.value : "";
+}
+
+function setServerSettingsAboutStatus(text) {
+  const status = document.getElementById("server-settings-about-status");
+  if (!status) return;
+  status.hidden = !text;
+  status.textContent = text || "";
+}
+
+function setServerSettingsAboutBusy(busy) {
+  const area = document.getElementById("server-settings-about");
+  const confirm = document.getElementById("server-settings-about-confirm");
+  const cancel = document.getElementById("server-settings-about-cancel");
+  if (area) area.disabled = !!busy;
+  if (confirm) confirm.disabled = !!busy;
+  if (cancel) cancel.disabled = !!busy;
+}
+
+function autosizeServerSettingsAbout() {
+  const area = document.getElementById("server-settings-about");
+  if (!area) return;
+  area.style.height = "auto";
+  area.style.height = Math.max(area.scrollHeight, 96) + "px";
+}
+
+function paintServerSettingsAboutActions() {
+  const actions = document.getElementById("server-settings-about-actions");
+  if (actions) actions.hidden = typedServerSettingsAbout() === savedServerSettingsAbout();
+}
+
+function syncServerSettingsAbout(about) {
+  const area = document.getElementById("server-settings-about");
+  if (area) area.value = about || "";
+  setServerSettingsAboutStatus("");
+  paintServerSettingsAboutActions();
+  autosizeServerSettingsAbout();
+}
+
+async function confirmServerSettingsAbout() {
+  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  const about = typedServerSettingsAbout();
+  if (about === savedServerSettingsAbout()) {
+    paintServerSettingsAboutActions();
+    return;
+  }
+  if (about.length > 2000) {
+    setServerSettingsAboutStatus("About text is too long.");
+    return;
+  }
+  setServerSettingsAboutBusy(true);
+  setServerSettingsAboutStatus("");
+  try {
+    const response = await fetch(`https://${serverAddress}/update_server_about`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server_id: currentServerId, about })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save the about text.");
+    if (typeof applyServerAbout === "function") applyServerAbout(currentServerId, data.about || about);
+  } catch (err) {
+    setServerSettingsAboutStatus(err.message || "Could not save the about text.");
+  } finally {
+    setServerSettingsAboutBusy(false);
+    paintServerSettingsAboutActions();
+    autosizeServerSettingsAbout();
+  }
+}
+
+function cancelServerSettingsAbout() {
+  syncServerSettingsAbout(savedServerSettingsAbout());
+}
+
 function openServerSettings() {
   if (!currentServerId) return;
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
@@ -344,6 +428,7 @@ function openServerSettings() {
   const label = document.getElementById("server-settings-index-label");
   if (label) label.textContent = name;
   syncServerSettingsName(name);
+  syncServerSettingsAbout(savedServerSettingsAbout());
   setServerSettingsAvatarStatus("");
   setServerSettingsBannerStatus("");
   paintServerSettingsAvatar();
@@ -351,6 +436,7 @@ function openServerSettings() {
 
   const overlay = document.getElementById("server-settings-overlay");
   if (overlay) overlay.hidden = false;
+  autosizeServerSettingsAbout();
 }
 
 function closeServerSettingsChrome() {
@@ -364,6 +450,7 @@ function closeServerSettingsChrome() {
   setServerSettingsAvatarStatus("");
   setServerSettingsBannerStatus("");
   cancelServerSettingsName();
+  cancelServerSettingsAbout();
 }
 
 document.getElementById("server-settings-close").addEventListener("click", () => {
@@ -456,6 +543,20 @@ document.getElementById("server-settings-name-confirm").addEventListener("click"
 
 document.getElementById("server-settings-name-cancel").addEventListener("click", () => {
   cancelServerSettingsName();
+});
+
+document.getElementById("server-settings-about").addEventListener("input", () => {
+  setServerSettingsAboutStatus("");
+  paintServerSettingsAboutActions();
+  autosizeServerSettingsAbout();
+});
+
+document.getElementById("server-settings-about-confirm").addEventListener("click", () => {
+  confirmServerSettingsAbout();
+});
+
+document.getElementById("server-settings-about-cancel").addEventListener("click", () => {
+  cancelServerSettingsAbout();
 });
 
 document.addEventListener("keydown", (e) => {

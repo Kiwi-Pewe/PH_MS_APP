@@ -138,6 +138,7 @@ class Servers(Base):
     icon_key = Column(String)
     banner_key = Column(String)
     banner_color = Column(String)
+    about = Column(String)
 
 class Server_members(Base):
     __tablename__ = "server_members"

@@ -132,14 +132,36 @@ function buildMemberRow(member) {
     row.appendChild(crown);
   }
   row.addEventListener("contextmenu", (e) => showMemberContextMenu(e, member));
+  if (typeof bindMiniProfileTarget === "function") {
+    bindMiniProfileTarget(avatar, member.id);
+    bindMiniProfileTarget(name, member.id);
+  }
   return row;
+}
+
+function applyMemberRolesUpdated(serverId, userId, hoistRole) {
+  if (memberListScope !== "server" || String(memberListScopeId) !== String(serverId)) return;
+  const member = memberList.find((row) => row.id === userId);
+  if (!member) return;
+  if (hoistRole) member.hoist_role = hoistRole;
+  else delete member.hoist_role;
+  renderMemberList();
+  if (typeof miniProfileOpen !== "undefined" && miniProfileOpen && miniProfileUserId === userId) {
+    if (typeof reloadOpenMiniProfile === "function") reloadOpenMiniProfile();
+  }
 }
 
 function applyPresence(userId, status) {
   const member = memberList.find(m => m.id === userId);
-  if (!member) return;
-  member.status = status;
-  renderMemberList();
+  if (member) {
+    member.status = status;
+    renderMemberList();
+  }
+  if (typeof miniProfileOpen !== "undefined" && miniProfileOpen && miniProfileData && miniProfileUserId === userId) {
+    miniProfileData.presence = status;
+    paintMiniProfile(miniProfileData);
+    positionMiniProfile(miniProfileAnchor);
+  }
 }
 
 function applyMemberJoined(scope, scopeId, member) {

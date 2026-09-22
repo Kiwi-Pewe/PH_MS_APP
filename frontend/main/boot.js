@@ -295,6 +295,12 @@ function connectSocket() {
       if (typeof refreshServerMemberList === "function") refreshServerMemberList(data.server_id);
     }
 
+    if (data.type === "server_member_roles_updated") {
+      if (typeof applyMemberRolesUpdated === "function") {
+        applyMemberRolesUpdated(data.server_id, data.user_id, data.hoist_role || null);
+      }
+    }
+
     if (data.type === "presence") {
       applyPresence(data.user_id, data.status);
     }

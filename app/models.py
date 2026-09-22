@@ -173,6 +173,14 @@ class Server_role_members(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     __table_args__ = (UniqueConstraint("role_id", "user_id"),)
 
+class User_notes(Base):
+    __tablename__ = "user_notes"
+    id = Column(Integer, primary_key=True)
+    author_id = Column(Integer, ForeignKey("users.id"))
+    subject_id = Column(Integer, ForeignKey("users.id"))
+    text = Column(String)
+    __table_args__ = (UniqueConstraint("author_id", "subject_id", name="uq_user_note"),)
+
 class Dm_server_pref(Base):
     __tablename__ = "dm_server_prefs"
     id = Column(Integer, primary_key=True)

@@ -188,7 +188,7 @@ const SERVER_ROLE_PERMS = [
 ];
 
 const SERVER_ROLE_SETTING_ROWS = [
-  { id: "selfAssign", title: "Self-assignable", desc: "Allows members to assign this role to themselves.", later: "User Server profile" },
+  { id: "selfAssign", title: "Self-assignable", desc: "Allows members to assign this role to themselves.", later: "Mini Profile +" },
   { id: "mentionable", title: "Mentionable", desc: "Allow members to notify others by mentioning this role." },
   { id: "hoist", title: "Display Separately", desc: "If enabled, members with this role will display separately from other online members." },
   { id: "nameColor", title: "Name color", desc: "This role’s color is used on members’ display names in this server. If they have more than one, the highest role on the list wins." }

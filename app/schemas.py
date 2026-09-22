@@ -226,6 +226,16 @@ class Server_roles_save(BaseModel):
     server_id: str
     roles: list[Server_role_in] = []
 
+class Mini_profile_note_in(BaseModel):
+    user_id: int
+    text: str = ""
+
+class Server_role_member_in(BaseModel):
+    server_id: str
+    user_id: int
+    role_id: int
+    assigned: bool = True
+
 class Server_message(BaseModel):
     sender_id: int
     channel_id: int

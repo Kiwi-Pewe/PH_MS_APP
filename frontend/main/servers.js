@@ -188,6 +188,7 @@ async function openServer(serverId, iconEl) {
     return;
   }
 
+  if (typeof closeMiniProfile === "function") closeMiniProfile();
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
   if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;

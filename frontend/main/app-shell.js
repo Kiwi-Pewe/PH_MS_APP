@@ -58,6 +58,7 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
 });
 
 async function goHome() {
+  if (typeof closeMiniProfile === "function") closeMiniProfile();
   if (!(await leaveDocIfNeeded())) return false;
   hideDocsChrome();
   selectRailIcon("home", document.getElementById("home-icon"));

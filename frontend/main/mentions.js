@@ -214,7 +214,8 @@ function buildMentionChip(token, lookup, msg, mentionRoles) {
   chip.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (typeof openUserProfile === "function") openUserProfile(userId);
+    if (typeof openMiniProfile === "function") openMiniProfile(userId, chip);
+    else if (typeof openUserProfile === "function") openUserProfile(userId);
   });
   chip.addEventListener("contextmenu", (e) => {
     e.preventDefault();

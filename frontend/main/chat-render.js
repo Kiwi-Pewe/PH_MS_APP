@@ -170,6 +170,7 @@ function wrapDeletionOnSenderSide(msg, inner) {
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
   avatar.textContent = avatarLetter(msg.username);
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(avatar, msg.senderId);
 
   const body = document.createElement("div");
   body.className = "cluster-body";
@@ -252,6 +253,7 @@ function buildEditComposer(msg) {
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
   avatar.textContent = avatarLetter(msg.username);
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(avatar, msg.senderId);
 
   const body = document.createElement("div");
   body.className = "cluster-body";
@@ -396,6 +398,7 @@ function startNewCluster(wrap, msg) {
   avatar.className = "cluster-avatar";
   avatar.textContent = avatarLetter(msg.username);
   avatar.addEventListener("contextmenu", (e) => showProfileContextMenu(e, msg.senderId, msg.username, msg.isMine));
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(avatar, msg.senderId);
 
   const body = document.createElement("div");
   body.className = "cluster-body";
@@ -406,6 +409,7 @@ function startNewCluster(wrap, msg) {
   name.className = "cluster-name";
   name.textContent = msg.username;
   name.addEventListener("contextmenu", (e) => showProfileContextMenu(e, msg.senderId, msg.username, msg.isMine));
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(name, msg.senderId);
   const time = document.createElement("span");
   time.className = "cluster-time";
   time.textContent = formatClusterTime(msg.time);

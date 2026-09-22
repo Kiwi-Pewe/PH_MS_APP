@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_roles, Server_role_members
-from app.schemas import Server_roles_save
+from app.schemas import Server_role_member_in, Server_roles_save
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.deletion import write_audit_log
@@ -174,6 +174,24 @@ def hoist_role_for_user(database, server_id, user_id):
     return hoist_roles_by_user(database, server_id, [user_id]).get(user_id)
 
 
+def assigned_roles_for_user(database, server_id, user_id):
+    rows = (
+        database.query(Server_roles)
+        .join(Server_role_members, Server_role_members.role_id == Server_roles.id)
+        .filter(Server_roles.server_id == server_id, Server_role_members.user_id == user_id)
+        .order_by(Server_roles.position, Server_roles.id)
+        .all()
+    )
+    return [serialize_role(row) for row in rows]
+
+
+def highest_role_for_user(database, server_id, user_id):
+    roles = assigned_roles_for_user(database, server_id, user_id)
+    if not roles:
+        return None
+    return min(roles, key=lambda role: (int(role.get("position") or 0), int(role.get("id") or 0)))
+
+
 def require_server_member(database, server_id, user_id):
     server = database.query(Servers).filter(Servers.id == server_id).first()
     if not server:
@@ -275,4 +293,50 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
             {"client_id": item["client_id"], "id": item["role"].id}
             for item in saved
         ],
+    }
+
+
+@router.post("/set_server_role_member")
+async def set_server_role_member(body: Server_role_member_in, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    if server.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the server owner can assign roles.")
+    require_server_member(database, body.server_id, body.user_id)
+    seed_server_roles(database, server.id)
+    role = database.query(Server_roles).filter(
+        Server_roles.id == body.role_id,
+        Server_roles.server_id == server.id,
+    ).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    if role.is_members:
+        raise HTTPException(status_code=400, detail="The Members role cannot be changed.")
+
+    existing = database.query(Server_role_members).filter(
+        Server_role_members.role_id == role.id,
+        Server_role_members.user_id == body.user_id,
+    ).first()
+    if body.assigned and not existing:
+        database.add(Server_role_members(role_id=role.id, user_id=body.user_id))
+    elif not body.assigned and existing:
+        database.delete(existing)
+    database.commit()
+
+    hoist = hoist_role_for_user(database, server.id, body.user_id)
+    await server_broadcast(
+        server_id=server.id,
+        payload={
+            "type": "server_member_roles_updated",
+            "server_id": server.id,
+            "user_id": body.user_id,
+            "hoist_role": hoist,
+        },
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {
+        "ok": True,
+        "roles": assigned_roles_for_user(database, server.id, body.user_id),
+        "highest_role": highest_role_for_user(database, server.id, body.user_id),
+        "hoist_role": hoist,
     }

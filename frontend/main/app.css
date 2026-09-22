@@ -4109,3 +4109,201 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .server-roles-editor .settings-opt { padding: 12px 0; }
 .server-roles-editor .settings-opt.is-later { opacity: 0.55; }
+
+/* Mini Profile — Guilded card shell. Placement will move after this
+   first pass; keep the look (banner, overlapping avatar, section
+   labels, + / pills, note box) and the stated Oneira moves. */
+#mini-profile {
+  position: fixed;
+  z-index: 900;
+  width: 300px;
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+}
+#mini-profile[hidden],
+#mini-profile-role-picker[hidden] { display: none !important; }
+.mini-profile-banner {
+  height: 88px;
+  border-radius: 8px 8px 0 0;
+}
+.mini-profile-identity {
+  position: relative;
+  padding: 0 16px 12px;
+}
+.mini-profile-avatar {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin-top: -36px;
+  border-radius: 50%;
+  background: #3b3e4a;
+  border: 6px solid var(--panel-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #cfd1e0;
+}
+.mini-profile-avatar .status-dot {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 4px solid var(--panel-alt);
+  right: 0;
+  bottom: 0;
+}
+.mini-profile-highest {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.mini-profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+.mini-profile-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mini-profile-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.mini-profile-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.mini-profile-icon-btn:hover { color: var(--text); background: var(--border); }
+.mini-profile-icon-btn svg { width: 16px; height: 16px; display: block; }
+.mini-profile-status {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+.mini-profile-about {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+.mini-profile-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px;
+}
+.mini-profile-roles,
+.mini-profile-footer { padding: 4px 16px 16px; }
+.mini-profile-role-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.mini-profile-role-add {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+}
+.mini-profile-role-add:hover { background: var(--panel); }
+.mini-profile-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 12px;
+  font-weight: 600;
+}
+.mini-profile-role-pill.is-removable { cursor: pointer; }
+.mini-profile-role-pill.is-removable:hover { background: var(--border); }
+.mini-profile-role-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #99aab5;
+  flex: 0 0 auto;
+}
+.mini-profile-role-more {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 700;
+}
+.mini-profile-role-more:hover { color: var(--text); }
+.mini-profile-note {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  background: transparent;
+  border: 1px solid var(--text);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+.mini-profile-note:focus { outline: none; border-color: var(--accent); }
+.mini-profile-edit-btn { width: 100%; margin-top: 8px; }
+.mini-profile-footer .mini-profile-edit-btn:first-child { margin-top: 0; }
+#mini-profile-role-picker {
+  position: fixed;
+  z-index: 950;
+  min-width: 180px;
+  max-height: 240px;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+}
+.mini-profile-role-pick {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.mini-profile-role-pick:hover { background: var(--panel-alt); }
+.is-mini-profile-target { cursor: pointer; }
+.cluster-avatar.is-mini-profile-target,
+.cluster-name.is-mini-profile-target { cursor: pointer; }

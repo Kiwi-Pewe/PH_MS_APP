@@ -14,7 +14,10 @@ import random
 import re
 
 BANNER_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
-SERVER_SLUG_RE = re.compile(r"^[A-Za-z](?:[A-Za-z0-9-]{0,23}[A-Za-z0-9])$")
+SERVER_NAME_MAX = 25
+SERVER_SLUG_RE = re.compile(
+    r"^[A-Za-z](?:[A-Za-z0-9-]{0," + str(max(0, SERVER_NAME_MAX - 2)) + r"}[A-Za-z0-9])$"
+)
 RESERVED_SERVER_SLUGS = {
     "main", "app", "login", "invite", "admin", "shared", "accessibility",
     "index", "api", "cdn", "settings", "profile", "communities", "games",
@@ -71,8 +74,8 @@ def create_server(server_name: Server_create, database: Session = Depends(get_db
         if not id_check: break
 
     name = (server_name.name or "").strip() or "Server"
-    if len(name) > 25:
-        name = name[:25]
+    if len(name) > SERVER_NAME_MAX:
+        name = name[:SERVER_NAME_MAX]
     new_server = Servers(
         id = test_id,
         name = name,
@@ -292,7 +295,7 @@ async def update_server_name(body: Server_name_update, database: Session = Depen
     name = (body.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Server name cannot be empty.")
-    if len(name) > 25:
+    if len(name) > SERVER_NAME_MAX:
         raise HTTPException(status_code=400, detail="Server name is too long.")
 
     server.name = name
@@ -352,7 +355,7 @@ async def update_server_url(body: Server_url_update, database: Session = Depends
         return {"ok": True, "url_slug": ""}
 
     if not SERVER_SLUG_RE.fullmatch(slug):
-        raise HTTPException(status_code=400, detail="Use 2–25 letters, numbers, or hyphens, starting with a letter.")
+        raise HTTPException(status_code=400, detail=f"Use 2–{SERVER_NAME_MAX} letters, numbers, or hyphens, starting with a letter.")
     if slug.lower() in RESERVED_SERVER_SLUGS:
         raise HTTPException(status_code=400, detail="That URL is reserved.")
 

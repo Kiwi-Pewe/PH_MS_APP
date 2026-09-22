@@ -417,7 +417,8 @@ function cancelServerSettingsAbout() {
   syncServerSettingsAbout(savedServerSettingsAbout());
 }
 
-const SERVER_SLUG_RE = /^[A-Za-z](?:[A-Za-z0-9-]{0,23}[A-Za-z0-9])$/;
+const SERVER_NAME_MAX = 25;
+const SERVER_SLUG_RE = new RegExp("^[A-Za-z](?:[A-Za-z0-9-]{0," + Math.max(0, SERVER_NAME_MAX - 2) + "}[A-Za-z0-9])$");
 const RESERVED_SERVER_SLUGS = {
   main: true, app: true, login: true, invite: true, admin: true, shared: true,
   accessibility: true, index: true, api: true, cdn: true, settings: true,
@@ -477,7 +478,7 @@ function syncServerSettingsUrl(slug) {
 
 function serverSettingsUrlError(slug) {
   if (!slug) return "";
-  if (!SERVER_SLUG_RE.test(slug)) return "Use 2–25 letters, numbers, or hyphens, starting with a letter.";
+  if (!SERVER_SLUG_RE.test(slug)) return "Use 2–" + SERVER_NAME_MAX + " letters, numbers, or hyphens, starting with a letter.";
   if (RESERVED_SERVER_SLUGS[slug.toLowerCase()]) return "That URL is reserved.";
   return "";
 }
@@ -664,7 +665,7 @@ document.getElementById("server-settings-about-cancel").addEventListener("click"
 
 document.getElementById("server-settings-url").addEventListener("input", (e) => {
   const input = e.target;
-  const cleaned = cleanServerSettingsSlug(input.value).slice(0, 25);
+  const cleaned = cleanServerSettingsSlug(input.value).slice(0, SERVER_NAME_MAX);
   if (input.value !== cleaned) input.value = cleaned;
   setServerSettingsUrlStatus("");
   paintServerSettingsUrlActions();

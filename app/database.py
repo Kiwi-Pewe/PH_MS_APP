@@ -249,3 +249,13 @@ def ensure_server_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN banner_key VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN banner_color VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
@@ -11,6 +11,9 @@ from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.realtime import serialize_member, server_broadcast
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 import random
+import re
+
+BANNER_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 router = APIRouter()
 
@@ -18,6 +21,25 @@ router = APIRouter()
 def server_icon_url(server):
     key = getattr(server, "icon_key", None) if server else None
     return public_url_for(key) if key else ""
+
+
+def server_banner_url(server):
+    key = getattr(server, "banner_key", None) if server else None
+    return public_url_for(key) if key else ""
+
+
+def clean_banner_hex(value):
+    text = (value or "").strip()
+    if BANNER_HEX_RE.fullmatch(text):
+        return text.lower()
+    return ""
+
+
+def server_banner_fields(server):
+    return {
+        "banner_url": server_banner_url(server),
+        "banner_color": (getattr(server, "banner_color", None) or "") if server else "",
+    }
 
 @router.post("/create_server")
 def create_server(server_name: Server_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -95,7 +117,8 @@ def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo
             "owner_id": server_info.owner_id,
             "unread": notice["unread"],
             "mention_count": notice["mention_count"],
-            "icon_url": server_icon_url(server_info)
+            "icon_url": server_icon_url(server_info),
+            **server_banner_fields(server_info)
         })
 
     return {"servers": server_list}
@@ -134,7 +157,13 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
 
             server_info.append({"id": category.id, "name": category.name, "position": category.position, "is_private": category.is_private, "channels": channel_info})
             
-    return {"type": "server", "categories": server_info, "owner": server.owner_id, "icon_url": server_icon_url(server)}
+    return {
+        "type": "server",
+        "categories": server_info,
+        "owner": server.owner_id,
+        "icon_url": server_icon_url(server),
+        **server_banner_fields(server)
+    }
 
 
 @router.post("/update_server_icon")
@@ -177,6 +206,54 @@ async def update_server_icon(body: Server_icon_update, database: Session = Depen
         exclude_user_id=current_user.id,
     )
     return {"ok": True, "icon_url": icon_url}
+
+
+@router.post("/update_server_banner")
+async def update_server_banner(body: Server_banner_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = database.query(Servers).filter(Servers.id == body.server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the server owner can change the banner.")
+
+    color = clean_banner_hex(body.color)
+    key = (body.key or "").strip() or None
+    old_key = getattr(server, "banner_key", None)
+    if color:
+        server.banner_color = color
+        server.banner_key = None
+    elif key:
+        mime = normalize_mime(body.mime)
+        if mime == "image/jpg":
+            mime = "image/jpeg"
+        if not SERVER_KEY_RE.match(key) or mime not in ALLOWED_MIME or ALLOWED_MIME[mime][1] != "image":
+            raise HTTPException(status_code=400, detail="That is not a valid server banner.")
+        if not key.endswith(ALLOWED_MIME[mime][0]):
+            raise HTTPException(status_code=400, detail="That is not a valid server banner.")
+        try:
+            size = int(body.size or 0)
+        except (TypeError, ValueError):
+            size = 0
+        if size < 1 or size > PROFILE_IMAGE_BYTES:
+            raise HTTPException(status_code=400, detail="Server banners must be 5 MB or smaller.")
+        server.banner_key = key
+        server.banner_color = None
+    else:
+        server.banner_key = None
+        server.banner_color = None
+
+    database.commit()
+    if old_key and old_key != getattr(server, "banner_key", None):
+        delete_r2_object(old_key)
+
+    fields = server_banner_fields(server)
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_banner_updated", "server_id": server.id, **fields},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, **fields}
 
 
 @router.get("/get_server_members/{server_id}")

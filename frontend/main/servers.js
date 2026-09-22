@@ -74,6 +74,33 @@ function applyServerIcon(serverId, iconUrl) {
   if (typeof paintServerSettingsAvatar === "function") paintServerSettingsAvatar();
 }
 
+function paintServerSidebarBanner(server) {
+  const view = document.getElementById("server-sidebar-view");
+  const strip = document.getElementById("server-sidebar-banner");
+  if (!view || !strip) return;
+  const url = (server && server.banner_url) || "";
+  const color = (server && server.banner_color) || "";
+  strip.style.backgroundImage = url ? "url(" + JSON.stringify(url) + ")" : "";
+  strip.style.backgroundColor = (!url && color) ? color : "";
+  view.classList.toggle("has-banner", !!(url || color));
+}
+
+function applyServerBanner(serverId, banner) {
+  const url = (banner && banner.banner_url) || "";
+  const color = (banner && banner.banner_color) || "";
+  const meta = serverList.find(s => s.id === serverId);
+  if (meta) {
+    meta.banner_url = url;
+    meta.banner_color = color;
+  }
+  if (currentServerData && currentServerId === serverId) {
+    currentServerData.banner_url = url;
+    currentServerData.banner_color = color;
+    paintServerSidebarBanner(currentServerData);
+  }
+  if (typeof paintServerSettingsBanner === "function") paintServerSettingsBanner();
+}
+
 function selectRailIcon(id, iconEl) {
   selectedRailIcon = id;
   document.querySelectorAll(".rail-icon").forEach(i => i.classList.remove("active"));
@@ -106,6 +133,10 @@ async function openServer(serverId, iconEl) {
 
   const serverMeta = serverList.find(s => s.id === serverId);
   document.getElementById("server-sidebar-name").textContent = serverMeta ? serverMeta.name : "";
+  paintServerSidebarBanner({
+    banner_url: data.banner_url || (serverMeta && serverMeta.banner_url) || "",
+    banner_color: data.banner_color || (serverMeta && serverMeta.banner_color) || ""
+  });
 
   renderServerSidebar(data);
   if (typeof loadMemberList === "function") loadMemberList("server", serverId);

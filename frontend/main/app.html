@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=128">
+<link rel="stylesheet" href="app.css?v=129">
 </head>
 <body>
 
@@ -74,9 +74,10 @@
 
       <!-- Populated by renderServerSidebar(). Hidden until a server is
            opened. Clicking the server name opens the header menu
-           (showServerHeaderMenu). Banner upload is a later owner-set
-           piece — name-only header for now. -->
+           (showServerHeaderMenu). #server-sidebar-banner is the
+           channel-list face — image or solid color, owner-set. -->
       <div id="server-sidebar-view" style="display:none;">
+        <div id="server-sidebar-banner"></div>
         <div id="server-sidebar-header">
           <span id="server-sidebar-name"></span>
           <span id="server-sidebar-caret" aria-hidden="true">▾</span>
@@ -494,9 +495,22 @@
 
         <div class="server-settings-field">
           <div class="server-settings-field-title">Banner</div>
-          <p class="server-settings-help">For best results, upload a 1920×300px image.</p>
+          <p class="server-settings-help">For best results, upload a 1920×300px image. Use Color fills the same strip with a solid color.</p>
           <div id="server-settings-banner" class="server-settings-banner"></div>
-          <button type="button" class="settings-row-btn" disabled>Upload Image</button>
+          <div class="server-settings-banner-actions">
+            <button type="button" id="server-settings-banner-upload" class="settings-row-btn">Upload Image</button>
+            <button type="button" id="server-settings-banner-color-btn" class="settings-row-btn">Use Color</button>
+            <button type="button" id="server-settings-banner-remove" class="settings-row-btn" hidden>Remove</button>
+          </div>
+          <input type="file" id="server-settings-banner-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+          <input type="color" id="server-settings-banner-native" hidden>
+          <div id="server-settings-banner-color-row" class="server-settings-banner-color-row" hidden>
+            <div class="appearance-color-control">
+              <input type="color" id="server-settings-banner-color" value="#8b5cf6">
+              <input type="text" id="server-settings-banner-hex" class="appearance-hex" maxlength="7" value="#8b5cf6">
+            </div>
+          </div>
+          <p id="server-settings-banner-status" class="server-settings-help" hidden></p>
         </div>
 
         <div class="server-settings-field">
@@ -866,10 +880,10 @@
 <script src="util.js?v=49"></script>
 <script src="media.js?v=53"></script>
 <script src="post-media.js?v=51"></script>
-<script src="boot.js?v=67"></script>
+<script src="boot.js?v=68"></script>
 <script src="app-shell.js?v=54"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=2"></script>
+<script src="server-settings.js?v=3"></script>
 <script src="settings-account.js?v=4"></script>
 <script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=1"></script>
@@ -904,7 +918,7 @@
 <script src="invites.js?v=45"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=6"></script>
-<script src="servers.js?v=64"></script>
+<script src="servers.js?v=65"></script>
 <script src="members.js?v=3"></script>
 <script src="server-modals.js?v=47"></script>
 <script src="announcements.js?v=51"></script>

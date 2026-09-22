@@ -3815,12 +3815,12 @@ a.profile-link-row:hover { color: var(--accent); }
   margin-top: 10px;
 }
 .server-settings-name-actions {
-  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-top: 10px;
 }
+.server-settings-name-actions:not([hidden]) { display: flex; }
 .server-settings-split {
   display: grid;
   grid-template-columns: 1fr 1fr;

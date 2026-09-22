@@ -50,9 +50,12 @@ def create_server(server_name: Server_create, database: Session = Depends(get_db
         id_check = database.query(Servers).filter(Servers.id == test_id).first()
         if not id_check: break
 
+    name = (server_name.name or "").strip() or "Server"
+    if len(name) > 25:
+        name = name[:25]
     new_server = Servers(
         id = test_id,
-        name = server_name.name,
+        name = name,
         owner_id = current_user.id
     )
     database.add(new_server)
@@ -267,7 +270,7 @@ async def update_server_name(body: Server_name_update, database: Session = Depen
     name = (body.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Server name cannot be empty.")
-    if len(name) > 100:
+    if len(name) > 25:
         raise HTTPException(status_code=400, detail="Server name is too long.")
 
     server.name = name

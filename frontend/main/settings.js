@@ -413,6 +413,7 @@ function setTopbarTab(tab) {
 
 async function openSettings() {
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;
+  if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (isSettingsOpen) {
     setTopbarTab("settings");
     return;

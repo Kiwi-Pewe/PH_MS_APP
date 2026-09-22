@@ -60,6 +60,7 @@ async function openServer(serverId, iconEl) {
   }
 
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
+  if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;
   if (typeof setTopbarTab === "function") setTopbarTab("messages");
 

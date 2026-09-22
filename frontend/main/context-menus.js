@@ -348,10 +348,10 @@ function showServerAreaContextMenu(e) {
 
 // Click / right-click on the server name in the middle rail. Owner
 // (admin roles do not exist yet) sees create + settings rows; everyone
-// sees invite plus the greyed notification rows. Server Settings stays
-// disabled until this menu is signed off and the next settings pass
-// starts. Create Channel needs a category id — first category if any,
-// otherwise the row is greyed so we do not invent a picker this pass.
+// sees invite plus the greyed notification rows. Server Settings opens
+// the overlay (shape-only this pass). Create Channel needs a category
+// id — first category if any, otherwise the row is greyed so we do not
+// invent a picker this pass.
 function showServerHeaderMenu(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -369,7 +369,7 @@ function showServerHeaderMenu(e) {
 
   const options = isOwner ? [
     { label: "Invite to Server", onSelect: () => openInviteModal("server", currentServerId, name) },
-    { label: "Server Settings", disabled: true },
+    { label: "Server Settings", onSelect: () => openServerSettings() },
     firstCategory
       ? { label: "Create Channel", onSelect: () => openChannelModal(firstCategory.id) }
       : { label: "Create Channel", disabled: true },

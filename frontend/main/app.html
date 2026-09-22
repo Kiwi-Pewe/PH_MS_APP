@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=126">
+<link rel="stylesheet" href="app.css?v=127">
 </head>
 <body>
 
@@ -452,6 +452,107 @@
 
   </div>
 
+  <!-- Server Settings overlay. Covers everything below the top rail.
+       Shape-only this pass: Overview is the one drawn page; other
+       index rows are greyed. Nothing here saves. -->
+  <div id="server-settings-overlay" hidden>
+    <aside id="server-settings-index">
+      <div id="server-settings-index-label"></div>
+      <nav id="server-settings-nav">
+        <button type="button" class="server-settings-nav-item active" data-tab="overview">Overview</button>
+        <button type="button" class="server-settings-nav-item is-later" disabled>Roles</button>
+        <button type="button" class="server-settings-nav-item is-later" disabled>Members</button>
+        <button type="button" class="server-settings-nav-item is-later" disabled>Invites</button>
+        <button type="button" class="server-settings-nav-item is-later" disabled>Bans</button>
+        <button type="button" class="server-settings-nav-item is-later" disabled>Privacy</button>
+        <button type="button" class="server-settings-nav-item is-later" disabled>Emojis</button>
+        <button type="button" class="server-settings-nav-item is-later" disabled>Notifications</button>
+        <button type="button" class="server-settings-nav-item is-later" disabled>Integrations</button>
+        <button type="button" class="server-settings-nav-item is-later" disabled>Audit Log</button>
+      </nav>
+      <button type="button" class="server-settings-nav-item is-later is-danger" disabled>Delete Server</button>
+    </aside>
+    <section id="server-settings-main">
+      <button type="button" id="server-settings-close" title="Close">
+        <span aria-hidden="true">&times;</span>
+        <span>ESC</span>
+      </button>
+      <div id="server-settings-page">
+        <h2 class="server-settings-page-title">Overview</h2>
+
+        <div class="server-settings-field">
+          <div class="server-settings-field-title">Avatar</div>
+          <p class="server-settings-help">We recommend a square image of at least 256×256.</p>
+          <div class="server-settings-avatar-row">
+            <div id="server-settings-avatar" class="server-settings-avatar"><span id="server-settings-avatar-letter"></span></div>
+            <button type="button" class="settings-row-btn" disabled>Upload Image</button>
+          </div>
+        </div>
+
+        <div class="server-settings-field">
+          <div class="server-settings-field-title">Banner</div>
+          <p class="server-settings-help">For best results, upload a 1920×300px image.</p>
+          <div id="server-settings-banner" class="server-settings-banner"></div>
+          <button type="button" class="settings-row-btn" disabled>Upload Image</button>
+        </div>
+
+        <div class="server-settings-field">
+          <label class="server-settings-field-title" for="server-settings-name">Server name</label>
+          <input id="server-settings-name" class="server-settings-input" type="text" disabled>
+        </div>
+
+        <div class="server-settings-field">
+          <label class="server-settings-field-title" for="server-settings-about">About</label>
+          <p class="server-settings-help">Your server description will be seen by everyone.</p>
+          <textarea id="server-settings-about" class="server-settings-input server-settings-textarea" rows="4" disabled placeholder="Tell people what this server is."></textarea>
+        </div>
+
+        <div class="server-settings-later">
+          <div class="server-settings-field">
+            <label class="server-settings-field-title" for="server-settings-url">URL</label>
+            <p class="server-settings-help">A public address for this server. Parked until Communities.</p>
+            <input id="server-settings-url" class="server-settings-input" type="text" disabled placeholder="oneira.cc/…">
+          </div>
+          <div class="server-settings-split">
+            <div class="server-settings-field">
+              <label class="server-settings-field-title" for="server-settings-type">Server type</label>
+              <select id="server-settings-type" class="settings-select" disabled>
+                <option>Community</option>
+                <option>Team</option>
+                <option>Organization</option>
+                <option>Clan</option>
+                <option>Guild</option>
+                <option>Friends</option>
+                <option>Streaming</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="server-settings-field">
+              <label class="server-settings-field-title" for="server-settings-timezone">Timezone</label>
+              <select id="server-settings-timezone" class="settings-select" disabled>
+                <option>Select…</option>
+              </select>
+            </div>
+          </div>
+          <div class="server-settings-field">
+            <div class="server-settings-field-title">Default notification settings</div>
+            <p class="server-settings-help">This will be the default for members who join. They can override it.</p>
+            <div class="settings-radio-list is-disabled">
+              <label class="settings-radio">
+                <span class="settings-radio-dot"></span>
+                <span>All Messages</span>
+              </label>
+              <label class="settings-radio is-on">
+                <span class="settings-radio-dot"></span>
+                <span>Only @mentions</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <!-- Party creation ("party screen"). Hidden by default; toggled by
        create-party-btn. Closes via the X button or an outside click,
        same behavior as the context menu, but this is a distinct piece
@@ -755,7 +856,7 @@
 <div id="mention-picker" hidden>
   <div id="mention-picker-list"></div>
 </div>
-<script src="state.js?v=62"></script>
+<script src="state.js?v=63"></script>
 <script src="appearance.js?v=4"></script>
 <script src="accessibility.js?v=5"></script>
 <script src="language-time.js?v=1"></script>
@@ -763,8 +864,9 @@
 <script src="media.js?v=52"></script>
 <script src="post-media.js?v=51"></script>
 <script src="boot.js?v=66"></script>
-<script src="app-shell.js?v=53"></script>
-<script src="settings.js?v=16"></script>
+<script src="app-shell.js?v=54"></script>
+<script src="settings.js?v=17"></script>
+<script src="server-settings.js?v=1"></script>
 <script src="settings-account.js?v=4"></script>
 <script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=1"></script>
@@ -784,9 +886,9 @@
 <script src="../shared/gallery-frame.js?v=1"></script>
 <script src="profile-comments.js?v=5"></script>
 <script src="profile-board.js?v=54"></script>
-<script src="profile.js?v=6"></script>
+<script src="profile.js?v=7"></script>
 <script src="profile-edit.js?v=59"></script>
-<script src="context-menus.js?v=67"></script>
+<script src="context-menus.js?v=68"></script>
 <script src="conversations.js?v=55"></script>
 <script src="chat-render.js?v=57"></script>
 <script src="chat-history.js?v=48"></script>
@@ -799,7 +901,7 @@
 <script src="invites.js?v=45"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=6"></script>
-<script src="servers.js?v=62"></script>
+<script src="servers.js?v=63"></script>
 <script src="members.js?v=3"></script>
 <script src="server-modals.js?v=47"></script>
 <script src="announcements.js?v=51"></script>

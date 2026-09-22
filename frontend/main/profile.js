@@ -163,6 +163,7 @@ async function openUserProfile(userId) {
     if (!window.confirm("Discard profile changes?")) return;
   }
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
+  if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (typeof hideMemberList === "function") hideMemberList();
   if (typeof hideDocsChrome === "function") hideDocsChrome();
   try {

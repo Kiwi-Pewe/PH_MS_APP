@@ -68,6 +68,7 @@ async function goHome() {
   currentChannelType = null;
   currentChannelName = null;
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
+  if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return false;
   document.getElementById("server-sidebar-view").style.display = "none";
   document.getElementById("dm-sidebar-view").style.display = "flex";

@@ -1296,7 +1296,13 @@ function paintProfileDisplayServer(tile, el) {
         row.className = "profile-friend-row profile-server-row";
         const dot = document.createElement("div");
         dot.className = "avatar-dot";
-        dot.textContent = typeof serverAvatarLetters === "function" ? serverAvatarLetters(server.name) : String(server.name || "?").slice(0, 2);
+        if (server.icon_url) {
+          dot.style.backgroundImage = "url(" + JSON.stringify(server.icon_url) + ")";
+          dot.style.backgroundSize = "cover";
+          dot.style.backgroundPosition = "center";
+        } else {
+          dot.textContent = typeof serverAvatarLetters === "function" ? serverAvatarLetters(server.name) : String(server.name || "?").slice(0, 2);
+        }
         const name = document.createElement("div");
         name.className = "profile-friend-name";
         name.textContent = server.name || "Server";

@@ -73,6 +73,9 @@ KEY_RE = re.compile(
 PROFILE_KEY_RE = re.compile(
     r"^profile/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp)$"
 )
+SERVER_KEY_RE = re.compile(
+    r"^server/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp)$"
+)
 PROFILE_VIDEO_KEY_RE = re.compile(
     r"^profile/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(mp4|webm)$"
 )
@@ -82,6 +85,8 @@ PROFILE_MUSIC_KEY_RE = re.compile(
 
 
 def max_upload_bytes(user=None, purpose="chat", mime=""):
+    if purpose == "server":
+        return PROFILE_IMAGE_BYTES
     if purpose != "profile":
         return BASE_UPLOAD_BYTES
     kind = ALLOWED_MIME.get(normalize_mime(mime), ("", ""))[1]
@@ -110,11 +115,17 @@ def public_url_for(key):
 
 def new_object_key(mime, purpose="chat"):
     ext, kind = ALLOWED_MIME[mime]
-    folder = "profile" if purpose == "profile" else "chat"
+    folder = "chat"
+    if purpose == "profile":
+        folder = "profile"
+    elif purpose == "server":
+        folder = "server"
     if folder == "chat" and kind == "audio":
         raise HTTPException(status_code=400, detail="Chat cannot take mp3 files yet.")
     if folder == "profile" and kind not in ("image", "video", "audio"):
         raise HTTPException(status_code=400, detail="That file type cannot go on a profile tile.")
+    if folder == "server" and kind != "image":
+        raise HTTPException(status_code=400, detail="Server icons must be jpeg, png, gif, or webp.")
     now = datetime.utcnow()
     key = f"{folder}/{now.year:04d}/{now.month:02d}/{now.day:02d}/{uuid.uuid4().hex}{ext}"
     return key, kind

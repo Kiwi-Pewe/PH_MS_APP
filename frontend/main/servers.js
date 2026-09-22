@@ -27,8 +27,8 @@ function renderServerList() {
     const icon = document.createElement("div");
     icon.className = "rail-icon server-icon" + (selectedRailIcon === server.id ? " active" : "");
     icon.title = server.name;
-    icon.textContent = serverAvatarLetters(server.name);
     icon.dataset.serverId = server.id;
+    paintRailServerIcon(icon, server);
     icon.addEventListener("click", () => openServer(server.id, icon));
     icon.addEventListener("contextmenu", (e) => showServerContextMenu(e, server.id, server.name, server.owner_id));
 
@@ -39,6 +39,39 @@ function renderServerList() {
     if (typeof decorateRailIcon === "function") decorateRailIcon(wrap, server);
     container.appendChild(wrap);
   });
+}
+
+function paintRailServerIcon(icon, server) {
+  if (!icon) return;
+  const badge = icon.querySelector(".icon-badge");
+  icon.querySelectorAll(".server-icon-img").forEach(el => el.remove());
+  [...icon.childNodes].forEach(node => {
+    if (node.nodeType === 3) node.remove();
+  });
+  const url = server && server.icon_url;
+  if (url) {
+    icon.classList.add("has-icon");
+    const img = document.createElement("img");
+    img.className = "server-icon-img";
+    img.src = url;
+    img.alt = "";
+    icon.insertBefore(img, icon.firstChild);
+  } else {
+    icon.classList.remove("has-icon");
+    const name = (server && server.name) || icon.title || "";
+    icon.insertBefore(document.createTextNode(serverAvatarLetters(name)), badge || null);
+  }
+}
+
+function applyServerIcon(serverId, iconUrl) {
+  const meta = serverList.find(s => s.id === serverId);
+  if (meta) meta.icon_url = iconUrl || "";
+  if (currentServerData && currentServerId === serverId) {
+    currentServerData.icon_url = iconUrl || "";
+  }
+  const icon = document.querySelector(`.rail-icon.server-icon[data-server-id="${serverId}"]`);
+  if (icon) paintRailServerIcon(icon, { name: (meta && meta.name) || icon.title, icon_url: iconUrl || "" });
+  if (typeof paintServerSettingsAvatar === "function") paintServerSettingsAvatar();
 }
 
 function selectRailIcon(id, iconEl) {

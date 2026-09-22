@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
-from app.schemas import Server_create, Server_message, Category_create, Channel_create
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update
 from app.database import get_db
 from app.auth import get_current_user
-from app.r2 import attachment_public, delete_attachment, require_message_body, store_attachment
+from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.realtime import serialize_member, server_broadcast
@@ -13,6 +13,11 @@ from app.routers.mentions import apply_channel_mentions, decorate_history, serve
 import random
 
 router = APIRouter()
+
+
+def server_icon_url(server):
+    key = getattr(server, "icon_key", None) if server else None
+    return public_url_for(key) if key else ""
 
 @router.post("/create_server")
 def create_server(server_name: Server_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -89,7 +94,8 @@ def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo
             "position": server.position,
             "owner_id": server_info.owner_id,
             "unread": notice["unread"],
-            "mention_count": notice["mention_count"]
+            "mention_count": notice["mention_count"],
+            "icon_url": server_icon_url(server_info)
         })
 
     return {"servers": server_list}
@@ -128,7 +134,50 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
 
             server_info.append({"id": category.id, "name": category.name, "position": category.position, "is_private": category.is_private, "channels": channel_info})
             
-    return {"type": "server", "categories": server_info, "owner": server.owner_id}
+    return {"type": "server", "categories": server_info, "owner": server.owner_id, "icon_url": server_icon_url(server)}
+
+
+@router.post("/update_server_icon")
+async def update_server_icon(body: Server_icon_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = database.query(Servers).filter(Servers.id == body.server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the server owner can change the icon.")
+
+    key = (body.key or "").strip() or None
+    old_key = getattr(server, "icon_key", None)
+    if key:
+        mime = normalize_mime(body.mime)
+        if mime == "image/jpg":
+            mime = "image/jpeg"
+        if not SERVER_KEY_RE.match(key) or mime not in ALLOWED_MIME or ALLOWED_MIME[mime][1] != "image":
+            raise HTTPException(status_code=400, detail="That is not a valid server icon.")
+        if not key.endswith(ALLOWED_MIME[mime][0]):
+            raise HTTPException(status_code=400, detail="That is not a valid server icon.")
+        try:
+            size = int(body.size or 0)
+        except (TypeError, ValueError):
+            size = 0
+        if size < 1 or size > PROFILE_IMAGE_BYTES:
+            raise HTTPException(status_code=400, detail="Server icons must be 5 MB or smaller.")
+        server.icon_key = key
+    else:
+        server.icon_key = None
+
+    database.commit()
+    if old_key and old_key != getattr(server, "icon_key", None):
+        delete_r2_object(old_key)
+
+    icon_url = server_icon_url(server)
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_icon_updated", "server_id": server.id, "icon_url": icon_url},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "icon_url": icon_url}
+
 
 @router.get("/get_server_members/{server_id}")
 def get_server_members(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

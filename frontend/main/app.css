@@ -93,6 +93,15 @@
    server-specific states (drag handles, unread dot, etc. — all later
    features) have somewhere to hang without touching Home's styling. */
 .rail-icon.server-icon { font-size: 14px; }
+.rail-icon.server-icon.has-icon { color: transparent; }
+.rail-icon.server-icon .server-icon-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
 
 /* Sits below #server-list, always visible — see the flex: 1 1 auto
    comment above. Uses --accent-submenu (not --accent) since clicking it
@@ -3721,6 +3730,7 @@ a.profile-link-row:hover { color: var(--accent); }
   gap: 14px;
 }
 .server-settings-avatar {
+  position: relative;
   width: 80px;
   height: 80px;
   border-radius: 12px;
@@ -3734,6 +3744,15 @@ a.profile-link-row:hover { color: var(--accent); }
   color: var(--text);
   text-transform: uppercase;
   flex: 0 0 80px;
+  overflow: hidden;
+}
+.server-settings-avatar.has-icon #server-settings-avatar-letter { display: none; }
+.server-settings-avatar-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .server-settings-banner {
   width: 100%;

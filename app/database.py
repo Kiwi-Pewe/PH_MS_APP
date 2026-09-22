@@ -240,3 +240,12 @@ def ensure_account_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+
+
+def ensure_server_columns():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN icon_key VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()

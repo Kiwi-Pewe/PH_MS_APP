@@ -1441,5 +1441,9 @@ def list_pinned_profile_servers(user_id: int, ids: str = "", current_user: UserI
         server = database.query(Servers).filter(Servers.id == code).first()
         if not server:
             continue
-        out.append({"id": server.id, "name": server.name or "Server"})
+        out.append({
+            "id": server.id,
+            "name": server.name or "Server",
+            "icon_url": public_url_for(server.icon_key) if getattr(server, "icon_key", None) else "",
+        })
     return {"servers": out}

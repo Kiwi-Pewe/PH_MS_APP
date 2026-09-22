@@ -135,6 +135,7 @@ class Servers(Base):
     name = Column(String)
     owner_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
+    icon_key = Column(String)
 
 class Server_members(Base):
     __tablename__ = "server_members"

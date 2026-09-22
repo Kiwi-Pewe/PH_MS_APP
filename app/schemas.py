@@ -172,6 +172,13 @@ class Party_message_schema(BaseModel):
 class Server_create(BaseModel):
     name: str
 
+class Server_icon_update(BaseModel):
+    server_id: str
+    key: str | None = None
+    mime: str = ""
+    size: int = 0
+    name: str = ""
+
 class Server_message(BaseModel):
     sender_id: int
     channel_id: int

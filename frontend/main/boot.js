@@ -242,6 +242,10 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "server_icon_updated") {
+      if (typeof applyServerIcon === "function") applyServerIcon(data.server_id, data.icon_url || "");
+    }
+
     if (data.type === "presence") {
       applyPresence(data.user_id, data.status);
     }

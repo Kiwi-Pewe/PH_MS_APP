@@ -209,6 +209,7 @@ async function openServer(serverId, iconEl) {
 
   renderServerSidebar(data);
   if (typeof loadMemberList === "function") loadMemberList("server", serverId);
+  if (typeof loadMentionRoles === "function") loadMentionRoles(serverId);
 
   // Auto-selects first channel. Remembering last-viewed channel is
   // deferred (see Handoff).
@@ -312,6 +313,7 @@ async function selectChannel(channel, rowEl) {
   openForumPostAttachment = null;
   openForumPostEdited = false;
   openForumPostMentionUsers = {};
+  openForumPostMentionRoles = {};
   document.getElementById("forum-back-btn").style.display = "none";
   hideDocsChrome();
 
@@ -440,6 +442,7 @@ function showNoChannelSelected() {
   openForumPostAttachment = null;
   openForumPostEdited = false;
   openForumPostMentionUsers = {};
+  openForumPostMentionRoles = {};
   const back = document.getElementById("forum-back-btn");
   if (back) back.style.display = "none";
 

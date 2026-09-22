@@ -7,7 +7,7 @@ from app.auth import get_current_user
 from app.r2 import attachment_public, delete_attachment, store_attachment
 from app.routers.deletion import delete_message, notify_party, notify_user
 from app.routers.realtime import server_broadcast
-from app.routers.mentions import apply_channel_mentions, apply_party_mentions, apply_server_text_mentions, mention_user_map, message_mentioned
+from app.routers.mentions import apply_channel_mentions, apply_party_mentions, apply_server_text_mentions, mention_user_map, mention_role_map, message_mentioned
 
 router = APIRouter()
 
@@ -125,10 +125,11 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
                 "content": msg.content,
                 "attachment": attachment_public(msg.attachment),
                 "edited": True,
-                "mention_users": mention_user_map(database, msg.content)
+                "mention_users": mention_user_map(database, msg.content),
+                "mention_roles": mention_role_map(database, msg.content)
             }
             await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed, "mentioned": message_mentioned(database, "channel", msg.id, current_user.id), "mention_users": mention_user_map(database, msg.content)}
+        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed, "mentioned": message_mentioned(database, "channel", msg.id, current_user.id), "mention_users": mention_user_map(database, msg.content), "mention_roles": mention_role_map(database, msg.content)}
 
     if edit.kind == "forum":
         msg = database.query(Forum_messages).filter(Forum_messages.id == edit.message_id).first()
@@ -157,9 +158,10 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
                 "content": msg.content,
                 "attachment": attachment_public(msg.attachment),
                 "edited": True,
-                "mention_users": mention_user_map(database, msg.content)
+                "mention_users": mention_user_map(database, msg.content),
+                "mention_roles": mention_role_map(database, msg.content)
             }
             await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed, "mentioned": message_mentioned(database, "forum", msg.id, current_user.id), "mention_users": mention_user_map(database, msg.content)}
+        return {"id": msg.id, "content": msg.content, "attachment": attachment_public(msg.attachment), "edited": bool(msg.edited), "unchanged": not changed, "mentioned": message_mentioned(database, "forum", msg.id, current_user.id), "mention_users": mention_user_map(database, msg.content), "mention_roles": mention_role_map(database, msg.content)}
 
     raise HTTPException(status_code=400, detail="This message type cannot be edited yet")

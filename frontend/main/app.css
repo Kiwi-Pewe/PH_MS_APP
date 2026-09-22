@@ -1682,6 +1682,11 @@ html.no-chat-bubbles .msg-cluster { margin-bottom: calc(var(--cluster-gap, 20px)
   background: var(--away);
   color: #1a1a1e;
 }
+.mention-chip.mention-role {
+  cursor: default;
+  background: color-mix(in srgb, var(--role-color, #99aab5) 28%, transparent);
+  color: var(--role-color, #dee0fc);
+}
 .msg-cluster.self .mention-chip {
   background: rgba(255, 255, 255, 0.22);
   color: #fff;
@@ -1690,6 +1695,10 @@ html.no-chat-bubbles .msg-cluster { margin-bottom: calc(var(--cluster-gap, 20px)
 .msg-cluster.self .mention-chip.mention-special {
   background: var(--away);
   color: #1a1a1e;
+}
+.msg-cluster.self .mention-chip.mention-role {
+  background: color-mix(in srgb, var(--role-color, #99aab5) 35%, transparent);
+  color: #fff;
 }
 
 /* Others always render avatar-left, body-left, regardless of settings. */

@@ -206,7 +206,7 @@ async function reinstateMessage(msg) {
 async function copyMessageContent(msg) {
   try {
     const text = typeof mentionDisplayText === "function"
-      ? mentionDisplayText(msg.content || "", msg.mentionUsers)
+      ? mentionDisplayText(msg.content || "", msg.mentionUsers, msg.mentionRoles)
       : (msg.content || "");
     await navigator.clipboard.writeText(text);
   } catch (e) {

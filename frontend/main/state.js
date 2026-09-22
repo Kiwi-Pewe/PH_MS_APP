@@ -39,6 +39,7 @@ let selectedRailIcon = "home";
 // is clicked. currentChannelId/Type/Name mirror openChatType/Id/Name's
 // role for DMs/parties — the single source of truth for "what's showing
 // in the main panel right now" while inside a server.
+let mentionRoleList = [];
 let currentServerId = null;
 let currentServerOwnerId = null;
 // The full get_server_contents payload for whichever server is currently
@@ -106,6 +107,7 @@ let openForumPostBody = null;
 let openForumPostAttachment = null;
 let openForumPostEdited = false;
 let openForumPostMentionUsers = {};
+let openForumPostMentionRoles = {};
 
 // forumCardElements[postId] = { tagsEl, countEl, activityEl }
 // Same idea as commentThreadElements: registered once per card so a live

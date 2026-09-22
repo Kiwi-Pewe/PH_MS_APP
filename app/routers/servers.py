@@ -591,6 +591,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
             "reactions": reaction_map.get(message.id, []),
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
+            "mention_roles": mention_meta[index]["mention_roles"],
             "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,
         })
 

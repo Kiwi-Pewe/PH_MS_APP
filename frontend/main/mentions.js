@@ -1,32 +1,106 @@
-// Mentions and unread indicators. Stored tokens are <@id> / <@everyone> /
-// <@here>; this file turns them into chips and keeps rail/channel/party
-// unread vs ping badges in sync with live traffic.
+// Mentions and unread indicators. Stored tokens are <@id> / <@&roleId> /
+// <@everyone> / <@here>; this file turns them into chips and keeps
+// rail/channel/party unread vs ping badges in sync with live traffic.
 
-const MENTION_TOKEN_RE = /<@(everyone|here|\d+)>/g;
+const MENTION_TOKEN_RE = /<@(everyone|here|&\d+|\d+)>/g;
 
 function mentionMembers() {
   return Array.isArray(memberList) ? memberList : [];
 }
 
-function encodeMentions(text) {
+function mentionableRoles() {
+  return Array.isArray(mentionRoleList) ? mentionRoleList : [];
+}
+
+function composerUsesRoleMentions(input) {
+  if (!currentServerId) return false;
+  if (!input) return true;
+  if (input.id === "composer-input") return false;
+  if (input.id === "edit-composer-input") {
+    const pool = (typeof currentChannelMessages !== "undefined" ? currentChannelMessages : [])
+      .concat(typeof currentMessages !== "undefined" ? currentMessages : []);
+    const msg = pool.find((row) => row.id === editingMessageId);
+    return !!(msg && (msg.chatKind === "channel" || msg.chatKind === "forum"));
+  }
+  return true;
+}
+
+function applyMentionRolesFromApi(rows) {
+  mentionRoleList = (Array.isArray(rows) ? rows : [])
+    .filter((row) => row && row.mentionable && row.name)
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      color: row.color || "#99aab5"
+    }));
+}
+
+async function loadMentionRoles(serverId) {
+  if (!serverId) {
+    mentionRoleList = [];
+    return;
+  }
+  try {
+    const response = await fetch(`https://${serverAddress}/get_server_roles/${serverId}`, { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error("roles");
+    applyMentionRolesFromApi(data.roles || []);
+  } catch (err) {
+    mentionRoleList = [];
+  }
+}
+
+function mentionRoleById(id) {
+  const role = mentionableRoles().find((row) => String(row.id) === String(id));
+  if (role) return role;
+  return null;
+}
+
+function mentionRoleNameForId(id, mentionRoles) {
+  const lookup = mentionRoles || {};
+  const mapped = lookup[id] || lookup[String(id)];
+  if (mapped && mapped.name) return mapped.name;
+  const role = mentionRoleById(id);
+  return role ? role.name : "role";
+}
+
+function mentionRoleColorForId(id, mentionRoles) {
+  const lookup = mentionRoles || {};
+  const mapped = lookup[id] || lookup[String(id)];
+  if (mapped && mapped.color) return mapped.color;
+  const role = mentionRoleById(id);
+  return role ? role.color : "#99aab5";
+}
+
+function encodeMentions(text, allowRoles) {
   if (!text) return text;
   let out = text;
   out = out.replace(/@everyone\b/gi, "<@everyone>");
   out = out.replace(/@here\b/gi, "<@here>");
-  const accounts = mentionMembers().slice().sort((a, b) => (b.username || "").length - (a.username || "").length);
-  accounts.forEach(account => {
-    if (!account.username) return;
-    const pattern = new RegExp("@" + account.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "gi");
-    out = out.replace(pattern, "<@" + account.id + ">");
+  const named = [];
+  if (allowRoles) {
+    mentionableRoles().forEach((role) => {
+      if (role.name) named.push({ kind: "role", id: role.id, name: role.name, tie: 0 });
+    });
+  }
+  mentionMembers().forEach((account) => {
+    if (account.username) named.push({ kind: "user", id: account.id, name: account.username, tie: 1 });
+  });
+  named.sort((a, b) => (b.name.length - a.name.length) || (b.tie - a.tie));
+  named.forEach((item) => {
+    const pattern = new RegExp("@" + item.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "gi");
+    out = out.replace(pattern, item.kind === "role" ? "<@&" + item.id + ">" : "<@" + item.id + ">");
   });
   return out;
 }
 
-function mentionDisplayText(text, mentionUsers) {
+function mentionDisplayText(text, mentionUsers, mentionRoles) {
   const lookup = mentionUsers || {};
+  const roles = mentionRoles || {};
   return (text || "").replace(MENTION_TOKEN_RE, (full, token) => {
     if (token === "everyone") return "@everyone";
     if (token === "here") return "@here";
+    if (token.charAt(0) === "&") return "@" + mentionRoleNameForId(token.slice(1), roles);
     const name = lookup[token] || mentionNameForId(token);
     return "@" + name;
   });
@@ -44,8 +118,27 @@ function mentionUsersFromText(text) {
   let match;
   const source = text || "";
   while ((match = MENTION_TOKEN_RE.exec(source))) {
-    if (match[1] !== "everyone" && match[1] !== "here") {
-      lookup[match[1]] = mentionNameForId(match[1]);
+    const token = match[1];
+    if (token !== "everyone" && token !== "here" && token.charAt(0) !== "&") {
+      lookup[token] = mentionNameForId(token);
+    }
+  }
+  return lookup;
+}
+
+function mentionRolesFromText(text) {
+  const lookup = {};
+  MENTION_TOKEN_RE.lastIndex = 0;
+  let match;
+  const source = text || "";
+  while ((match = MENTION_TOKEN_RE.exec(source))) {
+    const token = match[1];
+    if (token.charAt(0) === "&") {
+      const id = token.slice(1);
+      lookup[id] = {
+        name: mentionRoleNameForId(id),
+        color: mentionRoleColorForId(id)
+      };
     }
   }
   return lookup;
@@ -54,18 +147,20 @@ function mentionUsersFromText(text) {
 function applyMentionFields(target, raw) {
   target.mentioned = !!(raw && raw.mentioned);
   target.mentionUsers = (raw && raw.mention_users) || target.mentionUsers || {};
+  target.mentionRoles = (raw && raw.mention_roles) || target.mentionRoles || {};
   if (raw && raw.reply_to) target.replyTo = raw.reply_to;
   return target;
 }
 
-function fillMentionText(el, text, mentionUsers) {
+function fillMentionText(el, text, mentionUsers, mentionRoles) {
   if (!el) return;
   el.replaceChildren();
-  appendMentionAwareText(el, text || "", { mentionUsers: mentionUsers || {} });
+  appendMentionAwareText(el, text || "", { mentionUsers: mentionUsers || {}, mentionRoles: mentionRoles || {} });
 }
 
-function mentionedFromPayload(text, mentionUsers, mentionedFlag) {
+function mentionedFromPayload(text, mentionUsers, mentionedFlag, mentionedIds) {
   if (mentionedFlag) return true;
+  if (mentionedIds && mentionedIds.some((id) => Number(id) === Number(myUserId))) return true;
   const source = text || "";
   if (/<@(everyone|here)>/.test(source)) return true;
   if (typeof myUserId === "undefined" || myUserId == null) return false;
@@ -76,12 +171,13 @@ function mentionedFromPayload(text, mentionUsers, mentionedFlag) {
 function appendMentionAwareText(el, text, msg) {
   const source = text || "";
   const lookup = (msg && msg.mentionUsers) || {};
+  const roles = (msg && msg.mentionRoles) || {};
   let last = 0;
   MENTION_TOKEN_RE.lastIndex = 0;
   let match;
   while ((match = MENTION_TOKEN_RE.exec(source))) {
     if (match.index > last) appendPlainOrLinks(el, source.slice(last, match.index));
-    el.appendChild(buildMentionChip(match[1], lookup, msg));
+    el.appendChild(buildMentionChip(match[1], lookup, msg, roles));
     last = match.index + match[0].length;
   }
   if (last < source.length) appendPlainOrLinks(el, source.slice(last));
@@ -92,12 +188,21 @@ function appendPlainOrLinks(el, text) {
   else el.appendChild(document.createTextNode(text));
 }
 
-function buildMentionChip(token, lookup, msg) {
+function buildMentionChip(token, lookup, msg, mentionRoles) {
   const chip = document.createElement("span");
   chip.className = "mention-chip";
   if (token === "everyone" || token === "here") {
     chip.textContent = "@" + token;
     chip.classList.add("mention-special");
+    return chip;
+  }
+  if (token.charAt(0) === "&") {
+    const roleId = token.slice(1);
+    const name = mentionRoleNameForId(roleId, mentionRoles);
+    chip.textContent = "@" + name;
+    chip.classList.add("mention-role");
+    chip.style.setProperty("--role-color", mentionRoleColorForId(roleId, mentionRoles));
+    chip.dataset.roleId = roleId;
     return chip;
   }
   const userId = parseInt(token, 10);
@@ -330,7 +435,7 @@ function mentionStartsWith(name, query) {
   return name.toLowerCase().startsWith((query || "").toLowerCase());
 }
 
-function mentionPickerItems(query) {
+function mentionPickerItems(query, allowRoles) {
   const items = [];
   const q = query || "";
   MENTION_SPECIALS.forEach(special => {
@@ -344,6 +449,23 @@ function mentionPickerItems(query) {
       insert: special.enabled ? "@" + special.label + " " : null
     });
   });
+  if (allowRoles) {
+    mentionableRoles()
+      .filter((role) => !q || mentionStartsWith(role.name || "", q))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+      .forEach((role) => {
+        items.push({
+          type: "role",
+          key: "role-" + role.id,
+          label: role.name,
+          hint: "Notify everyone with this role",
+          enabled: true,
+          insert: "@" + role.name + " ",
+          color: role.color,
+          role
+        });
+      });
+  }
   if (q) {
     mentionMembers()
       .filter(member => mentionStartsWith(member.username || "", q))
@@ -363,8 +485,13 @@ function mentionPickerItems(query) {
   return items;
 }
 
-function validComposerMentionNames() {
+function validComposerMentionNames(allowRoles) {
   const names = ["everyone", "here"];
+  if (allowRoles) {
+    mentionableRoles().forEach((role) => {
+      if (role.name) names.push(role.name);
+    });
+  }
   mentionMembers().forEach(member => {
     if (member.username) names.push(member.username);
   });
@@ -372,11 +499,11 @@ function validComposerMentionNames() {
   return names;
 }
 
-function renderComposerHighlight(el, text) {
+function renderComposerHighlight(el, text, allowRoles) {
   if (!el) return;
   el.innerHTML = "";
   if (!text) return;
-  const names = validComposerMentionNames();
+  const names = validComposerMentionNames(allowRoles);
   if (!names.length) {
     el.appendChild(document.createTextNode(text));
     return;
@@ -423,7 +550,7 @@ function refreshComposerMentions(input) {
   if (!input) return;
   const highlight = composerHighlightFor(input);
   if (highlight) {
-    if (composerAllowsMentions(input)) renderComposerHighlight(highlight, input.value);
+    if (composerAllowsMentions(input)) renderComposerHighlight(highlight, input.value, composerUsesRoleMentions(input));
     else {
       highlight.innerHTML = "";
       highlight.appendChild(document.createTextNode(input.value || ""));
@@ -476,6 +603,7 @@ function renderMentionPicker(items) {
   if (!picker || !list) return;
   list.innerHTML = "";
   let specialHeader = false;
+  let roleHeader = false;
   let memberHeader = false;
   items.forEach((item, index) => {
     if (item.type === "special" && !specialHeader) {
@@ -483,6 +611,13 @@ function renderMentionPicker(items) {
       const heading = document.createElement("div");
       heading.className = "mention-picker-heading";
       heading.textContent = "Mentions";
+      list.appendChild(heading);
+    }
+    if (item.type === "role" && !roleHeader) {
+      roleHeader = true;
+      const heading = document.createElement("div");
+      heading.className = "mention-picker-heading";
+      heading.textContent = "Roles";
       list.appendChild(heading);
     }
     if (item.type === "user" && !memberHeader) {
@@ -498,13 +633,19 @@ function renderMentionPicker(items) {
     if (!item.enabled) row.setAttribute("aria-disabled", "true");
 
     const avatar = document.createElement("div");
-    avatar.className = "mention-picker-avatar" + (item.type === "special" ? " mention-picker-at" : "");
-    avatar.textContent = item.type === "special" ? "@" : avatarLetter(item.label);
+    avatar.className = "mention-picker-avatar" + (item.type === "special" || item.type === "role" ? " mention-picker-at" : "");
+    if (item.type === "role") {
+      avatar.style.background = item.color || "#99aab5";
+      avatar.textContent = "";
+    } else {
+      avatar.textContent = item.type === "special" ? "@" : avatarLetter(item.label);
+    }
     row.appendChild(avatar);
 
     const name = document.createElement("div");
     name.className = "mention-picker-name";
-    name.textContent = item.type === "special" ? "@" + item.label : item.label;
+    name.textContent = item.type === "special" || item.type === "role" ? "@" + item.label : item.label;
+    if (item.type === "role" && item.color) name.style.color = item.color;
     row.appendChild(name);
 
     const meta = document.createElement("div");
@@ -558,7 +699,7 @@ function updateMentionPicker(input) {
     hideMentionPicker();
     return;
   }
-  const items = mentionPickerItems(range.query);
+  const items = mentionPickerItems(range.query, composerUsesRoleMentions(input));
   if (!items.length) {
     hideMentionPicker();
     return;

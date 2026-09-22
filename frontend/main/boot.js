@@ -282,6 +282,9 @@ function connectSocket() {
     }
 
     if (data.type === "server_roles_updated") {
+      if (data.server_id === currentServerId && typeof applyMentionRolesFromApi === "function") {
+        applyMentionRolesFromApi(data.roles || []);
+      }
       if (typeof applyServerRolesFromApi === "function" && data.server_id === currentServerId) {
         if (typeof dirtyServerRoles !== "function" || !dirtyServerRoles().length) {
           applyServerRolesFromApi(data.roles || []);
@@ -323,7 +326,7 @@ function connectSocket() {
         noteIncomingChannelMessage(
           post.channel_id,
           data.server_id,
-          typeof mentionedFromPayload === "function" ? mentionedFromPayload(post.body, post.mentionUsers || post.mention_users, post.mentioned) : !!post.mentioned,
+          typeof mentionedFromPayload === "function" ? mentionedFromPayload(post.body, post.mentionUsers || post.mention_users, post.mentioned, post.mentioned_ids) : !!post.mentioned,
           isOpen
         );
       }
@@ -341,7 +344,7 @@ function connectSocket() {
         noteIncomingChannelMessage(
           data.channel_id,
           data.server_id,
-          typeof mentionedFromPayload === "function" ? mentionedFromPayload(data.comment.content, data.comment.mentionUsers || data.comment.mention_users, data.comment.mentioned) : !!data.comment.mentioned,
+          typeof mentionedFromPayload === "function" ? mentionedFromPayload(data.comment.content, data.comment.mentionUsers || data.comment.mention_users, data.comment.mentioned, data.comment.mentioned_ids) : !!data.comment.mentioned,
           currentChannelId === data.channel_id
         );
       }
@@ -396,7 +399,7 @@ function connectSocket() {
         noteIncomingChannelMessage(
           channelId,
           data.server_id,
-          typeof mentionedFromPayload === "function" ? mentionedFromPayload(post.body, post.mention_users, false) : false,
+          typeof mentionedFromPayload === "function" ? mentionedFromPayload(post.body, post.mention_users, false, post.mentioned_ids) : false,
           isOpen
         );
       }

@@ -6,7 +6,7 @@ from app.schemas import Forum_message_create, Forum_post_create, Edit_forum
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_message_body, require_post_body, store_attachment, store_post_attachments
-from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, clear_mentions, accepted_reply_parent, reply_map_for, reply_to_payload
+from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions, accepted_reply_parent, reply_map_for, reply_to_payload
 from app.routers.realtime import server_broadcast
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
@@ -46,15 +46,17 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
     database.refresh(new_post)
     public_attachment = post_attachments_public(new_post.attachment)
     users_map = mention_user_map(database, new_post.body)
+    roles_map = mention_role_map(database, new_post.body)
+    pinged_ids = mentioned_user_ids(database, "forum_post", new_post.id)
     payload = {
         "type": "post_forum",
         "post_id": new_post.id,
         "server_id": server.id,
         "channel_id": channel_exist.id,
-        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map}
+        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids}
     }
     await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
-    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map}
+    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map, "mention_roles": roles_map}
 
 @router.get("/get_forum_post/{channel_id}")
 async def get_forum_post(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_activity: datetime = None, before_id: int = None):
@@ -101,6 +103,7 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
             "reactions": reaction_map.get(post.id, []),
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
+            "mention_roles": mention_meta[index]["mention_roles"],
         })
     return {"channel_id": channel.id, "forum_posts": picked_posts}
 
@@ -130,7 +133,7 @@ async def edit_forum_post(edit: Edit_forum, database: Session = Depends(get_db),
     same = (post.title or "") == title and (post.body or "") == tokenized and old_keys == new_keys
     if same:
         database.commit()
-        return {"id": post.id, "title": post.title, "body": post.body, "attachment": post_attachments_public(post.attachment), "edited": bool(post.edited), "unchanged": True, "mention_users": mention_user_map(database, post.body)}
+        return {"id": post.id, "title": post.title, "body": post.body, "attachment": post_attachments_public(post.attachment), "edited": bool(post.edited), "unchanged": True, "mention_users": mention_user_map(database, post.body), "mention_roles": mention_role_map(database, post.body)}
 
     for key in set(old_keys) - set(new_keys):
         delete_r2_object(key)
@@ -142,6 +145,7 @@ async def edit_forum_post(edit: Edit_forum, database: Session = Depends(get_db),
     database.commit()
     public_attachment = post_attachments_public(post.attachment)
     users_map = mention_user_map(database, post.body)
+    roles_map = mention_role_map(database, post.body)
     payload = {
         "type": "forum_post_edited",
         "channel_id": post.channel_id,
@@ -150,10 +154,11 @@ async def edit_forum_post(edit: Edit_forum, database: Session = Depends(get_db),
         "body": post.body,
         "attachment": public_attachment,
         "edited": True,
-        "mention_users": users_map
+        "mention_users": users_map,
+        "mention_roles": roles_map
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-    return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": True, "unchanged": False, "mention_users": users_map}
+    return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": True, "unchanged": False, "mention_users": users_map, "mention_roles": roles_map}
 
 @router.post("/delete_forum/{post_id}")
 async def delete_forum_post(post_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -253,6 +258,7 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
         "attachment": attachment_public(new_message.attachment),
         "timestamp": str(new_message.created_at),
         "mention_users": mention_user_map(database, new_message.content),
+        "mention_roles": mention_role_map(database, new_message.content),
         "reply_to": reply_to_payload(database, parent, author_attr= "author_id")
     }
 
@@ -296,6 +302,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
             "reactions": reaction_map.get(message.id, []),
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
+            "mention_roles": mention_meta[index]["mention_roles"],
             "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,
         })
 

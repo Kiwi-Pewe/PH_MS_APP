@@ -5,7 +5,7 @@ from app.schemas import Announcements, Comment_create, Edit_announcement
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
-from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, clear_mentions
+from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions
 from app.routers.realtime import server_broadcast
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
@@ -41,13 +41,15 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
     database.refresh(new_post)
     public_attachment = post_attachments_public(new_post.attachment)
     users_map = mention_user_map(database, new_post.body)
+    roles_map = mention_role_map(database, new_post.body)
+    pinged_ids = mentioned_user_ids(database, "announcement", new_post.id)
     payload = {
         "type": "announcement_created",
         "server_id": server.id,
-        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username, "reactions": [], "edited": False, "mention_users": users_map}
+        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username, "reactions": [], "edited": False, "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids}
         }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "edited": False, "mention_users": users_map}
+    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "edited": False, "mention_users": users_map, "mention_roles": roles_map}
 
 @router.get("/get_announcement/{channel_id}")
 def get_announcement_posts(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id = None):
@@ -88,6 +90,7 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
             "edited": bool(post.edited),
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
+            "mention_roles": mention_meta[index]["mention_roles"],
         })
 
     recent_post.reverse()
@@ -119,15 +122,17 @@ async def post_comment(comment: Comment_create, database: Session = Depends(get_
     database.commit()
     database.refresh(new_comment)
     users_map = mention_user_map(database, new_comment.content)
+    roles_map = mention_role_map(database, new_comment.content)
+    pinged_ids = mentioned_user_ids(database, "comment", new_comment.id)
     payload = {
         "type": "announcement_comment",
         "post_id": comment.post_id,
         "channel_id": channel.id,
         "server_id": server.id,
-        "comment": {"id": new_comment.id, "post_id": new_comment.post_id, "sender_id": current_user.id, "username": current_user.username, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": [], "mention_users": users_map}
+        "comment": {"id": new_comment.id, "post_id": new_comment.post_id, "sender_id": current_user.id, "username": current_user.username, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": [], "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids}
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-    return {"id": new_comment.id, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": [], "mention_users": users_map}
+    return {"id": new_comment.id, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": [], "mention_users": users_map, "mention_roles": roles_map}
 
 @router.get("/get_post_comment/{post_id}")
 def get_post_comments(post_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), after_id: int = None, limit: int = 3):
@@ -166,6 +171,7 @@ def get_post_comments(post_id: int, database: Session = Depends(get_db), current
             "reactions": reaction_map.get(user_comment.id, []),
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
+            "mention_roles": mention_meta[index]["mention_roles"],
         })
 
     return {"post_id": post_id, "comments": picked_comments}
@@ -281,7 +287,7 @@ async def edit_announcement(edit: Edit_announcement, database: Session = Depends
     same = (post.title or "") == title and (post.body or "") == tokenized and old_keys == new_keys
     if same:
         database.commit()
-        return {"id": post.id, "title": post.title, "body": post.body, "attachment": post_attachments_public(post.attachment), "edited": bool(post.edited), "unchanged": True, "mention_users": mention_user_map(database, post.body)}
+        return {"id": post.id, "title": post.title, "body": post.body, "attachment": post_attachments_public(post.attachment), "edited": bool(post.edited), "unchanged": True, "mention_users": mention_user_map(database, post.body), "mention_roles": mention_role_map(database, post.body)}
 
     for key in set(old_keys) - set(new_keys):
         delete_r2_object(key)
@@ -293,6 +299,7 @@ async def edit_announcement(edit: Edit_announcement, database: Session = Depends
     database.commit()
     public_attachment = post_attachments_public(post.attachment)
     users_map = mention_user_map(database, post.body)
+    roles_map = mention_role_map(database, post.body)
     payload = {
         "type": "announcement_edited",
         "channel_id": post.channel_id,
@@ -301,7 +308,8 @@ async def edit_announcement(edit: Edit_announcement, database: Session = Depends
         "body": post.body,
         "attachment": public_attachment,
         "edited": True,
-        "mention_users": users_map
+        "mention_users": users_map,
+        "mention_roles": roles_map
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-    return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": True, "unchanged": False, "mention_users": users_map}
+    return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": True, "unchanged": False, "mention_users": users_map, "mention_roles": roles_map}

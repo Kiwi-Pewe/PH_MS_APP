@@ -17,7 +17,7 @@ from app.routers.servers import message_server_channel
 from app.routers.forums import send_forum_message
 from app.routers.docs import release_doc_locks
 from app.routers.invites import check_invites
-from app.routers.mentions import mentioned_user_ids, mention_user_map, live_reply_to
+from app.routers.mentions import mentioned_user_ids, mention_user_map, mention_role_map, live_reply_to
 from app.routers.deletion import sweep_pending_deletes
 from app.routers.typing import relay_typing
 import asyncio
@@ -216,6 +216,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 all_members = database.query(Server_members).filter(Server_members.server_id == server.id).all()
                 pinged_ids = mentioned_user_ids(database, "channel", new_server_msg.id)
                 users_map = mention_user_map(database, new_server_msg.content)
+                roles_map = mention_role_map(database, new_server_msg.content)
                 reply_to = live_reply_to(database, Channel_messages, new_server_msg.reply_to_id)
                 for member in all_members:
                     if member.user_id != current_user.id and member.user_id in active_connections:
@@ -231,6 +232,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "timestamp": str(new_server_msg.timestamp),
                             "mentioned": member.user_id in pinged_ids,
                             "mention_users": users_map,
+                            "mention_roles": roles_map,
                             "reply_to": reply_to
                         })
             elif data["type"] == "forum_message":
@@ -260,6 +262,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 all_members = database.query(Server_members).filter(Server_members.server_id == server.id).all()
                 pinged_ids = mentioned_user_ids(database, "forum", new_forum_msg["id"])
                 users_map = mention_user_map(database, new_forum_msg.get("content") or "")
+                roles_map = mention_role_map(database, new_forum_msg.get("content") or "")
                 for member in all_members:
                     if member.user_id != current_user.id and member.user_id in active_connections:
                         await active_connections[member.user_id].send_json({
@@ -275,6 +278,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "timestamp": new_forum_msg["timestamp"],
                             "mentioned": member.user_id in pinged_ids,
                             "mention_users": users_map,
+                            "mention_roles": roles_map,
                             "reply_to": new_forum_msg.get("reply_to")
                         })
             elif data["type"] == "typing":

@@ -562,7 +562,7 @@ function buildForumStartCard(title, body, attachment, edited) {
   const desc = document.createElement("div");
   desc.className = "convo-start-desc";
   if (body && typeof fillMentionText === "function") {
-    fillMentionText(desc, body, typeof openForumPostMentionUsers !== "undefined" ? openForumPostMentionUsers : {});
+    fillMentionText(desc, body, typeof openForumPostMentionUsers !== "undefined" ? openForumPostMentionUsers : {}, typeof openForumPostMentionRoles !== "undefined" ? openForumPostMentionRoles : {});
   } else {
     desc.textContent = body || `This is the start of ${title || "this post"}.`;
   }

@@ -423,7 +423,7 @@ function fillAnnouncePostContent(card, post) {
   if (post.body) {
     const body = document.createElement("div");
     body.className = "announce-post-body";
-    if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers);
+    if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers, post.mentionRoles);
     else body.textContent = post.body;
     wrap.appendChild(body);
   }
@@ -521,7 +521,7 @@ function fillAnnouncePostEditor(card, post) {
   bodyInput.placeholder = "Enter a message...";
   bodyInput.rows = 3;
   bodyInput.value = typeof mentionDisplayText === "function"
-    ? mentionDisplayText(post.body || "", post.mentionUsers)
+    ? mentionDisplayText(post.body || "", post.mentionUsers, post.mentionRoles)
     : (post.body || "");
   bodyInput.addEventListener("input", () => autoGrowPostBodyInput(bodyInput));
   bodyInput.addEventListener("contextmenu", (e) => e.stopPropagation());
@@ -603,7 +603,7 @@ async function confirmAnnouncementEdit(post) {
   if (!title || (!body && !pending.length)) return;
 
   const originalBody = typeof mentionDisplayText === "function"
-    ? mentionDisplayText(post.body || "", post.mentionUsers).trim()
+    ? mentionDisplayText(post.body || "", post.mentionUsers, post.mentionRoles).trim()
     : (post.body || "");
   if (title === (post.title || "") && body === originalBody && announceEditAttachmentKeys() === originalPostAttachmentKeys(post)) {
     abandonAnnouncementEdit();

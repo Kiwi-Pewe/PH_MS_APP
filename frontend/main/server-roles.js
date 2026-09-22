@@ -327,6 +327,7 @@ function applyServerRolesFromApi(rows) {
   }
   serverRolesReviewOpen = {};
   serverRolesSaveError = "";
+  if (typeof applyMentionRolesFromApi === "function") applyMentionRolesFromApi(list);
 }
 
 function resetServerRolesDraft() {

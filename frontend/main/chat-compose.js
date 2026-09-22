@@ -106,7 +106,7 @@ async function sendChatMessage() {
 
   const tempId = nextMessageTempId();
   const chatKind = openChatType === "party" ? "party" : "dm";
-  const storedContent = chatKind === "party" && typeof encodeMentions === "function" ? encodeMentions(content) : content;
+  const storedContent = chatKind === "party" && typeof encodeMentions === "function" ? encodeMentions(content, false) : content;
   const payload = openChatType === "party"
     ? { type: "party_message", party_id: openChatId, content, attachment, temp_id: tempId, reply_to_id: currentPendingReplyId(chatKind) }
     : { type: "message", receiver_id: openChatId, content, attachment, temp_id: tempId, reply_to_id: currentPendingReplyId(chatKind) };
@@ -124,6 +124,7 @@ async function sendChatMessage() {
     edited: false,
     reactions: [],
     mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {},
+    mentionRoles: typeof mentionRolesFromText === "function" ? mentionRolesFromText(storedContent) : {},
     replyTo: pendingReply && pendingReply.chatKind === chatKind ? {
       id: pendingReply.id,
       sender_id: pendingReply.senderId,
@@ -194,7 +195,7 @@ async function sendChannelMessage() {
     return;
   }
 
-  const storedContent = (chatKind === "channel" || chatKind === "forum") && typeof encodeMentions === "function" ? encodeMentions(content) : content;
+  const storedContent = (chatKind === "channel" || chatKind === "forum") && typeof encodeMentions === "function" ? encodeMentions(content, true) : content;
   currentChannelMessages.push({
     tempId,
     chatKind,
@@ -207,6 +208,7 @@ async function sendChannelMessage() {
     edited: false,
     reactions: [],
     mentionUsers: typeof mentionUsersFromText === "function" ? mentionUsersFromText(storedContent) : {},
+    mentionRoles: typeof mentionRolesFromText === "function" ? mentionRolesFromText(storedContent) : {},
     replyTo: pendingReply && pendingReply.chatKind === chatKind ? {
       id: pendingReply.id,
       sender_id: pendingReply.senderId,
@@ -262,7 +264,7 @@ function startMessageEdit(msg) {
   abandonMessageEdit();
   editingMessageId = msg.id;
   editingDraft = typeof mentionDisplayText === "function"
-    ? mentionDisplayText(msg.content || "", msg.mentionUsers)
+    ? mentionDisplayText(msg.content || "", msg.mentionUsers, msg.mentionRoles)
     : (msg.content || "");
   const att = typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment;
   editAttach = att ? { mode: "existing", attachment: att } : null;
@@ -282,7 +284,7 @@ async function confirmMessageEdit(msg) {
   const ta = document.getElementById("edit-composer-input");
   const content = ((ta && ta.value) || "").trim();
   const originalContent = typeof mentionDisplayText === "function"
-    ? mentionDisplayText(msg.content || "", msg.mentionUsers).trim()
+    ? mentionDisplayText(msg.content || "", msg.mentionUsers, msg.mentionRoles).trim()
     : (msg.content || "").trim();
   const originalAtt = typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment;
   const originalKey = originalAtt && originalAtt.key ? originalAtt.key : null;

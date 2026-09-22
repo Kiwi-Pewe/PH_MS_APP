@@ -37,7 +37,7 @@ function buildCommentElement(comment) {
   const content = document.createElement("div");
   content.className = "announce-comment-content";
   if (typeof applyMentionFields === "function") applyMentionFields(comment, comment);
-  if (typeof fillMentionText === "function") fillMentionText(content, comment.content, comment.mentionUsers);
+  if (typeof fillMentionText === "function") fillMentionText(content, comment.content, comment.mentionUsers, comment.mentionRoles);
   else content.textContent = comment.content;
   const reactionsHost = document.createElement("div");
   reactionsHost.className = "announce-comment-reactions";
@@ -73,7 +73,7 @@ function showCommentContextMenu(e, comment) {
     avatarText: avatarLetter(comment.username),
     title: comment.username,
     timestamp: formatClusterTime(parseUtcTimestamp(comment.created_at)),
-    subtitle: truncateForContextMenu(typeof mentionDisplayText === "function" ? mentionDisplayText(comment.content, comment.mentionUsers) : comment.content)
+    subtitle: truncateForContextMenu(typeof mentionDisplayText === "function" ? mentionDisplayText(comment.content, comment.mentionUsers, comment.mentionRoles) : comment.content)
   }, [
     { label: "Copy Comment", onSelect: () => copyCommentContent(comment) },
     { label: "Add Reaction", onSelect: () => openReactionPicker(commentReactionTarget(comment), e.clientX, e.clientY) },
@@ -132,7 +132,7 @@ function patchCommentReactions(commentId, reactions) {
 
 async function copyCommentContent(comment) {
   try {
-    await navigator.clipboard.writeText(typeof mentionDisplayText === "function" ? mentionDisplayText(comment.content, comment.mentionUsers) : comment.content);
+    await navigator.clipboard.writeText(typeof mentionDisplayText === "function" ? mentionDisplayText(comment.content, comment.mentionUsers, comment.mentionRoles) : comment.content);
   } catch (e) {
     console.error("Failed to copy comment, clipboard error:", e);
   }

@@ -49,8 +49,7 @@ function formatDeviceWhen(ts) {
 function applyLocalIdentity(data) {
   if (data.username) {
     myUsername = data.username;
-    const top = document.getElementById("topbar-username");
-    if (top) top.textContent = data.username;
+    if (typeof syncAdminTab === "function") syncAdminTab();
   }
   if (data.display_name) {
     myDisplayName = data.display_name;

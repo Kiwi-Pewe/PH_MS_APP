@@ -14,8 +14,19 @@ function switchMainView(viewName) {
   updateHomeBadge();
 }
 
+function isOneiraAdmin() {
+  return String(myUsername || "").toLowerCase() === "kiwi";
+}
+
+function syncAdminTab() {
+  const btn = document.getElementById("admin-tab");
+  if (!btn) return;
+  btn.hidden = !isOneiraAdmin();
+}
+
 document.querySelectorAll("#secondary-nav .nav-item").forEach(btn => {
   btn.addEventListener("click", async () => {
+    if (!btn.dataset.view) return;
     if (!(await leaveDocIfNeeded())) return;
     if (btn.dataset.view === "settings") {
       if (typeof openSettings === "function") await openSettings();
@@ -51,8 +62,6 @@ async function goHome() {
   hideDocsChrome();
   selectRailIcon("home", document.getElementById("home-icon"));
 
-  // Remembering the last DM/party open is deferred (see Handoff) -
-  // Home always resets to blank, same as before servers existed.
   currentServerId = null;
   currentServerOwnerId = null;
   currentChannelId = null;

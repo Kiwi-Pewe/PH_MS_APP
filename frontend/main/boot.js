@@ -357,9 +357,9 @@ function connectSocket() {
 
 function enterApp() {
   const shown = myDisplayName || myUsername || "(existing session)";
-  document.getElementById("topbar-username").textContent = myUsername || "(existing session)";
   document.getElementById("footer-username").textContent = shown;
   document.getElementById("footer-avatar-letter").textContent = avatarLetter(shown);
+  if (typeof syncAdminTab === "function") syncAdminTab();
   refreshFriendsView();
   loadConversations();
   loadServers();

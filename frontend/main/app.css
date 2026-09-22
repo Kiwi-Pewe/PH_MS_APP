@@ -11,10 +11,23 @@
 }
 #topbar .brand { font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 #topbar .brand span { color: var(--accent); }
-#topbar .tabs { display: flex; gap: 4px; flex: 1; }
-#topbar .tab { background: transparent; color: var(--text-dim); font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 6px; }
+#topbar .tabs { display: flex; gap: 4px; flex: 1; min-width: 0; align-items: center; }
+#topbar .tabs.top-right { flex: 0 0 auto; margin-left: auto; }
+#topbar .tab { background: transparent; color: var(--text-dim); font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 6px; white-space: nowrap; }
+#topbar .tab[hidden] { display: none; }
 #topbar .tab.active { color: var(--text); background: var(--panel-alt); }
 #topbar .tab:hover { color: var(--text); }
+#topbar .tab.is-later,
+#topbar .tab:disabled {
+  opacity: 0.4;
+  cursor: default;
+  color: var(--text-dim);
+}
+#topbar .tab.is-later:hover,
+#topbar .tab:disabled:hover {
+  color: var(--text-dim);
+  background: transparent;
+}
 #topbar .top-right { display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-size: 12px; }
 
 /* grid-template-rows is required here, not optional — without it, the
@@ -53,7 +66,7 @@
    without ever pushing Create Server off the visible rail. */
 #server-list {
   flex: 1 1 auto; min-height: 0; width: 100%;
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
   overflow-y: auto;
 }
 .server-icon-wrap {
@@ -97,9 +110,20 @@
 }
 
 #secondary-panel { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
-#secondary-nav { padding: 12px 10px 8px; display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--border); }
-.nav-item { position: relative; background: transparent; color: var(--text-dim); text-align: left; font-size: 14px; font-weight: 600; padding: 8px 10px; border-radius: 6px; }
+#secondary-nav { padding: 12px 10px 8px; display: flex; flex-direction: column; gap: 6px; }
+.nav-item { position: relative; width: 100%; background: transparent; color: var(--text-dim); text-align: left; font-size: 14px; font-weight: 600; padding: 10px 12px; border-radius: 6px; }
 .nav-item:hover, .nav-item.active { background: var(--panel-alt); color: var(--text); }
+.nav-item.is-later,
+.nav-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+  color: var(--text-dim);
+}
+.nav-item.is-later:hover,
+.nav-item:disabled:hover {
+  background: transparent;
+  color: var(--text-dim);
+}
 
 .pending-badge {
   display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
@@ -159,8 +183,12 @@
   min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px;
 }
 .channel-icon { font-size: 13px; flex: 0 0 auto; }
-#secondary-body h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin: 8px 6px 6px; }
-.dm-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; }
+#secondary-body h3 {
+  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim);
+  margin: 16px 6px 10px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+#dm-rows { display: flex; flex-direction: column; gap: 6px; }
+.dm-item { display: flex; align-items: center; width: 100%; gap: 10px; padding: 10px 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; }
 .dm-item:hover, .dm-item.active { background: var(--panel-alt); color: var(--text); }
 .avatar-dot {
   width: 32px; height: 32px; border-radius: 50%;
@@ -792,7 +820,7 @@ html.reduced-motion *, html.reduced-motion *::before, html.reduced-motion *::aft
 }
 
 html.ui-density-compact #server-rail { padding: 8px 0; gap: 6px; }
-html.ui-density-compact #server-list { gap: 6px; }
+html.ui-density-compact #server-list { gap: 8px; }
 html.ui-density-compact .nav-item { padding: 4px 10px; }
 html.ui-density-compact #secondary-nav { padding: 8px 8px 6px; }
 html.ui-density-compact #secondary-body { padding: 8px 8px; }
@@ -812,7 +840,7 @@ html.ui-density-compact .friend-row .avatar-dot {
 }
 
 html.ui-density-spacious #server-rail { padding: 16px 0; gap: 16px; }
-html.ui-density-spacious #server-list { gap: 16px; }
+html.ui-density-spacious #server-list { gap: 22px; }
 html.ui-density-spacious .nav-item { padding: 12px 10px; }
 html.ui-density-spacious #secondary-nav { padding: 16px 10px 12px; }
 html.ui-density-spacious #secondary-body { padding: 16px 12px; }

@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=121">
+<link rel="stylesheet" href="app.css?v=123">
 </head>
 <body>
 
@@ -21,8 +21,14 @@
       <button class="tab active" data-tab="messages">Messages</button>
       <button class="tab" data-tab="profile">Profile</button>
       <button class="tab" data-tab="settings">Settings</button>
+      <button class="tab is-later" type="button" disabled>Communities</button>
+      <button class="tab is-later" type="button" disabled>Games</button>
+      <button class="tab is-later" type="button" disabled>Announcements</button>
     </div>
-    <div class="top-right"><span id="topbar-username"></span></div>
+    <div class="tabs top-right">
+      <button class="tab is-later" type="button" disabled>Feedback</button>
+      <button class="tab is-later" type="button" id="admin-tab" hidden disabled>Admin Panel</button>
+    </div>
   </div>
 
   <div id="main-grid">
@@ -52,6 +58,7 @@
            home-icon handler toggle which one shows — see app.js. -->
       <div id="dm-sidebar-view">
         <div id="secondary-nav">
+          <button class="nav-item is-later" type="button" disabled>Feed</button>
           <button class="nav-item" data-view="friends">Friends<span class="pending-badge" id="pending-badge">0</span></button>
           <button class="nav-item" data-view="inventory">Inventory</button>
           <button class="nav-item" id="create-party-btn">Create Party</button>
@@ -751,10 +758,10 @@
 <script src="util.js?v=49"></script>
 <script src="media.js?v=52"></script>
 <script src="post-media.js?v=51"></script>
-<script src="boot.js?v=64"></script>
-<script src="app-shell.js?v=51"></script>
+<script src="boot.js?v=65"></script>
+<script src="app-shell.js?v=53"></script>
 <script src="settings.js?v=16"></script>
-<script src="settings-account.js?v=3"></script>
+<script src="settings-account.js?v=4"></script>
 <script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=1"></script>
 <script src="settings-notifications.js?v=2"></script>
@@ -776,7 +783,7 @@
 <script src="profile.js?v=6"></script>
 <script src="profile-edit.js?v=59"></script>
 <script src="context-menus.js?v=66"></script>
-<script src="conversations.js?v=53"></script>
+<script src="conversations.js?v=55"></script>
 <script src="chat-render.js?v=57"></script>
 <script src="chat-history.js?v=48"></script>
 <script src="chat-compose.js?v=54"></script>

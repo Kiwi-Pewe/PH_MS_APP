@@ -3866,9 +3866,23 @@ a.profile-link-row:hover { color: var(--accent); }
 
 /* ---- Server Settings Roles ---- */
 .server-roles-page {
+  display: grid;
+  grid-template-columns: auto;
+  align-items: start;
+  gap: 24px;
   width: 100%;
   max-width: none;
+  min-height: calc(100vh - 52px);
+  box-sizing: border-box;
   padding: 28px 72px 64px 36px;
+}
+.server-roles-page:has(#server-roles-review:not([hidden])) {
+  grid-template-columns: auto minmax(280px, 1fr);
+}
+.server-roles-main {
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
 }
 .server-roles-layout {
   display: flex;
@@ -3932,25 +3946,47 @@ a.profile-link-row:hover { color: var(--accent); }
   pointer-events: none;
 }
 .server-roles-editor { flex: 1 1 auto; min-width: 0; max-width: 560px; }
-.server-roles-review:not([hidden]) {
+#server-roles-review:not([hidden]) {
   display: flex;
-  flex-direction: column;
-  flex: 0 0 280px;
-  width: 280px;
-  max-height: calc(100vh - 120px);
+  align-items: center;
+  justify-content: center;
+  justify-self: stretch;
   position: sticky;
   top: 28px;
+  width: 100%;
+  min-width: 0;
+  height: calc(100vh - 108px);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.server-roles-review-card {
+  width: 280px;
+  max-width: 100%;
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px 14px 16px;
+}
+.server-roles-review-card > .server-settings-field-title {
+  margin: 0 0 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
 .server-roles-review-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
 }
-.server-roles-review-role { margin: 0 0 10px; }
+.server-roles-review-role { margin: 0; }
+.server-roles-review-role + .server-roles-review-role {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
 .server-roles-review-head {
   width: 100%;
   display: flex;
@@ -3959,7 +3995,7 @@ a.profile-link-row:hover { color: var(--accent); }
   background: transparent;
   color: inherit;
   text-align: left;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 800;
   padding: 6px 0;
 }
@@ -3969,6 +4005,8 @@ a.profile-link-row:hover { color: var(--accent); }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 17px;
+  font-weight: 800;
 }
 .server-roles-review-caret {
   flex: 0 0 auto;

@@ -679,10 +679,13 @@ function paintServerRolesReview() {
   host.innerHTML = "";
   if (!dirty.length) return;
 
+  const card = document.createElement("div");
+  card.className = "server-roles-review-card";
+
   const title = document.createElement("div");
   title.className = "server-settings-field-title";
   title.textContent = "Unsaved changes";
-  host.appendChild(title);
+  card.appendChild(title);
 
   const body = document.createElement("div");
   body.className = "server-roles-review-body";
@@ -745,14 +748,14 @@ function paintServerRolesReview() {
     }
     body.appendChild(wrap);
   });
-  host.appendChild(body);
+  card.appendChild(body);
 
   if (serverRolesSaveError) {
     const err = document.createElement("p");
     err.className = "server-settings-help";
     err.style.color = "var(--danger)";
     err.textContent = serverRolesSaveError;
-    host.appendChild(err);
+    card.appendChild(err);
   }
 
   const actions = document.createElement("div");
@@ -771,7 +774,8 @@ function paintServerRolesReview() {
   cancel.addEventListener("click", () => cancelServerRoles());
   actions.appendChild(confirm);
   actions.appendChild(cancel);
-  host.appendChild(actions);
+  card.appendChild(actions);
+  host.appendChild(card);
 }
 
 function addServerRoleLocal() {

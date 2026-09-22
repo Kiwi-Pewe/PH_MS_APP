@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=142">
+<link rel="stylesheet" href="app.css?v=144">
 </head>
 <body>
 
@@ -594,18 +594,20 @@
       </div>
 
       <div id="server-settings-roles" class="server-roles-page" hidden>
-        <h2 class="server-settings-page-title">Roles</h2>
-        <div class="server-roles-layout">
-          <aside class="server-roles-rail">
-            <button type="button" id="server-roles-add" class="server-roles-add">+ Add another role</button>
-            <div id="server-roles-list" class="server-roles-list"></div>
-            <p class="server-settings-help">Members display the highest role on this list. Drag the roles to reorder.</p>
-          </aside>
-          <div class="server-roles-editor">
-            <div id="server-roles-editor"></div>
+        <div class="server-roles-main">
+          <h2 class="server-settings-page-title">Roles</h2>
+          <div class="server-roles-layout">
+            <aside class="server-roles-rail">
+              <button type="button" id="server-roles-add" class="server-roles-add">+ Add another role</button>
+              <div id="server-roles-list" class="server-roles-list"></div>
+              <p class="server-settings-help">Members display the highest role on this list. Drag the roles to reorder.</p>
+            </aside>
+            <div class="server-roles-editor">
+              <div id="server-roles-editor"></div>
+            </div>
           </div>
-          <aside id="server-roles-review" class="server-roles-review" hidden></aside>
         </div>
+        <aside id="server-roles-review" class="server-roles-review" hidden></aside>
       </div>
     </section>
   </div>
@@ -924,7 +926,7 @@
 <script src="app-shell.js?v=54"></script>
 <script src="settings.js?v=17"></script>
 <script src="server-settings.js?v=11"></script>
-<script src="server-roles.js?v=3"></script>
+<script src="server-roles.js?v=4"></script>
 <script src="settings-account.js?v=4"></script>
 <script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=1"></script>

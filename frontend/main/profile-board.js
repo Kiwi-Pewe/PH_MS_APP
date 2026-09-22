@@ -1909,17 +1909,47 @@ function paintMiniProfileEditorPage(board) {
   board.appendChild(host);
 }
 
+function leftoverProfileBioText(layout) {
+  let about = "";
+  ((layout && layout.pages) || []).forEach((page) => {
+    (page.tiles || []).forEach((tile) => {
+      if (tile.type === "bio" && !about) about = String((tile.props || {}).text || "").trim();
+    });
+  });
+  return about;
+}
+
+function miniProfileStore(layout) {
+  const host = layout || profileDraft || profileSavedLayout || {};
+  if (!host.mini_profile || typeof host.mini_profile !== "object") host.mini_profile = {};
+  if (host.mini_profile.text == null) {
+    const leftover = leftoverProfileBioText(host);
+    if (leftover) host.mini_profile.text = leftover;
+  }
+  return host.mini_profile;
+}
+
+function miniProfileBioTile() {
+  const store = miniProfileStore(profileDraft || profileSavedLayout);
+  const props = typeof defaultProfileTileProps === "function"
+    ? defaultProfileTileProps("bio", store)
+    : { text: store.text || "" };
+  Object.keys(props).forEach((key) => {
+    if (store[key] == null) store[key] = props[key];
+  });
+  return { id: "mini-bio", type: "bio", props: store, x: 0, y: 0, w: 6, h: 5 };
+}
+
 function miniProfileDataFromOpenProfile() {
   const layout = profileDraft || profileSavedLayout || {};
   let banner = "#1e6b8a";
-  let about = "";
   (layout.pages || []).forEach((page) => {
     (page.tiles || []).forEach((tile) => {
       const props = tile.props || {};
       if (tile.type === "banner" && props.color && banner === "#1e6b8a") banner = props.color;
-      if (tile.type === "bio" && !about) about = String(props.text || "").trim();
     });
   });
+  const about = String(miniProfileStore(layout).text || leftoverProfileBioText(layout) || "").trim();
   const user = profileUser || {};
   return {
     user: {

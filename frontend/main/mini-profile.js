@@ -174,6 +174,65 @@ function bindMiniProfileEditTarget(el, type, editing) {
   });
 }
 
+function startMiniProfileBioEdit(el) {
+  if (!el || el.querySelector("textarea")) return;
+  const tile = typeof miniProfileBioTile === "function" ? miniProfileBioTile() : { props: { text: "" } };
+  const area = document.createElement("textarea");
+  area.className = "mini-profile-bio-edit";
+  area.value = (tile.props && tile.props.text) || "";
+  area.maxLength = 1000;
+  area.placeholder = "Write something about yourself.";
+  area.addEventListener("click", (e) => e.stopPropagation());
+  area.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") area.blur();
+    e.stopPropagation();
+  });
+  area.addEventListener("input", () => {
+    tile.props.text = area.value;
+    profileDirty = true;
+  });
+  area.addEventListener("blur", () => {
+    tile.props.text = area.value;
+    if (typeof markProfileDirty === "function") markProfileDirty();
+    else if (typeof renderProfileBoard === "function") renderProfileBoard();
+  });
+  el.innerHTML = "";
+  el.classList.remove("is-empty");
+  el.appendChild(area);
+  area.focus();
+}
+
+function showMiniProfileBioMenu(e) {
+  if (!profileIsOwn || typeof openContextMenu !== "function") return;
+  e.preventDefault();
+  e.stopPropagation();
+  const tile = typeof miniProfileBioTile === "function" ? miniProfileBioTile() : null;
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: "B",
+    title: "Bio"
+  }, [
+    { label: "Edit Bio", onSelect: () => {
+      const about = document.querySelector(".mini-profile-card.is-page .mini-profile-about");
+      startMiniProfileBioEdit(about);
+    } },
+    tile && typeof openProfileTileOptions === "function" && {
+      label: "Options",
+      onSelect: () => openProfileTileOptions(tile)
+    }
+  ]);
+}
+
+function bindMiniProfileBio(el, editing) {
+  if (!editing || !el) return;
+  el.classList.add("is-mini-edit");
+  el.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startMiniProfileBioEdit(el);
+  });
+  el.addEventListener("contextmenu", (e) => showMiniProfileBioMenu(e));
+}
+
 function paintMiniProfileInto(card, data, opts) {
   if (!card) return;
   const page = !!(opts && opts.page);
@@ -276,7 +335,16 @@ function paintMiniProfileInto(card, data, opts) {
     const about = document.createElement("div");
     about.className = "mini-profile-about" + (data.about ? "" : " is-empty");
     about.textContent = data.about || "Bio";
-    bindMiniProfileEditTarget(about, "bio", editing);
+    if (editing && typeof miniProfileBioTile === "function") {
+      const tile = miniProfileBioTile();
+      if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(about, tile);
+      if (typeof profileTextChrome === "function") {
+        const chrome = profileTextChrome(tile.props, "bio");
+        about.style.fontSize = chrome.text_size + "pt";
+        about.style.textAlign = chrome.text_align;
+      }
+    }
+    bindMiniProfileBio(about, editing);
     identity.appendChild(about);
   }
   card.appendChild(identity);
@@ -288,12 +356,15 @@ function paintMiniProfileInto(card, data, opts) {
   if (page && editing) {
     const widgets = document.createElement("div");
     widgets.className = "mini-profile-widgets";
+    const split = document.createElement("div");
+    split.className = "mini-profile-section-split";
     const add = document.createElement("button");
     add.type = "button";
     add.className = "mini-profile-widget-add";
     add.title = "Add widget";
     add.textContent = "+";
     add.addEventListener("click", (e) => e.stopPropagation());
+    widgets.appendChild(split);
     widgets.appendChild(add);
     card.appendChild(widgets);
   }

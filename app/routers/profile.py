@@ -1112,7 +1112,10 @@ def normalize_layout(raw):
             pages.append(page)
     if not pages:
         return seed_layout()
-    return {"grid_cols": GRID_COLS, "pages": ensure_mini_profile_page(pages)}
+    out = {"grid_cols": GRID_COLS, "pages": ensure_mini_profile_page(pages)}
+    raw_mini = data.get("mini_profile") if isinstance(data.get("mini_profile"), dict) else {}
+    out["mini_profile"] = normalize_props("bio", raw_mini, banner_fallback)
+    return out
 
 
 def parse_layout(user):

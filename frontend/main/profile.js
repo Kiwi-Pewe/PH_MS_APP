@@ -44,7 +44,7 @@ function isMiniProfilePageId(pageId) {
 }
 
 function isMiniProfileIdentityTile(type) {
-  return type === "banner" || type === "avatar" || type === "display_name" || type === "bio";
+  return type === "banner" || type === "avatar" || type === "display_name";
 }
 
 function miniProfileIdentitySubject(type) {

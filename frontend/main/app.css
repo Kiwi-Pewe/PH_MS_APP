@@ -192,13 +192,13 @@
   position: absolute;
   inset: 0;
   z-index: 3;
-  align-items: flex-end;
+  align-items: flex-start;
   border-bottom: none;
   color: #fff;
-  background: linear-gradient(180deg, rgba(8, 18, 28, 0) 30%, rgba(8, 18, 28, 0.78) 100%);
+  background: linear-gradient(180deg, rgba(8, 18, 28, 0.78) 0%, rgba(8, 18, 28, 0) 70%);
 }
 #server-sidebar-view.has-banner #server-sidebar-header:hover {
-  background: linear-gradient(180deg, rgba(8, 18, 28, 0.08) 20%, rgba(8, 18, 28, 0.88) 100%);
+  background: linear-gradient(180deg, rgba(8, 18, 28, 0.88) 0%, rgba(8, 18, 28, 0.08) 80%);
 }
 #server-sidebar-view.has-banner #server-sidebar-caret { color: rgba(255, 255, 255, 0.8); }
 #server-sidebar-name {

@@ -152,6 +152,27 @@ class Server_members(Base):
     joined_at = Column(DateTime, server_default=func.now())
     position = Column(Integer)
 
+class Server_roles(Base):
+    __tablename__ = "server_roles"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    name = Column(String)
+    color = Column(String)
+    position = Column(Integer)
+    mentionable = Column(Boolean, default=False)
+    hoist = Column(Boolean, default=False)
+    name_color = Column(Boolean, default=False)
+    is_members = Column(Boolean, default=False)
+    permissions = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Server_role_members(Base):
+    __tablename__ = "server_role_members"
+    id = Column(Integer, primary_key=True)
+    role_id = Column(Integer, ForeignKey("server_roles.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    __table_args__ = (UniqueConstraint("role_id", "user_id"),)
+
 class Dm_server_pref(Base):
     __tablename__ = "dm_server_prefs"
     id = Column(Integer, primary_key=True)

@@ -47,6 +47,9 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
         )
         database.add(new_member)
 
+        from app.routers.roles import assign_members_role
+        assign_members_role(database, invite.server_id, current_user.id)
+
         category = database.query(Server_categories).filter(Server_categories.server_id == invite.server_id).order_by(Server_categories.position).first()
         channel = database.query(Server_channels).filter(Server_channels.category_id == category.id).order_by(Server_channels.position).first()
         

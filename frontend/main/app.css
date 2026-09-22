@@ -3864,7 +3864,7 @@ a.profile-link-row:hover { color: var(--accent); }
   border-top: 1px solid var(--border);
 }
 
-/* ---- Server Settings Roles (shape pass) ---- */
+/* ---- Server Settings Roles ---- */
 .server-roles-page {
   width: 100%;
   max-width: none;
@@ -3903,6 +3903,9 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .server-role-item {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: transparent;
   color: var(--text);
   text-align: left;
@@ -3913,7 +3916,101 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .server-role-item:hover,
 .server-role-item.is-on { background: var(--panel-alt); }
+.server-role-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.server-role-dirty {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  pointer-events: none;
+}
 .server-roles-editor { flex: 1 1 auto; min-width: 0; max-width: 560px; }
+.server-roles-review:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 280px;
+  width: 280px;
+  max-height: calc(100vh - 120px);
+  position: sticky;
+  top: 28px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 14px 16px;
+}
+.server-roles-review-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.server-roles-review-role { margin: 0 0 10px; }
+.server-roles-review-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 6px 0;
+}
+.server-roles-review-head-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.server-roles-review-caret {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+}
+.server-roles-review-list { display: flex; flex-direction: column; gap: 8px; }
+.server-roles-review-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.server-roles-review-copy { flex: 1 1 auto; min-width: 0; }
+.server-roles-review-label { font-size: 12px; font-weight: 700; color: var(--text); }
+.server-roles-review-diff {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.server-role-change-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid var(--border);
+}
+.server-roles-review-row .ghost-btn {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+}
+.server-roles-review-actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
 .server-roles-seg { margin: 8px 0 12px; width: fit-content; }
 .server-roles-swatches {
   display: flex;

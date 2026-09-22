@@ -163,6 +163,9 @@ def create_server(server_name: Server_create, database: Session = Depends(get_db
     )
     database.add(voice_channel)
 
+    from app.routers.roles import seed_server_roles
+    seed_server_roles(database, test_id)
+
     database.commit()
 
 @router.get("/get_servers")

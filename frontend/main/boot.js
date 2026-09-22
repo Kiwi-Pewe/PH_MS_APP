@@ -281,6 +281,16 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "server_roles_updated") {
+      if (typeof applyServerRolesFromApi === "function" && data.server_id === currentServerId) {
+        if (typeof dirtyServerRoles !== "function" || !dirtyServerRoles().length) {
+          applyServerRolesFromApi(data.roles || []);
+          serverRolesLoadedFor = data.server_id;
+          if (typeof paintServerRolesPage === "function") paintServerRolesPage();
+        }
+      }
+    }
+
     if (data.type === "presence") {
       applyPresence(data.user_id, data.status);
     }

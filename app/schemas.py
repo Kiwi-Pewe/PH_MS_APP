@@ -211,6 +211,21 @@ class Server_notifications_update(BaseModel):
     server_id: str
     default_notifications: str = ""
 
+class Server_role_in(BaseModel):
+    id: int | None = None
+    client_id: str = ""
+    name: str = ""
+    color: str = ""
+    position: int = 0
+    mentionable: bool = False
+    hoist: bool = False
+    name_color: bool = False
+    permissions: dict[str, bool] = {}
+
+class Server_roles_save(BaseModel):
+    server_id: str
+    roles: list[Server_role_in] = []
+
 class Server_message(BaseModel):
     sender_id: int
     channel_id: int

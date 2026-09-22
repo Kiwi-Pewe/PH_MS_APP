@@ -1,7 +1,7 @@
 // ==================================================================
-// server-roles.js - Server Settings Roles page. Shape this pass:
-// Guilded layout, Members is the only premade role, grey rows keep a
-// footnote. Nothing here is saved.
+// server-roles.js - Server Settings Roles page. Guilded layout.
+// Unsaved edits sit in the right-hand review until Confirm. Members
+// is the default role every member gets. Grey rows keep a footnote.
 // ==================================================================
 
 const SERVER_ROLE_SWATCHES = [
@@ -195,8 +195,14 @@ const SERVER_ROLE_SETTING_ROWS = [
 ];
 
 let serverRolesDraft = [];
+let serverRolesOrigin = {};
+let serverRolesSaved = [];
 let serverRolesSelectedId = "members";
 let serverRolesNextId = 1;
+let serverRolesLoadedFor = null;
+let serverRolesReviewOpen = {};
+let serverRolesSaving = false;
+let serverRolesSaveError = "";
 
 function emptyServerRolePerms() {
   const perms = {};
@@ -208,13 +214,127 @@ function emptyServerRolePerms() {
 
 function defaultMembersPerms() {
   const perms = emptyServerRolePerms();
-  ["read_messages", "send_messages", "upload_chat_media", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_docs"].forEach((id) => {
+  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_docs"].forEach((id) => {
     perms[id] = true;
   });
   return perms;
 }
 
+function cloneServerRole(role) {
+  return {
+    id: role.id,
+    name: role.name || "",
+    builtin: !!role.builtin,
+    color: role.color || "#99aab5",
+    colorMode: role.colorMode || "solid",
+    selfAssign: !!role.selfAssign,
+    mentionable: !!role.mentionable,
+    hoist: !!role.hoist,
+    nameColor: !!role.nameColor,
+    perms: Object.assign({}, role.perms || emptyServerRolePerms()),
+    created: !!role.created
+  };
+}
+
+function normRoleColor(value) {
+  const text = (value || "").trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(text) ? text : "#99aab5";
+}
+
+function isCreatedServerRole(role) {
+  return !!(role && (role.created || String(role.id).indexOf("draft-") === 0));
+}
+
+function permTitle(id) {
+  for (let i = 0; i < SERVER_ROLE_PERMS.length; i += 1) {
+    const row = SERVER_ROLE_PERMS[i].rows.find((item) => item.id === id);
+    if (row) return row.title;
+  }
+  return id;
+}
+
+function settingTitle(id) {
+  const row = SERVER_ROLE_SETTING_ROWS.find((item) => item.id === id);
+  return (row && row.title) || id;
+}
+
+function onOffLabel(value) {
+  return value ? "On" : "Off";
+}
+
+function roleChanges(role) {
+  const origin = serverRolesOrigin[role.id];
+  const changes = [];
+  if (isCreatedServerRole(role)) {
+    changes.push({ key: "created", kind: "created", label: "Created" });
+  }
+  if (!origin) return changes;
+  if ((role.name || "") !== (origin.name || "")) {
+    changes.push({ key: "name", kind: "text", label: "Role name", from: origin.name || "", to: role.name || "" });
+  }
+  if (normRoleColor(role.color) !== normRoleColor(origin.color)) {
+    changes.push({ key: "color", kind: "color", label: "Role color", from: origin.color, to: role.color });
+  }
+  ["mentionable", "hoist", "nameColor"].forEach((field) => {
+    if (!!role[field] !== !!origin[field]) {
+      changes.push({ key: field, kind: "toggle", label: settingTitle(field), from: !!origin[field], to: !!role[field] });
+    }
+  });
+  livePermIds().forEach((id) => {
+    if (!!role.perms[id] !== !!origin.perms[id]) {
+      changes.push({ key: "perm:" + id, kind: "toggle", label: permTitle(id), from: !!origin.perms[id], to: !!role.perms[id] });
+    }
+  });
+  return changes;
+}
+
+function isDirtyServerRole(role) {
+  return roleChanges(role).length > 0;
+}
+
+function dirtyServerRoles() {
+  return serverRolesDraft.filter(isDirtyServerRole);
+}
+
+function applyServerRolesFromApi(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  serverRolesSaved = list;
+  serverRolesDraft = list.map((row) => {
+    const perms = emptyServerRolePerms();
+    const incoming = row.permissions || {};
+    Object.keys(perms).forEach((id) => { perms[id] = !!incoming[id]; });
+    return {
+      id: String(row.id),
+      name: row.name || (row.is_members ? "Members" : "New Role"),
+      builtin: !!row.is_members,
+      color: normRoleColor(row.color),
+      colorMode: "solid",
+      selfAssign: false,
+      mentionable: !!row.mentionable,
+      hoist: !!row.hoist,
+      nameColor: !!row.name_color,
+      perms,
+      created: false
+    };
+  });
+  serverRolesOrigin = {};
+  serverRolesDraft.forEach((role) => {
+    serverRolesOrigin[role.id] = cloneServerRole(role);
+  });
+  if (!serverRolesDraft.some((role) => role.id === serverRolesSelectedId)) {
+    const members = serverRolesDraft.find((role) => role.builtin);
+    serverRolesSelectedId = members ? members.id : (serverRolesDraft[0] && serverRolesDraft[0].id) || "";
+  }
+  serverRolesReviewOpen = {};
+  serverRolesSaveError = "";
+}
+
 function resetServerRolesDraft() {
+  serverRolesLoadedFor = null;
+  serverRolesSaved = [];
+  serverRolesOrigin = {};
+  serverRolesReviewOpen = {};
+  serverRolesSaveError = "";
   serverRolesDraft = [{
     id: "members",
     name: "Members",
@@ -225,8 +345,10 @@ function resetServerRolesDraft() {
     mentionable: false,
     hoist: false,
     nameColor: false,
-    perms: defaultMembersPerms()
+    perms: defaultMembersPerms(),
+    created: false
   }];
+  serverRolesOrigin.members = cloneServerRole(serverRolesDraft[0]);
   serverRolesSelectedId = "members";
   serverRolesNextId = 1;
 }
@@ -306,8 +428,16 @@ function paintServerRolesList() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "server-role-item" + (role.id === serverRolesSelectedId ? " is-on" : "");
-    btn.textContent = role.name || "New Role";
-    btn.style.color = role.color || "";
+    const name = document.createElement("span");
+    name.className = "server-role-item-name";
+    name.textContent = role.name || "New Role";
+    name.style.color = role.color || "";
+    btn.appendChild(name);
+    if (isDirtyServerRole(role)) {
+      const dot = document.createElement("span");
+      dot.className = "server-role-dirty";
+      btn.appendChild(dot);
+    }
     btn.addEventListener("click", () => {
       serverRolesSelectedId = role.id;
       paintServerRolesPage();
@@ -341,7 +471,7 @@ function paintServerRolesEditor() {
   nameInput.value = role.name || "";
   nameInput.addEventListener("input", () => {
     role.name = nameInput.value;
-    paintServerRolesList();
+    afterRoleChange(false);
   });
   nameField.appendChild(nameLabel);
   nameField.appendChild(nameInput);
@@ -395,12 +525,12 @@ function paintServerRolesEditor() {
     SERVER_ROLE_SWATCHES.forEach((hex) => {
       const dot = document.createElement("button");
       dot.type = "button";
-      dot.className = "server-role-swatch" + (role.color.toLowerCase() === hex.toLowerCase() ? " is-on" : "");
+      dot.className = "server-role-swatch" + ((role.color || "").toLowerCase() === hex.toLowerCase() ? " is-on" : "");
       dot.style.background = hex;
       dot.title = hex;
       dot.addEventListener("click", () => {
         role.color = hex;
-        paintServerRolesPage();
+        afterRoleChange(true);
       });
       swatches.appendChild(dot);
     });
@@ -418,7 +548,9 @@ function paintServerRolesEditor() {
     custom.addEventListener("click", () => native.click());
     native.addEventListener("input", () => {
       role.color = native.value;
-      paintServerRolesPage();
+      custom.className = "server-role-swatch-custom is-on";
+      custom.style.background = role.color;
+      afterRoleChange(false);
     });
     swatches.appendChild(custom);
     swatches.appendChild(native);
@@ -437,7 +569,7 @@ function paintServerRolesEditor() {
     settingsField.appendChild(roleOptRow(
       row.title,
       row.desc,
-      roleToggle(!!role[row.id], !!later, (on) => { role[row.id] = on; }),
+      roleToggle(!!role[row.id], !!later, (on) => { role[row.id] = on; afterRoleChange(false); }),
       later
     ));
   });
@@ -456,7 +588,7 @@ function paintServerRolesEditor() {
   disableAll.textContent = "Disable all";
   disableAll.addEventListener("click", () => {
     livePermIds().forEach((id) => { role.perms[id] = false; });
-    paintServerRolesEditor();
+    afterRoleChange(true);
   });
   const enableAll = document.createElement("button");
   enableAll.type = "button";
@@ -464,7 +596,7 @@ function paintServerRolesEditor() {
   enableAll.textContent = "Enable all";
   enableAll.addEventListener("click", () => {
     livePermIds().forEach((id) => { role.perms[id] = true; });
-    paintServerRolesEditor();
+    afterRoleChange(true);
   });
   bulkRow.appendChild(disableAll);
   bulkRow.appendChild(enableAll);
@@ -483,7 +615,7 @@ function paintServerRolesEditor() {
       block.appendChild(roleOptRow(
         row.title,
         row.desc,
-        roleToggle(!!role.perms[row.id], !!row.later, (on) => { role.perms[row.id] = on; }),
+        roleToggle(!!role.perms[row.id], !!row.later, (on) => { role.perms[row.id] = on; afterRoleChange(false); }),
         row.later
       ));
     });
@@ -491,9 +623,155 @@ function paintServerRolesEditor() {
   });
 }
 
+function afterRoleChange(repaintEditor) {
+  if (repaintEditor) paintServerRolesEditor();
+  paintServerRolesList();
+  paintServerRolesReview();
+}
+
 function paintServerRolesPage() {
   paintServerRolesList();
   paintServerRolesEditor();
+  paintServerRolesReview();
+}
+
+function revertRoleChange(role, change) {
+  const origin = serverRolesOrigin[role.id];
+  if (change.key === "created") {
+    serverRolesDraft = serverRolesDraft.filter((row) => row.id !== role.id);
+    delete serverRolesOrigin[role.id];
+    if (serverRolesSelectedId === role.id) {
+      const members = serverRolesDraft.find((row) => row.builtin);
+      serverRolesSelectedId = members ? members.id : (serverRolesDraft[0] && serverRolesDraft[0].id) || "";
+    }
+    paintServerRolesPage();
+    return;
+  }
+  if (!origin) return;
+  if (change.key === "name") role.name = origin.name;
+  else if (change.key === "color") role.color = origin.color;
+  else if (change.key === "mentionable" || change.key === "hoist" || change.key === "nameColor") role[change.key] = origin[change.key];
+  else if (change.key.indexOf("perm:") === 0) {
+    const id = change.key.slice(5);
+    role.perms[id] = !!origin.perms[id];
+  }
+  afterRoleChange(true);
+}
+
+function paintChangeValue(kind, value) {
+  if (kind === "color") {
+    const swatch = document.createElement("span");
+    swatch.className = "server-role-change-swatch";
+    swatch.style.background = normRoleColor(value);
+    swatch.title = normRoleColor(value);
+    return swatch;
+  }
+  const text = document.createElement("span");
+  text.textContent = kind === "toggle" ? onOffLabel(value) : (value || "—");
+  return text;
+}
+
+function paintServerRolesReview() {
+  const host = document.getElementById("server-roles-review");
+  if (!host) return;
+  const dirty = dirtyServerRoles();
+  host.hidden = dirty.length === 0;
+  host.innerHTML = "";
+  if (!dirty.length) return;
+
+  const title = document.createElement("div");
+  title.className = "server-settings-field-title";
+  title.textContent = "Unsaved changes";
+  host.appendChild(title);
+
+  const body = document.createElement("div");
+  body.className = "server-roles-review-body";
+
+  dirty.forEach((role) => {
+    const wrap = document.createElement("div");
+    wrap.className = "server-roles-review-role";
+    const header = document.createElement("button");
+    header.type = "button";
+    header.className = "server-roles-review-head";
+    const open = serverRolesReviewOpen[role.id] !== false;
+    header.classList.toggle("is-open", open);
+    header.setAttribute("aria-expanded", open ? "true" : "false");
+    const name = document.createElement("span");
+    name.className = "server-roles-review-head-name";
+    name.style.color = role.color || "";
+    name.textContent = role.name || "New Role";
+    const caret = document.createElement("span");
+    caret.className = "server-roles-review-caret";
+    caret.textContent = open ? "▾" : "▸";
+    header.appendChild(name);
+    header.appendChild(caret);
+    header.addEventListener("click", () => {
+      serverRolesReviewOpen[role.id] = !open;
+      paintServerRolesReview();
+    });
+    wrap.appendChild(header);
+    if (open) {
+      const list = document.createElement("div");
+      list.className = "server-roles-review-list";
+      roleChanges(role).forEach((change) => {
+        const row = document.createElement("div");
+        row.className = "server-roles-review-row";
+        const copy = document.createElement("div");
+        copy.className = "server-roles-review-copy";
+        const label = document.createElement("div");
+        label.className = "server-roles-review-label";
+        label.textContent = change.label;
+        copy.appendChild(label);
+        if (change.kind !== "created") {
+          const diff = document.createElement("div");
+          diff.className = "server-roles-review-diff";
+          diff.appendChild(paintChangeValue(change.kind, change.from));
+          const arrow = document.createElement("span");
+          arrow.textContent = "→";
+          diff.appendChild(arrow);
+          diff.appendChild(paintChangeValue(change.kind, change.to));
+          copy.appendChild(diff);
+        }
+        row.appendChild(copy);
+        const revert = document.createElement("button");
+        revert.type = "button";
+        revert.className = "ghost-btn";
+        revert.textContent = "Revert";
+        revert.addEventListener("click", () => revertRoleChange(role, change));
+        row.appendChild(revert);
+        list.appendChild(row);
+      });
+      wrap.appendChild(list);
+    }
+    body.appendChild(wrap);
+  });
+  host.appendChild(body);
+
+  if (serverRolesSaveError) {
+    const err = document.createElement("p");
+    err.className = "server-settings-help";
+    err.style.color = "var(--danger)";
+    err.textContent = serverRolesSaveError;
+    host.appendChild(err);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "server-roles-review-actions";
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.className = "settings-row-btn";
+  confirm.textContent = "Confirm";
+  confirm.disabled = serverRolesSaving;
+  confirm.addEventListener("click", () => confirmServerRoles());
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "ghost-btn";
+  cancel.textContent = "Cancel";
+  cancel.disabled = serverRolesSaving;
+  cancel.addEventListener("click", () => cancelServerRoles());
+  actions.appendChild(confirm);
+  actions.appendChild(cancel);
+  host.appendChild(actions);
 }
 
 function addServerRoleLocal() {
@@ -509,16 +787,88 @@ function addServerRoleLocal() {
     mentionable: false,
     hoist: false,
     nameColor: false,
-    perms: emptyServerRolePerms()
+    perms: emptyServerRolePerms(),
+    created: true
   };
+  serverRolesOrigin[id] = cloneServerRole(role);
   const membersAt = serverRolesDraft.findIndex((row) => row.builtin);
   if (membersAt === -1) serverRolesDraft.push(role);
   else serverRolesDraft.splice(membersAt, 0, role);
   serverRolesSelectedId = id;
+  serverRolesReviewOpen[id] = true;
   paintServerRolesPage();
 }
 
-function showServerSettingsTab(tab) {
+async function loadServerRoles() {
+  if (!currentServerId) {
+    resetServerRolesDraft();
+    paintServerRolesPage();
+    return;
+  }
+  try {
+    const response = await fetch(`https://${serverAddress}/get_server_roles/${currentServerId}`, { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not load roles.");
+    applyServerRolesFromApi(data.roles || []);
+    serverRolesLoadedFor = currentServerId;
+  } catch (err) {
+    resetServerRolesDraft();
+    serverRolesSaveError = err.message || "Could not load roles.";
+  }
+  paintServerRolesPage();
+}
+
+function cancelServerRoles() {
+  applyServerRolesFromApi(serverRolesSaved);
+  serverRolesLoadedFor = currentServerId;
+  paintServerRolesPage();
+}
+
+async function confirmServerRoles() {
+  if (!currentServerId) return;
+  if (currentServerOwnerId !== myUserId) {
+    serverRolesSaveError = "Only the server owner can change roles.";
+    paintServerRolesReview();
+    return;
+  }
+  const dirty = dirtyServerRoles();
+  if (!dirty.length) return;
+  serverRolesSaving = true;
+  serverRolesSaveError = "";
+  paintServerRolesReview();
+  try {
+    const response = await fetch(`https://${serverAddress}/save_server_roles`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        server_id: currentServerId,
+        roles: dirty.map((role) => ({
+          id: isCreatedServerRole(role) ? null : parseInt(role.id, 10),
+          client_id: role.id,
+          name: role.name,
+          color: role.color,
+          position: serverRolesDraft.indexOf(role),
+          mentionable: !!role.mentionable,
+          hoist: !!role.hoist,
+          name_color: !!role.nameColor,
+          permissions: role.perms
+        }))
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save roles.");
+    applyServerRolesFromApi(data.roles || []);
+    serverRolesLoadedFor = currentServerId;
+  } catch (err) {
+    serverRolesSaveError = err.message || "Could not save roles.";
+  } finally {
+    serverRolesSaving = false;
+    paintServerRolesPage();
+  }
+}
+
+async function showServerSettingsTab(tab) {
   const overview = document.getElementById("server-settings-overview");
   const roles = document.getElementById("server-settings-roles");
   if (overview) overview.hidden = tab !== "overview";
@@ -526,7 +876,9 @@ function showServerSettingsTab(tab) {
   document.querySelectorAll("#server-settings-nav .server-settings-nav-item[data-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
   });
-  if (tab === "roles") paintServerRolesPage();
+  if (tab !== "roles") return;
+  if (serverRolesLoadedFor !== currentServerId) await loadServerRoles();
+  else paintServerRolesPage();
 }
 
 resetServerRolesDraft();

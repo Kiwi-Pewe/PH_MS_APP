@@ -357,6 +357,7 @@ class Feedback_report(Base):
     channel_name = Column(String, nullable=True)
     channel_type = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    delete_after = Column(DateTime, nullable=True)
 
 class Audit_log(Base):
     __tablename__ = "audit_logs"

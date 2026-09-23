@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from app.models import Parties, Party_members, Servers, Server_members, Server_categories, Server_channels, Forum_post, Message, Party_messages, Channel_messages, Forum_messages
 from app.schemas import Attachment_in, Message_schema, Party_message_schema, Server_message, Forum_message_create
-from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns, ensure_reply_columns, ensure_account_columns, ensure_server_columns, ensure_role_columns, ensure_moderation_columns, ensure_forum_columns, ensure_doc_columns
+from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns, ensure_reply_columns, ensure_account_columns, ensure_server_columns, ensure_role_columns, ensure_moderation_columns, ensure_forum_columns, ensure_doc_columns, ensure_feedback_columns
 from app.auth import validate_session
 from app.r2 import attachment_public
 from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation, feedback, admin
@@ -17,6 +17,7 @@ from app.routers.servers import message_server_channel
 from app.routers.forums import send_forum_message
 from app.routers.docs import release_doc_locks
 from app.routers.invites import check_invites
+from app.routers.admin import sweep_completed_feedback
 from app.routers.mentions import mentioned_user_ids, mention_user_map, mention_role_map, live_reply_to
 from app.routers.deletion import sweep_pending_deletes
 from app.routers.typing import relay_typing
@@ -45,6 +46,7 @@ ensure_role_columns()
 ensure_moderation_columns()
 ensure_forum_columns()
 ensure_doc_columns()
+ensure_feedback_columns()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://oneira.cc"],
@@ -85,6 +87,7 @@ app.include_router(mentions.router)
 async def interval_tasks():
     asyncio.create_task(check_invites())
     asyncio.create_task(sweep_pending_deletes())
+    asyncio.create_task(sweep_completed_feedback())
 
 @app.websocket("/ws")
 async def connect_user(socket: WebSocket, session_id: str = Cookie(None), database: Session = Depends(get_db)):

@@ -54,6 +54,18 @@ function adminApi(path) {
   return fetch(`https://${API_HOST}${path}`, { credentials: "include" });
 }
 
+async function adminSend(path, body) {
+  const response = await fetch(`https://${API_HOST}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {})
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error((typeof data.detail === "string" && data.detail) || "Could not update.");
+  return data;
+}
+
 function currentState() {
   return tabState[adminTab];
 }
@@ -94,9 +106,28 @@ function visibleItems() {
   return currentState().items;
 }
 
+const STATUS_LABELS = {
+  new: "New",
+  viewed: "Viewed",
+  review: "Needs Review",
+  completed: "Completed"
+};
+
+function statusKey(value) {
+  const key = String(value || "new").trim().toLowerCase();
+  return STATUS_LABELS[key] ? key : "new";
+}
+
 function statusLabel(value) {
-  const text = String(value || "new").replace(/_/g, " ").trim();
-  return text.replace(/\b\w/g, (ch) => ch.toUpperCase());
+  return STATUS_LABELS[statusKey(value)] || "New";
+}
+
+function statusPill(value) {
+  const pill = document.createElement("span");
+  const key = statusKey(value);
+  pill.className = "admin-status is-" + key;
+  pill.textContent = STATUS_LABELS[key];
+  return pill;
 }
 
 function itemKey(item) {
@@ -127,8 +158,14 @@ function closePreview() {
   previewKey = null;
   const card = document.getElementById("admin-card");
   const pane = document.getElementById("admin-preview");
+  const rail = document.getElementById("admin-preview-rail");
   card.classList.remove("is-preview");
+  pane.classList.remove("is-report");
   pane.hidden = true;
+  if (rail) {
+    rail.hidden = true;
+    rail.innerHTML = "";
+  }
   document.getElementById("admin-preview-inner").innerHTML = "";
   document.querySelectorAll(".admin-card.is-on").forEach((el) => el.classList.remove("is-on"));
 }
@@ -153,33 +190,178 @@ function paintAttachments(host, attachments) {
   host.appendChild(files);
 }
 
+function formatDate(raw) {
+  if (!raw) return "—";
+  const date = new Date(raw);
+  if (isNaN(date.getTime())) return String(raw);
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function reportLocation(row) {
+  const parts = [];
+  if (row.context_view) parts.push(row.context_view);
+  if (row.server_name) parts.push(row.server_name);
+  if (row.channel_name) parts.push((row.channel_type ? row.channel_type + " " : "") + row.channel_name);
+  return parts.join(" · ") || "—";
+}
+
+function reportSection() {
+  const section = document.createElement("div");
+  section.className = "admin-report-section";
+  return section;
+}
+
+function applyFeedbackUpdate(report) {
+  if (!report || report.id == null) return;
+  const state = tabState.feedback;
+  const index = state.items.findIndex((row) => row.id === report.id);
+  if (index >= 0) state.items[index] = Object.assign({}, state.items[index], report);
+  if (adminTab === "feedback") {
+    paintList();
+    if (previewKey === "feedback:" + report.id) paintFeedbackPreview(state.items[index] || report);
+  }
+}
+
+function paintFeedbackRail(row) {
+  const rail = document.getElementById("admin-preview-rail");
+  if (!rail) return;
+  rail.hidden = false;
+  rail.innerHTML = "";
+  const changeWrap = document.createElement("div");
+  changeWrap.className = "admin-filter-wrap";
+  const changeBtn = document.createElement("button");
+  changeBtn.type = "button";
+  changeBtn.className = "admin-filter-btn";
+  changeBtn.textContent = "Change Status";
+  changeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (openFilter === "status") closeFilters();
+    else {
+      closeFilters();
+      openFilter = "status";
+      changeWrap.classList.add("is-open");
+      const menu = document.createElement("div");
+      menu.className = "admin-filter-menu";
+      [
+        { key: "viewed", label: "Viewed" },
+        { key: "review", label: "Needs Review" }
+      ].forEach((opt) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = opt.label;
+        if (statusKey(row.status) === opt.key) btn.className = "is-on";
+        btn.addEventListener("click", async (ev) => {
+          ev.stopPropagation();
+          closeFilters();
+          try {
+            const data = await adminSend("/admin/feedback/" + row.id + "/status", { status: opt.key });
+            applyFeedbackUpdate(data.report);
+          } catch (err) {}
+        });
+        menu.appendChild(btn);
+      });
+      changeWrap.appendChild(menu);
+    }
+  });
+  changeWrap.appendChild(changeBtn);
+  const complete = document.createElement("button");
+  complete.type = "button";
+  complete.className = "admin-preview-complete";
+  if (statusKey(row.status) === "completed") {
+    complete.textContent = row.delete_after ? ("Deletes " + formatDate(row.delete_after)) : "Completed";
+    complete.disabled = true;
+  } else {
+    complete.textContent = "Complete Report";
+    complete.addEventListener("click", async () => {
+      try {
+        const data = await adminSend("/admin/feedback/" + row.id + "/complete", {});
+        applyFeedbackUpdate(data.report);
+      } catch (err) {}
+    });
+  }
+  rail.appendChild(changeWrap);
+  rail.appendChild(complete);
+}
+
 function paintFeedbackPreview(row) {
   const host = document.getElementById("admin-preview-inner");
+  const pane = document.getElementById("admin-preview");
+  pane.classList.add("is-report");
   host.innerHTML = "";
-  const title = document.createElement("h2");
-  title.className = "admin-preview-title";
-  title.textContent = row.feedback_label || row.feedback_type;
-  host.appendChild(title);
-  const fields = document.createElement("div");
-  fields.className = "admin-fields";
-  fields.appendChild(fieldRow("Id", row.id));
-  fields.appendChild(fieldRow("Type", row.feedback_label || row.feedback_type));
-  fields.appendChild(fieldRow("Username", row.username));
-  fields.appendChild(fieldRow("Display name", row.display_name));
-  fields.appendChild(fieldRow("Status", row.status));
-  fields.appendChild(fieldRow("Report", row.report));
-  const where = [];
-  if (row.context_view) where.push(row.context_view);
-  if (row.server_name) where.push(row.server_name);
-  if (row.channel_name) where.push((row.channel_type ? row.channel_type + " " : "") + row.channel_name);
-  if (where.length) fields.appendChild(fieldRow("Where", where.join(" · ")));
-  fields.appendChild(fieldRow("Created", row.created_at));
-  host.appendChild(fields);
-  paintAttachments(host, row.attachments);
+  const account = reportSection();
+  const who = document.createElement("div");
+  who.className = "admin-report-who";
+  const face = document.createElement("div");
+  face.className = "admin-report-face";
+  const shown = row.display_name || row.username || ("User " + row.user_id);
+  paintFace(face, mediaUrl(row.avatar), firstLetters(shown));
+  const text = document.createElement("div");
+  text.className = "admin-report-who-text";
+  const display = document.createElement("div");
+  display.className = "admin-report-display";
+  display.textContent = shown;
+  const user = document.createElement("div");
+  user.className = "admin-report-user";
+  user.textContent = row.username || "—";
+  const joined = document.createElement("div");
+  joined.className = "admin-report-joined";
+  joined.textContent = "Joined " + formatDate(row.joined_at);
+  text.appendChild(display);
+  text.appendChild(user);
+  text.appendChild(joined);
+  who.appendChild(face);
+  who.appendChild(text);
+  account.appendChild(who);
+  const report = reportSection();
+  const type = document.createElement("h2");
+  type.className = "admin-report-type";
+  type.textContent = row.feedback_label || row.feedback_type || "Feedback";
+  const body = document.createElement("div");
+  body.className = "admin-report-body";
+  body.textContent = row.report || "";
+  report.appendChild(type);
+  report.appendChild(body);
+  paintAttachments(report, row.attachments);
+  const meta = document.createElement("div");
+  meta.className = "admin-report-meta";
+  const bits = [String(row.id), null, formatDate(row.created_at), reportLocation(row)];
+  bits.forEach((bit, index) => {
+    if (index) {
+      const sep = document.createElement("span");
+      sep.className = "admin-report-sep";
+      sep.textContent = "|";
+      meta.appendChild(sep);
+    }
+    if (index === 1) meta.appendChild(statusPill(row.status));
+    else {
+      const piece = document.createElement("span");
+      piece.textContent = bit;
+      meta.appendChild(piece);
+    }
+  });
+  report.appendChild(meta);
+  const record = reportSection();
+  const stats = document.createElement("div");
+  stats.className = "admin-report-stats";
+  stats.appendChild(fieldRow("Reports made", row.reports_made));
+  stats.appendChild(fieldRow("Account score", "—"));
+  stats.appendChild(fieldRow("Servers banned from", row.ban_count));
+  record.appendChild(stats);
+  host.appendChild(account);
+  host.appendChild(report);
+  host.appendChild(record);
+  paintFeedbackRail(row);
 }
 
 function paintUserPreview(user) {
   const host = document.getElementById("admin-preview-inner");
+  const pane = document.getElementById("admin-preview");
+  const rail = document.getElementById("admin-preview-rail");
+  pane.classList.remove("is-report");
+  if (rail) {
+    rail.hidden = true;
+    rail.innerHTML = "";
+  }
   host.innerHTML = "";
   const title = document.createElement("h2");
   title.className = "admin-preview-title";
@@ -200,6 +382,13 @@ function paintUserPreview(user) {
 
 function paintServerPreview(server) {
   const host = document.getElementById("admin-preview-inner");
+  const pane = document.getElementById("admin-preview");
+  const rail = document.getElementById("admin-preview-rail");
+  pane.classList.remove("is-report");
+  if (rail) {
+    rail.hidden = true;
+    rail.innerHTML = "";
+  }
   host.innerHTML = "";
   const title = document.createElement("h2");
   title.className = "admin-preview-title";
@@ -219,14 +408,26 @@ function paintServerPreview(server) {
   host.appendChild(fields);
 }
 
-function openPreview(item) {
+async function openPreview(item) {
   previewKey = itemKey(item);
   const card = document.getElementById("admin-card");
   const pane = document.getElementById("admin-preview");
   card.classList.add("is-preview");
   pane.hidden = false;
-  if (adminTab === "feedback") paintFeedbackPreview(item);
-  else if (adminTab === "users") paintUserPreview(item);
+  if (adminTab === "feedback") {
+    paintFeedbackPreview(item);
+    document.querySelectorAll(".admin-card").forEach((el) => {
+      el.classList.toggle("is-on", el.dataset.key === previewKey);
+    });
+    if (statusKey(item.status) === "new") {
+      try {
+        const data = await adminSend("/admin/feedback/" + item.id + "/status", { status: "viewed" });
+        applyFeedbackUpdate(data.report);
+      } catch (e) {}
+    }
+    return;
+  }
+  if (adminTab === "users") paintUserPreview(item);
   else paintServerPreview(item);
   document.querySelectorAll(".admin-card").forEach((el) => {
     el.classList.toggle("is-on", el.dataset.key === previewKey);
@@ -317,9 +518,7 @@ function paintEntryCard(item) {
     card.appendChild(copy);
     const status = document.createElement("div");
     status.className = "admin-card-status";
-    const pill = document.createElement("span");
-    pill.textContent = statusLabel(item.status);
-    status.appendChild(pill);
+    status.appendChild(statusPill(item.status));
     card.appendChild(status);
   } else if (adminTab === "users") {
     const name = item.username || ("User " + item.id);

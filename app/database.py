@@ -323,6 +323,19 @@ def ensure_forum_columns():
                 conn.rollback()
 
 
+def ensure_feedback_columns():
+    adds = (
+        ("feedback_reports", "delete_after", "DATETIME"),
+    )
+    with engine.connect() as conn:
+        for table, column, coltype in adds:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+
 def ensure_moderation_columns():
     adds = (
         ("server_members", "timeout_until", "DATETIME"),

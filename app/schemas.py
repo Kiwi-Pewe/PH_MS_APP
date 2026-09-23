@@ -138,6 +138,10 @@ class Attachment_in(BaseModel):
     size: int
     name: str = ""
 
+class Feedback_status(BaseModel):
+    status: str
+
+
 class Feedback_submit(BaseModel):
     feedback_type: str
     report: str

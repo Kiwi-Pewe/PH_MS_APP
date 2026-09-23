@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, cast, String
-from app.models import UserInfo, Feedback_report, Servers, Server_members
-from app.database import get_db
+from app.models import UserInfo, Feedback_report, Servers, Server_members, Server_bans
+from app.database import get_db, SessionLocal
 from app.auth import get_current_user
+from app.schemas import Feedback_status
 from app.routers.account import public_display_name
 from app.routers.profile import public_identity
 from app.routers.mini_profiles import layout_banner_and_about
 from app.routers.servers import server_banner_fields, server_icon_url
-from app.r2 import post_attachments_public
+from app.r2 import delete_attachment, post_attachments_public
+from datetime import datetime, timedelta
+import asyncio
 import json
 
 router = APIRouter()
@@ -20,6 +23,10 @@ FEEDBACK_TYPE_LABELS = {
     "feature": "Feature Request",
     "inquiry": "General Inquiries",
 }
+
+FEEDBACK_STATUSES = ("new", "viewed", "review", "completed")
+FEEDBACK_CHANGE_STATUSES = ("viewed", "review")
+FEEDBACK_COMPLETE_DAYS = 30
 
 
 def require_oneira_admin(user):
@@ -138,12 +145,13 @@ def take_page(query, offset, limit):
     return rows[:size], len(rows) > size
 
 
-def pack_feedback(row, avatar):
+def pack_feedback(row, extra=None):
+    extra = extra or {}
     return {
         "id": row.id,
         "user_id": row.user_id,
         "username": row.username,
-        "display_name": row.display_name,
+        "display_name": extra.get("display_name") or row.display_name,
         "feedback_type": row.feedback_type,
         "feedback_label": FEEDBACK_TYPE_LABELS.get(row.feedback_type, row.feedback_type),
         "report": row.report,
@@ -156,8 +164,91 @@ def pack_feedback(row, avatar):
         "channel_name": row.channel_name,
         "channel_type": row.channel_type,
         "created_at": str(row.created_at) if row.created_at else None,
-        "avatar": avatar or {},
+        "delete_after": str(row.delete_after) if getattr(row, "delete_after", None) else None,
+        "avatar": extra.get("avatar") or {},
+        "joined_at": extra.get("joined_at"),
+        "reports_made": int(extra.get("reports_made") or 0),
+        "ban_count": int(extra.get("ban_count") or 0),
     }
+
+
+def feedback_extras(database, rows, accounts):
+    ids = [row.user_id for row in rows if row.user_id]
+    faces = {account.id: public_identity(account).get("avatar") or {} for account in accounts}
+    joined = {account.id: str(account.created_at) if account.created_at else None for account in accounts}
+    names = {account.id: public_display_name(account) for account in accounts}
+    made = {}
+    bans = {}
+    if ids:
+        made = dict(
+            database.query(Feedback_report.user_id, func.count(Feedback_report.id))
+            .filter(Feedback_report.user_id.in_(ids))
+            .group_by(Feedback_report.user_id)
+            .all()
+        )
+        bans = dict(
+            database.query(Server_bans.user_id, func.count(Server_bans.id))
+            .filter(Server_bans.user_id.in_(ids))
+            .group_by(Server_bans.user_id)
+            .all()
+        )
+    extras = {}
+    for row in rows:
+        uid = row.user_id
+        extras[row.id] = {
+            "avatar": faces.get(uid) or {},
+            "joined_at": joined.get(uid),
+            "display_name": names.get(uid) or row.display_name,
+            "reports_made": int(made.get(uid, 0)),
+            "ban_count": int(bans.get(uid, 0)),
+        }
+    return extras
+
+
+def load_feedback_row(database, report_id):
+    row = database.query(Feedback_report).filter(Feedback_report.id == report_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    account = database.query(UserInfo).filter(UserInfo.id == row.user_id).first() if row.user_id else None
+    extras = feedback_extras(database, [row], [account] if account else [])
+    return pack_feedback(row, extras.get(row.id))
+
+
+def apply_feedback_status(row, status):
+    key = (status or "").strip().lower()
+    if key == "completed":
+        row.status = "completed"
+        if not getattr(row, "delete_after", None):
+            row.delete_after = datetime.utcnow() + timedelta(days=FEEDBACK_COMPLETE_DAYS)
+        return row
+    if key not in FEEDBACK_CHANGE_STATUSES:
+        raise HTTPException(status_code=400, detail="That status cannot be set.")
+    row.status = key
+    row.delete_after = None
+    return row
+
+
+async def sweep_completed_feedback():
+    while True:
+        await asyncio.sleep(1800)
+        database = SessionLocal()
+        try:
+            now = datetime.utcnow()
+            rows = (
+                database.query(Feedback_report)
+                .filter(
+                    Feedback_report.status == "completed",
+                    Feedback_report.delete_after != None,
+                    Feedback_report.delete_after <= now,
+                )
+                .all()
+            )
+            for row in rows:
+                delete_attachment(row.attachments)
+                database.delete(row)
+            database.commit()
+        finally:
+            database.close()
 
 
 @router.get("/admin/me")
@@ -207,11 +298,44 @@ def admin_feedback(
     rows, has_more = take_page(query, offset, limit)
     user_ids = list({row.user_id for row in rows if row.user_id})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
-    faces = {account.id: public_identity(account).get("avatar") or {} for account in accounts}
+    extras = feedback_extras(database, rows, accounts)
     return {
-        "reports": [pack_feedback(row, faces.get(row.user_id)) for row in rows],
+        "reports": [pack_feedback(row, extras.get(row.id)) for row in rows],
         "has_more": has_more,
     }
+
+
+@router.post("/admin/feedback/{report_id}/status")
+def admin_feedback_status(
+    report_id: int,
+    body: Feedback_status,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    row = database.query(Feedback_report).filter(Feedback_report.id == report_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    apply_feedback_status(row, body.status)
+    database.commit()
+    database.refresh(row)
+    return {"report": load_feedback_row(database, row.id)}
+
+
+@router.post("/admin/feedback/{report_id}/complete")
+def admin_feedback_complete(
+    report_id: int,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    row = database.query(Feedback_report).filter(Feedback_report.id == report_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    apply_feedback_status(row, "completed")
+    database.commit()
+    database.refresh(row)
+    return {"report": load_feedback_row(database, row.id)}
 
 
 @router.get("/admin/user")

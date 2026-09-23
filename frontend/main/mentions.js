@@ -72,11 +72,18 @@ function mentionRoleColorForId(id, mentionRoles) {
   return role ? role.color : "#99aab5";
 }
 
+function canUseEveryoneHere() {
+  if (!currentServerId) return true;
+  return typeof canMentionEveryone === "function" ? canMentionEveryone() : true;
+}
+
 function encodeMentions(text, allowRoles) {
   if (!text) return text;
   let out = text;
-  out = out.replace(/@everyone\b/gi, "<@everyone>");
-  out = out.replace(/@here\b/gi, "<@here>");
+  if (!allowRoles || canUseEveryoneHere()) {
+    out = out.replace(/@everyone\b/gi, "<@everyone>");
+    out = out.replace(/@here\b/gi, "<@here>");
+  }
   const named = [];
   if (allowRoles) {
     mentionableRoles().forEach((role) => {
@@ -440,6 +447,7 @@ function mentionPickerItems(query, allowRoles) {
   const items = [];
   const q = query || "";
   MENTION_SPECIALS.forEach(special => {
+    if ((special.key === "everyone" || special.key === "here") && allowRoles && !canUseEveryoneHere()) return;
     if (q && !mentionStartsWith(special.label, q)) return;
     items.push({
       type: "special",
@@ -487,7 +495,10 @@ function mentionPickerItems(query, allowRoles) {
 }
 
 function validComposerMentionNames(allowRoles) {
-  const names = ["everyone", "here"];
+  const names = [];
+  if (!allowRoles || canUseEveryoneHere()) {
+    names.push("everyone", "here");
+  }
   if (allowRoles) {
     mentionableRoles().forEach((role) => {
       if (role.name) names.push(role.name);

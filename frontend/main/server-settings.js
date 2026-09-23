@@ -25,6 +25,10 @@ function canManageChannels() {
   return canServerPerm("manage_channels");
 }
 
+function canMentionEveryone() {
+  return canServerPerm("mention_everyone");
+}
+
 function canOpenServerSettings() {
   return canUpdateServer() || canManageRoles();
 }

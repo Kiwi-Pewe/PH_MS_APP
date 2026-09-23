@@ -37,15 +37,18 @@ const TAB_COLUMNS = {
 };
 
 const tabState = {
-  feedback: { q: "", column: "id", order: "desc", items: [] },
-  users: { q: "", column: "id", order: "asc", items: [] },
-  servers: { q: "", column: "id", order: "asc", items: [] }
+  feedback: { q: "", column: "id", order: "desc", items: [], hasMore: true, loading: false, offset: 0, seq: 0 },
+  users: { q: "", column: "id", order: "asc", items: [], hasMore: true, loading: false, offset: 0, seq: 0 },
+  servers: { q: "", column: "id", order: "asc", items: [], hasMore: true, loading: false, offset: 0, seq: 0 }
 };
+
+const PAGE_SIZE = 10;
 
 let adminUser = null;
 let adminTab = "feedback";
 let previewKey = null;
 let openFilter = null;
+let searchTimer = null;
 
 function adminApi(path) {
   return fetch(`https://${API_HOST}${path}`, { credentials: "include" });
@@ -88,11 +91,12 @@ function compareItems(a, b, key, order) {
 }
 
 function visibleItems() {
-  const state = currentState();
-  const q = state.q.trim().toLowerCase();
-  return state.items
-    .filter((item) => !q || currentColumns().some((col) => displayValue(item, col.key).toLowerCase().includes(q)))
-    .sort((a, b) => compareItems(a, b, state.column, state.order));
+  return currentState().items;
+}
+
+function statusLabel(value) {
+  const text = String(value || "new").replace(/_/g, " ").trim();
+  return text.replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
 function itemKey(item) {
@@ -297,6 +301,7 @@ function paintEntryCard(item) {
   card.dataset.key = itemKey(item);
   if (previewKey && card.dataset.key === previewKey) card.classList.add("is-on");
   if (adminTab === "feedback") {
+    card.classList.add("is-feedback");
     const name = item.username || ("User " + item.user_id);
     card.appendChild(whoBlock(name, item.created_at, mediaUrl(item.avatar), firstLetters(name)));
     const copy = document.createElement("div");
@@ -310,6 +315,12 @@ function paintEntryCard(item) {
     copy.appendChild(type);
     copy.appendChild(desc);
     card.appendChild(copy);
+    const status = document.createElement("div");
+    status.className = "admin-card-status";
+    const pill = document.createElement("span");
+    pill.textContent = statusLabel(item.status);
+    status.appendChild(pill);
+    card.appendChild(status);
   } else if (adminTab === "users") {
     const name = item.username || ("User " + item.id);
     card.appendChild(whoBlock(name, item.created_at, mediaUrl(item.avatar), firstLetters(name)));
@@ -339,6 +350,7 @@ function paintEntryCard(item) {
 function paintList() {
   const list = document.getElementById("admin-list");
   if (!list) return;
+  const top = list.scrollTop;
   list.innerHTML = "";
   const rows = visibleItems();
   if (!rows.length) {
@@ -358,6 +370,7 @@ function paintList() {
     list.appendChild(card);
   });
   if (previewKey && !previewStillVisible) closePreview();
+  list.scrollTop = top;
 }
 
 function showFilterMenu(wrap, kind) {
@@ -378,7 +391,7 @@ function showFilterMenu(wrap, kind) {
         state.column = col.key;
         closeFilters();
         paintToolbar();
-        paintList();
+        loadPage(true);
       });
       menu.appendChild(btn);
     });
@@ -396,7 +409,7 @@ function showFilterMenu(wrap, kind) {
         state.order = opt.key;
         closeFilters();
         paintToolbar();
-        paintList();
+        loadPage(true);
       });
       menu.appendChild(btn);
     });
@@ -423,7 +436,8 @@ function paintToolbar() {
   search.addEventListener("submit", (e) => e.preventDefault());
   input.addEventListener("input", () => {
     state.q = input.value;
-    paintList();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadPage(true), 200);
   });
   const filters = document.createElement("div");
   filters.className = "admin-filters";
@@ -476,6 +490,9 @@ function paintShell() {
   list.appendChild(note);
   main.appendChild(toolbar);
   main.appendChild(list);
+  list.addEventListener("scroll", () => {
+    if (list.scrollHeight - list.scrollTop - list.clientHeight < 40) loadPage(false);
+  });
   paintToolbar();
 }
 
@@ -504,31 +521,76 @@ function paintTitle() {
   document.getElementById("admin-title").textContent = "Admin Panel: " + name;
 }
 
-async function loadTab() {
+function tabPath() {
+  if (adminTab === "feedback") return "/admin/feedback";
+  if (adminTab === "users") return "/admin/user";
+  return "/admin/server";
+}
+
+function maybeFillMore() {
+  const list = document.getElementById("admin-list");
+  if (!list) return;
+  if (list.scrollHeight <= list.clientHeight + 8) loadPage(false);
+}
+
+async function loadPage(reset) {
   const state = currentState();
-  const path = adminTab === "feedback" ? "/admin/feedback" : adminTab === "users" ? "/admin/user" : "/admin/server";
-  try {
-    const response = await adminApi(path);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.detail || "Could not load this tab.");
-    if (adminTab === "feedback") state.items = data.reports || [];
-    else if (adminTab === "users") state.items = data.users || [];
-    else state.items = data.servers || [];
-    paintList();
-  } catch (e) {
+  const tab = adminTab;
+  if (reset) {
+    state.seq += 1;
+    state.items = [];
+    state.offset = 0;
+    state.hasMore = true;
+    state.loading = false;
     const list = document.getElementById("admin-list");
-    if (!list) return;
-    list.innerHTML = "";
-    const note = document.createElement("div");
-    note.className = "admin-note";
-    note.textContent = e.message || "Could not load this tab.";
-    list.appendChild(note);
+    if (list) {
+      list.innerHTML = "";
+      const note = document.createElement("div");
+      note.className = "admin-note";
+      note.textContent = "Loading…";
+      list.appendChild(note);
+    }
+  }
+  if (state.loading || !state.hasMore) return;
+  const seq = state.seq;
+  state.loading = true;
+  const params = new URLSearchParams({
+    q: state.q.trim(),
+    sort: state.column,
+    order: state.order,
+    offset: String(state.offset),
+    limit: String(PAGE_SIZE)
+  });
+  try {
+    const response = await adminApi(tabPath() + "?" + params.toString());
+    const data = await response.json().catch(() => ({}));
+    if (tab !== adminTab || state.seq !== seq) return;
+    if (!response.ok) throw new Error(data.detail || "Could not load this tab.");
+    const rows = adminTab === "feedback" ? (data.reports || []) : adminTab === "users" ? (data.users || []) : (data.servers || []);
+    state.items = state.items.concat(rows);
+    state.offset += rows.length;
+    state.hasMore = !!data.has_more;
+    state.loading = false;
+    paintList();
+    maybeFillMore();
+  } catch (e) {
+    if (tab !== adminTab || state.seq !== seq) return;
+    state.loading = false;
+    if (!state.items.length) {
+      const list = document.getElementById("admin-list");
+      if (!list) return;
+      list.innerHTML = "";
+      const note = document.createElement("div");
+      note.className = "admin-note";
+      note.textContent = e.message || "Could not load this tab.";
+      list.appendChild(note);
+    }
   }
 }
 
 function paintMain() {
   paintShell();
-  loadTab();
+  loadPage(true);
 }
 
 async function bootAdmin() {

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_, cast, String
 from app.models import UserInfo, Feedback_report, Servers, Server_members
 from app.database import get_db
 from app.auth import get_current_user
@@ -13,7 +13,7 @@ import json
 
 router = APIRouter()
 
-LIST_CAP = 500
+PAGE_SIZE = 10
 
 FEEDBACK_TYPE_LABELS = {
     "bug": "Bug Report",
@@ -109,37 +109,55 @@ def owner_maps(database, servers):
     )
 
 
-def find_users(database, text):
-    if text.isdigit():
-        found = database.query(UserInfo).filter(UserInfo.id == int(text)).first()
-        if found:
-            return [found]
-    exact = database.query(UserInfo).filter(func.lower(UserInfo.username) == text.lower()).first()
-    if exact:
-        return [exact]
-    return (
-        database.query(UserInfo)
-        .filter(UserInfo.username.ilike("%" + text + "%"))
-        .order_by(UserInfo.id.asc())
-        .limit(LIST_CAP)
-        .all()
-    )
+def page_window(offset, limit):
+    try:
+        start = int(offset or 0)
+    except (TypeError, ValueError):
+        start = 0
+    try:
+        size = int(limit or PAGE_SIZE)
+    except (TypeError, ValueError):
+        size = PAGE_SIZE
+    return max(start, 0), min(max(size, 1), 50)
 
 
-def find_servers(database, text):
-    found = database.query(Servers).filter(Servers.id == text).first()
-    if found:
-        return [found]
-    slug = database.query(Servers).filter(func.lower(Servers.url_slug) == text.lower()).first()
-    if slug:
-        return [slug]
-    return (
-        database.query(Servers)
-        .filter(Servers.name.ilike("%" + text + "%"))
-        .order_by(Servers.id.asc())
-        .limit(LIST_CAP)
-        .all()
-    )
+def sort_keys(column, order, tie):
+    descending = (order or "").strip().lower() == "desc"
+    if descending:
+        return column.desc(), tie.desc()
+    return column.asc(), tie.asc()
+
+
+def like_text(text):
+    return "%" + (text or "") + "%"
+
+
+def take_page(query, offset, limit):
+    start, size = page_window(offset, limit)
+    rows = query.offset(start).limit(size + 1).all()
+    return rows[:size], len(rows) > size
+
+
+def pack_feedback(row, avatar):
+    return {
+        "id": row.id,
+        "user_id": row.user_id,
+        "username": row.username,
+        "display_name": row.display_name,
+        "feedback_type": row.feedback_type,
+        "feedback_label": FEEDBACK_TYPE_LABELS.get(row.feedback_type, row.feedback_type),
+        "report": row.report,
+        "attachments": post_attachments_public(row.attachments),
+        "status": row.status or "new",
+        "context_view": row.context_view,
+        "server_id": row.server_id,
+        "server_name": row.server_name,
+        "channel_id": row.channel_id,
+        "channel_name": row.channel_name,
+        "channel_type": row.channel_type,
+        "created_at": str(row.created_at) if row.created_at else None,
+        "avatar": avatar or {},
+    }
 
 
 @router.get("/admin/me")
@@ -153,61 +171,146 @@ def admin_me(current_user: UserInfo = Depends(get_current_user)):
 
 
 @router.get("/admin/feedback")
-def admin_feedback(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+def admin_feedback(
+    q: str = "",
+    sort: str = "id",
+    order: str = "desc",
+    offset: int = 0,
+    limit: int = PAGE_SIZE,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
     require_oneira_admin(current_user)
-    rows = database.query(Feedback_report).order_by(Feedback_report.id.desc()).limit(LIST_CAP).all()
+    query = database.query(Feedback_report)
+    text = (q or "").strip()
+    if text:
+        needle = like_text(text)
+        query = query.filter(or_(
+            Feedback_report.username.ilike(needle),
+            Feedback_report.display_name.ilike(needle),
+            Feedback_report.report.ilike(needle),
+            Feedback_report.feedback_type.ilike(needle),
+            Feedback_report.status.ilike(needle),
+            Feedback_report.server_name.ilike(needle),
+            cast(Feedback_report.id, String).ilike(needle),
+        ))
+    columns = {
+        "id": Feedback_report.id,
+        "feedback_label": Feedback_report.feedback_type,
+        "username": Feedback_report.username,
+        "display_name": Feedback_report.display_name,
+        "status": Feedback_report.status,
+        "server_name": Feedback_report.server_name,
+        "created_at": Feedback_report.created_at,
+    }
+    query = query.order_by(*sort_keys(columns.get(sort, Feedback_report.id), order, Feedback_report.id))
+    rows, has_more = take_page(query, offset, limit)
     user_ids = list({row.user_id for row in rows if row.user_id})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
     faces = {account.id: public_identity(account).get("avatar") or {} for account in accounts}
-    out = []
-    for row in rows:
-        out.append({
-            "id": row.id,
-            "user_id": row.user_id,
-            "username": row.username,
-            "display_name": row.display_name,
-            "feedback_type": row.feedback_type,
-            "feedback_label": FEEDBACK_TYPE_LABELS.get(row.feedback_type, row.feedback_type),
-            "report": row.report,
-            "attachments": post_attachments_public(row.attachments),
-            "status": row.status or "new",
-            "context_view": row.context_view,
-            "server_id": row.server_id,
-            "server_name": row.server_name,
-            "channel_id": row.channel_id,
-            "channel_name": row.channel_name,
-            "channel_type": row.channel_type,
-            "created_at": str(row.created_at) if row.created_at else None,
-            "avatar": faces.get(row.user_id) or {},
-        })
-    return {"reports": out}
+    return {
+        "reports": [pack_feedback(row, faces.get(row.user_id)) for row in rows],
+        "has_more": has_more,
+    }
 
 
 @router.get("/admin/user")
-def admin_user(q: str = "", database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+def admin_user(
+    q: str = "",
+    sort: str = "id",
+    order: str = "asc",
+    offset: int = 0,
+    limit: int = PAGE_SIZE,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
     require_oneira_admin(current_user)
+    query = database.query(UserInfo)
     text = (q or "").strip()
     if text:
-        accounts = find_users(database, text)
-    else:
-        accounts = database.query(UserInfo).order_by(UserInfo.id.asc()).limit(LIST_CAP).all()
+        needle = like_text(text)
+        query = query.filter(or_(
+            UserInfo.username.ilike(needle),
+            UserInfo.display_name.ilike(needle),
+            UserInfo.profile_status.ilike(needle),
+            UserInfo.profile_pronouns.ilike(needle),
+            cast(UserInfo.id, String).ilike(needle),
+        ))
+    server_count_col = (
+        database.query(func.count(Server_members.id))
+        .filter(Server_members.user_id == UserInfo.id)
+        .correlate(UserInfo)
+        .as_scalar()
+    )
+    columns = {
+        "id": UserInfo.id,
+        "username": UserInfo.username,
+        "display_name": UserInfo.display_name,
+        "created_at": UserInfo.created_at,
+        "status": UserInfo.profile_status,
+        "pronouns": UserInfo.profile_pronouns,
+        "mfa_enabled": UserInfo.mfa_enabled,
+        "server_count": server_count_col,
+    }
+    query = query.order_by(*sort_keys(columns.get(sort, UserInfo.id), order, UserInfo.id))
+    accounts, has_more = take_page(query, offset, limit)
     counts = user_server_counts(database, [account.id for account in accounts])
-    return {"users": [pack_user(account, counts.get(account.id, 0)) for account in accounts]}
+    return {
+        "users": [pack_user(account, counts.get(account.id, 0)) for account in accounts],
+        "has_more": has_more,
+    }
 
 
 @router.get("/admin/server")
-def admin_server(q: str = "", database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+def admin_server(
+    q: str = "",
+    sort: str = "id",
+    order: str = "asc",
+    offset: int = 0,
+    limit: int = PAGE_SIZE,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
     require_oneira_admin(current_user)
+    query = database.query(Servers)
     text = (q or "").strip()
     if text:
-        matches = find_servers(database, text)
+        needle = like_text(text)
+        query = query.filter(or_(
+            Servers.id.ilike(needle),
+            Servers.name.ilike(needle),
+            Servers.url_slug.ilike(needle),
+            Servers.about.ilike(needle),
+            Servers.server_type.ilike(needle),
+        ))
+    member_count_col = (
+        database.query(func.count(Server_members.id))
+        .filter(Server_members.server_id == Servers.id)
+        .correlate(Servers)
+        .as_scalar()
+    )
+    if sort == "owner_display_name":
+        query = query.outerjoin(UserInfo, UserInfo.id == Servers.owner_id)
+        sort_col = func.coalesce(UserInfo.display_name, UserInfo.username)
     else:
-        matches = database.query(Servers).order_by(Servers.id.asc()).limit(LIST_CAP).all()
+        columns = {
+            "id": Servers.id,
+            "name": Servers.name,
+            "member_count": member_count_col,
+            "server_type": Servers.server_type,
+            "url_slug": Servers.url_slug,
+            "about": Servers.about,
+            "created_at": Servers.created_at,
+        }
+        sort_col = columns.get(sort, Servers.id)
+    query = query.order_by(*sort_keys(sort_col, order, Servers.id))
+    matches, has_more = take_page(query, offset, limit)
     owner_names, owner_handles = owner_maps(database, matches)
     counts = server_member_counts(database, [row.id for row in matches])
     return {
         "servers": [
             pack_server(server, owner_names, owner_handles, counts.get(server.id, 0))
             for server in matches
-        ]
+        ],
+        "has_more": has_more,
     }

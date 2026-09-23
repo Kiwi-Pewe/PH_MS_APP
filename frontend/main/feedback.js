@@ -165,7 +165,7 @@ function openFeedbackCard() {
   const bodyLabel = document.createElement("label");
   bodyLabel.textContent = "Message";
   const body = document.createElement("textarea");
-  body.rows = 7;
+  body.rows = 3;
   body.maxLength = FEEDBACK_TEXT_MAX;
   body.spellcheck = true;
   bodyLabel.appendChild(body);
@@ -198,7 +198,13 @@ function openFeedbackCard() {
     hintEl.textContent = text || "";
   }
 
+  function growFeedbackBody() {
+    body.style.height = "auto";
+    body.style.height = body.scrollHeight + "px";
+  }
+
   function paintStrip() {
+    mediaRow.classList.toggle("has-files", feedbackFiles.length > 0);
     strip.innerHTML = "";
     feedbackFiles.forEach((item, index) => {
       const chip = document.createElement("div");
@@ -266,7 +272,10 @@ function openFeedbackCard() {
     if (!hintEl.textContent || hintEl.textContent.indexOf(" / ") >= 0) refreshHint();
   });
 
-  body.addEventListener("input", refreshHint);
+  body.addEventListener("input", () => {
+    growFeedbackBody();
+    refreshHint();
+  });
   typeSelect.addEventListener("change", refreshHint);
   cancel.addEventListener("click", () => closeFeedbackCard());
   close.addEventListener("click", () => closeFeedbackCard());
@@ -325,6 +334,8 @@ function openFeedbackCard() {
   overlay.appendChild(box);
   document.body.appendChild(overlay);
   feedbackOverlay = overlay;
+  paintStrip();
+  growFeedbackBody();
   refreshHint();
   typeSelect.focus();
 }

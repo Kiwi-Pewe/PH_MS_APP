@@ -3552,10 +3552,11 @@ a.profile-link-row:hover { color: var(--accent); }
 .profile-opt-seg button.is-on { background: var(--accent); color: #fff; }
 .profile-opt-align { margin-top: 8px; }
 
-.feedback-opt {
+.profile-opt.feedback-opt {
   width: min(480px, calc(100% - 48px));
-  height: min(560px, calc(100% - 48px));
-  max-width: calc(100% - 48px);
+  height: auto;
+  max-height: min(640px, calc(100% - 48px));
+  grid-template-rows: 48px auto 52px;
 }
 .feedback-opt-main {
   overflow: auto;
@@ -3580,14 +3581,23 @@ a.profile-link-row:hover { color: var(--accent); }
   color: var(--text);
   font-size: 14px;
   padding: 9px 10px;
-  resize: vertical;
 }
-.feedback-media-row { margin-bottom: 8px; }
+.feedback-opt-main textarea {
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.4;
+  min-height: calc(1.4em * 3);
+  max-height: calc(1.4em * 8);
+}
+.feedback-media-row { margin-bottom: 0; }
 .feedback-media-strip {
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 6px;
   margin-top: 8px;
+}
+.feedback-media-row.has-files .feedback-media-strip {
+  display: flex;
 }
 .feedback-media-chip {
   display: flex;

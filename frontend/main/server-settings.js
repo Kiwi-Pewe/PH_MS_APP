@@ -65,6 +65,10 @@ function canUploadChatMedia() {
   return canServerPerm("upload_chat_media");
 }
 
+function canManageMessages() {
+  return canServerPerm("manage_messages");
+}
+
 function canOpenServerSettings() {
   return canUpdateServer() || canManageRoles();
 }

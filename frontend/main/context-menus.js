@@ -95,7 +95,10 @@ function canDeleteMessage(msg) {
   if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
-  if (msg.chatKind === "channel" || msg.chatKind === "forum") {
+  if (msg.chatKind === "channel") {
+    return msg.isMine || (typeof canManageMessages === "function" && canManageMessages());
+  }
+  if (msg.chatKind === "forum") {
     return msg.isMine || myUserId === currentServerOwnerId;
   }
   return msg.isMine;

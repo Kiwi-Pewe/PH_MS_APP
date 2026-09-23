@@ -1,12 +1,178 @@
-body { display: flex; align-items: center; justify-content: center; }
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-.card { background: #24262e; border: 1px solid #33353f; border-radius: 10px; padding: 28px; width: 420px; }
-.card h1 { font-size: 16px; letter-spacing: 0.02em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 20px; }
-.card label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
-.card input { width: 100%; padding: 10px 12px; background: var(--rail); border: 1px solid #3a3d49; border-radius: 6px; color: var(--text); font-size: 14px; margin-bottom: 14px; }
-.card input:focus { outline: none; border-color: var(--accent); }
-.card button { padding: 11px; background: var(--accent); border-radius: 6px; color: #fff; font-size: 14px; font-weight: 600; }
-.card button:hover { background: var(--accent-hover); }
+.admin-opt {
+  width: min(560px, calc(100% - 48px));
+  max-height: min(640px, calc(100% - 48px));
+  display: grid;
+  grid-template-rows: 48px minmax(0, 1fr);
+  background: var(--panel);
+  border: 1px solid var(--accent-submenu);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
 
-#log { margin-top: 16px; max-height: 240px; overflow-y: auto; font-size: 13px; line-height: 1.6; }
-#friend-status { font-size: 12px; color: var(--text-dim); margin-top: 10px; min-height: 16px; }
+.admin-opt[hidden] { display: none; }
+
+.admin-opt-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--rail);
+}
+
+.admin-opt-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.admin-opt-split { color: var(--text-dim); font-weight: 700; }
+
+.admin-opt-tabs { display: flex; gap: 4px; min-width: 0; }
+
+.admin-opt-tabs button {
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.admin-opt-tabs button:hover { color: var(--text); background: var(--panel-alt); }
+.admin-opt-tabs button.is-on { color: var(--text); background: var(--panel-alt); }
+
+.admin-back {
+  margin-left: auto;
+  background: var(--danger);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+.admin-back:hover { filter: brightness(1.08); }
+
+.admin-opt-main {
+  overflow: auto;
+  padding: 16px 18px;
+  min-height: 220px;
+}
+
+.admin-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.admin-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--rail);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  padding: 9px 10px;
+}
+
+.admin-search button {
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 12px;
+}
+
+.admin-note {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.admin-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-alt);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.admin-card.is-open { border-color: var(--accent-submenu); }
+
+.admin-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.admin-card-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.admin-card-body {
+  display: none;
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.admin-card.is-open .admin-card-body { display: block; }
+
+.admin-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-field {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.admin-field-value {
+  font-size: 14px;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.admin-attach {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.admin-attach a { color: var(--accent); font-size: 13px; }
+
+.admin-attach img,
+.admin-attach video {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: 6px;
+  display: block;
+}

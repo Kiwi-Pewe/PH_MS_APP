@@ -57,6 +57,9 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
     if (btn.id === "feedback-tab") {
       if (typeof openFeedbackCard === "function") openFeedbackCard();
     }
+    if (btn.id === "admin-tab") {
+      window.location.href = "../admin/app.html";
+    }
   });
 });
 

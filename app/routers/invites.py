@@ -5,15 +5,36 @@ from app.models import UserInfo, Servers, Server_members, Server_categories, Ser
 from app.schemas import Invite
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
-from app.routers.realtime import serialize_member, server_broadcast, party_broadcast
+from app.routers.realtime import active_connections, serialize_member, server_broadcast, party_broadcast
+from app.routers.roles import require_server_member, require_server_perm
 from datetime import datetime, timedelta
 import asyncio
 import random
 
 router = APIRouter()
 
+def invite_created_at(invite):
+    value = getattr(invite, "created_at", None)
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if getattr(value, "tzinfo", None):
+        value = value.replace(tzinfo=None)
+    return value
+
+def is_invite_fresh(invite):
+    created = invite_created_at(invite)
+    if created is None:
+        return False
+    return datetime.utcnow() - created < timedelta(hours=24)
+
 def is_invite_valid(invite: Invite_model):
-    return datetime.utcnow() - invite.created_at < timedelta(hours=24) and invite.use_count < 10
+    uses = invite.use_count if invite.use_count is not None else 0
+    return is_invite_fresh(invite) and uses < 10
 
 async def check_invites():
     while True:
@@ -107,15 +128,13 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
 def create_invite(type: Invite, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
     if type.type == "server":
-        is_member = database.query(Server_members).filter(Server_members.server_id == type.server_id, Server_members.user_id == current_user.id).first()
-
-        if not is_member:
-            raise HTTPException(status_code=404, detail="Server membership not found")
+        server = require_server_member(database, type.server_id, current_user.id)
+        require_server_perm(database, server, current_user.id, "invite_members", "You do not have permission to invite members.")
 
         previous_invite = database.query(Invite_model).filter(Invite_model.server_id == type.server_id, Invite_model.creator_id == current_user.id).first()
 
         if previous_invite:
-            if datetime.utcnow() - previous_invite.created_at < timedelta(hours=24):
+            if is_invite_fresh(previous_invite):
                 return {"invite_code": previous_invite.code}
             else:
                 database.delete(previous_invite)
@@ -129,7 +148,7 @@ def create_invite(type: Invite, database: Session = Depends(get_db), current_use
         previous_invite = database.query(Invite_model).filter(Invite_model.party_id == type.party_id, Invite_model.creator_id == current_user.id).first()
 
         if previous_invite:
-            if datetime.utcnow() - previous_invite.created_at < timedelta(hours=24):
+            if is_invite_fresh(previous_invite):
                 return {"invite_code": previous_invite.code}
             else:
                 database.delete(previous_invite)
@@ -163,15 +182,16 @@ def get_invite_info(code: str, database: Session = Depends(get_db)):
 
     if invite.type == "party":
         party_info= database.query(Parties).filter(Parties.id == invite.party_id).first()
+        if not party_info:
+            return {"valid": False}
         all_members = database.query(Party_members).filter(Party_members.party_id == invite.party_id).count()
-        return {"type": "party","party_name": party_info.party_name, "full": True if all_members >= 10 else  False}
+        return {"valid": True, "type": "party","party_name": party_info.party_name, "full": True if all_members >= 10 else  False}
     elif invite.type == "server":
         server_info = database.query(Servers).filter(Servers.id == invite.server_id).first()
+        if not server_info:
+            return {"valid": False}
         total_members = database.query(Server_members).filter(Server_members.server_id == invite.server_id).count()
         all_members = database.query(Server_members).filter(Server_members.server_id == invite.server_id).all()
-
-        active = 0
-        for members in all_members:
-            if members.user_id in active_connections:
-                active += 1
-        return{"type": "server", "server_name": server_info.name, "active_users": active, "total_users": total_members}
+        active = sum(1 for member in all_members if member.user_id in active_connections)
+        return {"valid": True, "type": "server", "server_name": server_info.name, "active_users": active, "total_users": total_members}
+    return {"valid": False}

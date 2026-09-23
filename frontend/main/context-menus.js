@@ -333,7 +333,9 @@ function showServerContextMenu(e, id, name, ownerId) {
     avatarText: serverAvatarLetters(name),
     title: name
   }, [
-    { label: "Invite People", onSelect: () => openInviteModal("server", id, name) },
+    (id === currentServerId
+      ? (typeof canInviteMembers === "function" ? canInviteMembers() : true)
+      : true) && { label: "Invite People", onSelect: () => openInviteModal("server", id, name) },
     { label: "Mark as Read", onSelect: () => markServerRead(id) },
     ownerId !== myUserId && { label: "Leave Server", danger: true, onSelect: () => leaveServerFromContextMenu(id) }
   ]);
@@ -354,10 +356,9 @@ function showServerAreaContextMenu(e) {
   openContextMenu(e.clientX, e.clientY, null, options);
 }
 
-// Click / right-click on the server name in the middle rail. Update
-// server (and the owner) get Server Settings. Create Channel / Category
-// stay owner-only until Manage channels. Everyone sees invite plus the
-// greyed notification rows.
+// Click / right-click on the server name in the middle rail. Invite
+// members is any-role-yes. Update server / Manage roles open Settings.
+// Create Channel / Category stay owner-only until Manage channels.
 function showServerHeaderMenu(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -372,9 +373,10 @@ function showServerHeaderMenu(e) {
   const isOwner = currentServerOwnerId === myUserId;
   const name = document.getElementById("server-sidebar-name").textContent || "";
   const firstCategory = ((currentServerData && currentServerData.categories) || [])[0];
-  const options = [
-    { label: "Invite to Server", onSelect: () => openInviteModal("server", currentServerId, name) }
-  ];
+  const options = [];
+  if (typeof canInviteMembers === "function" ? canInviteMembers() : true) {
+    options.push({ label: "Invite to Server", onSelect: () => openInviteModal("server", currentServerId, name) });
+  }
   if (typeof canOpenServerSettings === "function" ? canOpenServerSettings() : isOwner) {
     options.push({ label: "Server Settings", onSelect: () => openServerSettings() });
   }

@@ -226,6 +226,9 @@ def owner_role_perms():
 
 
 def effective_perms_for_user(database, server, user_id):
+    # Any assigned role that says yes wins. Highest role does not veto
+    # a lower one. Highest still wins for name color, hoist, and
+    # hierarchy (who you can manage / later kick, ban, timeout).
     if server.owner_id == user_id:
         return owner_role_perms()
     seed_server_roles(database, server.id)

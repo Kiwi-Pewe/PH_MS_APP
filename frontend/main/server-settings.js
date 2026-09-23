@@ -17,6 +17,10 @@ function canManageRoles() {
   return canServerPerm("manage_roles");
 }
 
+function canInviteMembers() {
+  return canServerPerm("invite_members");
+}
+
 function canOpenServerSettings() {
   return canUpdateServer() || canManageRoles();
 }

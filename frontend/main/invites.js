@@ -17,6 +17,7 @@ document.getElementById("invite-copy-btn").addEventListener("click", copyInviteL
 document.getElementById("invite-modal-send-btn").addEventListener("click", sendInvitesFromModal);
 
 async function openInviteModal(type, id, name) {
+  if (type === "server" && typeof canInviteMembers === "function" && !canInviteMembers() && id === currentServerId) return;
   inviteModalTarget = { type, id, name };
   selectedInviteRecipients = new Set();
   updateInviteModalCount();

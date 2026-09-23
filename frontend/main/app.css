@@ -3838,7 +3838,7 @@ a.profile-link-row:hover { color: var(--accent); }
 .server-settings-field { margin: 0 0 28px; }
 .server-settings-field-title {
   display: block;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text);
   margin-bottom: 6px;
@@ -4196,7 +4196,7 @@ a.profile-link-row:hover { color: var(--accent); }
 .server-roles-bulk { display: flex; gap: 8px; margin: 8px 0 18px; }
 .server-roles-group { margin: 0 0 22px; }
 .server-roles-group-title {
-  font-size: 12px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -4205,6 +4205,8 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .server-roles-editor .settings-opt { padding: 12px 0; }
 .server-roles-editor .settings-opt.is-later { opacity: 0.55; }
+.server-roles-editor .settings-opt-title { font-size: 15px; }
+.server-roles-editor .settings-opt-desc { font-size: 13px; }
 
 /* Mini Profile — Guilded card shell. Placement will move after this
    first pass; keep the look (banner, overlapping avatar, section

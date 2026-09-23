@@ -340,6 +340,24 @@ class Message_reaction(Base):
     created_at = Column(DateTime, server_default=func.now())
     __table_args__ = (UniqueConstraint("kind", "message_id", "user_id", "emoji", name= "uq_message_reaction"),)
 
+class Feedback_report(Base):
+    __tablename__ = "feedback_reports"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    username = Column(String)
+    display_name = Column(String, nullable=True)
+    feedback_type = Column(String)
+    report = Column(String)
+    attachments = Column(String, nullable=True)
+    status = Column(String, default="new")
+    context_view = Column(String, nullable=True)
+    server_id = Column(String(10), nullable=True)
+    server_name = Column(String, nullable=True)
+    channel_id = Column(Integer, nullable=True)
+    channel_name = Column(String, nullable=True)
+    channel_type = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
 class Audit_log(Base):
     __tablename__ = "audit_logs"
     id = Column(Integer, primary_key = True)

@@ -54,6 +54,9 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
     if (btn.dataset.tab === "messages") {
       await goHome();
     }
+    if (btn.id === "feedback-tab") {
+      if (typeof openFeedbackCard === "function") openFeedbackCard();
+    }
   });
 });
 

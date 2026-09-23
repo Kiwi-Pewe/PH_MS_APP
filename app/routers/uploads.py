@@ -29,13 +29,17 @@ class UploadIntent(BaseModel):
 def upload_intent(body: UploadIntent, current_user: UserInfo = Depends(get_current_user)):
     mime = normalize_mime(body.content_type)
     purpose = (body.purpose or "chat").strip().lower()
-    if purpose not in ("chat", "profile", "server"):
+    if purpose not in ("chat", "profile", "server", "feedback"):
         purpose = "chat"
     if mime not in ALLOWED_MIME:
         raise HTTPException(status_code=400, detail="File type not allowed. Use jpeg, png, gif, webp, mp4, or webm.")
     kind = ALLOWED_MIME[mime][1]
     if purpose == "chat" and kind == "audio":
         raise HTTPException(status_code=400, detail="Chat cannot take mp3 files yet.")
+    if purpose == "feedback" and kind == "audio":
+        raise HTTPException(status_code=400, detail="Feedback cannot take mp3 files.")
+    if purpose == "feedback" and mime not in PROFILE_IMAGE_MIME and mime not in PROFILE_VIDEO_MIME:
+        raise HTTPException(status_code=400, detail="Feedback files must be jpeg, png, gif, webp, mp4, or webm.")
     if purpose == "profile" and mime not in PROFILE_IMAGE_MIME and mime not in PROFILE_VIDEO_MIME and mime not in PROFILE_MUSIC_MIME:
         raise HTTPException(status_code=400, detail="Profile files must be jpeg, png, gif, webp, mp3, or mp4.")
     if purpose == "server" and mime not in PROFILE_IMAGE_MIME:

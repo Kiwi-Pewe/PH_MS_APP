@@ -76,6 +76,9 @@ PROFILE_KEY_RE = re.compile(
 SERVER_KEY_RE = re.compile(
     r"^server/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp)$"
 )
+FEEDBACK_KEY_RE = re.compile(
+    r"^feedback/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp|mp4|webm)$"
+)
 PROFILE_VIDEO_KEY_RE = re.compile(
     r"^profile/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(mp4|webm)$"
 )
@@ -87,6 +90,9 @@ PROFILE_MUSIC_KEY_RE = re.compile(
 def max_upload_bytes(user=None, purpose="chat", mime=""):
     if purpose == "server":
         return PROFILE_IMAGE_BYTES
+    if purpose == "feedback":
+        kind = ALLOWED_MIME.get(normalize_mime(mime), ("", ""))[1]
+        return PROFILE_VIDEO_BYTES if kind == "video" else PROFILE_IMAGE_BYTES
     if purpose != "profile":
         return BASE_UPLOAD_BYTES
     kind = ALLOWED_MIME.get(normalize_mime(mime), ("", ""))[1]
@@ -120,8 +126,12 @@ def new_object_key(mime, purpose="chat"):
         folder = "profile"
     elif purpose == "server":
         folder = "server"
+    elif purpose == "feedback":
+        folder = "feedback"
     if folder == "chat" and kind == "audio":
         raise HTTPException(status_code=400, detail="Chat cannot take mp3 files yet.")
+    if folder == "feedback" and kind == "audio":
+        raise HTTPException(status_code=400, detail="Feedback cannot take mp3 files.")
     if folder == "profile" and kind not in ("image", "video", "audio"):
         raise HTTPException(status_code=400, detail="That file type cannot go on a profile tile.")
     if folder == "server" and kind != "image":

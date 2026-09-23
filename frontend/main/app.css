@@ -3552,6 +3552,72 @@ a.profile-link-row:hover { color: var(--accent); }
 .profile-opt-seg button.is-on { background: var(--accent); color: #fff; }
 .profile-opt-align { margin-top: 8px; }
 
+.feedback-opt {
+  width: min(480px, calc(100% - 48px));
+  height: min(560px, calc(100% - 48px));
+  max-width: calc(100% - 48px);
+}
+.feedback-opt-main {
+  overflow: auto;
+  padding: 16px 18px;
+  min-width: 0;
+}
+.feedback-opt-main label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+.feedback-opt-main select,
+.feedback-opt-main textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  background: var(--rail);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  padding: 9px 10px;
+  resize: vertical;
+}
+.feedback-media-row { margin-bottom: 8px; }
+.feedback-media-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.feedback-media-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--rail);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px 6px 10px;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+}
+.feedback-media-chip button {
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+.feedback-media-chip button:hover { color: var(--text); }
+.feedback-sent {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  padding: 28px 8px;
+  text-align: center;
+}
+
 .profile-tile.is-comments {
   display: flex;
   flex-direction: column;

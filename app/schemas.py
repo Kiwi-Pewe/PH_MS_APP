@@ -138,6 +138,17 @@ class Attachment_in(BaseModel):
     size: int
     name: str = ""
 
+class Feedback_submit(BaseModel):
+    feedback_type: str
+    report: str
+    attachments: list[Attachment_in] = []
+    context_view: str = ""
+    server_id: str = ""
+    server_name: str = ""
+    channel_id: int | None = None
+    channel_name: str = ""
+    channel_type: str = ""
+
 class Message_schema(BaseModel):
     sender_id: int
     receiver_id: int

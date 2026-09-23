@@ -184,7 +184,7 @@ function openModerationModal(mode, member) {
     reason.className = "moderation-reason";
     reason.maxLength = 200;
     reason.rows = 3;
-    reason.placeholder = "Optional. Goes to the audit log. Feed later.";
+    reason.placeholder = "Optional";
     reason.value = moderationDraft.reason;
     reason.addEventListener("input", () => { moderationDraft.reason = reason.value; });
     body.appendChild(reasonLabel);

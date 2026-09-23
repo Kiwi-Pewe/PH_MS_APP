@@ -606,9 +606,8 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
 
 @router.post("/create_category")
 async def create_category(category_info: Category_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    server = database.query(Servers).filter(Servers.id == category_info.server_id).first()
-    if not server or not server.owner_id == current_user.id:
-        raise HTTPException(status_code= 403, detail= "Server or owner doesnt match")
+    server = require_server_member(database, category_info.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
     
     highest_position = database.query(func.max(Server_categories.position)).filter(Server_categories.server_id == category_info.server_id).scalar()
 
@@ -635,9 +634,7 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
     if not category:
         raise HTTPException (status_code= 404, detail= "Category not found")
     server = database.query(Servers).filter(Servers.id == category.server_id).first()
-
-    if not server.owner_id == current_user.id:
-        raise HTTPException(status_code= 403, detail="Owner doesn't match")
+    require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
 
     highest_position = database.query(func.max(Server_channels.position)).filter(Server_channels.category_id == channel_info.category_id).scalar()
 
@@ -710,8 +707,7 @@ async def delete_channel(channel_id: int, database: Session = Depends(get_db), c
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     server = database.query(Servers).filter(Servers.id == category.server_id).first()
-    if not server or not server.owner_id == current_user.id:
-        raise HTTPException(status_code=403, detail="Owner doesn't match")
+    require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
 
     write_audit_log(database, server.id, current_user.id, "delete_channel", "channel", channel.id, {
         "name": channel.name,
@@ -737,8 +733,7 @@ async def delete_category(category_id: int, database: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="Category not found")
 
     server = database.query(Servers).filter(Servers.id == category.server_id).first()
-    if not server or not server.owner_id == current_user.id:
-        raise HTTPException(status_code=403, detail="Owner doesn't match")
+    require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
 
     channels = database.query(Server_channels).filter(Server_channels.category_id == category.id).all()
     channel_ids = [channel.id for channel in channels]

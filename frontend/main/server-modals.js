@@ -55,6 +55,7 @@ document.getElementById("category-modal-overlay").addEventListener("click", (e) 
 document.getElementById("category-modal-create-btn").addEventListener("click", submitCreateCategory);
 
 function openCategoryModal() {
+  if (typeof canManageChannels === "function" && !canManageChannels()) return;
   const input = document.getElementById("category-name-input");
   input.value = "";
   document.getElementById("category-private-toggle").checked = false;
@@ -140,6 +141,7 @@ document.getElementById("channel-modal-create-btn").addEventListener("click", su
 let channelModalCategoryId = null;
 
 function openChannelModal(categoryId) {
+  if (typeof canManageChannels === "function" && !canManageChannels()) return;
   channelModalCategoryId = categoryId;
   document.getElementById("channel-name-input").value = "";
   document.getElementById("channel-private-toggle").checked = false;
@@ -193,6 +195,7 @@ function channelDeleteLabel(channel) {
 }
 
 function openDeleteConfirm(kind, target) {
+  if (typeof canManageChannels === "function" && !canManageChannels()) return;
   pendingDelete = { kind, target };
   const isCategory = kind === "category";
   document.getElementById("confirm-delete-title").textContent = isCategory ? "Delete Category" : "Delete Channel";

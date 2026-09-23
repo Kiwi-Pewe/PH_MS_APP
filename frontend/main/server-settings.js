@@ -21,6 +21,10 @@ function canInviteMembers() {
   return canServerPerm("invite_members");
 }
 
+function canManageChannels() {
+  return canServerPerm("manage_channels");
+}
+
 function canOpenServerSettings() {
   return canUpdateServer() || canManageRoles();
 }
@@ -33,6 +37,9 @@ function applyServerPerms(perms, highestRole, timeoutUntil) {
     if (typeof paintServerTimeoutLock === "function") paintServerTimeoutLock();
   }
   paintServerSettingsAccess();
+  if (typeof currentServerData !== "undefined" && currentServerData && typeof renderServerSidebar === "function") {
+    renderServerSidebar(currentServerData);
+  }
   if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen && !canOpenServerSettings()) {
     closeServerSettingsChrome();
   }

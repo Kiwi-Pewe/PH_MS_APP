@@ -350,7 +350,9 @@ function showServerAreaContextMenu(e) {
   e.preventDefault();
   const isOwner = currentServerOwnerId === myUserId;
   const options = [];
-  if (isOwner) options.push({ label: "Create Category", onSelect: () => openCategoryModal() });
+  if (typeof canManageChannels === "function" ? canManageChannels() : isOwner) {
+    options.push({ label: "Create Category", onSelect: () => openCategoryModal() });
+  }
   if (typeof canOpenServerSettings === "function" ? canOpenServerSettings() : isOwner) {
     options.push({ label: "Server Settings", onSelect: () => openServerSettings() });
   }
@@ -360,7 +362,7 @@ function showServerAreaContextMenu(e) {
 
 // Click / right-click on the server name in the middle rail. Invite
 // members is any-role-yes. Update server / Manage roles open Settings.
-// Create Channel / Category stay owner-only until Manage channels.
+// Manage channels shows Create Channel / Category.
 function showServerHeaderMenu(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -382,7 +384,7 @@ function showServerHeaderMenu(e) {
   if (typeof canOpenServerSettings === "function" ? canOpenServerSettings() : isOwner) {
     options.push({ label: "Server Settings", onSelect: () => openServerSettings() });
   }
-  if (isOwner) {
+  if (typeof canManageChannels === "function" ? canManageChannels() : isOwner) {
     options.push(firstCategory
       ? { label: "Create Channel", onSelect: () => openChannelModal(firstCategory.id) }
       : { label: "Create Channel", disabled: true });
@@ -397,12 +399,13 @@ function showServerHeaderMenu(e) {
   openContextMenu(rect.left, rect.bottom, null, options);
 }
 
-function showCategoryContextMenu(e, category, isOwner) {
+function showCategoryContextMenu(e, category) {
   e.preventDefault();
   e.stopPropagation();
   const x = e.clientX;
   const y = e.clientY;
-  const options = isOwner ? [
+  const canLayout = typeof canManageChannels === "function" ? canManageChannels() : currentServerOwnerId === myUserId;
+  const options = canLayout ? [
     { label: "Edit Category", onSelect: () => console.log("Edit Category — not implemented yet") },
     { label: "Delete Category", danger: true, onSelect: () => openDeleteConfirm("category", category) }
   ] : [];
@@ -413,12 +416,13 @@ function showCategoryContextMenu(e, category, isOwner) {
   }, options);
 }
 
-function showChannelContextMenu(e, channel, isOwner) {
+function showChannelContextMenu(e, channel) {
   e.preventDefault();
   e.stopPropagation();
   const x = e.clientX;
   const y = e.clientY;
-  const options = isOwner ? [
+  const canLayout = typeof canManageChannels === "function" ? canManageChannels() : currentServerOwnerId === myUserId;
+  const options = canLayout ? [
     { label: "Edit Channel", onSelect: () => console.log("Edit Channel — not implemented yet") },
     { label: "Delete Channel", danger: true, onSelect: () => openDeleteConfirm("channel", channel) }
   ] : [];

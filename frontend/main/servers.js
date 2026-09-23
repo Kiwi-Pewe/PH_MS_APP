@@ -230,7 +230,7 @@ async function openServer(serverId, iconEl) {
 function renderServerSidebar(data) {
   const list = document.getElementById("category-list");
   list.innerHTML = "";
-  const isOwner = data.owner === myUserId;
+  const canLayout = typeof canManageChannels === "function" ? canManageChannels() : data.owner === myUserId;
 
   data.categories.forEach(category => {
     const block = document.createElement("div");
@@ -247,10 +247,10 @@ function renderServerSidebar(data) {
     const nameEl = document.createElement("span");
     nameEl.className = "category-name";
     nameEl.textContent = category.name;
-    nameEl.addEventListener("contextmenu", (e) => showCategoryContextMenu(e, category, isOwner));
+    nameEl.addEventListener("contextmenu", (e) => showCategoryContextMenu(e, category));
     header.appendChild(nameEl);
 
-    if (isOwner) {
+    if (canLayout) {
       const addBtn = document.createElement("button");
       addBtn.className = "category-add-btn";
       addBtn.title = "Create Channel";
@@ -282,7 +282,7 @@ function renderServerSidebar(data) {
       if (typeof decorateChannelRow === "function") decorateChannelRow(row, channel);
 
       row.addEventListener("click", () => selectChannel(channel, row));
-      row.addEventListener("contextmenu", (e) => showChannelContextMenu(e, channel, isOwner));
+      row.addEventListener("contextmenu", (e) => showChannelContextMenu(e, channel));
       channelsEl.appendChild(row);
     });
 

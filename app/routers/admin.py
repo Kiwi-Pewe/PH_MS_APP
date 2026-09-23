@@ -590,8 +590,8 @@ def admin_delete_user(user_id: int, body: Admin_delete, database: Session = Depe
     require_oneira_admin(current_user)
     target = database.query(UserInfo).filter(UserInfo.id == user_id).first()
     refuse_moderate(current_user, target)
-    if (body.username or "").strip().lower() != (target.username or "").strip().lower():
-        raise HTTPException(status_code=400, detail="Type the username to confirm.")
+    if (body.username or "").strip().lstrip("@").lower() != (target.username or "").strip().lower():
+        raise HTTPException(status_code=400, detail="Type the account username to confirm.")
     delete_account_to_permaban(database, current_user, target, "")
     database.commit()
     return {"ok": True, "user_id": user_id}

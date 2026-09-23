@@ -800,18 +800,26 @@ function openAdminModSubmenu(mode, user) {
       title.textContent = "Delete Account";
       const copy = document.createElement("p");
       copy.className = "admin-mod-copy";
-      copy.textContent = "Permanently remove " + who + " from Oneira. Owned servers are wiped. Their chat messages become footer notices. Type the username to confirm.";
+      const display = user.display_name || "";
+      const sameName = display && display.toLowerCase() === handle.toLowerCase();
+      let text = "This permanently removes the account";
+      if (handle) text += " \"" + handle + "\"";
+      text += " from Oneira. Owned servers are wiped. Their chat messages become footer notices.";
+      if (display && !sameName) text += " Display name \"" + display + "\" is not accepted — only the account username.";
+      else text += " Type the account username below (not a display name).";
+      copy.textContent = text;
       body.appendChild(copy);
       const nameLabel = document.createElement("label");
       nameLabel.className = "admin-mod-label";
       nameLabel.setAttribute("for", "admin-mod-username");
-      nameLabel.textContent = "Username";
+      nameLabel.textContent = "Account username";
       const name = document.createElement("input");
       name.type = "text";
       name.id = "admin-mod-username";
       name.className = "admin-mod-input";
       name.autocomplete = "off";
-      name.placeholder = handle || "username";
+      name.spellcheck = false;
+      name.placeholder = handle ? ("Type " + handle + " to confirm") : "Account username";
       name.value = adminModDraft.username;
       name.addEventListener("input", () => { adminModDraft.username = name.value; });
       body.appendChild(nameLabel);
@@ -850,7 +858,7 @@ async function confirmAdminModSubmenu() {
   if (mode === "delete" && !String(adminModDraft.username || "").trim()) {
     if (err) {
       err.hidden = false;
-      err.textContent = "Type the username to confirm.";
+      err.textContent = "Type the account username to confirm.";
     }
     const name = document.getElementById("admin-mod-username");
     if (name) name.focus();
@@ -872,9 +880,10 @@ async function confirmAdminModSubmenu() {
       });
       closeAdminModSubmenu();
       applyUserUpdate(data.user);
-    } else {
+    }     else {
+      const typed = String(adminModDraft.username || "").trim().replace(/^@+/, "");
       await adminSend("/admin/user/" + user.id + "/delete", {
-        username: adminModDraft.username
+        username: typed
       });
       closeAdminModSubmenu();
       removeUserFromList(user.id);

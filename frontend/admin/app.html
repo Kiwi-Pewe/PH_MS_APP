@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Oneira — Admin Panel</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=11">
-<link rel="stylesheet" href="app.css?v=9">
+<link rel="stylesheet" href="app.css?v=10">
 </head>
 <body>
 
@@ -25,7 +25,22 @@
   </div>
 </div>
 
+<div id="admin-mod-overlay" hidden>
+  <div id="admin-mod-modal" role="dialog" aria-modal="true" aria-labelledby="admin-mod-title">
+    <div class="admin-mod-header">
+      <span id="admin-mod-title">Moderate</span>
+      <button type="button" class="admin-mod-x" id="admin-mod-close" title="Close">×</button>
+    </div>
+    <div class="admin-mod-body" id="admin-mod-body"></div>
+    <div class="admin-mod-footer">
+      <p class="admin-mod-error" id="admin-mod-error" hidden></p>
+      <button type="button" class="admin-mod-cancel" id="admin-mod-cancel">Cancel</button>
+      <button type="button" class="admin-mod-confirm" id="admin-mod-confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script src="../shared/config.js?v=4"></script>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

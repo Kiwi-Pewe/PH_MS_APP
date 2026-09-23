@@ -158,6 +158,7 @@ function closePreview() {
   previewKey = null;
   userPreviewLists = null;
   closeAdminProfileOverlay();
+  closeAdminModSubmenu();
   const card = document.getElementById("admin-card");
   const pane = document.getElementById("admin-preview");
   const rail = document.getElementById("admin-preview-rail");
@@ -688,94 +689,205 @@ function closeAdminProfileOverlay() {
   if (overlay) overlay.hidden = true;
 }
 
-function openRailMenu(wrap, key, buildMenu) {
-  if (openFilter === key) {
-    closeFilters();
-    return;
+let adminModDraft = null;
+
+function closeAdminModSubmenu() {
+  adminModDraft = null;
+  const overlay = document.getElementById("admin-mod-overlay");
+  if (overlay) overlay.hidden = true;
+  const err = document.getElementById("admin-mod-error");
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
   }
-  closeFilters();
-  openFilter = key;
-  wrap.classList.add("is-open");
-  const menu = document.createElement("div");
-  menu.className = "admin-filter-menu admin-action-menu";
-  menu.addEventListener("click", (e) => e.stopPropagation());
-  buildMenu(menu);
-  wrap.appendChild(menu);
 }
 
-function buildActionForm(opts) {
-  const form = document.createElement("div");
-  form.className = "admin-action-form";
-  const title = document.createElement("div");
-  title.className = "admin-action-title";
-  title.textContent = opts.title || "";
-  const input = document.createElement("input");
-  input.type = "text";
-  input.className = "admin-action-input";
-  input.placeholder = opts.placeholder || "";
-  input.autocomplete = "off";
-  const err = document.createElement("div");
-  err.className = "admin-action-error";
-  err.hidden = true;
-  const actions = document.createElement("div");
-  actions.className = "admin-action-actions";
-  const cancel = document.createElement("button");
-  cancel.type = "button";
-  cancel.className = "admin-action-cancel";
-  cancel.textContent = "Cancel";
-  cancel.addEventListener("click", (e) => {
-    e.stopPropagation();
-    closeFilters();
+function paintAdminModChips(host, selected, onPick) {
+  host.innerHTML = "";
+  host.className = "admin-mod-chips";
+  BAN_LENGTHS.forEach((opt) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "admin-mod-chip" + (selected === opt.seconds ? " is-on" : "");
+    btn.textContent = opt.label;
+    btn.addEventListener("click", () => onPick(opt.seconds));
+    host.appendChild(btn);
   });
-  const confirm = document.createElement("button");
-  confirm.type = "button";
-  confirm.className = "admin-action-confirm" + (opts.danger ? " is-danger" : "");
-  confirm.textContent = opts.confirmLabel || "Confirm";
-  async function submit() {
-    const value = input.value;
-    if (opts.required && !String(value).trim()) {
-      err.hidden = false;
-      err.textContent = opts.requiredMessage || "This field is required.";
-      input.focus();
-      return;
-    }
+}
+
+function openAdminModSubmenu(mode, user) {
+  if (!user || user.protected) return;
+  const overlay = document.getElementById("admin-mod-overlay");
+  const title = document.getElementById("admin-mod-title");
+  const body = document.getElementById("admin-mod-body");
+  const confirm = document.getElementById("admin-mod-confirm");
+  const err = document.getElementById("admin-mod-error");
+  if (!overlay || !title || !body || !confirm) return;
+
+  closeFilters();
+  adminModDraft = {
+    mode,
+    user,
+    seconds: 86400,
+    reason: "",
+    username: ""
+  };
+  if (err) {
     err.hidden = true;
-    confirm.disabled = true;
-    cancel.disabled = true;
-    input.disabled = true;
-    try {
-      await opts.onConfirm(value);
-      closeFilters();
-    } catch (e) {
-      err.hidden = false;
-      err.textContent = e.message || "Could not complete.";
-      confirm.disabled = false;
-      cancel.disabled = false;
-      input.disabled = false;
-      input.focus();
+    err.textContent = "";
+  }
+
+  function paint() {
+    body.innerHTML = "";
+    const who = user.display_name || user.username || ("User " + user.id);
+    const handle = user.username || "";
+
+    if (mode === "ban") {
+      title.textContent = "Ban Account";
+      const copy = document.createElement("p");
+      copy.className = "admin-mod-copy";
+      copy.textContent = "Ban " + who + " from Oneira. They stay in the user list; login is blocked until the ban ends.";
+      body.appendChild(copy);
+      const durLabel = document.createElement("div");
+      durLabel.className = "admin-mod-label";
+      durLabel.textContent = "Duration";
+      body.appendChild(durLabel);
+      const chips = document.createElement("div");
+      body.appendChild(chips);
+      paintAdminModChips(chips, adminModDraft.seconds, (value) => {
+        adminModDraft.seconds = value;
+        paint();
+      });
+      const reasonLabel = document.createElement("label");
+      reasonLabel.className = "admin-mod-label";
+      reasonLabel.setAttribute("for", "admin-mod-reason");
+      reasonLabel.textContent = "Reason (optional)";
+      const reason = document.createElement("textarea");
+      reason.id = "admin-mod-reason";
+      reason.className = "admin-mod-reason";
+      reason.rows = 3;
+      reason.maxLength = 500;
+      reason.placeholder = "Optional";
+      reason.value = adminModDraft.reason;
+      reason.addEventListener("input", () => { adminModDraft.reason = reason.value; });
+      body.appendChild(reasonLabel);
+      body.appendChild(reason);
+      confirm.className = "admin-mod-confirm is-danger";
+      confirm.textContent = "Ban Account";
+    } else if (mode === "warn") {
+      title.textContent = "Warn Account";
+      const copy = document.createElement("p");
+      copy.className = "admin-mod-copy";
+      copy.textContent = "Warn " + who + ". A reason is required and is stored on their record.";
+      body.appendChild(copy);
+      const reasonLabel = document.createElement("label");
+      reasonLabel.className = "admin-mod-label";
+      reasonLabel.setAttribute("for", "admin-mod-reason");
+      reasonLabel.textContent = "Reason (required)";
+      const reason = document.createElement("textarea");
+      reason.id = "admin-mod-reason";
+      reason.className = "admin-mod-reason";
+      reason.rows = 3;
+      reason.maxLength = 500;
+      reason.placeholder = "Reason";
+      reason.value = adminModDraft.reason;
+      reason.addEventListener("input", () => { adminModDraft.reason = reason.value; });
+      body.appendChild(reasonLabel);
+      body.appendChild(reason);
+      confirm.className = "admin-mod-confirm";
+      confirm.textContent = "Warn Account";
+    } else {
+      title.textContent = "Delete Account";
+      const copy = document.createElement("p");
+      copy.className = "admin-mod-copy";
+      copy.textContent = "Permanently remove " + who + " from Oneira. Owned servers are wiped. Their chat messages become footer notices. Type the username to confirm.";
+      body.appendChild(copy);
+      const nameLabel = document.createElement("label");
+      nameLabel.className = "admin-mod-label";
+      nameLabel.setAttribute("for", "admin-mod-username");
+      nameLabel.textContent = "Username";
+      const name = document.createElement("input");
+      name.type = "text";
+      name.id = "admin-mod-username";
+      name.className = "admin-mod-input";
+      name.autocomplete = "off";
+      name.placeholder = handle || "username";
+      name.value = adminModDraft.username;
+      name.addEventListener("input", () => { adminModDraft.username = name.value; });
+      body.appendChild(nameLabel);
+      body.appendChild(name);
+      confirm.className = "admin-mod-confirm is-danger";
+      confirm.textContent = "Delete Account";
     }
   }
-  confirm.addEventListener("click", (e) => {
-    e.stopPropagation();
-    submit();
-  });
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      submit();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      closeFilters();
+
+  paint();
+  overlay.hidden = false;
+  const focusEl = document.getElementById(mode === "delete" ? "admin-mod-username" : "admin-mod-reason");
+  if (focusEl) focusEl.focus();
+}
+
+async function confirmAdminModSubmenu() {
+  if (!adminModDraft || !adminModDraft.user) return;
+  const err = document.getElementById("admin-mod-error");
+  const confirm = document.getElementById("admin-mod-confirm");
+  const cancel = document.getElementById("admin-mod-cancel");
+  const mode = adminModDraft.mode;
+  const user = adminModDraft.user;
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  if (mode === "warn" && !String(adminModDraft.reason || "").trim()) {
+    if (err) {
+      err.hidden = false;
+      err.textContent = "A reason is required.";
     }
-  });
-  actions.appendChild(cancel);
-  actions.appendChild(confirm);
-  form.appendChild(title);
-  form.appendChild(input);
-  form.appendChild(err);
-  form.appendChild(actions);
-  setTimeout(() => input.focus(), 0);
-  return form;
+    const reason = document.getElementById("admin-mod-reason");
+    if (reason) reason.focus();
+    return;
+  }
+  if (mode === "delete" && !String(adminModDraft.username || "").trim()) {
+    if (err) {
+      err.hidden = false;
+      err.textContent = "Type the username to confirm.";
+    }
+    const name = document.getElementById("admin-mod-username");
+    if (name) name.focus();
+    return;
+  }
+  if (confirm) confirm.disabled = true;
+  if (cancel) cancel.disabled = true;
+  try {
+    if (mode === "ban") {
+      const data = await adminSend("/admin/user/" + user.id + "/ban", {
+        seconds: adminModDraft.seconds,
+        reason: adminModDraft.reason || ""
+      });
+      closeAdminModSubmenu();
+      applyUserUpdate(data.user);
+    } else if (mode === "warn") {
+      const data = await adminSend("/admin/user/" + user.id + "/warn", {
+        reason: adminModDraft.reason
+      });
+      closeAdminModSubmenu();
+      applyUserUpdate(data.user);
+    } else {
+      await adminSend("/admin/user/" + user.id + "/delete", {
+        username: adminModDraft.username
+      });
+      closeAdminModSubmenu();
+      removeUserFromList(user.id);
+    }
+  } catch (e) {
+    if (err) {
+      err.hidden = false;
+      err.textContent = e.message || "Could not complete.";
+    }
+  } finally {
+    if (confirm) confirm.disabled = false;
+    if (cancel) cancel.disabled = false;
+  }
 }
 
 function paintUserRail(user) {
@@ -792,93 +904,25 @@ function paintUserRail(user) {
     return;
   }
 
-  const banWrap = document.createElement("div");
-  banWrap.className = "admin-filter-wrap";
   const banBtn = document.createElement("button");
   banBtn.type = "button";
-  banBtn.className = "admin-filter-btn";
   banBtn.textContent = "Ban Account";
-  banBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    openRailMenu(banWrap, "ban", (menu) => {
-      BAN_LENGTHS.forEach((opt) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.textContent = opt.label;
-        btn.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          menu.innerHTML = "";
-          menu.appendChild(buildActionForm({
-            title: "Ban for " + opt.label + " — reason (optional)",
-            placeholder: "Reason",
-            confirmLabel: "Ban",
-            onConfirm: async (reason) => {
-              const data = await adminSend("/admin/user/" + user.id + "/ban", {
-                seconds: opt.seconds,
-                reason: reason || ""
-              });
-              applyUserUpdate(data.user);
-            }
-          }));
-        });
-        menu.appendChild(btn);
-      });
-    });
-  });
-  banWrap.appendChild(banBtn);
+  banBtn.addEventListener("click", () => openAdminModSubmenu("ban", user));
 
-  const warnWrap = document.createElement("div");
-  warnWrap.className = "admin-filter-wrap";
   const warnBtn = document.createElement("button");
   warnBtn.type = "button";
-  warnBtn.className = "admin-filter-btn";
   warnBtn.textContent = "Warn Account";
-  warnBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    openRailMenu(warnWrap, "warn", (menu) => {
-      menu.appendChild(buildActionForm({
-        title: "Warn reason (required)",
-        placeholder: "Reason",
-        required: true,
-        requiredMessage: "A reason is required.",
-        confirmLabel: "Warn",
-        onConfirm: async (reason) => {
-          const data = await adminSend("/admin/user/" + user.id + "/warn", { reason });
-          applyUserUpdate(data.user);
-        }
-      }));
-    });
-  });
-  warnWrap.appendChild(warnBtn);
+  warnBtn.addEventListener("click", () => openAdminModSubmenu("warn", user));
 
-  const deleteWrap = document.createElement("div");
-  deleteWrap.className = "admin-filter-wrap";
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
-  deleteBtn.className = "admin-filter-btn admin-preview-danger";
+  deleteBtn.className = "admin-preview-danger";
   deleteBtn.textContent = "Delete Account";
-  deleteBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    openRailMenu(deleteWrap, "delete", (menu) => {
-      menu.appendChild(buildActionForm({
-        title: "Type the username to permanently delete this account",
-        placeholder: user.username || "username",
-        required: true,
-        requiredMessage: "Type the username to confirm.",
-        confirmLabel: "Delete",
-        danger: true,
-        onConfirm: async (typed) => {
-          await adminSend("/admin/user/" + user.id + "/delete", { username: typed });
-          removeUserFromList(user.id);
-        }
-      }));
-    });
-  });
-  deleteWrap.appendChild(deleteBtn);
+  deleteBtn.addEventListener("click", () => openAdminModSubmenu("delete", user));
 
-  rail.appendChild(banWrap);
-  rail.appendChild(warnWrap);
-  rail.appendChild(deleteWrap);
+  rail.appendChild(banBtn);
+  rail.appendChild(warnBtn);
+  rail.appendChild(deleteBtn);
 }
 
 function paintUserPreview(user) {
@@ -993,6 +1037,7 @@ async function openPreview(item) {
     return;
   }
   if (adminTab === "users") {
+    closeAdminModSubmenu();
     paintUserPreview(item);
     document.querySelectorAll(".admin-card").forEach((el) => {
       el.classList.toggle("is-on", el.dataset.key === previewKey);
@@ -1396,6 +1441,18 @@ document.getElementById("admin-back").addEventListener("click", () => {
 
 document.getElementById("admin-preview-close").addEventListener("click", () => {
   closePreview();
+});
+
+document.getElementById("admin-mod-close").addEventListener("click", closeAdminModSubmenu);
+document.getElementById("admin-mod-cancel").addEventListener("click", closeAdminModSubmenu);
+document.getElementById("admin-mod-confirm").addEventListener("click", confirmAdminModSubmenu);
+document.getElementById("admin-mod-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "admin-mod-overlay") closeAdminModSubmenu();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const overlay = document.getElementById("admin-mod-overlay");
+  if (overlay && !overlay.hidden) closeAdminModSubmenu();
 });
 
 document.addEventListener("click", () => closeFilters());

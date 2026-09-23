@@ -287,6 +287,9 @@ class Forum_post_create(BaseModel):
     attachments: list[Attachment_in] = []
     attachment: Attachment_in | None = None
 
+class Forum_toggle(BaseModel):
+    on: bool
+
 class Forum_message_create(BaseModel):
     post_id: int
     content: str = ""

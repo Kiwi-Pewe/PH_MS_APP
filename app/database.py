@@ -295,6 +295,20 @@ def ensure_role_columns():
             conn.rollback()
 
 
+def ensure_forum_columns():
+    adds = (
+        ("forum_posts", "sticky", "BOOLEAN DEFAULT 0"),
+        ("forum_posts", "locked", "BOOLEAN DEFAULT 0"),
+    )
+    with engine.connect() as conn:
+        for table, column, coltype in adds:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+
 def ensure_moderation_columns():
     adds = (
         ("server_members", "timeout_until", "DATETIME"),

@@ -76,6 +76,7 @@ function canReplyMessage(msg) {
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
   if (msg.chatKind === "forum") {
+    if (openForumPostLocked) return false;
     return typeof canCreateTopicReplies !== "function" || canCreateTopicReplies();
   }
   if (msg.chatKind === "channel") {
@@ -88,6 +89,7 @@ function canEditMessage(msg) {
   if (!msg || !msg.id || !msg.isMine) return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
+  if (msg.chatKind === "forum" && openForumPostLocked) return false;
   return true;
 }
 
@@ -99,7 +101,7 @@ function canDeleteMessage(msg) {
     return msg.isMine || (typeof canManageMessages === "function" && canManageMessages());
   }
   if (msg.chatKind === "forum") {
-    return msg.isMine || myUserId === currentServerOwnerId;
+    return msg.isMine || (typeof canManageTopics === "function" && canManageTopics());
   }
   return msg.isMine;
 }

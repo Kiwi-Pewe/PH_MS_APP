@@ -115,6 +115,8 @@ async def relay_typing(data, current_user: UserInfo, database: Session):
         ).first()
         if not is_member:
             return
+        if getattr(post, "locked", False):
+            return
         await server_broadcast(
             server.id,
             _payload(current_user, "forum", active, post_id=post.id, channel_id=channel.id),

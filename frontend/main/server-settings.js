@@ -53,6 +53,18 @@ function canCreateTopicReplies() {
   return canServerPerm("create_topic_replies");
 }
 
+function canManageTopics() {
+  return canServerPerm("manage_topics");
+}
+
+function canStickyTopics() {
+  return canServerPerm("sticky_topics");
+}
+
+function canLockTopics() {
+  return canServerPerm("lock_topics");
+}
+
 function canReadMessages() {
   return canServerPerm("read_messages");
 }

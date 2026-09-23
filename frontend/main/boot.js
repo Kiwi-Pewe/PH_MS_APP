@@ -222,6 +222,10 @@ function connectSocket() {
       removeForumPostFromView(data.post_id);
     }
 
+    if (data.type === "forum_post_flags") {
+      applyForumPostFlags(data.post_id, data.sticky, data.locked);
+    }
+
     // Sender is excluded from these broadcasts (server_broadcast's
     // exclude_user_id), so no double-add guard needed for our own creations.
     if (data.type === "category_created") {

@@ -306,6 +306,8 @@ class Forum_post(Base):
     created_at = Column(DateTime, server_default=func.now())
     attachment = Column(String, nullable=True)
     edited = Column(Boolean, default= False)
+    sticky = Column(Boolean, default=False)
+    locked = Column(Boolean, default=False)
 
 class Forum_messages(Base):
     __tablename__ = "forum_messages"

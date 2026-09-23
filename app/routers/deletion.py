@@ -190,8 +190,11 @@ async def delete_message(target: Delete_message, database: Session = Depends(get
         is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
         if not is_member:
             raise HTTPException(status_code=404, detail="No message found")
-        if msg.author_id == None or (current_user.id != msg.author_id and current_user.id != server.owner_id):
+        if msg.author_id == None:
             raise HTTPException(status_code=403, detail="Not authorized to delete message")
+        from app.routers.roles import effective_perms_for_user
+        if current_user.id != msg.author_id and not effective_perms_for_user(database, server, current_user.id).get("manage_topics"):
+            raise HTTPException(status_code=403, detail="You do not have permission to delete this reply.")
 
         write_audit_log(database, server.id, current_user.id, "delete_message", "forum_message", msg.id, {
             "content": msg.content,

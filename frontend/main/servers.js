@@ -321,6 +321,7 @@ async function selectChannel(channel, rowEl) {
   openForumPostEdited = false;
   openForumPostMentionUsers = {};
   openForumPostMentionRoles = {};
+  openForumPostLocked = false;
   document.getElementById("forum-back-btn").style.display = "none";
   hideDocsChrome();
 
@@ -452,6 +453,7 @@ function showNoChannelSelected() {
   openForumPostEdited = false;
   openForumPostMentionUsers = {};
   openForumPostMentionRoles = {};
+  openForumPostLocked = false;
   const back = document.getElementById("forum-back-btn");
   if (back) back.style.display = "none";
 

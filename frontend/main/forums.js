@@ -108,6 +108,8 @@ async function submitCreateForumPost() {
     author_id: myUserId,
     author_username: myUsername,
     edited: false,
+    sticky: false,
+    locked: false,
     reactions: [],
     mention_users: post.mention_users
   });
@@ -119,14 +121,14 @@ async function submitCreateForumPost() {
 // until the channel is reloaded, since inserting a card would shift the
 // list under someone who's mid-read.
 function prependNewForumPost(post) {
-  currentForumPosts.unshift(post);
   const container = document.getElementById("forum-posts");
   const card = buildForumPostCard(post);
-  if (container.firstChild) {
-    container.insertBefore(card, container.firstChild);
-  } else {
-    container.appendChild(card);
-  }
+  const firstNormalIdx = currentForumPosts.findIndex(p => !p.sticky);
+  if (firstNormalIdx < 0) currentForumPosts.push(post);
+  else currentForumPosts.splice(firstNormalIdx, 0, post);
+  const firstNormal = container.querySelector(".forum-post:not(.is-sticky)");
+  if (firstNormal) container.insertBefore(card, firstNormal);
+  else container.appendChild(card);
   container.scrollTop = 0;
 }
 
@@ -196,6 +198,7 @@ function buildForumPostCard(post) {
   main.appendChild(meta);
   card.appendChild(main);
   fillForumPostContent(card, post);
+  fillForumPostFlags(card, post);
   return card;
 }
 
@@ -214,6 +217,7 @@ async function openForumPost(post) {
   openForumPostEdited = !!post.edited;
   openForumPostMentionUsers = post.mentionUsers || post.mention_users || {};
   openForumPostMentionRoles = post.mentionRoles || post.mention_roles || {};
+  openForumPostLocked = !!post.locked;
 
   document.getElementById("forums-view").style.display = "none";
   document.getElementById("channel-body").style.display = "flex";
@@ -248,6 +252,11 @@ async function openForumPost(post) {
       if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
     });
+    if (data.locked != null) {
+      post.locked = !!data.locked;
+      openForumPostLocked = !!data.locked;
+      enableChannelComposer(post.title);
+    }
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
     renderChannelMessages();
   } catch (e) { renderChannelMessages(); }
@@ -268,6 +277,7 @@ function closeForumPost() {
   openForumPostEdited = false;
   openForumPostMentionUsers = {};
   openForumPostMentionRoles = {};
+  openForumPostLocked = false;
   currentChannelMessages = [];
 
   document.getElementById("forum-back-btn").style.display = "none";
@@ -312,7 +322,7 @@ async function loadForumPosts(channelId) {
       return post;
     });
     // Backend pages these 10 at a time, not the 25 used everywhere else.
-    if (currentForumPosts.length < 10) forumHasMore = false;
+    forumHasMore = data.has_more != null ? !!data.has_more : currentForumPosts.filter(p => !p.sticky).length >= 10;
     currentForumPosts.forEach(post => container.appendChild(buildForumPostCard(post)));
     container.scrollTop = 0;
   } catch (e) { /* leave the list empty on failure */ }
@@ -324,7 +334,7 @@ async function loadForumPosts(channelId) {
 // means no scroll-position juggling: the browser leaves scrollTop alone.
 async function loadMoreForumPosts() {
   if (forumIsLoadingMore || !forumHasMore || currentForumPosts.length === 0) return;
-  const last = currentForumPosts[currentForumPosts.length - 1];
+  const last = [...currentForumPosts].reverse().find(p => !p.sticky) || currentForumPosts[currentForumPosts.length - 1];
   if (!last.id) return;
   forumIsLoadingMore = true;
 
@@ -343,7 +353,7 @@ async function loadMoreForumPosts() {
       post.reactions = applyReactionMe(post.reactions || []);
       return post;
     });
-    if (older.length < 10) forumHasMore = false;
+    forumHasMore = data.has_more != null ? !!data.has_more : older.length >= 10;
     currentForumPosts = currentForumPosts.concat(older);
     const container = document.getElementById("forum-posts");
     older.forEach(post => container.appendChild(buildForumPostCard(post)));
@@ -362,8 +372,10 @@ document.getElementById("forum-posts").addEventListener("scroll", () => {
 function showForumPostContextMenu(e, post) {
   e.preventDefault();
   e.stopPropagation();
-  const canEdit = post.author_id === myUserId;
-  const canDelete = canEdit || myUserId === currentServerOwnerId;
+  const canEdit = post.author_id === myUserId && !post.locked;
+  const canDelete = post.author_id === myUserId || (typeof canManageTopics === "function" && canManageTopics());
+  const canSticky = typeof canStickyTopics === "function" && canStickyTopics();
+  const canLock = typeof canLockTopics === "function" && canLockTopics();
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(post.author_username),
     title: post.author_username,
@@ -372,8 +384,102 @@ function showForumPostContextMenu(e, post) {
   }, [
     { label: "Add Reaction", onSelect: () => openReactionPicker(forumPostReactionTarget(post), e.clientX, e.clientY) },
     canEdit && { label: "Edit Post", onSelect: () => startForumEdit(post) },
+    canSticky && { label: post.sticky ? "Unsticky" : "Sticky", onSelect: () => setForumSticky(post, !post.sticky) },
+    canLock && { label: post.locked ? "Unlock" : "Lock", onSelect: () => setForumLock(post, !post.locked) },
     canDelete && { label: "Delete Post", danger: true, onSelect: () => deleteForumPostFromContextMenu(post) }
   ]);
+}
+
+function fillForumPostFlags(card, post) {
+  if (!card || !post) return;
+  const tags = card.querySelector(".forum-post-tags");
+  card.classList.toggle("is-sticky", !!post.sticky);
+  card.classList.toggle("is-locked", !!post.locked);
+  if (tags) {
+    tags.replaceChildren();
+    if (post.sticky) {
+      const flag = document.createElement("span");
+      flag.className = "forum-flag";
+      flag.textContent = "Sticky";
+      tags.appendChild(flag);
+    }
+    if (post.locked) {
+      const flag = document.createElement("span");
+      flag.className = "forum-flag";
+      flag.textContent = "Locked";
+      tags.appendChild(flag);
+    }
+  }
+}
+
+function moveForumCardToStickies(postId) {
+  const container = document.getElementById("forum-posts");
+  const card = container && container.querySelector(`.forum-post[data-post-id="${postId}"]`);
+  const post = currentForumPosts.find(p => p.id === postId);
+  if (!container || !card || !post) return;
+  currentForumPosts = currentForumPosts.filter(p => p.id !== postId);
+  const firstNormalIdx = currentForumPosts.findIndex(p => !p.sticky);
+  if (firstNormalIdx < 0) currentForumPosts.push(post);
+  else currentForumPosts.splice(firstNormalIdx, 0, post);
+  const stickies = [...container.querySelectorAll(".forum-post.is-sticky")].filter(el => el !== card);
+  const after = stickies[stickies.length - 1];
+  if (after && after.nextSibling) container.insertBefore(card, after.nextSibling);
+  else if (after) container.appendChild(card);
+  else if (container.firstChild !== card) container.insertBefore(card, container.firstChild);
+}
+
+function applyForumPostFlags(postId, sticky, locked) {
+  const post = currentForumPosts.find(p => p.id === postId);
+  const wasSticky = post ? !!post.sticky : false;
+  if (post) {
+    if (sticky != null) post.sticky = !!sticky;
+    if (locked != null) post.locked = !!locked;
+  }
+  const card = document.querySelector(`.forum-post[data-post-id="${postId}"]`);
+  if (card && post) fillForumPostFlags(card, post);
+  if (post && post.sticky && !wasSticky) moveForumCardToStickies(postId);
+  if (openForumPostId === postId) {
+    openForumPostLocked = !!(post && post.locked);
+    if (typeof enableChannelComposer === "function") {
+      enableChannelComposer(openForumPostTitle || currentChannelName || "");
+    }
+    if (openForumPostLocked) {
+      if (editingForumPostId === postId && typeof abandonForumEdit === "function") abandonForumEdit();
+      if (typeof abandonMessageEdit === "function") abandonMessageEdit();
+    }
+  }
+}
+
+async function setForumSticky(post, on) {
+  try {
+    const response = await fetch(`https://${serverAddress}/sticky_forum/${post.id}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ on: !!on })
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    applyForumPostFlags(post.id, data.sticky, data.locked);
+  } catch (e) {
+    console.error("Failed to sticky topic, network error:", e);
+  }
+}
+
+async function setForumLock(post, on) {
+  try {
+    const response = await fetch(`https://${serverAddress}/lock_forum/${post.id}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ on: !!on })
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    applyForumPostFlags(post.id, data.sticky, data.locked);
+  } catch (e) {
+    console.error("Failed to lock topic, network error:", e);
+  }
 }
 
 function forumPostReactionTarget(post) {
@@ -540,6 +646,7 @@ function abandonForumEdit() {
 }
 
 function startForumEdit(post) {
+  if (post.locked) return;
   if (post.author_id !== myUserId) return;
   if (editingForumPostId === post.id) return;
   abandonForumEdit();

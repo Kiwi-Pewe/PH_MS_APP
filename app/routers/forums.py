@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Forum_post, Forum_messages
-from app.schemas import Forum_message_create, Forum_post_create, Edit_forum
+from app.schemas import Forum_message_create, Forum_post_create, Forum_toggle, Edit_forum
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_message_body, require_post_body, store_attachment, store_post_attachments
 from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions, accepted_reply_parent, reply_map_for, reply_to_payload
 from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
-from app.routers.roles import name_color_role_for_user, name_color_roles_by_user, require_server_perm
+from app.routers.roles import effective_perms_for_user, name_color_role_for_user, name_color_roles_by_user, require_server_perm
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from datetime import datetime
@@ -19,6 +19,27 @@ router = APIRouter()
 
 def require_read_forums(database, server, user_id):
     return require_server_perm(database, server, user_id, "read_forums", "You do not have permission to read forums.")
+
+
+def forum_is_sticky(post):
+    return bool(getattr(post, "sticky", False))
+
+
+def forum_is_locked(post):
+    return bool(getattr(post, "locked", False))
+
+
+def can_remove_forum_topic(database, server, user_id, author_id):
+    if author_id is None:
+        return False
+    if user_id == author_id:
+        return True
+    return bool(effective_perms_for_user(database, server, user_id).get("manage_topics"))
+
+
+def require_topic_unlocked(post):
+    if forum_is_locked(post):
+        raise HTTPException(status_code=403, detail="This topic is locked.")
 
 
 @router.post("/create_forum")
@@ -63,10 +84,10 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
         "post_id": new_post.id,
         "server_id": server.id,
         "channel_id": channel_exist.id,
-        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "avatar": public_avatar(current_user), "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids, "name_role": name_color_role_for_user(database, server.id, current_user.id)}
+        "content": {"id": new_post.id, "channel_id": new_post.channel_id, "author": new_post.author_id, "username": current_user.username, "avatar": public_avatar(current_user), "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "sticky": False, "locked": False, "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids, "name_role": name_color_role_for_user(database, server.id, current_user.id)}
     }
     await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
-    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "mention_users": users_map, "mention_roles": roles_map}
+    return {"id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "tags": new_post.tags, "message_count": new_post.message_count, "last_activity": str(new_post.last_activity_at), "edited": False, "sticky": False, "locked": False, "mention_users": users_map, "mention_roles": roles_map}
 
 @router.get("/get_forum_post/{channel_id}")
 async def get_forum_post(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_activity: datetime = None, before_id: int = None):
@@ -81,16 +102,21 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
         raise HTTPException(status_code=404, detail="User is not a member of server")
     require_read_forums(database, server, current_user.id)
 
+    base = database.query(Forum_post).filter(Forum_post.channel_id == channel.id)
     if before_activity:
-        post_list = database.query(Forum_post).filter(
-            Forum_post.channel_id == channel.id,
+        post_list = base.filter(
+            Forum_post.sticky != True,
             or_(
                 Forum_post.last_activity_at < before_activity,
                 and_(Forum_post.last_activity_at == before_activity, Forum_post.id < before_id)
             )
         ).order_by(Forum_post.last_activity_at.desc(), Forum_post.id.desc()).limit(10).all()
+        has_more = len(post_list) >= 10
     else:
-        post_list = database.query(Forum_post).filter(Forum_post.channel_id == channel.id).order_by(Forum_post.last_activity_at.desc(), Forum_post.id.desc()).limit(10).all()
+        stickies = base.filter(Forum_post.sticky == True).order_by(Forum_post.last_activity_at.desc(), Forum_post.id.desc()).all()
+        normals = base.filter(Forum_post.sticky != True).order_by(Forum_post.last_activity_at.desc(), Forum_post.id.desc()).limit(10).all()
+        post_list = stickies + normals
+        has_more = len(normals) >= 10
 
     author_ids = list({post.author_id for post in post_list})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(author_ids)).all()
@@ -115,12 +141,14 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
             "message_count": post.message_count,
             "last_activity": str(post.last_activity_at),
             "edited": bool(post.edited),
+            "sticky": forum_is_sticky(post),
+            "locked": forum_is_locked(post),
             "reactions": reaction_map.get(post.id, []),
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
             "mention_roles": mention_meta[index]["mention_roles"],
         })
-    return {"channel_id": channel.id, "forum_posts": picked_posts}
+    return {"channel_id": channel.id, "forum_posts": picked_posts, "has_more": has_more}
 
 @router.post("/edit_forum")
 async def edit_forum_post(edit: Edit_forum, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -136,6 +164,7 @@ async def edit_forum_post(edit: Edit_forum, database: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="User is not a member")
     if current_user.id != post.author_id:
         raise HTTPException(status_code=403, detail="Not authorized to edit post")
+    require_topic_unlocked(post)
 
     title = edit.title.strip()
     body = (edit.body or "").strip()
@@ -187,8 +216,8 @@ async def delete_forum_post(post_id: int, database: Session = Depends(get_db), c
     is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
     if not is_member:
         raise HTTPException(status_code=404, detail="User is not a member")
-    if current_user.id != post.author_id and current_user.id != server.owner_id:
-        raise HTTPException(status_code=403, detail="Not authorized to delete post")
+    if not can_remove_forum_topic(database, server, current_user.id, post.author_id):
+        raise HTTPException(status_code=403, detail="You do not have permission to delete this topic.")
 
     author = database.query(UserInfo).filter(UserInfo.id == post.author_id).first()
     write_audit_log(database, server.id, current_user.id, "delete_post", "forum_post", post.id, {
@@ -232,6 +261,7 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
     if not is_member:
         raise HTTPException(status_code= 404, detail="Membership not found")
     require_server_perm(database, server, current_user.id, "create_topic_replies", "You do not have permission to create topic replies.")
+    require_topic_unlocked(post_exist)
     from app.routers.moderation import require_not_timed_out
     require_not_timed_out(is_member)
 
@@ -332,5 +362,55 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
         })
 
     forum_messages.reverse()
-    return {"forum_post_messages": forum_messages}
+    return {"forum_post_messages": forum_messages, "locked": forum_is_locked(post_exist), "sticky": forum_is_sticky(post_exist)}
+
+
+@router.post("/sticky_forum/{post_id}")
+async def sticky_forum(post_id: int, body: Forum_toggle, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    post = database.query(Forum_post).filter(Forum_post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
+    if not is_member:
+        raise HTTPException(status_code=404, detail="User is not a member")
+    require_server_perm(database, server, current_user.id, "sticky_topics", "You do not have permission to sticky topics.")
+    post.sticky = bool(body.on)
+    database.commit()
+    payload = {
+        "type": "forum_post_flags",
+        "channel_id": post.channel_id,
+        "post_id": post.id,
+        "sticky": forum_is_sticky(post),
+        "locked": forum_is_locked(post)
+    }
+    await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    return {"post_id": post.id, "sticky": forum_is_sticky(post), "locked": forum_is_locked(post)}
+
+
+@router.post("/lock_forum/{post_id}")
+async def lock_forum(post_id: int, body: Forum_toggle, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    post = database.query(Forum_post).filter(Forum_post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
+    if not is_member:
+        raise HTTPException(status_code=404, detail="User is not a member")
+    require_server_perm(database, server, current_user.id, "lock_topics", "You do not have permission to lock topics.")
+    post.locked = bool(body.on)
+    database.commit()
+    payload = {
+        "type": "forum_post_flags",
+        "channel_id": post.channel_id,
+        "post_id": post.id,
+        "sticky": forum_is_sticky(post),
+        "locked": forum_is_locked(post)
+    }
+    await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    return {"post_id": post.id, "sticky": forum_is_sticky(post), "locked": forum_is_locked(post)}
 

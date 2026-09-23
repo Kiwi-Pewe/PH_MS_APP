@@ -1540,6 +1540,13 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
    reserved height so a card is exactly as tall now as it will be once
    tags land - otherwise every card grows the day they arrive. */
 .forum-post-tags { display: flex; align-items: center; gap: 6px; min-height: 16px; }
+.forum-flag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
 
 .forum-post-title { font-size: 15px; font-weight: 700; color: var(--text); }
 

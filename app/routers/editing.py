@@ -147,6 +147,8 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
             raise HTTPException(status_code=404, detail="No message found")
         if msg.author_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized to edit message")
+        if getattr(post, "locked", False):
+            raise HTTPException(status_code=403, detail="This topic is locked.")
         changed = apply_edit(msg, content, edit.attachment, current_user)
         if changed:
             msg.content = apply_server_text_mentions(database, msg.content, "forum", msg.id, server, post.channel_id)

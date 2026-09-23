@@ -321,13 +321,17 @@ async function saveProfileLayout() {
 
 function editProfileIdentity(tile, e) {
   if (!profileIsOwn) return;
+  if (tile.type === "display_name") {
+    if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);
+    return;
+  }
   if (isMiniProfileIdentityTile(tile.type)) {
     showMiniProfileIdentityMenu(e, tile.type);
   }
 }
 
 function bindProfileQuickEdit(el, tile) {
-  if (!isMiniProfileIdentityTile(tile.type)) return;
+  if (!isMiniProfileIdentityTile(tile.type) || tile.type === "display_name") return;
   el.style.cursor = "pointer";
   el.addEventListener("click", (e) => showMiniProfileIdentityMenu(e, tile.type));
 }

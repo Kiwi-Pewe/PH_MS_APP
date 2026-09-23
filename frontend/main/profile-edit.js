@@ -2249,7 +2249,7 @@ function showProfileTileMenu(e, tile) {
   const meta = PROFILE_TILE_TYPES[tile.type] || { label: "Element" };
   if (typeof openContextMenu !== "function") return;
   const items = [];
-  if (typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) {
+  if (tile.type !== "display_name" && typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) {
     items.push({
       label: "Edit " + miniProfileIdentitySubject(tile.type),
       onSelect: () => {

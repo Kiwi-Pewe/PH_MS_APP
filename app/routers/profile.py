@@ -942,11 +942,13 @@ def normalize_props(kind, props, banner_fallback):
     if kind == "avatar":
         return normalize_border_props(data)
     if kind == "display_name":
-        out = {
-            "show_status": bool(data.get("show_status")),
-            "show_pronouns": bool(data.get("show_pronouns")),
-        }
-        out.update(normalize_border_props(data))
+        align = str(data.get("text_align") or "center")
+        if align not in TEXT_ALIGNS:
+            align = "center"
+        out = normalize_text_chrome(data, 18, False)
+        out["text_align"] = align
+        out["show_status"] = bool(data.get("show_status"))
+        out["show_pronouns"] = bool(data.get("show_pronouns"))
         return out
     if kind == "bio":
         out = normalize_text_chrome(data, 14, True)

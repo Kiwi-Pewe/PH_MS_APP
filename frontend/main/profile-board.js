@@ -311,7 +311,7 @@ function defaultTextSize(type, prev) {
   if (old === 1) return 12;
   if (old === 3) return 18;
   if (type === "header") return 18;
-  if (type === "local_time" || type === "details" || type === "clock") return 18;
+  if (type === "local_time" || type === "details" || type === "clock" || type === "display_name") return 18;
   if (type === "footnote") return 12;
   return 14;
 }
@@ -351,7 +351,9 @@ function defaultTextChrome(type, prev) {
   const card = type !== "header" && type !== "footnote" && type !== "avatar" && type !== "display_name" && type !== "banner" && type !== "divider" && type !== "rail" && type !== "icon";
   return Object.assign({
     text_size: defaultTextSize(type, row),
-    text_align: row.text_align === "center" || row.text_align === "right" ? row.text_align : "left",
+    text_align: row.text_align === "center" || row.text_align === "right" || row.text_align === "left"
+      ? row.text_align
+      : (type === "display_name" ? "center" : "left"),
     show_background: row.show_background != null ? !!row.show_background : card,
     show_border: row.show_border != null ? !!row.show_border : false
   }, defaultBorderChrome(type, row));
@@ -385,7 +387,14 @@ function defaultProfileTileProps(type, existing) {
     return Object.assign({ show_border: false }, defaultBorderChrome(type, prev));
   }
   if (type === "display_name") {
-    return Object.assign({ show_status: false, show_pronouns: false, show_border: false }, defaultBorderChrome(type, prev));
+    const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center"
+      ? prev.text_align
+      : "center";
+    return Object.assign({}, defaultTextChrome(type, prev), {
+      show_status: !!prev.show_status,
+      show_pronouns: !!prev.show_pronouns,
+      text_align: align
+    });
   }
   if (type === "header") return Object.assign({ text: prev.text || "", level: 1 }, chrome);
   if (type === "body") {
@@ -585,7 +594,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name";
 }
 
 function profileTextChrome(props, type) {
@@ -1754,6 +1763,9 @@ function paintProfileTileContent(tile, el) {
   }
   applyProfileWidgetSurface(el, tile);
   if (tile.type === "display_name") {
+    const chrome = profileTextChrome(tile.props, "display_name");
+    el.dataset.textAlign = chrome.text_align;
+    el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
     const row = document.createElement("div");
     row.className = "profile-tile-name-row";
     const name = document.createElement("div");

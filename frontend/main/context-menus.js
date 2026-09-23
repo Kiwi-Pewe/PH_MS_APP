@@ -78,7 +78,10 @@ function canReplyMessage(msg) {
   if (msg.chatKind === "forum") {
     return typeof canCreateTopicReplies !== "function" || canCreateTopicReplies();
   }
-  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "channel";
+  if (msg.chatKind === "channel") {
+    return typeof canSendMessages !== "function" || canSendMessages();
+  }
+  return msg.chatKind === "dm" || msg.chatKind === "party";
 }
 
 function canEditMessage(msg) {

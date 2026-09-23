@@ -527,6 +527,9 @@ def message_server_channel(server_msg: Server_message, database: Session = Depen
 
     if not is_member:
         raise HTTPException(status_code=404, detail= "Server membership not found.")
+    require_server_perm(database, server, current_user.id, "send_messages", "You do not have permission to send messages in this channel.")
+    if server_msg.attachment:
+        require_server_perm(database, server, current_user.id, "upload_chat_media", "You do not have permission to upload media.")
     require_not_timed_out(is_member)
 
     require_message_body(server_msg.content, server_msg.attachment)
@@ -564,6 +567,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
 
     if not is_member:
         raise HTTPException(status_code= 404, detail="Server membership not found")
+    require_server_perm(database, server, current_user.id, "read_messages", "You do not have permission to read messages.")
 
     if before_id:
         channel_history = database.query(Channel_messages).filter(Channel_messages.channel_id == channel_id, Channel_messages.id < before_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()

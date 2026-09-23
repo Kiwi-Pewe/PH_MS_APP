@@ -53,6 +53,18 @@ function canCreateTopicReplies() {
   return canServerPerm("create_topic_replies");
 }
 
+function canReadMessages() {
+  return canServerPerm("read_messages");
+}
+
+function canSendMessages() {
+  return canServerPerm("send_messages");
+}
+
+function canUploadChatMedia() {
+  return canServerPerm("upload_chat_media");
+}
+
 function canOpenServerSettings() {
   return canUpdateServer() || canManageRoles();
 }
@@ -70,6 +82,7 @@ function applyServerPerms(perms, highestRole, timeoutUntil) {
   }
   if (typeof paintAnnouncementAccess === "function") paintAnnouncementAccess();
   if (typeof paintForumAccess === "function") paintForumAccess();
+  if (typeof paintChatAccess === "function") paintChatAccess();
   if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen && !canOpenServerSettings()) {
     closeServerSettingsChrome();
   }

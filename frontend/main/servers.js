@@ -483,6 +483,9 @@ function channelVisibleInSidebar(channel) {
   if (channel.channel_type === "forums") {
     return typeof canReadForums !== "function" || canReadForums();
   }
+  if (channel.channel_type === "text") {
+    return typeof canReadMessages !== "function" || canReadMessages();
+  }
   return true;
 }
 

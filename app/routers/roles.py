@@ -289,6 +289,8 @@ def channel_type_visible(permissions, channel_type):
         return bool(permissions.get("view_announcements"))
     if channel_type == "forums":
         return bool(permissions.get("read_forums"))
+    if channel_type == "text":
+        return bool(permissions.get("read_messages"))
     return True
 
 

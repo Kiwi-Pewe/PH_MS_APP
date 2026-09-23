@@ -331,9 +331,13 @@ function buildEditComposer(msg) {
   cluster.appendChild(avatar);
   cluster.appendChild(body);
 
+  if (msg.chatKind === "channel" && typeof canUploadChatMedia === "function" && !canUploadChatMedia()) {
+    plusBtn.disabled = true;
+  }
   plusBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (plusBtn.disabled) return;
     attachDestination = "edit";
     openMediaPicker();
   });

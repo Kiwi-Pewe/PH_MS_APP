@@ -55,6 +55,7 @@ function setPendingFile(file) {
     setEditFile(file);
     return;
   }
+  if (typeof canAttachChannelMedia === "function" && !canAttachChannelMedia()) return;
   const reason = rejectReason(file);
   if (reason) {
     window.alert(reason);
@@ -80,6 +81,7 @@ function clearEditAttach() {
 }
 
 function setEditFile(file) {
+  if (typeof canAttachChannelMedia === "function" && !canAttachChannelMedia()) return;
   const reason = rejectReason(file);
   if (reason) {
     window.alert(reason);

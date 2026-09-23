@@ -111,6 +111,9 @@ async def edit_message(edit: Edit_message, database: Session = Depends(get_db), 
             raise HTTPException(status_code=404, detail="No message found")
         if msg.sender_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized to edit message")
+        if file_key(msg.attachment) != file_key(edit.attachment) and file_key(edit.attachment):
+            from app.routers.roles import require_server_perm
+            require_server_perm(database, server, current_user.id, "upload_chat_media", "You do not have permission to upload media.")
         changed = apply_edit(msg, content, edit.attachment, current_user)
         if changed:
             member_ids = [row.user_id for row in database.query(Server_members).filter(Server_members.server_id == server.id).all()]

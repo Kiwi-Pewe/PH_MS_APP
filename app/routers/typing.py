@@ -87,6 +87,9 @@ async def relay_typing(data, current_user: UserInfo, database: Session):
         ).first()
         if not is_member:
             return
+        from app.routers.roles import effective_perms_for_user
+        if not effective_perms_for_user(database, server, current_user.id).get("send_messages"):
+            return
         await server_broadcast(server.id, _payload(current_user, "channel", active, channel_id=channel.id), database, exclude_user_id=current_user.id)
         return
 

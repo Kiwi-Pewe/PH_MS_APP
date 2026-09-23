@@ -80,6 +80,28 @@ function disableChannelComposer(message) {
   document.getElementById("channel-composer-emoji-btn").disabled = true;
 }
 
+function channelChatNeedsUploadPerm() {
+  if (openForumPostId) return false;
+  if (currentChannelType !== "text") return false;
+  const channelView = document.getElementById("view-channel");
+  return !!(channelView && channelView.classList.contains("active"));
+}
+
+function canAttachChannelMedia() {
+  if (!channelChatNeedsUploadPerm()) return true;
+  return typeof canUploadChatMedia !== "function" || canUploadChatMedia();
+}
+
+function paintChatAccess() {
+  if (currentChannelType === "text" && typeof canReadMessages === "function" && !canReadMessages()) {
+    if (typeof afterServerStructureChange === "function") afterServerStructureChange();
+    return;
+  }
+  if (currentChannelType === "text" && !openForumPostId && typeof enableChannelComposer === "function") {
+    enableChannelComposer(currentChannelName ? "#" + currentChannelName : "");
+  }
+}
+
 function enableChannelComposer(label) {
   if (typeof isServerTimedOut === "function" && isServerTimedOut()) {
     disableChannelComposer("You do not have permission to send messages in this channel.");
@@ -89,11 +111,16 @@ function enableChannelComposer(label) {
     disableChannelComposer("You do not have permission to send messages in this channel.");
     return;
   }
+  if (!openForumPostId && currentChannelType === "text" && typeof canSendMessages === "function" && !canSendMessages()) {
+    disableChannelComposer("You do not have permission to send messages in this channel.");
+    return;
+  }
   document.getElementById("channel-composer-input").disabled = false;
   document.getElementById("channel-composer-input").placeholder = `Message ${label}`;
   document.getElementById("channel-composer-send-btn").disabled = false;
-  document.getElementById("channel-composer-plus-btn").disabled = false;
+  document.getElementById("channel-composer-plus-btn").disabled = !canAttachChannelMedia();
   document.getElementById("channel-composer-emoji-btn").disabled = false;
+  if (!canAttachChannelMedia() && typeof clearPendingAttach === "function") clearPendingAttach();
 }
 
 async function sendChatMessage() {
@@ -200,6 +227,8 @@ async function sendChannelMessage() {
     if (typeof canCreateTopicReplies === "function" && !canCreateTopicReplies()) return;
     ws.send(JSON.stringify({ type: "forum_message", post_id: openForumPostId, content, attachment, temp_id: tempId, reply_to_id: replyToId }));
   } else if (currentChannelId !== null) {
+    if (typeof canSendMessages === "function" && !canSendMessages()) return;
+    if (attachment && typeof canAttachChannelMedia === "function" && !canAttachChannelMedia()) return;
     ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content, attachment, temp_id: tempId, reply_to_id: replyToId }));
   } else {
     return;

@@ -3627,6 +3627,16 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 28px 8px;
   text-align: center;
 }
+.feedback-opt .profile-opt-bottom.is-sent {
+  grid-template-columns: 1fr;
+}
+.feedback-opt .profile-opt-bottom.is-sent > button[hidden],
+.feedback-opt .profile-opt-bottom.is-sent .profile-opt-hint {
+  display: none;
+}
+.feedback-opt .profile-opt-bottom.is-sent .settings-form-save {
+  justify-self: center;
+}
 
 .profile-tile.is-comments {
   display: flex;

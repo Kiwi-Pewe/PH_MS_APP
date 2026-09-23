@@ -243,6 +243,7 @@ function openFeedbackCard() {
     cancel.hidden = true;
     submit.textContent = "Close";
     submit.disabled = false;
+    bottom.classList.add("is-sent");
     setHint("");
   }
 

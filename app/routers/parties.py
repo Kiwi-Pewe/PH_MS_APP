@@ -11,6 +11,7 @@ from app.routers.reactions import reactions_for_messages
 from app.routers.realtime import party_broadcast, serialize_member
 from app.routers.profile import avatar_lookup
 from app.routers.mentions import apply_party_mentions, decorate_history, party_mention_count, accepted_reply_parent, reply_map_for
+from app.site_moderation import mask_message_payloads
 from datetime import datetime
 import random
 
@@ -157,7 +158,7 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
         message_history.append({
             "id": message.id,
             "sender_id": message.sender_id,
-            "username": "" if message.sender_id == None else username_lookup[message.sender_id],
+            "username": "" if message.sender_id == None else username_lookup.get(message.sender_id, ""),
             "content": fields["content"],
             "attachment": fields["attachment"],
             "timestamp": str(message.timestamp),
@@ -172,6 +173,7 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
         })
 
     message_history.reverse()
+    mask_message_payloads(database, message_history)
     return {"party_name": party_info.party_name, "party_id": party_id, "session_username": current_user.username, "messages": message_history}
 
 @router.post("/leave_party")

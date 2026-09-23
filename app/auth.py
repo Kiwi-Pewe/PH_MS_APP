@@ -3,6 +3,7 @@ from fastapi import Depends, HTTPException, Cookie
 from sqlalchemy.orm import Session
 from app.models import Active_Sessions, UserInfo
 from app.database import get_db
+from app.site_moderation import refuse_if_site_banned
 from datetime import datetime, timedelta
 import secrets
 
@@ -33,6 +34,8 @@ def get_current_user(session_id: str = Cookie(None), database: Session = Depends
     user_account = validate_session(session_id, database)
     if not user_account:
         raise HTTPException(status_code=401, detail="Invalid or expired session.")
+    refuse_if_site_banned(user_account)
+    database.commit()
     return user_account
 
 def get_optional_user(session_id: str = Cookie(None), database: Session = Depends(get_db)):

@@ -347,7 +347,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
             "id": message.id,
             "post_id": message.post_id,
             "author_id": message.author_id,
-            "username": username_lookup[message.author_id],
+            "username": username_lookup.get(message.author_id, ""),
             "avatar": faces.get(message.author_id),
             "name_role": name_map.get(message.author_id),
             "content": message.content,
@@ -362,6 +362,8 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
         })
 
     forum_messages.reverse()
+    from app.site_moderation import mask_message_payloads
+    mask_message_payloads(database, forum_messages, sender_key="author_id")
     return {"forum_post_messages": forum_messages, "locked": forum_is_locked(post_exist), "sticky": forum_is_sticky(post_exist)}
 
 

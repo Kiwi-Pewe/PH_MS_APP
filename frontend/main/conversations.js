@@ -229,7 +229,8 @@ async function openDirectMessage(id, username) {
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
         time: new Date(msg.timestamp),
-        avatar: msg.avatar || null
+        avatar: msg.avatar || null,
+        permaban: !!msg.permaban
       }, msg);
       if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
@@ -281,7 +282,8 @@ async function openParty(id, name) {
           content: msg.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
           time: new Date(msg.timestamp),
-          avatar: msg.avatar || null
+          avatar: msg.avatar || null,
+          permaban: !!msg.permaban
         }, msg);
         if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
         if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);

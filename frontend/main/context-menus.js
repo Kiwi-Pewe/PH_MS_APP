@@ -5,6 +5,17 @@
 
 function showMessageContextMenu(e, msg) {
   e.preventDefault();
+  if (msg && msg.permaban) {
+    openContextMenu(e.clientX, e.clientY, {
+      avatarText: "!",
+      title: "Banned user",
+      timestamp: formatClusterTime(msg.time),
+      subtitle: msg.content || "A user was banned from Oneira."
+    }, [
+      canDeleteMessage(msg) && { label: "Delete Message", danger: true, onSelect: () => deleteMessageFromContextMenu(msg) }
+    ]);
+    return;
+  }
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(msg.username),
     title: msg.username,
@@ -27,6 +38,7 @@ function showMessageContextMenu(e, msg) {
 function canReactMessage(msg) {
   if (!appearancePref("show_reactions", true)) return false;
   if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
+  if (msg.permaban) return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
   return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "channel" || msg.chatKind === "forum" || msg.chatKind === "announcement" || msg.chatKind === "forum_post" || msg.chatKind === "comment";
@@ -97,6 +109,11 @@ function canDeleteMessage(msg) {
   if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
+  if (msg.permaban) {
+    if (msg.chatKind === "channel") return typeof canManageMessages === "function" && canManageMessages();
+    if (msg.chatKind === "forum") return typeof canManageTopics === "function" && canManageTopics();
+    return msg.isMine || msg.chatKind === "dm" || msg.chatKind === "party";
+  }
   if (msg.chatKind === "channel") {
     return msg.isMine || (typeof canManageMessages === "function" && canManageMessages());
   }

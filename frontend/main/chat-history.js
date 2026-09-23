@@ -32,7 +32,8 @@ async function loadOlderMessages() {
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
         time: new Date(msg.timestamp),
-        avatar: msg.avatar || null
+        avatar: msg.avatar || null,
+        permaban: !!msg.permaban
       }, msg);
       if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);
@@ -93,7 +94,8 @@ async function loadOlderChannelMessages() {
         // initial load until the queued timestamp fix lands everywhere.
         time: isForum ? parseUtcTimestamp(msg.timestamp) : new Date(msg.timestamp),
         avatar: msg.avatar || null,
-        nameRole: msg.name_role || null
+        nameRole: msg.name_role || null,
+        permaban: !!msg.permaban
       }, msg);
       if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);

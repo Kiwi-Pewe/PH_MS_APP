@@ -8,6 +8,7 @@ from app.schemas import (
 )
 from app.database import get_db
 from app.auth import pwd_context, create_session_id, get_current_user
+from app.site_moderation import refuse_if_permabanned_name, refuse_if_site_banned, username_reserved
 from app.routers.appearance import appearance_payload
 from app.routers.accessibility import accessibility_payload
 from app.routers.language_time import language_time_payload
@@ -198,10 +199,13 @@ def login_account(account: Account_login, request: Request, response: Response, 
     existing_user = database.query(UserInfo).filter(UserInfo.username == account.username).first()
     
     if not existing_user:
+        refuse_if_permabanned_name(database, account.username)
         raise HTTPException(status_code = 401, detail= "Username or Password is incorrect.")
     correct_password = pwd_context.verify(account.password, existing_user.hashed_password)
     if not correct_password:
         raise HTTPException(status_code = 401, detail= "Username or Password is incorrect.")
+    refuse_if_site_banned(existing_user)
+    database.commit()
 
     if existing_user.mfa_enabled:
         existing_user.mfa_challenge = create_session_id(24)
@@ -219,7 +223,10 @@ def login_account_mfa(account: Account_login_mfa, request: Request, response: Re
         raise HTTPException(status_code=500, detail="Authenticator support is not installed.")
     user = database.query(UserInfo).filter(UserInfo.username == account.username).first()
     if not user or not user.mfa_enabled or not user.mfa_secret:
+        refuse_if_permabanned_name(database, account.username)
         raise HTTPException(status_code=401, detail="Authenticator login failed.")
+    refuse_if_site_banned(user)
+    database.commit()
     if not user.mfa_challenge or not user.mfa_challenge_until or datetime.now() > user.mfa_challenge_until:
         raise HTTPException(status_code=401, detail="Authenticator login expired. Log in again.")
     if not pyotp.TOTP(user.mfa_secret).verify((account.code or "").strip(), valid_window=1):
@@ -246,7 +253,7 @@ def create_account(account: Account_register, database : Session = Depends(get_d
     username = clean_username(account.username)
     existing_username = database.query(UserInfo).filter(UserInfo.username == username).first()
 
-    if existing_username:
+    if existing_username or username_reserved(database, username):
         raise HTTPException(status_code= 409 , detail= "Username is already taken." )
     if not (account.password or "").strip():
         raise HTTPException(status_code=400, detail="Password is required.")
@@ -309,7 +316,7 @@ def update_account_username(edit: Account_field_edit, current_user: UserInfo = D
     require_password(current_user, edit.password)
     username = clean_username(edit.value)
     taken = database.query(UserInfo).filter(UserInfo.username == username, UserInfo.id != current_user.id).first()
-    if taken:
+    if taken or username_reserved(database, username):
         raise HTTPException(status_code=409, detail="Username is already taken.")
     current_user.username = username
     database.commit()

@@ -11,6 +11,7 @@ from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
 from app.routers.mentions import accepted_reply_parent, reply_map_for
 from app.routers.profile import avatar_lookup, public_avatar
+from app.site_moderation import mask_message_payloads, permaban_by_user_id
 from datetime import datetime
 
 router = APIRouter()
@@ -82,7 +83,8 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
 
 
     target_user = database.query(UserInfo).filter(UserInfo.id == user_id).first()
-    if not target_user:
+    banned = permaban_by_user_id(database, user_id)
+    if not target_user and not banned:
         raise HTTPException(status_code= 404,  detail="No user found")
     for msg in History:
         if msg.receiver_id == current_user.id:
@@ -114,7 +116,14 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
             "reply_to": reply_map.get(msg.reply_to_id) if msg.reply_to_id else None,
             "avatar": faces.get(msg.sender_id),
         })
-    return {"other_username": target_user.username, "session_username": current_user.username, "other_avatar": public_avatar(target_user), "messages": messages_out}
+    mask_message_payloads(database, messages_out)
+    return {
+        "other_username": target_user.username if target_user else "",
+        "session_username": current_user.username,
+        "other_avatar": public_avatar(target_user) if target_user else None,
+        "permaban": bool(banned and not target_user),
+        "messages": messages_out,
+    }
 
 @router.get("/conversation_history")
 def conversation_history(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -129,7 +138,15 @@ def conversation_history(database: Session = Depends(get_db), current_user: User
         other_id = convo.user_2 if convo.user_1 == current_user.id else convo.user_1
         other_account = database.query(UserInfo).filter(UserInfo.id == other_id).first()
         message_status = database.query(Message).filter(Message.sender_id == other_id, Message.receiver_id == current_user.id, Message.read == False).count()
-        conversations_out.append({"type": "dm", "id": other_id, "username": other_account.username, "unread_count": message_status, "last_message_at": str(convo.last_message_at), "avatar": public_avatar(other_account) if other_account else None})
+        conversations_out.append({
+            "type": "dm",
+            "id": other_id,
+            "username": other_account.username if other_account else "",
+            "unread_count": message_status,
+            "last_message_at": str(convo.last_message_at),
+            "avatar": public_avatar(other_account) if other_account else None,
+            "permaban": not bool(other_account),
+        })
 
     return {"conversations": conversations_out}
 

@@ -17,6 +17,11 @@ function renderClusteredMessages(wrap, messages) {
       openCluster = null;
       return;
     }
+    if (msg.permaban) {
+      wrap.appendChild(buildPermabanFooter(msg));
+      openCluster = null;
+      return;
+    }
     if (msg.deletionState === "pending") {
       wrap.appendChild(buildPendingDeleteCard(msg));
       openCluster = null;
@@ -187,6 +192,16 @@ function buildDeletedTombstone(msg) {
   el.className = "deletion-tombstone";
   el.textContent = "Message deleted";
   return wrapDeletionOnSenderSide(msg, el);
+}
+
+function buildPermabanFooter(msg) {
+  const el = document.createElement("div");
+  el.className = "permaban-footer";
+  el.textContent = msg.content || "A user was banned from Oneira.";
+  el.addEventListener("contextmenu", (e) => {
+    if (typeof showMessageContextMenu === "function") showMessageContextMenu(e, msg);
+  });
+  return el;
 }
 
 function buildPendingDeleteCard(msg) {

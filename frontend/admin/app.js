@@ -156,6 +156,8 @@ function closeFilters() {
 
 function closePreview() {
   previewKey = null;
+  userPreviewLists = null;
+  closeAdminProfileOverlay();
   const card = document.getElementById("admin-card");
   const pane = document.getElementById("admin-preview");
   const rail = document.getElementById("admin-preview-rail");
@@ -164,6 +166,7 @@ function closePreview() {
   pane.hidden = true;
   if (rail) {
     rail.hidden = true;
+    rail.classList.remove("is-user");
     rail.innerHTML = "";
   }
   document.getElementById("admin-preview-inner").innerHTML = "";
@@ -226,6 +229,7 @@ function paintFeedbackRail(row) {
   const rail = document.getElementById("admin-preview-rail");
   if (!rail) return;
   rail.hidden = false;
+  rail.classList.remove("is-user");
   rail.innerHTML = "";
   const changeWrap = document.createElement("div");
   changeWrap.className = "admin-filter-wrap";
@@ -353,31 +357,487 @@ function paintFeedbackPreview(row) {
   paintFeedbackRail(row);
 }
 
+const BAN_LENGTHS = [
+  { seconds: 3600, label: "1 hour" },
+  { seconds: 86400, label: "1 day" },
+  { seconds: 604800, label: "1 week" },
+  { seconds: 2592000, label: "30 days" },
+  { seconds: 0, label: "Permanent" }
+];
+
+let userPreviewLists = null;
+
+function applyUserUpdate(user) {
+  if (!user || user.id == null) return;
+  const state = tabState.users;
+  const index = state.items.findIndex((row) => row.id === user.id);
+  if (index >= 0) state.items[index] = Object.assign({}, state.items[index], user);
+  if (adminTab === "users") {
+    paintList();
+    if (previewKey === "users:" + user.id) paintUserPreview(state.items[index] || user);
+  }
+}
+
+function removeUserFromList(userId) {
+  const state = tabState.users;
+  state.items = state.items.filter((row) => row.id !== userId);
+  if (previewKey === "users:" + userId) closePreview();
+  if (adminTab === "users") paintList();
+}
+
+function userIdentitySection(user) {
+  const account = reportSection();
+  const who = document.createElement("div");
+  who.className = "admin-report-who";
+  const face = document.createElement("div");
+  face.className = "admin-report-face";
+  const shown = user.display_name || user.username || ("User " + user.id);
+  paintFace(face, mediaUrl(user.avatar), firstLetters(shown));
+  const text = document.createElement("div");
+  text.className = "admin-report-who-text";
+  const display = document.createElement("div");
+  display.className = "admin-report-display";
+  display.textContent = shown;
+  const handle = document.createElement("div");
+  handle.className = "admin-report-user";
+  handle.textContent = user.username || "—";
+  const joined = document.createElement("div");
+  joined.className = "admin-report-joined";
+  joined.textContent = "Joined " + formatDate(user.created_at);
+  text.appendChild(display);
+  text.appendChild(handle);
+  text.appendChild(joined);
+  who.appendChild(face);
+  who.appendChild(text);
+  account.appendChild(who);
+  return account;
+}
+
+function paintMemberRow(host, name, url, letter, note) {
+  const row = document.createElement("div");
+  row.className = "admin-member-row";
+  const face = document.createElement("div");
+  face.className = "admin-member-face";
+  paintFace(face, url, letter);
+  const text = document.createElement("div");
+  text.className = "admin-member-text";
+  const title = document.createElement("div");
+  title.className = "admin-member-name";
+  title.textContent = name || "—";
+  text.appendChild(title);
+  if (note) {
+    const sub = document.createElement("div");
+    sub.className = "admin-member-note";
+    sub.textContent = note;
+    text.appendChild(sub);
+  }
+  row.appendChild(face);
+  row.appendChild(text);
+  host.appendChild(row);
+}
+
+function paintCollapseList(section, key, title, total, loadMore) {
+  const wrap = document.createElement("div");
+  wrap.className = "admin-collapse";
+  const head = document.createElement("button");
+  head.type = "button";
+  head.className = "admin-collapse-head";
+  const caret = document.createElement("span");
+  caret.className = "admin-collapse-caret";
+  caret.textContent = "▸";
+  const label = document.createElement("span");
+  label.textContent = title + " (" + (total == null ? "—" : total) + ")";
+  head.appendChild(caret);
+  head.appendChild(label);
+  const body = document.createElement("div");
+  body.className = "admin-collapse-body";
+  body.hidden = true;
+  const list = document.createElement("div");
+  list.className = "admin-member-list";
+  const more = document.createElement("button");
+  more.type = "button";
+  more.className = "admin-load-more";
+  more.textContent = "Load More";
+  more.hidden = true;
+  body.appendChild(list);
+  body.appendChild(more);
+  head.addEventListener("click", async () => {
+    const open = wrap.classList.toggle("is-open");
+    caret.textContent = open ? "▾" : "▸";
+    body.hidden = !open;
+    if (open && userPreviewLists && !userPreviewLists[key].loaded) {
+      await loadMore(true);
+    }
+  });
+  more.addEventListener("click", () => loadMore(false));
+  wrap.appendChild(head);
+  wrap.appendChild(body);
+  section.appendChild(wrap);
+  return { list, more, wrap };
+}
+
+async function loadUserFriends(userId, reset) {
+  if (!userPreviewLists || userPreviewLists.id !== userId) return;
+  const state = userPreviewLists.friends;
+  if (state.loading || (!reset && !state.hasMore)) return;
+  if (reset) {
+    state.offset = 0;
+    state.items = [];
+    state.hasMore = true;
+  }
+  state.loading = true;
+  try {
+    const response = await adminApi("/admin/user/" + userId + "/friends?offset=" + state.offset + "&limit=" + PAGE_SIZE);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || "Could not load friends.");
+    if (!userPreviewLists || userPreviewLists.id !== userId) return;
+    state.items = state.items.concat(data.friends || []);
+    state.offset = state.items.length;
+    state.hasMore = !!data.has_more;
+    state.total = data.total;
+    state.loaded = true;
+    paintUserFriendRows();
+  } catch (err) {
+    if (userPreviewLists && userPreviewLists.id === userId && userPreviewLists.friends.list) {
+      userPreviewLists.friends.list.textContent = err.message || "Could not load friends.";
+    }
+  } finally {
+    if (userPreviewLists && userPreviewLists.id === userId) userPreviewLists.friends.loading = false;
+  }
+}
+
+function paintUserFriendRows() {
+  if (!userPreviewLists || !userPreviewLists.friends.list) return;
+  const host = userPreviewLists.friends.list;
+  host.innerHTML = "";
+  userPreviewLists.friends.items.forEach((row) => {
+    const shown = row.display_name || row.username || ("User " + row.id);
+    paintMemberRow(host, shown, mediaUrl(row.avatar), firstLetters(shown), row.username || "");
+  });
+  if (userPreviewLists.friends.more) {
+    userPreviewLists.friends.more.hidden = !userPreviewLists.friends.hasMore;
+  }
+}
+
+async function loadUserServers(userId, reset) {
+  if (!userPreviewLists || userPreviewLists.id !== userId) return;
+  const state = userPreviewLists.servers;
+  if (state.loading || (!reset && !state.hasMore)) return;
+  if (reset) {
+    state.offset = 0;
+    state.items = [];
+    state.hasMore = true;
+  }
+  state.loading = true;
+  try {
+    const response = await adminApi("/admin/user/" + userId + "/servers?offset=" + state.offset + "&limit=" + PAGE_SIZE);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || "Could not load servers.");
+    if (!userPreviewLists || userPreviewLists.id !== userId) return;
+    state.items = state.items.concat(data.servers || []);
+    state.offset = state.items.length;
+    state.hasMore = !!data.has_more;
+    state.total = data.total;
+    state.loaded = true;
+    paintUserServerRows();
+  } catch (err) {
+    if (userPreviewLists && userPreviewLists.id === userId && userPreviewLists.servers.list) {
+      userPreviewLists.servers.list.textContent = err.message || "Could not load servers.";
+    }
+  } finally {
+    if (userPreviewLists && userPreviewLists.id === userId) userPreviewLists.servers.loading = false;
+  }
+}
+
+function paintUserServerRows() {
+  if (!userPreviewLists || !userPreviewLists.servers.list) return;
+  const host = userPreviewLists.servers.list;
+  host.innerHTML = "";
+  userPreviewLists.servers.items.forEach((row) => {
+    paintMemberRow(host, row.name || row.id, row.icon_url || "", firstLetters(row.name || "?"), row.owner ? "Owner" : "");
+  });
+  if (userPreviewLists.servers.more) {
+    userPreviewLists.servers.more.hidden = !userPreviewLists.servers.hasMore;
+  }
+}
+
+function paintReasonPanel(host, rows, emptyText) {
+  host.innerHTML = "";
+  if (!rows || !rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "admin-reason-empty";
+    empty.textContent = emptyText;
+    host.appendChild(empty);
+    return;
+  }
+  rows.forEach((row) => {
+    const card = document.createElement("div");
+    card.className = "admin-reason-row";
+    const top = document.createElement("div");
+    top.className = "admin-reason-top";
+    top.textContent = (row.label ? row.label + " · " : "") + formatStamp(row.created_at);
+    const reason = document.createElement("div");
+    reason.className = "admin-reason-text";
+    reason.textContent = row.reason || "(no reason)";
+    const who = document.createElement("div");
+    who.className = "admin-reason-actor";
+    const bits = [];
+    if (row.actor_username) bits.push("by " + row.actor_username);
+    if (row.expires_at) bits.push("until " + formatStamp(row.expires_at));
+    else if (row.kind === "site" && row.expires_at == null) bits.push("permanent");
+    who.textContent = bits.join(" · ");
+    card.appendChild(top);
+    card.appendChild(reason);
+    if (bits.length) card.appendChild(who);
+    host.appendChild(card);
+  });
+}
+
+function paintCountAction(section, label, count, onView) {
+  const row = document.createElement("div");
+  row.className = "admin-count-row";
+  const text = document.createElement("div");
+  text.className = "admin-count-label";
+  text.textContent = label + ": " + (count == null ? "—" : count);
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "admin-count-btn";
+  btn.textContent = "View";
+  const panel = document.createElement("div");
+  panel.className = "admin-reason-panel";
+  panel.hidden = true;
+  btn.addEventListener("click", async () => {
+    if (!panel.hidden) {
+      panel.hidden = true;
+      return;
+    }
+    panel.hidden = false;
+    panel.textContent = "Loading…";
+    try {
+      await onView(panel);
+    } catch (err) {
+      panel.textContent = err.message || "Could not load.";
+    }
+  });
+  row.appendChild(text);
+  row.appendChild(btn);
+  section.appendChild(row);
+  section.appendChild(panel);
+}
+
+async function openAdminProfileOverlay(userId) {
+  let overlay = document.getElementById("admin-profile-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "admin-profile-overlay";
+    overlay.className = "admin-profile-overlay";
+    overlay.innerHTML = '<button type="button" class="admin-profile-close" id="admin-profile-close">×</button><div class="admin-profile-inner" id="admin-profile-inner"></div>';
+    document.getElementById("admin-preview").appendChild(overlay);
+    overlay.querySelector("#admin-profile-close").addEventListener("click", closeAdminProfileOverlay);
+  }
+  const inner = overlay.querySelector("#admin-profile-inner");
+  inner.innerHTML = "<div class=\"admin-note\">Loading…</div>";
+  overlay.hidden = false;
+  try {
+    const response = await adminApi("/admin/user/" + userId + "/profile");
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || "Could not load profile.");
+    inner.innerHTML = "";
+    const banner = document.createElement("div");
+    banner.className = "admin-profile-banner";
+    const ident = (data.identity || {});
+    const user = data.user || {};
+    paintBanner(banner, mediaUrl(ident.banner), "#1e6b8a");
+    const face = document.createElement("div");
+    face.className = "admin-profile-face";
+    const shown = user.display_name || user.username || ("User " + userId);
+    paintFace(face, mediaUrl(ident.avatar), firstLetters(shown));
+    const name = document.createElement("div");
+    name.className = "admin-profile-name";
+    name.textContent = shown;
+    const handle = document.createElement("div");
+    handle.className = "admin-profile-user";
+    handle.textContent = user.username || "—";
+    const meta = document.createElement("div");
+    meta.className = "admin-profile-meta";
+    const bits = [];
+    if (user.status) bits.push(user.status);
+    if (user.pronouns) bits.push(user.pronouns);
+    bits.push("Joined " + formatDate(user.member_since));
+    meta.textContent = bits.join(" · ");
+    const note = document.createElement("div");
+    note.className = "admin-profile-note";
+    note.textContent = "Read-only preview. Close with × to return to this user.";
+    inner.appendChild(banner);
+    inner.appendChild(face);
+    inner.appendChild(name);
+    inner.appendChild(handle);
+    inner.appendChild(meta);
+    inner.appendChild(note);
+  } catch (err) {
+    inner.innerHTML = "";
+    const note = document.createElement("div");
+    note.className = "admin-note";
+    note.textContent = err.message || "Could not load profile.";
+    inner.appendChild(note);
+  }
+}
+
+function closeAdminProfileOverlay() {
+  const overlay = document.getElementById("admin-profile-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+function paintUserRail(user) {
+  const rail = document.getElementById("admin-preview-rail");
+  if (!rail) return;
+  rail.hidden = false;
+  rail.classList.add("is-user");
+  rail.innerHTML = "";
+  if (user.protected) {
+    const note = document.createElement("div");
+    note.className = "admin-rail-note";
+    note.textContent = "This account cannot be warned, banned, or deleted.";
+    rail.appendChild(note);
+    return;
+  }
+
+  const banWrap = document.createElement("div");
+  banWrap.className = "admin-filter-wrap";
+  const banBtn = document.createElement("button");
+  banBtn.type = "button";
+  banBtn.className = "admin-filter-btn";
+  banBtn.textContent = "Ban Account";
+  banBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (openFilter === "ban") closeFilters();
+    else {
+      closeFilters();
+      openFilter = "ban";
+      banWrap.classList.add("is-open");
+      const menu = document.createElement("div");
+      menu.className = "admin-filter-menu";
+      BAN_LENGTHS.forEach((opt) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = opt.label;
+        btn.addEventListener("click", async (ev) => {
+          ev.stopPropagation();
+          closeFilters();
+          const reason = window.prompt("Ban reason (optional):", "") || "";
+          try {
+            const data = await adminSend("/admin/user/" + user.id + "/ban", { seconds: opt.seconds, reason });
+            applyUserUpdate(data.user);
+          } catch (err) {
+            window.alert(err.message || "Could not ban.");
+          }
+        });
+        menu.appendChild(btn);
+      });
+      banWrap.appendChild(menu);
+    }
+  });
+  banWrap.appendChild(banBtn);
+
+  const warnBtn = document.createElement("button");
+  warnBtn.type = "button";
+  warnBtn.textContent = "Warn Account";
+  warnBtn.addEventListener("click", async () => {
+    const reason = window.prompt("Warn reason (required):", "");
+    if (reason == null) return;
+    if (!String(reason).trim()) {
+      window.alert("A reason is required.");
+      return;
+    }
+    try {
+      const data = await adminSend("/admin/user/" + user.id + "/warn", { reason });
+      applyUserUpdate(data.user);
+    } catch (err) {
+      window.alert(err.message || "Could not warn.");
+    }
+  });
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "admin-preview-danger";
+  deleteBtn.textContent = "Delete Account";
+  deleteBtn.addEventListener("click", async () => {
+    const typed = window.prompt("Type the username to permanently delete this account:", "");
+    if (typed == null) return;
+    try {
+      await adminSend("/admin/user/" + user.id + "/delete", { username: typed });
+      removeUserFromList(user.id);
+    } catch (err) {
+      window.alert(err.message || "Could not delete.");
+    }
+  });
+
+  rail.appendChild(banWrap);
+  rail.appendChild(warnBtn);
+  rail.appendChild(deleteBtn);
+}
+
 function paintUserPreview(user) {
   const host = document.getElementById("admin-preview-inner");
   const pane = document.getElementById("admin-preview");
-  const rail = document.getElementById("admin-preview-rail");
-  pane.classList.remove("is-report");
-  if (rail) {
-    rail.hidden = true;
-    rail.innerHTML = "";
-  }
+  pane.classList.add("is-report");
+  closeAdminProfileOverlay();
   host.innerHTML = "";
-  const title = document.createElement("h2");
-  title.className = "admin-preview-title";
-  title.textContent = user.display_name || user.username;
-  host.appendChild(title);
-  const fields = document.createElement("div");
-  fields.className = "admin-fields";
-  fields.appendChild(fieldRow("Id", user.id));
-  fields.appendChild(fieldRow("Username", user.username));
-  fields.appendChild(fieldRow("Display name", user.display_name));
-  fields.appendChild(fieldRow("Joined", user.created_at));
-  fields.appendChild(fieldRow("Status", user.status));
-  fields.appendChild(fieldRow("Pronouns", user.pronouns));
-  fields.appendChild(fieldRow("Authenticator", user.mfa_enabled ? "On" : "Off"));
-  fields.appendChild(fieldRow("Servers", user.server_count));
-  host.appendChild(fields);
+  host.appendChild(userIdentitySection(user));
+
+  const account = reportSection();
+  const friendsUi = paintCollapseList(account, "friends", "Friends", user.friend_count, (reset) => loadUserFriends(user.id, reset));
+  const serversUi = paintCollapseList(account, "servers", "Servers", user.server_count, (reset) => loadUserServers(user.id, reset));
+  paintCountAction(account, "Warns", user.warn_count, async (panel) => {
+    const response = await adminApi("/admin/user/" + user.id + "/warns");
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || "Could not load warns.");
+    paintReasonPanel(panel, data.warns || [], "No warns.");
+  });
+  paintCountAction(account, "Bans", user.ban_count, async (panel) => {
+    const response = await adminApi("/admin/user/" + user.id + "/bans");
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || "Could not load bans.");
+    paintReasonPanel(panel, data.bans || [], "No bans.");
+  });
+  if (user.site_banned) {
+    const banNote = document.createElement("div");
+    banNote.className = "admin-site-ban-note";
+    banNote.textContent = "Currently site-banned" + (user.banned_until ? " until " + formatStamp(user.banned_until) : "");
+    account.appendChild(banNote);
+  }
+  const viewBtn = document.createElement("button");
+  viewBtn.type = "button";
+  viewBtn.className = "admin-view-profile";
+  viewBtn.textContent = "View Profile";
+  viewBtn.addEventListener("click", () => openAdminProfileOverlay(user.id));
+  account.appendChild(viewBtn);
+  host.appendChild(account);
+
+  userPreviewLists = {
+    id: user.id,
+    friends: {
+      items: [],
+      offset: 0,
+      hasMore: true,
+      loaded: false,
+      loading: false,
+      total: user.friend_count,
+      list: friendsUi.list,
+      more: friendsUi.more
+    },
+    servers: {
+      items: [],
+      offset: 0,
+      hasMore: true,
+      loaded: false,
+      loading: false,
+      total: user.server_count,
+      list: serversUi.list,
+      more: serversUi.more
+    }
+  };
+  paintUserRail(user);
 }
 
 function paintServerPreview(server) {
@@ -387,6 +847,7 @@ function paintServerPreview(server) {
   pane.classList.remove("is-report");
   if (rail) {
     rail.hidden = true;
+    rail.classList.remove("is-user");
     rail.innerHTML = "";
   }
   host.innerHTML = "";
@@ -427,8 +888,20 @@ async function openPreview(item) {
     }
     return;
   }
-  if (adminTab === "users") paintUserPreview(item);
-  else paintServerPreview(item);
+  if (adminTab === "users") {
+    paintUserPreview(item);
+    document.querySelectorAll(".admin-card").forEach((el) => {
+      el.classList.toggle("is-on", el.dataset.key === previewKey);
+    });
+    try {
+      const response = await adminApi("/admin/user/" + item.id);
+      const data = await response.json().catch(() => ({}));
+      if (previewKey !== "users:" + item.id) return;
+      if (response.ok && data.user) paintUserPreview(data.user);
+    } catch (e) {}
+    return;
+  }
+  paintServerPreview(item);
   document.querySelectorAll(".admin-card").forEach((el) => {
     el.classList.toggle("is-on", el.dataset.key === previewKey);
   });

@@ -121,6 +121,8 @@ def ensure_account_columns():
         ("users", "profile_pronouns", "VARCHAR"),
         ("users", "display_name_history", "VARCHAR"),
         ("users", "created_at", "DATETIME"),
+        ("users", "banned_until", "DATETIME"),
+        ("users", "ban_reason", "VARCHAR"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:

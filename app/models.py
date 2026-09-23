@@ -46,6 +46,8 @@ class UserInfo(Base):
     profile_pronouns = Column(String, nullable= True)
     display_name_history = Column(String, nullable= True)
     created_at = Column(DateTime, server_default= func.now())
+    banned_until = Column(DateTime, nullable=True)
+    ban_reason = Column(String, nullable=True)
 
 class Message(Base):
     __tablename__ = "messages"
@@ -368,6 +370,47 @@ class Audit_log(Base):
     target_type = Column(String)
     target_id = Column(Integer)
     detail = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Perma_ban(Base):
+    __tablename__ = "perma_bans"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, unique=True)
+    username = Column(String, unique=True)
+    display_name = Column(String, nullable=True)
+    reason = Column(String, nullable=True)
+    actor_id = Column(Integer)
+    actor_username = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Account_warn(Base):
+    __tablename__ = "account_warns"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    actor_id = Column(Integer)
+    actor_username = Column(String)
+    reason = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+class Site_ban(Base):
+    __tablename__ = "site_bans"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    actor_id = Column(Integer)
+    actor_username = Column(String)
+    reason = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    expires_at = Column(DateTime, nullable=True)
+
+class Admin_audit(Base):
+    __tablename__ = "admin_audits"
+    id = Column(Integer, primary_key=True)
+    actor_id = Column(Integer)
+    actor_username = Column(String)
+    action = Column(String)
+    target_user_id = Column(Integer, nullable=True)
+    target_username = Column(String, nullable=True)
+    detail = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 class Channel_last_viewed(Base):

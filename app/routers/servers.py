@@ -591,7 +591,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
         message_history.append({
             "id": message.id,
             "sender_id": message.sender_id,
-            "username": "" if message.sender_id == None else username_lookup[message.sender_id],
+            "username": "" if message.sender_id == None else username_lookup.get(message.sender_id, ""),
             "content": message.content,
             "attachment": attachment_public(message.attachment),
             "timestamp": str(message.timestamp),
@@ -606,6 +606,8 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
         })
 
     message_history.reverse()
+    from app.site_moderation import mask_message_payloads
+    mask_message_payloads(database, message_history)
     return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "messages": message_history}
 
 @router.post("/create_category")

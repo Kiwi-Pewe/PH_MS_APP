@@ -142,6 +142,19 @@ class Feedback_status(BaseModel):
     status: str
 
 
+class Admin_warn(BaseModel):
+    reason: str = ""
+
+
+class Admin_ban(BaseModel):
+    seconds: int
+    reason: str = ""
+
+
+class Admin_delete(BaseModel):
+    username: str = ""
+
+
 class Feedback_submit(BaseModel):
     feedback_type: str
     report: str

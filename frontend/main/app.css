@@ -1870,6 +1870,18 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .deletion-card-detail .pill-btn { align-self: flex-start; }
 .deletion-tombstone { cursor: default; }
 
+.permaban-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 8px 0 12px;
+  color: var(--text-dim);
+  font-size: calc(12px * var(--message-scale));
+  font-style: italic;
+  text-align: center;
+  user-select: none;
+}
+
 .edit-cluster .cluster-body { max-width: min(100%, 560px); width: 100%; }
 .edit-composer {
   width: 100%;

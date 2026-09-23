@@ -1,15 +1,29 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, cast, String
-from app.models import UserInfo, Feedback_report, Servers, Server_members, Server_bans
+from app.models import UserInfo, Feedback_report, Servers, Server_members, Server_bans, Friend_request, Account_warn, Site_ban
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
-from app.schemas import Feedback_status
+from app.schemas import Feedback_status, Admin_warn, Admin_ban, Admin_delete
 from app.routers.account import public_display_name
-from app.routers.profile import public_identity
+from app.routers.profile import public_identity, public_avatar, ensure_layout
 from app.routers.mini_profiles import layout_banner_and_about
 from app.routers.servers import server_banner_fields, server_icon_url
 from app.r2 import delete_attachment, post_attachments_public
+from app.site_moderation import (
+    SITE_BAN_LABELS,
+    SITE_BAN_SECONDS,
+    account_warn_count,
+    ban_account,
+    delete_account_to_permaban,
+    friend_count,
+    is_protected_account,
+    refuse_moderate,
+    server_ban_count,
+    site_ban_active,
+    site_ban_count,
+    warn_account,
+)
 from datetime import datetime, timedelta
 import asyncio
 import json
@@ -47,9 +61,9 @@ def user_visuals(account):
     return ident.get("avatar") or {}, ident.get("banner") or {}, color
 
 
-def pack_user(account, server_count):
+def pack_user(account, server_count, database=None):
     avatar, banner, banner_color = user_visuals(account)
-    return {
+    payload = {
         "id": account.id,
         "username": account.username,
         "display_name": public_display_name(account),
@@ -61,7 +75,26 @@ def pack_user(account, server_count):
         "avatar": avatar,
         "banner": banner,
         "banner_color": banner_color,
+        "protected": is_protected_account(account),
+        "site_banned": site_ban_active(account),
+        "banned_until": str(account.banned_until) if getattr(account, "banned_until", None) else None,
+        "ban_reason": getattr(account, "ban_reason", None) or "",
     }
+    if database is not None:
+        payload["friend_count"] = friend_count(database, account.id)
+        payload["warn_count"] = account_warn_count(database, account.id)
+        payload["site_ban_count"] = site_ban_count(database, account.id)
+        payload["server_ban_count"] = server_ban_count(database, account.id)
+        payload["ban_count"] = int(payload["site_ban_count"]) + int(payload["server_ban_count"])
+    return payload
+
+
+def load_admin_user(database, user_id):
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    count = user_server_counts(database, [account.id]).get(account.id, 0)
+    return pack_user(account, count, database)
 
 
 def pack_server(server, owner_names, owner_handles, member_count):
@@ -380,8 +413,195 @@ def admin_user(
     accounts, has_more = take_page(query, offset, limit)
     counts = user_server_counts(database, [account.id for account in accounts])
     return {
-        "users": [pack_user(account, counts.get(account.id, 0)) for account in accounts],
+        "users": [pack_user(account, counts.get(account.id, 0), database) for account in accounts],
         "has_more": has_more,
+    }
+
+
+@router.get("/admin/user/{user_id}")
+def admin_user_detail(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    require_oneira_admin(current_user)
+    return {"user": load_admin_user(database, user_id)}
+
+
+@router.get("/admin/user/{user_id}/friends")
+def admin_user_friends(
+    user_id: int,
+    offset: int = 0,
+    limit: int = PAGE_SIZE,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    rows = (
+        database.query(Friend_request)
+        .filter(
+            or_(Friend_request.user_1 == user_id, Friend_request.user_2 == user_id),
+            Friend_request.pending == False,
+        )
+        .order_by(Friend_request.id.asc())
+    )
+    page, has_more = take_page(rows, offset, limit)
+    other_ids = [(row.user_2 if row.user_1 == user_id else row.user_1) for row in page]
+    others = database.query(UserInfo).filter(UserInfo.id.in_(other_ids)).all() if other_ids else []
+    by_id = {row.id: row for row in others}
+    out = []
+    for oid in other_ids:
+        other = by_id.get(oid)
+        if not other:
+            continue
+        out.append({
+            "id": other.id,
+            "username": other.username,
+            "display_name": public_display_name(other),
+            "avatar": public_avatar(other),
+        })
+    return {"friends": out, "has_more": has_more, "total": friend_count(database, user_id)}
+
+
+@router.get("/admin/user/{user_id}/servers")
+def admin_user_servers(
+    user_id: int,
+    offset: int = 0,
+    limit: int = PAGE_SIZE,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    memberships = (
+        database.query(Server_members)
+        .filter(Server_members.user_id == user_id)
+        .order_by(Server_members.id.asc())
+    )
+    page, has_more = take_page(memberships, offset, limit)
+    server_ids = [row.server_id for row in page]
+    servers = database.query(Servers).filter(Servers.id.in_(server_ids)).all() if server_ids else []
+    by_id = {row.id: row for row in servers}
+    out = []
+    for sid in server_ids:
+        server = by_id.get(sid)
+        if not server:
+            continue
+        out.append({
+            "id": server.id,
+            "name": server.name,
+            "icon_url": server_icon_url(server),
+            "owner": server.owner_id == user_id,
+        })
+    total = user_server_counts(database, [user_id]).get(user_id, 0)
+    return {"servers": out, "has_more": has_more, "total": total}
+
+
+@router.get("/admin/user/{user_id}/warns")
+def admin_user_warns(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    require_oneira_admin(current_user)
+    rows = database.query(Account_warn).filter(Account_warn.user_id == user_id).order_by(Account_warn.id.desc()).limit(100).all()
+    return {
+        "warns": [{
+            "id": row.id,
+            "reason": row.reason or "",
+            "actor_username": row.actor_username or "",
+            "created_at": str(row.created_at) if row.created_at else None,
+        } for row in rows]
+    }
+
+
+@router.get("/admin/user/{user_id}/bans")
+def admin_user_bans(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    require_oneira_admin(current_user)
+    site_rows = database.query(Site_ban).filter(Site_ban.user_id == user_id).order_by(Site_ban.id.desc()).limit(100).all()
+    server_rows = database.query(Server_bans).filter(Server_bans.user_id == user_id).order_by(Server_bans.id.desc()).limit(100).all()
+    server_ids = [row.server_id for row in server_rows]
+    servers = database.query(Servers).filter(Servers.id.in_(server_ids)).all() if server_ids else []
+    names = {row.id: row.name for row in servers}
+    bans = []
+    for row in site_rows:
+        bans.append({
+            "kind": "site",
+            "id": row.id,
+            "reason": row.reason or "",
+            "actor_username": row.actor_username or "",
+            "created_at": str(row.created_at) if row.created_at else None,
+            "expires_at": str(row.expires_at) if row.expires_at else None,
+            "label": "Oneira",
+        })
+    for row in server_rows:
+        bans.append({
+            "kind": "server",
+            "id": row.id,
+            "reason": row.reason or "",
+            "actor_username": "",
+            "created_at": str(row.created_at) if row.created_at else None,
+            "expires_at": str(row.expires_at) if row.expires_at else None,
+            "label": names.get(row.server_id) or row.server_id,
+        })
+    return {"bans": bans}
+
+
+@router.get("/admin/user/{user_id}/profile")
+def admin_user_profile(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    require_oneira_admin(current_user)
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    layout = ensure_layout(account, database)
+    return {
+        "user": {
+            "id": account.id,
+            "username": account.username,
+            "display_name": public_display_name(account),
+            "status": account.profile_status or "",
+            "pronouns": account.profile_pronouns or "",
+            "member_since": str(account.created_at) if account.created_at else None,
+        },
+        "layout": layout,
+        "identity": public_identity(account),
+    }
+
+
+@router.post("/admin/user/{user_id}/warn")
+def admin_warn_user(user_id: int, body: Admin_warn, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    require_oneira_admin(current_user)
+    target = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    refuse_moderate(current_user, target)
+    warn_account(database, current_user, target, body.reason)
+    database.commit()
+    return {"user": load_admin_user(database, user_id)}
+
+
+@router.post("/admin/user/{user_id}/ban")
+def admin_ban_user(user_id: int, body: Admin_ban, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    require_oneira_admin(current_user)
+    target = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    refuse_moderate(current_user, target)
+    ban_account(database, current_user, target, body.seconds, body.reason)
+    database.commit()
+    return {"user": load_admin_user(database, user_id), "ban_lengths": SITE_BAN_LABELS}
+
+
+@router.post("/admin/user/{user_id}/delete")
+def admin_delete_user(user_id: int, body: Admin_delete, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    require_oneira_admin(current_user)
+    target = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    refuse_moderate(current_user, target)
+    if (body.username or "").strip().lower() != (target.username or "").strip().lower():
+        raise HTTPException(status_code=400, detail="Type the username to confirm.")
+    delete_account_to_permaban(database, current_user, target, "")
+    database.commit()
+    return {"ok": True, "user_id": user_id}
+
+
+@router.get("/admin/ban_lengths")
+def admin_ban_lengths(current_user: UserInfo = Depends(get_current_user)):
+    require_oneira_admin(current_user)
+    return {
+        "lengths": [{"seconds": secs, "label": SITE_BAN_LABELS[secs]} for secs in SITE_BAN_SECONDS]
     }
 
 

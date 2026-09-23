@@ -287,6 +287,8 @@ def require_server_perm(database, server, user_id, perm, detail="You do not have
 def channel_type_visible(permissions, channel_type):
     if channel_type == "announcements":
         return bool(permissions.get("view_announcements"))
+    if channel_type == "forums":
+        return bool(permissions.get("read_forums"))
     return True
 
 

@@ -41,6 +41,18 @@ function canManageAnnouncements() {
   return canServerPerm("manage_announcements");
 }
 
+function canReadForums() {
+  return canServerPerm("read_forums");
+}
+
+function canCreateTopics() {
+  return canServerPerm("create_topics");
+}
+
+function canCreateTopicReplies() {
+  return canServerPerm("create_topic_replies");
+}
+
 function canOpenServerSettings() {
   return canUpdateServer() || canManageRoles();
 }
@@ -57,6 +69,7 @@ function applyServerPerms(perms, highestRole, timeoutUntil) {
     renderServerSidebar(currentServerData);
   }
   if (typeof paintAnnouncementAccess === "function") paintAnnouncementAccess();
+  if (typeof paintForumAccess === "function") paintForumAccess();
   if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen && !canOpenServerSettings()) {
     closeServerSettingsChrome();
   }

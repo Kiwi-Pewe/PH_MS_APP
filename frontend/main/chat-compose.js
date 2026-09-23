@@ -85,6 +85,10 @@ function enableChannelComposer(label) {
     disableChannelComposer("You do not have permission to send messages in this channel.");
     return;
   }
+  if (openForumPostId && typeof canCreateTopicReplies === "function" && !canCreateTopicReplies()) {
+    disableChannelComposer("You do not have permission to send messages in this channel.");
+    return;
+  }
   document.getElementById("channel-composer-input").disabled = false;
   document.getElementById("channel-composer-input").placeholder = `Message ${label}`;
   document.getElementById("channel-composer-send-btn").disabled = false;
@@ -193,6 +197,7 @@ async function sendChannelMessage() {
   const chatKind = openForumPostId !== null ? "forum" : "channel";
   const replyToId = currentPendingReplyId(chatKind);
   if (openForumPostId !== null) {
+    if (typeof canCreateTopicReplies === "function" && !canCreateTopicReplies()) return;
     ws.send(JSON.stringify({ type: "forum_message", post_id: openForumPostId, content, attachment, temp_id: tempId, reply_to_id: replyToId }));
   } else if (currentChannelId !== null) {
     ws.send(JSON.stringify({ type: "channel_message", channel_id: currentChannelId, content, attachment, temp_id: tempId, reply_to_id: replyToId }));

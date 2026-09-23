@@ -440,10 +440,10 @@ def view_channel(channel_id: int, database: Session = Depends(get_db), current_u
     is_member = database.query(Server_members).filter(Server_members.server_id == category.server_id, Server_members.user_id == current_user.id).first()
     if not is_member:
         raise HTTPException(status_code=404, detail="Server membership not found")
-    if channel.channel_type == "announcements":
-        server = database.query(Servers).filter(Servers.id == category.server_id).first()
-        from app.routers.roles import require_server_perm
-        require_server_perm(database, server, current_user.id, "view_announcements", "You do not have permission to view announcements.")
+    server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    from app.routers.roles import channel_type_visible, effective_perms_for_user
+    if server and not channel_type_visible(effective_perms_for_user(database, server, current_user.id), channel.channel_type):
+        raise HTTPException(status_code=403, detail="You do not have permission to view this channel.")
     stamp_channel_view(database, channel_id, current_user.id)
     database.commit()
     return {"channel_id": channel_id}

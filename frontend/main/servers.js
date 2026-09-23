@@ -371,15 +371,13 @@ async function selectChannel(channel, rowEl) {
     return;
   }
 
-  // No owner gate on New Post here, unlike Announcements above:
-  // /create_forum only checks server membership, so any member can start
-  // a post. Re-running this is also the only thing that re-sorts the
-  // card list, which is why leaving and returning acts as a refresh.
   if (isForums) {
     channelBody.style.display = "none";
     channelComposer.style.display = "none";
     forumsView.style.display = "flex";
     hideForumComposerEditing();
+    document.getElementById("forum-new-post-btn").style.display =
+      (typeof canCreateTopics === "function" && canCreateTopics()) ? "inline-flex" : "none";
     if (typeof paintServerTimeoutLock === "function") paintServerTimeoutLock();
     loadForumPosts(channel.id);
     return;
@@ -481,6 +479,9 @@ function channelVisibleInSidebar(channel) {
   if (!channel) return false;
   if (channel.channel_type === "announcements") {
     return typeof canViewAnnouncements !== "function" || canViewAnnouncements();
+  }
+  if (channel.channel_type === "forums") {
+    return typeof canReadForums !== "function" || canReadForums();
   }
   return true;
 }

@@ -7,11 +7,30 @@
 // submitCreateAnnouncement is hard-wired to the announcement input ids
 // and posts to /post_announcement, so there was nothing to share beyond
 // the styling. Same relationship #composer and #channel-composer have.
+function paintForumAccess() {
+  const btn = document.getElementById("forum-new-post-btn");
+  if (btn) {
+    btn.style.display = (typeof canCreateTopics === "function" && canCreateTopics()) ? "inline-flex" : "none";
+  }
+  const composer = document.getElementById("forum-composer-editing");
+  if (composer && composer.style.display !== "none" && typeof canCreateTopics === "function" && !canCreateTopics()) {
+    hideForumComposerEditing();
+  }
+  if (currentChannelType === "forums" && typeof canReadForums === "function" && !canReadForums()) {
+    if (typeof afterServerStructureChange === "function") afterServerStructureChange();
+    return;
+  }
+  if (openForumPostId && typeof enableChannelComposer === "function") {
+    enableChannelComposer(openForumPostTitle || currentChannelName || "");
+  }
+}
+
 document.getElementById("forum-new-post-btn").addEventListener("click", showForumComposerEditing);
 document.getElementById("forum-composer-cancel-btn").addEventListener("click", hideForumComposerEditing);
 document.getElementById("forum-post-btn").addEventListener("click", submitCreateForumPost);
 
 function showForumComposerEditing() {
+  if (typeof canCreateTopics === "function" && !canCreateTopics()) return;
   document.getElementById("forum-title-input").value = "";
   document.getElementById("forum-body-input").value = "";
   // Clearing the inline height (rather than setting a number) hands
@@ -49,6 +68,7 @@ async function submitCreateForumPost() {
   if (!title || (!body && !pending.length)) return;
 
   if (typeof isServerTimedOut === "function" && isServerTimedOut()) return;
+  if (typeof canCreateTopics === "function" && !canCreateTopics()) return;
   const postBtn = document.getElementById("forum-post-btn");
   postBtn.disabled = true;
   let post;

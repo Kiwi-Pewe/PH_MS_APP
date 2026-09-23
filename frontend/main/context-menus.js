@@ -75,7 +75,10 @@ function canReplyMessage(msg) {
   if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
-  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "channel" || msg.chatKind === "forum";
+  if (msg.chatKind === "forum") {
+    return typeof canCreateTopicReplies !== "function" || canCreateTopicReplies();
+  }
+  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "channel";
 }
 
 function canEditMessage(msg) {

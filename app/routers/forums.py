@@ -9,12 +9,17 @@ from app.r2 import attachment_public, delete_attachment, delete_r2_object, norma
 from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions, accepted_reply_parent, reply_map_for, reply_to_payload
 from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
-from app.routers.roles import name_color_role_for_user, name_color_roles_by_user
+from app.routers.roles import name_color_role_for_user, name_color_roles_by_user, require_server_perm
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from datetime import datetime
 
 router = APIRouter()
+
+
+def require_read_forums(database, server, user_id):
+    return require_server_perm(database, server, user_id, "read_forums", "You do not have permission to read forums.")
+
 
 @router.post("/create_forum")
 async def create_forum_post(create_forum: Forum_post_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -28,6 +33,7 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
 
     if not is_member:
         raise HTTPException(status_code=404, detail="membership not found")
+    require_server_perm(database, server, current_user.id, "create_topics", "You do not have permission to create forum topics.")
     from app.routers.moderation import require_not_timed_out
     require_not_timed_out(is_member)
 
@@ -73,6 +79,7 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
     is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
     if not is_member:
         raise HTTPException(status_code=404, detail="User is not a member of server")
+    require_read_forums(database, server, current_user.id)
 
     if before_activity:
         post_list = database.query(Forum_post).filter(
@@ -224,6 +231,7 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
 
     if not is_member:
         raise HTTPException(status_code= 404, detail="Membership not found")
+    require_server_perm(database, server, current_user.id, "create_topic_replies", "You do not have permission to create topic replies.")
     from app.routers.moderation import require_not_timed_out
     require_not_timed_out(is_member)
 
@@ -287,6 +295,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
 
     if not is_member:
         raise HTTPException(status_code=404, detail="Membership not found")
+    require_read_forums(database, server, current_user.id)
 
     if before_id:
         message_list = database.query(Forum_messages).filter(Forum_messages.post_id == post_id, Forum_messages.id < before_id).order_by(Forum_messages.created_at.desc()).limit(25).all()

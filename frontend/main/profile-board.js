@@ -1710,6 +1710,9 @@ function paintProfileCallout(tile, el) {
 
 function paintProfilePlaceholder(tile, el) {
   const meta = PROFILE_TILE_TYPES[tile.type] || { label: "Element" };
+  const emptyInView = tile.type === "frame" || tile.type === "color_block" || tile.type === "meter";
+  el.classList.add("is-placeholder");
+  if (emptyInView && !(profileEditing && profileIsOwn)) return;
   const head = document.createElement("div");
   head.className = "profile-tile-head";
   head.textContent = meta.label;
@@ -1719,7 +1722,6 @@ function paintProfilePlaceholder(tile, el) {
   note.className = "profile-placeholder-note";
   note.textContent = "Placeholder. This piece isn't wired yet.";
   body.appendChild(note);
-  el.classList.add("is-placeholder");
   el.appendChild(head);
   el.appendChild(body);
 }

@@ -805,8 +805,6 @@ function openAdminModSubmenu(mode, user) {
       let text = "This permanently removes the account";
       if (handle) text += " \"" + handle + "\"";
       text += " from Oneira. Owned servers are wiped. Their chat messages become footer notices.";
-      if (display && !sameName) text += " Display name \"" + display + "\" is not accepted — only the account username.";
-      else text += " Type the account username below (not a display name).";
       copy.textContent = text;
       body.appendChild(copy);
       const nameLabel = document.createElement("label");

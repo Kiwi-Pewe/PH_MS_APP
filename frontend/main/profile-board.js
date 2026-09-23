@@ -65,7 +65,7 @@ function bindProfileBoardScale() {
 const PROFILE_TILE_TYPES = {
   banner: { w: 32, h: 3, minW: 6, minH: 3, maxW: 32, maxH: 5, label: "Banner" },
   avatar: { w: 4, h: 4, minW: 2, minH: 2, maxW: 4, maxH: 4, label: "Avatar" },
-  display_name: { w: 5, h: 2, minW: 3, minH: 2, maxW: 5, maxH: 5, label: "Display name" },
+  display_name: { w: 5, h: 2, minW: 3, minH: 2, maxW: 5, maxH: 8, label: "Display name" },
   member_since: { w: 6, h: 2, minW: 4, minH: 2, maxW: 10, maxH: 3, label: "Member since" },
   bio: { w: 14, h: 5, minW: 6, minH: 5, maxW: 14, maxH: 6, label: "Bio" },
   friends: { w: 6, h: 11, minW: 4, minH: 11, maxW: 6, maxH: 15, label: "Friends" },

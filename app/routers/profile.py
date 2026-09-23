@@ -155,7 +155,7 @@ def tile_bounds(kind, props=None):
     return {
         "banner": (6, 3, 32, 5),
         "avatar": (2, 2, 4, 4),
-        "display_name": (3, 2, 5, 5),
+        "display_name": (3, 2, 5, 8),
         "member_since": (4, 2, 10, 3),
         "bio": (6, 5, 14, 6),
         "friends": (4, 11, 6, 15),

@@ -1332,7 +1332,7 @@ function fillNameClusterOptions(box, tile) {
 function growNameClusterTile(tile) {
   let need = 2;
   if (tile.props && tile.props.show_status) need += 1;
-  const maxH = (PROFILE_TILE_TYPES.display_name && PROFILE_TILE_TYPES.display_name.maxH) || 5;
+  const maxH = (PROFILE_TILE_TYPES.display_name && PROFILE_TILE_TYPES.display_name.maxH) || 8;
   if (tile.h < need) tile.h = Math.min(maxH, need);
 }
 

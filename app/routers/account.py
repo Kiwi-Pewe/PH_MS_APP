@@ -121,6 +121,7 @@ def set_session_cookie(response: Response, session_id):
     response.set_cookie(
         samesite="none",
         secure=True,
+        path="/",
         key="session_id",
         value= session_id,
         httponly=True,
@@ -237,7 +238,7 @@ def logout_account(response:Response, session_id: str = Cookie(None), database: 
     if existing_session:
         database.delete(existing_session)
         database.commit()
-        response.delete_cookie(key="session_id", samesite="none", secure=True)
+        response.delete_cookie(key="session_id", samesite="none", secure=True, path="/")
     return
 
 @router.post("/register", status_code = 201)

@@ -9,6 +9,19 @@ function showLogin() {
   document.getElementById("login-card").style.display = "block";
 }
 
+async function resumeSession() {
+  try {
+    const response = await fetch(`https://${API_HOST}/whoami`, { credentials: "include" });
+    if (!response.ok) return false;
+    const user = await response.json();
+    if (!user || !user.username) return false;
+    finishLogin(user);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 function finishLogin(user) {
   // If we arrived here via invite.html's "Log In to Join" (see
   // invite.js), redirect carries us straight back to the same invite
@@ -110,4 +123,9 @@ document.getElementById("mfa-code").addEventListener("keydown", (e) => {
 });
 document.getElementById("login-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") login();
+});
+
+window.addEventListener("load", async () => {
+  if (await resumeSession()) return;
+  showLogin();
 });

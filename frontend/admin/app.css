@@ -531,6 +531,84 @@ body {
   right: auto;
 }
 
+.admin-preview-rail .admin-action-menu {
+  min-width: 240px;
+  max-width: min(320px, 70vw);
+  padding: 8px;
+}
+
+.admin-action-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-action-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+  padding: 2px 2px 0;
+}
+
+.admin-action-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.admin-action-input:focus {
+  outline: none;
+  border-color: var(--accent-submenu);
+}
+
+.admin-action-error {
+  font-size: 12px;
+  font-weight: 600;
+  color: #c45c5c;
+}
+
+.admin-action-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.admin-action-cancel,
+.admin-action-confirm {
+  width: 100%;
+  text-align: center !important;
+  background: var(--panel-alt) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.admin-action-confirm {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+.admin-action-confirm.is-danger {
+  background: #7a2430 !important;
+  border-color: #7a2430 !important;
+}
+
+.admin-action-cancel:disabled,
+.admin-action-confirm:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
 .admin-preview-rail.is-user {
   grid-template-columns: 1fr 1fr 1fr;
 }

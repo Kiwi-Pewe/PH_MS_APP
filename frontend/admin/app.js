@@ -688,6 +688,96 @@ function closeAdminProfileOverlay() {
   if (overlay) overlay.hidden = true;
 }
 
+function openRailMenu(wrap, key, buildMenu) {
+  if (openFilter === key) {
+    closeFilters();
+    return;
+  }
+  closeFilters();
+  openFilter = key;
+  wrap.classList.add("is-open");
+  const menu = document.createElement("div");
+  menu.className = "admin-filter-menu admin-action-menu";
+  menu.addEventListener("click", (e) => e.stopPropagation());
+  buildMenu(menu);
+  wrap.appendChild(menu);
+}
+
+function buildActionForm(opts) {
+  const form = document.createElement("div");
+  form.className = "admin-action-form";
+  const title = document.createElement("div");
+  title.className = "admin-action-title";
+  title.textContent = opts.title || "";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "admin-action-input";
+  input.placeholder = opts.placeholder || "";
+  input.autocomplete = "off";
+  const err = document.createElement("div");
+  err.className = "admin-action-error";
+  err.hidden = true;
+  const actions = document.createElement("div");
+  actions.className = "admin-action-actions";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "admin-action-cancel";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeFilters();
+  });
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.className = "admin-action-confirm" + (opts.danger ? " is-danger" : "");
+  confirm.textContent = opts.confirmLabel || "Confirm";
+  async function submit() {
+    const value = input.value;
+    if (opts.required && !String(value).trim()) {
+      err.hidden = false;
+      err.textContent = opts.requiredMessage || "This field is required.";
+      input.focus();
+      return;
+    }
+    err.hidden = true;
+    confirm.disabled = true;
+    cancel.disabled = true;
+    input.disabled = true;
+    try {
+      await opts.onConfirm(value);
+      closeFilters();
+    } catch (e) {
+      err.hidden = false;
+      err.textContent = e.message || "Could not complete.";
+      confirm.disabled = false;
+      cancel.disabled = false;
+      input.disabled = false;
+      input.focus();
+    }
+  }
+  confirm.addEventListener("click", (e) => {
+    e.stopPropagation();
+    submit();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closeFilters();
+    }
+  });
+  actions.appendChild(cancel);
+  actions.appendChild(confirm);
+  form.appendChild(title);
+  form.appendChild(input);
+  form.appendChild(err);
+  form.appendChild(actions);
+  setTimeout(() => input.focus(), 0);
+  return form;
+}
+
 function paintUserRail(user) {
   const rail = document.getElementById("admin-preview-rail");
   if (!rail) return;
@@ -710,71 +800,85 @@ function paintUserRail(user) {
   banBtn.textContent = "Ban Account";
   banBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (openFilter === "ban") closeFilters();
-    else {
-      closeFilters();
-      openFilter = "ban";
-      banWrap.classList.add("is-open");
-      const menu = document.createElement("div");
-      menu.className = "admin-filter-menu";
+    openRailMenu(banWrap, "ban", (menu) => {
       BAN_LENGTHS.forEach((opt) => {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.textContent = opt.label;
-        btn.addEventListener("click", async (ev) => {
+        btn.addEventListener("click", (ev) => {
           ev.stopPropagation();
-          closeFilters();
-          const reason = window.prompt("Ban reason (optional):", "") || "";
-          try {
-            const data = await adminSend("/admin/user/" + user.id + "/ban", { seconds: opt.seconds, reason });
-            applyUserUpdate(data.user);
-          } catch (err) {
-            window.alert(err.message || "Could not ban.");
-          }
+          menu.innerHTML = "";
+          menu.appendChild(buildActionForm({
+            title: "Ban for " + opt.label + " — reason (optional)",
+            placeholder: "Reason",
+            confirmLabel: "Ban",
+            onConfirm: async (reason) => {
+              const data = await adminSend("/admin/user/" + user.id + "/ban", {
+                seconds: opt.seconds,
+                reason: reason || ""
+              });
+              applyUserUpdate(data.user);
+            }
+          }));
         });
         menu.appendChild(btn);
       });
-      banWrap.appendChild(menu);
-    }
+    });
   });
   banWrap.appendChild(banBtn);
 
+  const warnWrap = document.createElement("div");
+  warnWrap.className = "admin-filter-wrap";
   const warnBtn = document.createElement("button");
   warnBtn.type = "button";
+  warnBtn.className = "admin-filter-btn";
   warnBtn.textContent = "Warn Account";
-  warnBtn.addEventListener("click", async () => {
-    const reason = window.prompt("Warn reason (required):", "");
-    if (reason == null) return;
-    if (!String(reason).trim()) {
-      window.alert("A reason is required.");
-      return;
-    }
-    try {
-      const data = await adminSend("/admin/user/" + user.id + "/warn", { reason });
-      applyUserUpdate(data.user);
-    } catch (err) {
-      window.alert(err.message || "Could not warn.");
-    }
+  warnBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openRailMenu(warnWrap, "warn", (menu) => {
+      menu.appendChild(buildActionForm({
+        title: "Warn reason (required)",
+        placeholder: "Reason",
+        required: true,
+        requiredMessage: "A reason is required.",
+        confirmLabel: "Warn",
+        onConfirm: async (reason) => {
+          const data = await adminSend("/admin/user/" + user.id + "/warn", { reason });
+          applyUserUpdate(data.user);
+        }
+      }));
+    });
   });
+  warnWrap.appendChild(warnBtn);
 
+  const deleteWrap = document.createElement("div");
+  deleteWrap.className = "admin-filter-wrap";
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
-  deleteBtn.className = "admin-preview-danger";
+  deleteBtn.className = "admin-filter-btn admin-preview-danger";
   deleteBtn.textContent = "Delete Account";
-  deleteBtn.addEventListener("click", async () => {
-    const typed = window.prompt("Type the username to permanently delete this account:", "");
-    if (typed == null) return;
-    try {
-      await adminSend("/admin/user/" + user.id + "/delete", { username: typed });
-      removeUserFromList(user.id);
-    } catch (err) {
-      window.alert(err.message || "Could not delete.");
-    }
+  deleteBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openRailMenu(deleteWrap, "delete", (menu) => {
+      menu.appendChild(buildActionForm({
+        title: "Type the username to permanently delete this account",
+        placeholder: user.username || "username",
+        required: true,
+        requiredMessage: "Type the username to confirm.",
+        confirmLabel: "Delete",
+        danger: true,
+        onConfirm: async (typed) => {
+          await adminSend("/admin/user/" + user.id + "/delete", { username: typed });
+          removeUserFromList(user.id);
+        }
+      }));
+    });
   });
+  deleteWrap.appendChild(deleteBtn);
 
   rail.appendChild(banWrap);
-  rail.appendChild(warnBtn);
-  rail.appendChild(deleteBtn);
+  rail.appendChild(warnWrap);
+  rail.appendChild(deleteWrap);
 }
 
 function paintUserPreview(user) {

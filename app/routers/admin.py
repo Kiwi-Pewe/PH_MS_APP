@@ -5,7 +5,11 @@ from app.models import UserInfo, Feedback_report, Servers, Server_members
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.account import public_display_name
+from app.routers.profile import public_identity
+from app.routers.mini_profiles import layout_banner_and_about
+from app.routers.servers import server_banner_fields, server_icon_url
 from app.r2 import post_attachments_public
+import json
 
 router = APIRouter()
 
@@ -24,7 +28,20 @@ def require_oneira_admin(user):
     return user
 
 
+def user_visuals(account):
+    ident = public_identity(account)
+    try:
+        raw = json.loads(getattr(account, "profile_layout", None) or "{}")
+    except (TypeError, ValueError):
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    color, _ = layout_banner_and_about(raw)
+    return ident.get("avatar") or {}, ident.get("banner") or {}, color
+
+
 def pack_user(account, server_count):
+    avatar, banner, banner_color = user_visuals(account)
     return {
         "id": account.id,
         "username": account.username,
@@ -34,10 +51,14 @@ def pack_user(account, server_count):
         "pronouns": account.profile_pronouns or "",
         "mfa_enabled": bool(account.mfa_enabled),
         "server_count": int(server_count),
+        "avatar": avatar,
+        "banner": banner,
+        "banner_color": banner_color,
     }
 
 
 def pack_server(server, owner_names, owner_handles, member_count):
+    banner = server_banner_fields(server)
     return {
         "id": server.id,
         "name": server.name,
@@ -49,6 +70,9 @@ def pack_server(server, owner_names, owner_handles, member_count):
         "owner_display_name": owner_names.get(server.owner_id, ""),
         "member_count": int(member_count),
         "created_at": str(server.created_at) if server.created_at else None,
+        "icon_url": server_icon_url(server),
+        "banner_url": banner.get("banner_url") or "",
+        "banner_color": banner.get("banner_color") or "",
     }
 
 
@@ -132,6 +156,9 @@ def admin_me(current_user: UserInfo = Depends(get_current_user)):
 def admin_feedback(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     require_oneira_admin(current_user)
     rows = database.query(Feedback_report).order_by(Feedback_report.id.desc()).limit(LIST_CAP).all()
+    user_ids = list({row.user_id for row in rows if row.user_id})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
+    faces = {account.id: public_identity(account).get("avatar") or {} for account in accounts}
     out = []
     for row in rows:
         out.append({
@@ -151,6 +178,7 @@ def admin_feedback(database: Session = Depends(get_db), current_user: UserInfo =
             "channel_name": row.channel_name,
             "channel_type": row.channel_type,
             "created_at": str(row.created_at) if row.created_at else None,
+            "avatar": faces.get(row.user_id) or {},
         })
     return {"reports": out}
 

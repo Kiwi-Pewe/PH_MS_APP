@@ -229,24 +229,111 @@ function openPreview(item) {
   });
 }
 
-function cardCopy(item) {
+function mediaUrl(media) {
+  return media && media.url ? media.url : "";
+}
+
+function firstLetters(name) {
+  const words = String(name || "?").trim().split(/\s+/);
+  if (words.length >= 2) return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+  return (words[0] || "?").charAt(0).toUpperCase();
+}
+
+function formatStamp(raw) {
+  if (!raw) return "—";
+  const date = new Date(raw);
+  if (isNaN(date.getTime())) return String(raw);
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+function paintFace(host, url, letter) {
+  host.innerHTML = "";
+  if (url) {
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    host.appendChild(img);
+    return;
+  }
+  host.textContent = letter || "?";
+}
+
+function paintBanner(host, url, color) {
+  host.style.backgroundColor = color || "#1e6b8a";
+  host.style.backgroundImage = url ? "url(" + JSON.stringify(url) + ")" : "none";
+}
+
+function whoBlock(name, time, url, letter) {
+  const who = document.createElement("div");
+  who.className = "admin-card-who";
+  const face = document.createElement("div");
+  face.className = "admin-card-face";
+  paintFace(face, url, letter);
+  const text = document.createElement("div");
+  text.className = "admin-card-who-text";
+  const title = document.createElement("div");
+  title.className = "admin-card-name";
+  title.textContent = name || "—";
+  const stamp = document.createElement("div");
+  stamp.className = "admin-card-time";
+  stamp.textContent = formatStamp(time);
+  text.appendChild(title);
+  text.appendChild(stamp);
+  who.appendChild(face);
+  who.appendChild(text);
+  return who;
+}
+
+function paintEntryCard(item) {
+  const card = document.createElement("div");
+  card.className = "admin-card";
+  card.tabIndex = 0;
+  card.dataset.key = itemKey(item);
+  if (previewKey && card.dataset.key === previewKey) card.classList.add("is-on");
   if (adminTab === "feedback") {
-    const who = item.display_name || item.username || ("User " + item.user_id);
-    return {
-      head: item.feedback_label || item.feedback_type,
-      meta: who + (item.created_at ? " · " + item.created_at : "")
-    };
+    const name = item.username || ("User " + item.user_id);
+    card.appendChild(whoBlock(name, item.created_at, mediaUrl(item.avatar), firstLetters(name)));
+    const copy = document.createElement("div");
+    copy.className = "admin-card-copy";
+    const type = document.createElement("div");
+    type.className = "admin-card-type";
+    type.textContent = item.feedback_label || item.feedback_type || "Feedback";
+    const desc = document.createElement("div");
+    desc.className = "admin-card-desc";
+    desc.textContent = item.report || "";
+    copy.appendChild(type);
+    copy.appendChild(desc);
+    card.appendChild(copy);
+  } else if (adminTab === "users") {
+    const name = item.username || ("User " + item.id);
+    card.appendChild(whoBlock(name, item.created_at, mediaUrl(item.avatar), firstLetters(name)));
+    const banner = document.createElement("div");
+    banner.className = "admin-card-banner";
+    paintBanner(banner, mediaUrl(item.banner), item.banner_color);
+    card.appendChild(banner);
+  } else {
+    const name = item.name || item.id;
+    card.appendChild(whoBlock(name, item.created_at, item.icon_url, firstLetters(name)));
+    const banner = document.createElement("div");
+    banner.className = "admin-card-banner";
+    paintBanner(banner, item.banner_url, item.banner_color || "#8b5cf6");
+    card.appendChild(banner);
   }
-  if (adminTab === "users") {
-    return {
-      head: item.username || ("User " + item.id),
-      meta: "#" + item.id + (item.display_name && item.display_name !== item.username ? " · " + item.display_name : "")
-    };
-  }
-  return {
-    head: item.name || item.id,
-    meta: "#" + item.id + (item.owner_display_name || item.owner_username ? " · " + (item.owner_display_name || item.owner_username) : "")
-  };
+  const open = () => openPreview(item);
+  card.addEventListener("click", open);
+  card.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
+  });
+  return card;
 }
 
 function paintList() {
@@ -266,31 +353,8 @@ function paintList() {
   }
   let previewStillVisible = false;
   rows.forEach((item) => {
-    const card = document.createElement("div");
-    card.className = "admin-card";
-    card.tabIndex = 0;
-    card.dataset.key = itemKey(item);
-    if (previewKey && card.dataset.key === previewKey) {
-      card.classList.add("is-on");
-      previewStillVisible = true;
-    }
-    const copy = cardCopy(item);
-    const head = document.createElement("div");
-    head.className = "admin-card-head";
-    head.textContent = copy.head;
-    const meta = document.createElement("div");
-    meta.className = "admin-card-meta";
-    meta.textContent = copy.meta;
-    card.appendChild(head);
-    card.appendChild(meta);
-    const open = () => openPreview(item);
-    card.addEventListener("click", open);
-    card.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        open();
-      }
-    });
+    const card = paintEntryCard(item);
+    if (card.classList.contains("is-on")) previewStillVisible = true;
     list.appendChild(card);
   });
   if (previewKey && !previewStillVisible) closePreview();

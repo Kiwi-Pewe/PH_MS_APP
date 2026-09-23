@@ -284,6 +284,12 @@ def require_server_perm(database, server, user_id, perm, detail="You do not have
     return perms
 
 
+def channel_type_visible(permissions, channel_type):
+    if channel_type == "announcements":
+        return bool(permissions.get("view_announcements"))
+    return True
+
+
 def role_sort_key(role):
     if isinstance(role, dict):
         return (int(role.get("position") or 0), int(role.get("id") or 0))

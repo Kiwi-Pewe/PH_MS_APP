@@ -395,6 +395,8 @@ def channel_notice(database, channel_id, user_id):
 def visible_channel_ids(database, server_id, user_id):
     server = database.query(Servers).filter(Servers.id == server_id).first()
     is_owner = server and server.owner_id == user_id
+    from app.routers.roles import channel_type_visible, effective_perms_for_user
+    permissions = effective_perms_for_user(database, server, user_id) if server else {}
     categories = database.query(Server_categories).filter(Server_categories.server_id == server_id).all()
     ids = []
     for category in categories:
@@ -403,6 +405,8 @@ def visible_channel_ids(database, server_id, user_id):
         channels = database.query(Server_channels).filter(Server_channels.category_id == category.id).all()
         for channel in channels:
             if channel.is_private == True and not is_owner:
+                continue
+            if not channel_type_visible(permissions, channel.channel_type):
                 continue
             ids.append(channel.id)
     return ids
@@ -436,6 +440,10 @@ def view_channel(channel_id: int, database: Session = Depends(get_db), current_u
     is_member = database.query(Server_members).filter(Server_members.server_id == category.server_id, Server_members.user_id == current_user.id).first()
     if not is_member:
         raise HTTPException(status_code=404, detail="Server membership not found")
+    if channel.channel_type == "announcements":
+        server = database.query(Servers).filter(Servers.id == category.server_id).first()
+        from app.routers.roles import require_server_perm
+        require_server_perm(database, server, current_user.id, "view_announcements", "You do not have permission to view announcements.")
     stamp_channel_view(database, channel_id, current_user.id)
     database.commit()
     return {"channel_id": channel_id}

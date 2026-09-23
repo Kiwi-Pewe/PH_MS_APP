@@ -219,7 +219,7 @@ async function openServer(serverId, iconEl) {
 
   // Auto-selects first channel. Remembering last-viewed channel is
   // deferred (see Handoff).
-  const firstChannel = data.categories.flatMap(c => c.channels)[0];
+  const firstChannel = firstVisibleSidebarChannel();
   if (firstChannel) {
     selectChannel(firstChannel);
   } else {
@@ -265,6 +265,7 @@ function renderServerSidebar(data) {
     const channelsEl = document.createElement("div");
     channelsEl.className = "category-channels";
     category.channels.forEach(channel => {
+      if (!channelVisibleInSidebar(channel)) return;
       const row = document.createElement("div");
       row.className = "channel-row";
       row.dataset.channelId = channel.id;
@@ -365,7 +366,7 @@ async function selectChannel(channel, rowEl) {
     // Only owner can post right now (server-enforced) - hidden entirely
     // for everyone else rather than greyed out.
     document.getElementById("announce-new-post-btn").style.display =
-      (myUserId === currentServerOwnerId) ? "inline-flex" : "none";
+      (typeof canCreateAnnouncements === "function" && canCreateAnnouncements()) ? "inline-flex" : "none";
     loadAnnouncementPosts(channel.id);
     return;
   }
@@ -476,10 +477,23 @@ function showNoChannelSelected() {
   disableChannelComposer("No channel selected.");
 }
 
+function channelVisibleInSidebar(channel) {
+  if (!channel) return false;
+  if (channel.channel_type === "announcements") {
+    return typeof canViewAnnouncements !== "function" || canViewAnnouncements();
+  }
+  return true;
+}
+
+function firstVisibleSidebarChannel() {
+  if (!currentServerData) return null;
+  return currentServerData.categories.flatMap(c => c.channels).find(channelVisibleInSidebar) || null;
+}
+
 function channelStillInSidebar(channelId) {
   if (!currentServerData) return false;
   return currentServerData.categories.some(category =>
-    category.channels.some(channel => channel.id === channelId)
+    category.channels.some(channel => channel.id === channelId && channelVisibleInSidebar(channel))
   );
 }
 
@@ -489,7 +503,7 @@ function afterServerStructureChange() {
   renderServerSidebar(currentServerData);
   if (stillOpen) return;
   if (typeof hideDocsChrome === "function") hideDocsChrome();
-  const firstChannel = currentServerData.categories.flatMap(c => c.channels)[0];
+  const firstChannel = firstVisibleSidebarChannel();
   if (firstChannel) {
     selectChannel(firstChannel);
   } else {

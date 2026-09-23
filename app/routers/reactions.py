@@ -162,6 +162,8 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
         if not is_member:
             raise HTTPException(status_code=404, detail="No message found")
+        from app.routers.roles import require_server_perm
+        require_server_perm(database, server, current_user.id, "view_announcements", "You do not have permission to view announcements.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
         existing = database.query(Message_reaction).filter(Message_reaction.kind == "announcement", Message_reaction.message_id == post.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()
@@ -221,6 +223,8 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
         if not is_member:
             raise HTTPException(status_code=404, detail="No message found")
+        from app.routers.roles import require_server_perm
+        require_server_perm(database, server, current_user.id, "view_announcements", "You do not have permission to view announcements.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
         existing = database.query(Message_reaction).filter(Message_reaction.kind == "comment", Message_reaction.message_id == comment.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()

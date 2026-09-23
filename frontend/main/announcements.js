@@ -10,7 +10,40 @@ document.getElementById("announce-new-post-btn").addEventListener("click", showA
 document.getElementById("announce-composer-cancel-btn").addEventListener("click", hideAnnounceComposerEditing);
 document.getElementById("announcement-post-btn").addEventListener("click", submitCreateAnnouncement);
 
+function canRemoveAnnouncement(post) {
+  if (!post) return false;
+  if (typeof canManageAnnouncements === "function" && canManageAnnouncements()) return true;
+  return post.sender_id === myUserId && typeof canCreateAnnouncements === "function" && canCreateAnnouncements();
+}
+
+function canEditAnnouncement(post) {
+  if (!post || post.sender_id !== myUserId) return false;
+  return (typeof canCreateAnnouncements === "function" && canCreateAnnouncements())
+    || (typeof canManageAnnouncements === "function" && canManageAnnouncements());
+}
+
+function paintAnnouncementAccess() {
+  const btn = document.getElementById("announce-new-post-btn");
+  if (btn) {
+    btn.style.display = (typeof canCreateAnnouncements === "function" && canCreateAnnouncements()) ? "inline-flex" : "none";
+  }
+  const editing = typeof editingAnnouncementId !== "undefined" && editingAnnouncementId;
+  const canOwn = typeof canCreateAnnouncements === "function" && canCreateAnnouncements();
+  const canAll = typeof canManageAnnouncements === "function" && canManageAnnouncements();
+  if (editing && !canOwn && !canAll && typeof abandonAnnouncementEdit === "function") {
+    abandonAnnouncementEdit();
+  }
+  const composer = document.getElementById("announce-composer-editing");
+  if (!editing && composer && composer.style.display !== "none" && !canOwn) {
+    hideAnnounceComposerEditing();
+  }
+  if (currentChannelType === "announcements" && typeof canViewAnnouncements === "function" && !canViewAnnouncements()) {
+    if (typeof afterServerStructureChange === "function") afterServerStructureChange();
+  }
+}
+
 function showAnnounceComposerEditing() {
+  if (typeof canCreateAnnouncements === "function" && !canCreateAnnouncements()) return;
   document.getElementById("announcement-title-input").value = "";
   document.getElementById("announcement-body-input").value = "";
   document.getElementById("announcement-body-input").style.height = "";
@@ -38,6 +71,7 @@ function hideAnnounceComposerEditing() {
 }
 
 async function submitCreateAnnouncement() {
+  if (typeof canCreateAnnouncements === "function" && !canCreateAnnouncements()) return;
   const title = document.getElementById("announcement-title-input").value.trim();
   const body = document.getElementById("announcement-body-input").value.trim();
   const pending = postMediaPending.announce.files;
@@ -350,7 +384,6 @@ function patchAnnouncementReactions(postId, reactions) {
 function showPostContextMenu(e, post) {
   e.preventDefault();
   e.stopPropagation();
-  const canDelete = post.sender_id === myUserId || myUserId === currentServerOwnerId;
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(post.username),
     title: post.username,
@@ -358,8 +391,8 @@ function showPostContextMenu(e, post) {
     subtitle: truncateForContextMenu(post.title)
   }, [
     { label: "Add Reaction", onSelect: () => openReactionPicker(announceReactionTarget(post), e.clientX, e.clientY) },
-    post.sender_id === myUserId && { label: "Edit Post", onSelect: () => startAnnouncementEdit(post) },
-    canDelete && { label: "Delete Post", danger: true, onSelect: () => deletePostFromContextMenu(post) }
+    canEditAnnouncement(post) && { label: "Edit Post", onSelect: () => startAnnouncementEdit(post) },
+    canRemoveAnnouncement(post) && { label: "Delete Post", danger: true, onSelect: () => deletePostFromContextMenu(post) }
   ]);
 }
 
@@ -471,7 +504,7 @@ function abandonAnnouncementEdit() {
 }
 
 function startAnnouncementEdit(post) {
-  if (post.sender_id !== myUserId) return;
+  if (!canEditAnnouncement(post)) return;
   if (editingAnnouncementId === post.id) return;
   abandonAnnouncementEdit();
   const card = document.querySelector(`.announce-post[data-post-id="${post.id}"]`);

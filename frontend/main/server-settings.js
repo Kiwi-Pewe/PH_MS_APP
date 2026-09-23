@@ -29,6 +29,18 @@ function canMentionEveryone() {
   return canServerPerm("mention_everyone");
 }
 
+function canViewAnnouncements() {
+  return canServerPerm("view_announcements");
+}
+
+function canCreateAnnouncements() {
+  return canServerPerm("create_announcements");
+}
+
+function canManageAnnouncements() {
+  return canServerPerm("manage_announcements");
+}
+
 function canOpenServerSettings() {
   return canUpdateServer() || canManageRoles();
 }
@@ -44,6 +56,7 @@ function applyServerPerms(perms, highestRole, timeoutUntil) {
   if (typeof currentServerData !== "undefined" && currentServerData && typeof renderServerSidebar === "function") {
     renderServerSidebar(currentServerData);
   }
+  if (typeof paintAnnouncementAccess === "function") paintAnnouncementAccess();
   if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen && !canOpenServerSettings()) {
     closeServerSettingsChrome();
   }

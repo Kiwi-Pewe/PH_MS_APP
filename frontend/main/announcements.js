@@ -171,7 +171,10 @@ function buildAnnouncementPostCard(post) {
   const commentInput = document.createElement("input");
   commentInput.type = "text";
   commentInput.className = "announce-comment-input";
-  commentInput.placeholder = "Add a comment...";
+  commentInput.placeholder = (typeof isServerTimedOut === "function" && isServerTimedOut())
+    ? "You do not have permission to send messages in this channel."
+    : "Add a comment...";
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) commentInput.disabled = true;
   const commentSendBtn = document.createElement("button");
   commentSendBtn.className = "announce-comment-send-btn";
   commentSendBtn.textContent = "Post";

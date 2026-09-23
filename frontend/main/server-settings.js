@@ -25,9 +25,13 @@ function canOpenServerSettings() {
   return canUpdateServer() || canManageRoles();
 }
 
-function applyServerPerms(perms, highestRole) {
+function applyServerPerms(perms, highestRole, timeoutUntil) {
   currentServerPerms = perms && typeof perms === "object" ? perms : {};
   if (arguments.length > 1) currentServerHighestRole = highestRole || null;
+  if (arguments.length > 2) {
+    currentServerTimeoutUntil = timeoutUntil || null;
+    if (typeof paintServerTimeoutLock === "function") paintServerTimeoutLock();
+  }
   paintServerSettingsAccess();
   if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen && !canOpenServerSettings()) {
     closeServerSettingsChrome();
@@ -40,7 +44,7 @@ async function refreshServerPerms() {
     const response = await fetch(`https://${serverAddress}/get_server_perms/${currentServerId}`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
-    applyServerPerms(data.permissions || {}, data.highest_role);
+    applyServerPerms(data.permissions || {}, data.highest_role, data.timeout_until);
   } catch (e) { /* keep the last known set */ }
 }
 

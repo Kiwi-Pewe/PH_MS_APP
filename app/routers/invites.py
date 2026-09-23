@@ -4,9 +4,10 @@ from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Parties, Party_members, Party_messages, Invite_model
 from app.schemas import Invite
 from app.database import get_db, SessionLocal
-from app.auth import get_current_user
+from app.auth import get_current_user, get_optional_user
 from app.routers.realtime import active_connections, serialize_member, server_broadcast, party_broadcast
 from app.routers.roles import require_server_member, require_server_perm
+from app.routers.moderation import active_ban
 from datetime import datetime, timedelta
 import asyncio
 import random
@@ -55,6 +56,8 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
         raise HTTPException(status_code=404, detail= "Invite not found")
 
     if invite.type == "server":
+        if active_ban(database, invite.server_id, current_user.id):
+            raise HTTPException(status_code=404, detail="Invite not found")
         server = database.query(Servers).filter(Servers.id == invite.server_id).first()
         is_member = database.query(Server_members).filter(Server_members.server_id == invite.server_id, Server_members.user_id == current_user.id).first()
         if is_member:
@@ -175,9 +178,11 @@ def create_invite(type: Invite, database: Session = Depends(get_db), current_use
     return {"invite_code": new_code}
 
 @router.get("/invite/{code}")
-def get_invite_info(code: str, database: Session = Depends(get_db)):
+def get_invite_info(code: str, database: Session = Depends(get_db), current_user: UserInfo | None = Depends(get_optional_user)):
     invite = database.query(Invite_model).filter(Invite_model.code == code).first()
     if not invite or not is_invite_valid(invite):
+        return {"valid": False}
+    if invite.type == "server" and current_user and active_ban(database, invite.server_id, current_user.id):
         return {"valid": False}
 
     if invite.type == "party":

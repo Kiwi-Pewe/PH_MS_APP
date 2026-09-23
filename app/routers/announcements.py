@@ -115,6 +115,8 @@ async def post_comment(comment: Comment_create, database: Session = Depends(get_
 
     if not is_member:
         raise HTTPException(status_code=404, detail="membership not found")
+    from app.routers.moderation import require_not_timed_out
+    require_not_timed_out(is_member)
 
     new_comment = Announcement_comment(
         post_id = announcement.id,

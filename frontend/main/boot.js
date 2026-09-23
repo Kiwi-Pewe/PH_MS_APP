@@ -328,6 +328,16 @@ function connectSocket() {
       applyMemberLeft(data.scope, data.scope_id, data.user_id);
     }
 
+    if (data.type === "member_timeout") {
+      if (typeof applyMemberTimeout === "function") {
+        applyMemberTimeout(data.server_id, data.user_id, data.timeout_until || null, data.timeout_reason || "");
+      }
+    }
+
+    if (data.type === "removed_from_server") {
+      if (typeof applyRemovedFromServer === "function") applyRemovedFromServer(data);
+    }
+
     if (data.type === "announcement_reacted") {
       patchAnnouncementReactions(data.post_id, data.reactions || []);
     }

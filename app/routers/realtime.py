@@ -8,7 +8,7 @@ active_connections = {}
 def presence_status(user_id):
     return "online" if user_id in active_connections else "offline"
 
-def serialize_member(user, is_owner, hoist_role=None, name_role=None):
+def serialize_member(user, is_owner, hoist_role=None, name_role=None, highest_role=None, timeout_until=None, timeout_reason=None):
     payload = {
         "id": user.id,
         "username": user.username,
@@ -19,6 +19,12 @@ def serialize_member(user, is_owner, hoist_role=None, name_role=None):
         payload["hoist_role"] = hoist_role
     if name_role:
         payload["name_role"] = name_role
+    if highest_role:
+        payload["highest_role"] = highest_role
+    if timeout_until:
+        payload["timeout_until"] = timeout_until
+    if timeout_reason:
+        payload["timeout_reason"] = timeout_reason
     from app.routers.profile import public_avatar
     payload["avatar"] = public_avatar(user)
     return payload

@@ -11,7 +11,8 @@ from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.realtime import serialize_member, server_broadcast
 from app.routers.profile import avatar_lookup
-from app.routers.roles import actor_highest_role, effective_perms_for_user, require_server_member, require_server_perm, seed_server_roles
+from app.routers.roles import actor_highest_role, effective_perms_for_user, highest_roles_by_user, require_server_member, require_server_perm, seed_server_roles
+from app.routers.moderation import iso_dt, require_not_timed_out, timeout_until_for
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 import random
 import re
@@ -242,6 +243,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "default_notifications": server_default_notifications(server),
         "permissions": permissions,
         "highest_role": actor_highest_role(database, server, current_user.id),
+        "timeout_until": iso_dt(timeout_until_for(in_server)),
         **server_banner_fields(server)
     }
 
@@ -499,6 +501,7 @@ def get_server_members(server_id: str, database: Session = Depends(get_db), curr
     account_lookup = {account.id: account for account in accounts}
     hoist_map = hoist_roles_by_user(database, server_id, user_ids)
     name_map = name_color_roles_by_user(database, server_id, user_ids)
+    highest_map = highest_roles_by_user(database, server_id, user_ids)
 
     members = []
     for row in memberships:
@@ -509,6 +512,9 @@ def get_server_members(server_id: str, database: Session = Depends(get_db), curr
                 account.id == server.owner_id,
                 hoist_map.get(account.id),
                 name_map.get(account.id),
+                highest_map.get(account.id),
+                iso_dt(timeout_until_for(row)),
+                getattr(row, "timeout_reason", None) if timeout_until_for(row) else None,
             ))
     return {"server_id": server_id, "members": members}
 
@@ -521,6 +527,7 @@ def message_server_channel(server_msg: Server_message, database: Session = Depen
 
     if not is_member:
         raise HTTPException(status_code=404, detail= "Server membership not found.")
+    require_not_timed_out(is_member)
 
     require_message_body(server_msg.content, server_msg.attachment)
     parent = None

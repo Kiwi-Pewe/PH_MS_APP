@@ -293,3 +293,17 @@ def ensure_role_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+
+
+def ensure_moderation_columns():
+    adds = (
+        ("server_members", "timeout_until", "DATETIME"),
+        ("server_members", "timeout_reason", "VARCHAR"),
+    )
+    with engine.connect() as conn:
+        for table, column, coltype in adds:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()

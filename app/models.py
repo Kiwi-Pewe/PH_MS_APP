@@ -151,6 +151,19 @@ class Server_members(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     joined_at = Column(DateTime, server_default=func.now())
     position = Column(Integer)
+    timeout_until = Column(DateTime, nullable=True)
+    timeout_reason = Column(String, nullable=True)
+
+class Server_bans(Base):
+    __tablename__ = "server_bans"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    actor_id = Column(Integer, ForeignKey("users.id"))
+    reason = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+    expires_at = Column(DateTime, nullable=True)
+    __table_args__ = (UniqueConstraint("server_id", "user_id", name="uq_server_ban"),)
 
 class Server_roles(Base):
     __tablename__ = "server_roles"

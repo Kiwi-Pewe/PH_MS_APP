@@ -238,6 +238,7 @@ function loadMoreComments(postId) {
 async function submitComment(postId, inputEl) {
   const content = inputEl.value.trim();
   if (!content) return;
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) return;
 
   let result;
   try {

@@ -252,6 +252,12 @@ class Invite(BaseModel):
     server_id: str | None = None
     party_id: int | None = None
 
+class Server_moderation_in(BaseModel):
+    server_id: str
+    user_id: int
+    reason: str = ""
+    seconds: int = 0
+
 class Category_create(BaseModel):
     server_id: str
     name: str

@@ -221,6 +221,42 @@ def highest_role_for_user(database, server_id, user_id):
     return min(roles, key=lambda role: (int(role.get("position") or 0), int(role.get("id") or 0)))
 
 
+def highest_roles_by_user(database, server_id, user_ids=None):
+    rows = (
+        database.query(Server_roles, Server_role_members.user_id)
+        .join(Server_role_members, Server_role_members.role_id == Server_roles.id)
+        .filter(Server_roles.server_id == server_id)
+    )
+    if user_ids is not None:
+        rows = rows.filter(Server_role_members.user_id.in_(list(user_ids)))
+    best = {}
+    for role, user_id in rows.all():
+        current = best.get(user_id)
+        if current is None or (int(role.position or 0), role.id) < (int(current["position"] or 0), int(current["id"] or 0)):
+            best[user_id] = {
+                "id": role.id,
+                "position": int(role.position or 0),
+                "is_members": bool(role.is_members),
+            }
+    return best
+
+
+def can_moderate_target(database, server, actor_id, target_id):
+    if actor_id == target_id:
+        return False
+    if server.owner_id == target_id:
+        return False
+    if server.owner_id == actor_id:
+        return True
+    actor_highest = highest_role_for_user(database, server.id, actor_id)
+    target_highest = highest_role_for_user(database, server.id, target_id)
+    if not actor_highest:
+        return False
+    if not target_highest:
+        return True
+    return role_sort_key(actor_highest) < role_sort_key(target_highest)
+
+
 def owner_role_perms():
     return {key: True for key in LIVE_ROLE_PERMS}
 
@@ -309,9 +345,12 @@ def get_server_perms(server_id: str, database: Session = Depends(get_db), curren
     server = require_server_member(database, server_id, current_user.id)
     seed_server_roles(database, server.id)
     database.commit()
+    membership = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+    from app.routers.moderation import iso_dt, timeout_until_for
     return {
         "permissions": effective_perms_for_user(database, server, current_user.id),
         "highest_role": actor_highest_role(database, server, current_user.id),
+        "timeout_until": iso_dt(timeout_until_for(membership)),
     }
 
 

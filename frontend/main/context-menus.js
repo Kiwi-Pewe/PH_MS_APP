@@ -217,9 +217,9 @@ async function copyMessageContent(msg) {
 }
 
 function canModerateMember(member) {
-  if (memberListScope !== "server") return false;
-  if (!member || member.id === myUserId || member.is_owner) return false;
-  return currentServerOwnerId === myUserId;
+  return canActOnMember(member, "kick_members")
+    || canActOnMember(member, "ban_members")
+    || canActOnMember(member, "timeout_members");
 }
 
 async function fetchRelationship(userId) {
@@ -254,9 +254,11 @@ async function showMemberContextMenu(e, member) {
     relation.blocked
       ? { label: "Unblock", onSelect: () => unblockFromContextMenu(member.id, member.username) }
       : { label: "Block", danger: true, onSelect: () => blockFromContextMenu(member.id, member.username) },
-    canModerateMember(member) && { label: "Timeout", onSelect: () => console.log("Timeout — not implemented yet") },
-    canModerateMember(member) && { label: "Kick", danger: true, onSelect: () => console.log("Kick — not implemented yet") },
-    canModerateMember(member) && { label: "Ban", danger: true, onSelect: () => console.log("Ban — not implemented yet") }
+    canActOnMember(member, "timeout_members") && (memberTimeoutActive(member)
+      ? { label: "Show Timeout", onSelect: () => openModerationModal("timeout-edit", member) }
+      : { label: "Timeout", onSelect: () => openModerationModal("timeout", member) }),
+    canActOnMember(member, "kick_members") && { label: "Kick", danger: true, onSelect: () => openModerationModal("kick", member) },
+    canActOnMember(member, "ban_members") && { label: "Ban", danger: true, onSelect: () => openModerationModal("ban", member) }
   ];
 
   openContextMenu(e.clientX, e.clientY, {

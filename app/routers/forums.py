@@ -28,6 +28,8 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
 
     if not is_member:
         raise HTTPException(status_code=404, detail="membership not found")
+    from app.routers.moderation import require_not_timed_out
+    require_not_timed_out(is_member)
 
     items = normalize_post_attachments(create_forum.attachments, create_forum.attachment)
     require_post_body(create_forum.title, create_forum.body, items)
@@ -222,6 +224,8 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
 
     if not is_member:
         raise HTTPException(status_code= 404, detail="Membership not found")
+    from app.routers.moderation import require_not_timed_out
+    require_not_timed_out(is_member)
 
     require_message_body(forum_message.content, forum_message.attachment)
     parent = None

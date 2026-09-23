@@ -48,6 +48,7 @@ async function submitCreateForumPost() {
   const pending = postMediaPending.forum.files;
   if (!title || (!body && !pending.length)) return;
 
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) return;
   const postBtn = document.getElementById("forum-post-btn");
   postBtn.disabled = true;
   let post;

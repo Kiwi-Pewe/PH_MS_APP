@@ -198,7 +198,9 @@ async function openServer(serverId, iconEl) {
   currentServerOwnerId = data.owner;
   currentServerPerms = data.permissions || {};
   currentServerHighestRole = data.highest_role || null;
+  currentServerTimeoutUntil = data.timeout_until || null;
   if (typeof paintServerSettingsAccess === "function") paintServerSettingsAccess();
+  if (typeof paintServerTimeoutLock === "function") paintServerTimeoutLock();
   currentServerData = data;
 
   document.getElementById("dm-sidebar-view").style.display = "none";
@@ -377,6 +379,7 @@ async function selectChannel(channel, rowEl) {
     channelComposer.style.display = "none";
     forumsView.style.display = "flex";
     hideForumComposerEditing();
+    if (typeof paintServerTimeoutLock === "function") paintServerTimeoutLock();
     loadForumPosts(channel.id);
     return;
   }

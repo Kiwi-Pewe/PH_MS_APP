@@ -67,6 +67,7 @@ async function goHome() {
   currentServerOwnerId = null;
   currentServerPerms = {};
   currentServerHighestRole = null;
+  currentServerTimeoutUntil = null;
   mentionRoleList = [];
   currentChannelId = null;
   currentChannelType = null;

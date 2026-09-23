@@ -81,6 +81,10 @@ function disableChannelComposer(message) {
 }
 
 function enableChannelComposer(label) {
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) {
+    disableChannelComposer("You do not have permission to send messages in this channel.");
+    return;
+  }
   document.getElementById("channel-composer-input").disabled = false;
   document.getElementById("channel-composer-input").placeholder = `Message ${label}`;
   document.getElementById("channel-composer-send-btn").disabled = false;

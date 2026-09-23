@@ -5,10 +5,10 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from app.models import Parties, Party_members, Servers, Server_members, Server_categories, Server_channels, Forum_post, Message, Party_messages, Channel_messages, Forum_messages
 from app.schemas import Attachment_in, Message_schema, Party_message_schema, Server_message, Forum_message_create
-from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns, ensure_reply_columns, ensure_account_columns, ensure_server_columns, ensure_role_columns
+from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns, ensure_reply_columns, ensure_account_columns, ensure_server_columns, ensure_role_columns, ensure_moderation_columns
 from app.auth import validate_session
 from app.r2 import attachment_public
-from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles
+from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation
 from pydantic import ValidationError
 from app.routers.realtime import active_connections, heartbeat, notify_presence
 from app.routers.messages import send_message
@@ -42,6 +42,7 @@ ensure_reply_columns()
 ensure_account_columns()
 ensure_server_columns()
 ensure_role_columns()
+ensure_moderation_columns()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://oneira.cc"],
@@ -64,6 +65,7 @@ app.include_router(parties.router)
 app.include_router(servers.router)
 app.include_router(roles.router)
 app.include_router(mini_profiles.router)
+app.include_router(moderation.router)
 app.include_router(invites.router)
 app.include_router(announcements.router)
 app.include_router(forums.router)

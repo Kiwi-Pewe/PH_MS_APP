@@ -34,3 +34,6 @@ def get_current_user(session_id: str = Cookie(None), database: Session = Depends
     if not user_account:
         raise HTTPException(status_code=401, detail="Invalid or expired session.")
     return user_account
+
+def get_optional_user(session_id: str = Cookie(None), database: Session = Depends(get_db)):
+    return validate_session(session_id, database)

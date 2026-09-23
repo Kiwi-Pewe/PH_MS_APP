@@ -81,6 +81,22 @@ function canManageMessages() {
   return canServerPerm("manage_messages");
 }
 
+function canViewDocs() {
+  return canServerPerm("view_docs");
+}
+
+function canCreateDocs() {
+  return canServerPerm("create_docs");
+}
+
+function canManageDocs() {
+  return canServerPerm("manage_docs");
+}
+
+function canRemoveDocs() {
+  return canServerPerm("remove_docs");
+}
+
 function canOpenServerSettings() {
   return canUpdateServer() || canManageRoles();
 }
@@ -99,6 +115,7 @@ function applyServerPerms(perms, highestRole, timeoutUntil) {
   if (typeof paintAnnouncementAccess === "function") paintAnnouncementAccess();
   if (typeof paintForumAccess === "function") paintForumAccess();
   if (typeof paintChatAccess === "function") paintChatAccess();
+  if (typeof paintDocsAccess === "function") paintDocsAccess();
   if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen && !canOpenServerSettings()) {
     closeServerSettingsChrome();
   }

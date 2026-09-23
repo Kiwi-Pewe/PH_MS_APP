@@ -32,6 +32,7 @@ function paintServerTimeoutLock() {
   if (composer && composer.style.display !== "none" && typeof enableChannelComposer === "function") {
     enableChannelComposer(currentChannelName || "");
   }
+  if (typeof paintDocsAccess === "function") paintDocsAccess();
 }
 
 function memberTimeoutActive(member) {

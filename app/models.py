@@ -328,6 +328,7 @@ class Doc_page(Base):
     updated_at = Column(DateTime, server_default=func.now())
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     editor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
 class Message_reaction(Base):
     __tablename__ = "message_reactions"

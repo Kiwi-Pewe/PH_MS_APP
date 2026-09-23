@@ -295,6 +295,20 @@ def ensure_role_columns():
             conn.rollback()
 
 
+def ensure_doc_columns():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE doc_pages ADD COLUMN author_id INTEGER"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE doc_pages SET author_id = updated_by WHERE author_id IS NULL AND updated_by IS NOT NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_forum_columns():
     adds = (
         ("forum_posts", "sticky", "BOOLEAN DEFAULT 0"),

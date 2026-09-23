@@ -488,6 +488,9 @@ function channelVisibleInSidebar(channel) {
   if (channel.channel_type === "text") {
     return typeof canReadMessages !== "function" || canReadMessages();
   }
+  if (channel.channel_type === "doc") {
+    return typeof canViewDocs !== "function" || canViewDocs();
+  }
   return true;
 }
 

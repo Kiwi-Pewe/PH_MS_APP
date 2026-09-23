@@ -8,6 +8,44 @@ function docsPage() {
   return document.getElementById("docs-page");
 }
 
+function docsMayEdit() {
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) return false;
+  if (typeof canManageDocs === "function" && canManageDocs()) return true;
+  if (typeof canCreateDocs === "function" && canCreateDocs()) {
+    return !docsAuthorId || docsAuthorId === myUserId;
+  }
+  return false;
+}
+
+function docsMayRemove() {
+  if (!docsAuthorId) return false;
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) return false;
+  if (docsAuthorId === myUserId) return typeof canCreateDocs === "function" && canCreateDocs();
+  return typeof canRemoveDocs === "function" && canRemoveDocs();
+}
+
+function paintDocsAccess() {
+  if (currentChannelType !== "doc") {
+    updateDocsChrome();
+    return;
+  }
+  if (typeof canViewDocs === "function" && !canViewDocs()) {
+    if (typeof afterServerStructureChange === "function") afterServerStructureChange();
+    return;
+  }
+  docsCanEdit = docsMayEdit();
+  if (docsMode === "edit" && !docsCanEdit) {
+    docsDirty = false;
+    requestDocUnlock();
+    if (docsPage()) docsPage().innerHTML = docsSavedHtml;
+    docsMode = "view";
+    docsEditorId = null;
+    docsEditorUsername = null;
+    setDocsPageEditable(false);
+  }
+  updateDocsChrome();
+}
+
 function visibleDocLength() {
   return (docsPage().innerText || "").replace(/\n$/, "").length;
 }
@@ -16,19 +54,23 @@ function updateDocsChrome() {
   const banner = document.getElementById("docs-editing-banner");
   const modeBtn = document.getElementById("docs-mode-btn");
   const saveBtn = document.getElementById("docs-save-btn");
+  const removeBtn = document.getElementById("docs-remove-btn");
   const toolbar = document.getElementById("docs-toolbar");
   const someoneElse = docsEditorId && docsEditorId !== myUserId;
+  const onDoc = currentChannelType === "doc";
 
-  banner.style.display = (docsMode === "view" && docsEditorUsername) ? "block" : "none";
+  banner.style.display = (onDoc && docsMode === "view" && docsEditorUsername) ? "block" : "none";
   banner.textContent = docsEditorUsername ? `${docsEditorUsername} is editing the page` : "";
 
+  docsCanEdit = onDoc && docsMayEdit();
   modeBtn.style.display = docsCanEdit ? "inline-flex" : "none";
   modeBtn.textContent = docsMode === "edit" ? "Edit" : "View";
   modeBtn.disabled = Boolean(someoneElse);
   modeBtn.title = someoneElse ? `${docsEditorUsername} is editing the page` : "Switch mode";
 
-  saveBtn.style.display = (docsMode === "edit" && docsDirty) ? "inline-flex" : "none";
-  toolbar.style.display = docsMode === "edit" ? "flex" : "none";
+  saveBtn.style.display = (onDoc && docsMode === "edit" && docsDirty) ? "inline-flex" : "none";
+  if (removeBtn) removeBtn.style.display = (onDoc && docsMode === "view" && docsMayRemove()) ? "inline-flex" : "none";
+  toolbar.style.display = (onDoc && docsMode === "edit") ? "flex" : "none";
 }
 
 function setDocsPageEditable(on) {
@@ -42,11 +84,14 @@ function hideDocsChrome() {
   document.getElementById("docs-toolbar").style.display = "none";
   document.getElementById("docs-save-btn").style.display = "none";
   document.getElementById("docs-mode-btn").style.display = "none";
+  const removeBtn = document.getElementById("docs-remove-btn");
+  if (removeBtn) removeBtn.style.display = "none";
   document.getElementById("docs-editing-banner").style.display = "none";
   setDocsPageEditable(false);
   docsMode = "view";
   docsDirty = false;
   docsCanEdit = false;
+  docsAuthorId = null;
   docsEditorId = null;
   docsEditorUsername = null;
   docsSavedHtml = "";
@@ -76,7 +121,8 @@ async function loadDoc(channelId) {
     docsSavedHtml = data.content || "";
     docsLastGoodHtml = docsSavedHtml;
     docsPage().innerHTML = docsSavedHtml;
-    docsCanEdit = Boolean(data.can_edit);
+    docsAuthorId = data.author_id || null;
+    docsCanEdit = docsMayEdit();
     docsEditorId = data.editor_id;
     docsEditorUsername = data.editor_username;
   } catch (e) {
@@ -86,7 +132,8 @@ async function loadDoc(channelId) {
 }
 
 async function enterDocEdit() {
-  if (docsMode === "edit" || !docsCanEdit || (docsEditorId && docsEditorId !== myUserId)) return;
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) return;
+  if (docsMode === "edit" || !docsMayEdit() || (docsEditorId && docsEditorId !== myUserId)) return;
   try {
     const response = await fetch(`https://${serverAddress}/lock_doc/${currentChannelId}`, {
       method: "POST", credentials: "include"
@@ -125,6 +172,7 @@ async function requestDocUnlock() {
 }
 
 async function saveDoc() {
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) return;
   if (docsMode !== "edit" || !docsDirty) return;
   const html = docsPage().innerHTML;
   try {
@@ -135,9 +183,11 @@ async function saveDoc() {
       body: JSON.stringify({ channel_id: currentChannelId, content: html })
     });
     if (!response.ok) return;
+    const data = await response.json();
     docsSavedHtml = html;
     docsLastGoodHtml = html;
     docsDirty = false;
+    if (data.author_id) docsAuthorId = data.author_id;
     updateDocsChrome();
   } catch (e) { /* keep dirty so they can retry */ }
 }
@@ -216,9 +266,40 @@ function handleDocUnlocked(data) {
 
 function handleDocUpdated(data) {
   if (currentChannelType !== "doc" || currentChannelId !== data.channel_id) return;
-  if (docsMode === "edit") return;
+  if (docsMode === "edit" && !data.cleared) return;
+  if (docsMode === "edit" && data.cleared) {
+    docsDirty = false;
+    docsMode = "view";
+    docsEditorId = null;
+    docsEditorUsername = null;
+    setDocsPageEditable(false);
+  }
   docsSavedHtml = data.content || "";
+  docsLastGoodHtml = docsSavedHtml;
   docsPage().innerHTML = docsSavedHtml;
+  docsAuthorId = data.author_id || null;
+  updateDocsChrome();
+}
+
+async function removeDoc() {
+  if (!currentChannelId || !docsMayRemove()) return;
+  if (!confirm("Remove this page?")) return;
+  try {
+    const response = await fetch(`https://${serverAddress}/remove_doc/${currentChannelId}`, {
+      method: "POST", credentials: "include"
+    });
+    if (!response.ok) return;
+    docsSavedHtml = "";
+    docsLastGoodHtml = "";
+    docsAuthorId = null;
+    docsDirty = false;
+    docsMode = "view";
+    docsEditorId = null;
+    docsEditorUsername = null;
+    docsPage().innerHTML = "";
+    setDocsPageEditable(false);
+    updateDocsChrome();
+  } catch (e) { /* keep the page so they can retry */ }
 }
 
 document.getElementById("docs-mode-btn").addEventListener("click", (e) => {
@@ -231,6 +312,7 @@ document.getElementById("docs-mode-btn").addEventListener("click", (e) => {
 });
 
 document.getElementById("docs-save-btn").addEventListener("click", saveDoc);
+document.getElementById("docs-remove-btn").addEventListener("click", removeDoc);
 
 document.getElementById("docs-style-select").addEventListener("change", (e) => applyDocStyle(e.target.value));
 document.getElementById("docs-font-select").addEventListener("change", (e) => applyDocCommand("fontName", e.target.value));

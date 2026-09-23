@@ -127,6 +127,7 @@ const forumCardElements = {};
 let docsMode = "view";
 let docsDirty = false;
 let docsCanEdit = false;
+let docsAuthorId = null;
 let docsEditorId = null;
 let docsEditorUsername = null;
 let docsSavedHtml = "";

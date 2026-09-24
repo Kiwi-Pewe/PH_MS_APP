@@ -1,16 +1,15 @@
 // ==================================================================
-// server-members.js - Server Settings → Members roster table.
-// Not the right-rail presence list (members.js). Search, sort, role
-// filter, row Kick/Ban/Timeout via existing modals, bulk kick.
+// server-members.js - Server Settings → Members roster (Discord-like
+// table). Not the right-rail presence list (members.js). Column-header
+// sort; Mod View placeholder + context-menu More; bulk kick when set.
 // ==================================================================
 
 let serverRosterMembers = [];
-let serverRosterRoleFilter = [];
 let serverRosterLoadedFor = null;
 let serverRosterSelected = new Set();
 let serverRosterSearch = "";
-let serverRosterRoleId = "";
-let serverRosterSort = "joined_desc";
+let serverRosterSortKey = "joined";
+let serverRosterSortDir = "desc";
 let serverRosterBusy = false;
 
 function serverMembersPageOpen() {
@@ -22,22 +21,48 @@ function serverRosterDisplayName(member) {
   return (member && (member.display_name || member.username)) || "";
 }
 
-function serverRosterJoinedMs(member) {
-  if (!member || !member.joined_at) return 0;
-  const date = typeof parseUtcTimestamp === "function"
-    ? parseUtcTimestamp(member.joined_at)
-    : new Date(member.joined_at);
+function serverRosterTsMs(value) {
+  if (!value) return 0;
+  const date = typeof parseUtcTimestamp === "function" ? parseUtcTimestamp(value) : new Date(value);
   const ms = date && date.getTime ? date.getTime() : 0;
   return Number.isFinite(ms) ? ms : 0;
 }
 
-function formatServerRosterJoined(joinedAt) {
-  if (!joinedAt) return "—";
-  const date = typeof parseUtcTimestamp === "function"
-    ? parseUtcTimestamp(joinedAt)
-    : new Date(joinedAt);
+function formatRosterAge(ts) {
+  if (!ts) return "—";
+  const date = typeof parseUtcTimestamp === "function" ? parseUtcTimestamp(ts) : new Date(ts);
   if (!date || Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const sec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (sec < 60) return "Just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return min === 1 ? "1 minute ago" : min + " minutes ago";
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return hr === 1 ? "1 hour ago" : hr + " hours ago";
+  const day = Math.floor(hr / 24);
+  if (day < 30) return day === 1 ? "1 day ago" : day + " days ago";
+  const month = Math.floor(day / 30);
+  if (month < 12) return month === 1 ? "1 month ago" : month + " months ago";
+  const year = Math.floor(day / 365);
+  return year <= 1 ? "1 year ago" : year + " years ago";
+}
+
+function serverRosterVisibleRoles(member) {
+  return (member.roles || []).filter((role) => !role.is_members);
+}
+
+function serverRosterPrimaryRole(member) {
+  const roles = serverRosterVisibleRoles(member);
+  if (!roles.length) return null;
+  if (member.highest_role && !member.highest_role.is_members) {
+    const match = roles.find((role) => String(role.id) === String(member.highest_role.id));
+    if (match) return match;
+  }
+  return roles.slice().sort((a, b) => {
+    const ap = Number(a.position || 0);
+    const bp = Number(b.position || 0);
+    if (ap !== bp) return ap - bp;
+    return Number(a.id || 0) - Number(b.id || 0);
+  })[0];
 }
 
 function setServerMembersStatus(text) {
@@ -45,26 +70,6 @@ function setServerMembersStatus(text) {
   if (!status) return;
   status.hidden = !text;
   status.textContent = text || "";
-}
-
-function paintServerRosterRoleFilter() {
-  const select = document.getElementById("server-members-role-filter");
-  if (!select) return;
-  const prev = serverRosterRoleId;
-  select.innerHTML = "";
-  const all = document.createElement("option");
-  all.value = "";
-  all.textContent = "All roles";
-  select.appendChild(all);
-  (serverRosterRoleFilter || []).forEach((role) => {
-    if (role.is_members) return;
-    const opt = document.createElement("option");
-    opt.value = String(role.id);
-    opt.textContent = role.name || "Role";
-    select.appendChild(opt);
-  });
-  select.value = prev && Array.from(select.options).some((o) => o.value === prev) ? prev : "";
-  serverRosterRoleId = select.value;
 }
 
 function filteredServerRoster() {
@@ -78,27 +83,46 @@ function filteredServerRoster() {
       return name.includes(needle) || user.includes(needle) || id.includes(needle);
     });
   }
-  if (serverRosterRoleId) {
-    const rid = String(serverRosterRoleId);
-    rows = rows.filter((member) => (member.roles || []).some((role) => String(role.id) === rid));
-  }
+
   const byName = (a, b) => serverRosterDisplayName(a).localeCompare(
     serverRosterDisplayName(b),
     undefined,
     { sensitivity: "base" }
   ) || String(a.username || "").localeCompare(String(b.username || ""), undefined, { sensitivity: "base" });
-  if (serverRosterSort === "name_asc") rows.sort(byName);
-  else if (serverRosterSort === "name_desc") rows.sort((a, b) => byName(b, a));
-  else if (serverRosterSort === "joined_asc") {
-    rows.sort((a, b) => serverRosterJoinedMs(a) - serverRosterJoinedMs(b) || byName(a, b));
-  } else {
-    rows.sort((a, b) => serverRosterJoinedMs(b) - serverRosterJoinedMs(a) || byName(a, b));
-  }
+
+  const primaryName = (member) => {
+    const role = serverRosterPrimaryRole(member);
+    return role ? String(role.name || "") : "";
+  };
+
+  rows.sort((a, b) => {
+    let cmp = 0;
+    if (serverRosterSortKey === "name") cmp = byName(a, b);
+    else if (serverRosterSortKey === "joined") cmp = serverRosterTsMs(a.joined_at) - serverRosterTsMs(b.joined_at);
+    else if (serverRosterSortKey === "account") cmp = serverRosterTsMs(a.created_at) - serverRosterTsMs(b.created_at);
+    else if (serverRosterSortKey === "method") cmp = 0;
+    else if (serverRosterSortKey === "roles") {
+      cmp = primaryName(a).localeCompare(primaryName(b), undefined, { sensitivity: "base" });
+    }
+    if (cmp === 0) cmp = byName(a, b);
+    return serverRosterSortDir === "asc" ? cmp : -cmp;
+  });
   return rows;
 }
 
 function kickableRosterMembers(rows) {
   return rows.filter((member) => typeof canActOnMember === "function" && canActOnMember(member, "kick_members"));
+}
+
+function paintServerRosterSortHeads() {
+  document.querySelectorAll(".server-members-sort-head").forEach((btn) => {
+    const key = btn.getAttribute("data-sort");
+    const active = key === serverRosterSortKey;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-sort", active
+      ? (serverRosterSortDir === "asc" ? "ascending" : "descending")
+      : "none");
+  });
 }
 
 function paintServerRosterSelection() {
@@ -122,16 +146,33 @@ function paintServerRosterSelection() {
   }
 }
 
+function buildServerRosterRoleCell(member) {
+  const wrap = document.createElement("div");
+  wrap.className = "server-members-roles";
+  const roles = serverRosterVisibleRoles(member);
+  const primary = serverRosterPrimaryRole(member);
+  if (!primary) {
+    wrap.classList.add("is-empty");
+    return wrap;
+  }
+  wrap.appendChild(buildServerRosterRolePill(primary));
+  const extra = Math.max(0, roles.length - 1);
+  if (extra > 0) {
+    const more = document.createElement("span");
+    more.className = "server-members-role-more";
+    more.textContent = "+" + extra;
+    more.title = roles.slice(1).map((r) => r.name || "Role").join(", ");
+    wrap.appendChild(more);
+  }
+  return wrap;
+}
+
 function buildServerRosterRolePill(role) {
   const pill = document.createElement("span");
   pill.className = "server-members-role-pill";
   if (role.color) pill.style.setProperty("--role-color", role.color);
-  const dot = document.createElement("span");
-  dot.className = "server-members-role-dot";
-  if (role.color) dot.style.background = role.color;
   const name = document.createElement("span");
   name.textContent = role.name || "Role";
-  pill.appendChild(dot);
   pill.appendChild(name);
   return pill;
 }
@@ -140,64 +181,27 @@ function buildServerRosterActions(member) {
   const wrap = document.createElement("div");
   wrap.className = "server-members-actions";
 
-  const profileBtn = document.createElement("button");
-  profileBtn.type = "button";
-  profileBtn.className = "ghost-btn server-members-action";
-  profileBtn.textContent = "Profile";
-  profileBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (typeof openMiniProfile === "function") openMiniProfile(member.id, profileBtn);
-  });
-  wrap.appendChild(profileBtn);
+  const modBtn = document.createElement("button");
+  modBtn.type = "button";
+  modBtn.className = "server-members-icon-btn";
+  modBtn.disabled = true;
+  modBtn.title = "Mod View (coming later)";
+  modBtn.setAttribute("aria-label", "Mod View (coming later)");
+  modBtn.innerHTML = "<span class=\"server-members-mod-icon\" aria-hidden=\"true\"></span>";
+  wrap.appendChild(modBtn);
 
   const moreBtn = document.createElement("button");
   moreBtn.type = "button";
-  moreBtn.className = "ghost-btn server-members-action";
-  moreBtn.textContent = "More";
+  moreBtn.className = "server-members-icon-btn";
+  moreBtn.title = "More";
+  moreBtn.setAttribute("aria-label", "More");
+  moreBtn.innerHTML = "&#8942;";
   moreBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     if (typeof showMemberContextMenu === "function") showMemberContextMenu(e, member);
   });
   wrap.appendChild(moreBtn);
 
-  if (typeof canActOnMember === "function") {
-    if (canActOnMember(member, "timeout_members")) {
-      const timeoutBtn = document.createElement("button");
-      timeoutBtn.type = "button";
-      timeoutBtn.className = "ghost-btn server-members-action";
-      const timed = typeof memberTimeoutActive === "function" && memberTimeoutActive(member);
-      timeoutBtn.textContent = timed ? "Timeout" : "Timeout";
-      timeoutBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (typeof openModerationModal === "function") {
-          openModerationModal(timed ? "timeout-edit" : "timeout", member);
-        }
-      });
-      wrap.appendChild(timeoutBtn);
-    }
-    if (canActOnMember(member, "kick_members")) {
-      const kickBtn = document.createElement("button");
-      kickBtn.type = "button";
-      kickBtn.className = "deny-btn server-members-action";
-      kickBtn.textContent = "Kick";
-      kickBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (typeof openModerationModal === "function") openModerationModal("kick", member);
-      });
-      wrap.appendChild(kickBtn);
-    }
-    if (canActOnMember(member, "ban_members")) {
-      const banBtn = document.createElement("button");
-      banBtn.type = "button";
-      banBtn.className = "deny-btn server-members-action";
-      banBtn.textContent = "Ban";
-      banBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (typeof openModerationModal === "function") openModerationModal("ban", member);
-      });
-      wrap.appendChild(banBtn);
-    }
-  }
   return wrap;
 }
 
@@ -208,6 +212,7 @@ function paintServerMembersTable() {
   body.innerHTML = "";
   const rows = filteredServerRoster();
   if (empty) empty.hidden = rows.length > 0;
+  paintServerRosterSortHeads();
 
   rows.forEach((member) => {
     const tr = document.createElement("tr");
@@ -255,7 +260,7 @@ function paintServerMembersTable() {
     }
     const account = document.createElement("div");
     account.className = "server-members-username";
-    account.textContent = "@" + (member.username || "");
+    account.textContent = member.username || "";
     labels.appendChild(display);
     labels.appendChild(account);
     user.appendChild(labels);
@@ -264,23 +269,22 @@ function paintServerMembersTable() {
 
     const joinedTd = document.createElement("td");
     joinedTd.className = "server-members-col-joined";
-    joinedTd.textContent = formatServerRosterJoined(member.joined_at);
+    joinedTd.textContent = formatRosterAge(member.joined_at);
     tr.appendChild(joinedTd);
+
+    const accountTd = document.createElement("td");
+    accountTd.className = "server-members-col-account";
+    accountTd.textContent = formatRosterAge(member.created_at);
+    tr.appendChild(accountTd);
+
+    const methodTd = document.createElement("td");
+    methodTd.className = "server-members-col-method";
+    methodTd.textContent = "Unknown";
+    tr.appendChild(methodTd);
 
     const rolesTd = document.createElement("td");
     rolesTd.className = "server-members-col-roles";
-    const pills = document.createElement("div");
-    pills.className = "server-members-roles";
-    const roles = (member.roles || []).filter((role) => !role.is_members);
-    if (!roles.length) {
-      const none = document.createElement("span");
-      none.className = "server-members-roles-empty";
-      none.textContent = "—";
-      pills.appendChild(none);
-    } else {
-      roles.forEach((role) => pills.appendChild(buildServerRosterRolePill(role)));
-    }
-    rolesTd.appendChild(pills);
+    rolesTd.appendChild(buildServerRosterRoleCell(member));
     tr.appendChild(rolesTd);
 
     const actionsTd = document.createElement("td");
@@ -314,7 +318,6 @@ async function loadServerMembersPage(force) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not load members.");
     serverRosterMembers = data.members || [];
-    serverRosterRoleFilter = data.role_filter || [];
     serverRosterLoadedFor = currentServerId;
     serverRosterSelected = new Set(
       Array.from(serverRosterSelected).filter((id) => serverRosterMembers.some((m) => String(m.id) === id))
@@ -322,7 +325,6 @@ async function loadServerMembersPage(force) {
     serverRosterMembers.forEach((member) => {
       if (typeof rememberIdentityFace === "function") rememberIdentityFace(member.id, member && member.avatar);
     });
-    paintServerRosterRoleFilter();
     paintServerMembersTable();
   } catch (e) {
     setServerMembersStatus(e.message || "Could not load members.");
@@ -379,6 +381,17 @@ function openServerRosterBulkKick() {
   if (typeof openBulkKickModal === "function") openBulkKickModal(selected);
 }
 
+function setServerRosterSort(key) {
+  if (!key) return;
+  if (serverRosterSortKey === key) {
+    serverRosterSortDir = serverRosterSortDir === "asc" ? "desc" : "asc";
+  } else {
+    serverRosterSortKey = key;
+    serverRosterSortDir = key === "name" || key === "roles" ? "asc" : "desc";
+  }
+  paintServerMembersTable();
+}
+
 (function bindServerMembersChrome() {
   const search = document.getElementById("server-members-search");
   if (search) {
@@ -387,20 +400,9 @@ function openServerRosterBulkKick() {
       paintServerMembersTable();
     });
   }
-  const roleFilter = document.getElementById("server-members-role-filter");
-  if (roleFilter) {
-    roleFilter.addEventListener("change", () => {
-      serverRosterRoleId = roleFilter.value || "";
-      paintServerMembersTable();
-    });
-  }
-  const sort = document.getElementById("server-members-sort");
-  if (sort) {
-    sort.addEventListener("change", () => {
-      serverRosterSort = sort.value || "joined_desc";
-      paintServerMembersTable();
-    });
-  }
+  document.querySelectorAll(".server-members-sort-head").forEach((btn) => {
+    btn.addEventListener("click", () => setServerRosterSort(btn.getAttribute("data-sort")));
+  });
   const selectAll = document.getElementById("server-members-select-all");
   if (selectAll) {
     selectAll.addEventListener("change", () => {

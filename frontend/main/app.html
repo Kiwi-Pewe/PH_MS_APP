@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=165">
+<link rel="stylesheet" href="app.css?v=166">
 </head>
 <body>
 
@@ -611,29 +611,38 @@
       </div>
 
       <div id="server-settings-members" class="server-members-page" hidden>
-        <h2 class="server-settings-page-title">Members</h2>
+        <h2 class="server-settings-page-title">Server Members</h2>
+
+        <div class="server-members-channel-list-row">
+          <div class="server-members-channel-list-copy">
+            <div class="server-settings-field-title">Show Members In Channel List</div>
+            <p class="server-settings-help">Adds a Members page above the channel list. Waiting on the server rail.</p>
+          </div>
+          <label class="toggle-switch is-disabled" title="Coming later">
+            <input type="checkbox" id="server-members-channel-list-toggle" disabled>
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+
         <div class="server-members-toolbar">
-          <input id="server-members-search" class="server-settings-input server-members-search" type="search" placeholder="Search" autocomplete="off" spellcheck="false">
-          <select id="server-members-role-filter" class="settings-select server-settings-select server-members-filter" aria-label="Filter by role">
-            <option value="">All roles</option>
-          </select>
-          <select id="server-members-sort" class="settings-select server-settings-select server-members-sort" aria-label="Sort members">
-            <option value="joined_desc">Member since (newest)</option>
-            <option value="joined_asc">Member since (oldest)</option>
-            <option value="name_asc">Name (A–Z)</option>
-            <option value="name_desc">Name (Z–A)</option>
-          </select>
+          <div class="server-members-toolbar-label">Recent Members</div>
+          <input id="server-members-search" class="server-settings-input server-members-search" type="search" placeholder="Search by username or id" autocomplete="off" spellcheck="false">
+          <button type="button" id="server-members-sort-btn" class="ghost-btn server-members-toolbar-btn" disabled title="Use column headers to sort">Sort</button>
+          <button type="button" id="server-members-prune-btn" class="ghost-btn server-members-toolbar-btn is-danger-text" disabled title="Coming later">Prune</button>
           <button type="button" id="server-members-bulk-kick" class="deny-btn server-members-bulk-kick" hidden>Kick selected</button>
         </div>
+
         <div class="server-members-table-wrap">
           <table class="server-members-table">
             <thead>
               <tr>
                 <th class="server-members-col-check"><input type="checkbox" id="server-members-select-all" title="Select all"></th>
-                <th class="server-members-col-user">Member</th>
-                <th class="server-members-col-joined">Member since</th>
-                <th class="server-members-col-roles">Roles</th>
-                <th class="server-members-col-actions"></th>
+                <th class="server-members-col-user"><button type="button" class="server-members-sort-head" data-sort="name">Name</button></th>
+                <th class="server-members-col-joined"><button type="button" class="server-members-sort-head" data-sort="joined">Member since</button></th>
+                <th class="server-members-col-account"><button type="button" class="server-members-sort-head" data-sort="account">Joined Oneira</button></th>
+                <th class="server-members-col-method"><button type="button" class="server-members-sort-head" data-sort="method">Join Method</button></th>
+                <th class="server-members-col-roles"><button type="button" class="server-members-sort-head" data-sort="roles">Roles</button></th>
+                <th class="server-members-col-actions" aria-label="Actions"></th>
               </tr>
             </thead>
             <tbody id="server-members-body"></tbody>
@@ -995,7 +1004,7 @@
 <script src="server-settings.js?v=24"></script>
 <script src="server-roles.js?v=11"></script>
 <script src="server-moderation.js?v=4"></script>
-<script src="server-members.js?v=1"></script>
+<script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
 <script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=2"></script>

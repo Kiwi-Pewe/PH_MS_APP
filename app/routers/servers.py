@@ -17,7 +17,6 @@ from app.routers.roles import (
     effective_perms_for_user,
     highest_roles_by_user,
     hoist_roles_by_user,
-    list_server_roles,
     name_color_roles_by_user,
     require_server_member,
     require_server_perm,
@@ -566,12 +565,10 @@ def server_settings_members(server_id: str, database: Session = Depends(get_db),
         )
         payload["display_name"] = public_display_name(account)
         payload["joined_at"] = iso_dt(row.joined_at) if getattr(row, "joined_at", None) else None
+        payload["created_at"] = iso_dt(getattr(account, "created_at", None)) if getattr(account, "created_at", None) else None
         payload["roles"] = roles_by_user.get(account.id) or []
         members.append(payload)
-    return {"server_id": server_id, "members": members, "role_filter": [
-        {"id": role["id"], "name": role["name"], "color": role.get("color") or "", "is_members": bool(role.get("is_members"))}
-        for role in list_server_roles(database, server_id)
-    ]}
+    return {"server_id": server_id, "members": members}
 
 
 @router.post("/message_server_channel")

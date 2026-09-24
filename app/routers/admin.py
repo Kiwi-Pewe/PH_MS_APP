@@ -36,6 +36,7 @@ FEEDBACK_TYPE_LABELS = {
     "bug": "Bug Report",
     "feature": "Feature Request",
     "inquiry": "General Inquiries",
+    "report": "User/Server Report",
 }
 
 FEEDBACK_STATUSES = ("new", "viewed", "review", "completed")

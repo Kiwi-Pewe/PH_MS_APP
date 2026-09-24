@@ -20,6 +20,7 @@ FEEDBACK_TYPES = {
     "bug": "Bug Report",
     "feature": "Feature Request",
     "inquiry": "General Inquiries",
+    "report": "User/Server Report",
 }
 FEEDBACK_TEXT_MIN = 10
 FEEDBACK_TEXT_MAX = 1500

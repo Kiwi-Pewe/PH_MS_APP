@@ -8,7 +8,8 @@ const FEEDBACK_FILE_MAX = 3;
 const FEEDBACK_TYPES = [
   { value: "bug", label: "Bug Report" },
   { value: "feature", label: "Feature Request" },
-  { value: "inquiry", label: "General Inquiries" }
+  { value: "inquiry", label: "General Inquiries" },
+  { value: "report", label: "User/Server Report" }
 ];
 
 let feedbackOverlay = null;

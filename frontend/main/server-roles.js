@@ -944,18 +944,28 @@ async function confirmServerRoles() {
 
 async function showServerSettingsTab(tab) {
   if (tab === "roles" && typeof canManageRoles === "function" && !canManageRoles()) {
-    tab = "overview";
+    tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
+  }
+  if (tab === "members" && typeof canOpenServerMembers === "function" && !canOpenServerMembers()) {
+    tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
   }
   const overview = document.getElementById("server-settings-overview");
   const roles = document.getElementById("server-settings-roles");
+  const members = document.getElementById("server-settings-members");
   if (overview) overview.hidden = tab !== "overview";
   if (roles) roles.hidden = tab !== "roles";
+  if (members) members.hidden = tab !== "members";
   document.querySelectorAll("#server-settings-nav .server-settings-nav-item[data-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
   });
-  if (tab !== "roles") return;
-  if (serverRolesLoadedFor !== currentServerId) await loadServerRoles();
-  else paintServerRolesPage();
+  if (tab === "roles") {
+    if (serverRolesLoadedFor !== currentServerId) await loadServerRoles();
+    else paintServerRolesPage();
+    return;
+  }
+  if (tab === "members" && typeof loadServerMembersPage === "function") {
+    await loadServerMembersPage();
+  }
 }
 
 resetServerRolesDraft();

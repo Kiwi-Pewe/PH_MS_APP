@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=164">
+<link rel="stylesheet" href="app.css?v=165">
 </head>
 <body>
 
@@ -464,7 +464,7 @@
       <nav id="server-settings-nav">
         <button type="button" class="server-settings-nav-item active" data-tab="overview">Overview</button>
         <button type="button" class="server-settings-nav-item" data-tab="roles">Roles</button>
-        <button type="button" class="server-settings-nav-item is-later" disabled>Members</button>
+        <button type="button" class="server-settings-nav-item" data-tab="members">Members</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Invites</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Bans</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Privacy</button>
@@ -608,6 +608,39 @@
           </div>
         </div>
         <aside id="server-roles-review" class="server-roles-review" hidden></aside>
+      </div>
+
+      <div id="server-settings-members" class="server-members-page" hidden>
+        <h2 class="server-settings-page-title">Members</h2>
+        <div class="server-members-toolbar">
+          <input id="server-members-search" class="server-settings-input server-members-search" type="search" placeholder="Search" autocomplete="off" spellcheck="false">
+          <select id="server-members-role-filter" class="settings-select server-settings-select server-members-filter" aria-label="Filter by role">
+            <option value="">All roles</option>
+          </select>
+          <select id="server-members-sort" class="settings-select server-settings-select server-members-sort" aria-label="Sort members">
+            <option value="joined_desc">Member since (newest)</option>
+            <option value="joined_asc">Member since (oldest)</option>
+            <option value="name_asc">Name (A–Z)</option>
+            <option value="name_desc">Name (Z–A)</option>
+          </select>
+          <button type="button" id="server-members-bulk-kick" class="deny-btn server-members-bulk-kick" hidden>Kick selected</button>
+        </div>
+        <div class="server-members-table-wrap">
+          <table class="server-members-table">
+            <thead>
+              <tr>
+                <th class="server-members-col-check"><input type="checkbox" id="server-members-select-all" title="Select all"></th>
+                <th class="server-members-col-user">Member</th>
+                <th class="server-members-col-joined">Member since</th>
+                <th class="server-members-col-roles">Roles</th>
+                <th class="server-members-col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="server-members-body"></tbody>
+          </table>
+        </div>
+        <p id="server-members-empty" class="server-settings-help" hidden>No members match.</p>
+        <p id="server-members-status" class="server-settings-help" hidden></p>
       </div>
     </section>
   </div>
@@ -874,6 +907,21 @@
     </div>
   </div>
 
+  <div id="bulk-kick-overlay" style="display:none;">
+    <div id="bulk-kick-modal">
+      <div class="view-header">
+        <span id="bulk-kick-title">Kick members</span>
+        <button class="icon-btn" id="bulk-kick-close" title="Close">&times;</button>
+      </div>
+      <div class="view-body" id="bulk-kick-body"></div>
+      <div id="bulk-kick-footer">
+        <p id="bulk-kick-error" class="server-settings-help" hidden></p>
+        <button class="ghost-btn" id="bulk-kick-cancel">Cancel</button>
+        <button class="deny-btn" id="bulk-kick-confirm">Kick</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Invite panel — shared by both servers and parties (openInviteModal
        takes the type so one panel handles both), reached via each's own
        context menu (see showServerContextMenu/showPartyContextMenu in
@@ -944,9 +992,10 @@
 <script src="boot.js?v=83"></script>
 <script src="app-shell.js?v=61"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=23"></script>
-<script src="server-roles.js?v=10"></script>
-<script src="server-moderation.js?v=3"></script>
+<script src="server-settings.js?v=24"></script>
+<script src="server-roles.js?v=11"></script>
+<script src="server-moderation.js?v=4"></script>
+<script src="server-members.js?v=1"></script>
 <script src="settings-account.js?v=5"></script>
 <script src="settings-privacy.js?v=5"></script>
 <script src="settings-messaging.js?v=2"></script>
@@ -983,8 +1032,8 @@
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=10"></script>
 <script src="servers.js?v=85"></script>
-<script src="members.js?v=10"></script>
-<script src="mini-profile.js?v=9"></script>
+<script src="members.js?v=11"></script>
+<script src="mini-profile.js?v=10"></script>
 <script src="server-modals.js?v=48"></script>
 <script src="announcements.js?v=56"></script>
 <script src="comments.js?v=51"></script>

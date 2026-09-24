@@ -40,7 +40,9 @@ function memberTimeoutActive(member) {
 }
 
 function canActOnMember(member, perm) {
-  if (memberListScope !== "server") return false;
+  const inServerContext = memberListScope === "server"
+    || (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen && currentServerId);
+  if (!inServerContext) return false;
   if (!member || member.id === myUserId || member.is_owner) return false;
   if (typeof canServerPerm === "function" && !canServerPerm(perm)) return false;
   if (currentServerOwnerId === myUserId) return true;
@@ -61,6 +63,9 @@ function applyMemberTimeout(serverId, userId, until, reason) {
         delete member.timeout_reason;
       }
     }
+  }
+  if (typeof patchServerRosterTimeout === "function") {
+    patchServerRosterTimeout(serverId, userId, until, reason);
   }
   if (String(currentServerId) === String(serverId) && userId === myUserId) {
     currentServerTimeoutUntil = until || null;
@@ -230,8 +235,12 @@ async function confirmModeration() {
     if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not finish that action.");
     if (mode === "kick" || mode === "ban") {
       if (typeof applyMemberLeft === "function") applyMemberLeft("server", currentServerId, moderationDraft.member.id);
+      if (typeof removeServerRosterMember === "function") removeServerRosterMember(currentServerId, moderationDraft.member.id);
     } else {
       applyMemberTimeout(currentServerId, moderationDraft.member.id, data.timeout_until || null, data.timeout_reason || "");
+      if (typeof patchServerRosterTimeout === "function") {
+        patchServerRosterTimeout(currentServerId, moderationDraft.member.id, data.timeout_until || null, data.timeout_reason || "");
+      }
     }
     closeModerationModal();
   } catch (e) {
@@ -257,3 +266,122 @@ document.getElementById("moderation-overlay").addEventListener("click", (e) => {
 });
 document.getElementById("moderation-confirm").addEventListener("click", confirmModeration);
 document.getElementById("moderation-clear").addEventListener("click", clearTimeoutFromModal);
+
+let bulkKickDraft = null;
+
+function closeBulkKickModal() {
+  const overlay = document.getElementById("bulk-kick-overlay");
+  if (overlay) overlay.style.display = "none";
+  bulkKickDraft = null;
+}
+
+function openBulkKickModal(members) {
+  if (!currentServerId || !members || !members.length) return;
+  const overlay = document.getElementById("bulk-kick-overlay");
+  const title = document.getElementById("bulk-kick-title");
+  const body = document.getElementById("bulk-kick-body");
+  const confirm = document.getElementById("bulk-kick-confirm");
+  const err = document.getElementById("bulk-kick-error");
+  const serverName = currentServerSettingsName ? currentServerSettingsName() : "";
+  if (!overlay || !title || !body || !confirm) return;
+
+  bulkKickDraft = {
+    members: members.slice(0, 50),
+    reason: "",
+    seconds: 0
+  };
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+
+  function paint() {
+    body.innerHTML = "";
+    const count = bulkKickDraft.members.length;
+    title.textContent = "Kick " + count + (count === 1 ? " member" : " members");
+    const copy = document.createElement("p");
+    copy.className = "moderation-copy";
+    copy.textContent = "Remove " + count + (count === 1 ? " member" : " members")
+      + " from " + (serverName || "this server") + "? They can rejoin with a new invite unless you set a wait.";
+    body.appendChild(copy);
+
+    const waitTitle = document.createElement("div");
+    waitTitle.className = "server-modal-label";
+    waitTitle.textContent = "Wait before they can rejoin";
+    body.appendChild(waitTitle);
+    const chips = document.createElement("div");
+    body.appendChild(chips);
+    paintModerationChips(chips, MOD_KICK_WAIT_OPTIONS, bulkKickDraft.seconds, (value) => {
+      bulkKickDraft.seconds = value;
+      paint();
+    });
+
+    const reasonLabel = document.createElement("label");
+    reasonLabel.className = "server-modal-label";
+    reasonLabel.setAttribute("for", "bulk-kick-reason");
+    reasonLabel.textContent = "Reason";
+    const reason = document.createElement("textarea");
+    reason.id = "bulk-kick-reason";
+    reason.className = "moderation-reason";
+    reason.maxLength = 200;
+    reason.rows = 3;
+    reason.placeholder = "Optional";
+    reason.value = bulkKickDraft.reason;
+    reason.addEventListener("input", () => { bulkKickDraft.reason = reason.value; });
+    body.appendChild(reasonLabel);
+    body.appendChild(reason);
+    confirm.className = "deny-btn";
+    confirm.textContent = "Kick " + count;
+  }
+
+  paint();
+  overlay.style.display = "flex";
+  const reasonEl = document.getElementById("bulk-kick-reason");
+  if (reasonEl) reasonEl.focus();
+}
+
+async function confirmBulkKick() {
+  if (!bulkKickDraft || !currentServerId) return;
+  const confirm = document.getElementById("bulk-kick-confirm");
+  const err = document.getElementById("bulk-kick-error");
+  if (confirm) confirm.disabled = true;
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  try {
+    const ids = bulkKickDraft.members.map((m) => m.id);
+    const response = await fetch(`https://${serverAddress}/bulk_kick_server_members`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        server_id: currentServerId,
+        user_ids: ids,
+        reason: bulkKickDraft.reason || "",
+        seconds: bulkKickDraft.seconds
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not kick those members.");
+    (data.kicked || ids).forEach((uid) => {
+      if (typeof applyMemberLeft === "function") applyMemberLeft("server", currentServerId, uid);
+      if (typeof removeServerRosterMember === "function") removeServerRosterMember(currentServerId, uid);
+    });
+    closeBulkKickModal();
+  } catch (e) {
+    if (err) {
+      err.hidden = false;
+      err.textContent = e.message || "Could not kick those members.";
+    }
+  } finally {
+    if (confirm) confirm.disabled = false;
+  }
+}
+
+document.getElementById("bulk-kick-close").addEventListener("click", closeBulkKickModal);
+document.getElementById("bulk-kick-cancel").addEventListener("click", closeBulkKickModal);
+document.getElementById("bulk-kick-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "bulk-kick-overlay") closeBulkKickModal();
+});
+document.getElementById("bulk-kick-confirm").addEventListener("click", confirmBulkKick);

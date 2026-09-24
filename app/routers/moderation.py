@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Server_role_members, Server_roles, Channel_messages, Server_bans
-from app.schemas import Server_moderation_in
+from app.schemas import Server_moderation_in, Server_bulk_kick_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.deletion import write_audit_log
@@ -205,3 +205,44 @@ async def timeout_server_member(body: Server_moderation_in, database: Session = 
     await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
     await notify_user(target.id, payload)
     return {"ok": True, **payload}
+
+
+@router.post("/bulk_kick_server_members")
+async def bulk_kick_server_members(body: Server_bulk_kick_in, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "kick_members", "You do not have permission to kick members.")
+    if body.seconds not in KICK_TEMP_SECONDS:
+        raise HTTPException(status_code=400, detail="Pick a valid wait time.")
+    ids = []
+    seen = set()
+    for uid in body.user_ids or []:
+        try:
+            uid = int(uid)
+        except (TypeError, ValueError):
+            continue
+        if uid in seen:
+            continue
+        seen.add(uid)
+        ids.append(uid)
+    if not ids:
+        raise HTTPException(status_code=400, detail="Select at least one member.")
+    if len(ids) > 50:
+        raise HTTPException(status_code=400, detail="Kick at most 50 members at a time.")
+    reason = clean_reason(body.reason)
+    kicked = []
+    for uid in ids:
+        membership = database.query(Server_members).filter(
+            Server_members.server_id == server.id,
+            Server_members.user_id == uid,
+        ).first()
+        if not membership:
+            continue
+        if not can_moderate_target(database, server, current_user.id, uid):
+            continue
+        target = database.query(UserInfo).filter(UserInfo.id == uid).first()
+        if not target:
+            continue
+        expires = datetime.utcnow() + timedelta(seconds=body.seconds) if body.seconds else None
+        await remove_member(database, server, target, membership, current_user, "kick", reason, expires)
+        kicked.append(uid)
+    return {"ok": True, "kicked": kicked, "count": len(kicked)}

@@ -241,6 +241,21 @@ def highest_roles_by_user(database, server_id, user_ids=None):
     return best
 
 
+def can_open_server_roster(database, server, user_id):
+    if server.owner_id == user_id:
+        return True
+    perms = effective_perms_for_user(database, server, user_id)
+    return any(perms.get(key) for key in (
+        "kick_members", "ban_members", "timeout_members", "manage_roles", "update_server",
+    ))
+
+
+def require_server_roster(database, server, user_id):
+    if not can_open_server_roster(database, server, user_id):
+        raise HTTPException(status_code=403, detail="You do not have permission to manage members.")
+    return True
+
+
 def can_moderate_target(database, server, actor_id, target_id):
     if actor_id == target_id:
         return False
@@ -493,7 +508,16 @@ async def set_server_role_member(body: Server_role_member_in, database: Session 
     is_owner = server.owner_id == current_user.id
     is_self = body.user_id == current_user.id
     if not is_owner:
-        if not is_self or not bool(getattr(role, "self_assignable", False)):
+        perms = effective_perms_for_user(database, server, current_user.id)
+        if perms.get("manage_roles"):
+            if body.user_id == current_user.id:
+                raise HTTPException(status_code=403, detail="Use Self-assignable roles on your own account.")
+            if not can_moderate_target(database, server, current_user.id, body.user_id):
+                raise HTTPException(status_code=403, detail="You can only change roles for members below your highest role.")
+            actor_highest = actor_highest_role(database, server, current_user.id)
+            if not can_manage_target_role(False, actor_highest, role):
+                raise HTTPException(status_code=403, detail="You can only assign roles below your highest role.")
+        elif not (is_self and bool(getattr(role, "self_assignable", False))):
             raise HTTPException(status_code=403, detail="You can only assign that role to yourself.")
 
     existing = database.query(Server_role_members).filter(

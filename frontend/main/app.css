@@ -2140,6 +2140,26 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 #moderation-error { margin: 0 auto 0 0; flex: 1 1 100%; }
 #moderation-clear { margin-right: auto; }
 
+#bulk-kick-overlay {
+  position: fixed; inset: 0; z-index: 950;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+#bulk-kick-modal {
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#bulk-kick-modal .view-header { height: auto; padding: 16px 16px 0; border-bottom: none; }
+#bulk-kick-modal .view-body { padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 8px; }
+#bulk-kick-footer {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 0 16px 16px; flex-wrap: wrap;
+}
+#bulk-kick-error { margin: 0 auto 0 0; flex: 1 1 100%; }
+
 /* ---- Announcement composer (inline, not a modal) ---- */
 /* Two states living in the SAME .announce-composer-bar slot, toggled by
    JS (showAnnounceComposerEditing/hideAnnounceComposerEditing) — a
@@ -4070,7 +4090,9 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 #server-settings-overview[hidden],
 #server-settings-roles[hidden],
-.server-roles-page[hidden] {
+#server-settings-members[hidden],
+.server-roles-page[hidden],
+.server-members-page[hidden] {
   display: none;
 }
 .server-roles-page:has(#server-roles-review:not([hidden])) {
@@ -4761,3 +4783,139 @@ a.profile-link-row:hover { color: var(--accent); }
 #account-footer .avatar-dot .identity-media {
   border-radius: 50%;
 }
+
+/* ---- Server Settings Members roster ---- */
+.server-members-page {
+  width: 100%;
+  max-width: none;
+  min-height: calc(100vh - 52px);
+  box-sizing: border-box;
+  padding: 28px 36px 64px;
+}
+.server-members-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+.server-members-search {
+  flex: 1 1 220px;
+  max-width: 320px;
+  margin: 0;
+}
+.server-members-filter,
+.server-members-sort {
+  flex: 0 0 auto;
+  min-width: 160px;
+  margin: 0;
+}
+.server-members-bulk-kick {
+  margin-left: auto;
+}
+.server-members-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-alt);
+}
+.server-members-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+.server-members-table th,
+.server-members-table td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+.server-members-table thead th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: var(--rail);
+}
+.server-members-table tbody tr:last-child td { border-bottom: none; }
+.server-members-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+.server-members-col-check { width: 36px; }
+.server-members-col-user { min-width: 200px; }
+.server-members-col-joined { width: 140px; white-space: nowrap; color: var(--text-dim); font-size: 13px; }
+.server-members-col-roles { min-width: 180px; }
+.server-members-col-actions { width: 1%; white-space: nowrap; }
+.server-members-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.server-members-avatar {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+}
+.server-members-user-labels {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.server-members-display {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.server-members-owner { color: var(--accent); font-size: 12px; }
+.server-members-username {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.server-members-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.server-members-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--role-color, var(--border)) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--role-color, var(--border)) 40%, transparent);
+  font-size: 12px;
+  color: var(--text);
+}
+.server-members-role-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex: 0 0 auto;
+}
+.server-members-roles-empty { color: var(--text-dim); font-size: 13px; }
+.server-members-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.server-members-action {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+#server-members-empty,
+#server-members-status {
+  margin-top: 12px;
+}
+

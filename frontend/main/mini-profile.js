@@ -592,6 +592,16 @@ async function setMiniProfileRole(roleId, assigned) {
     if (typeof applyMemberRolesUpdated === "function") {
       applyMemberRolesUpdated(currentServerId, miniProfileUserId, result.hoist_role || null, result.name_role || null, { skipMini: true });
     }
+    if (typeof patchServerRosterRoles === "function") {
+      patchServerRosterRoles(
+        currentServerId,
+        miniProfileUserId,
+        result.roles || null,
+        result.highest_role,
+        result.hoist_role || null,
+        result.name_role || null
+      );
+    }
     if (miniProfileUserId === myUserId && typeof refreshServerPerms === "function") refreshServerPerms();
   } catch (e) {
     window.alert("Could not change that role.");

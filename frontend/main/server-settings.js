@@ -1,7 +1,7 @@
 // ==================================================================
-// server-settings.js - Server Settings overlay. Overview is live.
-// Update server or Manage roles opens this overlay. Roles is Manage
-// roles only, and only roles below yours. Every other index row stays grey.
+// server-settings.js - Server Settings overlay. Overview, Roles, and
+// Members are live. Update server / Manage roles / Kick / Ban /
+// Timeout / Manage roles open this overlay. Other index rows stay grey.
 // ==================================================================
 
 function canServerPerm(perm) {
@@ -15,6 +15,25 @@ function canUpdateServer() {
 
 function canManageRoles() {
   return canServerPerm("manage_roles");
+}
+
+function canOpenServerMembers() {
+  return canServerPerm("kick_members")
+    || canServerPerm("ban_members")
+    || canServerPerm("timeout_members")
+    || canManageRoles()
+    || canUpdateServer();
+}
+
+function canOpenServerSettings() {
+  return canUpdateServer() || canManageRoles() || canOpenServerMembers();
+}
+
+function defaultServerSettingsTab() {
+  if (canUpdateServer()) return "overview";
+  if (canManageRoles()) return "roles";
+  if (canOpenServerMembers()) return "members";
+  return "overview";
 }
 
 function canInviteMembers() {
@@ -133,15 +152,24 @@ async function refreshServerPerms() {
 
 function paintServerSettingsAccess() {
   const rolesBtn = document.querySelector('#server-settings-nav [data-tab="roles"]');
-  if (!rolesBtn) return;
+  const membersBtn = document.querySelector('#server-settings-nav [data-tab="members"]');
   const allowRoles = canManageRoles();
-  rolesBtn.disabled = !allowRoles;
-  rolesBtn.classList.toggle("is-later", !allowRoles);
-  if (!allowRoles && typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen) {
-    const roles = document.getElementById("server-settings-roles");
-    if (roles && !roles.hidden && typeof showServerSettingsTab === "function") {
-      showServerSettingsTab("overview");
-    }
+  const allowMembers = canOpenServerMembers();
+  if (rolesBtn) {
+    rolesBtn.disabled = !allowRoles;
+    rolesBtn.classList.toggle("is-later", !allowRoles);
+  }
+  if (membersBtn) {
+    membersBtn.disabled = !allowMembers;
+    membersBtn.classList.toggle("is-later", !allowMembers);
+  }
+  if (typeof isServerSettingsOpen === "undefined" || !isServerSettingsOpen) return;
+  const roles = document.getElementById("server-settings-roles");
+  const members = document.getElementById("server-settings-members");
+  if (!allowRoles && roles && !roles.hidden) {
+    if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
+  } else if (!allowMembers && members && !members.hidden) {
+    if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   }
 }
 
@@ -889,7 +917,7 @@ function openServerSettings() {
   paintServerSettingsAccess();
   if (typeof resetServerRolesDraft === "function") resetServerRolesDraft();
   if (typeof showServerSettingsTab === "function") {
-    showServerSettingsTab(canUpdateServer() ? "overview" : "roles");
+    showServerSettingsTab(defaultServerSettingsTab());
   }
   const name = currentServerSettingsName();
   const label = document.getElementById("server-settings-index-label");

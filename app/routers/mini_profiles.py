@@ -6,7 +6,16 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.routers.profile import STATUS_MAX, clip_text, ensure_layout, normalize_identity, public_display_name
 from app.routers.realtime import presence_status
-from app.routers.roles import assigned_roles_for_user, highest_role_for_user, list_server_roles, seed_server_roles
+from app.routers.roles import (
+    actor_highest_role,
+    assigned_roles_for_user,
+    can_manage_target_role,
+    can_moderate_target,
+    effective_perms_for_user,
+    highest_role_for_user,
+    list_server_roles,
+    seed_server_roles,
+)
 
 router = APIRouter()
 
@@ -90,12 +99,21 @@ def get_mini_profile(user_id: int, server_id: str | None = None, current_user: U
     assigned_ids = {role["id"] for role in assigned}
     is_owner = server.owner_id == current_user.id
     is_self = current_user.id == owner.id
+    manage_roles = False
+    if not is_owner:
+        manage_roles = bool(effective_perms_for_user(database, server, current_user.id).get("manage_roles"))
+    actor_highest = actor_highest_role(database, server, current_user.id)
     assignable = []
     removable_ids = []
     for role in list_server_roles(database, server.id):
         if role.get("is_members"):
             continue
-        can_touch = is_owner or (is_self and role.get("self_assignable"))
+        if is_owner:
+            can_touch = True
+        elif manage_roles and not is_self and can_moderate_target(database, server, current_user.id, owner.id):
+            can_touch = can_manage_target_role(False, actor_highest, role)
+        else:
+            can_touch = is_self and role.get("self_assignable")
         if not can_touch:
             continue
         if role["id"] in assigned_ids:

@@ -402,6 +402,9 @@ function applyMemberJoined(scope, scopeId, member) {
 }
 
 function applyMemberLeft(scope, scopeId, userId) {
+  if (scope === "server" && typeof removeServerRosterMember === "function") {
+    removeServerRosterMember(scopeId, userId);
+  }
   if (memberListScope !== scope || String(memberListScopeId) !== String(scopeId)) return;
   memberList = memberList.filter(m => m.id !== userId);
   removePlacedMemberRow(userId);

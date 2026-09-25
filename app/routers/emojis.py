@@ -91,6 +91,56 @@ def serialize_emoji(database, row):
     return payload
 
 
+@router.get("/my_emoji_packs")
+def my_emoji_packs(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    """Custom emoji packs for every server the user still belongs to."""
+    from app.models import Servers, Server_members
+    from app.routers.servers import server_icon_url
+
+    memberships = database.query(Server_members).filter(
+        Server_members.user_id == current_user.id,
+    ).order_by(Server_members.position.asc()).all()
+    packs = []
+    for membership in memberships:
+        server = database.query(Servers).filter(Servers.id == membership.server_id).first()
+        if not server:
+            continue
+        rows = database.query(Server_emojis).filter(
+            Server_emojis.server_id == server.id,
+        ).order_by(Server_emojis.name.asc(), Server_emojis.id.asc()).all()
+        if not rows:
+            continue
+        packs.append({
+            "server_id": server.id,
+            "server_name": server.name or "Server",
+            "icon_url": server_icon_url(server),
+            "emojis": [
+                {
+                    "id": row.id,
+                    "name": row.name,
+                    "image_url": public_url_for(row.image_key) if row.image_key else "",
+                    "server_id": server.id,
+                }
+                for row in rows
+            ],
+        })
+    return {"packs": packs}
+
+
+@router.get("/server_emoji/{emoji_id}")
+def get_server_emoji(emoji_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    """Resolve a custom emoji for message render (CDN URL is public)."""
+    row = database.query(Server_emojis).filter(Server_emojis.id == emoji_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Emoji not found.")
+    return {
+        "id": row.id,
+        "name": row.name,
+        "image_url": public_url_for(row.image_key) if row.image_key else "",
+        "server_id": row.server_id,
+    }
+
+
 @router.get("/server_settings_emojis/{server_id}")
 def server_settings_emojis(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server = require_server_member(database, server_id, current_user.id)

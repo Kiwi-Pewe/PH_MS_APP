@@ -271,6 +271,7 @@ async function createServerEmojiFromFile(file) {
       if (uploader && typeof rememberIdentityFace === "function") {
         rememberIdentityFace(uploader.id, uploader.avatar);
       }
+      if (typeof refreshEmojiPickerPacks === "function") refreshEmojiPickerPacks();
     }
     if (data.slot_cap) serverEmojisSlotCap = data.slot_cap;
     paintServerEmojisTable();
@@ -342,6 +343,7 @@ async function deleteServerEmoji(emoji) {
     if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not delete emoji.");
     serverEmojisList = serverEmojisList.filter((row) => row.id !== emoji.id);
     paintServerEmojisTable();
+    if (typeof refreshEmojiPickerPacks === "function") refreshEmojiPickerPacks();
   } catch (e) {
     setServerEmojisStatus(e.message || "Could not delete emoji.");
   } finally {

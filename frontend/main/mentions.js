@@ -104,7 +104,8 @@ function encodeMentions(text, allowRoles) {
 function mentionDisplayText(text, mentionUsers, mentionRoles) {
   const lookup = mentionUsers || {};
   const roles = mentionRoles || {};
-  return (text || "").replace(MENTION_TOKEN_RE, (full, token) => {
+  let out = (text || "").replace(/<:([a-zA-Z0-9_]{2,32}):(\d+)>/g, ":$1:");
+  return out.replace(MENTION_TOKEN_RE, (full, token) => {
     if (token === "everyone") return "@everyone";
     if (token === "here") return "@here";
     if (token.charAt(0) === "&") return "@" + mentionRoleNameForId(token.slice(1), roles);
@@ -191,7 +192,8 @@ function appendMentionAwareText(el, text, msg) {
 }
 
 function appendPlainOrLinks(el, text) {
-  if (typeof renderMessageText === "function") renderMessageText(el, text);
+  if (typeof appendTextWithCustomEmoji === "function") appendTextWithCustomEmoji(el, text);
+  else if (typeof renderMessageText === "function") renderMessageText(el, text);
   else el.appendChild(document.createTextNode(text));
 }
 

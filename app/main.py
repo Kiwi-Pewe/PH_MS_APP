@@ -8,7 +8,7 @@ from app.schemas import Attachment_in, Message_schema, Party_message_schema, Ser
 from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns, ensure_reply_columns, ensure_account_columns, ensure_server_columns, ensure_role_columns, ensure_moderation_columns, ensure_forum_columns, ensure_doc_columns, ensure_feedback_columns
 from app.auth import validate_session
 from app.r2 import attachment_public
-from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation, feedback, admin, emojis, notify_prefs
+from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation, feedback, admin, emojis, notify_prefs, audit
 from pydantic import ValidationError
 from app.routers.realtime import active_connections, heartbeat, notify_presence
 from app.routers.messages import send_message
@@ -73,6 +73,7 @@ app.include_router(moderation.router)
 app.include_router(invites.router)
 app.include_router(emojis.router)
 app.include_router(notify_prefs.router)
+app.include_router(audit.router)
 app.include_router(announcements.router)
 app.include_router(forums.router)
 app.include_router(docs.router)

@@ -1,7 +1,6 @@
 // ==================================================================
-// server-settings.js - Server Settings overlay. Overview, Roles,
-// Members, Invites, Bans, Privacy, Emojis, and Integrations are live.
-// Other index rows stay grey until their pass.
+// server-settings.js - Server Settings overlay. Overview through Audit
+// Log are live; Delete Server is owner-only. Notifications stays grey.
 // ==================================================================
 
 function canServerPerm(perm) {
@@ -45,6 +44,14 @@ function canOpenServerIntegrations() {
   return canUpdateServer();
 }
 
+function canOpenServerAudit() {
+  return canUpdateServer();
+}
+
+function canDeleteServer() {
+  return !!(currentServerId && currentServerOwnerId === myUserId);
+}
+
 function canOpenServerSettings() {
   return canUpdateServer()
     || canManageRoles()
@@ -53,7 +60,8 @@ function canOpenServerSettings() {
     || canOpenServerBans()
     || canOpenServerPrivacy()
     || canOpenServerEmojis()
-    || canOpenServerIntegrations();
+    || canOpenServerIntegrations()
+    || canOpenServerAudit();
 }
 
 function defaultServerSettingsTab() {
@@ -65,6 +73,7 @@ function defaultServerSettingsTab() {
   if (canOpenServerPrivacy()) return "privacy";
   if (canOpenServerEmojis()) return "emojis";
   if (canOpenServerIntegrations()) return "integrations";
+  if (canOpenServerAudit()) return "audit";
   return "overview";
 }
 
@@ -186,6 +195,8 @@ function paintServerSettingsAccess() {
   const privacyBtn = document.querySelector('#server-settings-nav [data-tab="privacy"]');
   const emojisBtn = document.querySelector('#server-settings-nav [data-tab="emojis"]');
   const integrationsBtn = document.querySelector('#server-settings-nav [data-tab="integrations"]');
+  const auditBtn = document.querySelector('#server-settings-nav [data-tab="audit"]');
+  const deleteBtn = document.getElementById("server-settings-delete");
   const allowRoles = canManageRoles();
   const allowMembers = canOpenServerMembers();
   const allowInvites = canOpenServerInvites();
@@ -193,6 +204,8 @@ function paintServerSettingsAccess() {
   const allowPrivacy = canOpenServerPrivacy();
   const allowEmojis = canOpenServerEmojis();
   const allowIntegrations = canOpenServerIntegrations();
+  const allowAudit = canOpenServerAudit();
+  const allowDelete = canDeleteServer();
   if (rolesBtn) {
     rolesBtn.disabled = !allowRoles;
     rolesBtn.classList.toggle("is-later", !allowRoles);
@@ -221,6 +234,14 @@ function paintServerSettingsAccess() {
     integrationsBtn.disabled = !allowIntegrations;
     integrationsBtn.classList.toggle("is-later", !allowIntegrations);
   }
+  if (auditBtn) {
+    auditBtn.disabled = !allowAudit;
+    auditBtn.classList.toggle("is-later", !allowAudit);
+  }
+  if (deleteBtn) {
+    deleteBtn.hidden = !allowDelete;
+    deleteBtn.disabled = !allowDelete;
+  }
   if (typeof isServerSettingsOpen === "undefined" || !isServerSettingsOpen) return;
   const roles = document.getElementById("server-settings-roles");
   const members = document.getElementById("server-settings-members");
@@ -229,6 +250,7 @@ function paintServerSettingsAccess() {
   const privacy = document.getElementById("server-settings-privacy");
   const emojis = document.getElementById("server-settings-emojis");
   const integrations = document.getElementById("server-settings-integrations");
+  const audit = document.getElementById("server-settings-audit");
   if (!allowRoles && roles && !roles.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowMembers && members && !members.hidden) {
@@ -242,6 +264,8 @@ function paintServerSettingsAccess() {
   } else if (!allowEmojis && emojis && !emojis.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowIntegrations && integrations && !integrations.hidden) {
+    if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
+  } else if (!allowAudit && audit && !audit.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   }
 }

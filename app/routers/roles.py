@@ -529,6 +529,23 @@ async def set_server_role_member(body: Server_role_member_in, database: Session 
         database.add(Server_role_members(role_id=role.id, user_id=body.user_id))
     elif not body.assigned and existing:
         database.delete(existing)
+    else:
+        database.commit()
+        return {
+            "ok": True,
+            "roles": assigned_roles_for_user(database, server.id, body.user_id),
+            "highest_role": highest_role_for_user(database, server.id, body.user_id),
+            "hoist_role": hoist_role_for_user(database, server.id, body.user_id),
+            "name_role": name_color_role_for_user(database, server.id, body.user_id),
+        }
+
+    target = database.query(UserInfo).filter(UserInfo.id == body.user_id).first()
+    write_audit_log(database, server.id, current_user.id, "role_member_updated", "member", body.user_id, {
+        "username": target.username if target else None,
+        "role_id": role.id,
+        "role_name": role.name,
+        "assigned": bool(body.assigned),
+    })
     database.commit()
 
     hoist = hoist_role_for_user(database, server.id, body.user_id)

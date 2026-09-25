@@ -253,6 +253,10 @@ class Server_notify_prefs_update(BaseModel):
     notify_level: str | None = None
     suppress_everyone: bool | None = None
 
+class Server_delete(BaseModel):
+    server_id: str
+    confirm_name: str = ""
+
 class Server_emoji_create(BaseModel):
     server_id: str
     name: str = ""

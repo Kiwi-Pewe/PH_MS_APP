@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete
 from zoneinfo import available_timezones
 from app.database import get_db
 from app.auth import get_current_user
@@ -878,6 +878,9 @@ async def leave_server(server_id: str, database: Session = Depends(get_db), curr
         )
         database.add(leave_message)
 
+    write_audit_log(database, server_id, current_user.id, "member_left", "member", current_user.id, {
+        "username": current_user.username,
+    })
     database.delete(membership)
     database.commit()
     await server_broadcast(server_id= server_id, payload= {
@@ -887,3 +890,34 @@ async def leave_server(server_id: str, database: Session = Depends(get_db), curr
         "user_id": current_user.id
     }, database= database, exclude_user_id= current_user.id)
     return {"server_id": server_id}
+
+
+@router.post("/delete_server")
+async def delete_server(body: Server_delete, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = database.query(Servers).filter(Servers.id == body.server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the server owner can delete this server.")
+    typed = (body.confirm_name or "").strip()
+    if typed != (server.name or ""):
+        raise HTTPException(status_code=400, detail="Type the full server name to confirm.")
+
+    server_id = server.id
+    member_ids = [
+        row.user_id
+        for row in database.query(Server_members).filter(Server_members.server_id == server_id).all()
+        if row.user_id != current_user.id
+    ]
+    from app.site_moderation import wipe_owned_server
+    wipe_owned_server(database, server)
+    database.commit()
+
+    payload = {
+        "type": "server_deleted",
+        "server_id": server_id,
+    }
+    for uid in member_ids:
+        from app.routers.deletion import notify_user
+        await notify_user(uid, payload)
+    return {"ok": True, "server_id": server_id}

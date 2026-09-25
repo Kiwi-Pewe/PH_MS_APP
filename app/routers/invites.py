@@ -8,6 +8,7 @@ from app.auth import get_current_user, get_optional_user
 from app.routers.realtime import active_connections, serialize_member, server_broadcast, party_broadcast
 from app.routers.roles import effective_perms_for_user, require_server_member, require_server_perm
 from app.routers.moderation import active_ban, iso_dt
+from app.routers.deletion import write_audit_log
 from app.routers.account import public_display_name
 from app.routers.profile import public_avatar
 from datetime import datetime, timedelta
@@ -146,6 +147,10 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
             content = f"{current_user.username} has joined the server"
         )
         database.add(join_message)
+        write_audit_log(database, invite.server_id, current_user.id, "member_joined", "member", current_user.id, {
+            "username": current_user.username,
+            "invite_code": invite.code,
+        })
         database.commit()
         await server_broadcast(server_id= invite.server_id, payload= {
             "type": "member_joined",
@@ -237,6 +242,10 @@ def create_invite(type: Invite, database: Session = Depends(get_db), current_use
     )
 
     database.add(invite_card)
+    if type.type == "server" and type.server_id:
+        write_audit_log(database, type.server_id, current_user.id, "create_invite", "invite", 0, {
+            "code": new_code,
+        })
     database.commit()
     return {"invite_code": new_code}
 

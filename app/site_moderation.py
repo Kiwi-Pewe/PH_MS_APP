@@ -7,8 +7,8 @@ from app.models import (
     Dm_server_pref, Doc_page, Forum_messages, Forum_post, Friend_request, Invite_model,
     Message, Message_mention, Party_members, Party_messages, Perma_ban, Profile_comment,
     Profile_comment_notice, Profile_comment_watch, Server_bans, Server_categories,
-    Server_channels, Server_members, Server_role_members, Server_roles, Servers, Site_ban,
-    User_notes, UserInfo,
+    Server_channels, Server_emojis, Server_members, Server_notify_prefs, Server_role_members,
+    Server_roles, Servers, Site_ban, User_notes, UserInfo,
 )
 from app.r2 import delete_attachment, delete_r2_object
 
@@ -230,7 +230,12 @@ def wipe_owned_server(database, server):
     database.query(Invite_model).filter(Invite_model.server_id == server.id).delete(synchronize_session=False)
     database.query(Audit_log).filter(Audit_log.server_id == server.id).delete(synchronize_session=False)
     database.query(Dm_server_pref).filter(Dm_server_pref.server_id == server.id).delete(synchronize_session=False)
+    database.query(Server_notify_prefs).filter(Server_notify_prefs.server_id == server.id).delete(synchronize_session=False)
     database.query(Message_mention).filter(Message_mention.server_id == server.id).delete(synchronize_session=False)
+    for emoji in database.query(Server_emojis).filter(Server_emojis.server_id == server.id).all():
+        if emoji.image_key:
+            delete_r2_object(emoji.image_key)
+        database.delete(emoji)
     if server.icon_key:
         delete_r2_object(server.icon_key)
     if server.banner_key:

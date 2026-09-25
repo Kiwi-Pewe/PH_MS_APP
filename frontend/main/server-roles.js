@@ -964,6 +964,9 @@ async function showServerSettingsTab(tab) {
   if (tab === "integrations" && typeof canOpenServerIntegrations === "function" && !canOpenServerIntegrations()) {
     tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
   }
+  if (tab === "audit" && typeof canOpenServerAudit === "function" && !canOpenServerAudit()) {
+    tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
+  }
   const overview = document.getElementById("server-settings-overview");
   const roles = document.getElementById("server-settings-roles");
   const members = document.getElementById("server-settings-members");
@@ -972,6 +975,7 @@ async function showServerSettingsTab(tab) {
   const privacy = document.getElementById("server-settings-privacy");
   const emojis = document.getElementById("server-settings-emojis");
   const integrations = document.getElementById("server-settings-integrations");
+  const audit = document.getElementById("server-settings-audit");
   if (overview) overview.hidden = tab !== "overview";
   if (roles) roles.hidden = tab !== "roles";
   if (members) members.hidden = tab !== "members";
@@ -980,6 +984,7 @@ async function showServerSettingsTab(tab) {
   if (privacy) privacy.hidden = tab !== "privacy";
   if (emojis) emojis.hidden = tab !== "emojis";
   if (integrations) integrations.hidden = tab !== "integrations";
+  if (audit) audit.hidden = tab !== "audit";
   document.querySelectorAll("#server-settings-nav .server-settings-nav-item[data-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
   });
@@ -1010,6 +1015,10 @@ async function showServerSettingsTab(tab) {
   }
   if (tab === "integrations" && typeof loadServerIntegrationsPage === "function") {
     await loadServerIntegrationsPage();
+    return;
+  }
+  if (tab === "audit" && typeof loadServerAuditPage === "function") {
+    await loadServerAuditPage();
   }
 }
 

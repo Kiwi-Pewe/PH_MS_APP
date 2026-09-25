@@ -356,6 +356,10 @@ function connectSocket() {
       if (typeof applyRemovedFromServer === "function") applyRemovedFromServer(data);
     }
 
+    if (data.type === "server_deleted") {
+      if (typeof applyServerDeleted === "function") applyServerDeleted(data.server_id);
+    }
+
     if (data.type === "announcement_reacted") {
       patchAnnouncementReactions(data.post_id, data.reactions || []);
     }

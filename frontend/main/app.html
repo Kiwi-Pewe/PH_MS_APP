@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=173">
+<link rel="stylesheet" href="app.css?v=174">
 </head>
 <body>
 
@@ -471,9 +471,9 @@
         <button type="button" class="server-settings-nav-item" data-tab="emojis">Emojis</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Notifications</button>
         <button type="button" class="server-settings-nav-item" data-tab="integrations">Integrations</button>
-        <button type="button" class="server-settings-nav-item is-later" disabled>Audit Log</button>
+        <button type="button" class="server-settings-nav-item" data-tab="audit">Audit Log</button>
       </nav>
-      <button type="button" class="server-settings-nav-item is-later is-danger" disabled>Delete Server</button>
+      <button type="button" id="server-settings-delete" class="server-settings-nav-item is-danger" hidden>Delete Server</button>
     </aside>
     <section id="server-settings-main">
       <button type="button" id="server-settings-close" title="Close">
@@ -803,6 +803,29 @@
           <p id="server-integrations-youtube-empty" class="server-settings-help">No YouTube channel linked.</p>
         </section>
       </div>
+
+      <div id="server-settings-audit" class="server-audit-page" hidden>
+        <h2 class="server-settings-page-title">Audit Log</h2>
+        <div class="server-audit-toolbar">
+          <input id="server-audit-search" class="server-settings-input server-audit-search" type="search" placeholder="Search audit log" autocomplete="off" spellcheck="false">
+          <button type="button" id="server-audit-search-btn" class="pill-btn">Search</button>
+        </div>
+        <div class="server-audit-table-wrap">
+          <table class="server-audit-table">
+            <thead>
+              <tr>
+                <th class="server-audit-col-user">User</th>
+                <th class="server-audit-col-action">Action</th>
+                <th class="server-audit-col-details">Details</th>
+                <th class="server-audit-col-when">When</th>
+              </tr>
+            </thead>
+            <tbody id="server-audit-body"></tbody>
+          </table>
+        </div>
+        <p id="server-audit-empty" class="server-settings-help" hidden>No audit entries yet.</p>
+        <p id="server-audit-status" class="server-settings-help" hidden></p>
+      </div>
     </section>
   </div>
 
@@ -1083,6 +1106,25 @@
     </div>
   </div>
 
+  <div id="delete-server-overlay" hidden>
+    <div id="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="delete-server-title">
+      <div class="delete-server-header">
+        <span id="delete-server-title">Delete Server</span>
+        <button type="button" class="icon-btn" id="delete-server-close" title="Close">&times;</button>
+      </div>
+      <div class="delete-server-body">
+        <p id="delete-server-copy" class="delete-server-copy"></p>
+        <label class="delete-server-label" for="delete-server-name">Server name</label>
+        <input type="text" id="delete-server-name" class="delete-server-input" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="delete-server-footer">
+        <p id="delete-server-error" class="server-settings-help" hidden></p>
+        <button type="button" class="ghost-btn" id="delete-server-cancel">Cancel</button>
+        <button type="button" class="deny-btn" id="delete-server-confirm">Delete Server</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Invite panel — shared by both servers and parties (openInviteModal
        takes the type so one panel handles both), reached via each's own
        context menu (see showServerContextMenu/showPartyContextMenu in
@@ -1150,11 +1192,11 @@
 <script src="util.js?v=49"></script>
 <script src="media.js?v=54"></script>
 <script src="post-media.js?v=51"></script>
-<script src="boot.js?v=84"></script>
+<script src="boot.js?v=85"></script>
 <script src="app-shell.js?v=61"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=29"></script>
-<script src="server-roles.js?v=16"></script>
+<script src="server-settings.js?v=30"></script>
+<script src="server-roles.js?v=17"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
@@ -1195,6 +1237,8 @@
 <script src="server-privacy.js?v=1"></script>
 <script src="server-emojis.js?v=2"></script>
 <script src="server-integrations.js?v=1"></script>
+<script src="server-audit.js?v=1"></script>
+<script src="server-delete.js?v=1"></script>
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=12"></script>

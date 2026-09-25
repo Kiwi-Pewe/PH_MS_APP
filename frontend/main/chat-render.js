@@ -358,7 +358,7 @@ function buildEditComposer(msg) {
   });
   emojiBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (typeof openEmojiPicker === "function") openEmojiPicker(emojiBtn, textarea);
+    if (typeof openEmojiPicker === "function") openEmojiPicker(emojiBtn, textarea, e.clientX, e.clientY);
   });
   textarea.addEventListener("input", () => {
     if (typeof applyEmojiShortcodesToInput === "function") applyEmojiShortcodesToInput(textarea);

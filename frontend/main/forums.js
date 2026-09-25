@@ -738,7 +738,7 @@ function fillForumPostEditor(card, post) {
   emojiBtn.textContent = "🙂";
   emojiBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (typeof openEmojiPicker === "function") openEmojiPicker(emojiBtn, bodyInput);
+    if (typeof openEmojiPicker === "function") openEmojiPicker(emojiBtn, bodyInput, e.clientX, e.clientY);
   });
   const confirmBtn = document.createElement("button");
   confirmBtn.type = "button";

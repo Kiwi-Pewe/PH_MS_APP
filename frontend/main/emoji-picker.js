@@ -477,6 +477,7 @@ function filterEmojiPicker(query) {
 // open at a viewport point, then flip left/up if the panel would
 // leave the window. Must divide by pageZoom() — accessibility zoom
 // makes client coords and style.left/top different spaces.
+// Place once per open — never re-place after async pack loads.
 function placeEmojiPickerAt(x, y) {
   const picker = document.getElementById("emoji-picker");
   if (!picker) return;
@@ -493,18 +494,13 @@ function placeEmojiPickerAt(x, y) {
   }
 }
 
-function placeEmojiPicker(anchorRect) {
-  if (!anchorRect) return;
-  placeEmojiPickerAt(anchorRect.left, anchorRect.top);
-}
-
 async function refreshEmojiPickerPacks() {
   await loadCustomEmojiPacks(true);
   buildEmojiPickerBody();
   filterEmojiPicker(document.getElementById("emoji-picker-search").value || "");
 }
 
-function openEmojiPicker(btn, input) {
+function openEmojiPicker(btn, input, clientX, clientY) {
   if (input.disabled) return;
   if (document.documentElement.classList.contains("legacy-chat-input")) return;
   emojiReactionTarget = null;
@@ -514,18 +510,27 @@ function openEmojiPicker(btn, input) {
     return;
   }
   emojiPickerTarget = input;
-  placeEmojiPicker(btn.getBoundingClientRect());
+  let x = clientX;
+  let y = clientY;
+  if (x == null || y == null) {
+    const rect = btn.getBoundingClientRect();
+    x = rect.left;
+    y = rect.top;
+  }
+  placeEmojiPickerAt(x, y);
   document.getElementById("emoji-picker-search").value = "";
   document.getElementById("emoji-picker-footer").textContent = "";
   emojiSearchSaved = "";
   emojiHovering = false;
+  filterEmojiPicker("");
+  const firstServer = customEmojiPacks[0];
+  highlightEmojiRail(firstServer ? ("server-" + firstServer.server_id) : "frequent");
   loadCustomEmojiPacks(false).then(() => {
     if (emojiPickerTarget !== input && !emojiReactionTarget) return;
     buildEmojiPickerBody();
-    filterEmojiPicker("");
-    const firstServer = customEmojiPacks[0];
-    highlightEmojiRail(firstServer ? ("server-" + firstServer.server_id) : "frequent");
-    placeEmojiPicker(btn.getBoundingClientRect());
+    filterEmojiPicker(document.getElementById("emoji-picker-search").value || "");
+    const pack = customEmojiPacks[0];
+    highlightEmojiRail(pack ? ("server-" + pack.server_id) : "frequent");
   });
 }
 
@@ -545,30 +550,31 @@ function openEmojiPickerForReaction(x, y, msg) {
   document.getElementById("emoji-picker-footer").textContent = "";
   emojiSearchSaved = "";
   emojiHovering = false;
+  filterEmojiPicker("");
+  highlightEmojiRail("frequent");
   loadCustomEmojiPacks(false).then(() => {
     if (!emojiReactionTarget) return;
     buildEmojiPickerBody();
-    filterEmojiPicker("");
+    filterEmojiPicker(document.getElementById("emoji-picker-search").value || "");
     highlightEmojiRail("frequent");
-    placeEmojiPickerAt(x, y);
   });
 }
 
 document.getElementById("composer-emoji-btn").addEventListener("click", (e) => {
   e.stopPropagation();
-  openEmojiPicker(e.currentTarget, document.getElementById("composer-input"));
+  openEmojiPicker(e.currentTarget, document.getElementById("composer-input"), e.clientX, e.clientY);
 });
 document.getElementById("channel-composer-emoji-btn").addEventListener("click", (e) => {
   e.stopPropagation();
-  openEmojiPicker(e.currentTarget, document.getElementById("channel-composer-input"));
+  openEmojiPicker(e.currentTarget, document.getElementById("channel-composer-input"), e.clientX, e.clientY);
 });
 document.getElementById("announce-composer-emoji-btn").addEventListener("click", (e) => {
   e.stopPropagation();
-  openEmojiPicker(e.currentTarget, document.getElementById("announcement-body-input"));
+  openEmojiPicker(e.currentTarget, document.getElementById("announcement-body-input"), e.clientX, e.clientY);
 });
 document.getElementById("forum-composer-emoji-btn").addEventListener("click", (e) => {
   e.stopPropagation();
-  openEmojiPicker(e.currentTarget, document.getElementById("forum-body-input"));
+  openEmojiPicker(e.currentTarget, document.getElementById("forum-body-input"), e.clientX, e.clientY);
 });
 
 document.getElementById("emoji-picker").addEventListener("click", (e) => e.stopPropagation());

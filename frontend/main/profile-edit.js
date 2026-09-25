@@ -1497,7 +1497,7 @@ function fillIconOptions(box, draft, onChange, hintEl) {
   pick.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (typeof openEmojiPicker === "function") openEmojiPicker(pick, hidden);
+    if (typeof openEmojiPicker === "function") openEmojiPicker(pick, hidden, e.clientX, e.clientY);
   });
   hidden.addEventListener("input", () => {
     draft.emoji = profileIconEmoji(hidden.value);

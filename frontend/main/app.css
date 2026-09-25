@@ -2502,12 +2502,13 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 #emoji-picker {
   position: fixed;
   z-index: 980;
-  width: 520px;
-  height: 520px;
-  max-width: calc(100vw - 16px);
-  max-height: calc(100vh - 16px);
+  width: 400px;
+  height: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
   display: none;
   flex-direction: column;
+  box-sizing: border-box;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -2629,14 +2630,14 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .emoji-section-empty { font-size: 13px; color: var(--text-dim); padding: 4px 0 8px; }
 .emoji-grid {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 2px;
 }
 #emoji-picker .emoji-cell {
   width: 100%;
   aspect-ratio: 1;
   border-radius: 8px;
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 400;
   display: flex;
   align-items: center;
@@ -2647,8 +2648,8 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 #emoji-picker .emoji-cell:hover { background: var(--panel-alt); }
 #emoji-picker .emoji-cell-img {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
   display: block;
   pointer-events: none;

@@ -473,28 +473,51 @@ function filterEmojiPicker(query) {
   results.appendChild(buildEmojiGrid(hits.slice(0, 200)));
 }
 
-function placeEmojiPickerNear(leftPrefer, topPreferAbove, topPreferBelow) {
-  const picker = document.getElementById("emoji-picker");
-  picker.style.display = "flex";
-  picker.style.left = "0px";
-  picker.style.top = "0px";
-  const pad = 8;
-  const maxW = Math.max(280, window.innerWidth - pad * 2);
-  const maxH = Math.max(280, window.innerHeight - pad * 2);
-  picker.style.width = Math.min(520, maxW) + "px";
-  picker.style.height = Math.min(520, maxH) + "px";
-  const width = picker.offsetWidth;
-  const height = picker.offsetHeight;
-  let left = leftPrefer;
-  let top = topPreferAbove;
-  if (top < pad) top = topPreferBelow;
-  if (top + height > window.innerHeight - pad) {
-    top = Math.max(pad, window.innerHeight - height - pad);
+const EMOJI_PICKER_W = 400;
+const EMOJI_PICKER_H = 420;
+const EMOJI_PICKER_PAD = 16;
+
+function emojiPickerViewport() {
+  const vv = window.visualViewport;
+  if (vv) {
+    return {
+      left: vv.offsetLeft || 0,
+      top: vv.offsetTop || 0,
+      width: vv.width || window.innerWidth,
+      height: vv.height || window.innerHeight
+    };
   }
-  if (top < pad) top = pad;
-  left = Math.max(pad, Math.min(left, window.innerWidth - width - pad));
-  picker.style.left = left + "px";
-  picker.style.top = top + "px";
+  return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+}
+
+function placeEmojiPicker(anchorRect) {
+  const picker = document.getElementById("emoji-picker");
+  if (!picker || !anchorRect) return;
+  const vp = emojiPickerViewport();
+  const pad = EMOJI_PICKER_PAD;
+  const width = Math.min(EMOJI_PICKER_W, Math.max(260, vp.width - pad * 2));
+  const height = Math.min(EMOJI_PICKER_H, Math.max(260, vp.height - pad * 2));
+
+  picker.style.display = "flex";
+  picker.style.width = width + "px";
+  picker.style.height = height + "px";
+  picker.style.maxWidth = (vp.width - pad * 2) + "px";
+  picker.style.maxHeight = (vp.height - pad * 2) + "px";
+
+  // Prefer above the button, right edge aligned to the button.
+  let left = anchorRect.right - width;
+  let top = anchorRect.top - pad - height;
+  if (top < vp.top + pad) top = anchorRect.bottom + pad;
+
+  const minLeft = vp.left + pad;
+  const maxLeft = vp.left + vp.width - width - pad;
+  const minTop = vp.top + pad;
+  const maxTop = vp.top + vp.height - height - pad;
+  left = Math.min(Math.max(left, minLeft), Math.max(minLeft, maxLeft));
+  top = Math.min(Math.max(top, minTop), Math.max(minTop, maxTop));
+
+  picker.style.left = Math.round(left) + "px";
+  picker.style.top = Math.round(top) + "px";
 }
 
 async function refreshEmojiPickerPacks() {
@@ -513,13 +536,7 @@ function openEmojiPicker(btn, input) {
     return;
   }
   emojiPickerTarget = input;
-  const rect = btn.getBoundingClientRect();
-  const widthGuess = Math.min(520, Math.max(280, window.innerWidth - 16));
-  placeEmojiPickerNear(
-    Math.max(8, rect.right - widthGuess),
-    rect.top - 8 - Math.min(520, window.innerHeight - 16),
-    rect.bottom + 8
-  );
+  placeEmojiPicker(btn.getBoundingClientRect());
   document.getElementById("emoji-picker-search").value = "";
   document.getElementById("emoji-picker-footer").textContent = "";
   emojiSearchSaved = "";
@@ -530,6 +547,7 @@ function openEmojiPicker(btn, input) {
     filterEmojiPicker("");
     const firstServer = customEmojiPacks[0];
     highlightEmojiRail(firstServer ? ("server-" + firstServer.server_id) : "frequent");
+    placeEmojiPicker(btn.getBoundingClientRect());
   });
 }
 
@@ -542,15 +560,17 @@ function closeEmojiPicker() {
 }
 
 function openEmojiPickerForReaction(x, y, msg) {
-  const picker = document.getElementById("emoji-picker");
   emojiPickerTarget = null;
   emojiReactionTarget = msg;
-  const widthGuess = Math.min(520, Math.max(280, window.innerWidth - 16));
-  placeEmojiPickerNear(
-    Math.max(8, Math.min(x, window.innerWidth - widthGuess - 8)),
-    y - 8 - Math.min(520, window.innerHeight - 16),
-    y + 8
-  );
+  const anchor = {
+    left: x,
+    right: x,
+    top: y,
+    bottom: y,
+    width: 0,
+    height: 0
+  };
+  placeEmojiPicker(anchor);
   document.getElementById("emoji-picker-search").value = "";
   document.getElementById("emoji-picker-footer").textContent = "";
   emojiSearchSaved = "";
@@ -560,6 +580,7 @@ function openEmojiPickerForReaction(x, y, msg) {
     buildEmojiPickerBody();
     filterEmojiPicker("");
     highlightEmojiRail("frequent");
+    placeEmojiPicker(anchor);
   });
 }
 

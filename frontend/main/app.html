@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=172">
+<link rel="stylesheet" href="app.css?v=173">
 </head>
 <body>
 
@@ -470,7 +470,7 @@
         <button type="button" class="server-settings-nav-item" data-tab="privacy">Privacy</button>
         <button type="button" class="server-settings-nav-item" data-tab="emojis">Emojis</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Notifications</button>
-        <button type="button" class="server-settings-nav-item is-later" disabled>Integrations</button>
+        <button type="button" class="server-settings-nav-item" data-tab="integrations">Integrations</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Audit Log</button>
       </nav>
       <button type="button" class="server-settings-nav-item is-later is-danger" disabled>Delete Server</button>
@@ -763,6 +763,45 @@
         </div>
         <p id="server-emojis-empty" class="server-settings-help" hidden>No emojis yet.</p>
         <p id="server-emojis-status" class="server-settings-help" hidden></p>
+      </div>
+
+      <div id="server-settings-integrations" class="server-settings-page server-integrations-page" hidden>
+        <h2 class="server-settings-page-title">Integrations</h2>
+
+        <section class="server-integrations-section" aria-labelledby="server-integrations-bots-title">
+          <div class="server-integrations-section-head">
+            <h3 id="server-integrations-bots-title" class="server-integrations-section-title">Bots and Apps</h3>
+          </div>
+          <div id="server-integrations-bots-list" class="server-integrations-list"></div>
+          <p id="server-integrations-bots-empty" class="server-settings-help">No bots or apps have been added to this server.</p>
+        </section>
+
+        <section class="server-integrations-section" aria-labelledby="server-integrations-webhooks-title">
+          <div class="server-integrations-section-head">
+            <h3 id="server-integrations-webhooks-title" class="server-integrations-section-title">Webhooks</h3>
+            <button type="button" id="server-integrations-webhook-create" class="ghost-btn" disabled>New Webhook</button>
+          </div>
+          <div id="server-integrations-webhooks-list" class="server-integrations-list"></div>
+          <p id="server-integrations-webhooks-empty" class="server-settings-help">No webhooks.</p>
+        </section>
+
+        <section class="server-integrations-section" aria-labelledby="server-integrations-twitch-title">
+          <div class="server-integrations-section-head">
+            <h3 id="server-integrations-twitch-title" class="server-integrations-section-title">Twitch</h3>
+            <button type="button" id="server-integrations-twitch-enable" class="ghost-btn" disabled>Enable</button>
+          </div>
+          <div id="server-integrations-twitch-list" class="server-integrations-list"></div>
+          <p id="server-integrations-twitch-empty" class="server-settings-help">No Twitch channel linked.</p>
+        </section>
+
+        <section class="server-integrations-section" aria-labelledby="server-integrations-youtube-title">
+          <div class="server-integrations-section-head">
+            <h3 id="server-integrations-youtube-title" class="server-integrations-section-title">YouTube</h3>
+            <button type="button" id="server-integrations-youtube-enable" class="ghost-btn" disabled>Enable</button>
+          </div>
+          <div id="server-integrations-youtube-list" class="server-integrations-list"></div>
+          <p id="server-integrations-youtube-empty" class="server-settings-help">No YouTube channel linked.</p>
+        </section>
       </div>
     </section>
   </div>
@@ -1114,8 +1153,8 @@
 <script src="boot.js?v=84"></script>
 <script src="app-shell.js?v=61"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=28"></script>
-<script src="server-roles.js?v=15"></script>
+<script src="server-settings.js?v=29"></script>
+<script src="server-roles.js?v=16"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
@@ -1140,7 +1179,7 @@
 <script src="profile.js?v=12"></script>
 <script src="profile-identity.js?v=4"></script>
 <script src="profile-edit.js?v=66"></script>
-<script src="context-menus.js?v=81"></script>
+<script src="context-menus.js?v=82"></script>
 <script src="conversations.js?v=57"></script>
 <script src="chat-render.js?v=64"></script>
 <script src="chat-history.js?v=51"></script>
@@ -1155,6 +1194,7 @@
 <script src="server-bans.js?v=1"></script>
 <script src="server-privacy.js?v=1"></script>
 <script src="server-emojis.js?v=2"></script>
+<script src="server-integrations.js?v=1"></script>
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=12"></script>

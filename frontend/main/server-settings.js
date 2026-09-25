@@ -1,7 +1,7 @@
 // ==================================================================
 // server-settings.js - Server Settings overlay. Overview, Roles,
-// Members, Invites, Bans, Privacy, and Emojis are live. Other index
-// rows stay grey until their pass.
+// Members, Invites, Bans, Privacy, Emojis, and Integrations are live.
+// Other index rows stay grey until their pass.
 // ==================================================================
 
 function canServerPerm(perm) {
@@ -41,6 +41,10 @@ function canOpenServerEmojis() {
   return canServerPerm("manage_emoji");
 }
 
+function canOpenServerIntegrations() {
+  return canUpdateServer();
+}
+
 function canOpenServerSettings() {
   return canUpdateServer()
     || canManageRoles()
@@ -48,7 +52,8 @@ function canOpenServerSettings() {
     || canOpenServerInvites()
     || canOpenServerBans()
     || canOpenServerPrivacy()
-    || canOpenServerEmojis();
+    || canOpenServerEmojis()
+    || canOpenServerIntegrations();
 }
 
 function defaultServerSettingsTab() {
@@ -59,6 +64,7 @@ function defaultServerSettingsTab() {
   if (canOpenServerBans()) return "bans";
   if (canOpenServerPrivacy()) return "privacy";
   if (canOpenServerEmojis()) return "emojis";
+  if (canOpenServerIntegrations()) return "integrations";
   return "overview";
 }
 
@@ -179,12 +185,14 @@ function paintServerSettingsAccess() {
   const bansBtn = document.querySelector('#server-settings-nav [data-tab="bans"]');
   const privacyBtn = document.querySelector('#server-settings-nav [data-tab="privacy"]');
   const emojisBtn = document.querySelector('#server-settings-nav [data-tab="emojis"]');
+  const integrationsBtn = document.querySelector('#server-settings-nav [data-tab="integrations"]');
   const allowRoles = canManageRoles();
   const allowMembers = canOpenServerMembers();
   const allowInvites = canOpenServerInvites();
   const allowBans = canOpenServerBans();
   const allowPrivacy = canOpenServerPrivacy();
   const allowEmojis = canOpenServerEmojis();
+  const allowIntegrations = canOpenServerIntegrations();
   if (rolesBtn) {
     rolesBtn.disabled = !allowRoles;
     rolesBtn.classList.toggle("is-later", !allowRoles);
@@ -209,6 +217,10 @@ function paintServerSettingsAccess() {
     emojisBtn.disabled = !allowEmojis;
     emojisBtn.classList.toggle("is-later", !allowEmojis);
   }
+  if (integrationsBtn) {
+    integrationsBtn.disabled = !allowIntegrations;
+    integrationsBtn.classList.toggle("is-later", !allowIntegrations);
+  }
   if (typeof isServerSettingsOpen === "undefined" || !isServerSettingsOpen) return;
   const roles = document.getElementById("server-settings-roles");
   const members = document.getElementById("server-settings-members");
@@ -216,6 +228,7 @@ function paintServerSettingsAccess() {
   const bans = document.getElementById("server-settings-bans");
   const privacy = document.getElementById("server-settings-privacy");
   const emojis = document.getElementById("server-settings-emojis");
+  const integrations = document.getElementById("server-settings-integrations");
   if (!allowRoles && roles && !roles.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowMembers && members && !members.hidden) {
@@ -227,6 +240,8 @@ function paintServerSettingsAccess() {
   } else if (!allowPrivacy && privacy && !privacy.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowEmojis && emojis && !emojis.hidden) {
+    if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
+  } else if (!allowIntegrations && integrations && !integrations.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   }
 }

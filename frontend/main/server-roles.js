@@ -961,6 +961,9 @@ async function showServerSettingsTab(tab) {
   if (tab === "emojis" && typeof canOpenServerEmojis === "function" && !canOpenServerEmojis()) {
     tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
   }
+  if (tab === "integrations" && typeof canOpenServerIntegrations === "function" && !canOpenServerIntegrations()) {
+    tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
+  }
   const overview = document.getElementById("server-settings-overview");
   const roles = document.getElementById("server-settings-roles");
   const members = document.getElementById("server-settings-members");
@@ -968,6 +971,7 @@ async function showServerSettingsTab(tab) {
   const bans = document.getElementById("server-settings-bans");
   const privacy = document.getElementById("server-settings-privacy");
   const emojis = document.getElementById("server-settings-emojis");
+  const integrations = document.getElementById("server-settings-integrations");
   if (overview) overview.hidden = tab !== "overview";
   if (roles) roles.hidden = tab !== "roles";
   if (members) members.hidden = tab !== "members";
@@ -975,6 +979,7 @@ async function showServerSettingsTab(tab) {
   if (bans) bans.hidden = tab !== "bans";
   if (privacy) privacy.hidden = tab !== "privacy";
   if (emojis) emojis.hidden = tab !== "emojis";
+  if (integrations) integrations.hidden = tab !== "integrations";
   document.querySelectorAll("#server-settings-nav .server-settings-nav-item[data-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
   });
@@ -1001,6 +1006,10 @@ async function showServerSettingsTab(tab) {
   }
   if (tab === "emojis" && typeof loadServerEmojisPage === "function") {
     await loadServerEmojisPage();
+    return;
+  }
+  if (tab === "integrations" && typeof loadServerIntegrationsPage === "function") {
+    await loadServerIntegrationsPage();
   }
 }
 

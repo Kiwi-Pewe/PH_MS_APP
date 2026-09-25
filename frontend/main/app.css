@@ -5445,6 +5445,52 @@ a.profile-link-row:hover { color: var(--accent); }
   margin-top: 12px;
 }
 
+.server-integrations-page {
+  max-width: 720px;
+}
+
+.server-integrations-section {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.server-integrations-section:first-of-type {
+  margin-top: 8px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.server-integrations-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.server-integrations-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+}
+
+.server-integrations-section-head .ghost-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.server-integrations-list:empty {
+  display: none;
+}
+
+.server-integrations-list:not(:empty) + .server-settings-help {
+  display: none;
+}
+
 
 
 

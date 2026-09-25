@@ -5505,6 +5505,10 @@ a.profile-link-row:hover { color: var(--accent); }
   margin: 12px 0 14px;
 }
 .server-audit-search { flex: 1 1 auto; min-width: 0; max-width: 420px; }
+#server-audit-filter-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 .server-audit-table-wrap {
   width: 100%;
   overflow-x: auto;

@@ -4092,9 +4092,11 @@ a.profile-link-row:hover { color: var(--accent); }
 #server-settings-roles[hidden],
 #server-settings-members[hidden],
 #server-settings-invites[hidden],
+#server-settings-bans[hidden],
 .server-roles-page[hidden],
 .server-members-page[hidden],
-.server-invites-page[hidden] {
+.server-invites-page[hidden],
+.server-bans-page[hidden] {
   display: none;
 }
 .server-roles-page:has(#server-roles-review:not([hidden])) {
@@ -5119,6 +5121,115 @@ a.profile-link-row:hover { color: var(--accent); }
 #server-invites-status {
   margin-top: 12px;
 }
+
+/* ---- Server Settings Bans ---- */
+.server-bans-page {
+  width: 100%;
+  max-width: 920px;
+  min-height: calc(100vh - 52px);
+  box-sizing: border-box;
+  padding: 28px 36px 64px;
+}
+.server-bans-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+.server-bans-search {
+  flex: 1 1 280px;
+  max-width: 420px;
+  margin: 0;
+}
+.server-bans-list-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-alt);
+  min-height: 200px;
+  padding: 10px;
+}
+.server-bans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.server-bans-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--rail);
+  border: 1px solid var(--border);
+}
+.server-bans-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 180px;
+  flex: 1 1 180px;
+}
+.server-bans-avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+}
+.server-bans-who-labels {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.25;
+}
+.server-bans-display {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.server-bans-username {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.server-bans-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  flex: 2 1 360px;
+}
+.server-bans-meta-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 88px;
+  max-width: 200px;
+}
+.server-bans-meta-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.server-bans-meta-value {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#server-bans-empty,
+#server-bans-status {
+  margin-top: 12px;
+}
+
 
 
 

@@ -7,7 +7,9 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.routers.deletion import write_audit_log
 from app.routers.realtime import notify_user, server_broadcast
-from app.routers.roles import can_moderate_target, require_server_member, require_server_perm
+from app.routers.roles import can_moderate_target, effective_perms_for_user, require_server_member, require_server_perm
+from app.routers.account import public_display_name
+from app.routers.profile import public_avatar
 
 router = APIRouter()
 
@@ -246,3 +248,74 @@ async def bulk_kick_server_members(body: Server_bulk_kick_in, database: Session 
         await remove_member(database, server, target, membership, current_user, "kick", reason, expires)
         kicked.append(uid)
     return {"ok": True, "kicked": kicked, "count": len(kicked)}
+
+
+def can_open_server_bans(database, server, user_id):
+    if server.owner_id == user_id:
+        return True
+    perms = effective_perms_for_user(database, server, user_id)
+    return bool(perms.get("ban_members"))
+
+
+def require_server_bans(database, server, user_id):
+    if not can_open_server_bans(database, server, user_id):
+        raise HTTPException(status_code=403, detail="You do not have permission to view bans.")
+    return True
+
+
+def serialize_settings_ban(database, row, user_lookup):
+    user = user_lookup.get(row.user_id)
+    actor = user_lookup.get(row.actor_id)
+    expires = parse_dt(row.expires_at)
+    payload = {
+        "id": row.id,
+        "user_id": row.user_id,
+        "reason": row.reason or "",
+        "created_at": iso_dt(row.created_at),
+        "expires_at": iso_dt(expires) if expires else None,
+        "temporary": bool(expires),
+        "user": None,
+        "actor": None,
+    }
+    if user:
+        payload["user"] = {
+            "id": user.id,
+            "username": user.username,
+            "display_name": public_display_name(user),
+            "avatar": public_avatar(user),
+        }
+    if actor:
+        payload["actor"] = {
+            "id": actor.id,
+            "username": actor.username,
+            "display_name": public_display_name(actor),
+        }
+    return payload
+
+
+@router.get("/server_settings_bans/{server_id}")
+def server_settings_bans(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, server_id, current_user.id)
+    require_server_bans(database, server, current_user.id)
+    rows = database.query(Server_bans).filter(Server_bans.server_id == server_id).order_by(Server_bans.created_at.desc()).all()
+    now = datetime.utcnow()
+    live = []
+    changed = False
+    for row in rows:
+        expires = parse_dt(row.expires_at)
+        if expires and expires <= now:
+            database.delete(row)
+            changed = True
+            continue
+        live.append(row)
+    if changed:
+        database.commit()
+    user_ids = set()
+    for row in live:
+        user_ids.add(row.user_id)
+        if row.actor_id:
+            user_ids.add(row.actor_id)
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
+    lookup = {account.id: account for account in accounts}
+    bans = [serialize_settings_ban(database, row, lookup) for row in live]
+    return {"server_id": server_id, "bans": bans}

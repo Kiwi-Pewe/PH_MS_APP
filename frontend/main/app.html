@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=167">
+<link rel="stylesheet" href="app.css?v=168">
 </head>
 <body>
 
@@ -466,7 +466,7 @@
         <button type="button" class="server-settings-nav-item" data-tab="roles">Roles</button>
         <button type="button" class="server-settings-nav-item" data-tab="members">Members</button>
         <button type="button" class="server-settings-nav-item" data-tab="invites">Invites</button>
-        <button type="button" class="server-settings-nav-item is-later" disabled>Bans</button>
+        <button type="button" class="server-settings-nav-item" data-tab="bans">Bans</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Privacy</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Emojis</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Notifications</button>
@@ -675,6 +675,20 @@
         </div>
         <p id="server-invites-empty" class="server-settings-help" hidden>No active invite links.</p>
         <p id="server-invites-status" class="server-settings-help" hidden></p>
+      </div>
+
+      <div id="server-settings-bans" class="server-bans-page" hidden>
+        <h2 class="server-settings-page-title">Server Ban List</h2>
+        <p class="server-settings-help">A list of users banned from this server, including temporary kick waits.</p>
+        <div class="server-bans-toolbar">
+          <input id="server-bans-search" class="server-settings-input server-bans-search" type="search" placeholder="Search bans by user id or username" autocomplete="off" spellcheck="false">
+          <button type="button" id="server-bans-search-btn" class="pill-btn">Search</button>
+        </div>
+        <div class="server-bans-list-wrap">
+          <div id="server-bans-list" class="server-bans-list"></div>
+        </div>
+        <p id="server-bans-empty" class="server-settings-help" hidden>No bans match.</p>
+        <p id="server-bans-status" class="server-settings-help" hidden></p>
       </div>
     </section>
   </div>
@@ -1026,8 +1040,8 @@
 <script src="boot.js?v=83"></script>
 <script src="app-shell.js?v=61"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=25"></script>
-<script src="server-roles.js?v=12"></script>
+<script src="server-settings.js?v=26"></script>
+<script src="server-roles.js?v=13"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
@@ -1064,6 +1078,7 @@
 <script src="parties.js?v=46"></script>
 <script src="invites.js?v=48"></script>
 <script src="server-invites.js?v=1"></script>
+<script src="server-bans.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=10"></script>
 <script src="servers.js?v=85"></script>

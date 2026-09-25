@@ -25,6 +25,7 @@ LIVE_ROLE_PERMS = (
     "read_forums", "create_topics", "create_topic_replies", "manage_topics",
     "sticky_topics", "lock_topics",
     "view_docs", "create_docs", "manage_docs", "remove_docs",
+    "manage_emoji",
 )
 
 MEMBERS_DEFAULT_PERMS = (

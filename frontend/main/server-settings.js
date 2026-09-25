@@ -1,7 +1,7 @@
 // ==================================================================
 // server-settings.js - Server Settings overlay. Overview, Roles,
-// Members, Invites, Bans, and Privacy are live. Other index rows
-// stay grey until their pass.
+// Members, Invites, Bans, Privacy, and Emojis are live. Other index
+// rows stay grey until their pass.
 // ==================================================================
 
 function canServerPerm(perm) {
@@ -37,8 +37,18 @@ function canOpenServerPrivacy() {
   return canUpdateServer();
 }
 
+function canOpenServerEmojis() {
+  return canServerPerm("manage_emoji");
+}
+
 function canOpenServerSettings() {
-  return canUpdateServer() || canManageRoles() || canOpenServerMembers() || canOpenServerInvites() || canOpenServerBans();
+  return canUpdateServer()
+    || canManageRoles()
+    || canOpenServerMembers()
+    || canOpenServerInvites()
+    || canOpenServerBans()
+    || canOpenServerPrivacy()
+    || canOpenServerEmojis();
 }
 
 function defaultServerSettingsTab() {
@@ -47,6 +57,8 @@ function defaultServerSettingsTab() {
   if (canOpenServerMembers()) return "members";
   if (canOpenServerInvites()) return "invites";
   if (canOpenServerBans()) return "bans";
+  if (canOpenServerPrivacy()) return "privacy";
+  if (canOpenServerEmojis()) return "emojis";
   return "overview";
 }
 
@@ -130,10 +142,6 @@ function canRemoveDocs() {
   return canServerPerm("remove_docs");
 }
 
-function canOpenServerSettings() {
-  return canUpdateServer() || canManageRoles();
-}
-
 function applyServerPerms(perms, highestRole, timeoutUntil) {
   currentServerPerms = perms && typeof perms === "object" ? perms : {};
   if (arguments.length > 1) currentServerHighestRole = highestRole || null;
@@ -170,11 +178,13 @@ function paintServerSettingsAccess() {
   const invitesBtn = document.querySelector('#server-settings-nav [data-tab="invites"]');
   const bansBtn = document.querySelector('#server-settings-nav [data-tab="bans"]');
   const privacyBtn = document.querySelector('#server-settings-nav [data-tab="privacy"]');
+  const emojisBtn = document.querySelector('#server-settings-nav [data-tab="emojis"]');
   const allowRoles = canManageRoles();
   const allowMembers = canOpenServerMembers();
   const allowInvites = canOpenServerInvites();
   const allowBans = canOpenServerBans();
   const allowPrivacy = canOpenServerPrivacy();
+  const allowEmojis = canOpenServerEmojis();
   if (rolesBtn) {
     rolesBtn.disabled = !allowRoles;
     rolesBtn.classList.toggle("is-later", !allowRoles);
@@ -195,12 +205,17 @@ function paintServerSettingsAccess() {
     privacyBtn.disabled = !allowPrivacy;
     privacyBtn.classList.toggle("is-later", !allowPrivacy);
   }
+  if (emojisBtn) {
+    emojisBtn.disabled = !allowEmojis;
+    emojisBtn.classList.toggle("is-later", !allowEmojis);
+  }
   if (typeof isServerSettingsOpen === "undefined" || !isServerSettingsOpen) return;
   const roles = document.getElementById("server-settings-roles");
   const members = document.getElementById("server-settings-members");
   const invites = document.getElementById("server-settings-invites");
   const bans = document.getElementById("server-settings-bans");
   const privacy = document.getElementById("server-settings-privacy");
+  const emojis = document.getElementById("server-settings-emojis");
   if (!allowRoles && roles && !roles.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowMembers && members && !members.hidden) {
@@ -210,6 +225,8 @@ function paintServerSettingsAccess() {
   } else if (!allowBans && bans && !bans.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowPrivacy && privacy && !privacy.hidden) {
+    if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
+  } else if (!allowEmojis && emojis && !emojis.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   }
 }

@@ -434,6 +434,16 @@ class Message_mention(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
 
+class Server_emojis(Base):
+    __tablename__ = "server_emojis"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    name = Column(String)
+    image_key = Column(String)
+    uploader_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("server_id", "name", name="uq_server_emoji_name"),)
+
 Index(
     "ix_forum_post_activity",
     Forum_post.channel_id,

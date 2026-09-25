@@ -4097,7 +4097,8 @@ a.profile-link-row:hover { color: var(--accent); }
 .server-roles-page[hidden],
 .server-members-page[hidden],
 .server-invites-page[hidden],
-.server-bans-page[hidden] {
+.server-bans-page[hidden],
+.server-emojis-page[hidden] {
   display: none;
 }
 .server-roles-page:has(#server-roles-review:not([hidden])) {
@@ -5272,6 +5273,134 @@ a.profile-link-row:hover { color: var(--accent); }
 .server-privacy-discover-copy .server-settings-field-title { margin-bottom: 4px; }
 .server-privacy-discover-copy .server-settings-help { margin: 0; }
 #server-privacy-status { margin-top: 12px; }
+
+/* ---- Server Settings Emojis (Guilded-like) ---- */
+.server-emojis-page {
+  width: 100%;
+  max-width: 920px;
+  min-height: calc(100vh - 52px);
+  box-sizing: border-box;
+  padding: 28px 36px 64px;
+}
+.server-emojis-upload {
+  margin: 4px 0 10px;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.server-emojis-upload:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.server-emojis-pack-note.is-muted {
+  opacity: 0.55;
+  margin-top: -4px;
+}
+.server-emojis-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 12px;
+}
+.server-emojis-search {
+  flex: 1 1 240px;
+  max-width: 360px;
+  margin: 0;
+}
+.server-emojis-count {
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.server-emojis-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-alt);
+  overflow: hidden;
+}
+.server-emojis-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.server-emojis-table th,
+.server-emojis-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.server-emojis-table thead th {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.server-emojis-table tbody tr:last-child td { border-bottom: none; }
+.server-emojis-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+.server-emojis-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.server-emojis-preview {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.server-emojis-name-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.server-emojis-name-btn:hover { text-decoration: underline; }
+.server-emojis-uploader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.server-emojis-avatar {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+.server-emojis-uploader-name {
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.server-emojis-col-at {
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.server-emojis-col-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+.server-emojis-delete {
+  font-size: 13px;
+  padding: 4px 10px;
+}
+#server-emojis-empty,
+#server-emojis-status {
+  margin-top: 12px;
+}
+
 
 
 

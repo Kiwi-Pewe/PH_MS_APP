@@ -124,7 +124,7 @@ const SERVER_ROLE_PERMS = [
   {
     title: "Customization permissions",
     rows: [
-      { id: "manage_emoji", title: "Manage emoji", desc: "Allows the creation and management of server emoji.", later: "Custom emoji" },
+      { id: "manage_emoji", title: "Manage emoji", desc: "Allows the creation and management of server emoji." },
       { id: "change_nickname", title: "Change Nickname", desc: "Members with this permission can change their own nickname.", later: "User Server profile" },
       { id: "manage_nicknames", title: "Manage Nicknames", desc: "Members with this permission can change the nicknames of other members.", later: "User Server profile" }
     ]
@@ -958,18 +958,23 @@ async function showServerSettingsTab(tab) {
   if (tab === "privacy" && typeof canOpenServerPrivacy === "function" && !canOpenServerPrivacy()) {
     tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
   }
+  if (tab === "emojis" && typeof canOpenServerEmojis === "function" && !canOpenServerEmojis()) {
+    tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
+  }
   const overview = document.getElementById("server-settings-overview");
   const roles = document.getElementById("server-settings-roles");
   const members = document.getElementById("server-settings-members");
   const invites = document.getElementById("server-settings-invites");
   const bans = document.getElementById("server-settings-bans");
   const privacy = document.getElementById("server-settings-privacy");
+  const emojis = document.getElementById("server-settings-emojis");
   if (overview) overview.hidden = tab !== "overview";
   if (roles) roles.hidden = tab !== "roles";
   if (members) members.hidden = tab !== "members";
   if (invites) invites.hidden = tab !== "invites";
   if (bans) bans.hidden = tab !== "bans";
   if (privacy) privacy.hidden = tab !== "privacy";
+  if (emojis) emojis.hidden = tab !== "emojis";
   document.querySelectorAll("#server-settings-nav .server-settings-nav-item[data-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
   });
@@ -992,6 +997,10 @@ async function showServerSettingsTab(tab) {
   }
   if (tab === "privacy" && typeof loadServerPrivacyPage === "function") {
     await loadServerPrivacyPage();
+    return;
+  }
+  if (tab === "emojis" && typeof loadServerEmojisPage === "function") {
+    await loadServerEmojisPage();
   }
 }
 

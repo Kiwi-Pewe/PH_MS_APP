@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=169">
+<link rel="stylesheet" href="app.css?v=170">
 </head>
 <body>
 
@@ -468,7 +468,7 @@
         <button type="button" class="server-settings-nav-item" data-tab="invites">Invites</button>
         <button type="button" class="server-settings-nav-item" data-tab="bans">Bans</button>
         <button type="button" class="server-settings-nav-item" data-tab="privacy">Privacy</button>
-        <button type="button" class="server-settings-nav-item is-later" disabled>Emojis</button>
+        <button type="button" class="server-settings-nav-item" data-tab="emojis">Emojis</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Notifications</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Integrations</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Audit Log</button>
@@ -736,6 +736,33 @@
           </div>
         </div>
         <p id="server-privacy-status" class="server-settings-help" hidden></p>
+      </div>
+
+      <div id="server-settings-emojis" class="server-emojis-page" hidden>
+        <h2 class="server-settings-page-title">Emojis</h2>
+        <button type="button" id="server-emojis-upload" class="ghost-btn server-emojis-upload">Upload emoji</button>
+        <input type="file" id="server-emojis-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+        <p class="server-settings-help">Names must only contain alphanumeric characters and underscores. Max 100 per server, 256 KB each.</p>
+        <p class="server-settings-help server-emojis-pack-note is-muted">Import an external emoji pack — coming later.</p>
+        <div class="server-emojis-toolbar">
+          <input id="server-emojis-search" class="server-settings-input server-emojis-search" type="search" placeholder="Search emojis" autocomplete="off" spellcheck="false">
+          <div id="server-emojis-count" class="server-emojis-count">0 emojis</div>
+        </div>
+        <div class="server-emojis-table-wrap">
+          <table class="server-emojis-table">
+            <thead>
+              <tr>
+                <th class="server-emojis-col-name">Name</th>
+                <th class="server-emojis-col-by">Added by</th>
+                <th class="server-emojis-col-at">Added at</th>
+                <th class="server-emojis-col-actions"></th>
+              </tr>
+            </thead>
+            <tbody id="server-emojis-body"></tbody>
+          </table>
+        </div>
+        <p id="server-emojis-empty" class="server-settings-help" hidden>No emojis yet.</p>
+        <p id="server-emojis-status" class="server-settings-help" hidden></p>
       </div>
     </section>
   </div>
@@ -1087,8 +1114,8 @@
 <script src="boot.js?v=84"></script>
 <script src="app-shell.js?v=61"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=27"></script>
-<script src="server-roles.js?v=14"></script>
+<script src="server-settings.js?v=28"></script>
+<script src="server-roles.js?v=15"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
@@ -1127,6 +1154,7 @@
 <script src="server-invites.js?v=1"></script>
 <script src="server-bans.js?v=1"></script>
 <script src="server-privacy.js?v=1"></script>
+<script src="server-emojis.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=10"></script>
 <script src="servers.js?v=85"></script>

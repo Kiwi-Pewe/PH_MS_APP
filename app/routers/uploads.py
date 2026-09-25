@@ -15,6 +15,8 @@ from app.r2 import (
     r2_is_configured,
 )
 
+EMOJI_IMAGE_MIME = PROFILE_IMAGE_MIME
+
 router = APIRouter()
 
 
@@ -29,7 +31,7 @@ class UploadIntent(BaseModel):
 def upload_intent(body: UploadIntent, current_user: UserInfo = Depends(get_current_user)):
     mime = normalize_mime(body.content_type)
     purpose = (body.purpose or "chat").strip().lower()
-    if purpose not in ("chat", "profile", "server", "feedback"):
+    if purpose not in ("chat", "profile", "server", "feedback", "emoji"):
         purpose = "chat"
     if mime not in ALLOWED_MIME:
         raise HTTPException(status_code=400, detail="File type not allowed. Use jpeg, png, gif, webp, mp4, or webm.")
@@ -44,8 +46,12 @@ def upload_intent(body: UploadIntent, current_user: UserInfo = Depends(get_curre
         raise HTTPException(status_code=400, detail="Profile files must be jpeg, png, gif, webp, mp3, or mp4.")
     if purpose == "server" and mime not in PROFILE_IMAGE_MIME:
         raise HTTPException(status_code=400, detail="Server icons must be jpeg, png, gif, or webp.")
+    if purpose == "emoji" and mime not in EMOJI_IMAGE_MIME:
+        raise HTTPException(status_code=400, detail="Emojis must be jpeg, png, gif, or webp.")
     cap = max_upload_bytes(current_user, purpose, mime)
     if body.size < 1 or body.size > cap:
+        if purpose == "emoji":
+            raise HTTPException(status_code=400, detail="Emoji file is too large. Max is 256 KB.")
         raise HTTPException(status_code=400, detail=f"File too large. Max is {cap // (1024 * 1024)} MB.")
     if not r2_is_configured():
         raise HTTPException(status_code=503, detail="File uploads are not configured.")

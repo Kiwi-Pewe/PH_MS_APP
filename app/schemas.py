@@ -247,6 +247,21 @@ class Server_privacy_update(BaseModel):
     privacy_mode: str = "private"
     discoverable: bool = False
 
+class Server_emoji_create(BaseModel):
+    server_id: str
+    name: str = ""
+    image_key: str
+    filename: str = ""
+
+class Server_emoji_rename(BaseModel):
+    server_id: str
+    emoji_id: int
+    name: str
+
+class Server_emoji_delete(BaseModel):
+    server_id: str
+    emoji_id: int
+
 class Server_role_in(BaseModel):
     id: int | None = None
     client_id: str = ""

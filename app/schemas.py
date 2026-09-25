@@ -247,6 +247,12 @@ class Server_privacy_update(BaseModel):
     privacy_mode: str = "private"
     discoverable: bool = False
 
+class Server_notify_prefs_update(BaseModel):
+    server_id: str
+    muted: bool | None = None
+    notify_level: str | None = None
+    suppress_everyone: bool | None = None
+
 class Server_emoji_create(BaseModel):
     server_id: str
     name: str = ""

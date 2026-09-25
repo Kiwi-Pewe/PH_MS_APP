@@ -82,6 +82,43 @@
   cursor: pointer;
 }
 
+.context-menu-item.has-submenu {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.context-menu-item-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.context-menu-item-label {
+  color: inherit;
+}
+
+.context-menu-item-detail {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.context-menu-item.has-submenu:hover .context-menu-item-detail {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.context-menu-item-chevron {
+  flex: 0 0 auto;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-dim);
+}
+
+.context-menu-item.has-submenu:hover .context-menu-item-chevron {
+  color: #fff;
+}
+
 .context-menu-item:hover {
   background: var(--accent-submenu);
   color: #fff;
@@ -108,4 +145,78 @@
   height: 1px;
   margin: 4px 8px;
   background: var(--border);
+}
+
+.context-menu-flyout {
+  min-width: 240px;
+  max-width: 300px;
+  z-index: 1001;
+}
+
+.context-menu-flyout .context-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.context-menu-flyout-label {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.context-menu-flyout-mark {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+}
+
+.context-menu-flyout-mark.radio-mark {
+  border: 2px solid var(--text-dim);
+  border-radius: 50%;
+}
+
+.context-menu-flyout .context-menu-item:hover .radio-mark {
+  border-color: #fff;
+}
+
+.context-menu-flyout-mark.radio-mark.is-on {
+  border-color: var(--accent);
+  background: radial-gradient(circle, var(--accent) 0 40%, transparent 42%);
+}
+
+.context-menu-flyout .context-menu-item:hover .radio-mark.is-on {
+  border-color: #fff;
+  background: radial-gradient(circle, #fff 0 40%, transparent 42%);
+}
+
+.context-menu-flyout-mark.check-mark {
+  border: 1px solid var(--text-dim);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+  color: transparent;
+}
+
+.context-menu-flyout-mark.check-mark.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.context-menu-flyout .context-menu-item:hover .check-mark {
+  border-color: #fff;
+}
+
+.context-menu-flyout .context-menu-item:hover .check-mark.is-on {
+  background: #fff;
+  color: var(--accent-submenu);
+}
+
+.context-menu-item.disabled .context-menu-flyout-mark {
+  opacity: 0.45;
 }

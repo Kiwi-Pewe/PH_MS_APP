@@ -296,6 +296,10 @@ function noteIncomingChannelMessage(channelId, serverId, mentioned, isOpen) {
     stampChannelView(channelId);
     return;
   }
+  // Personal mute: skip unread/mention bumps while muted (toasts later).
+  if (sid && typeof serverIsNotifyMuted === "function" && serverIsNotifyMuted(sid)) {
+    return;
+  }
   const channel = (sid === currentServerId) ? findServerChannel(channelId) : null;
   if (channel) {
     channel.unread = true;

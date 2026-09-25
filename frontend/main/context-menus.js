@@ -359,16 +359,38 @@ function showPartyContextMenu(e, id, name, memberCount) {
 
 function showServerContextMenu(e, id, name, ownerId) {
   e.preventDefault();
-  openContextMenu(e.clientX, e.clientY, {
-    avatarText: serverAvatarLetters(name),
-    title: name
-  }, [
-    (id === currentServerId
-      ? (typeof canInviteMembers === "function" ? canInviteMembers() : true)
-      : true) && { label: "Invite People", onSelect: () => openInviteModal("server", id, name) },
-    { label: "Mark as Read", onSelect: () => markServerRead(id) },
-    ownerId !== myUserId && { label: "Leave Server", danger: true, onSelect: () => leaveServerFromContextMenu(id) }
-  ]);
+  const x = e.clientX;
+  const y = e.clientY;
+  const open = (prefs) => {
+    const muted = !!(prefs && prefs.muted);
+    const levelLabel = (prefs && prefs.notify_level_label) || notifyLevelLabel((prefs && prefs.notify_level) || "mentions");
+    openContextMenu(x, y, {
+      avatarText: serverAvatarLetters(name),
+      title: name
+    }, [
+      (id === currentServerId
+        ? (typeof canInviteMembers === "function" ? canInviteMembers() : true)
+        : true) && { label: "Invite People", onSelect: () => openInviteModal("server", id, name) },
+      { label: "Mark as Read", onSelect: () => markServerRead(id) },
+      {
+        label: muted ? "Unmute Server" : "Mute Server",
+        onSelect: () => {
+          saveServerNotifyPrefs(id, { muted: !muted }).catch(() => {});
+        }
+      },
+      {
+        label: "Notification Settings",
+        detail: levelLabel,
+        submenu: buildServerNotifySubmenu(id, prefs)
+      },
+      ownerId !== myUserId && { label: "Leave Server", danger: true, onSelect: () => leaveServerFromContextMenu(id) }
+    ]);
+  };
+  if (typeof loadServerNotifyPrefs === "function") {
+    loadServerNotifyPrefs(id).then(open).catch(() => open(cachedServerNotifyPrefs(id)));
+  } else {
+    open(null);
+  }
 }
 
 // Wired once in enterApp() against #server-sidebar-body, not re-attached
@@ -405,26 +427,47 @@ function showServerHeaderMenu(e) {
   const isOwner = currentServerOwnerId === myUserId;
   const name = document.getElementById("server-sidebar-name").textContent || "";
   const firstCategory = ((currentServerData && currentServerData.categories) || [])[0];
-  const options = [];
-  if (typeof canInviteMembers === "function" ? canInviteMembers() : true) {
-    options.push({ label: "Invite to Server", onSelect: () => openInviteModal("server", currentServerId, name) });
-  }
-  if (typeof canOpenServerSettings === "function" ? canOpenServerSettings() : isOwner) {
-    options.push({ label: "Server Settings", onSelect: () => openServerSettings() });
-  }
-  if (typeof canManageChannels === "function" ? canManageChannels() : isOwner) {
-    options.push(firstCategory
-      ? { label: "Create Channel", onSelect: () => openChannelModal(firstCategory.id) }
-      : { label: "Create Channel", disabled: true });
-    options.push({ label: "Create Category", onSelect: () => openCategoryModal() });
-  }
-  options.push(
-    { separator: true },
-    { label: "Notification Settings", disabled: true },
-    { label: "Hide Muted Channels", disabled: true }
-  );
+  const serverId = currentServerId;
 
-  openContextMenu(rect.left, rect.bottom, null, options);
+  const open = (prefs) => {
+    const muted = !!(prefs && prefs.muted);
+    const levelLabel = (prefs && prefs.notify_level_label) || notifyLevelLabel((prefs && prefs.notify_level) || "mentions");
+    const options = [];
+    if (typeof canInviteMembers === "function" ? canInviteMembers() : true) {
+      options.push({ label: "Invite to Server", onSelect: () => openInviteModal("server", serverId, name) });
+    }
+    if (typeof canOpenServerSettings === "function" ? canOpenServerSettings() : isOwner) {
+      options.push({ label: "Server Settings", onSelect: () => openServerSettings() });
+    }
+    if (typeof canManageChannels === "function" ? canManageChannels() : isOwner) {
+      options.push(firstCategory
+        ? { label: "Create Channel", onSelect: () => openChannelModal(firstCategory.id) }
+        : { label: "Create Channel", disabled: true });
+      options.push({ label: "Create Category", onSelect: () => openCategoryModal() });
+    }
+    options.push(
+      { separator: true },
+      {
+        label: muted ? "Unmute Server" : "Mute Server",
+        onSelect: () => {
+          saveServerNotifyPrefs(serverId, { muted: !muted }).catch(() => {});
+        }
+      },
+      {
+        label: "Notification Settings",
+        detail: levelLabel,
+        submenu: buildServerNotifySubmenu(serverId, prefs)
+      },
+      { label: "Hide Muted Channels", disabled: true }
+    );
+    openContextMenu(rect.left, rect.bottom, null, options);
+  };
+
+  if (typeof loadServerNotifyPrefs === "function") {
+    loadServerNotifyPrefs(serverId).then(open).catch(() => open(cachedServerNotifyPrefs(serverId)));
+  } else {
+    open(null);
+  }
 }
 
 function showCategoryContextMenu(e, category) {

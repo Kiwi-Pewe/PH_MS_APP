@@ -205,7 +205,17 @@ class Dm_server_pref(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     server_id = Column(String(10), ForeignKey("servers.id"))
     allow_dms = Column(Boolean, default=True)
-    __table_args__ = (UniqueConstraint("user_id", "server_id"),) 
+    __table_args__ = (UniqueConstraint("user_id", "server_id"),)
+
+class Server_notify_prefs(Base):
+    __tablename__ = "server_notify_prefs"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    muted = Column(Boolean, default=False)
+    notify_level = Column(String)  # all | mentions | nothing
+    suppress_everyone = Column(Boolean, default=False)
+    __table_args__ = (UniqueConstraint("server_id", "user_id", name="uq_server_notify_pref"),)
 
 class Server_categories(Base):
     __tablename__ = "server_categories"

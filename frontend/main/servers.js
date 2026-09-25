@@ -9,6 +9,12 @@ async function loadServers() {
     const data = await response.json();
     serverList = data.servers || [];
     renderServerList();
+    // Prefetch personal mute/level so unread honors mute without opening the menu first.
+    if (typeof loadServerNotifyPrefs === "function") {
+      serverList.forEach((server) => {
+        if (server && server.id) loadServerNotifyPrefs(server.id).catch(() => {});
+      });
+    }
   } catch (e) { /* leave last render in place */ }
 }
 

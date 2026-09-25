@@ -296,6 +296,20 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "server_privacy_updated") {
+      if (typeof applyServerPrivacy === "function") {
+        applyServerPrivacy(data.server_id, {
+          privacy_mode: data.privacy_mode || "private",
+          discoverable: !!data.discoverable
+        });
+      }
+      if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen
+        && String(data.server_id) === String(currentServerId)
+        && typeof paintServerPrivacyPage === "function") {
+        paintServerPrivacyPage();
+      }
+    }
+
     if (data.type === "server_roles_updated") {
       if (data.server_id === currentServerId && typeof applyMentionRolesFromApi === "function") {
         applyMentionRolesFromApi(data.roles || []);

@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=168">
+<link rel="stylesheet" href="app.css?v=169">
 </head>
 <body>
 
@@ -467,7 +467,7 @@
         <button type="button" class="server-settings-nav-item" data-tab="members">Members</button>
         <button type="button" class="server-settings-nav-item" data-tab="invites">Invites</button>
         <button type="button" class="server-settings-nav-item" data-tab="bans">Bans</button>
-        <button type="button" class="server-settings-nav-item is-later" disabled>Privacy</button>
+        <button type="button" class="server-settings-nav-item" data-tab="privacy">Privacy</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Emojis</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Notifications</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Integrations</button>
@@ -689,6 +689,53 @@
         </div>
         <p id="server-bans-empty" class="server-settings-help" hidden>No bans match.</p>
         <p id="server-bans-status" class="server-settings-help" hidden></p>
+      </div>
+
+      <div id="server-settings-privacy" class="server-settings-page server-privacy-page" hidden>
+        <h2 class="server-settings-page-title">Privacy</h2>
+        <p class="server-settings-help">Control who can find this server and how people join. Join and listing still follow invites until Communities and Applications ship.</p>
+
+        <div class="server-settings-field">
+          <div class="server-settings-field-title" id="server-privacy-mode-label">Who can join</div>
+          <p class="server-settings-help">Pick how new members get into this server.</p>
+          <div id="server-privacy-mode" class="settings-radio-list server-privacy-mode-list" role="radiogroup" aria-labelledby="server-privacy-mode-label">
+            <button type="button" class="settings-radio server-privacy-option is-on" data-privacy="private">
+              <span class="settings-radio-dot"></span>
+              <span class="server-privacy-option-copy">
+                <span class="server-privacy-option-title">Private</span>
+                <span class="server-privacy-option-desc">Invite only. Not listed in Communities or search.</span>
+              </span>
+            </button>
+            <button type="button" class="settings-radio server-privacy-option" data-privacy="default">
+              <span class="settings-radio-dot"></span>
+              <span class="server-privacy-option-copy">
+                <span class="server-privacy-option-title">Default</span>
+                <span class="server-privacy-option-desc">Invite or application. Applications come later; invites still work today.</span>
+              </span>
+            </button>
+            <button type="button" class="settings-radio server-privacy-option" data-privacy="open">
+              <span class="settings-radio-dot"></span>
+              <span class="server-privacy-option-copy">
+                <span class="server-privacy-option-title">Open entry</span>
+                <span class="server-privacy-option-desc">Anyone can join without an invite. Open Join ships with Communities.</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="server-settings-field">
+          <div class="server-privacy-discover-row">
+            <div class="server-privacy-discover-copy">
+              <div class="server-settings-field-title">Discoverable</div>
+              <p class="server-settings-help">List this server in Communities when that tab goes live. Off while Private.</p>
+            </div>
+            <label id="server-privacy-discover-switch" class="toggle-switch">
+              <input type="checkbox" id="server-privacy-discoverable">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+        <p id="server-privacy-status" class="server-settings-help" hidden></p>
       </div>
     </section>
   </div>
@@ -1037,11 +1084,11 @@
 <script src="util.js?v=49"></script>
 <script src="media.js?v=54"></script>
 <script src="post-media.js?v=51"></script>
-<script src="boot.js?v=83"></script>
+<script src="boot.js?v=84"></script>
 <script src="app-shell.js?v=61"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=26"></script>
-<script src="server-roles.js?v=13"></script>
+<script src="server-settings.js?v=27"></script>
+<script src="server-roles.js?v=14"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
@@ -1079,6 +1126,7 @@
 <script src="invites.js?v=48"></script>
 <script src="server-invites.js?v=1"></script>
 <script src="server-bans.js?v=1"></script>
+<script src="server-privacy.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=10"></script>
 <script src="servers.js?v=85"></script>

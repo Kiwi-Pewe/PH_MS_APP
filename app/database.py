@@ -286,6 +286,16 @@ def ensure_server_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN privacy_mode VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN discoverable BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_role_columns():

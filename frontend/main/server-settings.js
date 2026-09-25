@@ -1,7 +1,7 @@
 // ==================================================================
 // server-settings.js - Server Settings overlay. Overview, Roles,
-// Members, Invites, and Bans are live. Other index rows stay grey
-// until their pass.
+// Members, Invites, Bans, and Privacy are live. Other index rows
+// stay grey until their pass.
 // ==================================================================
 
 function canServerPerm(perm) {
@@ -31,6 +31,10 @@ function canOpenServerInvites() {
 
 function canOpenServerBans() {
   return canServerPerm("ban_members");
+}
+
+function canOpenServerPrivacy() {
+  return canUpdateServer();
 }
 
 function canOpenServerSettings() {
@@ -165,10 +169,12 @@ function paintServerSettingsAccess() {
   const membersBtn = document.querySelector('#server-settings-nav [data-tab="members"]');
   const invitesBtn = document.querySelector('#server-settings-nav [data-tab="invites"]');
   const bansBtn = document.querySelector('#server-settings-nav [data-tab="bans"]');
+  const privacyBtn = document.querySelector('#server-settings-nav [data-tab="privacy"]');
   const allowRoles = canManageRoles();
   const allowMembers = canOpenServerMembers();
   const allowInvites = canOpenServerInvites();
   const allowBans = canOpenServerBans();
+  const allowPrivacy = canOpenServerPrivacy();
   if (rolesBtn) {
     rolesBtn.disabled = !allowRoles;
     rolesBtn.classList.toggle("is-later", !allowRoles);
@@ -185,11 +191,16 @@ function paintServerSettingsAccess() {
     bansBtn.disabled = !allowBans;
     bansBtn.classList.toggle("is-later", !allowBans);
   }
+  if (privacyBtn) {
+    privacyBtn.disabled = !allowPrivacy;
+    privacyBtn.classList.toggle("is-later", !allowPrivacy);
+  }
   if (typeof isServerSettingsOpen === "undefined" || !isServerSettingsOpen) return;
   const roles = document.getElementById("server-settings-roles");
   const members = document.getElementById("server-settings-members");
   const invites = document.getElementById("server-settings-invites");
   const bans = document.getElementById("server-settings-bans");
+  const privacy = document.getElementById("server-settings-privacy");
   if (!allowRoles && roles && !roles.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowMembers && members && !members.hidden) {
@@ -197,6 +208,8 @@ function paintServerSettingsAccess() {
   } else if (!allowInvites && invites && !invites.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowBans && bans && !bans.hidden) {
+    if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
+  } else if (!allowPrivacy && privacy && !privacy.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   }
 }

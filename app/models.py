@@ -145,6 +145,8 @@ class Servers(Base):
     server_type = Column(String)
     timezone = Column(String)
     default_notifications = Column(String)
+    privacy_mode = Column(String)
+    discoverable = Column(Boolean, default=False)
 
 class Server_members(Base):
     __tablename__ = "server_members"

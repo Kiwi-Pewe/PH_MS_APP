@@ -4093,6 +4093,7 @@ a.profile-link-row:hover { color: var(--accent); }
 #server-settings-members[hidden],
 #server-settings-invites[hidden],
 #server-settings-bans[hidden],
+#server-settings-privacy[hidden],
 .server-roles-page[hidden],
 .server-members-page[hidden],
 .server-invites-page[hidden],
@@ -5229,6 +5230,49 @@ a.profile-link-row:hover { color: var(--accent); }
 #server-bans-status {
   margin-top: 12px;
 }
+
+/* ---- Server Settings Privacy ---- */
+.server-privacy-page {
+  max-width: 640px;
+}
+.server-privacy-mode-list .server-privacy-option {
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.server-privacy-mode-list .server-privacy-option:last-child {
+  border-bottom: none;
+}
+.server-privacy-option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.server-privacy-option-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.server-privacy-option-desc {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+.server-privacy-discover-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-alt);
+}
+.server-privacy-discover-copy .server-settings-field-title { margin-bottom: 4px; }
+.server-privacy-discover-copy .server-settings-help { margin: 0; }
+#server-privacy-status { margin-top: 12px; }
+
 
 
 

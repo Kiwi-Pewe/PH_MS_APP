@@ -242,6 +242,11 @@ class Server_notifications_update(BaseModel):
     server_id: str
     default_notifications: str = ""
 
+class Server_privacy_update(BaseModel):
+    server_id: str
+    privacy_mode: str = "private"
+    discoverable: bool = False
+
 class Server_role_in(BaseModel):
     id: int | None = None
     client_id: str = ""

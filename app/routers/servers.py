@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update
 from zoneinfo import available_timezones
 from app.database import get_db
 from app.auth import get_current_user
@@ -46,6 +46,8 @@ SERVER_TYPES = {
 }
 SERVER_NOTIFICATIONS = ("all", "mentions")
 SERVER_NOTIFICATIONS_DEFAULT = "mentions"
+SERVER_PRIVACY_MODES = ("private", "default", "open")
+SERVER_PRIVACY_DEFAULT = "private"
 RESERVED_SERVER_SLUGS = {
     "main", "app", "login", "invite", "admin", "shared", "accessibility",
     "index", "api", "cdn", "settings", "profile", "communities", "games",
@@ -91,6 +93,22 @@ def server_default_notifications(server):
     if kind in SERVER_NOTIFICATIONS:
         return kind
     return SERVER_NOTIFICATIONS_DEFAULT
+
+
+def clean_server_privacy_mode(value):
+    kind = (value or "").strip().lower()
+    if kind in SERVER_PRIVACY_MODES:
+        return kind
+    return None
+
+
+def server_privacy_fields(server):
+    mode = clean_server_privacy_mode(getattr(server, "privacy_mode", None) if server else None) or SERVER_PRIVACY_DEFAULT
+    discoverable = bool(getattr(server, "discoverable", False)) if server else False
+    if mode == "private":
+        discoverable = False
+    return {"privacy_mode": mode, "discoverable": discoverable}
+
 
 router = APIRouter()
 
@@ -256,6 +274,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "permissions": permissions,
         "highest_role": actor_highest_role(database, server, current_user.id),
         "timeout_until": iso_dt(timeout_until_for(in_server)),
+        **server_privacy_fields(server),
         **server_banner_fields(server)
     }
 
@@ -491,6 +510,28 @@ async def update_server_notifications(body: Server_notifications_update, databas
         exclude_user_id=current_user.id,
     )
     return {"ok": True, "default_notifications": kind}
+
+
+@router.post("/update_server_privacy")
+async def update_server_privacy(body: Server_privacy_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
+
+    mode = clean_server_privacy_mode(body.privacy_mode)
+    if mode is None:
+        raise HTTPException(status_code=400, detail="Pick Private, Default, or Open entry.")
+    discoverable = bool(body.discoverable) and mode != "private"
+    server.privacy_mode = mode
+    server.discoverable = discoverable
+    database.commit()
+    fields = server_privacy_fields(server)
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_privacy_updated", "server_id": server.id, **fields},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, **fields}
 
 
 @router.get("/get_server_members/{server_id}")

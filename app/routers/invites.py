@@ -6,13 +6,19 @@ from app.schemas import Invite
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user, get_optional_user
 from app.routers.realtime import active_connections, serialize_member, server_broadcast, party_broadcast
-from app.routers.roles import require_server_member, require_server_perm
-from app.routers.moderation import active_ban
+from app.routers.roles import effective_perms_for_user, require_server_member, require_server_perm
+from app.routers.moderation import active_ban, iso_dt
+from app.routers.account import public_display_name
+from app.routers.profile import public_avatar
 from datetime import datetime, timedelta
 import asyncio
 import random
 
 router = APIRouter()
+
+INVITE_TTL = timedelta(hours=24)
+INVITE_MAX_USES = 10
+
 
 def invite_created_at(invite):
     value = getattr(invite, "created_at", None)
@@ -31,11 +37,67 @@ def is_invite_fresh(invite):
     created = invite_created_at(invite)
     if created is None:
         return False
-    return datetime.utcnow() - created < timedelta(hours=24)
+    return datetime.utcnow() - created < INVITE_TTL
 
 def is_invite_valid(invite: Invite_model):
     uses = invite.use_count if invite.use_count is not None else 0
-    return is_invite_fresh(invite) and uses < 10
+    return is_invite_fresh(invite) and uses < INVITE_MAX_USES
+
+def invite_expires_at(invite):
+    created = invite_created_at(invite)
+    if created is None:
+        return None
+    return created + INVITE_TTL
+
+
+def can_open_server_invites(database, server, user_id):
+    if server.owner_id == user_id:
+        return True
+    perms = effective_perms_for_user(database, server, user_id)
+    return bool(perms.get("invite_members") or perms.get("update_server"))
+
+
+def require_server_invites(database, server, user_id):
+    if not can_open_server_invites(database, server, user_id):
+        raise HTTPException(status_code=403, detail="You do not have permission to manage invites.")
+    return True
+
+
+def serialize_settings_invite(database, invite):
+    creator = database.query(UserInfo).filter(UserInfo.id == invite.creator_id).first()
+    expires = invite_expires_at(invite)
+    payload = {
+        "id": invite.id,
+        "code": invite.code,
+        "uses": invite.use_count if invite.use_count is not None else 0,
+        "max_uses": INVITE_MAX_USES,
+        "created_at": iso_dt(invite_created_at(invite)),
+        "expires_at": iso_dt(expires) if expires else None,
+        "channel_name": None,
+        "roles": [],
+        "creator": None,
+    }
+    if creator:
+        payload["creator"] = {
+            "id": creator.id,
+            "username": creator.username,
+            "display_name": public_display_name(creator),
+            "avatar": public_avatar(creator),
+        }
+    return payload
+
+
+@router.get("/server_settings_invites/{server_id}")
+def server_settings_invites(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, server_id, current_user.id)
+    require_server_invites(database, server, current_user.id)
+    rows = database.query(Invite_model).filter(
+        Invite_model.server_id == server_id,
+        Invite_model.type == "server",
+    ).order_by(Invite_model.created_at.desc()).all()
+    invites = [serialize_settings_invite(database, row) for row in rows if is_invite_valid(row)]
+    return {"server_id": server_id, "invites": invites}
+
 
 async def check_invites():
     while True:
@@ -48,6 +110,7 @@ async def check_invites():
                 database.delete(invite)
         database.commit()
         database.close()
+
 
 @router.post("/accept_invite")
 async def accept_invite(code: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

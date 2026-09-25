@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=166">
+<link rel="stylesheet" href="app.css?v=167">
 </head>
 <body>
 
@@ -465,7 +465,7 @@
         <button type="button" class="server-settings-nav-item active" data-tab="overview">Overview</button>
         <button type="button" class="server-settings-nav-item" data-tab="roles">Roles</button>
         <button type="button" class="server-settings-nav-item" data-tab="members">Members</button>
-        <button type="button" class="server-settings-nav-item is-later" disabled>Invites</button>
+        <button type="button" class="server-settings-nav-item" data-tab="invites">Invites</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Bans</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Privacy</button>
         <button type="button" class="server-settings-nav-item is-later" disabled>Emojis</button>
@@ -650,6 +650,31 @@
         </div>
         <p id="server-members-empty" class="server-settings-help" hidden>No members match.</p>
         <p id="server-members-status" class="server-settings-help" hidden></p>
+      </div>
+
+      <div id="server-settings-invites" class="server-invites-page" hidden>
+        <h2 class="server-settings-page-title">Invites</h2>
+        <div class="server-invites-toolbar">
+          <div class="server-invites-toolbar-label">Active invite links</div>
+          <button type="button" id="server-invites-pause" class="ghost-btn server-invites-pause" disabled title="Coming later">Pause Invites</button>
+          <button type="button" id="server-invites-create" class="pill-btn">Create invite link</button>
+        </div>
+        <div class="server-invites-table-wrap">
+          <table class="server-invites-table">
+            <thead>
+              <tr>
+                <th class="server-invites-col-inviter">Inviter</th>
+                <th class="server-invites-col-code">Invite Code</th>
+                <th class="server-invites-col-uses">Uses</th>
+                <th class="server-invites-col-expires">Expires</th>
+                <th class="server-invites-col-roles">Roles</th>
+              </tr>
+            </thead>
+            <tbody id="server-invites-body"></tbody>
+          </table>
+        </div>
+        <p id="server-invites-empty" class="server-settings-help" hidden>No active invite links.</p>
+        <p id="server-invites-status" class="server-settings-help" hidden></p>
       </div>
     </section>
   </div>
@@ -1001,8 +1026,8 @@
 <script src="boot.js?v=83"></script>
 <script src="app-shell.js?v=61"></script>
 <script src="settings.js?v=17"></script>
-<script src="server-settings.js?v=24"></script>
-<script src="server-roles.js?v=11"></script>
+<script src="server-settings.js?v=25"></script>
+<script src="server-roles.js?v=12"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
@@ -1037,7 +1062,8 @@
 <script src="emoji-picker.js?v=48"></script>
 <script src="friends.js?v=46"></script>
 <script src="parties.js?v=46"></script>
-<script src="invites.js?v=47"></script>
+<script src="invites.js?v=48"></script>
+<script src="server-invites.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=10"></script>
 <script src="servers.js?v=85"></script>

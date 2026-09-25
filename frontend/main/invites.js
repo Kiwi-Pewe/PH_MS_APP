@@ -49,6 +49,7 @@ async function openInviteModal(type, id, name) {
     const data = await response.json();
     inviteModalCode = data.invite_code;
     document.getElementById("invite-link-display").value = `https://oneira.cc/invite/${inviteModalCode}`;
+    if (typeof refreshServerInvitesPage === "function") refreshServerInvitesPage();
   } catch (e) {
     document.getElementById("invite-link-display").value = "Failed to generate invite.";
     return;

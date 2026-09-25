@@ -1,7 +1,7 @@
 // ==================================================================
-// server-settings.js - Server Settings overlay. Overview, Roles, and
-// Members are live. Update server / Manage roles / Kick / Ban /
-// Timeout / Manage roles open this overlay. Other index rows stay grey.
+// server-settings.js - Server Settings overlay. Overview, Roles,
+// Members, and Invites are live. Other index rows stay grey until
+// their pass.
 // ==================================================================
 
 function canServerPerm(perm) {
@@ -25,14 +25,19 @@ function canOpenServerMembers() {
     || canUpdateServer();
 }
 
+function canOpenServerInvites() {
+  return canInviteMembers() || canUpdateServer();
+}
+
 function canOpenServerSettings() {
-  return canUpdateServer() || canManageRoles() || canOpenServerMembers();
+  return canUpdateServer() || canManageRoles() || canOpenServerMembers() || canOpenServerInvites();
 }
 
 function defaultServerSettingsTab() {
   if (canUpdateServer()) return "overview";
   if (canManageRoles()) return "roles";
   if (canOpenServerMembers()) return "members";
+  if (canOpenServerInvites()) return "invites";
   return "overview";
 }
 
@@ -153,8 +158,10 @@ async function refreshServerPerms() {
 function paintServerSettingsAccess() {
   const rolesBtn = document.querySelector('#server-settings-nav [data-tab="roles"]');
   const membersBtn = document.querySelector('#server-settings-nav [data-tab="members"]');
+  const invitesBtn = document.querySelector('#server-settings-nav [data-tab="invites"]');
   const allowRoles = canManageRoles();
   const allowMembers = canOpenServerMembers();
+  const allowInvites = canOpenServerInvites();
   if (rolesBtn) {
     rolesBtn.disabled = !allowRoles;
     rolesBtn.classList.toggle("is-later", !allowRoles);
@@ -163,12 +170,19 @@ function paintServerSettingsAccess() {
     membersBtn.disabled = !allowMembers;
     membersBtn.classList.toggle("is-later", !allowMembers);
   }
+  if (invitesBtn) {
+    invitesBtn.disabled = !allowInvites;
+    invitesBtn.classList.toggle("is-later", !allowInvites);
+  }
   if (typeof isServerSettingsOpen === "undefined" || !isServerSettingsOpen) return;
   const roles = document.getElementById("server-settings-roles");
   const members = document.getElementById("server-settings-members");
+  const invites = document.getElementById("server-settings-invites");
   if (!allowRoles && roles && !roles.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowMembers && members && !members.hidden) {
+    if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
+  } else if (!allowInvites && invites && !invites.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   }
 }

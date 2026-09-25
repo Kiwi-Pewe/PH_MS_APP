@@ -949,12 +949,17 @@ async function showServerSettingsTab(tab) {
   if (tab === "members" && typeof canOpenServerMembers === "function" && !canOpenServerMembers()) {
     tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
   }
+  if (tab === "invites" && typeof canOpenServerInvites === "function" && !canOpenServerInvites()) {
+    tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
+  }
   const overview = document.getElementById("server-settings-overview");
   const roles = document.getElementById("server-settings-roles");
   const members = document.getElementById("server-settings-members");
+  const invites = document.getElementById("server-settings-invites");
   if (overview) overview.hidden = tab !== "overview";
   if (roles) roles.hidden = tab !== "roles";
   if (members) members.hidden = tab !== "members";
+  if (invites) invites.hidden = tab !== "invites";
   document.querySelectorAll("#server-settings-nav .server-settings-nav-item[data-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
   });
@@ -965,6 +970,10 @@ async function showServerSettingsTab(tab) {
   }
   if (tab === "members" && typeof loadServerMembersPage === "function") {
     await loadServerMembersPage();
+    return;
+  }
+  if (tab === "invites" && typeof loadServerInvitesPage === "function") {
+    await loadServerInvitesPage();
   }
 }
 

@@ -4091,8 +4091,10 @@ a.profile-link-row:hover { color: var(--accent); }
 #server-settings-overview[hidden],
 #server-settings-roles[hidden],
 #server-settings-members[hidden],
+#server-settings-invites[hidden],
 .server-roles-page[hidden],
-.server-members-page[hidden] {
+.server-members-page[hidden],
+.server-invites-page[hidden] {
   display: none;
 }
 .server-roles-page:has(#server-roles-review:not([hidden])) {
@@ -5008,5 +5010,115 @@ a.profile-link-row:hover { color: var(--accent); }
 #server-members-status {
   margin-top: 12px;
 }
+
+/* ---- Server Settings Invites ---- */
+.server-invites-page {
+  width: 100%;
+  max-width: none;
+  min-height: calc(100vh - 52px);
+  box-sizing: border-box;
+  padding: 28px 36px 64px;
+}
+.server-invites-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+.server-invites-toolbar-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-right: auto;
+}
+.server-invites-pause {
+  color: #f87171;
+  border: 1px solid color-mix(in srgb, #f87171 55%, transparent);
+}
+.server-invites-pause:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.server-invites-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-alt);
+}
+.server-invites-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+.server-invites-table th,
+.server-invites-table td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+.server-invites-table thead th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: var(--rail);
+  white-space: nowrap;
+}
+.server-invites-table tbody tr:last-child td { border-bottom: none; }
+.server-invites-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+.server-invites-col-inviter { min-width: 200px; }
+.server-invites-col-code { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.server-invites-col-uses,
+.server-invites-col-expires {
+  width: 100px;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.server-invites-col-roles { min-width: 120px; }
+.server-invites-inviter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.server-invites-avatar {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+}
+.server-invites-inviter-labels {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.25;
+}
+.server-invites-inviter-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.server-invites-inviter-channel {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#server-invites-empty,
+#server-invites-status {
+  margin-top: 12px;
+}
+
 
 

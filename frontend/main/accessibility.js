@@ -99,12 +99,12 @@ function markOneiraAnimImg(img, opts) {
   }
   img.dataset.animKind = kind;
   img.classList.add("oneira-anim");
-  // Remember the real URL before any freeze. Do not set crossOrigin —
-  // R2 often lacks CORS, which breaks load or leaves GIFs stuck static
-  // after a canvas freeze/restore cycle.
+  // Visible img stays cors-free so GIFs animate. Freeze frames are
+  // captured with a separate CORS probe (see ensureAnimFreezeFrame).
   if (!img.dataset.animLiveSrc && src && src.indexOf("data:") !== 0) {
     img.dataset.animLiveSrc = src;
   }
+  if (img.dataset.animLiveSrc) ensureAnimFreezeFrame(img, img.dataset.animLiveSrc);
   syncOneiraAnimImg(img);
 }
 
@@ -118,38 +118,49 @@ function syncOneiraAnimImg(img) {
   else freezeOneiraAnimImg(img);
 }
 
+// Snapshot via a CORS probe so the on-screen <img> never needs
+// crossOrigin (that was breaking live GIF playback on profiles).
+function ensureAnimFreezeFrame(img, live) {
+  if (!img || !live || live.indexOf("data:") === 0) return;
+  if (img.dataset.animFreezeUrl || img.dataset.animFreezeLoading === "1") return;
+  img.dataset.animFreezeLoading = "1";
+  const probe = new Image();
+  probe.crossOrigin = "anonymous";
+  probe.onload = () => {
+    try {
+      const w = probe.naturalWidth;
+      const h = probe.naturalHeight;
+      if (w && h) {
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(probe, 0, 0);
+        img.dataset.animFreezeUrl = canvas.toDataURL("image/png");
+      }
+    } catch (e) {
+      // R2 without CORS — cannot freeze this URL.
+    }
+    delete img.dataset.animFreezeLoading;
+    if (!animShouldPlay(img)) freezeOneiraAnimImg(img);
+  };
+  probe.onerror = () => {
+    delete img.dataset.animFreezeLoading;
+  };
+  probe.src = live;
+}
+
 function freezeOneiraAnimImg(img) {
   if (img.dataset.animFrozen === "1") return;
   if (animShouldPlay(img)) return;
   const live = img.dataset.animLiveSrc || img.currentSrc || img.src;
   if (!live || live.indexOf("data:") === 0) return;
   img.dataset.animLiveSrc = live;
-  function capture() {
-    if (img.dataset.animFrozen === "1") return;
-    if (animShouldPlay(img)) return;
-    try {
-      const w = img.naturalWidth;
-      const h = img.naturalHeight;
-      if (!w || !h) return;
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext("2d").drawImage(img, 0, 0);
-      // toDataURL throws if the image is cross-origin without CORS.
-      const freezeUrl = canvas.toDataURL("image/png");
-      img.dataset.animFrozen = "1";
-      img.src = freezeUrl;
-    } catch (e) {
-      // Can't snapshot — leave the live GIF playing.
-    }
+  if (img.dataset.animFreezeUrl) {
+    img.dataset.animFrozen = "1";
+    img.src = img.dataset.animFreezeUrl;
+    return;
   }
-  if (img.complete && img.naturalWidth) capture();
-  else {
-    img.addEventListener("load", function onAnimLoad() {
-      img.removeEventListener("load", onAnimLoad);
-      capture();
-    });
-  }
+  ensureAnimFreezeFrame(img, live);
 }
 
 function unfreezeOneiraAnimImg(img) {
@@ -159,8 +170,7 @@ function unfreezeOneiraAnimImg(img) {
   const showingData = (img.getAttribute("src") || img.src || "").indexOf("data:") === 0;
   if (!frozen && !showingData) return;
   delete img.dataset.animFrozen;
-  // Re-assigning GIF src after a data-URL freeze can leave a static
-  // decode in some browsers. Clear first so the decoder restarts.
+  // Clear first so the GIF decoder restarts after a data-URL freeze.
   img.removeAttribute("src");
   img.src = live;
 }

@@ -1211,10 +1211,7 @@ function paintProfileImage(tile, el) {
   img.draggable = false;
   if (typeof markOneiraAnimImg === "function") {
     const props = tile.props || {};
-    const animated = typeof mediaLooksAnimated === "function"
-      ? mediaLooksAnimated(props, src)
-      : false;
-    if (animated) markOneiraAnimImg(img, { kind: "gif", mime: props.mime, force: true });
+    markOneiraAnimImg(img, { kind: "gif", mime: props.mime, force: true });
   }
   el.appendChild(img);
 }

@@ -205,12 +205,10 @@ function paintIdentityMedia(host, media, opts) {
   img.draggable = false;
   const src = identitySrc(media);
   img.src = src;
+  // Avatar/banner accept GIFs; R2 URLs often omit .gif — always register
+  // so they follow the same focus / gifs_when_focused rules as chat GIFs.
   if (typeof markOneiraAnimImg === "function") {
-    const animated = typeof mediaLooksAnimated === "function"
-      ? mediaLooksAnimated(media, src)
-      : false;
-    // Only GIF identity media — force so R2 URLs without .gif still pause.
-    if (animated) markOneiraAnimImg(img, { kind: "gif", mime: media && media.mime, force: true });
+    markOneiraAnimImg(img, { kind: "gif", mime: media && media.mime, force: true });
   }
   let tries = 0;
   function layout() {

@@ -598,8 +598,6 @@
 }
 .settings-related:hover { background: var(--border); }
 .settings-related-text { flex: 1 1 auto; min-width: 0; }
-.settings-related-title { font-size: 15px; font-weight: 700; color: var(--text); }
-.settings-related-desc { font-size: 13px; line-height: 1.45; color: var(--text-dim); margin-top: 4px; }
 .settings-disabled-search {
   width: 100%; margin: 4px 0 8px; padding: 10px 12px;
   background: var(--rail); border: 1px solid var(--border); border-radius: 6px;
@@ -617,6 +615,24 @@
 .settings-filter-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.settings-block.has-sections .settings-filter-row {
+  border-bottom: none;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.settings-related-title {
+  font-size: var(--settings-opt-title, 16px);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+}
+.settings-related-desc {
+  font-size: var(--settings-opt-desc, 12px);
+  line-height: 1.45;
+  color: var(--text-dim);
+  margin-top: 4px;
+  font-weight: 400;
 }
 .settings-select {
   background: var(--rail); border: 1px solid var(--border); border-radius: 6px;

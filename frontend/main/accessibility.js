@@ -52,11 +52,10 @@ function effectiveHighContrast(prefs) {
   return !!prefs.high_contrast;
 }
 
-// Tab visible + window focused. Prefer visibility over document.hasFocus()
-// alone — hasFocus flaps false during normal UI chrome use and was leaving
-// profile GIFs stuck on a frozen frame.
+// Focused = Oneira's tab is visible AND this document has focus
+// (another app / another window / DevTools → hasFocus false).
 let oneiraAnimFocused = true;
-let oneiraWindowBlurred = false;
+const oneiraFreezeCanvasByImg = typeof WeakMap !== "undefined" ? new WeakMap() : null;
 
 function oneiraAllowsMotion() {
   if (!accessibilityPrefs) return oneiraAnimFocused;
@@ -99,12 +98,9 @@ function markOneiraAnimImg(img, opts) {
   }
   img.dataset.animKind = kind;
   img.classList.add("oneira-anim");
-  // Visible img stays cors-free so GIFs animate. Freeze frames are
-  // captured with a separate CORS probe (see ensureAnimFreezeFrame).
   if (!img.dataset.animLiveSrc && src && src.indexOf("data:") !== 0) {
     img.dataset.animLiveSrc = src;
   }
-  if (img.dataset.animLiveSrc) ensureAnimFreezeFrame(img, img.dataset.animLiveSrc);
   syncOneiraAnimImg(img);
 }
 
@@ -118,59 +114,91 @@ function syncOneiraAnimImg(img) {
   else freezeOneiraAnimImg(img);
 }
 
-// Snapshot via a CORS probe so the on-screen <img> never needs
-// crossOrigin (that was breaking live GIF playback on profiles).
-function ensureAnimFreezeFrame(img, live) {
-  if (!img || !live || live.indexOf("data:") === 0) return;
-  if (img.dataset.animFreezeUrl || img.dataset.animFreezeLoading === "1") return;
-  img.dataset.animFreezeLoading = "1";
-  const probe = new Image();
-  probe.crossOrigin = "anonymous";
-  probe.onload = () => {
-    try {
-      const w = probe.naturalWidth;
-      const h = probe.naturalHeight;
-      if (w && h) {
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext("2d").drawImage(probe, 0, 0);
-        img.dataset.animFreezeUrl = canvas.toDataURL("image/png");
-      }
-    } catch (e) {
-      // R2 without CORS — cannot freeze this URL.
-    }
-    delete img.dataset.animFreezeLoading;
-    if (!animShouldPlay(img)) freezeOneiraAnimImg(img);
-  };
-  probe.onerror = () => {
-    delete img.dataset.animFreezeLoading;
-  };
-  probe.src = live;
+function oneiraFreezeCanvasFor(img) {
+  return oneiraFreezeCanvasByImg ? oneiraFreezeCanvasByImg.get(img) : img._oneiraFreezeCanvas;
 }
 
+function oneiraSetFreezeCanvas(img, canvas) {
+  if (oneiraFreezeCanvasByImg) oneiraFreezeCanvasByImg.set(img, canvas);
+  else img._oneiraFreezeCanvas = canvas;
+}
+
+function oneiraClearFreezeCanvas(img) {
+  const canvas = oneiraFreezeCanvasFor(img);
+  if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
+  if (oneiraFreezeCanvasByImg) oneiraFreezeCanvasByImg.delete(img);
+  else delete img._oneiraFreezeCanvas;
+}
+
+// Draw the current frame to a canvas overlay. Works cross-origin
+// without CORS (canvas can paint; we just never call toDataURL).
 function freezeOneiraAnimImg(img) {
   if (img.dataset.animFrozen === "1") return;
   if (animShouldPlay(img)) return;
-  const live = img.dataset.animLiveSrc || img.currentSrc || img.src;
-  if (!live || live.indexOf("data:") === 0) return;
-  img.dataset.animLiveSrc = live;
-  if (img.dataset.animFreezeUrl) {
-    img.dataset.animFrozen = "1";
-    img.src = img.dataset.animFreezeUrl;
-    return;
+  let live = img.dataset.animLiveSrc || "";
+  const current = img.getAttribute("src") || img.src || "";
+  if ((!live || live.indexOf("data:") === 0) && current && current.indexOf("data:") !== 0) {
+    live = current;
+    img.dataset.animLiveSrc = live;
   }
-  ensureAnimFreezeFrame(img, live);
+  if (!live || live.indexOf("data:") === 0) return;
+
+  function paintFreeze() {
+    if (animShouldPlay(img) || img.dataset.animFrozen === "1") return;
+    if (!img.naturalWidth) return;
+    // Need pixels in the img decoder — restore live src if we cleared it.
+    if (!img.getAttribute("src") && live) {
+      img.src = live;
+      img.addEventListener("load", function onFreezeLoad() {
+        img.removeEventListener("load", onFreezeLoad);
+        paintFreeze();
+      });
+      return;
+    }
+    let canvas = oneiraFreezeCanvasFor(img);
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      canvas.className = "oneira-anim-freeze-canvas";
+      canvas.setAttribute("aria-hidden", "true");
+      oneiraSetFreezeCanvas(img, canvas);
+    }
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    try {
+      canvas.getContext("2d").drawImage(img, 0, 0);
+    } catch (e) {
+      return;
+    }
+    canvas.style.cssText = img.style.cssText;
+    canvas.style.visibility = "visible";
+    if (!img.style.width && img.offsetWidth) canvas.style.width = img.offsetWidth + "px";
+    if (!img.style.height && img.offsetHeight) canvas.style.height = img.offsetHeight + "px";
+    if (!canvas.parentNode && img.parentNode) {
+      img.parentNode.insertBefore(canvas, img.nextSibling);
+    }
+    img.dataset.animFrozen = "1";
+    img.style.visibility = "hidden";
+    // Drop the GIF src so it stops decoding while frozen.
+    img.removeAttribute("src");
+  }
+
+  if (img.complete && img.naturalWidth) paintFreeze();
+  else {
+    if (!img.getAttribute("src") && live) img.src = live;
+    img.addEventListener("load", function onAnimLoad() {
+      img.removeEventListener("load", onAnimLoad);
+      paintFreeze();
+    });
+  }
 }
 
 function unfreezeOneiraAnimImg(img) {
   const live = img.dataset.animLiveSrc;
   if (!live || live.indexOf("data:") === 0) return;
-  const frozen = img.dataset.animFrozen === "1";
-  const showingData = (img.getAttribute("src") || img.src || "").indexOf("data:") === 0;
-  if (!frozen && !showingData) return;
+  if (img.dataset.animFrozen !== "1" && !oneiraFreezeCanvasFor(img)) return;
+  oneiraClearFreezeCanvas(img);
+  img.style.visibility = "";
   delete img.dataset.animFrozen;
-  // Clear first so the GIF decoder restarts after a data-URL freeze.
   img.removeAttribute("src");
   img.src = live;
 }
@@ -201,7 +229,9 @@ function syncAllOneiraAnimMedia() {
 }
 
 function refreshOneiraFocusState() {
-  const focused = !document.hidden && !oneiraWindowBlurred;
+  const tabVisible = !document.hidden;
+  const docFocused = typeof document.hasFocus !== "function" || document.hasFocus();
+  const focused = tabVisible && docFocused;
   oneiraAnimFocused = focused;
   document.documentElement.classList.toggle("oneira-unfocused", !focused);
   syncAllOneiraAnimMedia();
@@ -270,14 +300,15 @@ if (window.matchMedia) {
 }
 
 document.addEventListener("visibilitychange", refreshOneiraFocusState);
-window.addEventListener("focus", () => {
-  oneiraWindowBlurred = false;
-  refreshOneiraFocusState();
-});
-window.addEventListener("blur", () => {
-  oneiraWindowBlurred = true;
-  refreshOneiraFocusState();
-});
+window.addEventListener("focus", refreshOneiraFocusState);
+window.addEventListener("blur", refreshOneiraFocusState);
+// Catch focus moves that don't always fire window blur (e.g. another app).
+window.setInterval(() => {
+  const tabVisible = !document.hidden;
+  const docFocused = typeof document.hasFocus !== "function" || document.hasFocus();
+  const focused = tabVisible && docFocused;
+  if (focused !== oneiraAnimFocused) refreshOneiraFocusState();
+}, 400);
 
 if (typeof MutationObserver !== "undefined") {
   const animObserver = new MutationObserver((records) => {

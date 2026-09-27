@@ -4795,13 +4795,18 @@ a.profile-link-row:hover { color: var(--accent); }
   z-index: 0;
 }
 .identity-media.is-circle { border-radius: 50%; }
-.identity-media img {
+.identity-media img,
+.identity-media canvas.oneira-anim-freeze-canvas {
   position: absolute;
   max-width: none;
   max-height: none;
   display: block;
   pointer-events: none;
   user-select: none;
+}
+canvas.oneira-anim-freeze-canvas {
+  display: block;
+  max-width: 100%;
 }
 .identity-opt-preview {
   position: relative;

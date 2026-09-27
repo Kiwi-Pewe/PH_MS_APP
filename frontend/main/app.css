@@ -411,16 +411,37 @@
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
   padding: 28px 36px 48px;
   display: flex; flex-direction: column; align-items: center;
+  /* Type scale — page → section → option → description (Rules hierarchy) */
+  --settings-page-title: 24px;
+  --settings-section-title: 20px;
+  --settings-opt-title: 16px;
+  --settings-opt-desc: 12px;
+  --settings-note: 12px;
 }
 .settings-pane[hidden] { display: none !important; }
 .settings-pane > * { width: 100%; max-width: 560px; }
 .settings-block { max-width: 560px; margin: 0 auto 28px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
 .settings-block:last-child { border-bottom: none; margin-bottom: 0; }
-.settings-block-title { font-size: 24px; font-weight: 800; color: var(--text); margin-bottom: 18px; }
+.settings-block-title {
+  font-size: var(--settings-page-title);
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 18px;
+}
 .settings-subblock { margin: 0 0 22px; }
 .settings-subblock:last-child { margin-bottom: 0; }
-.settings-subblock-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
-.settings-blurb { font-size: 15px; line-height: 1.5; color: var(--text-dim); margin: 0 0 16px; }
+.settings-subblock-title {
+  font-size: var(--settings-section-title);
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.settings-blurb {
+  font-size: var(--settings-opt-desc);
+  line-height: 1.45;
+  color: var(--text-dim);
+  margin: 0 0 16px;
+}
 .settings-row {
   display: flex; align-items: center; gap: 16px;
   width: 100%; padding: 16px 0;
@@ -529,11 +550,26 @@
 }
 .settings-subblock .settings-opt:last-child { border-bottom: none; }
 .settings-opt-text { flex: 1 1 auto; min-width: 0; }
-.settings-opt-title { font-size: 16px; font-weight: 700; color: var(--text); }
-.settings-opt-desc { font-size: 14px; line-height: 1.5; color: var(--text-dim); margin-top: 4px; }
+.settings-opt-title {
+  font-size: var(--settings-opt-title, 16px);
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+}
+.settings-opt-desc {
+  font-size: var(--settings-opt-desc, 12px);
+  line-height: 1.45;
+  color: var(--text-dim);
+  margin-top: 4px;
+  font-weight: 400;
+}
 .settings-opt-control { flex: 0 0 auto; padding-top: 2px; }
 .settings-note {
-  margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--accent);
+  margin-top: 8px;
+  font-size: var(--settings-note, 12px);
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1.4;
 }
 .settings-note.is-later { color: var(--accent); }
 .settings-toggle input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
@@ -770,7 +806,9 @@
   border-top: none; padding-top: 0;
 }
 .settings-block.has-sections > .settings-subblock > .settings-subblock-title {
-  font-size: 20px; font-weight: 800; margin-bottom: 14px;
+  font-size: var(--settings-section-title);
+  font-weight: 800;
+  margin-bottom: 14px;
   color: var(--text);
 }
 .settings-block.has-sections .settings-opt,
@@ -780,19 +818,9 @@
   padding-top: 10px;
   padding-bottom: 10px;
 }
-.settings-block.has-sections .settings-opt-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-.settings-block.has-sections .settings-opt-desc,
-.settings-block.has-sections .settings-blurb {
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-dim);
-}
 .settings-block.has-sections .settings-radio { padding-top: 8px; padding-bottom: 8px; }
 .settings-related-heading {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;

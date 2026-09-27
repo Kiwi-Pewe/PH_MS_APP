@@ -354,8 +354,18 @@ function applyServerNameColor(el, userId, fallbackRole) {
   const pref = nameColorPref();
   if (pref === "off") return;
   const role = nameRoleForUser(userId, fallbackRole);
-  const color = role && role.color;
-  if (!color) return;
+  const colorRaw = role && role.color;
+  if (!colorRaw) return;
+  let color = colorRaw;
+  if (
+    typeof accessibilityPrefs !== "undefined"
+    && accessibilityPrefs
+    && accessibilityPrefs.saturation_custom
+    && typeof desaturateHex === "function"
+    && typeof themeSaturationAmount === "function"
+  ) {
+    color = desaturateHex(colorRaw, themeSaturationAmount());
+  }
   if (pref === "next") {
     const dot = document.createElement("span");
     dot.className = "name-color-dot";

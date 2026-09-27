@@ -203,7 +203,13 @@ function paintIdentityMedia(host, media, opts) {
   const img = document.createElement("img");
   img.alt = "";
   img.draggable = false;
+  try { img.crossOrigin = "anonymous"; } catch (e) { /* ignore */ }
   img.src = identitySrc(media);
+  if (typeof markOneiraAnimImg === "function") {
+    // Identity avatar/banner accept GIFs; always register so unfocused
+    // freeze covers them even when the URL has no .gif extension.
+    markOneiraAnimImg(img, { kind: "gif", mime: media && media.mime, force: true });
+  }
   let tries = 0;
   function layout() {
     const fw = host.clientWidth;

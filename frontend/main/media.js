@@ -310,9 +310,11 @@ function attachMediaIfNeeded(bubble, msg) {
     wrap.appendChild(vid);
   } else {
     const img = document.createElement("img");
+    try { img.crossOrigin = "anonymous"; } catch (e) { /* ignore */ }
     img.src = att.url;
     img.alt = att.name || "image";
     img.addEventListener("click", () => window.open(att.url, "_blank", "noopener"));
+    if (typeof markOneiraAnimImg === "function") markOneiraAnimImg(img, { kind: "gif", mime: att.mime });
     wrap.appendChild(img);
   }
   wrap.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));

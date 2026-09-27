@@ -25,6 +25,7 @@ function showMessageContextMenu(e, msg) {
     avatar: msg.avatar
   }, [
     { label: "Copy Message", onSelect: () => copyMessageContent(msg) },
+    canSpeakMessage(msg) && { label: "Speak Message", onSelect: () => speakMessageContent(msg) },
     // Hover bar (last-3 emoji / Add Reaction / Edit / Forward) is
     // Discord's other add path. Not built this pass — keep the note.
     canReactMessage(msg) && { label: "Add Reaction", onSelect: () => openReactionPicker(msg, e.clientX, e.clientY) },
@@ -33,6 +34,13 @@ function showMessageContextMenu(e, msg) {
     { label: "Pin", onSelect: () => console.log("Pin — not implemented yet") },
     canDeleteMessage(msg) && { label: "Delete Message", danger: true, onSelect: () => deleteMessageFromContextMenu(msg) }
   ]);
+}
+
+function canSpeakMessage(msg) {
+  if (!msg || msg.permaban) return false;
+  if (!window.speechSynthesis) return false;
+  const text = String(msg.content || "").trim();
+  return !!text;
 }
 
 function canReactMessage(msg) {

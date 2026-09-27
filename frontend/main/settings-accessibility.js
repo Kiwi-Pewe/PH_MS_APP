@@ -311,8 +311,8 @@ function paintColorContrast(host, info, persist) {
   ));
   const related = document.createElement("div");
   related.className = "settings-related-wrap";
-  const relatedTitle = document.createElement("h3");
-  relatedTitle.className = "settings-subblock-title";
+  const relatedTitle = document.createElement("div");
+  relatedTitle.className = "settings-related-heading";
   relatedTitle.textContent = "Related Settings";
   related.appendChild(relatedTitle);
   related.appendChild(settingsRelatedCard("Appearance", "Change your app theme", "theme"));

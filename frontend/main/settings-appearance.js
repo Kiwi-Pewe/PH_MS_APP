@@ -132,7 +132,9 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
   host.appendChild(tabs);
 
   if (themeTab === "customize") {
-    const colors = nativeThemeColors(info);
+    // Working copy so editing one slot never re-reads a half-saved
+    // custom set through nativeThemeColors and snaps siblings back.
+    const working = nativeThemeColors(info).slice();
     const slots = [
       ["Background", "Window, chat, and the darkest layer.", "color_bg"],
       ["Surface", "Panels, cards, and composer.", "color_surface"],
@@ -140,15 +142,14 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
       ["Highlight", "Pop-up menus and layered chrome.", "color_highlight"]
     ];
     slots.forEach((slot, index) => {
-      host.appendChild(appearanceColorRow(slot[0], slot[1], colors[index], (hex, save) => {
-        const current = nativeThemeColors(info);
+      host.appendChild(appearanceColorRow(slot[0], slot[1], working[index], (hex, save) => {
+        working[index] = hex;
         persist({
           theme: "custom",
-          color_bg: current[0],
-          color_surface: current[1],
-          color_accent: current[2],
-          color_highlight: current[3],
-          [slot[2]]: hex
+          color_bg: working[0],
+          color_surface: working[1],
+          color_accent: working[2],
+          color_highlight: working[3]
         }, { save: save !== false, rebuild: false });
       }));
     });
@@ -279,16 +280,34 @@ async function renderAppearanceSettings(pane, jumpChildId) {
   const persist = async (patch, opts) => {
     const next = Object.assign({}, info, patch);
     applyAppearance(next);
+    info = next;
     const shouldSave = !opts || opts.save !== false;
     const shouldRebuild = !opts || opts.rebuild !== false;
     const shouldRerender = patch.show_link_media !== undefined || patch.show_uploads !== undefined || patch.show_embeds !== undefined || patch.show_reactions !== undefined;
     if (shouldRerender) rerenderOpenChats();
-    if (!shouldSave) {
-      info = next;
-      return;
-    }
+    if (!shouldSave) return;
     try {
-      info = await saveAppearanceSettings(next);
+      const saved = await saveAppearanceSettings(next);
+      // Keep any theme-color edits that landed while this save was in flight.
+      const localNewer = info.color_bg !== next.color_bg
+        || info.color_surface !== next.color_surface
+        || info.color_accent !== next.color_accent
+        || info.color_highlight !== next.color_highlight
+        || info.theme !== next.theme
+        || info.brightness !== next.brightness;
+      if (localNewer) {
+        info = Object.assign({}, saved, {
+          theme: info.theme,
+          brightness: info.brightness,
+          color_bg: info.color_bg,
+          color_surface: info.color_surface,
+          color_accent: info.color_accent,
+          color_highlight: info.color_highlight
+        });
+        applyAppearance(info);
+      } else {
+        info = saved;
+      }
       if (patch.theme && patch.theme !== "custom") themeTab = "themes";
       if (patch.theme === "custom") themeTab = "customize";
       if (shouldRebuild) {

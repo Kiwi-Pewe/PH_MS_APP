@@ -108,16 +108,15 @@ function themePresetById(id) {
 }
 
 function nativeThemeColors(prefs) {
-  if (prefs.theme === "custom") {
-    const custom = [
-      appearanceHex(prefs.color_bg),
-      appearanceHex(prefs.color_surface),
-      appearanceHex(prefs.color_accent),
-      appearanceHex(prefs.color_highlight)
-    ];
-    if (custom.every(Boolean)) return custom;
-  }
-  return themePresetById(prefs.theme).colors.slice();
+  const fallbackId = prefs.theme === "custom" ? appearanceLastPreset : prefs.theme;
+  const fallback = themePresetById(fallbackId).colors.slice();
+  if (prefs.theme !== "custom") return fallback;
+  return [
+    appearanceHex(prefs.color_bg) || fallback[0],
+    appearanceHex(prefs.color_surface) || fallback[1],
+    appearanceHex(prefs.color_accent) || fallback[2],
+    appearanceHex(prefs.color_highlight) || fallback[3]
+  ];
 }
 
 function brightnessAdjustedColors(colors, brightness) {

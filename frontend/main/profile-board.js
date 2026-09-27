@@ -1206,9 +1206,13 @@ function paintProfileImage(tile, el) {
   }
   const img = document.createElement("img");
   img.className = "profile-tile-image";
+  try { img.crossOrigin = "anonymous"; } catch (e) { /* ignore */ }
   img.src = src;
   img.alt = name;
   img.draggable = false;
+  if (typeof markOneiraAnimImg === "function") {
+    markOneiraAnimImg(img, { kind: "gif", mime: tile.props && tile.props.mime, force: true });
+  }
   el.appendChild(img);
 }
 

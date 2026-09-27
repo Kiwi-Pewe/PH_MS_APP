@@ -142,7 +142,7 @@ def ensure_account_columns():
         except Exception:
             conn.rollback()
         try:
-            conn.execute(text("UPDATE users SET profile_visibility = 'friends_all' WHERE profile_visibility IS NULL OR profile_visibility = ''"))
+            conn.execute(text("UPDATE users SET profile_visibility = 'public' WHERE profile_visibility IS NULL OR profile_visibility = ''"))
             conn.commit()
         except Exception:
             conn.rollback()

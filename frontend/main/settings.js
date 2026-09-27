@@ -22,7 +22,8 @@ const SETTINGS_GENERAL_CATALOG = [
           { id: "how-data-used", label: "How Oneira Uses My Data" },
           { id: "sponsored-content", label: "Sponsored Content" },
           { id: "profile-privacy", label: "Profile Privacy" },
-          { id: "voice-e2ee", label: "Voice end-to-end encryption" }
+          { id: "voice-e2ee", label: "Voice end-to-end encryption" },
+          { id: "account-actions", label: "Account" }
         ]
       },
       {

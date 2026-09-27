@@ -771,6 +771,7 @@
 }
 .settings-block.has-sections > .settings-subblock > .settings-subblock-title {
   font-size: 20px; font-weight: 800; margin-bottom: 14px;
+  color: var(--text);
 }
 .settings-block.has-sections .settings-opt,
 .settings-block.has-sections .appearance-color-row,
@@ -779,7 +780,25 @@
   padding-top: 10px;
   padding-bottom: 10px;
 }
+.settings-block.has-sections .settings-opt-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.settings-block.has-sections .settings-opt-desc,
+.settings-block.has-sections .settings-blurb {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
 .settings-block.has-sections .settings-radio { padding-top: 8px; padding-bottom: 8px; }
+.settings-related-heading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin: 14px 0 8px;
+}
 .settings-slider {
   width: 160px; accent-color: var(--accent);
 }

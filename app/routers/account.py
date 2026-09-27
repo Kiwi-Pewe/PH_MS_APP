@@ -265,7 +265,7 @@ def create_account(account: Account_register, database : Session = Depends(get_d
         email= None,
         phone= None,
         mfa_enabled= False,
-        profile_visibility= "friends_all",
+        profile_visibility= "public",
         friend_req_everyone= True,
         friend_req_friends_of_friends= True,
         friend_req_server_members= True,
@@ -441,13 +441,13 @@ def disable_account_mfa(body: Account_mfa_disable, current_user: UserInfo = Depe
     database.commit()
     return {"mfa_enabled": False}
 
-PROFILE_VISIBILITY = ("friends_all", "friends_small", "friends_only")
+PROFILE_VISIBILITY = ("public", "friends_all", "friends_small", "friends_only")
 
 def public_profile_visibility(user):
     value = (user.profile_visibility or "").strip()
     if value in PROFILE_VISIBILITY:
         return value
-    return "friends_all"
+    return "public"
 
 @router.get("/privacy_settings")
 def get_privacy_settings(current_user: UserInfo = Depends(get_current_user)):

@@ -1,6 +1,7 @@
 // ==================================================================
-// settings-privacy.js - Data & Privacy pages. Profile visibility and
-// Delete account are live. Disable and the rest wait on other products.
+// settings-privacy.js - Data & Privacy. Profile visibility (incl.
+// Public) and Delete account are live. Disable is a grey placeholder.
+// Section dividers via has-sections (not per-option rules).
 // ==================================================================
 
 function privacySettingsUrl(path) {
@@ -115,15 +116,15 @@ function privacyRadio(value, selected, title, desc, onPick) {
 
 async function renderDataPrivacySettings(pane, jumpChildId) {
   pane.innerHTML = "";
-  let visibility = "friends_all";
+  let visibility = "public";
   try {
     const response = await fetch(privacySettingsUrl("/privacy_settings"), { credentials: "include" });
     const data = await response.json().catch(() => ({}));
     if (response.ok && data.profile_visibility) visibility = data.profile_visibility;
-  } catch (e) { /* default stays friends_all */ }
+  } catch (e) { /* default stays public */ }
 
   const block = document.createElement("section");
-  block.className = "settings-block";
+  block.className = "settings-block has-sections";
   block.id = settingsTargetId("data-privacy");
 
   const title = document.createElement("h2");
@@ -139,40 +140,9 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   howTitle.textContent = "How Oneira Uses My Data";
   how.appendChild(howTitle);
 
-  const requiredDesc = document.createElement("div");
-  requiredDesc.appendChild(document.createTextNode("Oneira needs to store and process some data to provide the service, such as your messages, the servers you're in, and your Direct Messages. Using Oneira means you allow that. You can stop this later by "));
-  const disable = document.createElement("span");
-  disable.className = "settings-inline-link is-static";
-  disable.textContent = "Disabling";
-  const or = document.createTextNode(" or ");
-  const del = document.createElement("button");
-  del.type = "button";
-  del.className = "settings-inline-link";
-  del.textContent = "Deleting";
-  del.addEventListener("click", () => {
-    if (typeof openDeleteAccountSubmenu === "function") openDeleteAccountSubmenu();
-  });
-  requiredDesc.appendChild(disable);
-  requiredDesc.appendChild(or);
-  requiredDesc.appendChild(del);
-  requiredDesc.appendChild(document.createTextNode(" your account."));
   how.appendChild(settingsOpt(
     "Use data to make Oneira work",
-    requiredDesc,
-    null,
-    settingsNote("Disabling an account isn't built yet.", "later")
-  ));
-  const deleteBtn = document.createElement("button");
-  deleteBtn.type = "button";
-  deleteBtn.className = "settings-danger-btn";
-  deleteBtn.textContent = "Delete Account";
-  deleteBtn.addEventListener("click", () => {
-    if (typeof openDeleteAccountSubmenu === "function") openDeleteAccountSubmenu();
-  });
-  how.appendChild(settingsOpt(
-    "Delete Account",
-    "Permanently remove your Oneira account and wipe servers you own. Type your username and password to confirm.",
-    deleteBtn
+    "Oneira needs to store and process some data to provide the service, such as your messages, the servers you're in, and your Direct Messages. Using Oneira means you allow that. You can stop this later by disabling or deleting your account."
   ));
   how.appendChild(settingsOpt(
     "Use data to improve Oneira",
@@ -189,8 +159,7 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   how.appendChild(settingsOpt(
     "Allow my voice to be recorded in Clips",
     "Allows your voice to be included when someone in the same voice channel uses Clips.",
-    settingsToggle(false, true),
-    settingsNote("This feature isn't built yet.", "later")
+    settingsToggle(false, true)
   ));
   const requestBtn = document.createElement("button");
   requestBtn.type = "button";
@@ -200,13 +169,12 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   how.appendChild(settingsOpt(
     "Request my data",
     "If you need a copy of your personal data from your account's entire history, you can get it here.",
-    requestBtn,
-    settingsNote("This feature isn't built yet.", "later")
+    requestBtn
   ));
   const relatedHow = document.createElement("div");
   relatedHow.className = "settings-related-wrap";
-  const relatedHowLabel = document.createElement("h3");
-  relatedHowLabel.className = "settings-subblock-title";
+  const relatedHowLabel = document.createElement("div");
+  relatedHowLabel.className = "settings-related-heading";
   relatedHowLabel.textContent = "Related Settings";
   relatedHow.appendChild(relatedHowLabel);
   relatedHow.appendChild(settingsRelatedCard(
@@ -244,8 +212,7 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   ads.appendChild(settingsOpt(
     "Manage Sponsored Content",
     "Control seeing Sponsored Content associated with certain topics. If you hide a topic, you will see no Sponsored Content from that topic.",
-    null,
-    settingsNote("This feature isn't built yet.", "later")
+    null
   ));
   ads.appendChild(topicSearch);
   block.appendChild(ads);
@@ -264,7 +231,7 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   const shareLabel = document.createElement("div");
   shareLabel.className = "settings-opt-title";
   shareLabel.textContent = "Share my full profile with";
-  shareLabel.style.marginTop = "12px";
+  shareLabel.style.marginTop = "4px";
   profile.appendChild(shareLabel);
   const radios = document.createElement("div");
   radios.className = "settings-radio-list";
@@ -293,6 +260,7 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   }
 
   const choices = [
+    ["public", "Public", "Anyone who can see your account can view your full profile."],
     ["friends_all", "Friends & All Servers", "Your full profile is visible to friends and any server you join."],
     ["friends_small", "Friends & Small Servers Only", "Your full profile is visible to friends and any server you join with 200 or fewer members. Everyone else sees a limited version."],
     ["friends_only", "Friends Only", "Your full profile is visible to friends. Everyone else sees a limited version."]
@@ -306,13 +274,12 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   profile.appendChild(settingsOpt(
     "Share when I update my profile",
     "Allow friends to receive a notification when you update your profile.",
-    settingsToggle(true, true),
-    settingsNote("This feature isn't built yet.", "later")
+    settingsToggle(true, true)
   ));
   const relatedProfile = document.createElement("div");
   relatedProfile.className = "settings-related-wrap";
-  const relatedProfileLabel = document.createElement("h3");
-  relatedProfileLabel.className = "settings-subblock-title";
+  const relatedProfileLabel = document.createElement("div");
+  relatedProfileLabel.className = "settings-related-heading";
   relatedProfileLabel.textContent = "Related Settings";
   relatedProfile.appendChild(relatedProfileLabel);
   relatedProfile.appendChild(settingsRelatedCard(
@@ -333,10 +300,42 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   voice.appendChild(settingsOpt(
     "Enable persistent verification codes",
     "Gives your current device persistent verification codes. If this setting is on, your friends only have to verify your device once, instead of every time you enter a voice call.",
-    settingsToggle(false, true),
-    settingsNote("This feature isn't built yet. Voice is parked.", "later")
+    settingsToggle(false, true)
   ));
   block.appendChild(voice);
+
+  const account = document.createElement("div");
+  account.className = "settings-subblock";
+  account.id = settingsTargetId("account-actions");
+  const accountTitle = document.createElement("h3");
+  accountTitle.className = "settings-subblock-title";
+  accountTitle.textContent = "Account";
+  account.appendChild(accountTitle);
+
+  const disableBtn = document.createElement("button");
+  disableBtn.type = "button";
+  disableBtn.className = "settings-row-btn";
+  disableBtn.textContent = "Disable Account";
+  disableBtn.disabled = true;
+  account.appendChild(settingsOpt(
+    "Disable Account",
+    "Disable your account instead of deleting it. You can reactivate later. Your data stays stored while the account is disabled.",
+    disableBtn
+  ));
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "settings-danger-btn";
+  deleteBtn.textContent = "Delete Account";
+  deleteBtn.addEventListener("click", () => {
+    if (typeof openDeleteAccountSubmenu === "function") openDeleteAccountSubmenu();
+  });
+  account.appendChild(settingsOpt(
+    "Delete Account",
+    "Permanently remove your Oneira account and wipe servers you own. Type your username and password to confirm.",
+    deleteBtn
+  ));
+  block.appendChild(account);
 
   pane.appendChild(block);
   if (jumpChildId) {

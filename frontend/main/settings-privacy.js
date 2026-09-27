@@ -162,6 +162,18 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
     null,
     settingsNote("Disabling an account isn't built yet.", "later")
   ));
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "settings-danger-btn";
+  deleteBtn.textContent = "Delete Account";
+  deleteBtn.addEventListener("click", () => {
+    if (typeof openDeleteAccountSubmenu === "function") openDeleteAccountSubmenu();
+  });
+  how.appendChild(settingsOpt(
+    "Delete Account",
+    "Permanently remove your Oneira account and wipe servers you own. Type your username and password to confirm.",
+    deleteBtn
+  ));
   how.appendChild(settingsOpt(
     "Use data to improve Oneira",
     "Allow Oneira to use and process my information to understand and improve the service.",

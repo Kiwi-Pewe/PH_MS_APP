@@ -40,6 +40,9 @@ async function refreshFriendsView() {
     renderPendingRequests(data.pending_requests || []);
     renderFriendList("online", data.online_friends || []);
     renderFriendList("offline", data.offline_friends || []);
+    if (typeof rememberFriendsForOnlineToasts === "function") {
+      rememberFriendsForOnlineToasts(data.online_friends || [], data.offline_friends || []);
+    }
   } catch (e) { /* leave last render in place */ }
 }
 

@@ -1,7 +1,8 @@
 // ==================================================================
-// settings-notifications.js - Notifications. Sound toggles and the
-// reaction-sound preference save. Desktop toasts, email, OS badges,
-// and Advanced wait. In-app unread pills are not this page.
+// settings-notifications.js - Notifications. Reaction + sound prefs
+// save. Friends-online toasts are live (localStorage pref). Desktop
+// toasts, OS badge, email, mobile delay, and TTS wait. Sound files
+// are not in the app yet — prefs still save; Preview stays grey.
 // ==================================================================
 
 function notificationSettingsUrl(path) {
@@ -57,7 +58,7 @@ async function renderNotificationSettings(pane, jumpChildId) {
   overview.appendChild(overviewTitle);
   overview.appendChild(settingsOpt(
     "Enable Desktop Notifications",
-    "If you're looking for per-channel or per-server notifications, that will live on the server icon later.",
+    "If you're looking for per-channel or per-server notifications, that will live on the server icon.",
     settingsToggle(true, true),
     settingsNote("This feature isn't built yet.", "later")
   ));
@@ -67,20 +68,32 @@ async function renderNotificationSettings(pane, jumpChildId) {
     settingsToggle(true, true),
     settingsNote("This feature isn't built yet. It waits on a desktop app.", "later")
   ));
+
   const notifyHeading = document.createElement("div");
-  notifyHeading.className = "settings-opt-title";
+  notifyHeading.className = "settings-opt-title settings-notify-heading";
   notifyHeading.textContent = "Notify me when...";
-  notifyHeading.style.margin = "16px 0 8px";
   overview.appendChild(notifyHeading);
+
+  const friendsOnlineOn = typeof friendsOnlineToastsEnabled === "function"
+    ? friendsOnlineToastsEnabled()
+    : true;
+  const friendsOnlineToggle = settingsToggle(friendsOnlineOn, false, (on) => {
+    if (typeof setFriendsOnlineToastsEnabled === "function") setFriendsOnlineToastsEnabled(on);
+  });
+  overview.appendChild(settingsOpt(
+    "Friends come online",
+    "Shows a short toast in the corner when a friend comes online.",
+    friendsOnlineToggle
+  ));
+
   [
     ["People I know start streaming in small servers", "Streaming isn't built yet."],
     ["A friend and I reach a friendship anniversary", "Friendship anniversaries aren't built yet."],
-    ["Friends come online", "Online pings aren't built yet."],
-    ["A server has an upcoming event", "Server events aren't built yet."],
-    ["Friends update their profile", "Profile update pings aren't built yet."]
+    ["A server has an upcoming event", "Server events aren't built yet."]
   ].forEach(row => {
     overview.appendChild(settingsOpt(row[0], "", settingsToggle(true, true), settingsNote(row[1], "later")));
   });
+
   const reactionSelect = settingsSelect(
     [
       { value: "all", label: "All Messages" },
@@ -101,9 +114,8 @@ async function renderNotificationSettings(pane, jumpChildId) {
   });
   overview.appendChild(settingsOpt(
     "Someone reacts to my messages",
-    "Reactions never add a red unread number. When sounds exist, this is what plays a notification sound.",
-    reactionSelect,
-    settingsNote("Preference is saved. The sound isn't built yet.", "later")
+    "Reactions never add a red unread number. This controls when a reaction plays a notification sound.",
+    reactionSelect
   ));
   block.appendChild(overview);
 
@@ -114,7 +126,6 @@ async function renderNotificationSettings(pane, jumpChildId) {
   soundsTitle.className = "settings-subblock-title";
   soundsTitle.textContent = "Sounds";
   sounds.appendChild(soundsTitle);
-  sounds.appendChild(settingsNote("Preferences are saved. Oneira does not play notification sounds yet.", "later"));
   const soundPrefs = {
     message: !!info.sound_message,
     current_channel: !!info.sound_current_channel,
@@ -158,11 +169,15 @@ async function renderNotificationSettings(pane, jumpChildId) {
   ));
   const relatedSounds = document.createElement("div");
   relatedSounds.className = "settings-related-wrap";
-  const relatedSoundsLabel = document.createElement("h3");
-  relatedSoundsLabel.className = "settings-subblock-title";
+  const relatedSoundsLabel = document.createElement("div");
+  relatedSoundsLabel.className = "settings-related-heading";
   relatedSoundsLabel.textContent = "Related Settings";
   relatedSounds.appendChild(relatedSoundsLabel);
-  relatedSounds.appendChild(settingsRelatedCard("Voice & Video", "Enable/disable sounds that play when you're in a call, like Mute, Unmute, Deafen, and more.", "voice-video"));
+  relatedSounds.appendChild(settingsRelatedCard(
+    "Voice & Video",
+    "Enable/disable sounds that play when you're in a call, like Mute, Unmute, Deafen, and more.",
+    "voice-video"
+  ));
   sounds.appendChild(relatedSounds);
   block.appendChild(sounds);
 

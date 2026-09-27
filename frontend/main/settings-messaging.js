@@ -127,16 +127,6 @@ async function renderMessagingSettings(pane, jumpChildId) {
   filterGrid.appendChild(catRail);
   filterGrid.appendChild(filterMain);
   filters.appendChild(filterGrid);
-  filters.appendChild(settingsOpt(
-    "Allow access to age-restricted commands from apps in DMs",
-    "Allows people 18+ to access commands marked as age-restricted in DMs. Applies to all apps.",
-    settingsToggle(true, true)
-  ));
-  filters.appendChild(settingsOpt(
-    "Allow access to age-restricted servers on iOS",
-    "Access age-restricted servers (18+) on iOS devices, after joining them on desktop.",
-    settingsToggle(true, true)
-  ));
   const relatedFilters = document.createElement("div");
   relatedFilters.className = "settings-related-wrap";
   const relatedFiltersLabel = document.createElement("div");

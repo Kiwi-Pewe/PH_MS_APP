@@ -340,6 +340,7 @@ function connectSocket() {
 
     if (data.type === "presence") {
       applyPresence(data.user_id, data.status);
+      if (typeof noteFriendPresenceForToast === "function") noteFriendPresenceForToast(data);
     }
 
     if (data.type === "member_joined") {

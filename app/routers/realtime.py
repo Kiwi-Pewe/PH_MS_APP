@@ -1,6 +1,7 @@
 # Shared live-connection book. Not a router — forums/docs/announcements
 # and the /ws handler all push through this same dict.
-from app.models import Server_members, Party_members
+from app.models import Server_members, Party_members, Friend_request, UserInfo
+from sqlalchemy import or_
 import asyncio
 
 active_connections = {}
@@ -44,26 +45,54 @@ async def party_broadcast(party_id, payload, database, exclude_user_id=None):
             await active_connections[member.user_id].send_json(payload)
 
 async def notify_presence(database, user_id, status):
-    payload = {"type": "presence", "user_id": user_id, "status": status}
+    user = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    from app.routers.profile import public_avatar
+    payload = {
+        "type": "presence",
+        "user_id": user_id,
+        "status": status,
+        "username": user.username if user else None,
+        "display_name": (user.display_name or user.username) if user else None,
+        "avatar": public_avatar(user) if user else None,
+    }
     seen = set()
 
+    def queue_peer(peer_id):
+        if peer_id == user_id or peer_id in seen:
+            return
+        seen.add(peer_id)
+        return peer_id
+
+    peers = []
     server_ids = [row.server_id for row in database.query(Server_members).filter(Server_members.user_id == user_id).all()]
     for server_id in server_ids:
-        peers = database.query(Server_members).filter(Server_members.server_id == server_id).all()
-        for peer in peers:
-            if peer.user_id != user_id and peer.user_id not in seen:
-                seen.add(peer.user_id)
-                if peer.user_id in active_connections:
-                    await active_connections[peer.user_id].send_json(payload)
+        for peer in database.query(Server_members).filter(Server_members.server_id == server_id).all():
+            pid = queue_peer(peer.user_id)
+            if pid is not None:
+                peers.append(pid)
 
     party_ids = [row.party_id for row in database.query(Party_members).filter(Party_members.user_id == user_id).all()]
     for party_id in party_ids:
-        peers = database.query(Party_members).filter(Party_members.party_id == party_id).all()
-        for peer in peers:
-            if peer.user_id != user_id and peer.user_id not in seen:
-                seen.add(peer.user_id)
-                if peer.user_id in active_connections:
-                    await active_connections[peer.user_id].send_json(payload)
+        for peer in database.query(Party_members).filter(Party_members.party_id == party_id).all():
+            pid = queue_peer(peer.user_id)
+            if pid is not None:
+                peers.append(pid)
+
+    # Friends need presence even with no shared server/party (Steam toast).
+    friend_rows = database.query(Friend_request).filter(
+        or_(Friend_request.user_1 == user_id, Friend_request.user_2 == user_id),
+        Friend_request.pending == False,
+    ).all()
+    for row in friend_rows:
+        other = row.user_2 if row.user_1 == user_id else row.user_1
+        pid = queue_peer(other)
+        if pid is not None:
+            peers.append(pid)
+
+    for peer_id in peers:
+        socket = active_connections.get(peer_id)
+        if socket:
+            await socket.send_json(payload)
 
 async def notify_user(user_id, payload):
     socket = active_connections.get(user_id)

@@ -257,6 +257,7 @@ def remove_user_memberships(database, user_id):
     database.query(Dm_server_pref).filter(Dm_server_pref.user_id == user_id).delete(synchronize_session=False)
     database.query(Channel_last_viewed).filter(Channel_last_viewed.user_id == user_id).delete(synchronize_session=False)
     database.query(Message_mention).filter(Message_mention.user_id == user_id).delete(synchronize_session=False)
+    database.query(Server_notify_prefs).filter(Server_notify_prefs.user_id == user_id).delete(synchronize_session=False)
     database.query(Profile_comment_watch).filter(or_(Profile_comment_watch.owner_id == user_id, Profile_comment_watch.user_id == user_id)).delete(synchronize_session=False)
     database.query(Profile_comment_notice).filter(or_(Profile_comment_notice.user_id == user_id, Profile_comment_notice.owner_id == user_id)).delete(synchronize_session=False)
     database.query(Profile_comment).filter(or_(Profile_comment.owner_id == user_id, Profile_comment.sender_id == user_id)).delete(synchronize_session=False)
@@ -280,6 +281,17 @@ def delete_account_to_permaban(database, actor, target, reason):
     remove_user_memberships(database, target.id)
     write_admin_audit(database, actor, "delete", target, detail=reason or "")
     database.delete(target)
+
+
+def delete_own_account(database, user):
+    """Self-service wipe. No permaban — username can be registered again."""
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if is_protected_account(user):
+        raise HTTPException(status_code=403, detail="This account cannot be deleted.")
+    wipe_user_chat(database, user.id)
+    remove_user_memberships(database, user.id)
+    database.delete(user)
 
 
 def warn_account(database, actor, target, reason):

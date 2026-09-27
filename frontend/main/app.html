@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=175">
+<link rel="stylesheet" href="app.css?v=176">
 </head>
 <body>
 
@@ -1126,6 +1126,27 @@
     </div>
   </div>
 
+  <div id="delete-account-overlay" hidden>
+    <div id="delete-account-modal" class="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+      <div class="delete-server-header">
+        <span id="delete-account-title" class="delete-danger-title">Delete Account</span>
+        <button type="button" class="icon-btn" id="delete-account-close" title="Close">&times;</button>
+      </div>
+      <div class="delete-server-body">
+        <p id="delete-account-copy" class="delete-server-copy"></p>
+        <label class="delete-server-label" for="delete-account-username">Account username</label>
+        <input type="text" id="delete-account-username" class="delete-server-input" autocomplete="off" spellcheck="false">
+        <label class="delete-server-label" for="delete-account-password">Current password</label>
+        <input type="password" id="delete-account-password" class="delete-server-input" autocomplete="current-password">
+      </div>
+      <div class="delete-server-footer">
+        <p id="delete-account-error" class="server-settings-help" hidden></p>
+        <button type="button" class="ghost-btn" id="delete-account-cancel">Cancel</button>
+        <button type="button" class="deny-btn" id="delete-account-confirm">Delete Account</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Invite panel — shared by both servers and parties (openInviteModal
        takes the type so one panel handles both), reached via each's own
        context menu (see showServerContextMenu/showPartyContextMenu in
@@ -1201,7 +1222,7 @@
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
-<script src="settings-privacy.js?v=5"></script>
+<script src="settings-privacy.js?v=6"></script>
 <script src="settings-messaging.js?v=2"></script>
 <script src="settings-notifications.js?v=2"></script>
 <script src="settings-appearance.js?v=4"></script>
@@ -1240,6 +1261,7 @@
 <script src="server-integrations.js?v=1"></script>
 <script src="server-audit.js?v=1"></script>
 <script src="server-delete.js?v=1"></script>
+<script src="account-delete.js?v=1"></script>
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=12"></script>

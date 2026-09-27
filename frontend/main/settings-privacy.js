@@ -1,7 +1,6 @@
 // ==================================================================
-// settings-privacy.js - Data & Privacy pages. Most rows are honest
-// placeholders (no collection, or not built yet). Profile visibility
-// is the one control that saves on the account today.
+// settings-privacy.js - Data & Privacy pages. Profile visibility and
+// Delete account are live. Disable and the rest wait on other products.
 // ==================================================================
 
 function privacySettingsUrl(path) {
@@ -146,9 +145,13 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   disable.className = "settings-inline-link is-static";
   disable.textContent = "Disabling";
   const or = document.createTextNode(" or ");
-  const del = document.createElement("span");
-  del.className = "settings-inline-link is-static";
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "settings-inline-link";
   del.textContent = "Deleting";
+  del.addEventListener("click", () => {
+    if (typeof openDeleteAccountSubmenu === "function") openDeleteAccountSubmenu();
+  });
   requiredDesc.appendChild(disable);
   requiredDesc.appendChild(or);
   requiredDesc.appendChild(del);
@@ -157,7 +160,7 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
     "Use data to make Oneira work",
     requiredDesc,
     null,
-    settingsNote("Disabling and deleting an account aren't built yet.", "later")
+    settingsNote("Disabling an account isn't built yet.", "later")
   ));
   how.appendChild(settingsOpt(
     "Use data to improve Oneira",
@@ -246,7 +249,6 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   profileBlurb.className = "settings-blurb";
   profileBlurb.textContent = "Control who can see your profile info — like your bio and connected accounts.";
   profile.appendChild(profileBlurb);
-  profile.appendChild(settingsNote("This is saved on your account. Profile cards will respect it once profiles are built.", "later"));
   const shareLabel = document.createElement("div");
   shareLabel.className = "settings-opt-title";
   shareLabel.textContent = "Share my full profile with";

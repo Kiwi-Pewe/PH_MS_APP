@@ -443,8 +443,10 @@
 .settings-row-chevron { flex: 0 0 auto; color: var(--text-dim); font-size: 18px; line-height: 1; }
 .settings-inline-link {
   background: transparent; color: var(--accent); font-size: 15px; font-weight: 600; padding: 0;
+  border: none; cursor: pointer; display: inline; font-family: inherit;
 }
 .settings-inline-link:hover { text-decoration: underline; }
+.settings-inline-link.is-static { cursor: default; }
 .settings-back {
   background: transparent; color: var(--text-dim);
   font-size: 15px; font-weight: 700; padding: 0 0 16px;
@@ -534,7 +536,6 @@
   margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--accent);
 }
 .settings-note.is-later { color: var(--accent); }
-.settings-inline-link.is-static { cursor: default; }
 .settings-toggle input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
 .toggle-switch.is-disabled { cursor: default; opacity: 0.55; pointer-events: none; }
 .settings-row-btn:disabled { opacity: 0.55; cursor: default; }
@@ -5572,7 +5573,8 @@ a.profile-link-row:hover { color: var(--accent); }
 #server-audit-empty,
 #server-audit-status { margin-top: 12px; }
 
-#delete-server-overlay {
+#delete-server-overlay,
+#delete-account-overlay {
   position: fixed;
   inset: 0;
   z-index: 1200;
@@ -5581,8 +5583,11 @@ a.profile-link-row:hover { color: var(--accent); }
   justify-content: center;
   background: rgba(0, 0, 0, 0.55);
 }
-#delete-server-overlay[hidden] { display: none; }
-#delete-server-modal {
+#delete-server-overlay[hidden],
+#delete-account-overlay[hidden] { display: none; }
+#delete-server-modal,
+#delete-account-modal,
+.delete-server-modal {
   width: min(440px, calc(100vw - 32px));
   background: var(--panel);
   border: 1px solid var(--border);
@@ -5596,7 +5601,9 @@ a.profile-link-row:hover { color: var(--accent); }
   gap: 12px;
   padding: 16px 16px 0;
 }
-#delete-server-title {
+#delete-server-title,
+#delete-account-title,
+.delete-danger-title {
   font-size: 18px;
   font-weight: 700;
   color: var(--danger);
@@ -5640,7 +5647,8 @@ a.profile-link-row:hover { color: var(--accent); }
   gap: 10px;
   padding: 8px 16px 16px;
 }
-#delete-server-error {
+#delete-server-error,
+#delete-account-error {
   margin: 0 auto 0 0;
   flex: 1 1 100%;
   color: var(--danger);

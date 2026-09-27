@@ -4,7 +4,7 @@ from app.models import UserInfo, Active_Sessions
 from app.schemas import (
     Account_register, Account_login, Account_field_edit, Account_password_change,
     Account_mfa_confirm, Account_mfa_disable, Account_login_mfa, Account_revoke_session,
-    Account_privacy_edit,
+    Account_privacy_edit, Account_delete_own,
 )
 from app.database import get_db
 from app.auth import pwd_context, create_session_id, get_current_user
@@ -461,3 +461,22 @@ def update_privacy_visibility(edit: Account_privacy_edit, current_user: UserInfo
     current_user.profile_visibility = value
     database.commit()
     return {"profile_visibility": value}
+
+
+@router.post("/delete_own_account")
+def delete_own_account_route(
+    body: Account_delete_own,
+    response: Response,
+    current_user: UserInfo = Depends(get_current_user),
+    database: Session = Depends(get_db),
+):
+    require_password(current_user, body.password)
+    typed = (body.confirm_username or "").strip().lstrip("@")
+    handle = (current_user.username or "").strip()
+    if not typed or typed.lower() != handle.lower():
+        raise HTTPException(status_code=400, detail="Type your account username to confirm.")
+    from app.site_moderation import delete_own_account
+    delete_own_account(database, current_user)
+    database.commit()
+    response.delete_cookie(key="session_id", samesite="none", secure=True, path="/")
+    return {"ok": True}

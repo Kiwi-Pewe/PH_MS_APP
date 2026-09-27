@@ -34,6 +34,10 @@ class Account_revoke_session(BaseModel):
 class Account_privacy_edit(BaseModel):
     value: str
 
+class Account_delete_own(BaseModel):
+    confirm_username: str = ""
+    password: str = ""
+
 class Messaging_friend_prefs(BaseModel):
     everyone: bool
     friends_of_friends: bool

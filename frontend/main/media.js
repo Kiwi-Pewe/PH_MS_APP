@@ -313,7 +313,6 @@ function attachMediaIfNeeded(bubble, msg) {
     img.src = att.url;
     img.alt = att.name || "image";
     img.addEventListener("click", () => window.open(att.url, "_blank", "noopener"));
-    if (typeof markOneiraAnimImg === "function") markOneiraAnimImg(img, { kind: "gif", mime: att.mime });
     wrap.appendChild(img);
   }
   wrap.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));

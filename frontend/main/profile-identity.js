@@ -203,13 +203,7 @@ function paintIdentityMedia(host, media, opts) {
   const img = document.createElement("img");
   img.alt = "";
   img.draggable = false;
-  const src = identitySrc(media);
-  img.src = src;
-  // Avatar/banner accept GIFs; R2 URLs often omit .gif — always register
-  // so they follow the same focus / gifs_when_focused rules as chat GIFs.
-  if (typeof markOneiraAnimImg === "function") {
-    markOneiraAnimImg(img, { kind: "gif", mime: media && media.mime, force: true });
-  }
+  img.src = identitySrc(media);
   let tries = 0;
   function layout() {
     const fw = host.clientWidth;

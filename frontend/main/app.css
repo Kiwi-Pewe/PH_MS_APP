@@ -1035,12 +1035,10 @@ html.show-toggle-icons .toggle-switch input:checked + .toggle-track::after {
   content: "\2713"; left: 5px; right: auto; color: #fff;
 }
 html.reduced-motion *, html.reduced-motion *::before, html.reduced-motion *::after {
-  animation: none !important;
-  transition: none !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
-}
-html.oneira-unfocused *, html.oneira-unfocused *::before, html.oneira-unfocused *::after {
-  animation-play-state: paused !important;
 }
 
 html.ui-density-compact #server-rail { padding: 8px 0; gap: 6px; }
@@ -4795,18 +4793,13 @@ a.profile-link-row:hover { color: var(--accent); }
   z-index: 0;
 }
 .identity-media.is-circle { border-radius: 50%; }
-.identity-media img,
-.identity-media canvas.oneira-anim-freeze-canvas {
+.identity-media img {
   position: absolute;
   max-width: none;
   max-height: none;
   display: block;
   pointer-events: none;
   user-select: none;
-}
-canvas.oneira-anim-freeze-canvas {
-  display: block;
-  max-width: 100%;
 }
 .identity-opt-preview {
   position: relative;

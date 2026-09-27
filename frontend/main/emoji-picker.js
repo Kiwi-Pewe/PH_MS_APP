@@ -130,7 +130,6 @@ function appendCustomEmojiNode(el, name, id) {
     img.alt = ":" + (cached.name || name) + ":";
     img.src = cached.image_url;
     img.draggable = false;
-    if (typeof markOneiraAnimImg === "function") markOneiraAnimImg(img, { kind: "emoji", force: true });
     span.appendChild(img);
   } else {
     span.textContent = ":" + name + ":";
@@ -142,7 +141,6 @@ function appendCustomEmojiNode(el, name, id) {
       img.alt = ":" + (row.name || name) + ":";
       img.src = row.image_url;
       img.draggable = false;
-      if (typeof markOneiraAnimImg === "function") markOneiraAnimImg(img, { kind: "emoji", force: true });
       span.appendChild(img);
     });
   }

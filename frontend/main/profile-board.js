@@ -1209,10 +1209,6 @@ function paintProfileImage(tile, el) {
   img.src = src;
   img.alt = name;
   img.draggable = false;
-  if (typeof markOneiraAnimImg === "function") {
-    const props = tile.props || {};
-    markOneiraAnimImg(img, { kind: "gif", mime: props.mime, force: true });
-  }
   el.appendChild(img);
 }
 

@@ -283,7 +283,7 @@ function paintUserFace(host, source, opts) {
     if (node.nodeType === 3) node.remove();
   });
   host.querySelectorAll(":scope > .identity-media").forEach((node) => node.remove());
-  let letter = host.querySelector(":scope > .face-letter, :scope > #footer-avatar-letter");
+  let letter = host.querySelector(":scope > .face-letter, :scope > #footer-avatar-letter, :scope > #settings-card-letter");
   if (!letter) {
     letter = document.createElement("span");
     letter.className = "face-letter";
@@ -301,14 +301,20 @@ function paintUserFace(host, source, opts) {
 }
 
 function paintOwnFooterAvatar() {
-  const wrap = document.querySelector("#account-footer .avatar-dot");
-  if (!wrap) return;
   const media = (typeof profileIsOwn !== "undefined" && profileIsOwn)
     ? getIdentityMedia("avatar")
     : (ownIdentityCache && ownIdentityCache.avatar);
-  paintUserFace(wrap, { id: typeof myUserId !== "undefined" ? myUserId : null, username: myDisplayName || myUsername, avatar: media }, {
-    name: myDisplayName || myUsername
-  });
+  const source = {
+    id: typeof myUserId !== "undefined" ? myUserId : null,
+    username: myDisplayName || myUsername,
+    avatar: media
+  };
+  const opts = { name: myDisplayName || myUsername };
+  const footer = document.querySelector("#account-footer .avatar-dot");
+  if (footer) paintUserFace(footer, source, opts);
+  // Settings sidebar card uses the same face when Settings is open.
+  const card = document.querySelector("#settings-user-card .avatar-dot");
+  if (card) paintUserFace(card, source, opts);
 }
 
 async function flushIdentityUploads(layout) {

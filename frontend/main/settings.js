@@ -370,13 +370,16 @@ function jumpToSettings(id) {
 }
 
 function paintSettingsUserCard() {
-  const letter = document.getElementById("settings-card-letter");
   const name = document.getElementById("settings-card-name");
   const action = document.getElementById("settings-card-action");
   const shown = myDisplayName || myUsername || "";
-  if (letter) letter.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : (shown || "?").slice(0, 1);
   if (name) name.textContent = shown || "—";
   if (action) action.textContent = "Edit Profiles";
+  if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
+  else {
+    const letter = document.getElementById("settings-card-letter");
+    if (letter) letter.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : (shown || "?").slice(0, 1);
+  }
 }
 
 function showSettingsPane(pane) {

@@ -128,7 +128,6 @@ function appendCustomEmojiNode(el, name, id) {
     const img = document.createElement("img");
     img.className = "msg-custom-emoji-img";
     img.alt = ":" + (cached.name || name) + ":";
-    try { img.crossOrigin = "anonymous"; } catch (e) { /* ignore */ }
     img.src = cached.image_url;
     img.draggable = false;
     if (typeof markOneiraAnimImg === "function") markOneiraAnimImg(img, { kind: "emoji", force: true });
@@ -141,7 +140,6 @@ function appendCustomEmojiNode(el, name, id) {
       const img = document.createElement("img");
       img.className = "msg-custom-emoji-img";
       img.alt = ":" + (row.name || name) + ":";
-      try { img.crossOrigin = "anonymous"; } catch (e) { /* ignore */ }
       img.src = row.image_url;
       img.draggable = false;
       if (typeof markOneiraAnimImg === "function") markOneiraAnimImg(img, { kind: "emoji", force: true });

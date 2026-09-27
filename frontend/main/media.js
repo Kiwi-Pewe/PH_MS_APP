@@ -310,7 +310,6 @@ function attachMediaIfNeeded(bubble, msg) {
     wrap.appendChild(vid);
   } else {
     const img = document.createElement("img");
-    try { img.crossOrigin = "anonymous"; } catch (e) { /* ignore */ }
     img.src = att.url;
     img.alt = att.name || "image";
     img.addEventListener("click", () => window.open(att.url, "_blank", "noopener"));

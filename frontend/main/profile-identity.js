@@ -203,12 +203,14 @@ function paintIdentityMedia(host, media, opts) {
   const img = document.createElement("img");
   img.alt = "";
   img.draggable = false;
-  try { img.crossOrigin = "anonymous"; } catch (e) { /* ignore */ }
-  img.src = identitySrc(media);
+  const src = identitySrc(media);
+  img.src = src;
   if (typeof markOneiraAnimImg === "function") {
-    // Identity avatar/banner accept GIFs; always register so unfocused
-    // freeze covers them even when the URL has no .gif extension.
-    markOneiraAnimImg(img, { kind: "gif", mime: media && media.mime, force: true });
+    const animated = typeof mediaLooksAnimated === "function"
+      ? mediaLooksAnimated(media, src)
+      : false;
+    // Only GIF identity media — force so R2 URLs without .gif still pause.
+    if (animated) markOneiraAnimImg(img, { kind: "gif", mime: media && media.mime, force: true });
   }
   let tries = 0;
   function layout() {

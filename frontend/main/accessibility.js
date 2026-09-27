@@ -52,7 +52,11 @@ function effectiveHighContrast(prefs) {
   return !!prefs.high_contrast;
 }
 
+// Tab visible + window focused. Prefer visibility over document.hasFocus()
+// alone — hasFocus flaps false during normal UI chrome use and was leaving
+// profile GIFs stuck on a frozen frame.
 let oneiraAnimFocused = true;
+let oneiraWindowBlurred = false;
 
 function oneiraAllowsMotion() {
   if (!accessibilityPrefs) return oneiraAnimFocused;
@@ -79,37 +83,50 @@ function urlLooksAnimated(url, mime) {
   return path.endsWith(".gif");
 }
 
+function mediaLooksAnimated(media, url) {
+  const src = url || (media && (media.url || media.key)) || "";
+  if (urlLooksAnimated(src, media && media.mime)) return true;
+  return /\.gif$/i.test(String((media && media.name) || ""));
+}
+
 function markOneiraAnimImg(img, opts) {
   if (!img || img.tagName !== "IMG") return;
   opts = opts || {};
   const kind = opts.kind === "emoji" ? "emoji" : "gif";
-  if (kind === "gif" && !opts.force && !urlLooksAnimated(img.getAttribute("src") || img.src, opts.mime)) {
+  const src = img.getAttribute("src") || img.src || "";
+  if (kind === "gif" && !opts.force && !urlLooksAnimated(src, opts.mime)) {
     return;
   }
   img.dataset.animKind = kind;
   img.classList.add("oneira-anim");
-  if (!img.getAttribute("crossorigin")) {
-    try { img.crossOrigin = "anonymous"; } catch (e) { /* ignore */ }
+  // Remember the real URL before any freeze. Do not set crossOrigin —
+  // R2 often lacks CORS, which breaks load or leaves GIFs stuck static
+  // after a canvas freeze/restore cycle.
+  if (!img.dataset.animLiveSrc && src && src.indexOf("data:") !== 0) {
+    img.dataset.animLiveSrc = src;
   }
   syncOneiraAnimImg(img);
 }
 
+function animShouldPlay(img) {
+  return img.dataset.animKind === "emoji" ? shouldPlayAnimatedEmoji() : shouldPlayAnimatedGifs();
+}
+
 function syncOneiraAnimImg(img) {
   if (!img || !img.dataset.animKind) return;
-  const play = img.dataset.animKind === "emoji" ? shouldPlayAnimatedEmoji() : shouldPlayAnimatedGifs();
-  if (play) unfreezeOneiraAnimImg(img);
+  if (animShouldPlay(img)) unfreezeOneiraAnimImg(img);
   else freezeOneiraAnimImg(img);
 }
 
 function freezeOneiraAnimImg(img) {
   if (img.dataset.animFrozen === "1") return;
+  if (animShouldPlay(img)) return;
   const live = img.dataset.animLiveSrc || img.currentSrc || img.src;
   if (!live || live.indexOf("data:") === 0) return;
   img.dataset.animLiveSrc = live;
   function capture() {
     if (img.dataset.animFrozen === "1") return;
-    if (shouldPlayAnimatedGifs() && img.dataset.animKind !== "emoji") return;
-    if (shouldPlayAnimatedEmoji() && img.dataset.animKind === "emoji") return;
+    if (animShouldPlay(img)) return;
     try {
       const w = img.naturalWidth;
       const h = img.naturalHeight;
@@ -118,10 +135,12 @@ function freezeOneiraAnimImg(img) {
       canvas.width = w;
       canvas.height = h;
       canvas.getContext("2d").drawImage(img, 0, 0);
+      // toDataURL throws if the image is cross-origin without CORS.
+      const freezeUrl = canvas.toDataURL("image/png");
       img.dataset.animFrozen = "1";
-      img.src = canvas.toDataURL("image/png");
+      img.src = freezeUrl;
     } catch (e) {
-      // Cross-origin without CORS — leave the live GIF.
+      // Can't snapshot — leave the live GIF playing.
     }
   }
   if (img.complete && img.naturalWidth) capture();
@@ -134,10 +153,15 @@ function freezeOneiraAnimImg(img) {
 }
 
 function unfreezeOneiraAnimImg(img) {
-  if (img.dataset.animFrozen !== "1") return;
   const live = img.dataset.animLiveSrc;
-  if (!live) return;
+  if (!live || live.indexOf("data:") === 0) return;
+  const frozen = img.dataset.animFrozen === "1";
+  const showingData = (img.getAttribute("src") || img.src || "").indexOf("data:") === 0;
+  if (!frozen && !showingData) return;
   delete img.dataset.animFrozen;
+  // Re-assigning GIF src after a data-URL freeze can leave a static
+  // decode in some browsers. Clear first so the decoder restarts.
+  img.removeAttribute("src");
   img.src = live;
 }
 
@@ -167,7 +191,7 @@ function syncAllOneiraAnimMedia() {
 }
 
 function refreshOneiraFocusState() {
-  const focused = !document.hidden && (typeof document.hasFocus !== "function" || document.hasFocus());
+  const focused = !document.hidden && !oneiraWindowBlurred;
   oneiraAnimFocused = focused;
   document.documentElement.classList.toggle("oneira-unfocused", !focused);
   syncAllOneiraAnimMedia();
@@ -236,8 +260,14 @@ if (window.matchMedia) {
 }
 
 document.addEventListener("visibilitychange", refreshOneiraFocusState);
-window.addEventListener("focus", refreshOneiraFocusState);
-window.addEventListener("blur", refreshOneiraFocusState);
+window.addEventListener("focus", () => {
+  oneiraWindowBlurred = false;
+  refreshOneiraFocusState();
+});
+window.addEventListener("blur", () => {
+  oneiraWindowBlurred = true;
+  refreshOneiraFocusState();
+});
 
 if (typeof MutationObserver !== "undefined") {
   const animObserver = new MutationObserver((records) => {

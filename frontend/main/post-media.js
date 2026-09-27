@@ -214,7 +214,6 @@ function appendPostMediaItem(host, data) {
     host.appendChild(vid);
   } else {
     const img = document.createElement("img");
-    try { img.crossOrigin = "anonymous"; } catch (e) { /* ignore */ }
     img.src = data.url;
     img.alt = data.name || "";
     if (typeof markOneiraAnimImg === "function") markOneiraAnimImg(img, { kind: "gif", mime: data.mime });
@@ -247,7 +246,6 @@ function buildForumThumb(attachment) {
     thumb.appendChild(vid);
   } else {
     const img = document.createElement("img");
-    try { img.crossOrigin = "anonymous"; } catch (e) { /* ignore */ }
     img.src = data.url;
     img.alt = "";
     if (typeof markOneiraAnimImg === "function") markOneiraAnimImg(img, { kind: "gif", mime: data.mime });

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from app.models import UserInfo, Message, Block_user, Conversations
-from app.privacy import can_send_dm
+from app.privacy import can_send_dm, drop_blocked_rows
 from app.schemas import Message_schema
 from app.database import get_db
 from app.auth import get_current_user
@@ -81,6 +81,7 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
         History = database.query(Message).filter(or_((Message.sender_id == current_user.id) & (Message.receiver_id == user_id),
         (Message.sender_id == user_id) & (Message.receiver_id == current_user.id))).order_by(Message.timestamp.desc()).limit(25).all()
 
+    History = drop_blocked_rows(database, current_user.id, History)
 
     target_user = database.query(UserInfo).filter(UserInfo.id == user_id).first()
     banned = permaban_by_user_id(database, user_id)

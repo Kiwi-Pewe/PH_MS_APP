@@ -1,7 +1,8 @@
 // ==================================================================
 // settings-messaging.js - Messaging Permissions. Friend requests,
-// server-member DMs, and the block list save and enforce. Content
-// filters, spam, message requests, connected games, and Ignore wait.
+// server-member DMs, and the block list save and enforce. Hide blocked
+// history is live on chat APIs. Message requests / friend-request notes
+// wait on Feed + mailing. Content filters / spam / games stay parked.
 // ==================================================================
 
 function messagingSettingsUrl(path) {
@@ -68,9 +69,12 @@ async function renderMessagingSettings(pane, jumpChildId) {
     pane.appendChild(note);
     return;
   }
+  if (typeof setBlockedUserIds === "function") {
+    setBlockedUserIds((info.blocked || []).map((row) => row.id));
+  }
 
   const block = document.createElement("section");
-  block.className = "settings-block";
+  block.className = "settings-block has-sections";
   block.id = settingsTargetId("messaging-permissions");
   const title = document.createElement("h2");
   title.className = "settings-block-title";
@@ -88,7 +92,6 @@ async function renderMessagingSettings(pane, jumpChildId) {
   filtersBlurb.className = "settings-blurb";
   filtersBlurb.textContent = "Choose how you want to see image-based media. Oneira does not scan images yet. Later, a poster can censor their own media, and a server can auto-censor every image that enters a channel.";
   filters.appendChild(filtersBlurb);
-  filters.appendChild(settingsNote("This feature isn't built yet.", "later"));
   const filterGrid = document.createElement("div");
   filterGrid.className = "settings-filter-grid";
   const catRail = document.createElement("div");
@@ -127,19 +130,17 @@ async function renderMessagingSettings(pane, jumpChildId) {
   filters.appendChild(settingsOpt(
     "Allow access to age-restricted commands from apps in DMs",
     "Allows people 18+ to access commands marked as age-restricted in DMs. Applies to all apps.",
-    settingsToggle(true, true),
-    settingsNote("This feature isn't built yet.", "later")
+    settingsToggle(true, true)
   ));
   filters.appendChild(settingsOpt(
     "Allow access to age-restricted servers on iOS",
     "Access age-restricted servers (18+) on iOS devices, after joining them on desktop.",
-    settingsToggle(true, true),
-    settingsNote("This feature isn't built yet. Oneira does not have an iOS app yet.", "later")
+    settingsToggle(true, true)
   ));
   const relatedFilters = document.createElement("div");
   relatedFilters.className = "settings-related-wrap";
-  const relatedFiltersLabel = document.createElement("h3");
-  relatedFiltersLabel.className = "settings-subblock-title";
+  const relatedFiltersLabel = document.createElement("div");
+  relatedFiltersLabel.className = "settings-related-heading";
   relatedFiltersLabel.textContent = "Related Settings";
   relatedFilters.appendChild(relatedFiltersLabel);
   relatedFilters.appendChild(settingsRelatedCard("Appearance", "Show/hide media in chat, spoiler content", "appearance"));
@@ -169,7 +170,6 @@ async function renderMessagingSettings(pane, jumpChildId) {
     spamList.appendChild(radio);
   });
   spam.appendChild(spamList);
-  spam.appendChild(settingsNote("This feature isn't built yet.", "later"));
   block.appendChild(spam);
 
   const dms = document.createElement("div");
@@ -226,9 +226,8 @@ async function renderMessagingSettings(pane, jumpChildId) {
   dms.appendChild(dmToggleHost);
   dms.appendChild(settingsOpt(
     "Message requests",
-    "Filter messages from server members you may not know.",
-    settingsToggle(true, true),
-    settingsNote("This feature isn't built yet.", "later")
+    "Filter messages from server members you may not know into a request inbox.",
+    settingsToggle(true, true)
   ));
   block.appendChild(dms);
 
@@ -285,8 +284,7 @@ async function renderMessagingSettings(pane, jumpChildId) {
   friends.appendChild(settingsOpt(
     "Show personalized messages",
     "Show personalized messages on incoming friend requests. If you accept, the message will still appear in your DMs.",
-    settingsToggle(true, true),
-    settingsNote("This feature isn't built yet.", "later")
+    settingsToggle(true, true)
   ));
   block.appendChild(friends);
 
@@ -312,11 +310,10 @@ async function renderMessagingSettings(pane, jumpChildId) {
   empty.appendChild(emptyTitle);
   empty.appendChild(emptyBody);
   games.appendChild(empty);
-  games.appendChild(settingsNote("This feature isn't built yet.", "later"));
   const relatedGames = document.createElement("div");
   relatedGames.className = "settings-related-wrap";
-  const relatedGamesLabel = document.createElement("h3");
-  relatedGamesLabel.className = "settings-subblock-title";
+  const relatedGamesLabel = document.createElement("div");
+  relatedGamesLabel.className = "settings-related-heading";
   relatedGamesLabel.textContent = "Related Settings";
   relatedGames.appendChild(relatedGamesLabel);
   relatedGames.appendChild(settingsRelatedCard("Connected Apps", "Manage your games in Connected Apps", "connected-apps"));
@@ -332,7 +329,7 @@ async function renderMessagingSettings(pane, jumpChildId) {
   blocks.appendChild(blocksTitle);
   const blocksBlurb = document.createElement("p");
   blocksBlurb.className = "settings-blurb";
-  blocksBlurb.textContent = "Blocked accounts cannot DM you, friend you, or see you as a friend. Ignore (hide messages without blocking) isn't built yet.";
+  blocksBlurb.textContent = "Blocked accounts cannot DM you, friend you, or see you as a friend. Their existing messages are hidden from your chat history. Ignore (hide messages without blocking) isn't built yet.";
   blocks.appendChild(blocksBlurb);
   const count = document.createElement("div");
   count.className = "settings-empty-card is-left";
@@ -383,6 +380,7 @@ async function renderMessagingSettings(pane, jumpChildId) {
           body: JSON.stringify({ blocked_user: person.id })
         });
         if (!response.ok) throw new Error("Could not unblock.");
+        if (typeof forgetBlockedUser === "function") forgetBlockedUser(person.id);
         row.remove();
         info.blocked = (info.blocked || []).filter(entry => entry.id !== person.id);
         const left = info.blocked.length;

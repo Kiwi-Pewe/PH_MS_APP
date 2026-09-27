@@ -9,6 +9,8 @@ let ws = null;
 let myUsername = null;
 let myDisplayName = null; // public name; username is the login key
 let myUserId = null; // from /whoami — needed to compare against a server's owner_id
+// User ids this account has blocked — used to hide their messages live.
+let myBlockedUserIds = {};
 
 // The single open chat, whatever kind it is. type is "dm" or "party";
 // id's meaning depends on type (a DM partner's user id, or a party's

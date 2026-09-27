@@ -26,6 +26,7 @@ from app.routers.roles import (
 from app.routers.account import public_display_name
 from app.routers.moderation import iso_dt, require_not_timed_out, timeout_until_for
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
+from app.privacy import drop_blocked_rows
 import random
 import re
 
@@ -669,6 +670,8 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
         stamp_channel_view(database, channel_id, current_user.id)
         database.commit()
         channel_history = database.query(Channel_messages).filter(Channel_messages.channel_id == channel_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()
+
+    channel_history = drop_blocked_rows(database, current_user.id, channel_history)
 
     sender_ids = list({message.sender_id for message in channel_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all()

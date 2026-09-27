@@ -88,3 +88,56 @@ function pendingIsExpired(msg) {
   if (!msg || msg.deletionState !== "pending" || !msg.deletionRequestedAt) return false;
   return Date.now() - msg.deletionRequestedAt.getTime() >= 24 * 60 * 60 * 1000;
 }
+
+function isUserBlocked(userId) {
+  return !!(userId && typeof myBlockedUserIds !== "undefined" && myBlockedUserIds && myBlockedUserIds[userId]);
+}
+
+function rememberBlockedUser(userId) {
+  if (!userId) return;
+  if (typeof myBlockedUserIds === "undefined" || !myBlockedUserIds) myBlockedUserIds = {};
+  myBlockedUserIds[userId] = true;
+}
+
+function forgetBlockedUser(userId) {
+  if (!userId || typeof myBlockedUserIds === "undefined" || !myBlockedUserIds) return;
+  delete myBlockedUserIds[userId];
+}
+
+function setBlockedUserIds(ids) {
+  myBlockedUserIds = {};
+  (ids || []).forEach((id) => {
+    if (id) myBlockedUserIds[id] = true;
+  });
+}
+
+async function loadBlockedUserIds() {
+  try {
+    const response = await fetch(`https://${serverAddress}/messaging_settings`, { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return;
+    setBlockedUserIds((data.blocked || []).map((row) => row.id));
+  } catch (e) { /* keep whatever cache we have */ }
+}
+
+function purgeBlockedMessagesFromOpenViews(userId) {
+  if (!userId) return;
+  let changed = false;
+  if (typeof currentMessages !== "undefined" && Array.isArray(currentMessages)) {
+    const next = currentMessages.filter((m) => m.senderId !== userId);
+    if (next.length !== currentMessages.length) {
+      currentMessages = next;
+      changed = true;
+      if (typeof renderMessages === "function") renderMessages();
+    }
+  }
+  if (typeof currentChannelMessages !== "undefined" && Array.isArray(currentChannelMessages)) {
+    const next = currentChannelMessages.filter((m) => m.senderId !== userId);
+    if (next.length !== currentChannelMessages.length) {
+      currentChannelMessages = next;
+      changed = true;
+      if (typeof renderChannelMessages === "function") renderChannelMessages();
+    }
+  }
+  return changed;
+}

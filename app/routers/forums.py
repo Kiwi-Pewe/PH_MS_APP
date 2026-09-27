@@ -12,6 +12,7 @@ from app.routers.profile import avatar_lookup, public_avatar
 from app.routers.roles import effective_perms_for_user, name_color_role_for_user, name_color_roles_by_user, require_server_perm
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
+from app.privacy import drop_blocked_rows
 from datetime import datetime
 
 router = APIRouter()
@@ -331,6 +332,8 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
         message_list = database.query(Forum_messages).filter(Forum_messages.post_id == post_id, Forum_messages.id < before_id).order_by(Forum_messages.created_at.desc()).limit(25).all()
     else:
         message_list = database.query(Forum_messages).filter(Forum_messages.post_id == post_id).order_by(Forum_messages.created_at.desc()).limit(25).all()
+
+    message_list = drop_blocked_rows(database, current_user.id, message_list, sender_attr="author_id")
 
     author_ids = list({message.author_id for message in message_list})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(author_ids)).all()

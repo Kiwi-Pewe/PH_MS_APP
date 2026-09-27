@@ -94,6 +94,7 @@ function connectSocket() {
     }
 
     if (data.type === "message") {
+      if (typeof isUserBlocked === "function" && isUserBlocked(data.sender_id)) return;
       const isOpen = openChatType === "dm" && openChatId === data.sender_id;
       bumpConversation("dm", data.sender_id, data.username, !isOpen);
       if (isOpen) {
@@ -119,6 +120,7 @@ function connectSocket() {
     }
 
     if (data.type === "party_message") {
+      if (data.sender_id && typeof isUserBlocked === "function" && isUserBlocked(data.sender_id)) return;
       const isOpen = openChatType === "party" && openChatId === data.party_id;
       bumpConversation("party", data.party_id, data.party_name, !isOpen, { mentioned: !!data.mentioned });
       if (isOpen) {
@@ -144,6 +146,7 @@ function connectSocket() {
     }
 
     if (data.type === "channel_message") {
+      if (typeof isUserBlocked === "function" && isUserBlocked(data.sender_id)) return;
       const isOpen = currentChannelId === data.channel_id;
       if (typeof noteIncomingChannelMessage === "function") {
         noteIncomingChannelMessage(data.channel_id, data.server_id, !!data.mentioned, isOpen);
@@ -176,6 +179,7 @@ function connectSocket() {
     // only the "is this the open one" test differs. Sender is excluded
     // server-side, so isMine is always false here.
     if (data.type === "forum_message") {
+      if (typeof isUserBlocked === "function" && isUserBlocked(data.sender_id || data.author_id)) return;
       const isOpen = openForumPostId === data.post_id;
       if (typeof noteIncomingChannelMessage === "function") {
         noteIncomingChannelMessage(data.channel_id, data.server_id, !!data.mentioned, isOpen);
@@ -467,6 +471,7 @@ function enterApp() {
   document.getElementById("footer-avatar-letter").textContent = avatarLetter(shown);
   if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
   if (typeof syncAdminTab === "function") syncAdminTab();
+  if (typeof loadBlockedUserIds === "function") loadBlockedUserIds();
   refreshFriendsView();
   loadConversations();
   loadServers();

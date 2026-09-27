@@ -605,6 +605,7 @@ async function unblockFromContextMenu(id, username) {
     console.error("Failed to unblock, network error:", e);
     return;
   }
+  if (typeof forgetBlockedUser === "function") forgetBlockedUser(id);
   refreshFriendsView();
   loadConversations();
 }
@@ -625,6 +626,8 @@ async function blockFromContextMenu(id, username) {
     console.error("Failed to block, network error:", e);
     return;
   }
+  if (typeof rememberBlockedUser === "function") rememberBlockedUser(id);
+  if (typeof purgeBlockedMessagesFromOpenViews === "function") purgeBlockedMessagesFromOpenViews(id);
   if (openChatType === "dm" && openChatId === id) resetChatView();
   refreshFriendsView();
   loadConversations();

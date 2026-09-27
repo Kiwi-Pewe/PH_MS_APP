@@ -1,6 +1,6 @@
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from app.models import Friend_request, Server_members, Dm_server_pref, UserInfo
+from app.models import Friend_request, Server_members, Dm_server_pref, UserInfo, Block_user
 
 PROFILE_VISIBILITY = ("public", "friends_all", "friends_small", "friends_only")
 
@@ -81,3 +81,30 @@ def can_send_friend_request(database: Session, sender_id, recipient: UserInfo):
             if dms_allowed_on_server(database, recipient, server_id):
                 return True
     return False
+
+
+def blocked_user_ids(database: Session, user_id):
+    if not user_id:
+        return set()
+    rows = database.query(Block_user.blocked_user).filter(Block_user.initiated_by == user_id).all()
+    return {row[0] for row in rows if row[0]}
+
+
+def drop_blocked_rows(database: Session, viewer_id, rows, sender_attr="sender_id"):
+    """Omit messages sent by accounts the viewer has blocked."""
+    blocked = blocked_user_ids(database, viewer_id)
+    if not blocked or not rows:
+        return rows
+    out = []
+    for row in rows:
+        sender = getattr(row, sender_attr, None)
+        if sender is None or sender not in blocked:
+            out.append(row)
+    return out
+
+
+def drop_blocked_message_payloads(database: Session, viewer_id, payloads, sender_key="sender_id"):
+    blocked = blocked_user_ids(database, viewer_id)
+    if not blocked or not payloads:
+        return payloads
+    return [row for row in payloads if row.get(sender_key) not in blocked]

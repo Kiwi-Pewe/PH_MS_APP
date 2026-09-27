@@ -12,6 +12,7 @@ from app.routers.realtime import party_broadcast, serialize_member
 from app.routers.profile import avatar_lookup
 from app.routers.mentions import apply_party_mentions, decorate_history, party_mention_count, accepted_reply_parent, reply_map_for
 from app.site_moderation import mask_message_payloads
+from app.privacy import drop_blocked_rows
 from datetime import datetime
 import random
 
@@ -141,6 +142,8 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
         party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id, Party_messages.id < before_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
     else:
         party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
+
+    party_history = drop_blocked_rows(database, current_user.id, party_history)
 
     refresh_pending_messages(database, party_history)
     reaction_map = reactions_for_messages(database, "party", [message.id for message in party_history], current_user.id)

@@ -32,6 +32,10 @@ document.querySelectorAll("#secondary-nav .nav-item").forEach(btn => {
       if (typeof openSettings === "function") await openSettings();
       return;
     }
+    if (btn.dataset.view === "feed") {
+      if (typeof openFeedView === "function") openFeedView();
+      return;
+    }
     document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".dm-item").forEach(d => d.classList.remove("active"));
     btn.classList.add("active");

@@ -1469,6 +1469,7 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
    "Announcements channel" design log for the full build-order plan
    (layout now, creation/persistence/deletion in later passes). */
 #announcements-view { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#view-feed { flex: 1 1 auto; min-height: 0; }
 
 .announce-composer-bar {
   flex: 0 0 auto; margin: 16px; padding: 10px 14px;
@@ -1477,7 +1478,8 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   overflow: visible;
 }
 
-#announcements-posts { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+#announcements-posts,
+#feed-posts { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px; }
 
 .announce-post {
   background: var(--panel-alt); border: 1px solid var(--border); border-radius: 16px;

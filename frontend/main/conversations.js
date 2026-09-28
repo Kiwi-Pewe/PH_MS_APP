@@ -173,6 +173,10 @@ async function closeConversation(type, id) {
 }
 
 function resetChatView() {
+  if (typeof openFeedView === "function") {
+    openFeedView();
+    return;
+  }
   if (typeof hideMemberList === "function") hideMemberList();
   if (typeof clearPendingReply === "function") clearPendingReply();
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();

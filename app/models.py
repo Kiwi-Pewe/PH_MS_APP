@@ -384,6 +384,15 @@ class Audit_log(Base):
     detail = Column(String)
     created_at = Column(DateTime, server_default=func.now())
 
+class Feed_alert(Base):
+    __tablename__ = "feed_alerts"
+    id = Column(Integer, primary_key=True)
+    receiver_id = Column(Integer, ForeignKey("users.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    alert_type = Column(String)
+    context = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
 class Perma_ban(Base):
     __tablename__ = "perma_bans"
     id = Column(Integer, primary_key=True)
@@ -459,4 +468,11 @@ Index(
     Forum_post.channel_id,
     Forum_post.last_activity_at,
     Forum_post.id,
+)
+
+Index(
+    "ix_feed_alert_receiver_created",
+    Feed_alert.receiver_id,
+    Feed_alert.created_at,
+    Feed_alert.id,
 )

@@ -30,6 +30,43 @@
 }
 #topbar .top-right { display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-size: 12px; }
 
+#mail-tab { position: relative; }
+.mail-badge {
+  display: inline-flex; position: absolute; top: 2px; right: 2px;
+  background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
+  min-width: 16px; height: 16px; border-radius: 8px; align-items: center; justify-content: center;
+  padding: 0 4px; line-height: 1;
+}
+.mail-badge[hidden] { display: none !important; }
+
+#mail-tray {
+  position: fixed; z-index: 1000; min-width: 260px; max-width: 320px; max-height: min(420px, 70vh);
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); overflow: hidden;
+}
+#mail-tray[hidden] { display: none !important; }
+#mail-tray-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.mail-tray-empty {
+  padding: 18px 16px; text-align: center; color: var(--text-dim); font-size: 13px; font-weight: 600;
+}
+.mail-tray-item {
+  padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text);
+}
+.mail-tray-item.is-read { opacity: 0.65; }
+.mail-tray-item-title { font-size: 13px; font-weight: 600; }
+.mail-tray-item-detail {
+  margin-top: 2px; font-size: 12px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#mail-clear-btn {
+  flex: 0 0 auto; width: 100%; padding: 10px 14px;
+  background: var(--panel-alt); border: none; border-top: 1px solid var(--border);
+  color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+#mail-clear-btn:hover { background: var(--rail); color: var(--text); }
+#mail-clear-btn[hidden] { display: none !important; }
+
 /* grid-template-rows is required here, not optional — without it, the
    single implicit row auto-sizes to fit its content (all messages ever
    rendered) instead of being locked to the available screen height.

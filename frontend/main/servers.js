@@ -53,6 +53,7 @@ function renderServerList() {
     const wrap = document.createElement("div");
     wrap.className = "server-icon-wrap";
     wrap.dataset.serverId = server.id;
+    wrap.dataset.dndKind = "server";
 
     const pill = document.createElement("span");
     pill.className = "rail-unread-pill";
@@ -63,7 +64,10 @@ function renderServerList() {
     icon.title = server.name;
     icon.dataset.serverId = server.id;
     paintRailServerIcon(icon, server);
-    icon.addEventListener("click", () => openServer(server.id, icon));
+    icon.addEventListener("click", (e) => {
+      if (typeof serverDndConsumeClick === "function" && serverDndConsumeClick()) return;
+      openServer(server.id, icon);
+    });
     icon.addEventListener("contextmenu", (e) => showServerContextMenu(e, server.id, server.name, server.owner_id));
 
     const badge = document.createElement("span");
@@ -71,6 +75,7 @@ function renderServerList() {
     icon.appendChild(badge);
     wrap.appendChild(icon);
     if (typeof decorateRailIcon === "function") decorateRailIcon(wrap, server);
+    if (typeof bindServerRailDrag === "function") bindServerRailDrag(wrap, server);
     container.appendChild(wrap);
   });
 }
@@ -269,6 +274,8 @@ function renderServerSidebar(data) {
   data.categories.forEach(category => {
     const block = document.createElement("div");
     block.className = "category-block";
+    block.dataset.categoryId = category.id;
+    block.dataset.dndKind = "category";
 
     const header = document.createElement("div");
     header.className = "category-header";
@@ -298,11 +305,14 @@ function renderServerSidebar(data) {
 
     const channelsEl = document.createElement("div");
     channelsEl.className = "category-channels";
+    channelsEl.dataset.categoryId = category.id;
     category.channels.forEach(channel => {
       if (!channelVisibleInSidebar(channel)) return;
       const row = document.createElement("div");
       row.className = "channel-row";
       row.dataset.channelId = channel.id;
+      row.dataset.categoryId = category.id;
+      row.dataset.dndKind = "channel";
 
       const icon = document.createElement("span");
       icon.className = "channel-icon";
@@ -316,16 +326,28 @@ function renderServerSidebar(data) {
 
       if (typeof decorateChannelRow === "function") decorateChannelRow(row, channel);
 
-      row.addEventListener("click", () => selectChannel(channel, row));
+      row.addEventListener("click", (e) => {
+        if (typeof serverDndConsumeClick === "function" && serverDndConsumeClick()) return;
+        selectChannel(channel, row);
+      });
       row.addEventListener("contextmenu", (e) => showChannelContextMenu(e, channel));
+      if (canLayout && typeof bindChannelDrag === "function") bindChannelDrag(row, channel);
       channelsEl.appendChild(row);
     });
 
-    // Collapse/expand is purely visual, doesn't persist across refresh.
-    header.addEventListener("click", () => block.classList.toggle("collapsed"));
+    header.addEventListener("click", (e) => {
+      if (e.target.closest(".category-add-btn")) return;
+      if (typeof serverDndConsumeClick === "function" && serverDndConsumeClick()) return;
+      block.classList.toggle("collapsed");
+    });
 
     block.appendChild(header);
     block.appendChild(channelsEl);
+    if (canLayout && typeof bindCategoryDrag === "function") bindCategoryDrag(block, category);
+    if (canLayout && typeof bindCategoryChannelDropZone === "function") {
+      bindCategoryChannelDropZone(header, category);
+      bindCategoryChannelDropZone(channelsEl, category);
+    }
     list.appendChild(block);
   });
 
@@ -568,6 +590,58 @@ function applyCategoryDeleted(categoryId) {
   if (!currentServerData) return;
   currentServerData.categories = currentServerData.categories.filter(c => c.id !== categoryId);
   afterServerStructureChange();
+}
+
+function applyServerRailOrder(servers) {
+  if (!Array.isArray(servers) || !servers.length) return;
+  const byId = new Map(servers.map((row) => [row.id, row.position]));
+  serverList.forEach((server) => {
+    if (byId.has(server.id)) server.position = byId.get(server.id);
+  });
+  serverList.sort((a, b) => (a.position || 0) - (b.position || 0) || String(a.id).localeCompare(String(b.id)));
+  renderServerList();
+}
+
+function applyCategoriesReordered(categories) {
+  if (!currentServerData || !Array.isArray(categories)) return;
+  const byId = new Map(categories.map((row) => [row.id, row.position]));
+  currentServerData.categories.forEach((category) => {
+    if (byId.has(category.id)) category.position = byId.get(category.id);
+  });
+  currentServerData.categories.sort((a, b) => (a.position || 0) - (b.position || 0) || (a.id - b.id));
+  renderServerSidebar(currentServerData);
+}
+
+function applyChannelsReordered(channels) {
+  if (!currentServerData || !Array.isArray(channels)) return;
+  const byId = new Map();
+  (currentServerData.categories || []).forEach((category) => {
+    (category.channels || []).forEach((channel) => byId.set(channel.id, channel));
+  });
+  const touched = new Set();
+  channels.forEach((row) => {
+    const channel = byId.get(row.id);
+    if (!channel) return;
+    touched.add(channel.category_id);
+    touched.add(row.category_id);
+    channel.category_id = row.category_id;
+    channel.position = row.position;
+  });
+  currentServerData.categories.forEach((category) => {
+    category.channels = (category.channels || []).filter((channel) => channel.category_id === category.id);
+  });
+  channels.forEach((row) => {
+    const channel = byId.get(row.id);
+    if (!channel) return;
+    const category = currentServerData.categories.find((entry) => entry.id === row.category_id);
+    if (!category) return;
+    if (!category.channels.some((entry) => entry.id === channel.id)) category.channels.push(channel);
+  });
+  currentServerData.categories.forEach((category) => {
+    if (!touched.has(category.id)) return;
+    category.channels.sort((a, b) => (a.position || 0) - (b.position || 0) || (a.id - b.id));
+  });
+  renderServerSidebar(currentServerData);
 }
 
 const serverSectionOverview = document.getElementById("server-section-overview");

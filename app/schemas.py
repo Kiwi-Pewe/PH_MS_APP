@@ -340,6 +340,19 @@ class Channel_create(BaseModel):
     channel_type: str
     is_private: bool = False
 
+class Reorder_server_rail(BaseModel):
+    server_id: str
+    before_server_id: str | None = None
+
+class Reorder_category(BaseModel):
+    category_id: int
+    before_category_id: int | None = None
+
+class Reorder_channel(BaseModel):
+    channel_id: int
+    category_id: int
+    before_channel_id: int | None = None
+
 class Announcements(BaseModel):
     channel_id: int
     title: str

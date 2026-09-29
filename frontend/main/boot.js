@@ -249,6 +249,18 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "categories_reordered") {
+      if (currentServerId === data.server_id && typeof applyCategoriesReordered === "function") {
+        applyCategoriesReordered(data.categories || []);
+      }
+    }
+
+    if (data.type === "channels_reordered") {
+      if (currentServerId === data.server_id && typeof applyChannelsReordered === "function") {
+        applyChannelsReordered(data.channels || []);
+      }
+    }
+
     if (data.type === "channel_deleted") {
       if (currentServerId === data.server_id) {
         applyChannelDeleted(data.category_id, data.channel_id);

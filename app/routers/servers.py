@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete
 from zoneinfo import available_timezones
 from app.database import get_db
 from app.auth import get_current_user
@@ -768,6 +768,178 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return "success"
+
+def gap_insert_position(neighbor_positions, insert_index):
+    n = len(neighbor_positions)
+    if n == 0:
+        return 100, False
+    if insert_index <= 0:
+        after = int(neighbor_positions[0] or 0)
+        candidate = after - 100
+        if candidate < 1:
+            return None, True
+        return candidate, False
+    if insert_index >= n:
+        before = int(neighbor_positions[-1] or 0)
+        return before + 100, False
+    before = int(neighbor_positions[insert_index - 1] or 0)
+    after = int(neighbor_positions[insert_index] or 0)
+    mid = (before + after) // 2
+    if mid <= before or mid >= after:
+        return None, True
+    return mid, False
+
+def repack_row_positions(rows):
+    for index, row in enumerate(rows):
+        row.position = (index + 1) * 100
+
+def insert_index_for_before(ordered_ids, before_id):
+    if before_id is None:
+        return len(ordered_ids)
+    try:
+        return ordered_ids.index(before_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Drop target not found")
+
+@router.post("/reorder_server_rail")
+def reorder_server_rail(body: Reorder_server_rail, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    memberships = (
+        database.query(Server_members)
+        .filter(Server_members.user_id == current_user.id)
+        .order_by(Server_members.position, Server_members.id)
+        .all()
+    )
+    moved = next((row for row in memberships if row.server_id == body.server_id), None)
+    if not moved:
+        raise HTTPException(status_code=404, detail="Server membership not found")
+    if body.before_server_id == body.server_id:
+        raise HTTPException(status_code=400, detail="Invalid drop target")
+    others = [row for row in memberships if row.server_id != body.server_id]
+    insert_at = insert_index_for_before([row.server_id for row in others], body.before_server_id)
+    position, need_repack = gap_insert_position([row.position for row in others], insert_at)
+    if need_repack or position is None:
+        ordered = others[:insert_at] + [moved] + others[insert_at:]
+        repack_row_positions(ordered)
+    else:
+        moved.position = position
+    database.commit()
+    refreshed = (
+        database.query(Server_members)
+        .filter(Server_members.user_id == current_user.id)
+        .order_by(Server_members.position, Server_members.id)
+        .all()
+    )
+    return {
+        "servers": [{"id": row.server_id, "position": int(row.position or 0)} for row in refreshed]
+    }
+
+@router.post("/reorder_category")
+async def reorder_category(body: Reorder_category, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    category = database.query(Server_categories).filter(Server_categories.id == body.category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    server = require_server_member(database, category.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
+    if body.before_category_id == body.category_id:
+        raise HTTPException(status_code=400, detail="Invalid drop target")
+    categories = (
+        database.query(Server_categories)
+        .filter(Server_categories.server_id == server.id)
+        .order_by(Server_categories.position, Server_categories.id)
+        .all()
+    )
+    moved = next((row for row in categories if row.id == body.category_id), None)
+    if not moved:
+        raise HTTPException(status_code=404, detail="Category not found")
+    others = [row for row in categories if row.id != body.category_id]
+    if body.before_category_id is not None:
+        target = next((row for row in others if row.id == body.before_category_id), None)
+        if not target:
+            raise HTTPException(status_code=404, detail="Drop target not found")
+    insert_at = insert_index_for_before([row.id for row in others], body.before_category_id)
+    position, need_repack = gap_insert_position([row.position for row in others], insert_at)
+    if need_repack or position is None:
+        ordered = others[:insert_at] + [moved] + others[insert_at:]
+        repack_row_positions(ordered)
+    else:
+        moved.position = position
+    database.commit()
+    refreshed = (
+        database.query(Server_categories)
+        .filter(Server_categories.server_id == server.id)
+        .order_by(Server_categories.position, Server_categories.id)
+        .all()
+    )
+    payload = {
+        "type": "categories_reordered",
+        "server_id": server.id,
+        "categories": [{"id": row.id, "position": int(row.position or 0)} for row in refreshed],
+    }
+    await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    return payload
+
+@router.post("/reorder_channel")
+async def reorder_channel(body: Reorder_channel, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel = database.query(Server_channels).filter(Server_channels.id == body.channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    source_category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    if not source_category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    target_category = database.query(Server_categories).filter(Server_categories.id == body.category_id).first()
+    if not target_category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    if source_category.server_id != target_category.server_id:
+        raise HTTPException(status_code=400, detail="Categories must be in the same server")
+    server = require_server_member(database, target_category.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
+    if body.before_channel_id == body.channel_id:
+        raise HTTPException(status_code=400, detail="Invalid drop target")
+
+    old_category_id = channel.category_id
+    siblings = (
+        database.query(Server_channels)
+        .filter(Server_channels.category_id == target_category.id)
+        .order_by(Server_channels.position, Server_channels.id)
+        .all()
+    )
+    others = [row for row in siblings if row.id != body.channel_id]
+    if body.before_channel_id is not None:
+        target = next((row for row in others if row.id == body.before_channel_id), None)
+        if not target:
+            raise HTTPException(status_code=404, detail="Drop target not found")
+    insert_at = insert_index_for_before([row.id for row in others], body.before_channel_id)
+    channel.category_id = target_category.id
+    position, need_repack = gap_insert_position([row.position for row in others], insert_at)
+    if need_repack or position is None:
+        ordered = others[:insert_at] + [channel] + others[insert_at:]
+        repack_row_positions(ordered)
+    else:
+        channel.position = position
+    database.commit()
+
+    touched_ids = {old_category_id, target_category.id}
+    channels_out = []
+    for category_id in touched_ids:
+        rows = (
+            database.query(Server_channels)
+            .filter(Server_channels.category_id == category_id)
+            .order_by(Server_channels.position, Server_channels.id)
+            .all()
+        )
+        for row in rows:
+            channels_out.append({
+                "id": row.id,
+                "category_id": row.category_id,
+                "position": int(row.position or 0),
+            })
+    payload = {
+        "type": "channels_reordered",
+        "server_id": server.id,
+        "channels": channels_out,
+    }
+    await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    return payload
 
 def purge_channel_contents(database, channel):
     messages = database.query(Channel_messages).filter(Channel_messages.channel_id == channel.id).all()

@@ -117,6 +117,19 @@ async function renderNotificationSettings(pane, jumpChildId) {
     "Reactions never add a red unread number. This controls when a reaction plays a notification sound.",
     reactionSelect
   ));
+
+  const feedBtn = document.createElement("button");
+  feedBtn.type = "button";
+  feedBtn.className = "ghost-btn settings-feed-prefs-btn";
+  feedBtn.textContent = "Manage Feed & Mail";
+  feedBtn.addEventListener("click", () => {
+    if (typeof openFeedAlertPrefsSubmenu === "function") openFeedAlertPrefsSubmenu();
+  });
+  overview.appendChild(settingsOpt(
+    "Feed & Mail",
+    "Choose which personal alert types appear in Feed and Mail. Turning a type off hides existing rows and stops new ones.",
+    feedBtn
+  ));
   block.appendChild(overview);
 
   const sounds = document.createElement("div");

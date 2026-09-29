@@ -116,6 +116,7 @@ def ensure_account_columns():
         ("users", "appearance_search", "VARCHAR"),
         ("users", "accessibility_prefs", "VARCHAR"),
         ("users", "language_time_prefs", "VARCHAR"),
+        ("users", "feed_alert_prefs", "VARCHAR"),
         ("users", "profile_layout", "VARCHAR"),
         ("users", "profile_status", "VARCHAR"),
         ("users", "profile_pronouns", "VARCHAR"),
@@ -220,6 +221,11 @@ def ensure_account_columns():
             conn.rollback()
         try:
             conn.execute(text("UPDATE users SET language_time_prefs = '{}' WHERE language_time_prefs IS NULL OR language_time_prefs = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET feed_alert_prefs = '{}' WHERE feed_alert_prefs IS NULL OR feed_alert_prefs = ''"))
             conn.commit()
         except Exception:
             conn.rollback()

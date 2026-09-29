@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 
 from app.models import UserInfo, Feed_alert, Servers
+from app.schemas import Feed_alert_prefs_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.profile import public_display_name, public_avatar
@@ -43,6 +44,64 @@ FAMILY_FOR_TYPE = {
     "feedback_status": "feedback",
     "report_status": "feedback",
 }
+
+# Live Feed/Mail kinds users can toggle in Settings. Draft catalog
+# kinds without writers (widget_update, profile_event) stay off the
+# prefs card until those writers exist.
+FEED_PREF_TYPES = (
+    "reaction",
+    "reply",
+    "post_comment",
+    "widget_comment",
+    "friend_accept",
+    "friend_deny",
+    "kick",
+    "ban",
+    "timeout",
+    "feedback_status",
+    "report_status",
+)
+
+
+def default_feed_alert_prefs():
+    return {kind: True for kind in FEED_PREF_TYPES}
+
+
+def feed_alert_prefs_for(user):
+    prefs = default_feed_alert_prefs()
+    raw = getattr(user, "feed_alert_prefs", None) if user else None
+    data = None
+    if isinstance(raw, dict):
+        data = raw
+    elif raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                data = parsed
+        except (TypeError, ValueError, json.JSONDecodeError):
+            data = None
+    if data:
+        for kind, value in data.items():
+            key = str(kind or "").strip().lower()
+            if key in prefs:
+                prefs[key] = bool(value)
+    return prefs
+
+
+def feed_alert_type_enabled(user, alert_type):
+    kind = (alert_type or "").strip().lower()
+    if kind not in FEED_PREF_TYPES:
+        return True
+    return bool(feed_alert_prefs_for(user).get(kind, True))
+
+
+def normalize_feed_alert_prefs(payload):
+    prefs = default_feed_alert_prefs()
+    data = payload if isinstance(payload, dict) else {}
+    for kind in FEED_PREF_TYPES:
+        if kind in data:
+            prefs[kind] = bool(data[kind])
+    return prefs
 
 
 def normalize_alert_family(family, alert_type):
@@ -239,6 +298,9 @@ async def notify_feed_alert(
     context=None,
 ):
     from app.routers.realtime import notify_user
+    receiver = database.query(UserInfo).filter(UserInfo.id == receiver_id).first() if receiver_id else None
+    if receiver and not feed_alert_type_enabled(receiver, alert_type):
+        return None
     row = create_feed_alert(
         database,
         receiver_id=receiver_id,
@@ -349,7 +411,11 @@ def list_feed_alerts(
     current_user: UserInfo = Depends(get_current_user),
 ):
     size = max(1, min(int(limit or 25), 50))
+    prefs = feed_alert_prefs_for(current_user)
+    muted = [kind for kind, enabled in prefs.items() if not enabled]
     query = database.query(Feed_alert).filter(Feed_alert.receiver_id == current_user.id)
+    if muted:
+        query = query.filter(~Feed_alert.alert_type.in_(muted))
     if before_id:
         query = query.filter(Feed_alert.id < int(before_id))
     rows = (
@@ -382,6 +448,23 @@ def list_feed_alerts(
             for row in rows
         ]
     }
+
+
+@router.get("/feed_alert_prefs")
+def get_feed_alert_prefs(current_user: UserInfo = Depends(get_current_user)):
+    return {"prefs": feed_alert_prefs_for(current_user)}
+
+
+@router.post("/feed_alert_prefs")
+def save_feed_alert_prefs(
+    body: Feed_alert_prefs_in,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    prefs = normalize_feed_alert_prefs(body.prefs if body else {})
+    current_user.feed_alert_prefs = json.dumps(prefs)
+    database.commit()
+    return {"prefs": prefs}
 
 
 @router.post("/feed_alerts/{alert_id}/delete")

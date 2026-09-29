@@ -41,6 +41,7 @@ class UserInfo(Base):
     appearance_search = Column(String, nullable= True)
     accessibility_prefs = Column(String, nullable= True)
     language_time_prefs = Column(String, nullable= True)
+    feed_alert_prefs = Column(String, nullable= True)
     profile_layout = Column(String, nullable= True)
     profile_status = Column(String, nullable= True)
     profile_pronouns = Column(String, nullable= True)

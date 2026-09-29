@@ -56,6 +56,9 @@ class Notification_sound_prefs(BaseModel):
 class Notification_reaction_pref(BaseModel):
     value: str
 
+class Feed_alert_prefs_in(BaseModel):
+    prefs: dict[str, bool] = {}
+
 class Appearance_prefs(BaseModel):
     theme: str
     brightness: str

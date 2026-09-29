@@ -283,6 +283,7 @@ function pushMailSessionAlert(alert) {
 
 function noteIncomingFeedAlert(alert) {
   if (!alert || alert.id == null) return;
+  if (typeof feedAlertTypeEnabled === "function" && !feedAlertTypeEnabled(alert.alert_type)) return;
   pushMailSessionAlert(alert);
   if (feedAlertRows.some((row) => row.id === alert.id)) {
     feedAlertRows = feedAlertRows.map((row) => (row.id === alert.id ? alert : row));
@@ -293,6 +294,17 @@ function noteIncomingFeedAlert(alert) {
   if (feedView && feedView.classList.contains("active")) {
     paintFeedPosts({ preserveScroll: true });
   }
+}
+
+function applyFeedAlertPrefsLocally() {
+  mailSessionItems = mailSessionItems.filter((row) => {
+    if (typeof feedAlertTypeEnabled !== "function") return true;
+    return feedAlertTypeEnabled(row.alert_type);
+  });
+  mailUnseenCount = mailSessionItems.filter((row) => !row.read).length;
+  paintMailBadge();
+  paintMailTray();
+  if (typeof loadFeedAlerts === "function") loadFeedAlerts();
 }
 
 function showFeedAlertMenu(e, alert) {

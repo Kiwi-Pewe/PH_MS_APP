@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=188">
+<link rel="stylesheet" href="app.css?v=189">
 </head>
 <body>
 
@@ -1162,6 +1162,21 @@
     </div>
   </div>
 
+  <div id="feed-alert-prefs-overlay" hidden>
+    <div id="feed-alert-prefs-modal" class="feed-prefs-modal" role="dialog" aria-modal="true" aria-labelledby="feed-alert-prefs-title">
+      <div class="feed-prefs-header">
+        <span id="feed-alert-prefs-title" class="feed-prefs-title">Feed &amp; Mail</span>
+        <button type="button" class="icon-btn" id="feed-alert-prefs-close" title="Close">&times;</button>
+      </div>
+      <p class="feed-prefs-copy">Choose which alert types appear in your Feed and Mail. Turning a type off hides those rows and stops new ones of that type.</p>
+      <div id="feed-alert-prefs-body" class="feed-prefs-body"></div>
+      <div class="feed-prefs-footer">
+        <p id="feed-alert-prefs-error" class="server-settings-help" hidden></p>
+        <button type="button" class="pill-btn" id="feed-alert-prefs-done">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Invite panel — shared by both servers and parties (openInviteModal
        takes the type so one panel handles both), reached via each's own
        context menu (see showServerContextMenu/showPartyContextMenu in
@@ -1231,7 +1246,7 @@
 <script src="post-media.js?v=54"></script>
 <script src="boot.js?v=89"></script>
 <script src="app-shell.js?v=64"></script>
-<script src="feed.js?v=13"></script>
+<script src="feed.js?v=14"></script>
 <script src="settings.js?v=18"></script>
 <script src="server-settings.js?v=30"></script>
 <script src="server-roles.js?v=17"></script>
@@ -1239,8 +1254,9 @@
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
 <script src="settings-privacy.js?v=8"></script>
+<script src="feed-settings.js?v=1"></script>
 <script src="settings-messaging.js?v=4"></script>
-<script src="settings-notifications.js?v=3"></script>
+<script src="settings-notifications.js?v=4"></script>
 <script src="settings-appearance.js?v=5"></script>
 <script src="settings-voice.js?v=1"></script>
 <script src="settings-system.js?v=1"></script>

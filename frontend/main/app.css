@@ -477,6 +477,155 @@
 #channel-settings-close:hover span:first-child { border-color: var(--text); }
 #channel-settings-private-host .settings-opt { padding-left: 0; padding-right: 0; }
 
+.channel-perms-layout {
+  display: flex;
+  gap: 16px;
+  min-height: 420px;
+  margin-top: 12px;
+  align-items: stretch;
+}
+.channel-perms-roles {
+  flex: 0 0 220px;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  min-height: 0;
+}
+.channel-perms-roles-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.channel-perms-roles-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.channel-perms-role-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.channel-perms-role-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-align: left;
+}
+.channel-perms-role-row:hover,
+.channel-perms-role-row.is-active {
+  background: var(--panel-alt);
+  color: var(--text);
+}
+.channel-perms-role-row.is-sample { opacity: 0.75; }
+.channel-perms-role-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.channel-perms-role-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+.channel-perms-roles-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.channel-perms-editor {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.channel-perms-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.channel-perms-editor-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.channel-perms-editor-actions {
+  display: flex;
+  gap: 8px;
+}
+.channel-perms-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.channel-perms-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.channel-perms-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.channel-perms-section .channel-perms-row:last-child { border-bottom: none; }
+.channel-perms-row.is-later { opacity: 0.55; }
+.channel-perms-row-text { flex: 1 1 auto; min-width: 0; }
+.channel-perms-row-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.channel-perms-row-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  line-height: 1.35;
+}
+#channel-settings-invites .server-invites-row.is-empty-row td {
+  text-align: left;
+  padding: 16px 10px;
+}
+
 .server-icon-wrap.dnd-dragging,
 .category-block.dnd-dragging,
 .channel-row.dnd-dragging { opacity: 0.45; }

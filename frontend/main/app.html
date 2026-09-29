@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=194">
+<link rel="stylesheet" href="app.css?v=195">
 </head>
 <body>
 
@@ -890,6 +890,19 @@
           <label class="server-settings-field-title" for="channel-settings-slowmode">Slowmode</label>
           <select id="channel-settings-slowmode" class="settings-select server-settings-select" disabled>
             <option value="off" selected>Off</option>
+            <option value="5">5 seconds</option>
+            <option value="10">10 seconds</option>
+            <option value="15">15 seconds</option>
+            <option value="30">30 seconds</option>
+            <option value="60">1 minute</option>
+            <option value="120">2 minutes</option>
+            <option value="300">5 minutes</option>
+            <option value="600">10 minutes</option>
+            <option value="900">15 minutes</option>
+            <option value="1800">30 minutes</option>
+            <option value="3600">1 hour</option>
+            <option value="7200">2 hours</option>
+            <option value="21600">6 hours</option>
           </select>
           <p class="server-settings-help">Members will be restricted to sending one message per this interval, unless they have a slowmode exception.</p>
         </div>
@@ -901,15 +914,74 @@
       </div>
       <div id="channel-settings-permissions" class="server-settings-page" hidden>
         <h2 class="server-settings-page-title">Permissions</h2>
-        <div class="placeholder-panel">Per-channel and per-category permission overrides aren’t built yet. Server Roles still set the defaults.</div>
+        <p class="server-settings-help" id="channel-settings-perms-blurb">Choose a role, then set what that role can do in this channel. Layout only — overrides are not saved yet.</p>
+        <div class="channel-perms-layout">
+          <aside class="channel-perms-roles" aria-label="Roles with overrides">
+            <div class="channel-perms-roles-head">
+              <div class="channel-perms-roles-title">Roles / Members</div>
+              <button type="button" class="ghost-btn channel-perms-sync" id="channel-settings-perms-sync" disabled>Sync with category</button>
+            </div>
+            <div id="channel-settings-perms-role-list" class="channel-perms-role-list"></div>
+            <div class="channel-perms-roles-footer">
+              <button type="button" class="ghost-btn" id="channel-settings-perms-add-role" disabled>Add Role</button>
+              <button type="button" class="ghost-btn" id="channel-settings-perms-add-member" disabled>Add Member</button>
+            </div>
+          </aside>
+          <div class="channel-perms-editor">
+            <div class="channel-perms-editor-head">
+              <div id="channel-settings-perms-role-name" class="channel-perms-editor-title">Members</div>
+              <div class="channel-perms-editor-actions">
+                <button type="button" class="ghost-btn" id="channel-settings-perms-enable-all" disabled>Enable all</button>
+                <button type="button" class="ghost-btn" id="channel-settings-perms-clear-all" disabled>Clear all</button>
+              </div>
+            </div>
+            <div id="channel-settings-perms-body" class="channel-perms-body"></div>
+          </div>
+        </div>
       </div>
       <div id="channel-settings-invites" class="server-settings-page is-channel-only" hidden>
         <h2 class="server-settings-page-title">Invites</h2>
-        <div class="placeholder-panel">Channel-targeted invites aren’t built yet. Use Server Settings → Invites for now.</div>
+        <p class="server-settings-help">Invite links that open into this channel. Layout only until channel-targeted invites exist.</p>
+        <div class="server-invites-toolbar">
+          <div class="server-invites-toolbar-label">Active invite links</div>
+          <button type="button" class="ghost-btn server-invites-pause" disabled>Pause Invites</button>
+          <button type="button" class="pill-btn" id="channel-settings-invites-create" disabled>Create invite link</button>
+        </div>
+        <div class="server-invites-table-wrap">
+          <table class="server-invites-table">
+            <thead>
+              <tr>
+                <th class="server-invites-col-inviter">Inviter</th>
+                <th class="server-invites-col-code">Invite Code</th>
+                <th class="server-invites-col-uses">Uses</th>
+                <th class="server-invites-col-expires">Expires</th>
+                <th class="server-invites-col-roles">Roles</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="server-invites-row is-empty-row">
+                <td colspan="5" class="server-settings-help">No active invite links for this channel.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
       <div id="channel-settings-integrations" class="server-settings-page is-channel-only" hidden>
         <h2 class="server-settings-page-title">Integrations</h2>
-        <div class="placeholder-panel">Channel webhooks and integrations aren’t built yet.</div>
+        <p class="server-settings-help">Apps and webhooks that post into this channel. Layout only until webhooks ship.</p>
+        <section class="server-integrations-section">
+          <div class="server-integrations-section-head">
+            <h3 class="server-integrations-section-title">Webhooks</h3>
+            <button type="button" class="ghost-btn" disabled>New Webhook</button>
+          </div>
+          <p class="server-settings-help">No webhooks for this channel.</p>
+        </section>
+        <section class="server-integrations-section">
+          <div class="server-integrations-section-head">
+            <h3 class="server-integrations-section-title">Channel Following</h3>
+          </div>
+          <p class="server-settings-help">This channel isn’t receiving followed announcement channels.</p>
+        </section>
       </div>
     </section>
   </div>
@@ -1369,7 +1441,7 @@
 <script src="mentions.js?v=12"></script>
 <script src="servers.js?v=89"></script>
 <script src="server-dnd.js?v=1"></script>
-<script src="channel-settings.js?v=1"></script>
+<script src="channel-settings.js?v=3"></script>
 <script src="members.js?v=12"></script>
 <script src="mini-profile.js?v=10"></script>
 <script src="server-modals.js?v=48"></script>

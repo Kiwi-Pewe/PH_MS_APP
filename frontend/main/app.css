@@ -6379,7 +6379,9 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 10px 10px 8px;
   border-radius: 6px;
   cursor: pointer;
+  border-bottom: 1px solid var(--border);
 }
+.pin-row:last-child { border-bottom: none; }
 .pin-row:hover { background: var(--panel-alt); }
 .pin-row-actions {
   position: absolute;

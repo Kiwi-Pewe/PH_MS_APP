@@ -80,9 +80,9 @@ function formatFeedDuration(seconds) {
 
 function feedAlertBody(alert) {
   const family = feedFamilyOf(alert);
+  const kind = String(alert && alert.alert_type || "").toLowerCase();
   if (family === "moderation") {
     const who = feedSenderLabel(alert);
-    const kind = String(alert && alert.alert_type || "").toLowerCase();
     const verb = FEED_MOD_VERBS[kind] || "moderated you";
     const reason = String(alert && alert.reason || "").trim();
     const duration = formatFeedDuration(alert && alert.duration_seconds);
@@ -90,6 +90,12 @@ function feedAlertBody(alert) {
     if (reason) text += " for: " + reason;
     if (duration) text += " for " + duration;
     return text + ".";
+  }
+  if (kind === "friend_accept") {
+    return feedSenderLabel(alert) + " accepted your friend request.";
+  }
+  if (kind === "friend_deny") {
+    return feedSenderLabel(alert) + " declined your friend request.";
   }
   return String(alert && alert.context || "").trim();
 }

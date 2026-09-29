@@ -8,21 +8,22 @@ from app.auth import get_current_user
 from app.routers.realtime import active_connections
 from app.privacy import can_send_friend_request
 from app.routers.profile import public_avatar
+from app.routers.feed import notify_feed_alert
 
 router = APIRouter()
 
 @router.post("/block")
-def block_account(block_user: Block_schema, database: Session= Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+async def block_account(block_user: Block_schema, database: Session= Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
     are_friends_1 = database.query(Friend_request).filter(Friend_request.user_1 == current_user.id, Friend_request.user_2 == block_user.blocked_user).first()
     are_friends_2 = database.query(Friend_request).filter(Friend_request.user_1 == block_user.blocked_user, Friend_request.user_2 == current_user.id).first()
 
     if are_friends_1:
         info = Friend_user(user_id_1 = are_friends_1.user_1, user_id_2= are_friends_1.user_2)
-        remove_user(info, database= database, current_user= current_user)
+        await remove_user(info, database= database, current_user= current_user)
     elif are_friends_2:
         info = Friend_user(user_id_1 = are_friends_2.user_1, user_id_2= are_friends_2.user_2)
-        remove_user(info, database= database, current_user= current_user)
+        await remove_user(info, database= database, current_user= current_user)
 
     block = Block_user(initiated_by= current_user.id ,blocked_user = block_user.blocked_user)
     database.add(block)
@@ -60,6 +61,13 @@ async def add_user(friends: Friend_user, database: Session = Depends(get_db), cu
     if reversed_pending and reversed_pending.pending == True:
         reversed_pending.pending = False
         database.commit()
+        await notify_feed_alert(
+            database,
+            receiver_id=friend_exists.id,
+            alert_type="friend_accept",
+            sender_id=current_user.id,
+            alert_family="profile",
+        )
         return
 
     pending_request = database.query(Friend_request).filter(Friend_request.user_1 == current_user.id, Friend_request.user_2 == friend_exists.id).first()
@@ -125,17 +133,31 @@ def get_relationship(user_id: int, database: Session = Depends(get_db), current_
     }
 
 @router.post("/unfriend_user")
-def remove_user(friends: Friend_user, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+async def remove_user(friends: Friend_user, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
     friend_file_1 = database.query(Friend_request).filter(Friend_request.user_1 == current_user.id, Friend_request.user_2 == friends.user_id_2).first()
     friend_file_2 = database.query(Friend_request).filter(Friend_request.user_1 == friends.user_id_2, Friend_request.user_2 == current_user.id).first()
 
+    denied_requester_id = None
     if friend_file_1:
+        if friend_file_1.pending:
+            denied_requester_id = friend_file_1.user_1
         database.delete(friend_file_1)
         database.commit()
     elif friend_file_2:
+        if friend_file_2.pending:
+            denied_requester_id = friend_file_2.user_1
         database.delete(friend_file_2)
         database.commit()
     else:
         raise HTTPException(status_code= 404, detail="Friend not found.")
+
+    if denied_requester_id and denied_requester_id != current_user.id:
+        await notify_feed_alert(
+            database,
+            receiver_id=denied_requester_id,
+            alert_type="friend_deny",
+            sender_id=current_user.id,
+            alert_family="profile",
+        )
     return

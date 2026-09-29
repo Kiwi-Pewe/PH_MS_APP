@@ -21,6 +21,12 @@ const FEED_TYPE_LABELS = {
   report_status: "Report update",
 };
 
+const FEED_MOD_VERBS = {
+  kick: "removed you",
+  ban: "banned you",
+  timeout: "timed you out",
+};
+
 let mailSessionItems = [];
 let mailUnseenCount = 0;
 let mailTrayOpen = false;
@@ -50,6 +56,75 @@ function feedAlertTime(alert) {
   return String(alert.created_at);
 }
 
+function feedAlertDetail(alert) {
+  if (alert && alert.detail && typeof alert.detail === "object") return alert.detail;
+  if (!alert || !alert.context) return null;
+  try {
+    const data = JSON.parse(alert.context);
+    return data && typeof data === "object" ? data : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function formatFeedDuration(seconds) {
+  let secs = Math.max(0, Math.floor(Number(seconds) || 0));
+  if (!secs) return "";
+  const days = Math.floor(secs / 86400);
+  secs -= days * 86400;
+  const hours = Math.floor(secs / 3600);
+  secs -= hours * 3600;
+  const minutes = Math.floor(secs / 60);
+  const parts = [];
+  if (days) parts.push(days + (days === 1 ? " day" : " days"));
+  if (hours) parts.push(hours + (hours === 1 ? " hour" : " hours"));
+  if (minutes) parts.push(minutes + (minutes === 1 ? " minute" : " minutes"));
+  if (!parts.length) parts.push("less than a minute");
+  return parts.join(", ");
+}
+
+function moderationDurationText(alert, detail) {
+  if (detail && detail.duration_seconds) return formatFeedDuration(detail.duration_seconds);
+  if (!detail || !detail.until || !alert || !alert.created_at) return "";
+  if (typeof parseUtcTimestamp !== "function") return "";
+  const start = parseUtcTimestamp(alert.created_at);
+  const end = parseUtcTimestamp(detail.until);
+  if (!start || !end) return "";
+  return formatFeedDuration(Math.round((end.getTime() - start.getTime()) / 1000));
+}
+
+function moderationSentence(alert) {
+  const detail = feedAlertDetail(alert) || {};
+  const who = feedSenderLabel(alert);
+  const kind = String(alert && alert.alert_type || "").toLowerCase();
+  const verb = FEED_MOD_VERBS[kind] || "moderated you";
+  const reason = String(detail.reason || "").trim();
+  const duration = moderationDurationText(alert, detail);
+  let text = who + " " + verb;
+  if (reason) text += " for: " + reason;
+  if (duration) text += " for " + duration;
+  return text + ".";
+}
+
+function paintFeedServerFace(host, detail) {
+  if (!host) return;
+  host.replaceChildren();
+  const name = (detail && detail.server_name) || "Server";
+  const url = detail && detail.server_icon_url;
+  if (url) {
+    const img = document.createElement("img");
+    img.className = "feed-server-icon-img";
+    img.src = url;
+    img.alt = "";
+    host.appendChild(img);
+    return;
+  }
+  const letter = document.createElement("span");
+  letter.className = "face-letter";
+  letter.textContent = name.charAt(0).toUpperCase();
+  host.appendChild(letter);
+}
+
 function clearMailSession() {
   mailSessionItems = [];
   mailUnseenCount = 0;
@@ -74,6 +149,7 @@ function paintMailBadge() {
 
 function buildMailAlertRow(alert) {
   const family = feedFamilyOf(alert);
+  const detail = feedAlertDetail(alert);
   const row = document.createElement("div");
   row.className = "mail-tray-item is-" + family + (alert.read ? " is-read" : "");
   row.dataset.alertId = String(alert.id);
@@ -90,15 +166,20 @@ function buildMailAlertRow(alert) {
   head.appendChild(chip);
   head.appendChild(title);
 
-  const detail = document.createElement("div");
-  detail.className = "mail-tray-item-detail";
-  const bits = [];
-  if (alert.sender_id) bits.push(feedSenderLabel(alert));
-  if (alert.context) bits.push(alert.context);
-  detail.textContent = bits.join(" · ");
+  const line = document.createElement("div");
+  line.className = "mail-tray-item-detail";
+  if (family === "moderation" && detail) {
+    const serverName = detail.server_name || "Server";
+    line.textContent = serverName + " · " + moderationSentence(alert);
+  } else {
+    const bits = [];
+    if (alert.sender_id) bits.push(feedSenderLabel(alert));
+    if (alert.context) bits.push(alert.context);
+    line.textContent = bits.join(" · ");
+  }
 
   row.appendChild(head);
-  if (bits.length) row.appendChild(detail);
+  if (line.textContent) row.appendChild(line);
   return row;
 }
 
@@ -161,6 +242,7 @@ function pushMailSessionAlert(alert) {
     alert_type: alert.alert_type,
     alert_type_label: feedTypeLabel(alert),
     context: alert.context || "",
+    detail: alert.detail || feedAlertDetail(alert),
     sender_id: alert.sender_id,
     sender_username: alert.sender_username,
     sender_display_name: alert.sender_display_name,
@@ -198,6 +280,7 @@ function showFeedAlertMenu(e, alert) {
 
 function buildFeedAlertCard(alert) {
   const family = feedFamilyOf(alert);
+  const detail = feedAlertDetail(alert);
   const card = document.createElement("div");
   card.className = "announce-post feed-alert-card is-" + family;
   card.dataset.alertId = String(alert.id);
@@ -207,26 +290,31 @@ function buildFeedAlertCard(alert) {
   const top = document.createElement("div");
   top.className = "announce-post-top";
 
-  const avatar = document.createElement("div");
-  avatar.className = "cluster-avatar feed-alert-face is-" + family;
-  if (alert.sender_id && typeof paintUserFace === "function") {
-    paintUserFace(avatar, {
-      avatar: alert.sender_avatar,
-      username: alert.sender_username,
-      display_name: alert.sender_display_name,
-    }, { name: feedSenderLabel(alert), userId: alert.sender_id });
-  } else {
-    avatar.textContent = (FEED_FAMILY_LABELS[family] || "?").charAt(0);
-  }
-
+  const face = document.createElement("div");
+  face.className = "cluster-avatar feed-alert-face is-" + family;
   const meta = document.createElement("div");
   meta.className = "announce-post-meta";
   const name = document.createElement("div");
   name.className = "announce-post-name";
-  name.textContent = alert.sender_id ? feedSenderLabel(alert) : (FEED_FAMILY_LABELS[family] || "Oneira");
   const role = document.createElement("div");
   role.className = "announce-post-role";
   role.textContent = FEED_FAMILY_LABELS[family] || family;
+
+  if (family === "moderation" && detail) {
+    paintFeedServerFace(face, detail);
+    name.textContent = detail.server_name || "Server";
+  } else if (alert.sender_id && typeof paintUserFace === "function") {
+    paintUserFace(face, {
+      avatar: alert.sender_avatar,
+      username: alert.sender_username,
+      display_name: alert.sender_display_name,
+    }, { name: feedSenderLabel(alert), userId: alert.sender_id });
+    name.textContent = feedSenderLabel(alert);
+  } else {
+    face.textContent = (FEED_FAMILY_LABELS[family] || "?").charAt(0);
+    name.textContent = alert.sender_id ? feedSenderLabel(alert) : (FEED_FAMILY_LABELS[family] || "Oneira");
+  }
+
   meta.appendChild(name);
   meta.appendChild(role);
 
@@ -234,9 +322,12 @@ function buildFeedAlertCard(alert) {
   chip.className = "feed-family-chip is-" + family;
   chip.textContent = FEED_FAMILY_LABELS[family] || family;
 
-  top.appendChild(avatar);
+  top.appendChild(face);
   top.appendChild(meta);
   top.appendChild(chip);
+
+  const divider = document.createElement("div");
+  divider.className = "announce-divider";
 
   const content = document.createElement("div");
   content.className = "announce-post-content";
@@ -247,9 +338,13 @@ function buildFeedAlertCard(alert) {
   title.textContent = feedTypeLabel(alert);
   titleRow.appendChild(title);
   content.appendChild(titleRow);
-  if (alert.context) {
-    const body = document.createElement("div");
-    body.className = "announce-post-body";
+
+  const body = document.createElement("div");
+  body.className = "announce-post-body";
+  if (family === "moderation" && detail) {
+    body.textContent = moderationSentence(alert);
+    content.appendChild(body);
+  } else if (alert.context) {
     body.textContent = alert.context;
     content.appendChild(body);
   }
@@ -259,6 +354,7 @@ function buildFeedAlertCard(alert) {
   date.textContent = feedAlertTime(alert);
 
   card.appendChild(top);
+  card.appendChild(divider);
   card.appendChild(content);
   card.appendChild(date);
   return card;

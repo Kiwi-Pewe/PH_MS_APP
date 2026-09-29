@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import json
 
 from app.models import UserInfo, Feed_alert
 from app.database import get_db
@@ -53,15 +54,29 @@ def normalize_alert_family(family, alert_type):
     return "activity"
 
 
+def parse_alert_context(raw):
+    if not raw:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else None
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
 def serialize_feed_alert(row, sender=None):
     family = normalize_alert_family(row.alert_family, row.alert_type)
     kind = (row.alert_type or "").strip().lower()
+    detail = parse_alert_context(row.context)
     return {
         "id": row.id,
         "alert_family": family,
         "alert_type": kind,
         "alert_type_label": ALERT_TYPE_LABELS.get(kind, kind or "Alert"),
-        "context": row.context,
+        "context": row.context if not detail else None,
+        "detail": detail,
         "created_at": row.created_at.isoformat() + "Z" if row.created_at else None,
         "sender_id": row.sender_id,
         "sender_username": sender.username if sender else None,
@@ -106,17 +121,17 @@ async def notify_feed_alert(database, receiver_id, alert_type, context=None, sen
     return row
 
 
-def moderation_alert_context(server_name, reason=None, extra=None):
-    parts = []
-    name = (server_name or "").strip() or "Server"
-    parts.append(name)
-    detail = (reason or "").strip()
-    if detail:
-        parts.append(detail)
-    more = (extra or "").strip()
-    if more:
-        parts.append(more)
-    return " — ".join(parts)
+def moderation_alert_context(server, reason=None, until_iso=None, duration_seconds=None):
+    from app.routers.servers import server_icon_url
+    payload = {
+        "server_id": getattr(server, "id", None),
+        "server_name": (getattr(server, "name", None) or "").strip() or "Server",
+        "server_icon_url": server_icon_url(server) or "",
+        "reason": (reason or "").strip(),
+        "until": until_iso,
+        "duration_seconds": int(duration_seconds) if duration_seconds else None,
+    }
+    return json.dumps(payload)
 
 
 @router.get("/feed_alerts")

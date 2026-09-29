@@ -117,7 +117,7 @@ def upsert_ban(database, server_id, user_id, actor_id, reason, expires_at):
     return row
 
 
-async def remove_member(database, server, target_user, membership, actor, action, reason, expires_at=None):
+async def remove_member(database, server, target_user, membership, actor, action, reason, expires_at=None, duration_seconds=None):
     strip_member_roles(database, server.id, target_user.id)
     database.delete(membership)
     if action == "kick" and expires_at:
@@ -129,7 +129,9 @@ async def remove_member(database, server, target_user, membership, actor, action
     write_audit_log(database, server.id, actor.id, action + "_member", "member", target_user.id, {
         "username": target_user.username,
         "reason": reason,
-        "duration_seconds": int((expires_at - datetime.utcnow()).total_seconds()) if expires_at else None,
+        "duration_seconds": duration_seconds if duration_seconds is not None else (
+            int((expires_at - datetime.utcnow()).total_seconds()) if expires_at else None
+        ),
     })
     database.commit()
     await notify_feed_alert(
@@ -137,9 +139,12 @@ async def remove_member(database, server, target_user, membership, actor, action
         receiver_id=target_user.id,
         alert_type=action,
         context=moderation_alert_context(
-            server.name,
-            reason,
-            ("Can rejoin after " + iso_dt(expires_at)) if (action == "kick" and expires_at) else None,
+            server,
+            reason=reason,
+            until_iso=iso_dt(expires_at) if expires_at else None,
+            duration_seconds=duration_seconds if duration_seconds is not None else (
+                body_seconds_from_expires(expires_at) if expires_at else None
+            ),
         ),
         sender_id=actor.id,
         alert_family="moderation",
@@ -161,6 +166,13 @@ async def remove_member(database, server, target_user, membership, actor, action
     return {"ok": True, "user_id": target_user.id}
 
 
+def body_seconds_from_expires(expires_at):
+    if not expires_at:
+        return None
+    secs = int((expires_at - datetime.utcnow()).total_seconds())
+    return secs if secs > 0 else None
+
+
 @router.post("/kick_server_member")
 async def kick_server_member(body: Server_moderation_in, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server = require_server_member(database, body.server_id, current_user.id)
@@ -171,7 +183,10 @@ async def kick_server_member(body: Server_moderation_in, database: Session = Dep
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
     expires = datetime.utcnow() + timedelta(seconds=body.seconds) if body.seconds else None
-    return await remove_member(database, server, target, membership, current_user, "kick", clean_reason(body.reason), expires)
+    return await remove_member(
+        database, server, target, membership, current_user, "kick", clean_reason(body.reason),
+        expires, duration_seconds=body.seconds or None,
+    )
 
 
 @router.post("/ban_server_member")
@@ -181,7 +196,7 @@ async def ban_server_member(body: Server_moderation_in, database: Session = Depe
     target = database.query(UserInfo).filter(UserInfo.id == body.user_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    return await remove_member(database, server, target, membership, current_user, "ban", clean_reason(body.reason), None)
+    return await remove_member(database, server, target, membership, current_user, "ban", clean_reason(body.reason), None, duration_seconds=None)
 
 
 @router.post("/timeout_server_member")
@@ -216,9 +231,10 @@ async def timeout_server_member(body: Server_moderation_in, database: Session = 
             receiver_id=target.id,
             alert_type="timeout",
             context=moderation_alert_context(
-                server.name,
-                reason,
-                ("Until " + iso_dt(until)) if until else None,
+                server,
+                reason=reason,
+                until_iso=iso_dt(until) if until else None,
+                duration_seconds=body.seconds,
             ),
             sender_id=current_user.id,
             alert_family="moderation",
@@ -271,7 +287,10 @@ async def bulk_kick_server_members(body: Server_bulk_kick_in, database: Session 
         if not target:
             continue
         expires = datetime.utcnow() + timedelta(seconds=body.seconds) if body.seconds else None
-        await remove_member(database, server, target, membership, current_user, "kick", reason, expires)
+        await remove_member(
+            database, server, target, membership, current_user, "kick", reason,
+            expires, duration_seconds=body.seconds or None,
+        )
         kicked.append(uid)
     return {"ok": True, "kicked": kicked, "count": len(kicked)}
 

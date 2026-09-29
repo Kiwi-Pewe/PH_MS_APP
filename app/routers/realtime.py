@@ -2,6 +2,7 @@
 # and the /ws handler all push through this same dict.
 from app.models import Server_members, Party_members, Friend_request, UserInfo
 from sqlalchemy import or_
+from starlette.websockets import WebSocketDisconnect
 import asyncio
 
 active_connections = {}
@@ -30,19 +31,34 @@ def serialize_member(user, is_owner, hoist_role=None, name_role=None, highest_ro
     payload["avatar"] = public_avatar(user)
     return payload
 
+
+async def safe_send_json(socket, payload, user_id=None):
+    if socket is None:
+        return False
+    try:
+        await socket.send_json(payload)
+        return True
+    except (WebSocketDisconnect, RuntimeError):
+        pass
+    except Exception:
+        pass
+    if user_id is not None and active_connections.get(user_id) is socket:
+        del active_connections[user_id]
+    return False
+
 async def server_broadcast(server_id, payload, database, exclude_user_id=None):
     all_members = database.query(Server_members).filter(Server_members.server_id == server_id).all()
 
     for member in all_members:
         if member.user_id != exclude_user_id and member.user_id in active_connections:
-            await active_connections[member.user_id].send_json(payload)
+            await safe_send_json(active_connections.get(member.user_id), payload, member.user_id)
 
 async def party_broadcast(party_id, payload, database, exclude_user_id=None):
     all_members = database.query(Party_members).filter(Party_members.party_id == party_id).all()
 
     for member in all_members:
         if member.user_id != exclude_user_id and member.user_id in active_connections:
-            await active_connections[member.user_id].send_json(payload)
+            await safe_send_json(active_connections.get(member.user_id), payload, member.user_id)
 
 async def notify_presence(database, user_id, status):
     user = database.query(UserInfo).filter(UserInfo.id == user_id).first()
@@ -92,15 +108,24 @@ async def notify_presence(database, user_id, status):
     for peer_id in peers:
         socket = active_connections.get(peer_id)
         if socket:
-            await socket.send_json(payload)
+            await safe_send_json(socket, payload, peer_id)
 
 async def notify_user(user_id, payload):
     socket = active_connections.get(user_id)
     if socket:
-        await socket.send_json(payload)
+        await safe_send_json(socket, payload, user_id)
+
+
+async def notify_party(party_id, payload, database, exclude_user_id=None):
+    await party_broadcast(party_id, payload, database, exclude_user_id=exclude_user_id)
 
 
 async def heartbeat(socket):
-    while True:
-        await(asyncio.sleep(45))
-        await socket.send_json({"type": "ping"})
+    try:
+        while True:
+            await asyncio.sleep(45)
+            await socket.send_json({"type": "ping"})
+    except (asyncio.CancelledError, WebSocketDisconnect, RuntimeError):
+        return
+    except Exception:
+        return

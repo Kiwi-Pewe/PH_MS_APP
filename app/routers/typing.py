@@ -7,7 +7,7 @@ from app.models import (
     UserInfo, Block_user, Friend_request, Party_members,
     Servers, Server_members, Server_categories, Server_channels, Forum_post,
 )
-from app.routers.realtime import active_connections, party_broadcast, server_broadcast
+from app.routers.realtime import party_broadcast, server_broadcast, notify_user
 
 
 def _as_int(value):
@@ -49,10 +49,7 @@ async def relay_typing(data, current_user: UserInfo, database: Session):
         )).first()
         if not friendship or friendship.pending == True:
             return
-        if receiver_id in active_connections:
-            await active_connections[receiver_id].send_json(
-                _payload(current_user, "dm", active, receiver_id=receiver_id)
-            )
+        await notify_user(receiver_id, _payload(current_user, "dm", active, receiver_id=receiver_id))
         return
 
     if kind == "party":

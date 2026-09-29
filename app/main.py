@@ -10,7 +10,7 @@ from app.auth import validate_session
 from app.r2 import attachment_public
 from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation, feedback, admin, emojis, notify_prefs, audit, feed
 from pydantic import ValidationError
-from app.routers.realtime import active_connections, heartbeat, notify_presence
+from app.routers.realtime import active_connections, heartbeat, notify_presence, safe_send_json
 from app.routers.messages import send_message
 from app.routers.parties import message_party, leave_party
 from app.routers.servers import message_server_channel
@@ -120,7 +120,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     content= data.get("content") or "",
                     attachment= ws_attachment(data),
                     reply_to_id= data.get("reply_to_id"))
-                    new_message = send_message(message=new_message, database=database, current_user=current_user)
+                    new_message = await send_message(message=new_message, database=database, current_user=current_user)
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
@@ -131,8 +131,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     "id": new_message.id,
                     "temp_id": data.get("temp_id"),
                 })
-                if data["receiver_id"] in active_connections:
-                    await active_connections[data["receiver_id"]].send_json({
+                await safe_send_json(active_connections.get(data["receiver_id"]), {
                     "type": "message",
                     "id": new_message.id,
                     "username": current_user.username,
@@ -141,7 +140,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     "attachment": attachment_public(new_message.attachment),
                     "timestamp": str(new_message.timestamp),
                     "reply_to": live_reply_to(database, Message, new_message.reply_to_id),
-                    "avatar": public_avatar(current_user)})
+                    "avatar": public_avatar(current_user),
+                }, data["receiver_id"])
             elif data["type"] == "party_message":
                 try:
                     new_party_message = Party_message_schema(
@@ -151,7 +151,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     attachment= ws_attachment(data),
                     reply_to_id= data.get("reply_to_id"),
                     )
-                    new_party_message = message_party(party_msg= new_party_message,database=database, current_user=current_user)
+                    new_party_message = await message_party(party_msg= new_party_message,database=database, current_user=current_user)
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
@@ -168,8 +168,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 reply_to = live_reply_to(database, Party_messages, new_party_message.reply_to_id)
 
                 for member in all_members:
-                    if member.user_id != current_user.id and member.user_id in active_connections:
-                        await active_connections[member.user_id].send_json({
+                    if member.user_id != current_user.id:
+                        await safe_send_json(active_connections.get(member.user_id), {
                             "type": "party_message",
                             "id": new_party_message.id,
                             "party_name": party_info.party_name,
@@ -183,7 +183,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "mention_users": users_map,
                             "reply_to": reply_to,
                             "avatar": public_avatar(current_user)
-                        })            
+                        }, member.user_id)
             elif data["type"] == "leave_party":
                     
                 try:
@@ -198,16 +198,15 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     account_ids = list({member.user_id for member in remaining_members})
 
                     for id in account_ids:
-                        if id in active_connections:
-                            await active_connections[id].send_json({
-                                "type": "party_message",
-                                "party_name": party_info.party_name,
-                                "party_id": data["party_id"],
-                                "sender_id": None,
-                                "username": "",
-                                "content": leave_notice["message"].content,
-                                "timestamp": str(leave_notice["message"].timestamp)
-                            })
+                        await safe_send_json(active_connections.get(id), {
+                            "type": "party_message",
+                            "party_name": party_info.party_name,
+                            "party_id": data["party_id"],
+                            "sender_id": None,
+                            "username": "",
+                            "content": leave_notice["message"].content,
+                            "timestamp": str(leave_notice["message"].timestamp)
+                        }, id)
             elif data["type"] == "channel_message":
                 try:
                     new_server_msg = Server_message(
@@ -217,7 +216,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     attachment= ws_attachment(data),
                     reply_to_id= data.get("reply_to_id"),
                     )
-                    new_server_msg = message_server_channel(server_msg= new_server_msg, database=database, current_user=current_user)
+                    new_server_msg = await message_server_channel(server_msg= new_server_msg, database=database, current_user=current_user)
                 except HTTPException as e:
                     await socket.send_json({"type": "error", "detail": e.detail})
                     continue
@@ -240,8 +239,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 from app.routers.roles import name_color_role_for_user
                 name_role = name_color_role_for_user(database, server.id, current_user.id)
                 for member in all_members:
-                    if member.user_id != current_user.id and member.user_id in active_connections:
-                        await active_connections[member.user_id].send_json({
+                    if member.user_id != current_user.id:
+                        await safe_send_json(active_connections.get(member.user_id), {
                             "type": "channel_message",
                             "id": new_server_msg.id,
                             "server_id": server.id,
@@ -257,7 +256,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "reply_to": reply_to,
                             "avatar": public_avatar(current_user),
                             "name_role": name_role,
-                        })
+                        }, member.user_id)
             elif data["type"] == "forum_message":
                 try:
                     new_forum_msg = Forum_message_create(
@@ -289,8 +288,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 from app.routers.roles import name_color_role_for_user
                 name_role = name_color_role_for_user(database, server.id, current_user.id)
                 for member in all_members:
-                    if member.user_id != current_user.id and member.user_id in active_connections:
-                        await active_connections[member.user_id].send_json({
+                    if member.user_id != current_user.id:
+                        await safe_send_json(active_connections.get(member.user_id), {
                             "type": "forum_message",
                             "post_id": post.id,
                             "channel_id": channel.id,
@@ -307,13 +306,19 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "reply_to": new_forum_msg.get("reply_to"),
                             "avatar": public_avatar(current_user),
                             "name_role": name_role,
-                        })
+                        }, member.user_id)
             elif data["type"] == "typing":
                 await relay_typing(data, current_user, database)
 
     except WebSocketDisconnect:
+        pass
+    finally:
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except (asyncio.CancelledError, Exception):
+            pass
         await release_doc_locks(current_user.id, database)
-        if current_user.id in active_connections and active_connections[current_user.id] is socket:
+        if active_connections.get(current_user.id) is socket:
             del active_connections[current_user.id]
             await notify_presence(database, current_user.id, "offline")
-        heartbeat_task.cancel()

@@ -5,7 +5,7 @@ from app.models import UserInfo, Block_user, Friend_request
 from app.schemas import Block_schema, Friend_user
 from app.database import get_db
 from app.auth import get_current_user
-from app.routers.realtime import active_connections
+from app.routers.realtime import active_connections, notify_user
 from app.privacy import can_send_friend_request
 from app.routers.profile import public_avatar
 from app.routers.feed import notify_feed_alert
@@ -84,8 +84,7 @@ async def add_user(friends: Friend_user, database: Session = Depends(get_db), cu
     database.commit()
     database.refresh(add_friend)
 
-    if friend_exists.id in active_connections:
-        await active_connections[friend_exists.id].send_json({"type": "friend_request", "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user)})
+    await notify_user(friend_exists.id, {"type": "friend_request", "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user)})
     return
 
 @router.get("/get_friends")

@@ -5,7 +5,7 @@ from app.schemas import Delete_message
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app.r2 import delete_attachment
-from app.routers.realtime import active_connections, server_broadcast
+from app.routers.realtime import server_broadcast, notify_user, notify_party
 from app.routers.mentions import clear_mentions
 from datetime import datetime, timedelta
 import json
@@ -62,16 +62,6 @@ def deletion_fields(row, public_attachment):
         "deletion_requested_at": requested,
         "edited": bool(row.edited),
     }
-
-async def notify_user(user_id, payload):
-    if user_id in active_connections:
-        await active_connections[user_id].send_json(payload)
-
-async def notify_party(party_id, payload, database, exclude_user_id=None):
-    all_members = database.query(Party_members).filter(Party_members.party_id == party_id).all()
-    for member in all_members:
-        if member.user_id != exclude_user_id:
-            await notify_user(member.user_id, payload)
 
 def author_name(database, user_id):
     if user_id == None:

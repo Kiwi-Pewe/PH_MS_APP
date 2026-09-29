@@ -389,6 +389,7 @@ class Feed_alert(Base):
     id = Column(Integer, primary_key=True)
     receiver_id = Column(Integer, ForeignKey("users.id"))
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    alert_family = Column(String)
     alert_type = Column(String)
     context = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

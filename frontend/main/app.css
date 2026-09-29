@@ -67,6 +67,37 @@
 #mail-clear-btn:hover { background: var(--rail); color: var(--text); }
 #mail-clear-btn[hidden] { display: none !important; }
 
+.feed-family-chip {
+  flex: 0 0 auto; align-self: flex-start;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 999px; border: 1px solid var(--border);
+  color: var(--text-dim); background: var(--panel);
+}
+.feed-family-chip.is-activity { color: var(--accent); border-color: var(--accent); }
+.feed-family-chip.is-profile { color: var(--accent-submenu); border-color: var(--accent-submenu); }
+.feed-family-chip.is-moderation { color: var(--danger); border-color: var(--danger); }
+.feed-family-chip.is-feedback { color: var(--text); border-color: var(--text-dim); }
+
+.feed-alert-card {
+  border-left: 3px solid var(--border);
+}
+.feed-alert-card.is-activity { border-left-color: var(--accent); }
+.feed-alert-card.is-profile { border-left-color: var(--accent-submenu); }
+.feed-alert-card.is-moderation { border-left-color: var(--danger); }
+.feed-alert-card.is-feedback { border-left-color: var(--text-dim); }
+
+.feed-alert-face.is-moderation { outline: 2px solid var(--danger); outline-offset: 1px; }
+.feed-alert-face.is-feedback { outline: 2px solid var(--text-dim); outline-offset: 1px; }
+
+.mail-tray-item-head {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+}
+.mail-tray-item-head .mail-tray-item-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-tray-item.is-activity { border-left: 3px solid var(--accent); }
+.mail-tray-item.is-profile { border-left: 3px solid var(--accent-submenu); }
+.mail-tray-item.is-moderation { border-left: 3px solid var(--danger); }
+.mail-tray-item.is-feedback { border-left: 3px solid var(--text-dim); }
+
 /* grid-template-rows is required here, not optional — without it, the
    single implicit row auto-sizes to fit its content (all messages ever
    rendered) instead of being locked to the available screen height.

@@ -477,6 +477,7 @@ function enterApp() {
   loadConversations();
   loadServers();
   handleJoinDeepLink();
+  if (typeof loadFeedAlerts === "function") loadFeedAlerts();
 
   // Wired once here, not in renderServerSidebar — #server-sidebar-body
   // is static markup, never rebuilt. Category/channel rows call

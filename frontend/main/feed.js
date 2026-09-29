@@ -33,7 +33,44 @@ let mailTrayOpen = false;
 let feedAlertRows = [];
 let feedHasMore = true;
 let feedLoadingMore = false;
+let feedSessionFilter = null;
 const FEED_PAGE_SIZE = 25;
+
+function defaultFeedSessionFilter() {
+  const prefs = {};
+  const groups = typeof FEED_PREF_GROUPS !== "undefined" ? FEED_PREF_GROUPS : [];
+  groups.forEach((group) => {
+    (group.kinds || []).forEach((kind) => { prefs[kind.type] = true; });
+  });
+  if (!Object.keys(prefs).length) {
+    Object.keys(FEED_TYPE_LABELS).forEach((key) => { prefs[key] = true; });
+  }
+  return prefs;
+}
+
+function ensureFeedSessionFilter() {
+  if (!feedSessionFilter) feedSessionFilter = defaultFeedSessionFilter();
+  return feedSessionFilter;
+}
+
+function feedSessionFilterEnabled(alertType) {
+  const kind = String(alertType || "").toLowerCase();
+  const prefs = ensureFeedSessionFilter();
+  if (!Object.prototype.hasOwnProperty.call(prefs, kind)) return true;
+  return !!prefs[kind];
+}
+
+function visibleFeedAlertRows() {
+  return feedAlertRows.filter((row) => feedSessionFilterEnabled(row.alert_type));
+}
+
+function syncFeedFilterButton() {
+  const btn = document.getElementById("feed-filter-btn");
+  if (!btn) return;
+  const prefs = ensureFeedSessionFilter();
+  const narrowed = Object.keys(prefs).some((key) => !prefs[key]);
+  btn.classList.toggle("is-active", narrowed);
+}
 
 function feedFamilyOf(alert) {
   const family = String(alert && alert.alert_family || "").toLowerCase();
@@ -393,20 +430,61 @@ function paintFeedPosts(opts) {
   const prevTop = host.scrollTop;
   const prevHeight = host.scrollHeight;
   host.replaceChildren();
+  const rows = visibleFeedAlertRows();
   if (!feedAlertRows.length) {
     const empty = document.createElement("div");
     empty.className = "announce-end-marker";
     empty.id = "feed-empty";
     empty.textContent = "All caught up";
     host.appendChild(empty);
+    syncFeedFilterButton();
     return;
   }
-  feedAlertRows.forEach((alert) => host.appendChild(buildFeedAlertCard(alert)));
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "announce-end-marker";
+    empty.id = "feed-empty";
+    empty.textContent = "No alerts match this filter";
+    host.appendChild(empty);
+    syncFeedFilterButton();
+    return;
+  }
+  rows.forEach((alert) => host.appendChild(buildFeedAlertCard(alert)));
   if (preserveScroll) {
     host.scrollTop = prevTop + (host.scrollHeight - prevHeight);
   } else {
     host.scrollTop = 0;
   }
+  syncFeedFilterButton();
+}
+
+function openFeedFilterMenu(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof openContextMenu !== "function") return;
+  if (typeof activeMenuEl !== "undefined" && activeMenuEl) {
+    closeContextMenu();
+    return;
+  }
+  const groups = typeof FEED_PREF_GROUPS !== "undefined" ? FEED_PREF_GROUPS : [];
+  if (!groups.length) return;
+  const prefs = ensureFeedSessionFilter();
+  const btn = e.currentTarget || document.getElementById("feed-filter-btn");
+  const rect = btn ? btn.getBoundingClientRect() : { left: e.clientX, bottom: e.clientY };
+  const options = groups.map((group) => ({
+    label: group.label,
+    submenu: (group.kinds || []).map((kind) => ({
+      type: "check",
+      label: kind.label,
+      checked: !!prefs[kind.type],
+      onSelect: (row) => {
+        prefs[kind.type] = !!row.checked;
+        feedSessionFilter = prefs;
+        paintFeedPosts({ preserveScroll: true });
+      },
+    })),
+  }));
+  openContextMenu(rect.left, rect.bottom + 4, null, options);
 }
 
 async function loadFeedAlerts() {
@@ -518,5 +596,11 @@ if (feedPostsEl) {
   });
 }
 
+const feedFilterBtn = document.getElementById("feed-filter-btn");
+if (feedFilterBtn) {
+  feedFilterBtn.addEventListener("click", openFeedFilterMenu);
+}
+
 paintMailTray();
 paintMailBadge();
+syncFeedFilterButton();

@@ -2255,6 +2255,8 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
    reason as the toggle above. */
 .ghost-btn { background: transparent; border: 1px solid var(--border); color: var(--text); font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 6px; }
 .ghost-btn:hover { background: var(--panel-alt); }
+.ghost-btn.is-active { background: var(--panel-alt); border-color: var(--accent); color: var(--accent); }
+#feed-filter-btn { flex: 0 0 auto; }
 
 /* ---- Category creation modal ---- */
 /* Same overlay/box treatment as the server modal. Reused

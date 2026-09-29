@@ -25,22 +25,35 @@ function rememberPinIds(rows) {
 }
 
 function canPinInCurrentScope() {
+  const channelActive = document.getElementById("view-channel") && document.getElementById("view-channel").classList.contains("active");
+  if (channelActive) {
+    if (typeof canPinMessages === "function") return canPinMessages();
+    return true;
+  }
   if (openChatType === "dm" || openChatType === "party") return true;
-  if (typeof canPinMessages === "function") return canPinMessages();
   return true;
 }
 
+function pinsActiveView() {
+  const chat = document.getElementById("view-chat");
+  if (chat && chat.classList.contains("active")) return "chat";
+  const channel = document.getElementById("view-channel");
+  if (channel && channel.classList.contains("active")) return "channel";
+  return null;
+}
+
 async function resolveCurrentPinScope() {
-  if (openChatType === "dm" && openChatId) {
+  const view = pinsActiveView();
+  if (view === "chat" && openChatType === "dm" && openChatId) {
     const response = await fetch(`https://${serverAddress}/dm_pin_scope/${openChatId}`, { credentials: "include" });
     if (!response.ok) return null;
     const data = await response.json();
     return { kind: data.scope_kind || "dm", id: data.scope_id };
   }
-  if (openChatType === "party" && openChatId) {
+  if (view === "chat" && openChatType === "party" && openChatId) {
     return { kind: "party", id: openChatId };
   }
-  if (currentChannelId) {
+  if (view === "channel" && currentChannelId) {
     return { kind: "channel", id: currentChannelId };
   }
   return null;

@@ -31,9 +31,23 @@ function showMessageContextMenu(e, msg) {
     canReactMessage(msg) && { label: "Add Reaction", onSelect: () => openReactionPicker(msg, e.clientX, e.clientY) },
     canEditMessage(msg) && { label: "Edit Message", onSelect: () => startMessageEdit(msg) },
     canReplyMessage(msg) && { label: "Reply", onSelect: () => startReply(msg) },
-    { label: "Pin", onSelect: () => console.log("Pin — not implemented yet") },
+    canPinMessage(msg) && {
+      label: isMessagePinned(msg.chatKind, msg.id) ? "Unpin" : "Pin",
+      onSelect: () => pinOrUnpinMessage(msg, !isMessagePinned(msg.chatKind, msg.id)),
+    },
     canDeleteMessage(msg) && { label: "Delete Message", danger: true, onSelect: () => deleteMessageFromContextMenu(msg) }
   ]);
+}
+
+function canPinMessage(msg) {
+  if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
+  if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
+  if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
+  if (msg.chatKind === "dm" || msg.chatKind === "party") return true;
+  if (msg.chatKind === "channel" || msg.chatKind === "forum" || msg.chatKind === "forum_post" || msg.chatKind === "announcement" || msg.chatKind === "comment") {
+    return typeof canPinMessages !== "function" || canPinMessages();
+  }
+  return false;
 }
 
 function canSpeakMessage(msg) {

@@ -7,7 +7,7 @@ let channelSettingsPermRoleId = "members";
 let channelSettingsPermDisplay = {};
 let channelSettingsPermLive = [
   "manage_channels", "mention_everyone",
-  "read_messages", "send_messages", "upload_chat_media", "manage_messages",
+  "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
   "view_announcements", "create_announcements", "manage_announcements",
   "read_forums", "create_topics", "create_topic_replies", "manage_topics",
   "sticky_topics", "lock_topics",
@@ -29,6 +29,7 @@ const CHANNEL_SETTINGS_LIVE_DEFAULTS = {
   read_messages: true,
   send_messages: true,
   upload_chat_media: true,
+  pin_messages: true,
   view_announcements: true,
   read_forums: true,
   create_topics: true,
@@ -82,7 +83,11 @@ const CHANNEL_SETTINGS_PERM_COPY = {
   },
   manage_messages: {
     title: "Manage messages",
-    desc: "Allows deleting others' messages or pinning messages in this channel.",
+    desc: "Allows deleting others' messages in this channel.",
+  },
+  pin_messages: {
+    title: "Pin messages",
+    desc: "Allows pinning and unpinning messages in this channel.",
   },
   manage_chat_threads: {
     title: "Manage threads",
@@ -292,12 +297,23 @@ function channelSettingsPermGroups() {
     channelSettingsKind,
     channelSettingsTarget && channelSettingsTarget.channel_type
   );
+  const type = String(channelSettingsTarget && channelSettingsTarget.channel_type || "text").toLowerCase();
+  const needPinInject = type === "announcements" || type === "forums";
   return groups.map((group) => {
     const key = channelSettingsPermGroupKey(group.title);
     if (!wanted.includes(key)) return null;
     const sourceRows = key === "general"
       ? (group.rows || []).filter((row) => CHANNEL_SETTINGS_GENERAL_IDS.includes(row.id))
-      : (group.rows || []);
+      : (group.rows || []).slice();
+    if (needPinInject && (key === "announcements" || key === "forums")) {
+      if (!sourceRows.some((row) => row.id === "pin_messages")) {
+        sourceRows.push({
+          id: "pin_messages",
+          title: "Pin messages",
+          desc: "Allows pinning and unpinning messages in this channel.",
+        });
+      }
+    }
     return {
       title: group.title,
       rows: sourceRows.map(channelSettingsPermRow),

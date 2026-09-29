@@ -392,6 +392,17 @@ function showPostContextMenu(e, post) {
   }, [
     { label: "Add Reaction", onSelect: () => openReactionPicker(announceReactionTarget(post), e.clientX, e.clientY) },
     canEditAnnouncement(post) && { label: "Edit Post", onSelect: () => startAnnouncementEdit(post) },
+    (typeof canPinMessages !== "function" || canPinMessages()) && {
+      label: (typeof isMessagePinned === "function" && isMessagePinned("announcement", post.id)) ? "Unpin" : "Pin",
+      onSelect: () => {
+        if (typeof pinOrUnpinMessage === "function") {
+          pinOrUnpinMessage(
+            { id: post.id, chatKind: "announcement", senderId: post.sender_id },
+            !(typeof isMessagePinned === "function" && isMessagePinned("announcement", post.id))
+          );
+        }
+      },
+    },
     canRemoveAnnouncement(post) && { label: "Delete Post", danger: true, onSelect: () => deletePostFromContextMenu(post) }
   ]);
 }

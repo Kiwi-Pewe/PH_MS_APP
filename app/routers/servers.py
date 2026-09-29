@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Message_pin
 from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete
 from zoneinfo import available_timezones
 from app.database import get_db
@@ -9,6 +9,7 @@ from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
+from app.routers.pins import clear_pins
 from app.routers.realtime import serialize_member, server_broadcast
 from app.routers.profile import avatar_lookup
 from app.routers.roles import (
@@ -258,7 +259,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                     notice = channel_notice(database, channel.id, current_user.id)
                     live_flags = {key: bool(channel_perms.get(key)) for key in (
                         "manage_channels", "mention_everyone",
-                        "read_messages", "send_messages", "upload_chat_media", "manage_messages",
+                        "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
                         "view_announcements", "create_announcements", "manage_announcements",
                         "read_forums", "create_topics", "create_topic_replies", "manage_topics",
                         "sticky_topics", "lock_topics",
@@ -678,7 +679,7 @@ async def message_server_channel(server_msg: Server_message, database: Session =
     return new_message    
 
 @router.get("/get_channel_history/{channel_id}")
-def get_channel_history(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None):
+def get_channel_history(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None, around_id: int = None):
 
     target_channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
     if not target_channel:
@@ -692,12 +693,22 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
         raise HTTPException(status_code= 404, detail="Server membership not found")
     require_channel_perm(database, server, current_user.id, target_channel.id, "read_messages", "You do not have permission to read messages.")
 
-    if before_id:
-        channel_history = database.query(Channel_messages).filter(Channel_messages.channel_id == channel_id, Channel_messages.id < before_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()
+    base = database.query(Channel_messages).filter(Channel_messages.channel_id == channel_id)
+    around_mode = False
+    if around_id:
+        target = base.filter(Channel_messages.id == around_id).first()
+        if not target:
+            raise HTTPException(status_code=404, detail="No message found")
+        before = base.filter(Channel_messages.id < around_id).order_by(Channel_messages.timestamp.desc()).limit(12).all()
+        after = base.filter(Channel_messages.id > around_id).order_by(Channel_messages.timestamp.asc()).limit(12).all()
+        channel_history = list(reversed(before)) + [target] + after
+        around_mode = True
+    elif before_id:
+        channel_history = base.filter(Channel_messages.id < before_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()
     else:
         stamp_channel_view(database, channel_id, current_user.id)
         database.commit()
-        channel_history = database.query(Channel_messages).filter(Channel_messages.channel_id == channel_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()
+        channel_history = base.order_by(Channel_messages.timestamp.desc()).limit(25).all()
 
     channel_history = drop_blocked_rows(database, current_user.id, channel_history)
 
@@ -730,7 +741,8 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
             "name_role": name_map.get(message.sender_id),
         })
 
-    message_history.reverse()
+    if not around_mode:
+        message_history.reverse()
     from app.site_moderation import mask_message_payloads
     mask_message_payloads(database, message_history)
     return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "messages": message_history}
@@ -963,19 +975,26 @@ def purge_channel_contents(database, channel):
     messages = database.query(Channel_messages).filter(Channel_messages.channel_id == channel.id).all()
     for message in messages:
         clear_reactions(database, "channel", message.id)
+        clear_pins(database, "channel", message.id)
         clear_mentions(database, "channel", message.id)
         delete_attachment(message.attachment)
         database.delete(message)
     database.query(Channel_last_viewed).filter(Channel_last_viewed.channel_id == channel.id).delete()
+    database.query(Message_pin).filter(
+        Message_pin.scope_kind == "channel",
+        Message_pin.scope_id == channel.id,
+    ).delete(synchronize_session=False)
 
     posts = database.query(Announcement_post).filter(Announcement_post.channel_id == channel.id).all()
     for post in posts:
         comments = database.query(Announcement_comment).filter(Announcement_comment.post_id == post.id).all()
         for comment in comments:
             clear_reactions(database, "comment", comment.id)
+            clear_pins(database, "comment", comment.id)
             clear_mentions(database, "comment", comment.id)
             database.delete(comment)
         clear_reactions(database, "announcement", post.id)
+        clear_pins(database, "announcement", post.id)
         clear_mentions(database, "announcement", post.id)
         delete_attachment(post.attachment)
         database.delete(post)
@@ -985,10 +1004,12 @@ def purge_channel_contents(database, channel):
         thread_messages = database.query(Forum_messages).filter(Forum_messages.post_id == post.id).all()
         for message in thread_messages:
             clear_reactions(database, "forum", message.id)
+            clear_pins(database, "forum", message.id)
             clear_mentions(database, "forum", message.id)
             delete_attachment(message.attachment)
             database.delete(message)
         clear_reactions(database, "forum_post", post.id)
+        clear_pins(database, "forum_post", post.id)
         clear_mentions(database, "forum_post", post.id)
         delete_attachment(post.attachment)
         database.delete(post)

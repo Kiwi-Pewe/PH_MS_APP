@@ -415,6 +415,10 @@ class React_message(BaseModel):
     message_id: int
     emoji: str
 
+class Pin_message(BaseModel):
+    kind: str
+    message_id: int
+
 class Edit_announcement(BaseModel):
     post_id: int
     title: str

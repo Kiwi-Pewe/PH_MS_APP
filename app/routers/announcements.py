@@ -11,6 +11,7 @@ from app.routers.profile import avatar_lookup, public_avatar
 from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, require_channel_perm
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
+from app.routers.pins import clear_pins
 from app.routers.feed import notify_activity_post_comment
 
 router = APIRouter()
@@ -242,6 +243,7 @@ async def delete_comment(comment_id: int, database: Session = Depends(get_db), c
         "post_id": post.id
     })
     clear_reactions(database, "comment", comment_exist.id)
+    clear_pins(database, "comment", comment_exist.id)
     clear_mentions(database, "comment", comment_exist.id)
     database.delete(comment_exist)
     post.comment_count -= 1
@@ -285,10 +287,12 @@ async def delete_post(post_id: int,database: Session = Depends(get_db), current_
 
     for comment in all_comments:
         clear_reactions(database, "comment", comment.id)
+        clear_pins(database, "comment", comment.id)
         clear_mentions(database, "comment", comment.id)
         database.delete(comment)
 
     clear_reactions(database, "announcement", post_id)
+    clear_pins(database, "announcement", post_id)
     clear_mentions(database, "announcement", post_id)
     delete_attachment(post_exist.attachment)
     database.delete(post_exist)

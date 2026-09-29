@@ -79,6 +79,17 @@ function showCommentContextMenu(e, comment) {
   }, [
     { label: "Copy Comment", onSelect: () => copyCommentContent(comment) },
     { label: "Add Reaction", onSelect: () => openReactionPicker(commentReactionTarget(comment), e.clientX, e.clientY) },
+    (typeof canPinMessages !== "function" || canPinMessages()) && {
+      label: (typeof isMessagePinned === "function" && isMessagePinned("comment", comment.id)) ? "Unpin" : "Pin",
+      onSelect: () => {
+        if (typeof pinOrUnpinMessage === "function") {
+          pinOrUnpinMessage(
+            { id: comment.id, chatKind: "comment", senderId: comment.sender_id },
+            !(typeof isMessagePinned === "function" && isMessagePinned("comment", comment.id))
+          );
+        }
+      },
+    },
     !isMine && { label: "Report", disabled: true },
     canDelete && { label: "Delete Comment", danger: true, onSelect: () => deleteCommentFromContextMenu(comment) }
   ]);

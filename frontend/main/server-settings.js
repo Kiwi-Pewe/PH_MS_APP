@@ -161,6 +161,10 @@ function canManageMessages() {
   return channelPerm("manage_messages");
 }
 
+function canPinMessages() {
+  return channelPerm("pin_messages");
+}
+
 function canViewDocs() {
   return channelPerm("view_docs");
 }

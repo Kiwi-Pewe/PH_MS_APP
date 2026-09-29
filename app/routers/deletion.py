@@ -33,8 +33,10 @@ def pending_is_expired(row):
 
 def finalize_soft_delete(database, row):
     from app.routers.reactions import clear_reactions
+    from app.routers.pins import clear_pins
     kind = "party" if hasattr(row, "party_id") else "dm"
     clear_reactions(database, kind, row.id)
+    clear_pins(database, kind, row.id)
     if kind == "party":
         clear_mentions(database, "party", row.id)
     delete_attachment(row.attachment)
@@ -152,7 +154,9 @@ async def delete_message(target: Delete_message, database: Session = Depends(get
             "channel_id": msg.channel_id
         })
         from app.routers.reactions import clear_reactions
+        from app.routers.pins import clear_pins
         clear_reactions(database, "channel", msg.id)
+        clear_pins(database, "channel", msg.id)
         clear_mentions(database, "channel", msg.id)
         delete_attachment(msg.attachment)
         channel_id = msg.channel_id
@@ -194,7 +198,9 @@ async def delete_message(target: Delete_message, database: Session = Depends(get
             "channel_id": channel.id
         })
         from app.routers.reactions import clear_reactions
+        from app.routers.pins import clear_pins
         clear_reactions(database, "forum", msg.id)
+        clear_pins(database, "forum", msg.id)
         clear_mentions(database, "forum", msg.id)
         delete_attachment(msg.attachment)
         post_id = msg.post_id

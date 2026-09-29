@@ -364,6 +364,20 @@ class Message_reaction(Base):
     created_at = Column(DateTime, server_default=func.now())
     __table_args__ = (UniqueConstraint("kind", "message_id", "user_id", "emoji", name= "uq_message_reaction"),)
 
+class Message_pin(Base):
+    __tablename__ = "message_pins"
+    id = Column(Integer, primary_key=True)
+    scope_kind = Column(String)
+    scope_id = Column(Integer)
+    message_kind = Column(String)
+    message_id = Column(Integer)
+    pinned_by = Column(Integer, ForeignKey("users.id"))
+    pinned_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (
+        UniqueConstraint("scope_kind", "scope_id", "message_kind", "message_id", name="uq_message_pin"),
+        Index("ix_message_pins_scope_pinned", "scope_kind", "scope_id", "pinned_at"),
+    )
+
 class Feedback_report(Base):
     __tablename__ = "feedback_reports"
     id = Column(Integer, primary_key=True)

@@ -78,6 +78,9 @@ function connectSocket() {
         rerenderForKind(data.kind);
       }
     }
+    if (data.type === "message_pinned" || data.type === "message_unpinned") {
+      if (typeof applyPinRealtime === "function") applyPinRealtime(data);
+    }
     if (data.type === "message_edited" && deletionEventTargetsOpenChat(data)) {
       const row = findLocalMessage(data.kind, data.message_id);
       if (row) {

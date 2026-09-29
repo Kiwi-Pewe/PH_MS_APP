@@ -450,6 +450,8 @@ async function selectChannel(channel, rowEl) {
   if (typeof setHeaderDescription === "function") {
     setHeaderDescription("channel-header-desc", channel.topic || "");
   }
+  if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
+  if (typeof closePinsPanel === "function") closePinsPanel();
 
   const channelEmpty = document.getElementById("channel-empty");
   const channelMessages = document.getElementById("channel-messages");

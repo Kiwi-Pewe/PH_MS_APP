@@ -133,7 +133,7 @@ async def message_party(party_msg: Party_message_schema, database: Session = Dep
     return new_party_msg
 
 @router.get("/get_party_messages/{party_id}")
-def get_party_messages(party_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None):
+def get_party_messages(party_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None, around_id: int = None):
 
     target_membership = database.query(Party_members).filter(Party_members.party_id == party_id, Party_members.user_id == current_user.id).first()
     if not target_membership:
@@ -141,16 +141,26 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
 
     party_info = database.query(Parties).filter(Parties.id == party_id).first()
 
-    if not before_id:
+    if not before_id and not around_id:
         database.query(Party_members).filter(Party_members.party_id == party_id, Party_members.user_id == current_user.id).update(
             {"last_activity": datetime.utcnow()}
         )
     database.commit()
 
-    if before_id:
-        party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id, Party_messages.id < before_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
+    base = database.query(Party_messages).filter(Party_messages.party_id == party_id)
+    around_mode = False
+    if around_id:
+        target = base.filter(Party_messages.id == around_id).first()
+        if not target:
+            raise HTTPException(status_code=404, detail="No message found")
+        before = base.filter(Party_messages.id < around_id).order_by(Party_messages.timestamp.desc()).limit(12).all()
+        after = base.filter(Party_messages.id > around_id).order_by(Party_messages.timestamp.asc()).limit(12).all()
+        party_history = list(reversed(before)) + [target] + after
+        around_mode = True
+    elif before_id:
+        party_history = base.filter(Party_messages.id < before_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
     else:
-        party_history = database.query(Party_messages).filter(Party_messages.party_id == party_id).order_by(Party_messages.timestamp.desc()).limit(25).all()
+        party_history = base.order_by(Party_messages.timestamp.desc()).limit(25).all()
 
     party_history = drop_blocked_rows(database, current_user.id, party_history)
 
@@ -184,7 +194,8 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
             "avatar": faces.get(message.sender_id),
         })
 
-    message_history.reverse()
+    if not around_mode:
+        message_history.reverse()
     mask_message_payloads(database, message_history)
     return {"party_name": party_info.party_name, "party_id": party_id, "session_username": current_user.username, "messages": message_history}
 

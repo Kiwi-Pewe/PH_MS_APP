@@ -213,6 +213,8 @@ async function openDirectMessage(id, username) {
   enableComposer();
   ensureConversationPresent(id, username);
   clearUnread("dm", id);
+  if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
+  if (typeof closePinsPanel === "function") closePinsPanel();
 
   const chatEmpty = document.getElementById("chat-empty");
   const chatMessages = document.getElementById("chat-messages");
@@ -268,6 +270,8 @@ async function openParty(id, name) {
   if (chatActions) chatActions.hidden = false;
   enableComposer();
   clearUnread("party", id);
+  if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
+  if (typeof closePinsPanel === "function") closePinsPanel();
 
   const chatEmpty = document.getElementById("chat-empty");
   const chatMessages = document.getElementById("chat-messages");

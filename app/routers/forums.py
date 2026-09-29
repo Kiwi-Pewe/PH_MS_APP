@@ -12,6 +12,7 @@ from app.routers.profile import avatar_lookup, public_avatar
 from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, require_channel_perm
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
+from app.routers.pins import clear_pins
 from app.routers.feed import notify_activity_reply, notify_activity_post_comment
 from app.privacy import drop_blocked_rows
 from datetime import datetime
@@ -232,11 +233,13 @@ async def delete_forum_post(post_id: int, database: Session = Depends(get_db), c
     thread_messages = database.query(Forum_messages).filter(Forum_messages.post_id == post_id).all()
     for msg in thread_messages:
         clear_reactions(database, "forum", msg.id)
+        clear_pins(database, "forum", msg.id)
         clear_mentions(database, "forum", msg.id)
         delete_attachment(msg.attachment)
         database.delete(msg)
 
     clear_reactions(database, "forum_post", post_id)
+    clear_pins(database, "forum_post", post_id)
     clear_mentions(database, "forum_post", post_id)
     delete_attachment(post.attachment)
     database.delete(post)
@@ -334,7 +337,7 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
     }
 
 @router.get("/get_forum_messages/{post_id}")
-def get_forum_messages(post_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None):
+def get_forum_messages(post_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None, around_id: int = None):
     post_exist = database.query(Forum_post).filter(Forum_post.id == post_id).first()
     if not post_exist:
         raise HTTPException(status_code=404, detail="Post does not exist")
@@ -348,10 +351,20 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
         raise HTTPException(status_code=404, detail="Membership not found")
     require_read_forums(database, server, current_user.id, channel.id)
 
-    if before_id:
-        message_list = database.query(Forum_messages).filter(Forum_messages.post_id == post_id, Forum_messages.id < before_id).order_by(Forum_messages.created_at.desc()).limit(25).all()
+    base = database.query(Forum_messages).filter(Forum_messages.post_id == post_id)
+    around_mode = False
+    if around_id:
+        target = base.filter(Forum_messages.id == around_id).first()
+        if not target:
+            raise HTTPException(status_code=404, detail="No message found")
+        before = base.filter(Forum_messages.id < around_id).order_by(Forum_messages.created_at.desc()).limit(12).all()
+        after = base.filter(Forum_messages.id > around_id).order_by(Forum_messages.created_at.asc()).limit(12).all()
+        message_list = list(reversed(before)) + [target] + after
+        around_mode = True
+    elif before_id:
+        message_list = base.filter(Forum_messages.id < before_id).order_by(Forum_messages.created_at.desc()).limit(25).all()
     else:
-        message_list = database.query(Forum_messages).filter(Forum_messages.post_id == post_id).order_by(Forum_messages.created_at.desc()).limit(25).all()
+        message_list = base.order_by(Forum_messages.created_at.desc()).limit(25).all()
 
     message_list = drop_blocked_rows(database, current_user.id, message_list, sender_attr="author_id")
 
@@ -384,7 +397,8 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
             "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,
         })
 
-    forum_messages.reverse()
+    if not around_mode:
+        forum_messages.reverse()
     from app.site_moderation import mask_message_payloads
     mask_message_payloads(database, forum_messages, sender_key="author_id")
     return {"forum_post_messages": forum_messages, "locked": forum_is_locked(post_exist), "sticky": forum_is_sticky(post_exist)}

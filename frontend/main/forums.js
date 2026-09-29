@@ -384,6 +384,17 @@ function showForumPostContextMenu(e, post) {
   }, [
     { label: "Add Reaction", onSelect: () => openReactionPicker(forumPostReactionTarget(post), e.clientX, e.clientY) },
     canEdit && { label: "Edit Post", onSelect: () => startForumEdit(post) },
+    (typeof canPinMessages !== "function" || canPinMessages()) && {
+      label: (typeof isMessagePinned === "function" && isMessagePinned("forum_post", post.id)) ? "Unpin" : "Pin",
+      onSelect: () => {
+        if (typeof pinOrUnpinMessage === "function") {
+          pinOrUnpinMessage(
+            { id: post.id, chatKind: "forum_post", senderId: post.author_id },
+            !(typeof isMessagePinned === "function" && isMessagePinned("forum_post", post.id))
+          );
+        }
+      },
+    },
     canSticky && { label: post.sticky ? "Unsticky" : "Sticky", onSelect: () => setForumSticky(post, !post.sticky) },
     canLock && { label: post.locked ? "Unlock" : "Lock", onSelect: () => setForumLock(post, !post.locked) },
     canDelete && { label: "Delete Post", danger: true, onSelect: () => deleteForumPostFromContextMenu(post) }

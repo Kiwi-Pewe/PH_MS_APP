@@ -42,7 +42,7 @@ const SERVER_ROLE_PERMS = [
     rows: [
       { id: "view_announcements", title: "View announcements", desc: "Allows you to view announcements." },
       { id: "create_announcements", title: "Create and remove announcements", desc: "Allows you to create and remove announcements." },
-      { id: "manage_announcements", title: "Manage announcements", desc: "Allows you to delete announcements by other members or pin any announcement." }
+      { id: "manage_announcements", title: "Manage announcements", desc: "Allows you to delete announcements by other members." }
     ]
   },
   {
@@ -54,7 +54,8 @@ const SERVER_ROLE_PERMS = [
       { id: "create_chat_threads", title: "Create threads", desc: "Allows you to create threads in the channel.", later: "Threads" },
       { id: "reply_chat_threads", title: "Send messages in threads", desc: "Allows you to reply to threads in the channel.", later: "Threads" },
       { id: "private_messages", title: "Send private messages", desc: "Allows members to send private messages and privately reply to messages.", later: "Private replies" },
-      { id: "manage_messages", title: "Manage messages", desc: "Allows you to delete chat messages by other members or pin any message." },
+      { id: "manage_messages", title: "Manage messages", desc: "Allows you to delete chat messages by other members." },
+      { id: "pin_messages", title: "Pin messages", desc: "Allows you to pin and unpin messages in chat." },
       { id: "manage_chat_threads", title: "Manage threads", desc: "Allow you to archive and restore threads.", later: "Threads" }
     ]
   },
@@ -214,7 +215,7 @@ function emptyServerRolePerms() {
 
 function defaultMembersPerms() {
   const perms = emptyServerRolePerms();
-  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_docs"].forEach((id) => {
+  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "pin_messages", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_docs"].forEach((id) => {
     perms[id] = true;
   });
   return perms;

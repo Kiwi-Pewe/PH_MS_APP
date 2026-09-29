@@ -21,7 +21,7 @@ LIVE_ROLE_PERMS = (
     "update_server", "manage_roles", "invite_members", "kick_members",
     "ban_members", "timeout_members", "manage_channels", "mention_everyone",
     "view_announcements", "create_announcements", "manage_announcements",
-    "read_messages", "send_messages", "upload_chat_media", "manage_messages",
+    "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
     "read_forums", "create_topics", "create_topic_replies", "manage_topics",
     "sticky_topics", "lock_topics",
     "view_docs", "create_docs", "manage_docs", "remove_docs",
@@ -30,7 +30,7 @@ LIVE_ROLE_PERMS = (
 
 MEMBERS_DEFAULT_PERMS = (
     "invite_members", "mention_everyone",
-    "read_messages", "send_messages", "upload_chat_media",
+    "read_messages", "send_messages", "upload_chat_media", "pin_messages",
     "view_announcements",
     "read_forums", "create_topics", "create_topic_replies",
     "view_docs",
@@ -43,6 +43,7 @@ LIVE_CHANNEL_OVERRIDE_PERMS = (
     "send_messages",
     "upload_chat_media",
     "manage_messages",
+    "pin_messages",
     "view_announcements",
     "create_announcements",
     "manage_announcements",
@@ -63,6 +64,7 @@ CHANNEL_OVERRIDE_DEFAULTS = {
     "read_messages": True,
     "send_messages": True,
     "upload_chat_media": True,
+    "pin_messages": True,
     "view_announcements": True,
     "read_forums": True,
     "create_topics": True,

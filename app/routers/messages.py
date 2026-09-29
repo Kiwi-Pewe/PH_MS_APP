@@ -79,16 +79,25 @@ async def send_message(message: Message_schema, database: Session = Depends(get_
     return new_message
 
 @router.get("/messages/{user_id}")
-def get_conversation(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None):
+def get_conversation(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None, around_id: int = None):
 
-    if before_id:
-        History = database.query(Message).filter(or_(
+    base = database.query(Message).filter(or_(
         (Message.sender_id == current_user.id) & (Message.receiver_id == user_id),
         (Message.sender_id == user_id) & (Message.receiver_id == current_user.id)
-        )).filter(Message.id < before_id).order_by(Message.timestamp.desc()).limit(25).all()
+    ))
+    if around_id:
+        target = base.filter(Message.id == around_id).first()
+        if not target:
+            raise HTTPException(status_code=404, detail="No message found")
+        before = base.filter(Message.id < around_id).order_by(Message.timestamp.desc()).limit(12).all()
+        after = base.filter(Message.id > around_id).order_by(Message.timestamp.asc()).limit(12).all()
+        History = list(reversed(before)) + [target] + after
+    elif before_id:
+        History = base.filter(Message.id < before_id).order_by(Message.timestamp.desc()).limit(25).all()
+        History = list(reversed(History))
     else:
-        History = database.query(Message).filter(or_((Message.sender_id == current_user.id) & (Message.receiver_id == user_id),
-        (Message.sender_id == user_id) & (Message.receiver_id == current_user.id))).order_by(Message.timestamp.desc()).limit(25).all()
+        History = base.order_by(Message.timestamp.desc()).limit(25).all()
+        History = list(reversed(History))
 
     History = drop_blocked_rows(database, current_user.id, History)
 
@@ -102,7 +111,6 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
 
     database.commit()
     refresh_pending_messages(database, History)
-    History.reverse()
     reaction_map = reactions_for_messages(database, "dm", [msg.id for msg in History], current_user.id)
     reply_map = reply_map_for(database, Message, History)
     sender_ids = list({msg.sender_id for msg in History if msg.sender_id})

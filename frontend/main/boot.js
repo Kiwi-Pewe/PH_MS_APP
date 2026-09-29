@@ -351,6 +351,10 @@ function connectSocket() {
       applyMemberLeft(data.scope, data.scope_id, data.user_id);
     }
 
+    if (data.type === "feed_alert") {
+      if (data.alert && typeof noteIncomingFeedAlert === "function") noteIncomingFeedAlert(data.alert);
+    }
+
     if (data.type === "member_timeout") {
       if (typeof applyMemberTimeout === "function") {
         applyMemberTimeout(data.server_id, data.user_id, data.timeout_until || null, data.timeout_reason || "");

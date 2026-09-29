@@ -86,6 +86,39 @@ def create_feed_alert(database, receiver_id, alert_type, context=None, sender_id
     return row
 
 
+async def notify_feed_alert(database, receiver_id, alert_type, context=None, sender_id=None, alert_family=None):
+    from app.routers.realtime import notify_user
+    row = create_feed_alert(
+        database,
+        receiver_id=receiver_id,
+        alert_type=alert_type,
+        context=context,
+        sender_id=sender_id,
+        alert_family=alert_family,
+    )
+    sender = None
+    if sender_id:
+        sender = database.query(UserInfo).filter(UserInfo.id == sender_id).first()
+    await notify_user(receiver_id, {
+        "type": "feed_alert",
+        "alert": serialize_feed_alert(row, sender),
+    })
+    return row
+
+
+def moderation_alert_context(server_name, reason=None, extra=None):
+    parts = []
+    name = (server_name or "").strip() or "Server"
+    parts.append(name)
+    detail = (reason or "").strip()
+    if detail:
+        parts.append(detail)
+    more = (extra or "").strip()
+    if more:
+        parts.append(more)
+    return " — ".join(parts)
+
+
 @router.get("/feed_alerts")
 def list_feed_alerts(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     rows = (

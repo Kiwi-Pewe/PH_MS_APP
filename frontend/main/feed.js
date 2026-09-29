@@ -164,6 +164,7 @@ function pushMailSessionAlert(alert) {
     sender_id: alert.sender_id,
     sender_username: alert.sender_username,
     sender_display_name: alert.sender_display_name,
+    sender_avatar: alert.sender_avatar,
     created_at: alert.created_at,
     read: false,
   };
@@ -171,6 +172,15 @@ function pushMailSessionAlert(alert) {
   mailUnseenCount += 1;
   paintMailBadge();
   if (mailTrayOpen) paintMailTray();
+}
+
+function noteIncomingFeedAlert(alert) {
+  if (!alert || alert.id == null) return;
+  pushMailSessionAlert(alert);
+  if (feedAlertRows.some((row) => row.id === alert.id)) return;
+  feedAlertRows = feedAlertRows.concat([alert]);
+  const feedView = document.getElementById("view-feed");
+  if (feedView && feedView.classList.contains("active")) paintFeedPosts();
 }
 
 function showFeedAlertMenu(e, alert) {

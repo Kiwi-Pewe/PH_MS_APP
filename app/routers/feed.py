@@ -259,6 +259,88 @@ async def notify_feed_alert(
     return row
 
 
+def reaction_pref_allows(user, kind):
+    value = ((user.notify_reactions if user else "") or "").strip()
+    if value not in ("all", "dms", "off"):
+        value = "all"
+    if value == "off":
+        return False
+    if value == "dms":
+        return kind == "dm"
+    return True
+
+
+async def notify_activity_reply(
+    database,
+    *,
+    receiver_id,
+    actor_id,
+    message_kind,
+    message_id,
+    server_id=None,
+):
+    if not receiver_id or not actor_id or receiver_id == actor_id:
+        return
+    await notify_feed_alert(
+        database,
+        receiver_id=receiver_id,
+        alert_type="reply",
+        sender_id=actor_id,
+        alert_family="activity",
+        server_id=server_id,
+        context=json.dumps({"kind": message_kind, "message_id": message_id}),
+    )
+
+
+async def notify_activity_reaction(
+    database,
+    *,
+    receiver_id,
+    actor_id,
+    message_kind,
+    message_id,
+    emoji,
+    server_id=None,
+):
+    if not receiver_id or not actor_id or receiver_id == actor_id:
+        return
+    owner = database.query(UserInfo).filter(UserInfo.id == receiver_id).first()
+    if not reaction_pref_allows(owner, message_kind):
+        return
+    await notify_feed_alert(
+        database,
+        receiver_id=receiver_id,
+        alert_type="reaction",
+        sender_id=actor_id,
+        alert_family="activity",
+        server_id=server_id,
+        reason=(emoji or "").strip() or None,
+        context=json.dumps({"kind": message_kind, "message_id": message_id}),
+    )
+
+
+async def notify_activity_post_comment(
+    database,
+    *,
+    receiver_id,
+    actor_id,
+    post_kind,
+    post_id,
+    server_id=None,
+):
+    if not receiver_id or not actor_id or receiver_id == actor_id:
+        return
+    await notify_feed_alert(
+        database,
+        receiver_id=receiver_id,
+        alert_type="post_comment",
+        sender_id=actor_id,
+        alert_family="activity",
+        server_id=server_id,
+        context=json.dumps({"kind": post_kind, "post_id": post_id}),
+    )
+
+
 @router.get("/feed_alerts")
 def list_feed_alerts(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     rows = (

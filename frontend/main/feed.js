@@ -102,6 +102,18 @@ function feedAlertBody(alert) {
     const noun = kind === "report_status" ? "report" : "feedback";
     return feedSenderLabel(alert) + " updated your " + noun + " to " + status + ".";
   }
+  if (kind === "reaction") {
+    const emoji = String(alert && alert.reason || "").trim();
+    return emoji
+      ? (feedSenderLabel(alert) + " reacted " + emoji + " to your message.")
+      : (feedSenderLabel(alert) + " reacted to your message.");
+  }
+  if (kind === "reply") {
+    return feedSenderLabel(alert) + " replied to your message.";
+  }
+  if (kind === "post_comment") {
+    return feedSenderLabel(alert) + " commented on your post.";
+  }
   return String(alert && alert.context || "").trim();
 }
 

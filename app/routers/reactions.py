@@ -6,6 +6,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.routers.deletion import notify_party, notify_user
 from app.routers.realtime import server_broadcast
+from app.routers.feed import notify_activity_reaction
 
 router = APIRouter()
 
@@ -36,6 +37,20 @@ def reactions_for_messages(database, kind, message_ids, current_user_id):
 def reactions_for_one(database, kind, message_id, current_user_id):
     return reactions_for_messages(database, kind, [message_id], current_user_id).get(message_id, [])
 
+def toggle_reaction_row(database, kind, message_id, user_id, emoji):
+    existing = database.query(Message_reaction).filter(
+        Message_reaction.kind == kind,
+        Message_reaction.message_id == message_id,
+        Message_reaction.user_id == user_id,
+        Message_reaction.emoji == emoji,
+    ).first()
+    if existing:
+        database.delete(existing)
+        return False
+    database.add(Message_reaction(kind=kind, message_id=message_id, user_id=user_id, emoji=emoji))
+    return True
+
+
 @router.post("/react_message")
 async def react_message(target: React_message, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     emoji = (target.emoji or "").strip()
@@ -48,11 +63,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             raise HTTPException(status_code=404, detail="No message found")
         if msg.deletion_state == "pending" or msg.deletion_state == "deleted":
             raise HTTPException(status_code=400, detail="Cannot react to this message")
-        existing = database.query(Message_reaction).filter(Message_reaction.kind == "dm", Message_reaction.message_id == msg.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()
-        if existing:
-            database.delete(existing)
-        else:
-            database.add(Message_reaction(kind= "dm", message_id= msg.id, user_id= current_user.id, emoji= emoji))
+        added = toggle_reaction_row(database, "dm", msg.id, current_user.id, emoji)
         database.commit()
         reactions = reactions_for_one(database, "dm", msg.id, current_user.id)
         payload = {
@@ -65,6 +76,15 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         }
         other_id = msg.receiver_id if current_user.id == msg.sender_id else msg.sender_id
         await notify_user(other_id, payload)
+        if added and msg.sender_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=msg.sender_id,
+                actor_id=current_user.id,
+                message_kind="dm",
+                message_id=msg.id,
+                emoji=emoji,
+            )
         return {"id": msg.id, "reactions": reactions}
 
     if target.kind == "party":
@@ -76,11 +96,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             raise HTTPException(status_code=404, detail="No message found")
         if msg.deletion_state == "pending" or msg.deletion_state == "deleted":
             raise HTTPException(status_code=400, detail="Cannot react to this message")
-        existing = database.query(Message_reaction).filter(Message_reaction.kind == "party", Message_reaction.message_id == msg.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()
-        if existing:
-            database.delete(existing)
-        else:
-            database.add(Message_reaction(kind= "party", message_id= msg.id, user_id= current_user.id, emoji= emoji))
+        added = toggle_reaction_row(database, "party", msg.id, current_user.id, emoji)
         database.commit()
         reactions = reactions_for_one(database, "party", msg.id, current_user.id)
         await notify_party(msg.party_id, {
@@ -90,6 +106,15 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             "party_id": msg.party_id,
             "reactions": reactions_for_one(database, "party", msg.id, None)
         }, database, exclude_user_id= current_user.id)
+        if added and msg.sender_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=msg.sender_id,
+                actor_id=current_user.id,
+                message_kind="party",
+                message_id=msg.id,
+                emoji=emoji,
+            )
         return {"id": msg.id, "reactions": reactions}
 
     if target.kind == "channel":
@@ -106,11 +131,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         require_server_perm(database, server, current_user.id, "read_messages", "You do not have permission to read messages.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
-        existing = database.query(Message_reaction).filter(Message_reaction.kind == "channel", Message_reaction.message_id == msg.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()
-        if existing:
-            database.delete(existing)
-        else:
-            database.add(Message_reaction(kind= "channel", message_id= msg.id, user_id= current_user.id, emoji= emoji))
+        added = toggle_reaction_row(database, "channel", msg.id, current_user.id, emoji)
         database.commit()
         reactions = reactions_for_one(database, "channel", msg.id, current_user.id)
         await server_broadcast(server_id= server.id, payload= {
@@ -120,6 +141,16 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             "channel_id": msg.channel_id,
             "reactions": reactions_for_one(database, "channel", msg.id, None)
         }, database= database, exclude_user_id= current_user.id)
+        if added and msg.sender_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=msg.sender_id,
+                actor_id=current_user.id,
+                message_kind="channel",
+                message_id=msg.id,
+                emoji=emoji,
+                server_id=server.id,
+            )
         return {"id": msg.id, "reactions": reactions}
 
     if target.kind == "forum":
@@ -139,11 +170,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         require_server_perm(database, server, current_user.id, "read_forums", "You do not have permission to read forums.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
-        existing = database.query(Message_reaction).filter(Message_reaction.kind == "forum", Message_reaction.message_id == msg.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()
-        if existing:
-            database.delete(existing)
-        else:
-            database.add(Message_reaction(kind= "forum", message_id= msg.id, user_id= current_user.id, emoji= emoji))
+        added = toggle_reaction_row(database, "forum", msg.id, current_user.id, emoji)
         database.commit()
         reactions = reactions_for_one(database, "forum", msg.id, current_user.id)
         await server_broadcast(server_id= server.id, payload= {
@@ -154,6 +181,16 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             "channel_id": post.channel_id,
             "reactions": reactions_for_one(database, "forum", msg.id, None)
         }, database= database, exclude_user_id= current_user.id)
+        if added and msg.author_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=msg.author_id,
+                actor_id=current_user.id,
+                message_kind="forum",
+                message_id=msg.id,
+                emoji=emoji,
+                server_id=server.id,
+            )
         return {"id": msg.id, "reactions": reactions}
 
     if target.kind == "announcement":
@@ -170,11 +207,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         require_server_perm(database, server, current_user.id, "view_announcements", "You do not have permission to view announcements.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
-        existing = database.query(Message_reaction).filter(Message_reaction.kind == "announcement", Message_reaction.message_id == post.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()
-        if existing:
-            database.delete(existing)
-        else:
-            database.add(Message_reaction(kind= "announcement", message_id= post.id, user_id= current_user.id, emoji= emoji))
+        added = toggle_reaction_row(database, "announcement", post.id, current_user.id, emoji)
         database.commit()
         reactions = reactions_for_one(database, "announcement", post.id, current_user.id)
         await server_broadcast(server_id= server.id, payload= {
@@ -184,6 +217,16 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             "channel_id": post.channel_id,
             "reactions": reactions_for_one(database, "announcement", post.id, None)
         }, database= database, exclude_user_id= current_user.id)
+        if added and post.sender_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=post.sender_id,
+                actor_id=current_user.id,
+                message_kind="announcement",
+                message_id=post.id,
+                emoji=emoji,
+                server_id=server.id,
+            )
         return {"id": post.id, "reactions": reactions}
 
     if target.kind == "forum_post":
@@ -200,11 +243,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         require_server_perm(database, server, current_user.id, "read_forums", "You do not have permission to read forums.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
-        existing = database.query(Message_reaction).filter(Message_reaction.kind == "forum_post", Message_reaction.message_id == post.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()
-        if existing:
-            database.delete(existing)
-        else:
-            database.add(Message_reaction(kind= "forum_post", message_id= post.id, user_id= current_user.id, emoji= emoji))
+        added = toggle_reaction_row(database, "forum_post", post.id, current_user.id, emoji)
         database.commit()
         reactions = reactions_for_one(database, "forum_post", post.id, current_user.id)
         await server_broadcast(server_id= server.id, payload= {
@@ -214,6 +253,16 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             "channel_id": post.channel_id,
             "reactions": reactions_for_one(database, "forum_post", post.id, None)
         }, database= database, exclude_user_id= current_user.id)
+        if added and post.author_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=post.author_id,
+                actor_id=current_user.id,
+                message_kind="forum_post",
+                message_id=post.id,
+                emoji=emoji,
+                server_id=server.id,
+            )
         return {"id": post.id, "reactions": reactions}
 
     if target.kind == "comment":
@@ -233,11 +282,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         require_server_perm(database, server, current_user.id, "view_announcements", "You do not have permission to view announcements.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
-        existing = database.query(Message_reaction).filter(Message_reaction.kind == "comment", Message_reaction.message_id == comment.id, Message_reaction.user_id == current_user.id, Message_reaction.emoji == emoji).first()
-        if existing:
-            database.delete(existing)
-        else:
-            database.add(Message_reaction(kind= "comment", message_id= comment.id, user_id= current_user.id, emoji= emoji))
+        added = toggle_reaction_row(database, "comment", comment.id, current_user.id, emoji)
         database.commit()
         reactions = reactions_for_one(database, "comment", comment.id, current_user.id)
         await server_broadcast(server_id= server.id, payload= {
@@ -247,6 +292,16 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             "post_id": comment.post_id,
             "reactions": reactions_for_one(database, "comment", comment.id, None)
         }, database= database, exclude_user_id= current_user.id)
+        if added and comment.sender_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=comment.sender_id,
+                actor_id=current_user.id,
+                message_kind="comment",
+                message_id=comment.id,
+                emoji=emoji,
+                server_id=server.id,
+            )
         return {"id": comment.id, "reactions": reactions}
 
     raise HTTPException(status_code=400, detail="This message type cannot be reacted to yet")

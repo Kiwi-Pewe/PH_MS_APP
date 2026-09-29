@@ -11,6 +11,7 @@ from app.routers.reactions import reactions_for_messages
 from app.routers.realtime import party_broadcast, serialize_member
 from app.routers.profile import avatar_lookup
 from app.routers.mentions import apply_party_mentions, decorate_history, party_mention_count, accepted_reply_parent, reply_map_for
+from app.routers.feed import notify_activity_reply
 from app.site_moderation import mask_message_payloads
 from app.privacy import drop_blocked_rows
 from datetime import datetime
@@ -91,7 +92,7 @@ def get_party_members(party_id: int, database: Session = Depends(get_db), curren
     return {"party_id": party_id, "members": members}
     
 @router.post("/send_party_message")
-def message_party(party_msg: Party_message_schema, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+async def message_party(party_msg: Party_message_schema, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
     in_Party = database.query(Party_members).filter(Party_members.user_id == current_user.id, Party_members.party_id == party_msg.party_id).first()
 
@@ -120,6 +121,14 @@ def message_party(party_msg: Party_message_schema, database: Session = Depends(g
     )
     database.commit()
     database.refresh(new_party_msg)
+    if parent and parent.sender_id:
+        await notify_activity_reply(
+            database,
+            receiver_id=parent.sender_id,
+            actor_id=current_user.id,
+            message_kind="party",
+            message_id=new_party_msg.id,
+        )
 
     return new_party_msg
 

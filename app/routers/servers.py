@@ -26,6 +26,7 @@ from app.routers.roles import (
 from app.routers.account import public_display_name
 from app.routers.moderation import iso_dt, require_not_timed_out, timeout_until_for
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
+from app.routers.feed import notify_activity_reply
 from app.privacy import drop_blocked_rows
 import random
 import re
@@ -614,7 +615,7 @@ def server_settings_members(server_id: str, database: Session = Depends(get_db),
 
 
 @router.post("/message_server_channel")
-def message_server_channel(server_msg: Server_message, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+async def message_server_channel(server_msg: Server_message, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     channel = database.query(Server_channels).filter(Server_channels.id == server_msg.channel_id).first()
     category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
     server = database.query(Servers).filter(Servers.id == category.server_id).first()
@@ -647,6 +648,15 @@ def message_server_channel(server_msg: Server_message, database: Session = Depen
     stamp_channel_view(database, channel.id, current_user.id)
     database.commit()
     database.refresh(new_message)
+    if parent and parent.sender_id:
+        await notify_activity_reply(
+            database,
+            receiver_id=parent.sender_id,
+            actor_id=current_user.id,
+            message_kind="channel",
+            message_id=new_message.id,
+            server_id=server.id,
+        )
     return new_message    
 
 @router.get("/get_channel_history/{channel_id}")

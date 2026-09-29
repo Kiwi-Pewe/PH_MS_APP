@@ -11,6 +11,7 @@ from app.routers.profile import avatar_lookup, public_avatar
 from app.routers.roles import effective_perms_for_user, name_color_role_for_user, name_color_roles_by_user, require_server_perm
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
+from app.routers.feed import notify_activity_post_comment
 
 router = APIRouter()
 
@@ -158,6 +159,15 @@ async def post_comment(comment: Comment_create, database: Session = Depends(get_
         "comment": {"id": new_comment.id, "post_id": new_comment.post_id, "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user), "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": [], "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids, "name_role": name_color_role_for_user(database, server.id, current_user.id)}
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    if announcement.sender_id:
+        await notify_activity_post_comment(
+            database,
+            receiver_id=announcement.sender_id,
+            actor_id=current_user.id,
+            post_kind="announcement",
+            post_id=announcement.id,
+            server_id=server.id,
+        )
     return {"id": new_comment.id, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": [], "mention_users": users_map, "mention_roles": roles_map}
 
 @router.get("/get_post_comment/{post_id}")

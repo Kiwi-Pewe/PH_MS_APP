@@ -12,6 +12,7 @@ from app.routers.profile import avatar_lookup, public_avatar
 from app.routers.roles import effective_perms_for_user, name_color_role_for_user, name_color_roles_by_user, require_server_perm
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
+from app.routers.feed import notify_activity_reply, notify_activity_post_comment
 from app.privacy import drop_blocked_rows
 from datetime import datetime
 
@@ -297,6 +298,25 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
     }
 
     await server_broadcast(server_id=server.id, payload=payload, database=database)
+
+    if parent and parent.author_id:
+        await notify_activity_reply(
+            database,
+            receiver_id=parent.author_id,
+            actor_id=current_user.id,
+            message_kind="forum",
+            message_id=new_message.id,
+            server_id=server.id,
+        )
+    elif post_exist.author_id:
+        await notify_activity_post_comment(
+            database,
+            receiver_id=post_exist.author_id,
+            actor_id=current_user.id,
+            post_kind="forum_post",
+            post_id=post_exist.id,
+            server_id=server.id,
+        )
 
     return {
         "id": new_message.id,

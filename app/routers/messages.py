@@ -11,13 +11,14 @@ from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
 from app.routers.mentions import accepted_reply_parent, reply_map_for
 from app.routers.profile import avatar_lookup, public_avatar
+from app.routers.feed import notify_activity_reply
 from app.site_moderation import mask_message_payloads, permaban_by_user_id
 from datetime import datetime
 
 router = APIRouter()
 
 @router.post("/messages")
-def send_message(message: Message_schema, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+async def send_message(message: Message_schema, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
     is_blocked = database.query(Block_user).filter(Block_user.initiated_by == current_user.id, Block_user.blocked_user == message.receiver_id).first()
     blocked_mirrored = database.query(Block_user).filter(Block_user.initiated_by == message.receiver_id, Block_user.blocked_user == current_user.id).first()
@@ -66,6 +67,14 @@ def send_message(message: Message_schema, database: Session = Depends(get_db), c
     database.add(new_message)
     database.commit()
     database.refresh(new_message)
+    if parent and parent.sender_id:
+        await notify_activity_reply(
+            database,
+            receiver_id=parent.sender_id,
+            actor_id=current_user.id,
+            message_kind="dm",
+            message_id=new_message.id,
+        )
 
     return new_message
 

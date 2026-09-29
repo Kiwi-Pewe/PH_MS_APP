@@ -31,6 +31,9 @@ let mailSessionItems = [];
 let mailUnseenCount = 0;
 let mailTrayOpen = false;
 let feedAlertRows = [];
+let feedHasMore = true;
+let feedLoadingMore = false;
+const FEED_PAGE_SIZE = 25;
 
 function feedFamilyOf(alert) {
   const family = String(alert && alert.alert_family || "").toLowerCase();
@@ -245,11 +248,11 @@ function closeMailTray() {
   if (!tray) return;
   tray.hidden = true;
   mailTrayOpen = false;
+  mailSessionItems.forEach((item) => { item.read = true; });
 }
 
 function openMailTray() {
   mailUnseenCount = 0;
-  mailSessionItems.forEach((item) => { item.read = true; });
   paintMailBadge();
   paintMailTray();
   positionMailTray();
@@ -284,10 +287,12 @@ function noteIncomingFeedAlert(alert) {
   if (feedAlertRows.some((row) => row.id === alert.id)) {
     feedAlertRows = feedAlertRows.map((row) => (row.id === alert.id ? alert : row));
   } else {
-    feedAlertRows = feedAlertRows.concat([alert]);
+    feedAlertRows = [alert].concat(feedAlertRows);
   }
   const feedView = document.getElementById("view-feed");
-  if (feedView && feedView.classList.contains("active")) paintFeedPosts();
+  if (feedView && feedView.classList.contains("active")) {
+    paintFeedPosts({ preserveScroll: true });
+  }
 }
 
 function showFeedAlertMenu(e, alert) {
@@ -369,9 +374,12 @@ function buildFeedAlertCard(alert) {
   return card;
 }
 
-function paintFeedPosts() {
+function paintFeedPosts(opts) {
   const host = document.getElementById("feed-posts");
   if (!host) return;
+  const preserveScroll = !!(opts && opts.preserveScroll);
+  const prevTop = host.scrollTop;
+  const prevHeight = host.scrollHeight;
   host.replaceChildren();
   if (!feedAlertRows.length) {
     const empty = document.createElement("div");
@@ -382,19 +390,60 @@ function paintFeedPosts() {
     return;
   }
   feedAlertRows.forEach((alert) => host.appendChild(buildFeedAlertCard(alert)));
-  host.scrollTop = host.scrollHeight;
+  if (preserveScroll) {
+    host.scrollTop = prevTop + (host.scrollHeight - prevHeight);
+  } else {
+    host.scrollTop = 0;
+  }
 }
 
 async function loadFeedAlerts() {
+  feedHasMore = true;
+  feedLoadingMore = false;
   try {
-    const response = await fetch(`https://${serverAddress}/feed_alerts`, { credentials: "include" });
+    const response = await fetch(`https://${serverAddress}/feed_alerts?limit=${FEED_PAGE_SIZE}`, { credentials: "include" });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error((typeof data.detail === "string" && data.detail) || "Could not load feed.");
     feedAlertRows = Array.isArray(data.alerts) ? data.alerts : [];
+    if (feedAlertRows.length < FEED_PAGE_SIZE) feedHasMore = false;
   } catch (err) {
     feedAlertRows = [];
+    feedHasMore = false;
   }
   paintFeedPosts();
+}
+
+async function loadOlderFeedAlerts() {
+  if (feedLoadingMore || !feedHasMore || !feedAlertRows.length) return;
+  const oldest = feedAlertRows[feedAlertRows.length - 1];
+  if (!oldest || oldest.id == null) return;
+  feedLoadingMore = true;
+  try {
+    const response = await fetch(
+      `https://${serverAddress}/feed_alerts?limit=${FEED_PAGE_SIZE}&before_id=${oldest.id}`,
+      { credentials: "include" }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return;
+    const older = Array.isArray(data.alerts) ? data.alerts : [];
+    if (older.length < FEED_PAGE_SIZE) feedHasMore = false;
+    if (!older.length) {
+      feedHasMore = false;
+      return;
+    }
+    const seen = new Set(feedAlertRows.map((row) => row.id));
+    const next = older.filter((row) => row && row.id != null && !seen.has(row.id));
+    if (!next.length) {
+      feedHasMore = false;
+      return;
+    }
+    feedAlertRows = feedAlertRows.concat(next);
+    paintFeedPosts({ preserveScroll: true });
+  } catch (err) {
+    /* leave state as-is */
+  } finally {
+    feedLoadingMore = false;
+  }
 }
 
 async function deleteFeedAlert(alertId) {
@@ -406,7 +455,7 @@ async function deleteFeedAlert(alertId) {
     if (!response.ok) return;
     feedAlertRows = feedAlertRows.filter((row) => row.id !== alertId);
     mailSessionItems = mailSessionItems.filter((row) => row.id !== alertId);
-    paintFeedPosts();
+    paintFeedPosts({ preserveScroll: true });
     paintMailTray();
     paintMailBadge();
   } catch (err) {}
@@ -447,6 +496,15 @@ document.addEventListener("mousedown", (e) => {
 window.addEventListener("resize", () => {
   if (mailTrayOpen) positionMailTray();
 });
+
+const feedPostsEl = document.getElementById("feed-posts");
+if (feedPostsEl) {
+  feedPostsEl.addEventListener("scroll", () => {
+    const host = document.getElementById("feed-posts");
+    if (!host) return;
+    if (host.scrollHeight - host.scrollTop - host.clientHeight < 80) loadOlderFeedAlerts();
+  });
+}
 
 paintMailTray();
 paintMailBadge();

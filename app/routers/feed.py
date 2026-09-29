@@ -342,12 +342,19 @@ async def notify_activity_post_comment(
 
 
 @router.get("/feed_alerts")
-def list_feed_alerts(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+def list_feed_alerts(
+    before_id: int = None,
+    limit: int = 25,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    size = max(1, min(int(limit or 25), 50))
+    query = database.query(Feed_alert).filter(Feed_alert.receiver_id == current_user.id)
+    if before_id:
+        query = query.filter(Feed_alert.id < int(before_id))
     rows = (
-        database.query(Feed_alert)
-        .filter(Feed_alert.receiver_id == current_user.id)
-        .order_by(Feed_alert.created_at.asc(), Feed_alert.id.asc())
-        .limit(100)
+        query.order_by(Feed_alert.created_at.desc(), Feed_alert.id.desc())
+        .limit(size)
         .all()
     )
     dirty = False

@@ -271,11 +271,6 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
     radios.appendChild(radio);
   });
   profile.appendChild(radios);
-  profile.appendChild(settingsOpt(
-    "Share when I update my profile",
-    "Allow friends to receive a notification when you update your profile.",
-    settingsToggle(true, true)
-  ));
   const relatedProfile = document.createElement("div");
   relatedProfile.className = "settings-related-wrap";
   const relatedProfileLabel = document.createElement("div");

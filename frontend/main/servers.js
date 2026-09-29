@@ -2,6 +2,34 @@
 // servers.js - Server rail, opening a server, its sidebar, channel selection.
 // ==================================================================
 
+function channelTypeIcon(channelType) {
+  const kind = String(channelType || "").toLowerCase();
+  if (kind === "voice") return "\u{1F50A}";
+  if (kind === "forums") return "\u{1F5C2}";
+  if (kind === "announcements") return "\u{1F4E2}";
+  if (kind === "doc") return "\u{1F4C4}";
+  if (kind === "lists") return "\u2611";
+  if (kind === "media") return "\u{1F5BC}";
+  if (kind === "events") return "\u{1F4C5}";
+  if (kind === "tournaments") return "\u{1F3C6}";
+  if (kind === "watchparty") return "\u{1F3A6}";
+  return "#";
+}
+
+function channelTypeSidebarLabel(channelType) {
+  const kind = String(channelType || "").toLowerCase();
+  if (kind === "voice") return "Voice Channel";
+  if (kind === "forums") return "Forums Channel";
+  if (kind === "announcements") return "Announcements Channel";
+  if (kind === "doc") return "Doc Channel";
+  if (kind === "lists") return "Lists Channel";
+  if (kind === "media") return "Media Channel";
+  if (kind === "events") return "Events Channel";
+  if (kind === "tournaments") return "Tournaments Channel";
+  if (kind === "watchparty") return "Watch Party Channel";
+  return "Text Channel";
+}
+
 async function loadServers() {
   try {
     const response = await fetch(`https://${serverAddress}/get_servers`, { credentials: "include" });
@@ -278,7 +306,7 @@ function renderServerSidebar(data) {
 
       const icon = document.createElement("span");
       icon.className = "channel-icon";
-      icon.textContent = channel.channel_type === "voice" ? "\u{1F50A}" : "#";
+      icon.textContent = channelTypeIcon(channel.channel_type);
       row.appendChild(icon);
 
       const label = document.createElement("span");
@@ -540,4 +568,11 @@ function applyCategoryDeleted(categoryId) {
   if (!currentServerData) return;
   currentServerData.categories = currentServerData.categories.filter(c => c.id !== categoryId);
   afterServerStructureChange();
+}
+
+const serverSectionOverview = document.getElementById("server-section-overview");
+if (serverSectionOverview) {
+  serverSectionOverview.addEventListener("click", () => {
+    if (typeof openServerSettings === "function") openServerSettings();
+  });
 }

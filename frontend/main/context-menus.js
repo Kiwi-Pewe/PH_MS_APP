@@ -501,9 +501,11 @@ function showChannelContextMenu(e, channel) {
     { label: "Edit Channel", onSelect: () => console.log("Edit Channel — not implemented yet") },
     { label: "Delete Channel", danger: true, onSelect: () => openDeleteConfirm("channel", channel) }
   ] : [];
-  const typeLabel = channel.channel_type === "voice" ? "Voice Channel" : "Text Channel";
+  const typeLabel = typeof channelTypeSidebarLabel === "function"
+    ? channelTypeSidebarLabel(channel.channel_type)
+    : (channel.channel_type === "voice" ? "Voice Channel" : "Text Channel");
   openContextMenu(x, y, {
-    avatarText: channel.channel_type === "voice" ? "\u{1F50A}" : "#",
+    avatarText: typeof channelTypeIcon === "function" ? channelTypeIcon(channel.channel_type) : (channel.channel_type === "voice" ? "\u{1F50A}" : "#"),
     title: channel.name,
     subtitle: channel.is_private ? `Private ${typeLabel}` : typeLabel
   }, options);

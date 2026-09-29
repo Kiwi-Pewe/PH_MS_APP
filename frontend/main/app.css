@@ -289,29 +289,58 @@
   color: var(--text-dim);
   line-height: 1;
 }
-#server-sidebar-body { flex: 1 1 auto; overflow-y: auto; padding: 8px 6px; }
+#server-sidebar-body { flex: 1 1 auto; overflow-y: auto; padding: 10px 8px 12px; }
 
-.category-block { margin-bottom: 2px; }
+.server-sidebar-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 4px 8px 6px;
+  user-select: none;
+}
+#server-sections { margin-bottom: 14px; }
+#server-channels-label { margin: 4px 0 6px; }
+.server-section-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+}
+.server-section-row:hover { background: var(--panel-alt); color: var(--text); }
+.server-section-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.85;
+}
+.server-section-label { flex: 1 1 auto; min-width: 0; }
+
+.category-block { margin-bottom: 14px; }
+.category-block:last-child { margin-bottom: 4px; }
 .category-header {
-  display: flex; align-items: center; gap: 6px; padding: 6px 6px;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 4px; padding: 8px 6px 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--text-dim); cursor: pointer; user-select: none;
 }
 .category-header:hover { color: var(--text); }
-.category-arrow { display: inline-block; font-size: 9px; transition: transform 0.15s ease; }
-.category-name { flex: 1; }
-/* Collapse state is purely visual and does not persist across a
-   refresh — a deliberate scope call for this session; persisting it
-   would need its own database column, deferred alongside the other
-   "remember what I was looking at" QOL items. */
+.category-arrow { display: inline-block; font-size: 9px; width: 12px; text-align: center; transition: transform 0.15s ease; flex: 0 0 auto; }
+.category-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .category-block.collapsed .category-arrow { transform: rotate(-90deg); }
 .category-block.collapsed .category-channels { display: none; }
 
-/* Visible only when the frontend has confirmed the viewer is this
-   server's owner (checked against get_server_contents' "owner" field) —
-   there's no admin/role tier yet to extend this to, since roles haven't
-   been built (see Handoff.md). Rendered but inert: creating a channel
-   is its own future feature, not part of today's scope. */
 .category-add-btn {
   background: transparent; color: var(--text-dim); font-size: 14px; font-weight: 700;
   width: 18px; height: 18px; border-radius: 4px; flex: 0 0 auto;
@@ -319,15 +348,23 @@
 }
 .category-add-btn:hover { color: var(--text); background: var(--panel-alt); }
 
-.category-channels { display: flex; flex-direction: column; gap: 1px; }
-.channel-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; font-size: 14px; }
+.category-channels { display: flex; flex-direction: column; gap: 2px; padding-top: 2px; }
+.channel-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; font-size: 15px; line-height: 1.2; }
 .channel-row:hover, .channel-row.active { background: var(--panel-alt); color: var(--text); }
 .channel-row.has-unread .channel-label { color: var(--text); font-weight: 600; }
 .channel-mention-badge {
   margin-left: auto; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
   min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px;
 }
-.channel-icon { font-size: 13px; flex: 0 0 auto; }
+.channel-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.9;
+}
+.channel-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #secondary-body h3 {
   font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim);
   margin: 12px 8px 8px; padding-top: 10px; border-top: 1px solid var(--border);
@@ -1123,9 +1160,12 @@ html.ui-density-compact #secondary-nav { padding: 8px 8px 6px; }
 html.ui-density-compact #secondary-body { padding: 8px 8px; }
 html.ui-density-compact .dm-item { height: 36px; min-height: 36px; padding: 0 6px; gap: 8px; }
 html.ui-density-compact #server-sidebar-header { padding: 8px 10px; }
-html.ui-density-compact #server-sidebar-body { padding: 4px 4px; }
-html.ui-density-compact .category-header { padding: 4px 6px; }
-html.ui-density-compact .channel-row { padding: 3px 8px; }
+html.ui-density-compact #server-sidebar-body { padding: 6px 4px; }
+html.ui-density-compact .category-block { margin-bottom: 8px; }
+html.ui-density-compact .category-header { padding: 4px 6px 2px; }
+html.ui-density-compact .channel-row { padding: 4px 8px; font-size: 14px; }
+html.ui-density-compact .server-section-row { padding: 5px 8px; }
+html.ui-density-compact #server-sections { margin-bottom: 8px; }
 html.ui-density-compact #member-list-body { padding: 8px 6px 8px; }
 html.ui-density-compact .member-group-header { padding: 4px 8px 2px; }
 html.ui-density-compact .member-row { padding: 2px 6px; gap: 6px; }
@@ -1143,9 +1183,12 @@ html.ui-density-spacious #secondary-nav { padding: 16px 10px 12px; }
 html.ui-density-spacious #secondary-body { padding: 16px 12px; }
 html.ui-density-spacious .dm-item { height: 52px; min-height: 52px; padding: 0 8px; gap: 12px; }
 html.ui-density-spacious #server-sidebar-header { padding: 16px 14px; }
-html.ui-density-spacious #server-sidebar-body { padding: 12px 8px; }
-html.ui-density-spacious .category-header { padding: 10px 6px; }
+html.ui-density-spacious #server-sidebar-body { padding: 14px 10px; }
+html.ui-density-spacious .category-block { margin-bottom: 20px; }
+html.ui-density-spacious .category-header { padding: 12px 6px 6px; }
 html.ui-density-spacious .channel-row { padding: 10px 8px; }
+html.ui-density-spacious .server-section-row { padding: 10px 8px; }
+html.ui-density-spacious #server-sections { margin-bottom: 18px; }
 html.ui-density-spacious #member-list-body { padding: 20px 10px 16px; }
 html.ui-density-spacious .member-group-header { padding: 12px 8px 6px; }
 html.ui-density-spacious .member-row { padding: 10px 8px; gap: 10px; }

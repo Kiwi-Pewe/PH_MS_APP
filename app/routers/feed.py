@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from datetime import datetime
 import json
 
-from app.models import UserInfo, Feed_alert
+from app.models import UserInfo, Feed_alert, Servers
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.profile import public_display_name, public_avatar
@@ -66,26 +67,148 @@ def parse_alert_context(raw):
         return None
 
 
-def serialize_feed_alert(row, sender=None):
+def parse_legacy_until(text):
+    value = (text or "").strip()
+    lower = value.lower()
+    if lower.startswith("until "):
+        return value[6:].strip()
+    if lower.startswith("can rejoin after "):
+        return value[len("Can rejoin after "):].strip()
+    return None
+
+
+def legacy_moderation_facts(raw, created_at=None):
+    text = (raw or "").strip()
+    if not text:
+        return None
+    data = parse_alert_context(text)
+    if data:
+        until = data.get("until")
+        duration = data.get("duration_seconds")
+        if duration is None and until and created_at:
+            try:
+                end = datetime.fromisoformat(str(until).replace("Z", "+00:00"))
+                if getattr(end, "tzinfo", None):
+                    end = end.replace(tzinfo=None)
+                start = created_at.replace(tzinfo=None) if getattr(created_at, "tzinfo", None) else created_at
+                duration = max(0, int((end - start).total_seconds()))
+            except (TypeError, ValueError):
+                duration = None
+        return {
+            "server_id": data.get("server_id"),
+            "server_name": data.get("server_name"),
+            "reason": (data.get("reason") or "").strip() or None,
+            "duration_seconds": int(duration) if duration else None,
+        }
+    if text[:1] == "{":
+        return None
+    parts = [part.strip() for part in text.split(" — ") if part.strip()]
+    if not parts:
+        return None
+    server_name = parts[0] or "Server"
+    reason = None
+    until = None
+    if len(parts) >= 2:
+        until = parse_legacy_until(parts[1])
+        if until is None:
+            reason = parts[1] or None
+    if len(parts) >= 3:
+        until = parse_legacy_until(parts[2]) or until
+    duration = None
+    if until and created_at:
+        try:
+            end = datetime.fromisoformat(until.replace("Z", "+00:00"))
+            if getattr(end, "tzinfo", None):
+                end = end.replace(tzinfo=None)
+            start = created_at.replace(tzinfo=None) if getattr(created_at, "tzinfo", None) else created_at
+            duration = max(0, int((end - start).total_seconds()))
+        except (TypeError, ValueError):
+            duration = None
+    return {
+        "server_id": None,
+        "server_name": server_name,
+        "reason": reason,
+        "duration_seconds": duration,
+    }
+
+
+def migrate_moderation_row(database, row):
+    family = normalize_alert_family(row.alert_family, row.alert_type)
+    if family != "moderation":
+        return False
+    changed = False
+    if not getattr(row, "server_id", None) or not getattr(row, "reason", None) or getattr(row, "duration_seconds", None) is None:
+        facts = legacy_moderation_facts(row.context, row.created_at)
+        if facts:
+            if not row.server_id and facts.get("server_id"):
+                row.server_id = facts["server_id"]
+                changed = True
+            if not row.server_id and facts.get("server_name"):
+                server = database.query(Servers).filter(Servers.name == facts["server_name"]).first()
+                if server:
+                    row.server_id = server.id
+                    changed = True
+            if not row.reason and facts.get("reason"):
+                row.reason = facts["reason"]
+                changed = True
+            if row.duration_seconds is None and facts.get("duration_seconds") is not None:
+                row.duration_seconds = facts["duration_seconds"]
+                changed = True
+    if row.context:
+        row.context = None
+        changed = True
+    if changed and database is not None:
+        database.add(row)
+    return changed
+
+
+def serialize_feed_alert(row, sender=None, server=None):
     family = normalize_alert_family(row.alert_family, row.alert_type)
     kind = (row.alert_type or "").strip().lower()
-    detail = parse_alert_context(row.context)
-    return {
+    from app.routers.servers import server_icon_url
+    face_kind = "server" if family == "moderation" else "user"
+    payload = {
         "id": row.id,
         "alert_family": family,
         "alert_type": kind,
         "alert_type_label": ALERT_TYPE_LABELS.get(kind, kind or "Alert"),
-        "context": row.context if not detail else None,
-        "detail": detail,
+        "reason": (row.reason or "").strip() or None,
+        "duration_seconds": row.duration_seconds,
+        "server_id": row.server_id,
+        "context": row.context,
         "created_at": row.created_at.isoformat() + "Z" if row.created_at else None,
         "sender_id": row.sender_id,
         "sender_username": sender.username if sender else None,
         "sender_display_name": public_display_name(sender) if sender else None,
         "sender_avatar": public_avatar(sender) if sender else None,
+        "face_kind": face_kind,
+        "subject_name": None,
+        "subject_icon_url": None,
     }
+    if face_kind == "server":
+        if server:
+            payload["subject_name"] = server.name or "Server"
+            payload["subject_icon_url"] = server_icon_url(server) or ""
+            payload["server_id"] = server.id
+        else:
+            payload["subject_name"] = "Unknown server"
+            payload["subject_icon_url"] = ""
+    else:
+        payload["subject_name"] = payload["sender_display_name"] or payload["sender_username"] or "Someone"
+    return payload
 
 
-def create_feed_alert(database, receiver_id, alert_type, context=None, sender_id=None, alert_family=None):
+def create_feed_alert(
+    database,
+    receiver_id,
+    alert_type,
+    sender_id=None,
+    alert_family=None,
+    server_id=None,
+    reason=None,
+    duration_seconds=None,
+    context=None,
+):
     kind = (alert_type or "").strip().lower()
     family = normalize_alert_family(alert_family, kind)
     row = Feed_alert(
@@ -93,6 +216,9 @@ def create_feed_alert(database, receiver_id, alert_type, context=None, sender_id
         sender_id=sender_id,
         alert_family=family,
         alert_type=kind,
+        server_id=server_id,
+        reason=(reason or "").strip() or None,
+        duration_seconds=int(duration_seconds) if duration_seconds else None,
         context=context,
     )
     database.add(row)
@@ -101,37 +227,36 @@ def create_feed_alert(database, receiver_id, alert_type, context=None, sender_id
     return row
 
 
-async def notify_feed_alert(database, receiver_id, alert_type, context=None, sender_id=None, alert_family=None):
+async def notify_feed_alert(
+    database,
+    receiver_id,
+    alert_type,
+    sender_id=None,
+    alert_family=None,
+    server_id=None,
+    reason=None,
+    duration_seconds=None,
+    context=None,
+):
     from app.routers.realtime import notify_user
     row = create_feed_alert(
         database,
         receiver_id=receiver_id,
         alert_type=alert_type,
-        context=context,
         sender_id=sender_id,
         alert_family=alert_family,
+        server_id=server_id,
+        reason=reason,
+        duration_seconds=duration_seconds,
+        context=context,
     )
-    sender = None
-    if sender_id:
-        sender = database.query(UserInfo).filter(UserInfo.id == sender_id).first()
+    sender = database.query(UserInfo).filter(UserInfo.id == sender_id).first() if sender_id else None
+    server = database.query(Servers).filter(Servers.id == server_id).first() if server_id else None
     await notify_user(receiver_id, {
         "type": "feed_alert",
-        "alert": serialize_feed_alert(row, sender),
+        "alert": serialize_feed_alert(row, sender, server),
     })
     return row
-
-
-def moderation_alert_context(server, reason=None, until_iso=None, duration_seconds=None):
-    from app.routers.servers import server_icon_url
-    payload = {
-        "server_id": getattr(server, "id", None),
-        "server_name": (getattr(server, "name", None) or "").strip() or "Server",
-        "server_icon_url": server_icon_url(server) or "",
-        "reason": (reason or "").strip(),
-        "until": until_iso,
-        "duration_seconds": int(duration_seconds) if duration_seconds else None,
-    }
-    return json.dumps(payload)
 
 
 @router.get("/feed_alerts")
@@ -143,13 +268,30 @@ def list_feed_alerts(database: Session = Depends(get_db), current_user: UserInfo
         .limit(100)
         .all()
     )
+    dirty = False
+    for row in rows:
+        if migrate_moderation_row(database, row):
+            dirty = True
+    if dirty:
+        database.commit()
+        for row in rows:
+            database.refresh(row)
+
     sender_ids = {row.sender_id for row in rows if row.sender_id}
+    server_ids = {row.server_id for row in rows if row.server_id}
     senders = {}
+    servers = {}
     if sender_ids:
         for user in database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all():
             senders[user.id] = user
+    if server_ids:
+        for server in database.query(Servers).filter(Servers.id.in_(server_ids)).all():
+            servers[server.id] = server
     return {
-        "alerts": [serialize_feed_alert(row, senders.get(row.sender_id)) for row in rows]
+        "alerts": [
+            serialize_feed_alert(row, senders.get(row.sender_id), servers.get(row.server_id))
+            for row in rows
+        ]
     }
 
 

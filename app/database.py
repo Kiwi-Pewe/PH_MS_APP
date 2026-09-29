@@ -351,6 +351,9 @@ def ensure_feedback_columns():
 def ensure_feed_alert_columns():
     adds = (
         ("feed_alerts", "alert_family", "VARCHAR"),
+        ("feed_alerts", "server_id", "VARCHAR(10)"),
+        ("feed_alerts", "reason", "VARCHAR"),
+        ("feed_alerts", "duration_seconds", "INTEGER"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:

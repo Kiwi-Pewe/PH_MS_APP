@@ -10,7 +10,7 @@ from app.routers.realtime import notify_user, server_broadcast
 from app.routers.roles import can_moderate_target, effective_perms_for_user, require_server_member, require_server_perm
 from app.routers.account import public_display_name
 from app.routers.profile import public_avatar
-from app.routers.feed import notify_feed_alert, moderation_alert_context
+from app.routers.feed import notify_feed_alert
 
 router = APIRouter()
 
@@ -138,16 +138,13 @@ async def remove_member(database, server, target_user, membership, actor, action
         database,
         receiver_id=target_user.id,
         alert_type=action,
-        context=moderation_alert_context(
-            server,
-            reason=reason,
-            until_iso=iso_dt(expires_at) if expires_at else None,
-            duration_seconds=duration_seconds if duration_seconds is not None else (
-                body_seconds_from_expires(expires_at) if expires_at else None
-            ),
-        ),
         sender_id=actor.id,
         alert_family="moderation",
+        server_id=server.id,
+        reason=reason,
+        duration_seconds=duration_seconds if duration_seconds is not None else (
+            body_seconds_from_expires(expires_at) if expires_at else None
+        ),
     )
     await notify_user(target_user.id, {
         "type": "removed_from_server",
@@ -230,14 +227,11 @@ async def timeout_server_member(body: Server_moderation_in, database: Session = 
             database,
             receiver_id=target.id,
             alert_type="timeout",
-            context=moderation_alert_context(
-                server,
-                reason=reason,
-                until_iso=iso_dt(until) if until else None,
-                duration_seconds=body.seconds,
-            ),
             sender_id=current_user.id,
             alert_family="moderation",
+            server_id=server.id,
+            reason=reason,
+            duration_seconds=body.seconds,
         )
     payload = {
         "type": "member_timeout",

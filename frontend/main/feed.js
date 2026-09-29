@@ -48,23 +48,18 @@ function feedSenderLabel(alert) {
   return (alert && (alert.sender_display_name || alert.sender_username)) || "Someone";
 }
 
+function feedSubjectLabel(alert) {
+  if (alert && alert.subject_name) return alert.subject_name;
+  if (feedFamilyOf(alert) === "moderation") return "Unknown server";
+  return feedSenderLabel(alert);
+}
+
 function feedAlertTime(alert) {
   if (!alert || !alert.created_at) return "";
   if (typeof formatClusterTime === "function" && typeof parseUtcTimestamp === "function") {
     return formatClusterTime(parseUtcTimestamp(alert.created_at));
   }
   return String(alert.created_at);
-}
-
-function feedAlertDetail(alert) {
-  if (alert && alert.detail && typeof alert.detail === "object") return alert.detail;
-  if (!alert || !alert.context) return null;
-  try {
-    const data = JSON.parse(alert.context);
-    return data && typeof data === "object" ? data : null;
-  } catch (err) {
-    return null;
-  }
 }
 
 function formatFeedDuration(seconds) {
@@ -83,46 +78,52 @@ function formatFeedDuration(seconds) {
   return parts.join(", ");
 }
 
-function moderationDurationText(alert, detail) {
-  if (detail && detail.duration_seconds) return formatFeedDuration(detail.duration_seconds);
-  if (!detail || !detail.until || !alert || !alert.created_at) return "";
-  if (typeof parseUtcTimestamp !== "function") return "";
-  const start = parseUtcTimestamp(alert.created_at);
-  const end = parseUtcTimestamp(detail.until);
-  if (!start || !end) return "";
-  return formatFeedDuration(Math.round((end.getTime() - start.getTime()) / 1000));
+function feedAlertBody(alert) {
+  const family = feedFamilyOf(alert);
+  if (family === "moderation") {
+    const who = feedSenderLabel(alert);
+    const kind = String(alert && alert.alert_type || "").toLowerCase();
+    const verb = FEED_MOD_VERBS[kind] || "moderated you";
+    const reason = String(alert && alert.reason || "").trim();
+    const duration = formatFeedDuration(alert && alert.duration_seconds);
+    let text = who + " " + verb;
+    if (reason) text += " for: " + reason;
+    if (duration) text += " for " + duration;
+    return text + ".";
+  }
+  return String(alert && alert.context || "").trim();
 }
 
-function moderationSentence(alert) {
-  const detail = feedAlertDetail(alert) || {};
-  const who = feedSenderLabel(alert);
-  const kind = String(alert && alert.alert_type || "").toLowerCase();
-  const verb = FEED_MOD_VERBS[kind] || "moderated you";
-  const reason = String(detail.reason || "").trim();
-  const duration = moderationDurationText(alert, detail);
-  let text = who + " " + verb;
-  if (reason) text += " for: " + reason;
-  if (duration) text += " for " + duration;
-  return text + ".";
-}
-
-function paintFeedServerFace(host, detail) {
+function paintFeedSubjectFace(host, alert) {
   if (!host) return;
   host.replaceChildren();
-  const name = (detail && detail.server_name) || "Server";
-  const url = detail && detail.server_icon_url;
-  if (url) {
-    const img = document.createElement("img");
-    img.className = "feed-server-icon-img";
-    img.src = url;
-    img.alt = "";
-    host.appendChild(img);
+  const family = feedFamilyOf(alert);
+  if ((alert && alert.face_kind) === "server" || family === "moderation") {
+    const url = alert && alert.subject_icon_url;
+    const name = feedSubjectLabel(alert);
+    if (url) {
+      const img = document.createElement("img");
+      img.className = "feed-server-icon-img";
+      img.src = url;
+      img.alt = "";
+      host.appendChild(img);
+      return;
+    }
+    const letter = document.createElement("span");
+    letter.className = "face-letter";
+    letter.textContent = name.charAt(0).toUpperCase();
+    host.appendChild(letter);
     return;
   }
-  const letter = document.createElement("span");
-  letter.className = "face-letter";
-  letter.textContent = name.charAt(0).toUpperCase();
-  host.appendChild(letter);
+  if (alert && alert.sender_id && typeof paintUserFace === "function") {
+    paintUserFace(host, {
+      avatar: alert.sender_avatar,
+      username: alert.sender_username,
+      display_name: alert.sender_display_name,
+    }, { name: feedSenderLabel(alert), userId: alert.sender_id });
+    return;
+  }
+  host.textContent = (FEED_FAMILY_LABELS[family] || "?").charAt(0);
 }
 
 function clearMailSession() {
@@ -149,7 +150,6 @@ function paintMailBadge() {
 
 function buildMailAlertRow(alert) {
   const family = feedFamilyOf(alert);
-  const detail = feedAlertDetail(alert);
   const row = document.createElement("div");
   row.className = "mail-tray-item is-" + family + (alert.read ? " is-read" : "");
   row.dataset.alertId = String(alert.id);
@@ -168,15 +168,10 @@ function buildMailAlertRow(alert) {
 
   const line = document.createElement("div");
   line.className = "mail-tray-item-detail";
-  if (family === "moderation" && detail) {
-    const serverName = detail.server_name || "Server";
-    line.textContent = serverName + " · " + moderationSentence(alert);
-  } else {
-    const bits = [];
-    if (alert.sender_id) bits.push(feedSenderLabel(alert));
-    if (alert.context) bits.push(alert.context);
-    line.textContent = bits.join(" · ");
-  }
+  const body = feedAlertBody(alert);
+  line.textContent = body
+    ? (feedSubjectLabel(alert) + " · " + body)
+    : feedSubjectLabel(alert);
 
   row.appendChild(head);
   if (line.textContent) row.appendChild(line);
@@ -236,20 +231,11 @@ function toggleMailTray() {
 
 function pushMailSessionAlert(alert) {
   if (!alert || alert.id == null) return;
-  const next = {
-    id: alert.id,
+  const next = Object.assign({}, alert, {
     alert_family: feedFamilyOf(alert),
-    alert_type: alert.alert_type,
     alert_type_label: feedTypeLabel(alert),
-    context: alert.context || "",
-    detail: alert.detail || feedAlertDetail(alert),
-    sender_id: alert.sender_id,
-    sender_username: alert.sender_username,
-    sender_display_name: alert.sender_display_name,
-    sender_avatar: alert.sender_avatar,
-    created_at: alert.created_at,
     read: false,
-  };
+  });
   mailSessionItems = [next, ...mailSessionItems.filter((row) => row.id !== next.id)].slice(0, 10);
   mailUnseenCount += 1;
   paintMailBadge();
@@ -280,7 +266,6 @@ function showFeedAlertMenu(e, alert) {
 
 function buildFeedAlertCard(alert) {
   const family = feedFamilyOf(alert);
-  const detail = feedAlertDetail(alert);
   const card = document.createElement("div");
   card.className = "announce-post feed-alert-card is-" + family;
   card.dataset.alertId = String(alert.id);
@@ -292,29 +277,16 @@ function buildFeedAlertCard(alert) {
 
   const face = document.createElement("div");
   face.className = "cluster-avatar feed-alert-face is-" + family;
+  paintFeedSubjectFace(face, alert);
+
   const meta = document.createElement("div");
   meta.className = "announce-post-meta";
   const name = document.createElement("div");
   name.className = "announce-post-name";
+  name.textContent = feedSubjectLabel(alert);
   const role = document.createElement("div");
   role.className = "announce-post-role";
   role.textContent = FEED_FAMILY_LABELS[family] || family;
-
-  if (family === "moderation" && detail) {
-    paintFeedServerFace(face, detail);
-    name.textContent = detail.server_name || "Server";
-  } else if (alert.sender_id && typeof paintUserFace === "function") {
-    paintUserFace(face, {
-      avatar: alert.sender_avatar,
-      username: alert.sender_username,
-      display_name: alert.sender_display_name,
-    }, { name: feedSenderLabel(alert), userId: alert.sender_id });
-    name.textContent = feedSenderLabel(alert);
-  } else {
-    face.textContent = (FEED_FAMILY_LABELS[family] || "?").charAt(0);
-    name.textContent = alert.sender_id ? feedSenderLabel(alert) : (FEED_FAMILY_LABELS[family] || "Oneira");
-  }
-
   meta.appendChild(name);
   meta.appendChild(role);
 
@@ -339,13 +311,11 @@ function buildFeedAlertCard(alert) {
   titleRow.appendChild(title);
   content.appendChild(titleRow);
 
-  const body = document.createElement("div");
-  body.className = "announce-post-body";
-  if (family === "moderation" && detail) {
-    body.textContent = moderationSentence(alert);
-    content.appendChild(body);
-  } else if (alert.context) {
-    body.textContent = alert.context;
+  const bodyText = feedAlertBody(alert);
+  if (bodyText) {
+    const body = document.createElement("div");
+    body.className = "announce-post-body";
+    body.textContent = bodyText;
     content.appendChild(body);
   }
 

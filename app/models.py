@@ -391,6 +391,9 @@ class Feed_alert(Base):
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     alert_family = Column(String)
     alert_type = Column(String)
+    server_id = Column(String(10), nullable=True)
+    reason = Column(String, nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
     context = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 

@@ -5,7 +5,7 @@ from app.schemas import Doc_save
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
-from app.routers.roles import effective_perms_for_user, require_server_perm
+from app.routers.roles import effective_perms_for_user_in_channel, require_channel_perm
 from app.routers.moderation import require_not_timed_out
 from datetime import datetime
 from html import unescape
@@ -39,16 +39,16 @@ def doc_author_id(page):
         return None
     return getattr(page, "author_id", None)
 
-def can_edit_doc(database, server, user_id, author_id):
-    perms = effective_perms_for_user(database, server, user_id)
+def can_edit_doc(database, server, user_id, author_id, channel_id):
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel_id)
     if perms.get("manage_docs"):
         return True
     return bool(perms.get("create_docs") and (author_id is None or author_id == user_id))
 
-def can_remove_doc(database, server, user_id, author_id):
+def can_remove_doc(database, server, user_id, author_id, channel_id):
     if author_id is None:
         return False
-    perms = effective_perms_for_user(database, server, user_id)
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel_id)
     if user_id == author_id:
         return bool(perms.get("create_docs"))
     return bool(perms.get("remove_docs"))
@@ -63,15 +63,15 @@ def load_doc_context(channel_id, database, current_user, require_view=True):
     if not member:
         raise HTTPException(status_code=404, detail="membership not found")
     if require_view:
-        require_server_perm(database, server, current_user.id, "view_docs", "You do not have permission to view docs.")
+        require_channel_perm(database, server, current_user.id, channel.id, "view_docs", "You do not have permission to view docs.")
     return channel, server, member
 
-def doc_payload_flags(database, server, user_id, page):
+def doc_payload_flags(database, server, user_id, page, channel_id):
     author_id = doc_author_id(page)
     return {
         "author_id": author_id,
-        "can_edit": can_edit_doc(database, server, user_id, author_id),
-        "can_remove": can_remove_doc(database, server, user_id, author_id),
+        "can_edit": can_edit_doc(database, server, user_id, author_id, channel_id),
+        "can_remove": can_remove_doc(database, server, user_id, author_id, channel_id),
     }
 
 async def release_doc_locks(user_id, database):
@@ -98,7 +98,7 @@ def get_doc(channel_id: int, database: Session = Depends(get_db), current_user: 
     if page.editor_id:
         editor = database.query(UserInfo).filter(UserInfo.id == page.editor_id).first()
         editor_username = editor.username if editor else None
-    flags = doc_payload_flags(database, server, current_user.id, page)
+    flags = doc_payload_flags(database, server, current_user.id, page, channel.id)
     return {
         "channel_id": channel.id,
         "content": page.content or "",
@@ -114,7 +114,7 @@ async def lock_doc(channel_id: int, database: Session = Depends(get_db), current
     channel, server, member = load_doc_context(channel_id, database, current_user)
     require_not_timed_out(member)
     page = get_or_create_doc_page(channel.id, database)
-    if not can_edit_doc(database, server, current_user.id, doc_author_id(page)):
+    if not can_edit_doc(database, server, current_user.id, doc_author_id(page), channel.id):
         raise HTTPException(status_code=403, detail="You do not have permission to edit this doc.")
     if page.editor_id and page.editor_id != current_user.id:
         raise HTTPException(status_code=409, detail="Page is being edited")
@@ -155,7 +155,7 @@ async def save_doc(doc: Doc_save, database: Session = Depends(get_db), current_u
     page = database.query(Doc_page).filter(Doc_page.channel_id == channel.id).first()
     if not page or page.editor_id != current_user.id:
         raise HTTPException(status_code=409, detail="You are not editing this page")
-    if not can_edit_doc(database, server, current_user.id, doc_author_id(page)):
+    if not can_edit_doc(database, server, current_user.id, doc_author_id(page), channel.id):
         raise HTTPException(status_code=403, detail="You do not have permission to edit this doc.")
 
     cleaned = sanitize_doc_html(doc.content)
@@ -191,7 +191,7 @@ async def remove_doc(channel_id: int, database: Session = Depends(get_db), curre
     page = database.query(Doc_page).filter(Doc_page.channel_id == channel.id).first()
     if not page:
         raise HTTPException(status_code=404, detail="Doc not found")
-    if not can_remove_doc(database, server, current_user.id, doc_author_id(page)):
+    if not can_remove_doc(database, server, current_user.id, doc_author_id(page), channel.id):
         raise HTTPException(status_code=403, detail="You do not have permission to remove this doc.")
 
     page.content = ""
@@ -215,4 +215,4 @@ async def remove_doc(channel_id: int, database: Session = Depends(get_db), curre
         database=database,
         exclude_user_id=current_user.id
     )
-    return {"channel_id": channel.id, "author_id": None, "can_edit": can_edit_doc(database, server, current_user.id, None), "can_remove": False}
+    return {"channel_id": channel.id, "author_id": None, "can_edit": can_edit_doc(database, server, current_user.id, None, channel.id), "can_remove": False}

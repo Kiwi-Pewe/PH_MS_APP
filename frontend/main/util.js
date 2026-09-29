@@ -141,3 +141,11 @@ function purgeBlockedMessagesFromOpenViews(userId) {
   }
   return changed;
 }
+
+function setHeaderDescription(elementId, text) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const value = (text || "").trim();
+  el.textContent = value;
+  el.hidden = !value;
+}

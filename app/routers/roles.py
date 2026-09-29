@@ -37,13 +37,37 @@ MEMBERS_DEFAULT_PERMS = (
 )
 
 LIVE_CHANNEL_OVERRIDE_PERMS = (
+    "manage_channels",
+    "mention_everyone",
     "read_messages",
     "send_messages",
+    "upload_chat_media",
+    "manage_messages",
+    "view_announcements",
+    "create_announcements",
+    "manage_announcements",
+    "read_forums",
+    "create_topics",
+    "create_topic_replies",
+    "manage_topics",
+    "sticky_topics",
+    "lock_topics",
+    "view_docs",
+    "create_docs",
+    "manage_docs",
+    "remove_docs",
 )
 
 CHANNEL_OVERRIDE_DEFAULTS = {
+    "mention_everyone": True,
     "read_messages": True,
     "send_messages": True,
+    "upload_chat_media": True,
+    "view_announcements": True,
+    "read_forums": True,
+    "create_topics": True,
+    "create_topic_replies": True,
+    "view_docs": True,
 }
 
 

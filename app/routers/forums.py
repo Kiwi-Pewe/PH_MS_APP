@@ -9,7 +9,7 @@ from app.r2 import attachment_public, delete_attachment, delete_r2_object, norma
 from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions, accepted_reply_parent, reply_map_for, reply_to_payload
 from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
-from app.routers.roles import effective_perms_for_user, name_color_role_for_user, name_color_roles_by_user, require_server_perm
+from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, require_channel_perm
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.feed import notify_activity_reply, notify_activity_post_comment
@@ -19,8 +19,8 @@ from datetime import datetime
 router = APIRouter()
 
 
-def require_read_forums(database, server, user_id):
-    return require_server_perm(database, server, user_id, "read_forums", "You do not have permission to read forums.")
+def require_read_forums(database, server, user_id, channel_id):
+    return require_channel_perm(database, server, user_id, channel_id, "read_forums", "You do not have permission to read forums.")
 
 
 def forum_is_sticky(post):
@@ -31,12 +31,12 @@ def forum_is_locked(post):
     return bool(getattr(post, "locked", False))
 
 
-def can_remove_forum_topic(database, server, user_id, author_id):
+def can_remove_forum_topic(database, server, user_id, author_id, channel_id):
     if author_id is None:
         return False
     if user_id == author_id:
         return True
-    return bool(effective_perms_for_user(database, server, user_id).get("manage_topics"))
+    return bool(effective_perms_for_user_in_channel(database, server, user_id, channel_id).get("manage_topics"))
 
 
 def require_topic_unlocked(post):
@@ -56,7 +56,7 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
 
     if not is_member:
         raise HTTPException(status_code=404, detail="membership not found")
-    require_server_perm(database, server, current_user.id, "create_topics", "You do not have permission to create forum topics.")
+    require_channel_perm(database, server, current_user.id, channel_exist.id, "create_topics", "You do not have permission to create forum topics.")
     from app.routers.moderation import require_not_timed_out
     require_not_timed_out(is_member)
 
@@ -102,7 +102,7 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
     is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
     if not is_member:
         raise HTTPException(status_code=404, detail="User is not a member of server")
-    require_read_forums(database, server, current_user.id)
+    require_read_forums(database, server, current_user.id, channel.id)
 
     base = database.query(Forum_post).filter(Forum_post.channel_id == channel.id)
     if before_activity:
@@ -218,7 +218,7 @@ async def delete_forum_post(post_id: int, database: Session = Depends(get_db), c
     is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
     if not is_member:
         raise HTTPException(status_code=404, detail="User is not a member")
-    if not can_remove_forum_topic(database, server, current_user.id, post.author_id):
+    if not can_remove_forum_topic(database, server, current_user.id, post.author_id, channel.id):
         raise HTTPException(status_code=403, detail="You do not have permission to delete this topic.")
 
     author = database.query(UserInfo).filter(UserInfo.id == post.author_id).first()
@@ -262,7 +262,7 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
 
     if not is_member:
         raise HTTPException(status_code= 404, detail="Membership not found")
-    require_server_perm(database, server, current_user.id, "create_topic_replies", "You do not have permission to create topic replies.")
+    require_channel_perm(database, server, current_user.id, channel.id, "create_topic_replies", "You do not have permission to create topic replies.")
     require_topic_unlocked(post_exist)
     from app.routers.moderation import require_not_timed_out
     require_not_timed_out(is_member)
@@ -346,7 +346,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
 
     if not is_member:
         raise HTTPException(status_code=404, detail="Membership not found")
-    require_read_forums(database, server, current_user.id)
+    require_read_forums(database, server, current_user.id, channel.id)
 
     if before_id:
         message_list = database.query(Forum_messages).filter(Forum_messages.post_id == post_id, Forum_messages.id < before_id).order_by(Forum_messages.created_at.desc()).limit(25).all()
@@ -401,7 +401,7 @@ async def sticky_forum(post_id: int, body: Forum_toggle, database: Session = Dep
     is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
     if not is_member:
         raise HTTPException(status_code=404, detail="User is not a member")
-    require_server_perm(database, server, current_user.id, "sticky_topics", "You do not have permission to sticky topics.")
+    require_channel_perm(database, server, current_user.id, channel.id, "sticky_topics", "You do not have permission to sticky topics.")
     post.sticky = bool(body.on)
     database.commit()
     payload = {
@@ -426,7 +426,7 @@ async def lock_forum(post_id: int, body: Forum_toggle, database: Session = Depen
     is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
     if not is_member:
         raise HTTPException(status_code=404, detail="User is not a member")
-    require_server_perm(database, server, current_user.id, "lock_topics", "You do not have permission to lock topics.")
+    require_channel_perm(database, server, current_user.id, channel.id, "lock_topics", "You do not have permission to lock topics.")
     post.locked = bool(body.on)
     database.commit()
     payload = {

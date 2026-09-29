@@ -733,14 +733,29 @@
 .main-view.active { display: flex; }
 
 .view-header {
-  height: 52px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 16px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 700;
-  position: relative;
+  min-height: 52px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 700;
+  position: relative; gap: 12px;
 }
-.header-actions { display: flex; align-items: center; gap: 8px; }
-/* Keeps a header's back-arrow and title together as one left-hand unit,
-   so .view-header's space-between can't split them apart. */
-.header-title-group { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.header-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.header-title-group { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.header-title-stack {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 1.2;
+}
+.header-title-stack > span:first-child {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.header-description {
+  font-size: 12px; font-weight: 500; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chat-pins-btn { margin-left: auto; }
+.chat-pins-btn:disabled {
+  opacity: 0.7; cursor: default; color: var(--text-dim);
+}
+.chat-pins-btn:disabled:hover {
+  color: var(--text-dim); background: transparent;
+}
 .search-box { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--text); width: 160px; }
 .search-box::placeholder { color: var(--text-dim); }
 .pill-btn { background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px; }

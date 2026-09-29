@@ -362,6 +362,7 @@ class Channel_update(BaseModel):
     channel_id: int
     name: str | None = None
     is_private: bool | None = None
+    topic: str | None = None
 
 class Category_update(BaseModel):
     category_id: int

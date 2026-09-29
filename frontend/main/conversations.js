@@ -186,7 +186,9 @@ function resetChatView() {
   document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
   switchMainView("chat");
   document.getElementById("chat-header-title").textContent = "No conversation selected";
-  document.getElementById("chat-header-actions").style.display = "none";
+  if (typeof setHeaderDescription === "function") setHeaderDescription("chat-header-desc", "");
+  const chatActions = document.getElementById("chat-header-actions");
+  if (chatActions) chatActions.hidden = false;
   document.getElementById("chat-messages").style.display = "none";
   document.getElementById("chat-empty").style.display = "flex";
 }
@@ -205,7 +207,9 @@ async function openDirectMessage(id, username) {
   document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
   switchMainView("chat");
   document.getElementById("chat-header-title").textContent = username;
-  document.getElementById("chat-header-actions").style.display = "flex";
+  if (typeof setHeaderDescription === "function") setHeaderDescription("chat-header-desc", "");
+  const chatActions = document.getElementById("chat-header-actions");
+  if (chatActions) chatActions.hidden = false;
   enableComposer();
   ensureConversationPresent(id, username);
   clearUnread("dm", id);
@@ -259,7 +263,9 @@ async function openParty(id, name) {
   document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
   switchMainView("chat");
   document.getElementById("chat-header-title").textContent = name;
-  document.getElementById("chat-header-actions").style.display = "none";
+  if (typeof setHeaderDescription === "function") setHeaderDescription("chat-header-desc", "");
+  const chatActions = document.getElementById("chat-header-actions");
+  if (chatActions) chatActions.hidden = false;
   enableComposer();
   clearUnread("party", id);
 

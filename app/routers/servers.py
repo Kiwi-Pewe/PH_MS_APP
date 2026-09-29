@@ -256,6 +256,14 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                     if not channel_type_visible(channel_perms, channel.channel_type):
                         continue
                     notice = channel_notice(database, channel.id, current_user.id)
+                    live_flags = {key: bool(channel_perms.get(key)) for key in (
+                        "manage_channels", "mention_everyone",
+                        "read_messages", "send_messages", "upload_chat_media", "manage_messages",
+                        "view_announcements", "create_announcements", "manage_announcements",
+                        "read_forums", "create_topics", "create_topic_replies", "manage_topics",
+                        "sticky_topics", "lock_topics",
+                        "view_docs", "create_docs", "manage_docs", "remove_docs",
+                    )}
                     channel_info.append({
                         "id": channel.id,
                         "category_id": channel.category_id,
@@ -263,10 +271,12 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         "channel_type": channel.channel_type,
                         "position": channel.position,
                         "is_private": channel.is_private,
+                        "topic": getattr(channel, "topic", None) or "",
                         "unread": notice["unread"],
                         "mention_count": notice["mention_count"],
                         "can_read": bool(channel_perms.get("read_messages")),
                         "can_send": bool(channel_perms.get("send_messages")),
+                        "permissions": live_flags,
                     })
 
             server_info.append({"id": category.id, "name": category.name, "position": category.position, "is_private": category.is_private, "channels": channel_info})
@@ -633,7 +643,7 @@ async def message_server_channel(server_msg: Server_message, database: Session =
         raise HTTPException(status_code=404, detail= "Server membership not found.")
     require_channel_perm(database, server, current_user.id, channel.id, "send_messages", "You do not have permission to send messages in this channel.")
     if server_msg.attachment:
-        require_server_perm(database, server, current_user.id, "upload_chat_media", "You do not have permission to upload media.")
+        require_channel_perm(database, server, current_user.id, channel.id, "upload_chat_media", "You do not have permission to upload media.")
     require_not_timed_out(is_member)
 
     require_message_body(server_msg.content, server_msg.attachment)
@@ -772,7 +782,7 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
     payload = {
         "type": "channel_created",
         "server_id": server.id,
-        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "category_id": new_channel.category_id}
+        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "topic": "", "category_id": new_channel.category_id}
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return "success"
@@ -999,8 +1009,8 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     server = require_server_member(database, category.server_id, current_user.id)
-    require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
-    if body.name is None and body.is_private is None:
+    require_channel_perm(database, server, current_user.id, channel.id, "manage_channels", "You do not have permission to manage this channel.")
+    if body.name is None and body.is_private is None and body.topic is None:
         raise HTTPException(status_code=400, detail="Nothing to update")
     if body.name is not None:
         name = (body.name or "").strip()
@@ -1011,6 +1021,11 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
         channel.name = name
     if body.is_private is not None:
         channel.is_private = bool(body.is_private)
+    if body.topic is not None:
+        topic = (body.topic or "").strip()
+        if len(topic) > 1024:
+            topic = topic[:1024]
+        channel.topic = topic or None
     database.commit()
     database.refresh(channel)
     payload = {
@@ -1022,6 +1037,7 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
             "channel_type": channel.channel_type,
             "position": channel.position,
             "is_private": bool(channel.is_private),
+            "topic": getattr(channel, "topic", None) or "",
             "category_id": channel.category_id,
         },
     }

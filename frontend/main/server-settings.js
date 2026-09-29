@@ -8,6 +8,26 @@ function canServerPerm(perm) {
   return !!(currentServerPerms && currentServerPerms[perm]);
 }
 
+function findCurrentServerChannel() {
+  if (!currentServerData || currentChannelId == null) return null;
+  for (const category of currentServerData.categories || []) {
+    const channel = (category.channels || []).find((row) => Number(row.id) === Number(currentChannelId));
+    if (channel) return channel;
+  }
+  return null;
+}
+
+function channelPerm(perm, channel) {
+  if (currentServerOwnerId === myUserId) return true;
+  const target = channel || findCurrentServerChannel();
+  if (target && target.permissions && Object.prototype.hasOwnProperty.call(target.permissions, perm)) {
+    return !!target.permissions[perm];
+  }
+  if (target && perm === "read_messages" && target.can_read != null) return !!target.can_read;
+  if (target && perm === "send_messages" && target.can_send != null) return !!target.can_send;
+  return canServerPerm(perm);
+}
+
 function canUpdateServer() {
   return canServerPerm("update_server");
 }
@@ -86,85 +106,75 @@ function canManageChannels() {
 }
 
 function canMentionEveryone() {
-  return canServerPerm("mention_everyone");
+  return channelPerm("mention_everyone");
 }
 
 function canViewAnnouncements() {
-  return canServerPerm("view_announcements");
+  return channelPerm("view_announcements");
 }
 
 function canCreateAnnouncements() {
-  return canServerPerm("create_announcements");
+  return channelPerm("create_announcements");
 }
 
 function canManageAnnouncements() {
-  return canServerPerm("manage_announcements");
+  return channelPerm("manage_announcements");
 }
 
 function canReadForums() {
-  return canServerPerm("read_forums");
+  return channelPerm("read_forums");
 }
 
 function canCreateTopics() {
-  return canServerPerm("create_topics");
+  return channelPerm("create_topics");
 }
 
 function canCreateTopicReplies() {
-  return canServerPerm("create_topic_replies");
+  return channelPerm("create_topic_replies");
 }
 
 function canManageTopics() {
-  return canServerPerm("manage_topics");
+  return channelPerm("manage_topics");
 }
 
 function canStickyTopics() {
-  return canServerPerm("sticky_topics");
+  return channelPerm("sticky_topics");
 }
 
 function canLockTopics() {
-  return canServerPerm("lock_topics");
+  return channelPerm("lock_topics");
 }
 
 function canReadMessages() {
-  if (currentServerOwnerId === myUserId) return true;
-  if (typeof findCurrentServerChannel === "function") {
-    const channel = findCurrentServerChannel();
-    if (channel && channel.can_read != null) return !!channel.can_read;
-  }
-  return canServerPerm("read_messages");
+  return channelPerm("read_messages");
 }
 
 function canSendMessages() {
-  if (currentServerOwnerId === myUserId) return true;
-  if (typeof findCurrentServerChannel === "function") {
-    const channel = findCurrentServerChannel();
-    if (channel && channel.can_send != null) return !!channel.can_send;
-  }
-  return canServerPerm("send_messages");
+  return channelPerm("send_messages");
 }
 
 function canUploadChatMedia() {
-  return canServerPerm("upload_chat_media");
+  return channelPerm("upload_chat_media");
 }
 
 function canManageMessages() {
-  return canServerPerm("manage_messages");
+  return channelPerm("manage_messages");
 }
 
 function canViewDocs() {
-  return canServerPerm("view_docs");
+  return channelPerm("view_docs");
 }
 
 function canCreateDocs() {
-  return canServerPerm("create_docs");
+  return channelPerm("create_docs");
 }
 
 function canManageDocs() {
-  return canServerPerm("manage_docs");
+  return channelPerm("manage_docs");
 }
 
 function canRemoveDocs() {
-  return canServerPerm("remove_docs");
+  return channelPerm("remove_docs");
 }
 
 function applyServerPerms(perms, highestRole, timeoutUntil) {

@@ -8,7 +8,7 @@ from app.r2 import delete_attachment, delete_r2_object, normalize_post_attachmen
 from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions
 from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
-from app.routers.roles import effective_perms_for_user, name_color_role_for_user, name_color_roles_by_user, require_server_perm
+from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, require_channel_perm
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.feed import notify_activity_post_comment
@@ -16,19 +16,19 @@ from app.routers.feed import notify_activity_post_comment
 router = APIRouter()
 
 
-def require_view_announcements(database, server, user_id):
-    return require_server_perm(database, server, user_id, "view_announcements", "You do not have permission to view announcements.")
+def require_view_announcements(database, server, user_id, channel_id):
+    return require_channel_perm(database, server, user_id, channel_id, "view_announcements", "You do not have permission to view announcements.")
 
 
-def can_remove_announcement(database, server, user_id, sender_id):
-    perms = effective_perms_for_user(database, server, user_id)
+def can_remove_announcement(database, server, user_id, sender_id, channel_id):
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel_id)
     if perms.get("manage_announcements"):
         return True
     return user_id == sender_id and bool(perms.get("create_announcements"))
 
 
-def can_edit_own_announcement(database, server, user_id):
-    perms = effective_perms_for_user(database, server, user_id)
+def can_edit_own_announcement(database, server, user_id, channel_id):
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel_id)
     return bool(perms.get("create_announcements") or perms.get("manage_announcements"))
 
 
@@ -40,7 +40,7 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
 
     category = database.query(Server_categories).filter(Server_categories.id == channel_found.category_id).first()
     server = database.query(Servers).filter(Servers.id == category.server_id).first()
-    require_server_perm(database, server, current_user.id, "create_announcements", "You do not have permission to create announcements.")
+    require_channel_perm(database, server, current_user.id, channel_found.id, "create_announcements", "You do not have permission to create announcements.")
 
     items = normalize_post_attachments(announcement.attachments, announcement.attachment)
     require_post_body(announcement.title, announcement.body, items)
@@ -82,7 +82,7 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
 
     if not is_member:
         raise HTTPException(status_code=404, detail="Membership not found")
-    require_view_announcements(database, server, current_user.id)
+    require_view_announcements(database, server, current_user.id, correct_channel.id)
 
     if before_id:
         post_history = database.query(Announcement_post).filter(Announcement_post.channel_id == channel_id, Announcement_post.id < before_id).order_by(Announcement_post.created_at.desc()).limit(25).all()
@@ -133,7 +133,7 @@ async def post_comment(comment: Comment_create, database: Session = Depends(get_
 
     if not is_member:
         raise HTTPException(status_code=404, detail="membership not found")
-    require_view_announcements(database, server, current_user.id)
+    require_view_announcements(database, server, current_user.id, channel.id)
     from app.routers.moderation import require_not_timed_out
     require_not_timed_out(is_member)
 
@@ -183,7 +183,7 @@ def get_post_comments(post_id: int, database: Session = Depends(get_db), current
 
     if not is_member:
         raise HTTPException(status_code=404, detail="membership not found")
-    require_view_announcements(database, server, current_user.id)
+    require_view_announcements(database, server, current_user.id, channel.id)
 
     if after_id:
         comment_history = database.query(Announcement_comment).filter(Announcement_comment.post_id == post_id, Announcement_comment.id > after_id).order_by(Announcement_comment.id.asc()).limit(limit).all()
@@ -270,7 +270,7 @@ async def delete_post(post_id: int,database: Session = Depends(get_db), current_
 
     if not is_member:
         raise HTTPException(status_code=404, detail="User is not a member")
-    if not can_remove_announcement(database, server, current_user.id, post_exist.sender_id):
+    if not can_remove_announcement(database, server, current_user.id, post_exist.sender_id, channel.id):
         raise HTTPException(status_code=403, detail="You do not have permission to delete this announcement.")
 
     author = database.query(UserInfo).filter(UserInfo.id == post_exist.sender_id).first()
@@ -316,7 +316,7 @@ async def edit_announcement(edit: Edit_announcement, database: Session = Depends
         raise HTTPException(status_code=404, detail="User is not a member")
     if current_user.id != post.sender_id:
         raise HTTPException(status_code=403, detail="Not authorized to edit post")
-    if not can_edit_own_announcement(database, server, current_user.id):
+    if not can_edit_own_announcement(database, server, current_user.id, channel.id):
         raise HTTPException(status_code=403, detail="You do not have permission to edit this announcement.")
 
     title = edit.title.strip()

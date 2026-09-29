@@ -304,6 +304,15 @@ def ensure_server_columns():
             conn.rollback()
 
 
+def ensure_channel_columns():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE server_channels ADD COLUMN topic VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_role_columns():
     with engine.connect() as conn:
         try:

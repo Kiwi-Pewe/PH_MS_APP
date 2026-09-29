@@ -166,8 +166,8 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
         if not is_member:
             raise HTTPException(status_code=404, detail="No message found")
-        from app.routers.roles import require_server_perm
-        require_server_perm(database, server, current_user.id, "read_forums", "You do not have permission to read forums.")
+        from app.routers.roles import require_channel_perm
+        require_channel_perm(database, server, current_user.id, channel.id, "read_forums", "You do not have permission to read forums.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
         added = toggle_reaction_row(database, "forum", msg.id, current_user.id, emoji)
@@ -203,8 +203,8 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
         if not is_member:
             raise HTTPException(status_code=404, detail="No message found")
-        from app.routers.roles import require_server_perm
-        require_server_perm(database, server, current_user.id, "view_announcements", "You do not have permission to view announcements.")
+        from app.routers.roles import require_channel_perm
+        require_channel_perm(database, server, current_user.id, channel.id, "view_announcements", "You do not have permission to view announcements.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
         added = toggle_reaction_row(database, "announcement", post.id, current_user.id, emoji)
@@ -239,8 +239,8 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
         if not is_member:
             raise HTTPException(status_code=404, detail="No message found")
-        from app.routers.roles import require_server_perm
-        require_server_perm(database, server, current_user.id, "read_forums", "You do not have permission to read forums.")
+        from app.routers.roles import require_channel_perm
+        require_channel_perm(database, server, current_user.id, channel.id, "read_forums", "You do not have permission to read forums.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
         added = toggle_reaction_row(database, "forum_post", post.id, current_user.id, emoji)
@@ -278,8 +278,8 @@ async def react_message(target: React_message, database: Session = Depends(get_d
         is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
         if not is_member:
             raise HTTPException(status_code=404, detail="No message found")
-        from app.routers.roles import require_server_perm
-        require_server_perm(database, server, current_user.id, "view_announcements", "You do not have permission to view announcements.")
+        from app.routers.roles import require_channel_perm
+        require_channel_perm(database, server, current_user.id, channel.id, "view_announcements", "You do not have permission to view announcements.")
         from app.routers.moderation import require_not_timed_out
         require_not_timed_out(is_member)
         added = toggle_reaction_row(database, "comment", comment.id, current_user.id, emoji)

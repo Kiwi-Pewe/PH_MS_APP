@@ -1,10 +1,18 @@
 let channelSettingsKind = null;
 let channelSettingsTarget = null;
 let channelSettingsSavedName = "";
+let channelSettingsSavedTopic = "";
 let channelSettingsSavedPrivate = false;
 let channelSettingsPermRoleId = "members";
 let channelSettingsPermDisplay = {};
-let channelSettingsPermLive = ["read_messages", "send_messages"];
+let channelSettingsPermLive = [
+  "manage_channels", "mention_everyone",
+  "read_messages", "send_messages", "upload_chat_media", "manage_messages",
+  "view_announcements", "create_announcements", "manage_announcements",
+  "read_forums", "create_topics", "create_topic_replies", "manage_topics",
+  "sticky_topics", "lock_topics",
+  "view_docs", "create_docs", "manage_docs", "remove_docs",
+];
 let channelSettingsPermLoading = false;
 let channelSettingsPermSaving = {};
 
@@ -17,8 +25,15 @@ const CHANNEL_SETTINGS_GENERAL_IDS = [
 ];
 
 const CHANNEL_SETTINGS_LIVE_DEFAULTS = {
+  mention_everyone: true,
   read_messages: true,
   send_messages: true,
+  upload_chat_media: true,
+  view_announcements: true,
+  read_forums: true,
+  create_topics: true,
+  create_topic_replies: true,
+  view_docs: true,
 };
 const CHANNEL_SETTINGS_PERM_COPY = {
   manage_channels: {
@@ -410,9 +425,9 @@ function paintChannelSettingsPermBody() {
     heading.textContent = group.title;
     section.appendChild(heading);
     (group.rows || []).forEach((row) => {
-      const live = channelSettingsPermIsLive(row.id);
+      const live = channelSettingsPermIsLive(row.id) && !row.later;
       const line = document.createElement("div");
-      line.className = "channel-perms-row" + (!live || row.later ? " is-later" : "");
+      line.className = "channel-perms-row" + (!live ? " is-later" : "");
       const text = document.createElement("div");
       text.className = "channel-perms-row-text";
       const name = document.createElement("div");
@@ -518,7 +533,7 @@ function paintChannelSettingsPermissions() {
   if (blurb) {
     blurb.textContent = channelSettingsKind === "category"
       ? "Category permission packs come later. Channel overrides are edited on each channel."
-      : "Choose a role, then set what that role can do in this channel. View and type are live — defaults follow each role (Members starts on). Any role that says yes wins.";
+      : "Choose a role, then set what that role can do in this channel. Live rows save for this channel. Defaults follow each role (Members starts with view/participate on). Any role that says yes wins.";
   }
   const sync = document.getElementById("channel-settings-perms-sync");
   if (sync) sync.hidden = channelSettingsKind === "category";
@@ -614,6 +629,27 @@ function syncChannelSettingsName(name) {
   const actions = document.getElementById("channel-settings-name-actions");
   if (actions) actions.hidden = true;
   setChannelSettingsNameStatus("");
+}
+
+function setChannelSettingsTopicStatus(message) {
+  const el = document.getElementById("channel-settings-topic-status");
+  if (!el) return;
+  if (!message) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.hidden = false;
+  el.textContent = message;
+}
+
+function syncChannelSettingsTopic(topic) {
+  channelSettingsSavedTopic = topic || "";
+  const input = document.getElementById("channel-settings-topic");
+  if (input) input.value = channelSettingsSavedTopic;
+  const actions = document.getElementById("channel-settings-topic-actions");
+  if (actions) actions.hidden = true;
+  setChannelSettingsTopicStatus("");
 }
 
 function paintChannelSettingsPrivate() {
@@ -722,6 +758,37 @@ function cancelChannelSettingsName() {
   syncChannelSettingsName(channelSettingsSavedName);
 }
 
+async function saveChannelSettingsTopic() {
+  if (channelSettingsKind !== "channel" || !channelSettingsTarget) return;
+  const input = document.getElementById("channel-settings-topic");
+  const topic = ((input && input.value) || "").trim();
+  if (topic === channelSettingsSavedTopic) {
+    syncChannelSettingsTopic(topic);
+    return;
+  }
+  try {
+    const data = await postChannelSettings("/update_channel", {
+      channel_id: channelSettingsTarget.id,
+      topic,
+    });
+    applyChannelUpdated(data.channel || {
+      id: channelSettingsTarget.id,
+      topic,
+      name: channelSettingsTarget.name,
+      is_private: channelSettingsSavedPrivate,
+      category_id: channelSettingsTarget.category_id,
+      channel_type: channelSettingsTarget.channel_type,
+    });
+    syncChannelSettingsTopic(topic);
+  } catch (err) {
+    setChannelSettingsTopicStatus(err.message || "Could not save.");
+  }
+}
+
+function cancelChannelSettingsTopic() {
+  syncChannelSettingsTopic(channelSettingsSavedTopic);
+}
+
 function applyChannelUpdated(channel) {
   if (!channel || !currentServerData) return;
   const live = findChannelSettingsChannel(channel.id);
@@ -730,21 +797,27 @@ function applyChannelUpdated(channel) {
     if (channel.is_private != null) live.is_private = !!channel.is_private;
     if (channel.position != null) live.position = channel.position;
     if (channel.category_id != null) live.category_id = channel.category_id;
+    if (channel.topic != null) live.topic = channel.topic || "";
   }
   if (channelSettingsKind === "channel" && channelSettingsTarget && Number(channelSettingsTarget.id) === Number(channel.id)) {
     channelSettingsTarget = live || Object.assign({}, channelSettingsTarget, channel);
     channelSettingsSavedName = channelSettingsTarget.name || "";
     channelSettingsSavedPrivate = !!channelSettingsTarget.is_private;
+    channelSettingsSavedTopic = channelSettingsTarget.topic || "";
     paintChannelSettingsShell();
     syncChannelSettingsName(channelSettingsSavedName);
+    syncChannelSettingsTopic(channelSettingsSavedTopic);
   }
   if (currentChannelId && Number(currentChannelId) === Number(channel.id)) {
     currentChannelName = channel.name || currentChannelName;
     const title = document.getElementById("channel-header-title");
-    if (title && channel.name) {
+    if (title && channel.name && !openForumPostId) {
       const isVoice = channel.channel_type === "voice";
       const isDoc = channel.channel_type === "doc";
       title.textContent = (isVoice || isDoc) ? channel.name : `#${channel.name}`;
+    }
+    if (channel.topic != null && typeof setHeaderDescription === "function") {
+      setHeaderDescription("channel-header-desc", channel.topic || "");
     }
   }
   renderServerSidebar(currentServerData);
@@ -789,8 +862,7 @@ function openChannelSettings(kind, target) {
   paintChannelSettingsPrivate();
   paintChannelSettingsPermissions();
   if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
-  const topic = document.getElementById("channel-settings-topic");
-  if (topic) topic.value = "";
+  syncChannelSettingsTopic(channelSettingsKind === "channel" ? (target.topic || "") : "");
   const overlay = document.getElementById("channel-settings-overlay");
   if (overlay) overlay.hidden = false;
 }
@@ -810,7 +882,9 @@ function closeChannelSettingsChrome() {
   const overlay = document.getElementById("channel-settings-overlay");
   if (overlay) overlay.hidden = true;
   cancelChannelSettingsName();
+  cancelChannelSettingsTopic();
   setChannelSettingsNameStatus("");
+  setChannelSettingsTopicStatus("");
 }
 
 document.getElementById("channel-settings-close").addEventListener("click", () => {
@@ -839,6 +913,22 @@ document.getElementById("channel-settings-name-confirm").addEventListener("click
 
 document.getElementById("channel-settings-name-cancel").addEventListener("click", () => {
   cancelChannelSettingsName();
+});
+
+document.getElementById("channel-settings-topic").addEventListener("input", () => {
+  const input = document.getElementById("channel-settings-topic");
+  const actions = document.getElementById("channel-settings-topic-actions");
+  if (!input || !actions) return;
+  actions.hidden = input.value.trim() === channelSettingsSavedTopic;
+  setChannelSettingsTopicStatus("");
+});
+
+document.getElementById("channel-settings-topic-confirm").addEventListener("click", () => {
+  saveChannelSettingsTopic();
+});
+
+document.getElementById("channel-settings-topic-cancel").addEventListener("click", () => {
+  cancelChannelSettingsTopic();
 });
 
 document.getElementById("channel-settings-delete").addEventListener("click", () => {

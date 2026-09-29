@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=196">
+<link rel="stylesheet" href="app.css?v=197">
 </head>
 <body>
 
@@ -150,13 +150,16 @@
 
       <div class="main-view" id="view-chat">
         <div class="view-header">
-          <span id="chat-header-title">No conversation selected</span>
-          <!-- Hidden while no conversation is open; openDirectMessage/
-               resetChatView toggle this alongside the rest of the panel. -->
-          <div class="header-actions" id="chat-header-actions" style="display:none;">
-            <button class="icon-btn" title="Call (coming soon)">Call</button>
-            <button class="icon-btn" title="Pinned messages (coming soon)">Pins</button>
-            <button class="icon-btn" title="Chat settings (coming soon)">&#8942;</button>
+          <div class="header-title-group">
+            <div class="header-title-stack">
+              <span id="chat-header-title">No conversation selected</span>
+              <span id="chat-header-desc" class="header-description" hidden></span>
+            </div>
+          </div>
+          <div class="header-actions" id="chat-header-actions">
+            <button type="button" class="icon-btn" id="chat-call-btn" title="Call (coming soon)" hidden>Call</button>
+            <button type="button" class="icon-btn chat-pins-btn" id="chat-pins-btn" title="Pinned messages" disabled>Pins</button>
+            <button type="button" class="icon-btn" id="chat-overflow-btn" title="Chat settings (coming soon)" hidden>&#8942;</button>
           </div>
         </div>
         <div id="chat-body">
@@ -195,22 +198,19 @@
            voice UI yet. -->
       <div class="main-view" id="view-channel">
         <div class="view-header">
-          <!-- Grouped, not two direct children: .view-header is
-               space-between, which would throw the title to the far right
-               the moment anything sat beside it. -->
           <div class="header-title-group">
-            <!-- Only visible while a forum thread has borrowed this view
-                 (openForumPost). A thread replaces the card list in the
-                 same panel rather than opening beside it, so this arrow
-                 is the only way back — matching how Guilded does it. -->
             <button class="icon-btn" id="forum-back-btn" style="display:none;" title="Back to posts">&#8592;</button>
-            <span id="channel-header-title">No channel selected</span>
+            <div class="header-title-stack">
+              <span id="channel-header-title">No channel selected</span>
+              <span id="channel-header-desc" class="header-description" hidden></span>
+            </div>
           </div>
           <div id="docs-editing-banner" style="display:none;"></div>
-          <div class="header-actions" id="docs-header-actions">
+          <div class="header-actions" id="channel-header-actions">
             <button class="pill-btn" id="docs-remove-btn" style="display:none;">Remove</button>
             <button class="pill-btn" id="docs-save-btn" style="display:none;">Save</button>
             <button class="icon-btn" id="docs-mode-btn" style="display:none;">View</button>
+            <button type="button" class="icon-btn chat-pins-btn" id="channel-pins-btn" title="Pinned messages" disabled>Pins</button>
           </div>
         </div>
         <div id="channel-body">
@@ -882,9 +882,14 @@
           <p id="channel-settings-name-status" class="server-settings-help" hidden></p>
         </div>
         <div class="server-settings-field is-channel-only" id="channel-settings-topic-field">
-          <label class="server-settings-field-title" for="channel-settings-topic">Channel Topic</label>
-          <textarea id="channel-settings-topic" class="server-settings-input server-settings-textarea" rows="5" maxlength="1024" placeholder="Let everyone know how to use this channel!" disabled></textarea>
-          <p class="server-settings-help">Topic isn’t wired yet.</p>
+          <label class="server-settings-field-title" for="channel-settings-topic">Description</label>
+          <textarea id="channel-settings-topic" class="server-settings-input server-settings-textarea" rows="5" maxlength="1024" placeholder="Let everyone know how to use this channel!"></textarea>
+          <div id="channel-settings-topic-actions" class="server-settings-name-actions" hidden>
+            <button type="button" id="channel-settings-topic-confirm" class="settings-row-btn">Confirm</button>
+            <button type="button" id="channel-settings-topic-cancel" class="ghost-btn">Cancel</button>
+          </div>
+          <p id="channel-settings-topic-status" class="server-settings-help" hidden></p>
+          <p class="server-settings-help">Shown under the channel name in the chat header.</p>
         </div>
         <div class="server-settings-field is-channel-only" id="channel-settings-slowmode-field">
           <label class="server-settings-field-title" for="channel-settings-slowmode">Slowmode</label>
@@ -1378,14 +1383,14 @@
 <script src="appearance.js?v=5"></script>
 <script src="accessibility.js?v=11"></script>
 <script src="language-time.js?v=1"></script>
-<script src="util.js?v=50"></script>
+<script src="util.js?v=51"></script>
 <script src="media.js?v=57"></script>
 <script src="post-media.js?v=54"></script>
 <script src="boot.js?v=92"></script>
 <script src="app-shell.js?v=65"></script>
 <script src="feed.js?v=15"></script>
 <script src="settings.js?v=19"></script>
-<script src="server-settings.js?v=32"></script>
+<script src="server-settings.js?v=33"></script>
 <script src="server-roles.js?v=17"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
@@ -1413,7 +1418,7 @@
 <script src="profile-identity.js?v=8"></script>
 <script src="profile-edit.js?v=66"></script>
 <script src="context-menus.js?v=86"></script>
-<script src="conversations.js?v=58"></script>
+<script src="conversations.js?v=59"></script>
 <script src="chat-render.js?v=64"></script>
 <script src="chat-history.js?v=51"></script>
 <script src="chat-compose.js?v=61"></script>
@@ -1435,9 +1440,9 @@
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=12"></script>
-<script src="servers.js?v=90"></script>
+<script src="servers.js?v=92"></script>
 <script src="server-dnd.js?v=1"></script>
-<script src="channel-settings.js?v=5"></script>
+<script src="channel-settings.js?v=7"></script>
 <script src="members.js?v=12"></script>
 <script src="mini-profile.js?v=10"></script>
 <script src="server-modals.js?v=48"></script>

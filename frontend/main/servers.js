@@ -447,6 +447,9 @@ async function selectChannel(channel, rowEl) {
   const isDoc = channel.channel_type === "doc";
   const label = (isVoice || isDoc) ? channel.name : `#${channel.name}`;
   document.getElementById("channel-header-title").textContent = label;
+  if (typeof setHeaderDescription === "function") {
+    setHeaderDescription("channel-header-desc", channel.topic || "");
+  }
 
   const channelEmpty = document.getElementById("channel-empty");
   const channelMessages = document.getElementById("channel-messages");
@@ -573,6 +576,7 @@ function showNoChannelSelected() {
   document.getElementById("channel-body").style.display = "flex";
   document.getElementById("channel-composer").style.display = "block";
   document.getElementById("channel-header-title").textContent = "No channels yet";
+  if (typeof setHeaderDescription === "function") setHeaderDescription("channel-header-desc", "");
   document.getElementById("channel-messages").style.display = "none";
   document.getElementById("channel-empty").style.display = "flex";
   document.getElementById("channel-empty-badge").textContent = "#";
@@ -581,30 +585,26 @@ function showNoChannelSelected() {
   disableChannelComposer("No channel selected.");
 }
 
-function findCurrentServerChannel() {
-  if (!currentServerData || currentChannelId == null) return null;
-  for (const category of currentServerData.categories || []) {
-    const channel = (category.channels || []).find((row) => Number(row.id) === Number(currentChannelId));
-    if (channel) return channel;
-  }
-  return null;
-}
-
 function channelVisibleInSidebar(channel) {
   if (!channel) return false;
+  if (currentServerOwnerId === myUserId) return true;
+  const perms = channel.permissions || {};
   if (channel.channel_type === "announcements") {
-    return typeof canViewAnnouncements !== "function" || canViewAnnouncements();
+    if (Object.prototype.hasOwnProperty.call(perms, "view_announcements")) return !!perms.view_announcements;
+    return typeof canServerPerm !== "function" || canServerPerm("view_announcements");
   }
   if (channel.channel_type === "forums") {
-    return typeof canReadForums !== "function" || canReadForums();
+    if (Object.prototype.hasOwnProperty.call(perms, "read_forums")) return !!perms.read_forums;
+    return typeof canServerPerm !== "function" || canServerPerm("read_forums");
   }
   if (channel.channel_type === "text") {
-    if (currentServerOwnerId === myUserId) return true;
+    if (Object.prototype.hasOwnProperty.call(perms, "read_messages")) return !!perms.read_messages;
     if (channel.can_read != null) return !!channel.can_read;
     return typeof canServerPerm !== "function" || canServerPerm("read_messages");
   }
   if (channel.channel_type === "doc") {
-    return typeof canViewDocs !== "function" || canViewDocs();
+    if (Object.prototype.hasOwnProperty.call(perms, "view_docs")) return !!perms.view_docs;
+    return typeof canServerPerm !== "function" || canServerPerm("view_docs");
   }
   return true;
 }

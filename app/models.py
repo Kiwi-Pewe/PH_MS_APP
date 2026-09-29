@@ -242,6 +242,7 @@ class Server_channels(Base):
     channel_type = Column(String)
     position = Column(Integer)
     is_private = Column(Boolean, default=False)
+    topic = Column(String, nullable=True)
 
 class Channel_messages(Base):
     __tablename__ = "channel_messages"

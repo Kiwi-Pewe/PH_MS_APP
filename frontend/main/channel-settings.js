@@ -12,6 +12,217 @@ const CHANNEL_SETTINGS_GENERAL_IDS = [
   "bypass_slowmode",
 ];
 
+const CHANNEL_SETTINGS_PERM_COPY = {
+  manage_channels: {
+    title: "Manage Channel",
+    desc: "Allows changing this channel's name and topic.",
+  },
+  manage_webhooks: {
+    title: "Manage Webhooks",
+    desc: "Allows creating, editing, or deleting webhooks for this channel.",
+  },
+  mention_everyone: {
+    title: "Mention @everyone and @here",
+    desc: "Allows using @everyone and @here in this channel.",
+  },
+  moderate_channels: {
+    title: "Access moderator view",
+    desc: "Allows seeing private replies in this channel.",
+  },
+  bypass_slowmode: {
+    title: "Slowmode exception",
+    desc: "Exempt from slowmode in this channel.",
+  },
+  read_messages: {
+    title: "Read messages",
+    desc: "Allows reading messages in this channel.",
+  },
+  send_messages: {
+    title: "Send messages",
+    desc: "Allows sending messages in this channel.",
+  },
+  upload_chat_media: {
+    title: "Upload media",
+    desc: "Allows uploading images and videos in this channel.",
+  },
+  create_chat_threads: {
+    title: "Create threads",
+    desc: "Allows creating threads in this channel.",
+  },
+  reply_chat_threads: {
+    title: "Send messages in threads",
+    desc: "Allows replying to threads in this channel.",
+  },
+  private_messages: {
+    title: "Send private messages",
+    desc: "Allows private replies in this channel.",
+  },
+  manage_messages: {
+    title: "Manage messages",
+    desc: "Allows deleting others' messages or pinning messages in this channel.",
+  },
+  manage_chat_threads: {
+    title: "Manage threads",
+    desc: "Allows archiving and restoring threads in this channel.",
+  },
+  view_announcements: {
+    title: "View announcements",
+    desc: "Allows viewing announcements in this channel.",
+  },
+  create_announcements: {
+    title: "Create and remove announcements",
+    desc: "Allows creating and removing announcements in this channel.",
+  },
+  manage_announcements: {
+    title: "Manage announcements",
+    desc: "Allows deleting others' announcements or pinning in this channel.",
+  },
+  read_forums: {
+    title: "Read forums",
+    desc: "Allows reading topics in this channel.",
+  },
+  create_topics: {
+    title: "Create forum topics",
+    desc: "Allows creating topics in this channel.",
+  },
+  create_topic_replies: {
+    title: "Create topic replies",
+    desc: "Allows replying to topics in this channel.",
+  },
+  manage_topics: {
+    title: "Manage topics",
+    desc: "Allows removing others' topics and replies in this channel.",
+  },
+  sticky_topics: {
+    title: "Sticky topics",
+    desc: "Allows stickying a topic in this channel.",
+  },
+  lock_topics: {
+    title: "Lock topics",
+    desc: "Allows locking a topic in this channel.",
+  },
+  view_docs: {
+    title: "View docs",
+    desc: "Allows viewing docs in this channel.",
+  },
+  create_docs: {
+    title: "Create docs",
+    desc: "Allows creating docs in this channel.",
+  },
+  manage_docs: {
+    title: "Manage docs",
+    desc: "Allows updating others' docs in this channel.",
+  },
+  remove_docs: {
+    title: "Remove docs",
+    desc: "Allows removing others' docs in this channel.",
+  },
+  see_media: {
+    title: "See media",
+    desc: "Allows seeing media in this channel.",
+  },
+  create_media: {
+    title: "Create media",
+    desc: "Allows adding media in this channel.",
+  },
+  manage_media: {
+    title: "Manage media",
+    desc: "Allows editing others' media in this channel.",
+  },
+  remove_media: {
+    title: "Remove media",
+    desc: "Allows removing others' media in this channel.",
+  },
+  hear_voice: {
+    title: "Hear voice",
+    desc: "Allows listening in this voice channel.",
+  },
+  talk_voice: {
+    title: "Add voice",
+    desc: "Allows talking in this voice channel.",
+  },
+  manage_voice_rooms: {
+    title: "Manage Voice Rooms",
+    desc: "Allows creating, renaming, and deleting rooms in this voice channel.",
+  },
+  move_voice: {
+    title: "Move members",
+    desc: "Allows moving members in this voice channel.",
+  },
+  broadcast_voice: {
+    title: "Broadcast",
+    desc: "Allows broadcasting voice in this channel.",
+  },
+  whisper_voice: {
+    title: "Whisper",
+    desc: "Allows directing voice to specific users in this channel.",
+  },
+  priority_speaker: {
+    title: "Priority speaker",
+    desc: "Allows prioritizing your voice in this channel.",
+  },
+  voice_activity: {
+    title: "Use voice activity",
+    desc: "Allows voice activity input in this channel.",
+  },
+  mute_members: {
+    title: "Mute members",
+    desc: "Allows muting members in this voice channel.",
+  },
+  deafen_members: {
+    title: "Deafen members",
+    desc: "Allows deafening members in this voice channel.",
+  },
+  voice_messages: {
+    title: "Send messages",
+    desc: "Allows sending chat messages in this voice channel.",
+  },
+  view_list: {
+    title: "View list items",
+    desc: "Allows viewing list items in this channel.",
+  },
+  create_list: {
+    title: "Create list items",
+    desc: "Allows creating list items in this channel.",
+  },
+  manage_list: {
+    title: "Manage list item messages",
+    desc: "Allows updating others' list items in this channel.",
+  },
+  remove_list: {
+    title: "Remove list items",
+    desc: "Allows removing others' list items in this channel.",
+  },
+  complete_list: {
+    title: "Complete list items",
+    desc: "Allows completing others' list items in this channel.",
+  },
+  reorder_list: {
+    title: "Reorder list items",
+    desc: "Allows reordering list items in this channel.",
+  },
+  view_events: {
+    title: "View events",
+    desc: "Allows viewing events in this channel.",
+  },
+  create_events: {
+    title: "Create events",
+    desc: "Allows creating events in this channel.",
+  },
+  manage_events: {
+    title: "Manage events",
+    desc: "Allows updating others' events in this channel.",
+  },
+  remove_events: {
+    title: "Remove events",
+    desc: "Allows removing others' events in this channel.",
+  },
+  edit_rsvps: {
+    title: "Edit RSVPs",
+    desc: "Allows editing RSVP status for events in this channel.",
+  },
+};
+
 function channelSettingsPermGroupIds(kind, channelType) {
   if (kind === "category") {
     return ["general", "chat", "announcements", "forums", "docs", "media", "voice", "lists"];
@@ -42,6 +253,16 @@ function channelSettingsPermGroupKey(title) {
   return t.split(" ")[0] || "";
 }
 
+function channelSettingsPermRow(row) {
+  const copy = CHANNEL_SETTINGS_PERM_COPY[row.id] || {};
+  return {
+    id: row.id,
+    title: copy.title || row.title,
+    desc: copy.desc || row.desc,
+    later: row.later,
+  };
+}
+
 function channelSettingsPermGroups() {
   const groups = typeof SERVER_ROLE_PERMS !== "undefined" ? SERVER_ROLE_PERMS : [];
   const wanted = channelSettingsPermGroupIds(
@@ -51,10 +272,12 @@ function channelSettingsPermGroups() {
   return groups.map((group) => {
     const key = channelSettingsPermGroupKey(group.title);
     if (!wanted.includes(key)) return null;
-    if (key !== "general") return group;
+    const sourceRows = key === "general"
+      ? (group.rows || []).filter((row) => CHANNEL_SETTINGS_GENERAL_IDS.includes(row.id))
+      : (group.rows || []);
     return {
       title: group.title,
-      rows: (group.rows || []).filter((row) => CHANNEL_SETTINGS_GENERAL_IDS.includes(row.id)),
+      rows: sourceRows.map(channelSettingsPermRow),
     };
   }).filter((group) => group && group.rows && group.rows.length);
 }
@@ -72,9 +295,6 @@ function channelSettingsRoleChoices() {
       color: role.color || "#99aab5",
     });
   });
-  if (rows.length === 1) {
-    rows.push({ id: "sample-mod", name: "Moderator", color: "#3498db", sample: true });
-  }
   return rows;
 }
 

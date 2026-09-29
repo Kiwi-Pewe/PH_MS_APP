@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=195">
+<link rel="stylesheet" href="app.css?v=196">
 </head>
 <body>
 
@@ -909,23 +909,19 @@
         <div class="server-settings-field">
           <div class="server-settings-field-title">Private</div>
           <div id="channel-settings-private-host"></div>
-          <p class="server-settings-help" id="channel-settings-private-help">Only people with Manage Channels can see this channel when it is private.</p>
+          <p class="server-settings-help" id="channel-settings-private-help">Only people with access can see this channel when it is private.</p>
         </div>
       </div>
       <div id="channel-settings-permissions" class="server-settings-page" hidden>
         <h2 class="server-settings-page-title">Permissions</h2>
         <p class="server-settings-help" id="channel-settings-perms-blurb">Choose a role, then set what that role can do in this channel. Layout only — overrides are not saved yet.</p>
         <div class="channel-perms-layout">
-          <aside class="channel-perms-roles" aria-label="Roles with overrides">
+          <aside class="channel-perms-roles" aria-label="Roles">
             <div class="channel-perms-roles-head">
               <div class="channel-perms-roles-title">Roles / Members</div>
               <button type="button" class="ghost-btn channel-perms-sync" id="channel-settings-perms-sync" disabled>Sync with category</button>
             </div>
             <div id="channel-settings-perms-role-list" class="channel-perms-role-list"></div>
-            <div class="channel-perms-roles-footer">
-              <button type="button" class="ghost-btn" id="channel-settings-perms-add-role" disabled>Add Role</button>
-              <button type="button" class="ghost-btn" id="channel-settings-perms-add-member" disabled>Add Member</button>
-            </div>
           </aside>
           <div class="channel-perms-editor">
             <div class="channel-perms-editor-head">
@@ -1441,7 +1437,7 @@
 <script src="mentions.js?v=12"></script>
 <script src="servers.js?v=89"></script>
 <script src="server-dnd.js?v=1"></script>
-<script src="channel-settings.js?v=3"></script>
+<script src="channel-settings.js?v=4"></script>
 <script src="members.js?v=12"></script>
 <script src="mini-profile.js?v=10"></script>
 <script src="server-modals.js?v=48"></script>

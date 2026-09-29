@@ -237,13 +237,14 @@ function toggleMailTray() {
 
 function pushMailSessionAlert(alert) {
   if (!alert || alert.id == null) return;
+  const existed = mailSessionItems.some((row) => row.id === alert.id);
   const next = Object.assign({}, alert, {
     alert_family: feedFamilyOf(alert),
     alert_type_label: feedTypeLabel(alert),
     read: false,
   });
   mailSessionItems = [next, ...mailSessionItems.filter((row) => row.id !== next.id)].slice(0, 10);
-  mailUnseenCount += 1;
+  if (!existed) mailUnseenCount += 1;
   paintMailBadge();
   if (mailTrayOpen) paintMailTray();
 }
@@ -251,8 +252,11 @@ function pushMailSessionAlert(alert) {
 function noteIncomingFeedAlert(alert) {
   if (!alert || alert.id == null) return;
   pushMailSessionAlert(alert);
-  if (feedAlertRows.some((row) => row.id === alert.id)) return;
-  feedAlertRows = feedAlertRows.concat([alert]);
+  if (feedAlertRows.some((row) => row.id === alert.id)) {
+    feedAlertRows = feedAlertRows.map((row) => (row.id === alert.id ? alert : row));
+  } else {
+    feedAlertRows = feedAlertRows.concat([alert]);
+  }
   const feedView = document.getElementById("view-feed");
   if (feedView && feedView.classList.contains("active")) paintFeedPosts();
 }
@@ -390,7 +394,9 @@ function openFeedView() {
   document.querySelectorAll(".dm-item").forEach((d) => d.classList.remove("active"));
   const feedBtn = document.querySelector('#secondary-nav .nav-item[data-view="feed"]');
   if (feedBtn) feedBtn.classList.add("active");
-  clearMailSession();
+  const feedView = document.getElementById("view-feed");
+  const alreadyOnFeed = !!(feedView && feedView.classList.contains("active"));
+  if (!alreadyOnFeed) clearMailSession();
   switchMainView("feed");
   loadFeedAlerts();
 }

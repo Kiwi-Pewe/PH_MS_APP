@@ -9,6 +9,7 @@ from app.routers.account import public_display_name
 from app.routers.profile import public_identity, public_avatar, ensure_layout
 from app.routers.mini_profiles import layout_banner_and_about
 from app.routers.servers import server_banner_fields, server_icon_url
+from app.routers.feed import notify_feed_alert
 from app.r2 import delete_attachment, post_attachments_public
 from app.site_moderation import (
     SITE_BAN_LABELS,
@@ -42,12 +43,40 @@ FEEDBACK_TYPE_LABELS = {
 FEEDBACK_STATUSES = ("new", "viewed", "review", "completed")
 FEEDBACK_CHANGE_STATUSES = ("viewed", "review")
 FEEDBACK_COMPLETE_DAYS = 30
+FEEDBACK_STATUS_LABELS = {
+    "new": "New",
+    "viewed": "Viewed",
+    "review": "In review",
+    "completed": "Completed",
+}
 
 
 def require_oneira_admin(user):
     if (user.username or "").strip().lower() != "kiwi":
         raise HTTPException(status_code=403, detail="Admin Panel is not available.")
     return user
+
+
+async def notify_feedback_ticket_alert(database, row, actor, previous_status):
+    if not row or not row.user_id:
+        return
+    new_status = (row.status or "").strip().lower()
+    old_status = (previous_status or "").strip().lower()
+    if not new_status or new_status == old_status:
+        return
+    alert_type = "report_status" if (row.feedback_type or "").strip().lower() == "report" else "feedback_status"
+    await notify_feed_alert(
+        database,
+        receiver_id=row.user_id,
+        alert_type=alert_type,
+        sender_id=actor.id if actor else None,
+        alert_family="feedback",
+        reason=FEEDBACK_STATUS_LABELS.get(new_status, new_status),
+        context=json.dumps({
+            "report_id": row.id,
+            "feedback_type": (row.feedback_type or "").strip().lower() or None,
+        }),
+    )
 
 
 def user_visuals(account):
@@ -340,7 +369,7 @@ def admin_feedback(
 
 
 @router.post("/admin/feedback/{report_id}/status")
-def admin_feedback_status(
+async def admin_feedback_status(
     report_id: int,
     body: Feedback_status,
     database: Session = Depends(get_db),
@@ -350,14 +379,16 @@ def admin_feedback_status(
     row = database.query(Feedback_report).filter(Feedback_report.id == report_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Report not found.")
+    previous = row.status
     apply_feedback_status(row, body.status)
     database.commit()
     database.refresh(row)
+    await notify_feedback_ticket_alert(database, row, current_user, previous)
     return {"report": load_feedback_row(database, row.id)}
 
 
 @router.post("/admin/feedback/{report_id}/complete")
-def admin_feedback_complete(
+async def admin_feedback_complete(
     report_id: int,
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
@@ -366,9 +397,11 @@ def admin_feedback_complete(
     row = database.query(Feedback_report).filter(Feedback_report.id == report_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Report not found.")
+    previous = row.status
     apply_feedback_status(row, "completed")
     database.commit()
     database.refresh(row)
+    await notify_feedback_ticket_alert(database, row, current_user, previous)
     return {"report": load_feedback_row(database, row.id)}
 
 

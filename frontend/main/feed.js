@@ -97,6 +97,11 @@ function feedAlertBody(alert) {
   if (kind === "friend_deny") {
     return feedSenderLabel(alert) + " declined your friend request.";
   }
+  if (kind === "feedback_status" || kind === "report_status") {
+    const status = String(alert && alert.reason || "").trim() || "updated";
+    const noun = kind === "report_status" ? "report" : "feedback";
+    return feedSenderLabel(alert) + " updated your " + noun + " to " + status + ".";
+  }
   return String(alert && alert.context || "").trim();
 }
 

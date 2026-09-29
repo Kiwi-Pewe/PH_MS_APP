@@ -353,6 +353,19 @@ function connectSocket() {
       if (data.server_id === currentServerId && typeof refreshServerPerms === "function") refreshServerPerms();
     }
 
+    if (data.type === "channel_role_perms_updated") {
+      if (data.server_id === currentServerId && typeof refreshServerContentsSoft === "function") {
+        refreshServerContentsSoft();
+      }
+      if (typeof isChannelSettingsOpen !== "undefined" && isChannelSettingsOpen
+        && channelSettingsKind === "channel"
+        && channelSettingsTarget
+        && Number(channelSettingsTarget.id) === Number(data.channel_id)
+        && typeof loadChannelSettingsRolePerms === "function") {
+        loadChannelSettingsRolePerms();
+      }
+    }
+
     if (data.type === "server_member_roles_updated") {
       if (typeof applyMemberRolesUpdated === "function") {
         applyMemberRolesUpdated(data.server_id, data.user_id, data.hoist_role || null, data.name_role || null);

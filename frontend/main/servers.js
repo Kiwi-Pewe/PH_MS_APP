@@ -267,6 +267,28 @@ async function openServer(serverId, iconEl) {
   }
 }
 
+async function refreshServerContentsSoft() {
+  if (!currentServerId) return null;
+  try {
+    const response = await fetch(`https://${serverAddress}/get_server_contents/${currentServerId}`, { credentials: "include" });
+    if (!response.ok) return null;
+    const data = await response.json();
+    currentServerOwnerId = data.owner;
+    currentServerPerms = data.permissions || {};
+    currentServerHighestRole = data.highest_role || null;
+    currentServerTimeoutUntil = data.timeout_until || null;
+    currentServerData = data;
+    if (typeof paintServerSettingsAccess === "function") paintServerSettingsAccess();
+    if (typeof paintServerTimeoutLock === "function") paintServerTimeoutLock();
+    if (typeof afterServerStructureChange === "function") afterServerStructureChange();
+    else renderServerSidebar(data);
+    if (typeof paintChatAccess === "function") paintChatAccess();
+    return data;
+  } catch (e) {
+    return null;
+  }
+}
+
 function renderServerSidebar(data) {
   const list = document.getElementById("category-list");
   list.innerHTML = "";
@@ -559,6 +581,15 @@ function showNoChannelSelected() {
   disableChannelComposer("No channel selected.");
 }
 
+function findCurrentServerChannel() {
+  if (!currentServerData || currentChannelId == null) return null;
+  for (const category of currentServerData.categories || []) {
+    const channel = (category.channels || []).find((row) => Number(row.id) === Number(currentChannelId));
+    if (channel) return channel;
+  }
+  return null;
+}
+
 function channelVisibleInSidebar(channel) {
   if (!channel) return false;
   if (channel.channel_type === "announcements") {
@@ -568,7 +599,9 @@ function channelVisibleInSidebar(channel) {
     return typeof canReadForums !== "function" || canReadForums();
   }
   if (channel.channel_type === "text") {
-    return typeof canReadMessages !== "function" || canReadMessages();
+    if (currentServerOwnerId === myUserId) return true;
+    if (channel.can_read != null) return !!channel.can_read;
+    return typeof canServerPerm !== "function" || canServerPerm("read_messages");
   }
   if (channel.channel_type === "doc") {
     return typeof canViewDocs !== "function" || canViewDocs();

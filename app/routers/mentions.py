@@ -395,8 +395,7 @@ def channel_notice(database, channel_id, user_id):
 def visible_channel_ids(database, server_id, user_id):
     server = database.query(Servers).filter(Servers.id == server_id).first()
     is_owner = server and server.owner_id == user_id
-    from app.routers.roles import channel_type_visible, effective_perms_for_user
-    permissions = effective_perms_for_user(database, server, user_id) if server else {}
+    from app.routers.roles import channel_type_visible, effective_perms_for_user_in_channel
     categories = database.query(Server_categories).filter(Server_categories.server_id == server_id).all()
     ids = []
     for category in categories:
@@ -406,6 +405,7 @@ def visible_channel_ids(database, server_id, user_id):
         for channel in channels:
             if channel.is_private == True and not is_owner:
                 continue
+            permissions = effective_perms_for_user_in_channel(database, server, user_id, channel.id) if server else {}
             if not channel_type_visible(permissions, channel.channel_type):
                 continue
             ids.append(channel.id)
@@ -441,8 +441,8 @@ def view_channel(channel_id: int, database: Session = Depends(get_db), current_u
     if not is_member:
         raise HTTPException(status_code=404, detail="Server membership not found")
     server = database.query(Servers).filter(Servers.id == category.server_id).first()
-    from app.routers.roles import channel_type_visible, effective_perms_for_user
-    if server and not channel_type_visible(effective_perms_for_user(database, server, current_user.id), channel.channel_type):
+    from app.routers.roles import channel_type_visible, effective_perms_for_user_in_channel
+    if server and not channel_type_visible(effective_perms_for_user_in_channel(database, server, current_user.id, channel.id), channel.channel_type):
         raise HTTPException(status_code=403, detail="You do not have permission to view this channel.")
     stamp_channel_view(database, channel_id, current_user.id)
     database.commit()

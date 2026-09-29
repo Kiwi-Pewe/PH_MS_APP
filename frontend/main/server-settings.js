@@ -126,10 +126,20 @@ function canLockTopics() {
 }
 
 function canReadMessages() {
+  if (currentServerOwnerId === myUserId) return true;
+  if (typeof findCurrentServerChannel === "function") {
+    const channel = findCurrentServerChannel();
+    if (channel && channel.can_read != null) return !!channel.can_read;
+  }
   return canServerPerm("read_messages");
 }
 
 function canSendMessages() {
+  if (currentServerOwnerId === myUserId) return true;
+  if (typeof findCurrentServerChannel === "function") {
+    const channel = findCurrentServerChannel();
+    if (channel && channel.can_send != null) return !!channel.can_send;
+  }
   return canServerPerm("send_messages");
 }
 

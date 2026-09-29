@@ -3,6 +3,10 @@ let channelSettingsTarget = null;
 let channelSettingsSavedName = "";
 let channelSettingsSavedPrivate = false;
 let channelSettingsPermRoleId = "members";
+let channelSettingsPermDisplay = {};
+let channelSettingsPermLive = ["read_messages", "send_messages"];
+let channelSettingsPermLoading = false;
+let channelSettingsPermSaving = {};
 
 const CHANNEL_SETTINGS_GENERAL_IDS = [
   "manage_channels",
@@ -12,6 +16,10 @@ const CHANNEL_SETTINGS_GENERAL_IDS = [
   "bypass_slowmode",
 ];
 
+const CHANNEL_SETTINGS_LIVE_DEFAULTS = {
+  read_messages: true,
+  send_messages: true,
+};
 const CHANNEL_SETTINGS_PERM_COPY = {
   manage_channels: {
     title: "Manage Channel",
@@ -283,19 +291,62 @@ function channelSettingsPermGroups() {
 }
 
 function channelSettingsRoleChoices() {
-  const rows = [{ id: "members", name: "Members", color: "#99aab5" }];
   const source = (typeof serverRolesDraft !== "undefined" && serverRolesDraft && serverRolesDraft.length)
     ? serverRolesDraft
     : ((typeof serverRolesSaved !== "undefined" && serverRolesSaved) || []);
+  const rows = [];
+  let members = null;
   source.forEach((role) => {
-    if (!role || role.id === "members" || role.is_members) return;
-    rows.push({
+    if (!role) return;
+    const row = {
       id: String(role.id),
-      name: role.name || "Role",
+      name: role.name || (role.builtin ? "Members" : "Role"),
       color: role.color || "#99aab5",
-    });
+      builtin: !!role.builtin,
+      perms: role.perms || {},
+    };
+    if (role.builtin || role.id === "members" || role.is_members) {
+      members = row;
+      return;
+    }
+    rows.push(row);
   });
+  if (members) rows.unshift(members);
+  else {
+    rows.unshift({
+      id: "members",
+      name: "Members",
+      color: "#99aab5",
+      builtin: true,
+      perms: Object.assign({}, CHANNEL_SETTINGS_LIVE_DEFAULTS),
+    });
+  }
   return rows;
+}
+
+function channelSettingsRoleDisplayId(role) {
+  return String(role && role.id != null ? role.id : channelSettingsPermRoleId);
+}
+
+function channelSettingsPermValue(roleId, permId) {
+  const key = String(roleId);
+  const display = channelSettingsPermDisplay[key];
+  if (display && Object.prototype.hasOwnProperty.call(display, permId)) {
+    return !!display[permId];
+  }
+  const roles = channelSettingsRoleChoices();
+  const role = roles.find((row) => String(row.id) === key);
+  if (role && role.perms && Object.prototype.hasOwnProperty.call(role.perms, permId)) {
+    return !!role.perms[permId];
+  }
+  if (Object.prototype.hasOwnProperty.call(CHANNEL_SETTINGS_LIVE_DEFAULTS, permId)) {
+    return !!CHANNEL_SETTINGS_LIVE_DEFAULTS[permId];
+  }
+  return false;
+}
+
+function channelSettingsPermIsLive(permId) {
+  return channelSettingsKind === "channel" && channelSettingsPermLive.indexOf(permId) !== -1;
 }
 
 function paintChannelSettingsPermRoles() {
@@ -310,8 +361,7 @@ function paintChannelSettingsPermRoles() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "channel-perms-role-row"
-      + (String(role.id) === String(channelSettingsPermRoleId) ? " is-active" : "")
-      + (role.sample ? " is-sample" : "");
+      + (String(role.id) === String(channelSettingsPermRoleId) ? " is-active" : "");
     const swatch = document.createElement("span");
     swatch.className = "channel-perms-role-swatch";
     swatch.style.background = role.color || "#99aab5";
@@ -336,6 +386,13 @@ function paintChannelSettingsPermBody() {
   const selected = roles.find((row) => String(row.id) === String(channelSettingsPermRoleId)) || roles[0];
   if (title) title.textContent = selected ? selected.name : "Members";
   host.replaceChildren();
+  if (channelSettingsPermLoading) {
+    const loading = document.createElement("div");
+    loading.className = "placeholder-panel";
+    loading.textContent = "Loading permissions…";
+    host.appendChild(loading);
+    return;
+  }
   const groups = channelSettingsPermGroups();
   if (!groups.length) {
     const empty = document.createElement("div");
@@ -344,6 +401,7 @@ function paintChannelSettingsPermBody() {
     host.appendChild(empty);
     return;
   }
+  const roleId = channelSettingsRoleDisplayId(selected);
   groups.forEach((group) => {
     const section = document.createElement("div");
     section.className = "channel-perms-section";
@@ -352,8 +410,9 @@ function paintChannelSettingsPermBody() {
     heading.textContent = group.title;
     section.appendChild(heading);
     (group.rows || []).forEach((row) => {
+      const live = channelSettingsPermIsLive(row.id);
       const line = document.createElement("div");
-      line.className = "channel-perms-row" + (row.later ? " is-later" : "");
+      line.className = "channel-perms-row" + (!live || row.later ? " is-later" : "");
       const text = document.createElement("div");
       text.className = "channel-perms-row-text";
       const name = document.createElement("div");
@@ -361,14 +420,20 @@ function paintChannelSettingsPermBody() {
       name.textContent = row.title;
       const desc = document.createElement("div");
       desc.className = "channel-perms-row-desc";
-      desc.textContent = row.later
-        ? (row.desc || "") + " Waiting on " + row.later + "."
-        : (row.desc || "");
+      if (!live) {
+        desc.textContent = (row.desc || "") + (row.later ? " Waiting on " + row.later + "." : " Coming later for this channel.");
+      } else {
+        desc.textContent = row.desc || "";
+      }
       text.appendChild(name);
       text.appendChild(desc);
       line.appendChild(text);
       if (typeof settingsToggle === "function") {
-        line.appendChild(settingsToggle(false, true));
+        const checked = live ? channelSettingsPermValue(roleId, row.id) : false;
+        const disabled = !live || !!channelSettingsPermSaving[roleId + ":" + row.id];
+        line.appendChild(settingsToggle(checked, disabled, live ? (on) => {
+          saveChannelSettingsRolePerm(roleId, row.id, !!on);
+        } : null));
       }
       section.appendChild(line);
     });
@@ -376,12 +441,84 @@ function paintChannelSettingsPermBody() {
   });
 }
 
+async function loadChannelSettingsRolePerms() {
+  if (channelSettingsKind !== "channel" || !channelSettingsTarget) {
+    channelSettingsPermDisplay = {};
+    return;
+  }
+  channelSettingsPermLoading = true;
+  paintChannelSettingsPermBody();
+  try {
+    if (typeof loadServerRoles === "function" && serverRolesLoadedFor !== currentServerId) {
+      await loadServerRoles();
+    }
+    const response = await fetch(
+      `https://${serverAddress}/get_channel_role_perms/${channelSettingsTarget.id}`,
+      { credentials: "include" }
+    );
+    if (!response.ok) throw new Error("Could not load channel permissions.");
+    const data = await response.json();
+    channelSettingsPermDisplay = data.display || {};
+    if (Array.isArray(data.live) && data.live.length) {
+      channelSettingsPermLive = data.live.slice();
+    }
+    const roles = channelSettingsRoleChoices();
+    if (!roles.some((row) => String(row.id) === String(channelSettingsPermRoleId))) {
+      channelSettingsPermRoleId = roles[0] ? roles[0].id : "members";
+    }
+  } catch (err) {
+    channelSettingsPermDisplay = {};
+  } finally {
+    channelSettingsPermLoading = false;
+    paintChannelSettingsPermRoles();
+    paintChannelSettingsPermBody();
+  }
+}
+
+async function saveChannelSettingsRolePerm(roleId, permId, on) {
+  if (channelSettingsKind !== "channel" || !channelSettingsTarget) return;
+  if (String(roleId) === "members" || !/^\d+$/.test(String(roleId))) {
+    setChannelSettingsNameStatus("Load roles before editing permissions.");
+    return;
+  }
+  const key = String(roleId);
+  const saveKey = key + ":" + permId;
+  const previous = Object.assign({}, channelSettingsPermDisplay[key] || {});
+  const next = Object.assign({}, previous);
+  channelSettingsPermLive.forEach((id) => {
+    if (!Object.prototype.hasOwnProperty.call(next, id)) {
+      next[id] = channelSettingsPermValue(key, id);
+    }
+  });
+  next[permId] = !!on;
+  channelSettingsPermDisplay[key] = next;
+  channelSettingsPermSaving[saveKey] = true;
+  paintChannelSettingsPermBody();
+  try {
+    const data = await postChannelSettings("/save_channel_role_perms", {
+      channel_id: channelSettingsTarget.id,
+      role_id: Number(roleId),
+      permissions: next,
+    });
+    channelSettingsPermDisplay[key] = data.display || data.permissions || next;
+    if (typeof refreshServerContentsSoft === "function") {
+      await refreshServerContentsSoft();
+    }
+  } catch (err) {
+    channelSettingsPermDisplay[key] = previous;
+    setChannelSettingsNameStatus(err.message || "Could not save permission.");
+  } finally {
+    delete channelSettingsPermSaving[saveKey];
+    paintChannelSettingsPermBody();
+  }
+}
+
 function paintChannelSettingsPermissions() {
   const blurb = document.getElementById("channel-settings-perms-blurb");
   if (blurb) {
     blurb.textContent = channelSettingsKind === "category"
-      ? "Choose a role, then set what that role can do across channels in this category. Layout only — overrides are not saved yet."
-      : "Choose a role, then set what that role can do in this channel. Layout only — overrides are not saved yet.";
+      ? "Category permission packs come later. Channel overrides are edited on each channel."
+      : "Choose a role, then set what that role can do in this channel. View and type are live — defaults follow each role (Members starts on). Any role that says yes wins.";
   }
   const sync = document.getElementById("channel-settings-perms-sync");
   if (sync) sync.hidden = channelSettingsKind === "category";
@@ -430,7 +567,10 @@ function showChannelSettingsTab(tab) {
   document.querySelectorAll("#channel-settings-nav .server-settings-nav-item[data-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
   });
-  if (tab === "permissions") paintChannelSettingsPermissions();
+  if (tab === "permissions") {
+    paintChannelSettingsPermissions();
+    if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
+  }
 }
 
 function paintChannelSettingsShell() {
@@ -444,8 +584,8 @@ function paintChannelSettingsShell() {
   const privateHelp = document.getElementById("channel-settings-private-help");
   if (privateHelp) {
     privateHelp.textContent = isCategory
-      ? "Only people with Manage Channels can see this category and its channels when it is private."
-      : "Only people with Manage Channels can see this channel when it is private.";
+      ? "Only people with access can see this category and its channels when it is private."
+      : "Only people with access can see this channel when it is private.";
   }
   document.querySelectorAll("#channel-settings-nav .is-channel-only").forEach((btn) => {
     btn.hidden = isCategory;
@@ -643,9 +783,12 @@ function openChannelSettings(kind, target) {
   showChannelSettingsTab("overview");
   syncChannelSettingsName(target.name || "");
   channelSettingsSavedPrivate = !!target.is_private;
-  channelSettingsPermRoleId = "members";
+  const membersRole = channelSettingsRoleChoices().find((row) => row.builtin) || channelSettingsRoleChoices()[0];
+  channelSettingsPermRoleId = membersRole ? membersRole.id : "members";
+  channelSettingsPermDisplay = {};
   paintChannelSettingsPrivate();
   paintChannelSettingsPermissions();
+  if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
   const topic = document.getElementById("channel-settings-topic");
   if (topic) topic.value = "";
   const overlay = document.getElementById("channel-settings-overlay");

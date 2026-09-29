@@ -295,6 +295,11 @@ class Server_roles_save(BaseModel):
     server_id: str
     roles: list[Server_role_in] = []
 
+class Channel_role_perms_save(BaseModel):
+    channel_id: int
+    role_id: int
+    permissions: dict[str, bool] = {}
+
 class Mini_profile_note_in(BaseModel):
     user_id: int
     text: str = ""

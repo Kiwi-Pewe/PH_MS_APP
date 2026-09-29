@@ -3,8 +3,8 @@ import re
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import UserInfo, Servers, Server_members, Server_roles, Server_role_members
-from app.schemas import Server_role_member_in, Server_roles_save
+from app.models import UserInfo, Servers, Server_members, Server_roles, Server_role_members, Server_channels, Server_categories, Server_channel_role_perms
+from app.schemas import Server_role_member_in, Server_roles_save, Channel_role_perms_save
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.deletion import write_audit_log
@@ -35,6 +35,16 @@ MEMBERS_DEFAULT_PERMS = (
     "read_forums", "create_topics", "create_topic_replies",
     "view_docs",
 )
+
+LIVE_CHANNEL_OVERRIDE_PERMS = (
+    "read_messages",
+    "send_messages",
+)
+
+CHANNEL_OVERRIDE_DEFAULTS = {
+    "read_messages": True,
+    "send_messages": True,
+}
 
 
 def empty_role_perms():
@@ -298,6 +308,82 @@ def require_server_perm(database, server, user_id, perm, detail="You do not have
     if not perms.get(perm):
         raise HTTPException(status_code=403, detail=detail)
     return perms
+
+
+def empty_channel_override_perms():
+    return {key: bool(CHANNEL_OVERRIDE_DEFAULTS.get(key, False)) for key in LIVE_CHANNEL_OVERRIDE_PERMS}
+
+
+def clean_channel_override_perms(raw, fallback=None):
+    base = fallback if isinstance(fallback, dict) else empty_channel_override_perms()
+    perms = {key: bool(base.get(key, CHANNEL_OVERRIDE_DEFAULTS.get(key, False))) for key in LIVE_CHANNEL_OVERRIDE_PERMS}
+    if not isinstance(raw, dict):
+        return perms
+    for key in LIVE_CHANNEL_OVERRIDE_PERMS:
+        if key in raw:
+            perms[key] = bool(raw.get(key))
+    return perms
+
+
+def parse_channel_override_perms(row):
+    raw = getattr(row, "permissions", None) or ""
+    try:
+        data = json.loads(raw) if raw else {}
+    except (TypeError, ValueError):
+        data = {}
+    return clean_channel_override_perms(data)
+
+
+def channel_overrides_by_role(database, channel_id):
+    rows = database.query(Server_channel_role_perms).filter(
+        Server_channel_role_perms.channel_id == channel_id
+    ).all()
+    return {int(row.role_id): parse_channel_override_perms(row) for row in rows}
+
+
+def role_perm_in_channel(server_perms, override, perm):
+    if perm not in LIVE_CHANNEL_OVERRIDE_PERMS:
+        return bool((server_perms or {}).get(perm))
+    if override is not None:
+        return bool(override.get(perm))
+    if isinstance(server_perms, dict) and perm in server_perms:
+        return bool(server_perms.get(perm))
+    return bool(CHANNEL_OVERRIDE_DEFAULTS.get(perm, False))
+
+
+def effective_perms_for_user_in_channel(database, server, user_id, channel_id):
+    if server.owner_id == user_id:
+        return owner_role_perms()
+    seed_server_roles(database, server.id)
+    merged = effective_perms_for_user(database, server, user_id)
+    overrides = channel_overrides_by_role(database, channel_id)
+    for key in LIVE_CHANNEL_OVERRIDE_PERMS:
+        merged[key] = False
+    for role in assigned_roles_for_user(database, server.id, user_id):
+        server_perms = role.get("permissions") or {}
+        override = overrides.get(int(role.get("id") or 0))
+        for key in LIVE_CHANNEL_OVERRIDE_PERMS:
+            if role_perm_in_channel(server_perms, override, key):
+                merged[key] = True
+    return merged
+
+
+def require_channel_perm(database, server, user_id, channel_id, perm, detail="You do not have permission to do that."):
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel_id)
+    if not perms.get(perm):
+        raise HTTPException(status_code=403, detail=detail)
+    return perms
+
+
+def display_channel_role_perms(database, channel_id, role):
+    overrides = channel_overrides_by_role(database, channel_id)
+    role_id = int(role.get("id") or 0)
+    override = overrides.get(role_id)
+    server_perms = role.get("permissions") or {}
+    return {
+        key: role_perm_in_channel(server_perms, override, key)
+        for key in LIVE_CHANNEL_OVERRIDE_PERMS
+    }
 
 
 def channel_type_visible(permissions, channel_type):
@@ -568,4 +654,83 @@ async def set_server_role_member(body: Server_role_member_in, database: Session 
         "highest_role": highest_role_for_user(database, server.id, body.user_id),
         "hoist_role": hoist,
         "name_role": name_role,
+    }
+
+
+def _channel_server_or_404(database, channel_id, user_id):
+    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    server = require_server_member(database, category.server_id, user_id)
+    return channel, category, server
+
+
+@router.get("/get_channel_role_perms/{channel_id}")
+def get_channel_role_perms(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel, category, server = _channel_server_or_404(database, channel_id, current_user.id)
+    seed_server_roles(database, server.id)
+    database.commit()
+    overrides = channel_overrides_by_role(database, channel.id)
+    roles = list_server_roles(database, server.id)
+    display = {}
+    for role in roles:
+        role_id = str(role.get("id"))
+        display[role_id] = display_channel_role_perms(database, channel.id, role)
+    return {
+        "channel_id": channel.id,
+        "overrides": {str(role_id): perms for role_id, perms in overrides.items()},
+        "display": display,
+        "live": list(LIVE_CHANNEL_OVERRIDE_PERMS),
+    }
+
+
+@router.post("/save_channel_role_perms")
+async def save_channel_role_perms(body: Channel_role_perms_save, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel, category, server = _channel_server_or_404(database, body.channel_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channel permissions.")
+    seed_server_roles(database, server.id)
+    role = database.query(Server_roles).filter(
+        Server_roles.id == body.role_id,
+        Server_roles.server_id == server.id,
+    ).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    existing = database.query(Server_channel_role_perms).filter(
+        Server_channel_role_perms.channel_id == channel.id,
+        Server_channel_role_perms.role_id == role.id,
+    ).first()
+    fallback = parse_channel_override_perms(existing) if existing else display_channel_role_perms(
+        database, channel.id, serialize_role(role)
+    )
+    perms = clean_channel_override_perms(body.permissions, fallback=fallback)
+    if existing:
+        existing.permissions = json.dumps(perms)
+    else:
+        database.add(Server_channel_role_perms(
+            channel_id=channel.id,
+            role_id=role.id,
+            permissions=json.dumps(perms),
+        ))
+    database.commit()
+    await server_broadcast(
+        server.id,
+        {
+            "type": "channel_role_perms_updated",
+            "server_id": server.id,
+            "channel_id": channel.id,
+            "role_id": role.id,
+            "permissions": perms,
+        },
+        database,
+        exclude_user_id=current_user.id,
+    )
+    return {
+        "ok": True,
+        "channel_id": channel.id,
+        "role_id": role.id,
+        "permissions": perms,
+        "display": display_channel_role_perms(database, channel.id, serialize_role(role)),
     }

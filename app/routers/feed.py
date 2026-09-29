@@ -45,9 +45,6 @@ FAMILY_FOR_TYPE = {
     "report_status": "feedback",
 }
 
-# Live Feed/Mail kinds users can toggle in Settings. Draft catalog
-# kinds without writers (widget_update, profile_event) stay off the
-# prefs card until those writers exist.
 FEED_PREF_TYPES = (
     "reaction",
     "reply",

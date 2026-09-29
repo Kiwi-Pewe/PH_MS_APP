@@ -127,7 +127,7 @@ async function renderNotificationSettings(pane, jumpChildId) {
   });
   overview.appendChild(settingsOpt(
     "Feed & Mail",
-    "Choose which personal alert types appear in Feed and Mail. Turning a type off hides existing rows and stops new ones.",
+    "Choose which personal alert types appear in your Feed and Mail.",
     feedBtn
   ));
   block.appendChild(overview);

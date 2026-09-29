@@ -1,8 +1,3 @@
-// ==================================================================
-// feed-settings.js - Feed & Mail alert-type prefs submenu. Opened
-// from Notifications. Unique centered card (not the widget editor).
-// ==================================================================
-
 const FEED_PREF_GROUPS = [
   {
     family: "activity",

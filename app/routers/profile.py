@@ -13,6 +13,7 @@ from app.auth import get_current_user
 from app.privacy import are_friends, can_see_full_profile
 from app.routers.account import parse_display_name_history
 from app.routers.realtime import notify_user
+from app.routers.feed import notify_feed_alert
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for
 
 router = APIRouter()
@@ -1521,8 +1522,17 @@ async def create_profile_comment(user_id: int, body: Profile_comment_in, current
     for uid in recipients:
         database.add(Profile_comment_notice(user_id=uid, owner_id=owner.id, comment_id=row.id, read=False))
     database.commit()
+    context = json.dumps({"comment_id": row.id, "owner_id": owner.id})
     for uid in recipients:
         await notify_user(uid, payload)
+        await notify_feed_alert(
+            database,
+            receiver_id=uid,
+            alert_type="widget_comment",
+            sender_id=current_user.id,
+            alert_family="profile",
+            context=context,
+        )
     return serialize_profile_comment(row, current_user)
 
 

@@ -114,6 +114,18 @@ function feedAlertBody(alert) {
   if (kind === "post_comment") {
     return feedSenderLabel(alert) + " commented on your post.";
   }
+  if (kind === "widget_comment") {
+    let ownerId = null;
+    try {
+      const raw = alert && alert.context;
+      const ctx = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (ctx && ctx.owner_id != null) ownerId = Number(ctx.owner_id);
+    } catch (err) {}
+    if (ownerId != null && typeof myUserId !== "undefined" && Number(myUserId) === ownerId) {
+      return feedSenderLabel(alert) + " commented on your profile.";
+    }
+    return feedSenderLabel(alert) + " commented on a profile you're watching.";
+  }
   return String(alert && alert.context || "").trim();
 }
 

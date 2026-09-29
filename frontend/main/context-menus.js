@@ -481,7 +481,7 @@ function showCategoryContextMenu(e, category) {
   const y = e.clientY;
   const canLayout = typeof canManageChannels === "function" ? canManageChannels() : currentServerOwnerId === myUserId;
   const options = canLayout ? [
-    { label: "Edit Category", onSelect: () => console.log("Edit Category — not implemented yet") },
+    { label: "Edit Category", onSelect: () => { if (typeof openCategorySettings === "function") openCategorySettings(category); } },
     { label: "Delete Category", danger: true, onSelect: () => openDeleteConfirm("category", category) }
   ] : [];
   openContextMenu(x, y, {
@@ -498,7 +498,7 @@ function showChannelContextMenu(e, channel) {
   const y = e.clientY;
   const canLayout = typeof canManageChannels === "function" ? canManageChannels() : currentServerOwnerId === myUserId;
   const options = canLayout ? [
-    { label: "Edit Channel", onSelect: () => console.log("Edit Channel — not implemented yet") },
+    { label: "Edit Channel", onSelect: () => { if (typeof openChannelSettingsForChannel === "function") openChannelSettingsForChannel(channel); } },
     { label: "Delete Channel", danger: true, onSelect: () => openDeleteConfirm("channel", channel) }
   ] : [];
   const typeLabel = typeof channelTypeSidebarLabel === "function"

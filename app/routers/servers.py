@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete
 from zoneinfo import available_timezones
 from app.database import get_db
 from app.auth import get_current_user
@@ -981,6 +981,77 @@ def purge_channel_contents(database, channel):
 
     clear_channel_mentions(database, channel.id)
     database.delete(channel)
+
+@router.post("/update_channel")
+async def update_channel(body: Channel_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel = database.query(Server_channels).filter(Server_channels.id == body.channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    server = require_server_member(database, category.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
+    if body.name is None and body.is_private is None:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    if body.name is not None:
+        name = (body.name or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Channel name is required")
+        if len(name) > 100:
+            name = name[:100]
+        channel.name = name
+    if body.is_private is not None:
+        channel.is_private = bool(body.is_private)
+    database.commit()
+    database.refresh(channel)
+    payload = {
+        "type": "channel_updated",
+        "server_id": server.id,
+        "channel": {
+            "id": channel.id,
+            "name": channel.name,
+            "channel_type": channel.channel_type,
+            "position": channel.position,
+            "is_private": bool(channel.is_private),
+            "category_id": channel.category_id,
+        },
+    }
+    await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    return payload
+
+@router.post("/update_category")
+async def update_category(body: Category_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    category = database.query(Server_categories).filter(Server_categories.id == body.category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    server = require_server_member(database, category.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
+    if body.name is None and body.is_private is None:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    if body.name is not None:
+        name = (body.name or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Category name is required")
+        if len(name) > 100:
+            name = name[:100]
+        category.name = name
+    if body.is_private is not None:
+        category.is_private = bool(body.is_private)
+    database.commit()
+    database.refresh(category)
+    payload = {
+        "type": "category_updated",
+        "server_id": server.id,
+        "category": {
+            "id": category.id,
+            "name": category.name,
+            "position": category.position,
+            "is_private": bool(category.is_private),
+        },
+    }
+    await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    return payload
 
 @router.post("/delete_channel/{channel_id}")
 async def delete_channel(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

@@ -201,6 +201,7 @@ let settingsActiveId = "account";
 // Server Settings overlay. Covers everything below the top rail.
 // Shape-only until each panel is walked. Closed by X / Escape.
 let isServerSettingsOpen = false;
+let isChannelSettingsOpen = false;
 
 // Profile destination. Replaces the DM/channel rail with the owner's
 // pages. Edit mode expands the server rail into a piece palette.

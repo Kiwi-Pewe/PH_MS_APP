@@ -1006,6 +1006,7 @@ async function saveServerSettingsType(kind) {
 
 function openServerSettings() {
   if (!currentServerId || !canOpenServerSettings()) return;
+  if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;
   if (typeof closeContextMenu === "function") closeContextMenu();

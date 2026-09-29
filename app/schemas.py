@@ -353,6 +353,16 @@ class Reorder_channel(BaseModel):
     category_id: int
     before_channel_id: int | None = None
 
+class Channel_update(BaseModel):
+    channel_id: int
+    name: str | None = None
+    is_private: bool | None = None
+
+class Category_update(BaseModel):
+    category_id: int
+    name: str | None = None
+    is_private: bool | None = None
+
 class Announcements(BaseModel):
     channel_id: int
     title: str

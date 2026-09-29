@@ -243,6 +243,7 @@ async function openUserProfile(userId) {
   }
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
   if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
+  if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
   if (typeof hideMemberList === "function") hideMemberList();
   if (typeof hideDocsChrome === "function") hideDocsChrome();
   try {

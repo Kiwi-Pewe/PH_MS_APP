@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=193">
+<link rel="stylesheet" href="app.css?v=194">
 </head>
 <body>
 
@@ -854,6 +854,66 @@
     </section>
   </div>
 
+  <div id="channel-settings-overlay" hidden>
+    <aside id="channel-settings-index">
+      <div id="channel-settings-index-label"></div>
+      <nav id="channel-settings-nav">
+        <button type="button" class="server-settings-nav-item active" data-tab="overview">Overview</button>
+        <button type="button" class="server-settings-nav-item" data-tab="permissions">Permissions</button>
+        <button type="button" class="server-settings-nav-item is-channel-only" data-tab="invites">Invites</button>
+        <button type="button" class="server-settings-nav-item is-channel-only" data-tab="integrations">Integrations</button>
+      </nav>
+      <button type="button" id="channel-settings-delete" class="server-settings-nav-item is-danger">Delete Channel</button>
+    </aside>
+    <section id="channel-settings-main">
+      <button type="button" id="channel-settings-close" title="Close">
+        <span aria-hidden="true">&times;</span>
+        <span>ESC</span>
+      </button>
+      <div id="channel-settings-overview" class="server-settings-page">
+        <h2 class="server-settings-page-title">Overview</h2>
+        <div class="server-settings-field">
+          <label class="server-settings-field-title" for="channel-settings-name" id="channel-settings-name-label">Channel Name</label>
+          <input id="channel-settings-name" class="server-settings-input" type="text" maxlength="100" autocomplete="off">
+          <div id="channel-settings-name-actions" class="server-settings-name-actions" hidden>
+            <button type="button" id="channel-settings-name-confirm" class="settings-row-btn">Confirm</button>
+            <button type="button" id="channel-settings-name-cancel" class="ghost-btn">Cancel</button>
+          </div>
+          <p id="channel-settings-name-status" class="server-settings-help" hidden></p>
+        </div>
+        <div class="server-settings-field is-channel-only" id="channel-settings-topic-field">
+          <label class="server-settings-field-title" for="channel-settings-topic">Channel Topic</label>
+          <textarea id="channel-settings-topic" class="server-settings-input server-settings-textarea" rows="5" maxlength="1024" placeholder="Let everyone know how to use this channel!" disabled></textarea>
+          <p class="server-settings-help">Topic isn’t wired yet.</p>
+        </div>
+        <div class="server-settings-field is-channel-only" id="channel-settings-slowmode-field">
+          <label class="server-settings-field-title" for="channel-settings-slowmode">Slowmode</label>
+          <select id="channel-settings-slowmode" class="settings-select server-settings-select" disabled>
+            <option value="off" selected>Off</option>
+          </select>
+          <p class="server-settings-help">Members will be restricted to sending one message per this interval, unless they have a slowmode exception.</p>
+        </div>
+        <div class="server-settings-field">
+          <div class="server-settings-field-title">Private</div>
+          <div id="channel-settings-private-host"></div>
+          <p class="server-settings-help" id="channel-settings-private-help">Only people with Manage Channels can see this channel when it is private.</p>
+        </div>
+      </div>
+      <div id="channel-settings-permissions" class="server-settings-page" hidden>
+        <h2 class="server-settings-page-title">Permissions</h2>
+        <div class="placeholder-panel">Per-channel and per-category permission overrides aren’t built yet. Server Roles still set the defaults.</div>
+      </div>
+      <div id="channel-settings-invites" class="server-settings-page is-channel-only" hidden>
+        <h2 class="server-settings-page-title">Invites</h2>
+        <div class="placeholder-panel">Channel-targeted invites aren’t built yet. Use Server Settings → Invites for now.</div>
+      </div>
+      <div id="channel-settings-integrations" class="server-settings-page is-channel-only" hidden>
+        <h2 class="server-settings-page-title">Integrations</h2>
+        <div class="placeholder-panel">Channel webhooks and integrations aren’t built yet.</div>
+      </div>
+    </section>
+  </div>
+
   <!-- Party creation ("party screen"). Hidden by default; toggled by
        create-party-btn. Closes via the X button or an outside click,
        same behavior as the context menu, but this is a distinct piece
@@ -1246,18 +1306,18 @@
 <div id="mention-picker" hidden>
   <div id="mention-picker-list"></div>
 </div>
-<script src="state.js?v=70"></script>
+<script src="state.js?v=71"></script>
 <script src="appearance.js?v=5"></script>
 <script src="accessibility.js?v=11"></script>
 <script src="language-time.js?v=1"></script>
 <script src="util.js?v=50"></script>
 <script src="media.js?v=57"></script>
 <script src="post-media.js?v=54"></script>
-<script src="boot.js?v=90"></script>
-<script src="app-shell.js?v=64"></script>
+<script src="boot.js?v=91"></script>
+<script src="app-shell.js?v=65"></script>
 <script src="feed.js?v=15"></script>
-<script src="settings.js?v=18"></script>
-<script src="server-settings.js?v=30"></script>
+<script src="settings.js?v=19"></script>
+<script src="server-settings.js?v=31"></script>
 <script src="server-roles.js?v=17"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
@@ -1281,10 +1341,10 @@
 <script src="../shared/gallery-frame.js?v=1"></script>
 <script src="profile-comments.js?v=6"></script>
 <script src="profile-board.js?v=67"></script>
-<script src="profile.js?v=12"></script>
+<script src="profile.js?v=13"></script>
 <script src="profile-identity.js?v=8"></script>
 <script src="profile-edit.js?v=66"></script>
-<script src="context-menus.js?v=85"></script>
+<script src="context-menus.js?v=86"></script>
 <script src="conversations.js?v=58"></script>
 <script src="chat-render.js?v=64"></script>
 <script src="chat-history.js?v=51"></script>
@@ -1307,8 +1367,9 @@
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=12"></script>
-<script src="servers.js?v=88"></script>
+<script src="servers.js?v=89"></script>
 <script src="server-dnd.js?v=1"></script>
+<script src="channel-settings.js?v=1"></script>
 <script src="members.js?v=12"></script>
 <script src="mini-profile.js?v=10"></script>
 <script src="server-modals.js?v=48"></script>

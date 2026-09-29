@@ -230,6 +230,7 @@ async function openServer(serverId, iconEl) {
   if (typeof closeMiniProfile === "function") closeMiniProfile();
   if (typeof closeSettingsChrome === "function") closeSettingsChrome();
   if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
+  if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;
   if (typeof setTopbarTab === "function") setTopbarTab("messages");
 
@@ -301,6 +302,17 @@ function renderServerSidebar(data) {
         openChannelModal(category.id);
       });
       header.appendChild(addBtn);
+
+      const cog = document.createElement("button");
+      cog.type = "button";
+      cog.className = "channel-settings-btn";
+      cog.title = "Edit Category";
+      cog.textContent = "\u2699";
+      cog.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (typeof openCategorySettings === "function") openCategorySettings(category);
+      });
+      header.appendChild(cog);
     }
 
     const channelsEl = document.createElement("div");
@@ -325,6 +337,19 @@ function renderServerSidebar(data) {
       row.appendChild(label);
 
       if (typeof decorateChannelRow === "function") decorateChannelRow(row, channel);
+
+      if (canLayout) {
+        const cog = document.createElement("button");
+        cog.type = "button";
+        cog.className = "channel-settings-btn";
+        cog.title = "Edit Channel";
+        cog.textContent = "\u2699";
+        cog.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (typeof openChannelSettingsForChannel === "function") openChannelSettingsForChannel(channel);
+        });
+        row.appendChild(cog);
+      }
 
       row.addEventListener("click", (e) => {
         if (typeof serverDndConsumeClick === "function" && serverDndConsumeClick()) return;

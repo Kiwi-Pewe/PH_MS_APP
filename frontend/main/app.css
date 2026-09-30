@@ -114,6 +114,7 @@
    Flexbox containers do. */
 #main-grid { flex: 1 1 auto; display: grid; grid-template-columns: 72px 240px 1fr; grid-template-rows: 1fr; min-height: 0; }
 #main-grid.has-member-list { grid-template-columns: 72px 240px minmax(0, 1fr) minmax(0, 240px); }
+#main-grid.has-member-list.has-search-results { grid-template-columns: 72px 240px minmax(0, 1fr) minmax(280px, 380px); }
 
 #server-rail { background: var(--rail); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 0; min-height: 0; }
 #server-rail-main {

@@ -26,6 +26,8 @@ function hideMemberList() {
       footer.replaceChildren();
     }
   }
+  const grid = document.getElementById("main-grid");
+  if (grid) grid.classList.remove("has-search-results");
   memberListScope = null;
   memberListScopeId = null;
   memberList = [];

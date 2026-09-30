@@ -2345,7 +2345,7 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   min-width: 0;
 }
 .search-result-row {
-  padding: 6px 4px 5px;
+  padding: 8px 6px 7px;
   border-radius: 6px;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
@@ -2356,10 +2356,10 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 .search-result-row:last-child { border-bottom: none; }
 .search-result-row:hover { background: var(--panel-alt); }
 .search-result-meta {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-dim);
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2371,27 +2371,27 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 }
 .search-result-message .msg-cluster {
   margin: 0;
-  gap: 6px;
+  gap: 8px;
   flex-direction: row !important;
   max-width: 100%;
   min-width: 0;
 }
 .search-result-message .cluster-avatar {
-  width: 22px;
-  height: 22px;
-  font-size: 10px;
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
 }
 .search-result-message .cluster-body {
-  max-width: calc(100% - 28px);
+  max-width: calc(100% - 36px);
   width: auto;
   flex: 1 1 auto;
   min-width: 0;
   align-items: flex-start !important;
 }
 .search-result-message .cluster-header {
-  font-size: 11px;
-  gap: 4px;
-  margin-bottom: 2px;
+  font-size: 12px;
+  gap: 5px;
+  margin-bottom: 3px;
   min-width: 0;
 }
 .search-result-message .cluster-header .cluster-name {
@@ -2400,21 +2400,21 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   white-space: nowrap;
   max-width: 100%;
 }
-.search-result-message .cluster-header .cluster-time { font-size: 10px; flex: 0 0 auto; }
+.search-result-message .cluster-header .cluster-time { font-size: 11px; flex: 0 0 auto; }
 .search-result-message .cluster-bubble {
   max-width: 100%;
   width: fit-content;
-  padding: 5px 8px;
-  border-radius: 10px;
-  gap: 2px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  gap: 3px;
   box-sizing: border-box;
   overflow: hidden;
 }
 .search-result-message .bubble-line {
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 13px;
+  line-height: 1.4;
 }
-.search-result-message .bubble-line.emoji-only { font-size: 22px; }
+.search-result-message .bubble-line.emoji-only { font-size: 28px; }
 .search-result-message .bubble-line,
 .search-result-message .msg-cluster.self .bubble-line { text-align: left !important; }
 .search-result-message .msg-media,
@@ -2426,14 +2426,14 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   align-self: stretch !important;
 }
 .search-result-message .invite-card {
-  padding: 8px;
-  gap: 6px;
+  padding: 10px;
+  gap: 7px;
 }
-.search-result-message .invite-card-badge { width: 28px; height: 28px; font-size: 12px; }
-.search-result-message .invite-card-name { font-size: 12px; }
+.search-result-message .invite-card-badge { width: 32px; height: 32px; font-size: 13px; }
+.search-result-message .invite-card-name { font-size: 13px; }
 .search-result-message .invite-card-subtitle,
 .search-result-message .invite-card-invalid-text { font-size: 11px; }
-.search-result-message .invite-card-btn { font-size: 11px; padding: 4px 8px; }
+.search-result-message .invite-card-btn { font-size: 11px; padding: 5px 9px; }
 .search-result-message .msg-media img,
 .search-result-message .msg-media video {
   max-width: 100%;

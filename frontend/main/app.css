@@ -1741,6 +1741,109 @@ html.legacy-chat-input #mention-picker { display: none !important; }
 
 #channel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; }
 
+.forum-thread-opener {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-alt);
+  padding: 10px 16px 12px;
+  max-height: min(42vh, 360px);
+  overflow-y: auto;
+}
+.forum-thread-opener-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.forum-thread-opener-avatar {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.forum-thread-opener-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.forum-thread-opener-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.forum-thread-opener-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.forum-thread-opener-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.forum-thread-opener-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.forum-thread-opener-author {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  width: fit-content;
+}
+.forum-thread-opener-body {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.forum-thread-opener-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.forum-thread-opener .post-media { margin-top: 4px; }
+.forum-thread-opener .post-media img,
+.forum-thread-opener .post-media video { max-width: min(100%, 360px); }
+
+.forum-post-avatar {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.forum-post-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* #channel-composer joins every #composer rule below — same reasoning
    as #channel-messages joining #chat-messages above: identical behavior,
    separate element only because both views coexist in the DOM and ids
@@ -2185,6 +2288,97 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
   padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px;
 }
+
+.forum-filter-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  min-height: 40px;
+}
+.forum-sort-btn {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.forum-sort-btn:hover { border-color: var(--text-dim); }
+.forum-tag-filters {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.forum-tag-chip {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.forum-tag-chip:hover { color: var(--text); border-color: var(--text-dim); }
+.forum-tag-chip.is-active {
+  color: var(--text);
+  border-color: var(--accent, var(--text-dim));
+  background: color-mix(in srgb, var(--accent, var(--text-dim)) 18%, transparent);
+}
+.forum-guidelines-box {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: 13px;
+  white-space: pre-wrap;
+  line-height: 1.4;
+  max-height: 7.5em;
+  overflow-y: auto;
+}
+.forum-composer-tags { display: flex; flex-direction: column; gap: 6px; }
+.forum-composer-tags-label { font-size: 12px; color: var(--text-dim); }
+.forum-composer-tags-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.forum-post-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.forum-settings-tags-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.forum-settings-tag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-alt);
+}
+.forum-settings-tag-label { color: var(--text); font-size: 13px; min-width: 0; }
+.forum-settings-tag-add-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.forum-settings-tag-add-row .server-settings-input { flex: 1 1 auto; min-width: 0; }
+.forum-settings-require-host { margin-top: 12px; }
+.forum-settings-require-host .settings-opt { padding-left: 0; padding-right: 0; }
+.forum-settings-reaction-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.forum-settings-reaction-preview { font-size: 22px; line-height: 1; min-width: 1.2em; }
 
 /* flex: 0 0 auto matters: #forum-posts is a flex column, so without it a
    long list squashes every card down to fit instead of scrolling. */

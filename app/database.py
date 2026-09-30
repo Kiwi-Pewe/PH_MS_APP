@@ -305,12 +305,19 @@ def ensure_server_columns():
 
 
 def ensure_channel_columns():
+    adds = (
+        ("server_channels", "topic", "VARCHAR"),
+        ("server_channels", "forum_guidelines", "VARCHAR"),
+        ("server_channels", "forum_require_tags", "BOOLEAN DEFAULT 0"),
+        ("server_channels", "forum_default_reaction", "VARCHAR"),
+    )
     with engine.connect() as conn:
-        try:
-            conn.execute(text("ALTER TABLE server_channels ADD COLUMN topic VARCHAR"))
-            conn.commit()
-        except Exception:
-            conn.rollback()
+        for table, column, coltype in adds:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
 
 
 def ensure_role_columns():
@@ -348,6 +355,19 @@ def ensure_forum_columns():
                 conn.commit()
             except Exception:
                 conn.rollback()
+        try:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS forum_tags (
+                    id INTEGER PRIMARY KEY,
+                    channel_id INTEGER,
+                    name VARCHAR,
+                    emoji VARCHAR,
+                    position INTEGER DEFAULT 100
+                )
+            """))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_feedback_columns():

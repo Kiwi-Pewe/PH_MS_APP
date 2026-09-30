@@ -94,6 +94,10 @@ let announcementIsLoadingMore = false;
 // which is also the only thing that re-sorts the list (see below).
 let currentForumPosts = [];
 let forumHasMore = true;
+let forumChannelSettings = { guidelines: "", require_tags: false, default_reaction: "", tags: [] };
+let forumSearchQuery = "";
+let forumFilterTagId = null;
+let forumComposerTagIds = [];
 let forumIsLoadingMore = false;
 
 // Which forum post's thread is open, or null when the chat UI is showing
@@ -114,6 +118,13 @@ let openForumPostEdited = false;
 let openForumPostMentionUsers = {};
 let openForumPostMentionRoles = {};
 let openForumPostLocked = false;
+let openForumPostSticky = false;
+let openForumPostAuthorId = null;
+let openForumPostAuthorUsername = null;
+let openForumPostAvatar = null;
+let openForumPostNameRole = null;
+let openForumPostTags = [];
+let openForumPostReactions = [];
 
 // forumCardElements[postId] = { tagsEl, countEl, activityEl }
 // Same idea as commentThreadElements: registered once per card so a live

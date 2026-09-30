@@ -104,11 +104,10 @@ function renderChannelMessages(opts = {}) {
   const wrap = document.getElementById("channel-messages");
   wrap.innerHTML = "";
 
-  // Same view, two occupants — a forum thread borrows this whole feed,
-  // so the only thing that differs is which start card tops it.
-  if (openForumPostId !== null) {
-    wrap.appendChild(buildForumStartCard(openForumPostTitle, openForumPostBody, openForumPostAttachment, openForumPostEdited));
-  } else if (currentChannelId !== null) {
+  // Same view, two occupants — a forum thread borrows this whole feed.
+  // The opener lives in #forum-thread-opener (sticky above the scroll),
+  // so the message list only gets a normal channel start when not in a thread.
+  if (openForumPostId === null && currentChannelId !== null) {
     wrap.appendChild(buildChannelStartCard(currentChannelName));
   }
 
@@ -603,6 +602,10 @@ function buildForumStartCard(title, body, attachment, edited) {
   card.appendChild(avatar);
   card.appendChild(nameRow);
   card.appendChild(desc);
+  if (body) {
+    if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(desc, body);
+    if (typeof attachLinkImagesIfNeeded === "function") attachLinkImagesIfNeeded(card, body);
+  }
   const media = typeof buildPostMedia === "function" ? buildPostMedia(attachment) : null;
   if (media) card.appendChild(media);
   return card;

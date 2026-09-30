@@ -3,6 +3,9 @@ let channelSettingsTarget = null;
 let channelSettingsSavedName = "";
 let channelSettingsSavedTopic = "";
 let channelSettingsSavedPrivate = false;
+let channelSettingsForumSettings = { guidelines: "", require_tags: false, default_reaction: "", tags: [] };
+let channelSettingsSavedGuidelines = "";
+let channelSettingsForumReactionPick = null;
 let channelSettingsPermRoleId = "members";
 let channelSettingsPermDisplay = {};
 let channelSettingsPermLive = [
@@ -130,20 +133,20 @@ const CHANNEL_SETTINGS_PERM_COPY = {
     desc: "Allows locking a topic in this channel.",
   },
   view_docs: {
-    title: "View docs",
-    desc: "Allows viewing docs in this channel.",
+    title: "View wallpaper",
+    desc: "Allows viewing this wallpaper channel.",
   },
   create_docs: {
-    title: "Create docs",
-    desc: "Allows creating docs in this channel.",
+    title: "Create wallpaper",
+    desc: "Allows creating wallpaper pages in this channel.",
   },
   manage_docs: {
-    title: "Manage docs",
-    desc: "Allows updating others' docs in this channel.",
+    title: "Manage wallpaper",
+    desc: "Allows updating others' wallpaper pages in this channel.",
   },
   remove_docs: {
-    title: "Remove docs",
-    desc: "Allows removing others' docs in this channel.",
+    title: "Remove wallpaper",
+    desc: "Allows removing others' wallpaper pages in this channel.",
   },
   see_media: {
     title: "See media",
@@ -273,7 +276,7 @@ function channelSettingsPermGroupKey(title) {
   if (t.startsWith("chat")) return "chat";
   if (t.startsWith("calendar")) return "calendar";
   if (t.startsWith("forum")) return "forums";
-  if (t.startsWith("docs")) return "docs";
+  if (t.startsWith("docs") || t.startsWith("wallpaper")) return "docs";
   if (t.startsWith("media")) return "media";
   if (t.startsWith("voice")) return "voice";
   if (t.startsWith("list")) return "lists";
@@ -604,8 +607,15 @@ function showChannelSettingsTab(tab) {
   }
 }
 
+function channelSettingsIsForums() {
+  return channelSettingsKind === "channel"
+    && channelSettingsTarget
+    && channelSettingsTarget.channel_type === "forums";
+}
+
 function paintChannelSettingsShell() {
   const isCategory = channelSettingsKind === "category";
+  const isForums = channelSettingsIsForums();
   const label = document.getElementById("channel-settings-index-label");
   if (label) label.textContent = channelSettingsLabel(channelSettingsTarget, channelSettingsKind);
   const nameLabel = document.getElementById("channel-settings-name-label");
@@ -622,6 +632,10 @@ function paintChannelSettingsShell() {
     btn.hidden = isCategory;
   });
   document.querySelectorAll("#channel-settings-overview .is-channel-only").forEach((el) => {
+    if (el.classList.contains("is-forums-only")) {
+      el.hidden = !isForums;
+      return;
+    }
     el.hidden = isCategory;
   });
 }
@@ -805,6 +819,194 @@ function cancelChannelSettingsTopic() {
   syncChannelSettingsTopic(channelSettingsSavedTopic);
 }
 
+function setChannelSettingsForumGuidelinesStatus(message) {
+  const el = document.getElementById("channel-settings-forum-guidelines-status");
+  if (!el) return;
+  if (!message) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.hidden = false;
+  el.textContent = message;
+}
+
+function syncChannelSettingsForumGuidelines(text) {
+  channelSettingsSavedGuidelines = text || "";
+  const input = document.getElementById("channel-settings-forum-guidelines");
+  if (input) input.value = channelSettingsSavedGuidelines;
+  const actions = document.getElementById("channel-settings-forum-guidelines-actions");
+  if (actions) actions.hidden = true;
+  setChannelSettingsForumGuidelinesStatus("");
+}
+
+function applyChannelSettingsForumSettings(settings) {
+  channelSettingsForumSettings = {
+    guidelines: (settings && settings.guidelines) || "",
+    require_tags: !!(settings && settings.require_tags),
+    default_reaction: (settings && settings.default_reaction) || "",
+    tags: Array.isArray(settings && settings.tags) ? settings.tags.slice() : [],
+  };
+  syncChannelSettingsForumGuidelines(channelSettingsForumSettings.guidelines);
+  paintChannelSettingsForumTags();
+  paintChannelSettingsForumRequireTags();
+  paintChannelSettingsForumReaction();
+  if (
+    typeof applyForumChannelSettings === "function"
+    && currentChannelId
+    && Number(currentChannelId) === Number(channelSettingsTarget && channelSettingsTarget.id)
+  ) {
+    applyForumChannelSettings(channelSettingsForumSettings);
+  }
+}
+
+async function loadChannelSettingsForumSettings() {
+  if (!channelSettingsIsForums() || !channelSettingsTarget) return;
+  try {
+    const response = await fetch(
+      `https://${serverAddress}/get_forum_settings/${channelSettingsTarget.id}`,
+      { credentials: "include" }
+    );
+    if (!response.ok) return;
+    const data = await response.json();
+    applyChannelSettingsForumSettings(data);
+  } catch (e) { /* leave defaults */ }
+}
+
+async function saveChannelSettingsForumSettings(partial) {
+  if (!channelSettingsIsForums() || !channelSettingsTarget) return null;
+  const data = await postChannelSettings("/save_forum_settings", Object.assign({
+    channel_id: channelSettingsTarget.id,
+  }, partial || {}));
+  applyChannelSettingsForumSettings(data);
+  return data;
+}
+
+async function saveChannelSettingsForumGuidelines() {
+  if (!channelSettingsIsForums() || !channelSettingsTarget) return;
+  const input = document.getElementById("channel-settings-forum-guidelines");
+  const text = ((input && input.value) || "").trim();
+  if (text === channelSettingsSavedGuidelines) {
+    syncChannelSettingsForumGuidelines(text);
+    return;
+  }
+  try {
+    await saveChannelSettingsForumSettings({ guidelines: text });
+  } catch (err) {
+    setChannelSettingsForumGuidelinesStatus(err.message || "Could not save.");
+  }
+}
+
+function cancelChannelSettingsForumGuidelines() {
+  syncChannelSettingsForumGuidelines(channelSettingsSavedGuidelines);
+}
+
+function paintChannelSettingsForumTags() {
+  const host = document.getElementById("channel-settings-forum-tags-list");
+  if (!host) return;
+  host.replaceChildren();
+  const tags = channelSettingsForumSettings.tags || [];
+  if (!tags.length) {
+    const empty = document.createElement("p");
+    empty.className = "server-settings-help";
+    empty.textContent = "No tags yet.";
+    host.appendChild(empty);
+    return;
+  }
+  tags.forEach((tag) => {
+    const row = document.createElement("div");
+    row.className = "forum-settings-tag-row";
+    const label = document.createElement("span");
+    label.className = "forum-settings-tag-label";
+    label.textContent = ((tag.emoji || "") + " " + (tag.name || "")).trim();
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost-btn";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", async () => {
+      try {
+        const data = await postChannelSettings("/delete_forum_tag", { tag_id: tag.id });
+        if (data && data.settings) applyChannelSettingsForumSettings(data.settings);
+      } catch (err) {
+        setChannelSettingsForumGuidelinesStatus(err.message || "Could not remove tag.");
+      }
+    });
+    row.appendChild(label);
+    row.appendChild(remove);
+    host.appendChild(row);
+  });
+}
+
+function paintChannelSettingsForumRequireTags() {
+  const host = document.getElementById("channel-settings-forum-require-tags-host");
+  if (!host) return;
+  host.replaceChildren();
+  if (typeof settingsOpt !== "function" || typeof settingsToggle !== "function") return;
+  const toggle = settingsToggle(!!channelSettingsForumSettings.require_tags, false, async (on) => {
+    const previous = !!channelSettingsForumSettings.require_tags;
+    channelSettingsForumSettings.require_tags = !!on;
+    try {
+      await saveChannelSettingsForumSettings({ require_tags: !!on });
+    } catch (err) {
+      channelSettingsForumSettings.require_tags = previous;
+      paintChannelSettingsForumRequireTags();
+      setChannelSettingsForumGuidelinesStatus(err.message || "Could not save.");
+    }
+  });
+  host.appendChild(settingsOpt(
+    "Require tags",
+    "People must pick at least one tag when creating a post.",
+    toggle
+  ));
+}
+
+function paintChannelSettingsForumReaction() {
+  const preview = document.getElementById("channel-settings-forum-reaction-preview");
+  const clearBtn = document.getElementById("channel-settings-forum-reaction-clear");
+  const emoji = (channelSettingsForumSettings.default_reaction || "").trim();
+  if (preview) preview.textContent = emoji;
+  if (clearBtn) clearBtn.hidden = !emoji;
+}
+
+function ensureChannelSettingsForumReactionPick() {
+  if (channelSettingsForumReactionPick) return channelSettingsForumReactionPick;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = "channel-settings-forum-reaction-pick";
+  input.setAttribute("data-emoji-replace", "1");
+  input.style.cssText = "position:absolute;left:-9999px;width:1px;height:1px;opacity:0;";
+  input.tabIndex = -1;
+  document.body.appendChild(input);
+  input.addEventListener("input", async () => {
+    const emoji = (input.value || "").trim();
+    if (!emoji || !channelSettingsIsForums()) return;
+    try {
+      await saveChannelSettingsForumSettings({ default_reaction: emoji });
+    } catch (err) {
+      setChannelSettingsForumGuidelinesStatus(err.message || "Could not save.");
+    }
+  });
+  channelSettingsForumReactionPick = input;
+  return input;
+}
+
+async function addChannelSettingsForumTag() {
+  if (!channelSettingsIsForums() || !channelSettingsTarget) return;
+  const input = document.getElementById("channel-settings-forum-tag-name");
+  const name = ((input && input.value) || "").trim();
+  if (!name) return;
+  try {
+    const data = await postChannelSettings("/create_forum_tag", {
+      channel_id: channelSettingsTarget.id,
+      name,
+    });
+    if (input) input.value = "";
+    if (data && data.settings) applyChannelSettingsForumSettings(data.settings);
+  } catch (err) {
+    setChannelSettingsForumGuidelinesStatus(err.message || "Could not add tag.");
+  }
+}
+
 function applyChannelUpdated(channel) {
   if (!channel || !currentServerData) return;
   const live = findChannelSettingsChannel(channel.id);
@@ -879,6 +1081,12 @@ function openChannelSettings(kind, target) {
   paintChannelSettingsPermissions();
   if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
   syncChannelSettingsTopic(channelSettingsKind === "channel" ? (target.topic || "") : "");
+  channelSettingsForumSettings = { guidelines: "", require_tags: false, default_reaction: "", tags: [] };
+  syncChannelSettingsForumGuidelines("");
+  paintChannelSettingsForumTags();
+  paintChannelSettingsForumRequireTags();
+  paintChannelSettingsForumReaction();
+  if (channelSettingsIsForums()) loadChannelSettingsForumSettings();
   const overlay = document.getElementById("channel-settings-overlay");
   if (overlay) overlay.hidden = false;
 }
@@ -899,8 +1107,10 @@ function closeChannelSettingsChrome() {
   if (overlay) overlay.hidden = true;
   cancelChannelSettingsName();
   cancelChannelSettingsTopic();
+  cancelChannelSettingsForumGuidelines();
   setChannelSettingsNameStatus("");
   setChannelSettingsTopicStatus("");
+  setChannelSettingsForumGuidelinesStatus("");
 }
 
 document.getElementById("channel-settings-close").addEventListener("click", () => {
@@ -946,6 +1156,63 @@ document.getElementById("channel-settings-topic-confirm").addEventListener("clic
 document.getElementById("channel-settings-topic-cancel").addEventListener("click", () => {
   cancelChannelSettingsTopic();
 });
+
+const forumGuidelinesInput = document.getElementById("channel-settings-forum-guidelines");
+if (forumGuidelinesInput) {
+  forumGuidelinesInput.addEventListener("input", () => {
+    const actions = document.getElementById("channel-settings-forum-guidelines-actions");
+    if (!actions) return;
+    actions.hidden = forumGuidelinesInput.value.trim() === channelSettingsSavedGuidelines;
+    setChannelSettingsForumGuidelinesStatus("");
+  });
+}
+const forumGuidelinesConfirm = document.getElementById("channel-settings-forum-guidelines-confirm");
+if (forumGuidelinesConfirm) {
+  forumGuidelinesConfirm.addEventListener("click", () => {
+    saveChannelSettingsForumGuidelines();
+  });
+}
+const forumGuidelinesCancel = document.getElementById("channel-settings-forum-guidelines-cancel");
+if (forumGuidelinesCancel) {
+  forumGuidelinesCancel.addEventListener("click", () => {
+    cancelChannelSettingsForumGuidelines();
+  });
+}
+const forumTagAdd = document.getElementById("channel-settings-forum-tag-add");
+if (forumTagAdd) {
+  forumTagAdd.addEventListener("click", () => {
+    addChannelSettingsForumTag();
+  });
+}
+const forumTagName = document.getElementById("channel-settings-forum-tag-name");
+if (forumTagName) {
+  forumTagName.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addChannelSettingsForumTag();
+    }
+  });
+}
+const forumReactionBtn = document.getElementById("channel-settings-forum-reaction-btn");
+if (forumReactionBtn) {
+  forumReactionBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof openEmojiPicker !== "function") return;
+    const pick = ensureChannelSettingsForumReactionPick();
+    pick.value = "";
+    openEmojiPicker(forumReactionBtn, pick, e.clientX, e.clientY);
+  });
+}
+const forumReactionClear = document.getElementById("channel-settings-forum-reaction-clear");
+if (forumReactionClear) {
+  forumReactionClear.addEventListener("click", async () => {
+    try {
+      await saveChannelSettingsForumSettings({ default_reaction: "" });
+    } catch (err) {
+      setChannelSettingsForumGuidelinesStatus(err.message || "Could not save.");
+    }
+  });
+}
 
 document.getElementById("channel-settings-delete").addEventListener("click", () => {
   if (!channelSettingsTarget) return;

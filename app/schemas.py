@@ -384,6 +384,7 @@ class Forum_post_create(BaseModel):
     channel_id: int
     title: str
     body: str = ""
+    tag_ids: list[int] = []
     attachments: list[Attachment_in] = []
     attachment: Attachment_in | None = None
 
@@ -395,6 +396,25 @@ class Forum_message_create(BaseModel):
     content: str = ""
     attachment: Attachment_in | None = None
     reply_to_id: int | None = None
+
+class Forum_settings_save(BaseModel):
+    channel_id: int
+    guidelines: str | None = None
+    require_tags: bool | None = None
+    default_reaction: str | None = None
+
+class Forum_tag_create(BaseModel):
+    channel_id: int
+    name: str
+    emoji: str | None = None
+
+class Forum_tag_update(BaseModel):
+    tag_id: int
+    name: str | None = None
+    emoji: str | None = None
+
+class Forum_tag_delete(BaseModel):
+    tag_id: int
 
 class Doc_save(BaseModel):
     channel_id: int

@@ -475,6 +475,8 @@ function fillAnnouncePostContent(card, post) {
     if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers, post.mentionRoles);
     else body.textContent = post.body;
     wrap.appendChild(body);
+    if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(body, post.body);
+    if (typeof attachLinkImagesIfNeeded === "function") attachLinkImagesIfNeeded(wrap, post.body);
   }
   const media = typeof buildPostMedia === "function" ? buildPostMedia(post.attachment) : null;
   if (media) wrap.appendChild(media);

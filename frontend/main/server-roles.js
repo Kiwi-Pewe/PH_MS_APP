@@ -81,12 +81,12 @@ const SERVER_ROLE_PERMS = [
     ]
   },
   {
-    title: "Docs permissions",
+    title: "Wallpaper permissions",
     rows: [
-      { id: "view_docs", title: "View docs", desc: "Allows you to view docs." },
-      { id: "create_docs", title: "Create docs", desc: "Allows you to create docs." },
-      { id: "manage_docs", title: "Manage docs", desc: "Allows you to update docs created by others and move them to other channels." },
-      { id: "remove_docs", title: "Remove docs", desc: "Allows you to remove docs created by others." }
+      { id: "view_docs", title: "View wallpaper", desc: "Allows you to view wallpaper channels." },
+      { id: "create_docs", title: "Create wallpaper", desc: "Allows you to create wallpaper pages." },
+      { id: "manage_docs", title: "Manage wallpaper", desc: "Allows you to update wallpaper pages created by others and move them to other channels." },
+      { id: "remove_docs", title: "Remove wallpaper", desc: "Allows you to remove wallpaper pages created by others." }
     ]
   },
   {

@@ -243,6 +243,9 @@ class Server_channels(Base):
     position = Column(Integer)
     is_private = Column(Boolean, default=False)
     topic = Column(String, nullable=True)
+    forum_guidelines = Column(String, nullable=True)
+    forum_require_tags = Column(Boolean, default=False)
+    forum_default_reaction = Column(String, nullable=True)
 
 class Channel_messages(Base):
     __tablename__ = "channel_messages"
@@ -332,6 +335,14 @@ class Forum_post(Base):
     edited = Column(Boolean, default= False)
     sticky = Column(Boolean, default=False)
     locked = Column(Boolean, default=False)
+
+class Forum_tag(Base):
+    __tablename__ = "forum_tags"
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    name = Column(String)
+    emoji = Column(String, nullable=True)
+    position = Column(Integer, default=100)
 
 class Forum_messages(Base):
     __tablename__ = "forum_messages"

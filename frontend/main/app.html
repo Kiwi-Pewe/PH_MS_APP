@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=206">
+<link rel="stylesheet" href="app.css?v=208">
 </head>
 <body>
 
@@ -219,6 +219,7 @@
             <button type="button" class="icon-btn chat-pins-btn" id="channel-pins-btn" title="Pinned messages">Pins</button>
           </div>
         </div>
+        <div id="forum-thread-opener" class="forum-thread-opener" hidden></div>
         <div id="channel-body">
           <!-- Shown only when no real text channel is selected (a server
                with zero channels, or a voice channel — no text history
@@ -340,7 +341,7 @@
         <div id="forums-view" style="display:none;">
           <div class="announce-composer-bar" id="forums-composer-bar">
             <div id="forum-composer-default" class="announce-composer-default">
-              <input type="text" class="search-box announce-composer-search" placeholder="Search or create a post..." disabled>
+              <input type="search" id="forum-search-input" class="search-box announce-composer-search" placeholder="Search or create a post..." autocomplete="off" spellcheck="false">
               <button class="pill-btn" id="forum-new-post-btn">New Post</button>
             </div>
             <div id="forum-composer-editing" class="announce-composer-editing" style="display:none;">
@@ -350,6 +351,8 @@
                     <button class="icon-btn" id="forum-composer-cancel-btn" title="Cancel">&times;</button>
                     <input type="text" id="forum-title-input" class="announce-composer-title-input" maxlength="200" placeholder="Title">
                   </div>
+                  <div id="forum-guidelines-box" class="forum-guidelines-box" hidden></div>
+                  <div id="forum-composer-tags" class="forum-composer-tags" hidden></div>
                   <div class="announce-composer-editing-body">
                     <div class="composer-field">
                       <div class="composer-highlight" id="forum-body-highlight" aria-hidden="true"></div>
@@ -374,9 +377,10 @@
               </div>
             </div>
           </div>
-          <!-- Populated entirely by loadForumPosts(). No end-marker
-               equivalent to Announcements' "You're up to date!" - that
-               marker means "bottom = newest", which is backwards here. -->
+          <div id="forum-filter-bar" class="forum-filter-bar" hidden>
+            <button type="button" class="forum-sort-btn" id="forum-sort-btn" title="Sort & View">Sort &amp; View</button>
+            <div id="forum-tag-filters" class="forum-tag-filters"></div>
+          </div>
           <div id="forum-posts"></div>
         </div>
 
@@ -936,6 +940,43 @@
           <div id="channel-settings-private-host"></div>
           <p class="server-settings-help" id="channel-settings-private-help">Only people with access can see this channel when it is private.</p>
         </div>
+        <div class="server-settings-field is-channel-only is-forums-only" id="channel-settings-forum-guidelines-field" hidden>
+          <label class="server-settings-field-title" for="channel-settings-forum-guidelines">Post Guidelines</label>
+          <textarea id="channel-settings-forum-guidelines" class="server-settings-input server-settings-textarea" rows="5" maxlength="4096" placeholder="Let everyone know how to use this channel!"></textarea>
+          <div id="channel-settings-forum-guidelines-actions" class="server-settings-name-actions" hidden>
+            <button type="button" id="channel-settings-forum-guidelines-confirm" class="settings-row-btn">Confirm</button>
+            <button type="button" id="channel-settings-forum-guidelines-cancel" class="ghost-btn">Cancel</button>
+          </div>
+          <p id="channel-settings-forum-guidelines-status" class="server-settings-help" hidden></p>
+          <p class="server-settings-help">Shown when someone starts a new post.</p>
+        </div>
+        <div class="server-settings-field is-channel-only is-forums-only" id="channel-settings-forum-tags-field" hidden>
+          <div class="server-settings-field-title">Tags</div>
+          <p class="server-settings-help">Help people organize their posts into subcategories by creating a tag.</p>
+          <div id="channel-settings-forum-tags-list" class="forum-settings-tags-list"></div>
+          <div class="forum-settings-tag-add-row">
+            <input id="channel-settings-forum-tag-name" class="server-settings-input" type="text" maxlength="40" placeholder="New tag name" autocomplete="off">
+            <button type="button" id="channel-settings-forum-tag-add" class="pill-btn" title="Add tag">+</button>
+          </div>
+          <div id="channel-settings-forum-require-tags-host" class="forum-settings-require-host"></div>
+        </div>
+        <div class="server-settings-field is-channel-only is-forums-only" id="channel-settings-forum-reaction-field" hidden>
+          <div class="server-settings-field-title">Default Reaction</div>
+          <p class="server-settings-help">Pick a default emoji that members will use to react to a post from this channel.</p>
+          <div class="forum-settings-reaction-row">
+            <button type="button" id="channel-settings-forum-reaction-btn" class="settings-row-btn">Select emoji</button>
+            <span id="channel-settings-forum-reaction-preview" class="forum-settings-reaction-preview"></span>
+            <button type="button" id="channel-settings-forum-reaction-clear" class="ghost-btn" hidden>Clear</button>
+          </div>
+        </div>
+        <div class="server-settings-field is-channel-only is-forums-only" id="channel-settings-forum-layout-field" hidden>
+          <label class="server-settings-field-title" for="channel-settings-forum-layout">Default Layout</label>
+          <select id="channel-settings-forum-layout" class="settings-select server-settings-select" disabled>
+            <option value="list" selected>List View</option>
+            <option value="gallery">Gallery View</option>
+          </select>
+          <p class="server-settings-help">Gallery view comes later. List is the default for now.</p>
+        </div>
       </div>
       <div id="channel-settings-permissions" class="server-settings-page" hidden>
         <h2 class="server-settings-page-title">Permissions</h2>
@@ -1131,8 +1172,8 @@
               </label>
               <label class="channel-type-option">
                 <input type="radio" name="channel-type" value="doc">
-                <span class="channel-type-name">&#128196; Doc</span>
-                <span class="channel-type-desc">A single document page — no chat, just a reference/welcome page</span>
+                <span class="channel-type-name">&#128196; Wallpaper</span>
+                <span class="channel-type-desc">A single page for rules, welcome, or reference — no chat</span>
               </label>
               <label class="channel-type-option">
                 <!-- "forums" plural, matching what /create_forum and
@@ -1399,19 +1440,19 @@
 <div id="mention-picker" hidden>
   <div id="mention-picker-list"></div>
 </div>
-<script src="state.js?v=71"></script>
+<script src="state.js?v=72"></script>
 <script src="appearance.js?v=5"></script>
 <script src="accessibility.js?v=11"></script>
 <script src="language-time.js?v=1"></script>
 <script src="util.js?v=51"></script>
 <script src="media.js?v=57"></script>
 <script src="post-media.js?v=54"></script>
-<script src="boot.js?v=93"></script>
+<script src="boot.js?v=94"></script>
 <script src="app-shell.js?v=65"></script>
 <script src="feed.js?v=15"></script>
 <script src="settings.js?v=19"></script>
 <script src="server-settings.js?v=34"></script>
-<script src="server-roles.js?v=18"></script>
+<script src="server-roles.js?v=19"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
@@ -1439,7 +1480,7 @@
 <script src="profile-edit.js?v=66"></script>
 <script src="context-menus.js?v=87"></script>
 <script src="conversations.js?v=61"></script>
-<script src="chat-render.js?v=64"></script>
+<script src="chat-render.js?v=65"></script>
 <script src="chat-history.js?v=51"></script>
 <script src="chat-compose.js?v=61"></script>
 <script src="typing.js?v=2"></script>
@@ -1460,17 +1501,17 @@
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=12"></script>
-<script src="servers.js?v=94"></script>
+<script src="servers.js?v=96"></script>
 <script src="server-dnd.js?v=1"></script>
-<script src="channel-settings.js?v=8"></script>
+<script src="channel-settings.js?v=10"></script>
 <script src="pins.js?v=2"></script>
 <script src="search.js?v=3"></script>
 <script src="members.js?v=15"></script>
 <script src="mini-profile.js?v=10"></script>
 <script src="server-modals.js?v=48"></script>
-<script src="announcements.js?v=58"></script>
+<script src="announcements.js?v=59"></script>
 <script src="comments.js?v=52"></script>
-<script src="forums.js?v=64"></script>
+<script src="forums.js?v=65"></script>
 <script src="docs.js?v=46"></script>
 <script src="feedback.js?v=4"></script>
 </body>

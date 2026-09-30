@@ -233,6 +233,29 @@ function connectSocket() {
       applyForumPostFlags(data.post_id, data.sticky, data.locked);
     }
 
+    if (data.type === "forum_settings_updated") {
+      if (
+        data.settings
+        && currentChannelType === "forums"
+        && currentChannelId
+        && Number(currentChannelId) === Number(data.channel_id)
+        && typeof applyForumChannelSettings === "function"
+      ) {
+        applyForumChannelSettings(data.settings);
+      }
+      if (
+        typeof isChannelSettingsOpen !== "undefined"
+        && isChannelSettingsOpen
+        && channelSettingsKind === "channel"
+        && channelSettingsTarget
+        && Number(channelSettingsTarget.id) === Number(data.channel_id)
+        && typeof applyChannelSettingsForumSettings === "function"
+        && data.settings
+      ) {
+        applyChannelSettingsForumSettings(data.settings);
+      }
+    }
+
     // Sender is excluded from these broadcasts (server_broadcast's
     // exclude_user_id), so no double-add guard needed for our own creations.
     if (data.type === "category_created") {

@@ -21,7 +21,7 @@ function channelTypeSidebarLabel(channelType) {
   if (kind === "voice") return "Voice Channel";
   if (kind === "forums") return "Forums Channel";
   if (kind === "announcements") return "Announcements Channel";
-  if (kind === "doc") return "Doc Channel";
+  if (kind === "doc") return "Wallpaper Channel";
   if (kind === "lists") return "Lists Channel";
   if (kind === "media") return "Media Channel";
   if (kind === "events") return "Events Channel";
@@ -425,7 +425,19 @@ async function selectChannel(channel, rowEl) {
   openForumPostMentionUsers = {};
   openForumPostMentionRoles = {};
   openForumPostLocked = false;
+  openForumPostSticky = false;
+  openForumPostAuthorId = null;
+  openForumPostAuthorUsername = null;
+  openForumPostAvatar = null;
+  openForumPostNameRole = null;
+  openForumPostTags = [];
+  openForumPostReactions = [];
   document.getElementById("forum-back-btn").style.display = "none";
+  const forumOpener = document.getElementById("forum-thread-opener");
+  if (forumOpener) {
+    forumOpener.hidden = true;
+    forumOpener.replaceChildren();
+  }
   hideDocsChrome();
 
   currentChannelId = channel.id;
@@ -492,6 +504,8 @@ async function selectChannel(channel, rowEl) {
     document.getElementById("forum-new-post-btn").style.display =
       (typeof canCreateTopics === "function" && canCreateTopics()) ? "inline-flex" : "none";
     if (typeof paintServerTimeoutLock === "function") paintServerTimeoutLock();
+    forumFilterTagId = null;
+    forumComposerTagIds = [];
     loadForumPosts(channel.id);
     return;
   }
@@ -514,6 +528,16 @@ async function selectChannel(channel, rowEl) {
     document.getElementById("channel-welcome-title").textContent = `Welcome to ${label}!`;
     document.getElementById("channel-welcome-sub").textContent = "Voice channels aren't supported yet \u2014 text channels are today's focus.";
     disableChannelComposer("Voice channels can't receive text messages yet.");
+    return;
+  }
+
+  if (channel.channel_type === "lists") {
+    channelMessages.style.display = "none";
+    channelEmpty.style.display = "flex";
+    document.getElementById("channel-empty-badge").textContent = "\u2611";
+    document.getElementById("channel-welcome-title").textContent = `Welcome to ${label}!`;
+    document.getElementById("channel-welcome-sub").textContent = "Lists / Tasks aren't available yet.";
+    disableChannelComposer("Lists channels aren't available yet.");
     return;
   }
 
@@ -567,8 +591,20 @@ function showNoChannelSelected() {
   openForumPostMentionUsers = {};
   openForumPostMentionRoles = {};
   openForumPostLocked = false;
+  openForumPostSticky = false;
+  openForumPostAuthorId = null;
+  openForumPostAuthorUsername = null;
+  openForumPostAvatar = null;
+  openForumPostNameRole = null;
+  openForumPostTags = [];
+  openForumPostReactions = [];
   const back = document.getElementById("forum-back-btn");
   if (back) back.style.display = "none";
+  const forumOpener = document.getElementById("forum-thread-opener");
+  if (forumOpener) {
+    forumOpener.hidden = true;
+    forumOpener.replaceChildren();
+  }
 
   currentChannelId = null;
   currentChannelType = null;

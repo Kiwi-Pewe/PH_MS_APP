@@ -25,21 +25,168 @@ function paintForumAccess() {
   }
 }
 
+function applyForumChannelSettings(settings) {
+  forumChannelSettings = {
+    guidelines: (settings && settings.guidelines) || "",
+    require_tags: !!(settings && settings.require_tags),
+    default_reaction: (settings && settings.default_reaction) || "",
+    tags: Array.isArray(settings && settings.tags) ? settings.tags.slice() : [],
+  };
+  paintForumFilterBar();
+  paintForumComposerTags();
+  paintForumGuidelinesBox();
+}
+
+function paintForumGuidelinesBox() {
+  const box = document.getElementById("forum-guidelines-box");
+  if (!box) return;
+  const text = (forumChannelSettings.guidelines || "").trim();
+  if (!text) {
+    box.hidden = true;
+    box.textContent = "";
+    return;
+  }
+  box.hidden = false;
+  box.textContent = text;
+}
+
+function paintForumFilterBar() {
+  const bar = document.getElementById("forum-filter-bar");
+  const host = document.getElementById("forum-tag-filters");
+  if (!bar || !host) return;
+  const tags = forumChannelSettings.tags || [];
+  bar.hidden = false;
+  host.replaceChildren();
+  const allBtn = document.createElement("button");
+  allBtn.type = "button";
+  allBtn.className = "forum-tag-chip" + (forumFilterTagId == null ? " is-active" : "");
+  allBtn.textContent = "All";
+  allBtn.addEventListener("click", () => {
+    forumFilterTagId = null;
+    loadForumPosts(currentChannelId);
+  });
+  host.appendChild(allBtn);
+  tags.forEach((tag) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "forum-tag-chip" + (Number(forumFilterTagId) === Number(tag.id) ? " is-active" : "");
+    btn.textContent = ((tag.emoji || "") + " " + (tag.name || "")).trim();
+    btn.addEventListener("click", () => {
+      forumFilterTagId = tag.id;
+      loadForumPosts(currentChannelId);
+    });
+    host.appendChild(btn);
+  });
+}
+
+function paintForumComposerTags() {
+  const host = document.getElementById("forum-composer-tags");
+  if (!host) return;
+  const tags = forumChannelSettings.tags || [];
+  if (!tags.length) {
+    host.hidden = true;
+    host.replaceChildren();
+    forumComposerTagIds = [];
+    return;
+  }
+  host.hidden = false;
+  host.replaceChildren();
+  const label = document.createElement("div");
+  label.className = "forum-composer-tags-label";
+  label.textContent = forumChannelSettings.require_tags ? "Tags (required)" : "Tags";
+  host.appendChild(label);
+  const row = document.createElement("div");
+  row.className = "forum-composer-tags-row";
+  tags.forEach((tag) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    const on = forumComposerTagIds.some((id) => Number(id) === Number(tag.id));
+    btn.className = "forum-tag-chip" + (on ? " is-active" : "");
+    btn.textContent = ((tag.emoji || "") + " " + (tag.name || "")).trim();
+    btn.addEventListener("click", () => {
+      if (on) forumComposerTagIds = forumComposerTagIds.filter((id) => Number(id) !== Number(tag.id));
+      else if (forumComposerTagIds.length < 5) forumComposerTagIds.push(tag.id);
+      paintForumComposerTags();
+    });
+    row.appendChild(btn);
+  });
+  host.appendChild(row);
+}
+
+function paintForumPostTags(host, post) {
+  if (!host) return;
+  host.replaceChildren();
+  const tags = Array.isArray(post.tags) ? post.tags : [];
+  tags.forEach((tag) => {
+    const chip = document.createElement("span");
+    chip.className = "forum-post-tag-chip";
+    chip.textContent = ((tag.emoji || "") + " " + (tag.name || "")).trim();
+    host.appendChild(chip);
+  });
+}
+
+function forumListQueryParams(extra) {
+  const params = new URLSearchParams(extra || {});
+  const q = (forumSearchQuery || "").trim();
+  if (q) params.set("q", q);
+  if (forumFilterTagId != null) params.set("tag_id", String(forumFilterTagId));
+  return params;
+}
+
 document.getElementById("forum-new-post-btn").addEventListener("click", showForumComposerEditing);
 document.getElementById("forum-composer-cancel-btn").addEventListener("click", hideForumComposerEditing);
 document.getElementById("forum-post-btn").addEventListener("click", submitCreateForumPost);
+
+const forumSearchInput = document.getElementById("forum-search-input");
+if (forumSearchInput) {
+  let forumSearchTimer = null;
+  forumSearchInput.addEventListener("input", () => {
+    forumSearchQuery = forumSearchInput.value || "";
+    if (forumSearchTimer) clearTimeout(forumSearchTimer);
+    forumSearchTimer = setTimeout(() => {
+      if (currentChannelType === "forums" && currentChannelId && !openForumPostId) {
+        loadForumPosts(currentChannelId);
+      }
+    }, 250);
+  });
+  forumSearchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      forumSearchQuery = forumSearchInput.value || "";
+      if (currentChannelType === "forums" && currentChannelId && !openForumPostId) {
+        loadForumPosts(currentChannelId);
+      }
+    }
+  });
+}
+
+const forumSortBtn = document.getElementById("forum-sort-btn");
+if (forumSortBtn) {
+  forumSortBtn.addEventListener("click", (e) => {
+    if (typeof openContextMenu !== "function") return;
+    const rect = forumSortBtn.getBoundingClientRect();
+    openContextMenu(rect.left, rect.bottom + 4, null, [
+      { label: "Recent activity", onSelect: () => loadForumPosts(currentChannelId) },
+      { label: "Creation date", disabled: true },
+      { label: "Top", disabled: true },
+      { separator: true },
+      { label: "List view", onSelect: () => {} },
+      { label: "Gallery view", disabled: true },
+    ]);
+  });
+}
 
 function showForumComposerEditing() {
   if (typeof canCreateTopics === "function" && !canCreateTopics()) return;
   document.getElementById("forum-title-input").value = "";
   document.getElementById("forum-body-input").value = "";
-  // Clearing the inline height (rather than setting a number) hands
-  // sizing back to rows="3", so reopening the composer after a long
-  // draft starts small again instead of staying expanded.
   document.getElementById("forum-body-input").style.height = "";
+  forumComposerTagIds = [];
   if (typeof clearPostMedia === "function") clearPostMedia("forum");
   document.getElementById("forum-composer-default").style.display = "none";
   document.getElementById("forum-composer-editing").style.display = "flex";
+  paintForumGuidelinesBox();
+  paintForumComposerTags();
   document.getElementById("forum-title-input").focus();
   if (typeof refreshComposerMentions === "function") refreshComposerMentions(document.getElementById("forum-body-input"));
 }
@@ -69,6 +216,10 @@ async function submitCreateForumPost() {
 
   if (typeof isServerTimedOut === "function" && isServerTimedOut()) return;
   if (typeof canCreateTopics === "function" && !canCreateTopics()) return;
+  if (forumChannelSettings.require_tags && (forumChannelSettings.tags || []).length && !forumComposerTagIds.length) {
+    window.alert("Pick at least one tag for this post.");
+    return;
+  }
   const postBtn = document.getElementById("forum-post-btn");
   postBtn.disabled = true;
   let post;
@@ -79,7 +230,13 @@ async function submitCreateForumPost() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ channel_id: currentChannelId, title, body, attachments })
+      body: JSON.stringify({
+        channel_id: currentChannelId,
+        title,
+        body,
+        attachments,
+        tag_ids: forumComposerTagIds.slice(),
+      })
     });
     if (!response.ok) {
       console.error(`Failed to create forum post: ${response.status}`);
@@ -102,7 +259,7 @@ async function submitCreateForumPost() {
     title: post.title,
     body: post.body,
     attachment: post.attachment,
-    tags: post.tags,
+    tags: post.tags || [],
     message_count: post.message_count,
     last_activity: post.last_activity,
     author_id: myUserId,
@@ -110,7 +267,7 @@ async function submitCreateForumPost() {
     edited: false,
     sticky: false,
     locked: false,
-    reactions: [],
+    reactions: applyReactionMe(post.reactions || []),
     mention_users: post.mention_users
   });
 }
@@ -141,10 +298,18 @@ function buildForumPostCard(post) {
   card.className = "forum-post";
   card.dataset.postId = post.id;
 
-  // Deliberately empty. The column exists and always comes back "",
-  // since real tag management is tied to the future roles/permissions
-  // work. Rendered anyway so a card is the same height now as it will
-  // be once tags land, rather than growing later.
+  const face = document.createElement("div");
+  face.className = "forum-post-avatar";
+  if (typeof paintUserFace === "function") {
+    paintUserFace(face, { avatar: post.avatar, username: post.author_username }, {
+      name: post.author_username || "?",
+      userId: post.author_id,
+    });
+  } else {
+    face.textContent = typeof avatarLetter === "function" ? avatarLetter(post.author_username || "?") : "?";
+  }
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(face, post.author_id);
+
   const tags = document.createElement("div");
   tags.className = "forum-post-tags";
 
@@ -186,7 +351,7 @@ function buildForumPostCard(post) {
 
   card.addEventListener("click", (e) => {
     if (editingForumPostId === post.id) return;
-    if (e.target.closest(".announce-post-menu-btn, .forum-post-reactions")) return;
+    if (e.target.closest(".announce-post-menu-btn, .forum-post-reactions, .forum-post-avatar")) return;
     openForumPost(post);
   });
   card.addEventListener("contextmenu", (e) => showForumPostContextMenu(e, post));
@@ -196,6 +361,7 @@ function buildForumPostCard(post) {
   main.appendChild(tags);
   main.appendChild(content);
   main.appendChild(meta);
+  card.appendChild(face);
   card.appendChild(main);
   fillForumPostContent(card, post);
   fillForumPostFlags(card, post);
@@ -206,27 +372,218 @@ function buildForumPostCard(post) {
 // Everything below the header is the ordinary channel chat view being
 // borrowed wholesale - no forum-specific renderer, composer or pagination
 // exists, they're the channel ones with openForumPostId set (see state.js).
+function clearOpenForumPostState() {
+  openForumPostId = null;
+  openForumPostTitle = null;
+  openForumPostBody = null;
+  openForumPostAttachment = null;
+  openForumPostEdited = false;
+  openForumPostMentionUsers = {};
+  openForumPostMentionRoles = {};
+  openForumPostLocked = false;
+  openForumPostSticky = false;
+  openForumPostAuthorId = null;
+  openForumPostAuthorUsername = null;
+  openForumPostAvatar = null;
+  openForumPostNameRole = null;
+  openForumPostTags = [];
+  openForumPostReactions = [];
+}
+
+function applyOpenForumPostState(post) {
+  if (!post) return;
+  if (post.id != null) openForumPostId = post.id;
+  if (post.title != null) openForumPostTitle = post.title;
+  if (post.body != null) openForumPostBody = post.body || "";
+  if (post.attachment !== undefined) openForumPostAttachment = post.attachment || null;
+  if (post.edited != null) openForumPostEdited = !!post.edited;
+  if (post.mentionUsers || post.mention_users) {
+    openForumPostMentionUsers = post.mentionUsers || post.mention_users || {};
+  }
+  if (post.mentionRoles || post.mention_roles) {
+    openForumPostMentionRoles = post.mentionRoles || post.mention_roles || {};
+  }
+  if (post.locked != null) openForumPostLocked = !!post.locked;
+  if (post.sticky != null) openForumPostSticky = !!post.sticky;
+  if (post.author_id != null) openForumPostAuthorId = post.author_id;
+  if (post.author_username != null) openForumPostAuthorUsername = post.author_username;
+  if (post.avatar !== undefined) openForumPostAvatar = post.avatar || null;
+  if (post.name_role !== undefined || post.nameRole !== undefined) {
+    openForumPostNameRole = post.name_role || post.nameRole || null;
+  }
+  if (post.tags) openForumPostTags = Array.isArray(post.tags) ? post.tags.slice() : [];
+  if (post.reactions) openForumPostReactions = applyReactionMe(post.reactions || []);
+}
+
+function openForumPostSnapshot() {
+  return {
+    id: openForumPostId,
+    title: openForumPostTitle,
+    body: openForumPostBody || "",
+    attachment: openForumPostAttachment,
+    edited: openForumPostEdited,
+    mentionUsers: openForumPostMentionUsers,
+    mentionRoles: openForumPostMentionRoles,
+    locked: openForumPostLocked,
+    sticky: openForumPostSticky,
+    author_id: openForumPostAuthorId,
+    author_username: openForumPostAuthorUsername,
+    avatar: openForumPostAvatar,
+    name_role: openForumPostNameRole,
+    tags: openForumPostTags,
+    reactions: openForumPostReactions,
+  };
+}
+
+function hideForumThreadOpener() {
+  const el = document.getElementById("forum-thread-opener");
+  if (!el) return;
+  el.hidden = true;
+  el.replaceChildren();
+}
+
+function paintForumThreadOpener() {
+  const host = document.getElementById("forum-thread-opener");
+  if (!host || !openForumPostId) {
+    hideForumThreadOpener();
+    return;
+  }
+  const post = openForumPostSnapshot();
+  host.hidden = false;
+  host.replaceChildren();
+
+  const card = document.createElement("div");
+  card.className = "forum-thread-opener-card";
+
+  const face = document.createElement("div");
+  face.className = "forum-thread-opener-avatar";
+  if (typeof paintUserFace === "function") {
+    paintUserFace(face, { avatar: post.avatar, username: post.author_username }, {
+      name: post.author_username || "?",
+      userId: post.author_id,
+    });
+  } else {
+    face.textContent = typeof avatarLetter === "function" ? avatarLetter(post.author_username || "?") : "?";
+  }
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(face, post.author_id);
+
+  const main = document.createElement("div");
+  main.className = "forum-thread-opener-main";
+
+  const flags = document.createElement("div");
+  flags.className = "forum-thread-opener-tags";
+  if (post.sticky) {
+    const flag = document.createElement("span");
+    flag.className = "forum-flag";
+    flag.textContent = "Sticky";
+    flags.appendChild(flag);
+  }
+  if (post.locked) {
+    const flag = document.createElement("span");
+    flag.className = "forum-flag";
+    flag.textContent = "Locked";
+    flags.appendChild(flag);
+  }
+  (post.tags || []).forEach((tag) => {
+    const chip = document.createElement("span");
+    chip.className = "forum-post-tag-chip";
+    chip.textContent = ((tag.emoji || "") + " " + (tag.name || "")).trim();
+    flags.appendChild(chip);
+  });
+  if (flags.childNodes.length) main.appendChild(flags);
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "forum-thread-opener-title-row";
+  const title = document.createElement("div");
+  title.className = "forum-thread-opener-title";
+  title.textContent = post.title || "";
+  titleRow.appendChild(title);
+  if (post.edited) {
+    const tag = document.createElement("span");
+    tag.className = "edited-tag";
+    tag.textContent = "edited";
+    titleRow.appendChild(tag);
+  }
+  const menuBtn = document.createElement("button");
+  menuBtn.type = "button";
+  menuBtn.className = "announce-post-menu-btn";
+  menuBtn.title = "More";
+  menuBtn.innerHTML = "&#8942;";
+  menuBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const live = currentForumPosts.find((p) => Number(p.id) === Number(post.id)) || post;
+    showForumPostContextMenu(e, live);
+  });
+  titleRow.appendChild(menuBtn);
+  main.appendChild(titleRow);
+
+  const author = document.createElement("div");
+  author.className = "forum-thread-opener-author";
+  author.textContent = post.author_username || "Unknown";
+  if (typeof applyServerNameColor === "function") {
+    applyServerNameColor(author, post.author_id, post.name_role);
+  }
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(author, post.author_id);
+  main.appendChild(author);
+
+  const body = document.createElement("div");
+  body.className = "forum-thread-opener-body";
+  if (post.body && typeof fillMentionText === "function") {
+    fillMentionText(body, post.body, post.mentionUsers || {}, post.mentionRoles || {});
+  } else {
+    body.textContent = post.body || "";
+  }
+  main.appendChild(body);
+  if (post.body) {
+    if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(body, post.body);
+    if (typeof attachLinkImagesIfNeeded === "function") attachLinkImagesIfNeeded(main, post.body);
+  }
+  const media = typeof buildPostMedia === "function" ? buildPostMedia(post.attachment) : null;
+  if (media) main.appendChild(media);
+
+  const meta = document.createElement("div");
+  meta.className = "forum-thread-opener-meta";
+  const reactionsHost = document.createElement("div");
+  reactionsHost.className = "forum-post-reactions";
+  const addReactionBtn = document.createElement("button");
+  addReactionBtn.type = "button";
+  addReactionBtn.className = "announce-add-reaction-btn";
+  addReactionBtn.title = "Add Reaction";
+  addReactionBtn.textContent = "+";
+  addReactionBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openReactionPicker(forumPostReactionTarget(post), e.clientX, e.clientY);
+  });
+  reactionsHost.appendChild(addReactionBtn);
+  fillForumPostReactions(reactionsHost, post);
+  meta.appendChild(reactionsHost);
+  main.appendChild(meta);
+
+  card.appendChild(face);
+  card.appendChild(main);
+  host.appendChild(card);
+}
+
+function showForumThreadOpener() {
+  paintForumThreadOpener();
+}
+
 async function openForumPost(post) {
   if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
-  openForumPostId = post.id;
-  openForumPostTitle = post.title;
-  openForumPostBody = post.body || "";
-  openForumPostAttachment = post.attachment || null;
-  openForumPostEdited = !!post.edited;
-  openForumPostMentionUsers = post.mentionUsers || post.mention_users || {};
-  openForumPostMentionRoles = post.mentionRoles || post.mention_roles || {};
-  openForumPostLocked = !!post.locked;
+  applyOpenForumPostState(post);
 
   document.getElementById("forums-view").style.display = "none";
   document.getElementById("channel-body").style.display = "flex";
   document.getElementById("channel-composer").style.display = "block";
   document.getElementById("forum-back-btn").style.display = "inline-flex";
-  document.getElementById("channel-header-title").textContent = post.title;
+  document.getElementById("channel-header-title").textContent = openForumPostTitle || post.title || "";
+  if (typeof setHeaderDescription === "function") setHeaderDescription("channel-header-desc", "");
   document.getElementById("channel-empty").style.display = "none";
   document.getElementById("channel-messages").style.display = "block";
-  enableChannelComposer(post.title);
+  showForumThreadOpener();
+  enableChannelComposer(openForumPostTitle || post.title || "");
 
   currentChannelMessages = [];
   channelHasMoreHistory = true;
@@ -236,6 +593,12 @@ async function openForumPost(post) {
     const response = await fetch(`https://${serverAddress}/get_forum_messages/${post.id}`, { credentials: "include" });
     if (!response.ok) { renderChannelMessages(); return; }
     const data = await response.json();
+    if (data.post) applyOpenForumPostState(data.post);
+    if (data.locked != null) openForumPostLocked = !!data.locked;
+    if (data.sticky != null) openForumPostSticky = !!data.sticky;
+    document.getElementById("channel-header-title").textContent = openForumPostTitle || "";
+    showForumThreadOpener();
+    enableChannelComposer(openForumPostTitle || "");
     currentChannelMessages = (data.forum_post_messages || []).map(msg => {
       const mapped = applyDeletionFields({
         id: msg.id,
@@ -252,39 +615,28 @@ async function openForumPost(post) {
       if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
       return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
     });
-    if (data.locked != null) {
-      post.locked = !!data.locked;
-      openForumPostLocked = !!data.locked;
-      enableChannelComposer(post.title);
-    }
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
     renderChannelMessages();
   } catch (e) { renderChannelMessages(); }
 }
 
-// Deliberately does NOT re-fetch the card list on the way back. Returning
-// from a thread is not a channel reload, and re-sorting here would shuffle
-// the list under someone who just stepped away to read one post - the exact
-// thing the no-live-reorder rule exists to prevent. Counts and times on the
-// cards are already current via patchForumCard.
 function closeForumPost() {
   if (typeof clearPendingReply === "function") clearPendingReply();
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
-  openForumPostId = null;
-  openForumPostTitle = null;
-  openForumPostBody = null;
-  openForumPostAttachment = null;
-  openForumPostEdited = false;
-  openForumPostMentionUsers = {};
-  openForumPostMentionRoles = {};
-  openForumPostLocked = false;
+  clearOpenForumPostState();
   currentChannelMessages = [];
+  hideForumThreadOpener();
 
   document.getElementById("forum-back-btn").style.display = "none";
   document.getElementById("channel-body").style.display = "none";
   document.getElementById("channel-composer").style.display = "none";
   document.getElementById("forums-view").style.display = "flex";
   document.getElementById("channel-header-title").textContent = `#${currentChannelName}`;
+  if (typeof setHeaderDescription === "function") {
+    const live = typeof findChannelSettingsChannel === "function" ? findChannelSettingsChannel(currentChannelId) : null;
+    const topic = (live && live.topic) || "";
+    setHeaderDescription("channel-header-desc", topic);
+  }
 }
 
 document.getElementById("forum-back-btn").addEventListener("click", closeForumPost);
@@ -313,15 +665,22 @@ async function loadForumPosts(channelId) {
   forumIsLoadingMore = false;
   const container = document.getElementById("forum-posts");
   container.innerHTML = "";
+  const searchEl = document.getElementById("forum-search-input");
+  if (searchEl && searchEl.value !== forumSearchQuery) {
+    forumSearchQuery = searchEl.value || "";
+  }
   try {
-    const response = await fetch(`https://${serverAddress}/get_forum_post/${channelId}`, { credentials: "include" });
+    const params = forumListQueryParams();
+    const qs = params.toString();
+    const response = await fetch(`https://${serverAddress}/get_forum_post/${channelId}${qs ? ("?" + qs) : ""}`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
+    if (data.settings) applyForumChannelSettings(data.settings);
+    else paintForumFilterBar();
     currentForumPosts = (data.forum_posts || []).map(post => {
       post.reactions = applyReactionMe(post.reactions || []);
       return post;
     });
-    // Backend pages these 10 at a time, not the 25 used everywhere else.
     forumHasMore = data.has_more != null ? !!data.has_more : currentForumPosts.filter(p => !p.sticky).length >= 10;
     currentForumPosts.forEach(post => container.appendChild(buildForumPostCard(post)));
     container.scrollTop = 0;
@@ -342,7 +701,7 @@ async function loadMoreForumPosts() {
     // URLSearchParams, not a hand-built string: last_activity is
     // space-separated ("2026-09-07 13:04:11.123456") and that space has
     // to be encoded or the query arrives truncated.
-    const params = new URLSearchParams({
+    const params = forumListQueryParams({
       before_activity: last.last_activity,
       before_id: last.id
     });
@@ -420,6 +779,13 @@ function fillForumPostFlags(card, post) {
       flag.textContent = "Locked";
       tags.appendChild(flag);
     }
+    const realTags = Array.isArray(post.tags) ? post.tags : [];
+    realTags.forEach((tag) => {
+      const chip = document.createElement("span");
+      chip.className = "forum-post-tag-chip";
+      chip.textContent = ((tag.emoji || "") + " " + (tag.name || "")).trim();
+      tags.appendChild(chip);
+    });
   }
 }
 
@@ -451,9 +817,11 @@ function applyForumPostFlags(postId, sticky, locked) {
   if (post && post.sticky && !wasSticky) moveForumCardToStickies(postId);
   if (openForumPostId === postId) {
     openForumPostLocked = !!(post && post.locked);
+    openForumPostSticky = !!(post && post.sticky);
     if (typeof enableChannelComposer === "function") {
       enableChannelComposer(openForumPostTitle || currentChannelName || "");
     }
+    paintForumThreadOpener();
     if (openForumPostLocked) {
       if (editingForumPostId === postId && typeof abandonForumEdit === "function") abandonForumEdit();
       if (typeof abandonMessageEdit === "function") abandonMessageEdit();
@@ -532,6 +900,10 @@ function patchForumPostReactions(postId, reactions) {
   if (post) post.reactions = applyReactionMe(reactions || []);
   const els = forumCardElements[postId];
   if (els && els.reactionsEl && post) fillForumPostReactions(els.reactionsEl, post);
+  if (Number(openForumPostId) === Number(postId)) {
+    openForumPostReactions = applyReactionMe(reactions || []);
+    paintForumThreadOpener();
+  }
 }
 
 async function deleteForumPostFromContextMenu(post) {
@@ -796,9 +1168,10 @@ function applyForumPostEdit(data) {
     openForumPostEdited = !!data.edited;
     openForumPostMentionUsers = (post && post.mentionUsers) || data.mention_users || {};
     openForumPostMentionRoles = (post && post.mentionRoles) || data.mention_roles || {};
+    if (data.tags) openForumPostTags = Array.isArray(data.tags) ? data.tags.slice() : openForumPostTags;
     const header = document.getElementById("channel-header-title");
     if (header) header.textContent = data.title;
-    if (typeof renderChannelMessages === "function") renderChannelMessages({ preserveScroll: true });
+    paintForumThreadOpener();
   }
 }
 

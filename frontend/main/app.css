@@ -3423,13 +3423,26 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 #lists-view {
   flex: 1; min-height: 0; display: none; flex-direction: column;
 }
-#lists-scroll { flex: 1; min-height: 0; overflow: auto; padding: 8px 0 24px; }
-.list-block { border-bottom: 1px solid var(--border); }
+#lists-scroll { flex: 1; min-height: 0; overflow: auto; padding: 12px 0 24px; }
+.list-block {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 0 16px 8px;
+  overflow: hidden;
+}
+.list-block:hover { border-color: var(--text-dim); }
 .list-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 16px; min-height: 44px;
+  padding: 8px 12px; min-height: 44px;
 }
-.list-row:hover { background: var(--rail); }
+.list-add {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 0 16px 8px;
+  padding: 4px 12px 8px;
+}
 .list-check {
   width: 18px; height: 18px; flex: 0 0 auto; box-sizing: border-box;
   border: 2px solid var(--text-dim); border-radius: 50%; background: transparent;
@@ -3445,7 +3458,6 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .list-icon-btn:hover { color: var(--text); background: var(--panel); }
 .list-icon-btn.has-note { color: var(--text); }
-.list-add { padding: 4px 16px 8px; }
 .list-add-row { display: flex; align-items: center; gap: 8px; }
 #lists-title-input, .list-edit-input, .list-thread-input {
   flex: 1; min-width: 0; background: transparent; border: 0; color: var(--text);

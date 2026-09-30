@@ -476,6 +476,18 @@ function connectSocket() {
       applyListThreadMessage(data.item_id, data.message, data.thread_count);
     }
 
+    if (data.type === "calendar_event_created" && typeof applyCalendarEvent === "function") {
+      applyCalendarEvent(data.event);
+    }
+
+    if (data.type === "calendar_event_updated" && typeof applyCalendarEvent === "function") {
+      applyCalendarEvent(data.event);
+    }
+
+    if (data.type === "calendar_event_deleted" && typeof removeCalendarEvent === "function") {
+      if (Number(currentChannelId) === Number(data.channel_id)) removeCalendarEvent(data.event_id);
+    }
+
     if (data.type === "announcement_created") {
       const post = data.post;
       if (typeof applyMentionFields === "function") applyMentionFields(post, post);

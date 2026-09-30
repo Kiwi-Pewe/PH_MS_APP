@@ -161,6 +161,7 @@ function applyServerTimezone(serverId, zone) {
     currentServerData.timezone = next;
   }
   if (typeof syncServerSettingsTimezone === "function") syncServerSettingsTimezone(next);
+  if (currentChannelType === "events" && typeof renderCalendar === "function") renderCalendar();
 }
 
 function applyServerNotifications(serverId, kind) {
@@ -507,6 +508,7 @@ async function selectChannel(channel, rowEl) {
   const forumsView = document.getElementById("forums-view");
   const docsView = document.getElementById("docs-view");
   const listsView = document.getElementById("lists-view");
+  const calendarView = document.getElementById("calendar-view");
 
   // Special panels go down up front so each branch below only has to
   // turn its own on.
@@ -514,6 +516,7 @@ async function selectChannel(channel, rowEl) {
   forumsView.style.display = "none";
   docsView.style.display = "none";
   if (listsView) listsView.style.display = "none";
+  if (calendarView) calendarView.style.display = "none";
   const overview = document.getElementById("server-overview");
   if (overview) overview.style.display = "none";
   const overviewRow = document.getElementById("server-section-overview");
@@ -554,6 +557,14 @@ async function selectChannel(channel, rowEl) {
     channelComposer.style.display = "none";
     if (listsView) listsView.style.display = "flex";
     if (typeof loadListItems === "function") await loadListItems(channel.id);
+    return;
+  }
+
+  if (channel.channel_type === "events") {
+    channelBody.style.display = "none";
+    channelComposer.style.display = "none";
+    if (calendarView) calendarView.style.display = "flex";
+    if (typeof loadCalendar === "function") await loadCalendar(channel.id);
     return;
   }
 
@@ -655,6 +666,9 @@ function showNoChannelSelected() {
   document.getElementById("docs-view").style.display = "none";
   const listsPanel = document.getElementById("lists-view");
   if (listsPanel) listsPanel.style.display = "none";
+  const calendarPanel = document.getElementById("calendar-view");
+  if (calendarPanel) calendarPanel.style.display = "none";
+  if (typeof closeCalendarEvent === "function") closeCalendarEvent();
   document.getElementById("channel-body").style.display = "flex";
   document.getElementById("channel-composer").style.display = "block";
   document.getElementById("channel-header-title").textContent = "No channels yet";
@@ -790,7 +804,7 @@ if (serverSectionOverview) {
 }
 
 function hideChannelSurfaces() {
-  ["announcements-view", "forums-view", "docs-view", "lists-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
+  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });

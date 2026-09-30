@@ -488,6 +488,21 @@ class List_item_move(BaseModel):
     item_id: int
     channel_id: int
 
+class Calendar_event_create(BaseModel):
+    channel_id: int
+    name: str
+    starts_at: str
+    color: int = 14910017
+
+class Calendar_event_edit(BaseModel):
+    event_id: int
+    name: str
+    starts_at: str
+    color: int = 14910017
+
+class Calendar_event_delete(BaseModel):
+    event_id: int
+
 class List_thread_create(BaseModel):
     item_id: int
     content: str

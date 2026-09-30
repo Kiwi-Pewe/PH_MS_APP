@@ -311,6 +311,17 @@ class List_check(Base):
     __table_args__ = (UniqueConstraint("item_id", "user_id", name="uq_list_check"),)
 
 
+class Calendar_event(Base):
+    __tablename__ = "calendar_events"
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    name = Column(String)
+    starts_at = Column(DateTime)
+    color = Column(Integer, default=14910017)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class List_thread_message(Base):
     __tablename__ = "list_thread_messages"
     id = Column(Integer, primary_key=True)

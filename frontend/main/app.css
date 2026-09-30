@@ -3541,6 +3541,128 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .list-note-message-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; margin-top: 4px; }
 .list-note-editor { display: flex; flex-direction: column; }
 
+#calendar-view {
+  flex: 1; min-height: 0; display: none; flex-direction: column;
+}
+.calendar-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px; flex: 0 0 auto;
+}
+.calendar-month-nav { display: flex; align-items: center; gap: 4px; font-size: 18px; font-weight: 700; }
+.calendar-toolbar-actions { display: flex; align-items: center; gap: 6px; }
+.calendar-zone-btn, .calendar-view-btn, .calendar-add-btn {
+  background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  font-size: 12px; font-weight: 700; border-radius: 6px; padding: 5px 10px; cursor: pointer;
+}
+.calendar-zone-btn.is-on { color: #e3b341; border-color: #e3b341; }
+.calendar-view-btn.is-on { color: var(--text); background: var(--panel-alt); }
+.calendar-add-btn { color: var(--text); font-size: 16px; line-height: 1; padding: 4px 10px; }
+.calendar-zone-btn:hover, .calendar-view-btn:hover, .calendar-add-btn:hover { color: var(--text); }
+.calendar-grid {
+  flex: 1; min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto repeat(6, minmax(72px, 1fr));
+  border-top: 1px solid var(--border);
+  overflow: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.calendar-grid[hidden], .calendar-upcoming[hidden] { display: none; }
+.calendar-grid::-webkit-scrollbar, .calendar-upcoming::-webkit-scrollbar { width: 8px; height: 8px; }
+.calendar-grid::-webkit-scrollbar-track, .calendar-upcoming::-webkit-scrollbar-track { background: transparent; }
+.calendar-grid::-webkit-scrollbar-thumb, .calendar-upcoming::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.calendar-dow {
+  text-align: center; font-size: 12px; font-weight: 600; color: var(--text-dim);
+  padding: 8px 4px; border-bottom: 1px solid var(--border);
+}
+.calendar-day {
+  position: relative; min-width: 0; min-height: 0; overflow: auto;
+  border-top: 1px solid var(--border); border-left: 1px solid var(--border);
+  padding: 4px 6px 6px; display: flex; flex-direction: column; gap: 2px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.calendar-day::-webkit-scrollbar { width: 6px; }
+.calendar-day::-webkit-scrollbar-track { background: transparent; }
+.calendar-day::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.calendar-day:nth-child(7n + 8) { border-left: 0; }
+.calendar-day.is-outside { background: rgba(0, 0, 0, 0.18); }
+.calendar-day.is-outside .calendar-day-num { color: var(--text-dim); }
+.calendar-day.is-today .calendar-day-num { color: var(--accent); }
+.calendar-day:hover { background: var(--panel-alt); }
+.calendar-day-top { display: flex; align-items: center; justify-content: space-between; min-height: 22px; }
+.calendar-day-num { font-size: 12px; font-weight: 600; }
+.calendar-day-add {
+  opacity: 0; background: transparent; border: 0; color: var(--text-dim);
+  font-size: 16px; line-height: 1; width: 22px; height: 22px; cursor: pointer; border-radius: 4px;
+}
+.calendar-day:hover .calendar-day-add { opacity: 1; }
+.calendar-day-add:hover { color: var(--text); background: var(--panel); }
+.calendar-chip {
+  display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0;
+  background: transparent; border: 0; color: var(--text); text-align: left;
+  font-size: 12px; padding: 1px 0; cursor: pointer;
+}
+.calendar-chip:hover { color: #fff; }
+.calendar-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.calendar-chip-time { color: var(--text-dim); flex: 0 0 auto; }
+.calendar-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-upcoming {
+  flex: 1; min-height: 0; overflow: auto; padding: 8px 16px 24px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.calendar-upcoming-empty { color: var(--text-dim); padding: 16px 0; }
+.calendar-upcoming-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+}
+.calendar-upcoming-row:hover { border-color: var(--text-dim); }
+.calendar-upcoming-name { font-size: 15px; font-weight: 600; }
+.calendar-upcoming-when { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+#calendar-event-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+#calendar-event-overlay[hidden] { display: none; }
+#calendar-event-card {
+  width: 480px; max-width: calc(100% - 32px); max-height: 82vh;
+  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#calendar-event-card .view-header { font-size: 18px; }
+#calendar-event-card .view-body {
+  padding: 14px 16px 16px; overflow: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#calendar-event-card .view-body::-webkit-scrollbar { width: 8px; }
+#calendar-event-card .view-body::-webkit-scrollbar-track { background: transparent; }
+#calendar-event-card .view-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.calendar-label {
+  display: block; margin: 12px 0 6px; font-size: 13px; font-weight: 600; color: var(--text);
+}
+.calendar-label:first-child { margin-top: 0; }
+.calendar-datetime { color-scheme: dark; }
+.calendar-colors { display: flex; flex-wrap: wrap; gap: 8px; }
+.calendar-swatch {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0;
+}
+.calendar-swatch.is-on { border-color: var(--text); }
+.calendar-later { margin-top: 8px; opacity: 0.45; color-scheme: dark; }
+.calendar-later .server-settings-input,
+.calendar-later .list-note-field,
+.calendar-later .toggle-switch,
+.calendar-later .ghost-btn { cursor: not-allowed; }
+.calendar-option {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 12px;
+}
+.calendar-option-name { font-size: 14px; font-weight: 600; }
+.calendar-later-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.calendar-event-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.calendar-delete { color: var(--danger); border-color: var(--danger); margin-right: auto; }
+
 /* ---- Channel creation modal ---- */
 /* Same overlay/box treatment as the category modal, plus the type-
    picker accordion. Only one .accordion-group carries .open at a time

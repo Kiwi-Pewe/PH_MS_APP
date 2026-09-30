@@ -1,0 +1,432 @@
+const CALENDAR_COLORS = [14910017, 3900150, 11027223, 2278750, 16344086, 15680580, 440276, 15472921];
+
+let currentCalendarEvents = [];
+let calendarYear = 2026;
+let calendarMonth = 0;
+let calendarView = "month";
+let calendarZone = "server";
+let calendarEditingId = null;
+let calendarColor = CALENDAR_COLORS[0];
+
+function calendarServerZone() {
+  const zone = currentServerData && currentServerData.timezone;
+  return zone || "UTC";
+}
+
+function calendarActiveZone() {
+  if (calendarZone === "local") return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  return calendarServerZone();
+}
+
+function calendarZoneParts(date, timeZone) {
+  const bag = { year: "1970", month: "01", day: "01", hour: "00", minute: "00" };
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: timeZone || "UTC",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date).forEach((part) => {
+    if (Object.prototype.hasOwnProperty.call(bag, part.type)) bag[part.type] = part.value;
+  });
+  if (bag.hour === "24") bag.hour = "00";
+  return bag;
+}
+
+function calendarDate(stamp) {
+  if (!stamp) return new Date();
+  if (typeof parseUtcTimestamp === "function") return parseUtcTimestamp(stamp);
+  return new Date(stamp);
+}
+
+function calendarKeyFromParts(parts) {
+  return parts.year + "-" + parts.month + "-" + parts.day;
+}
+
+function calendarEventKey(event) {
+  return calendarKeyFromParts(calendarZoneParts(calendarDate(event.starts_at), calendarActiveZone()));
+}
+
+function calendarCellKey(date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return date.getFullYear() + "-" + month + "-" + day;
+}
+
+function calendarAbbrev(timeZone) {
+  try {
+    const part = new Intl.DateTimeFormat("en-US", { timeZone: timeZone || "UTC", timeZoneName: "short" })
+      .formatToParts(new Date())
+      .find((row) => row.type === "timeZoneName");
+    return (part && part.value) || timeZone || "UTC";
+  } catch (err) {
+    return "UTC";
+  }
+}
+
+function calendarShortTime(date) {
+  const text = new Intl.DateTimeFormat("en-US", {
+    timeZone: calendarActiveZone(),
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+  return text.replace(" AM", "a").replace(" PM", "p").replace(/\s/g, "");
+}
+
+function calendarLongWhen(date) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: calendarActiveZone(),
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function calendarInputToDate(value, timeZone) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value || "");
+  if (!match) return null;
+  const want = Date.UTC(+match[1], +match[2] - 1, +match[3], +match[4], +match[5]);
+  let utc = want;
+  for (let pass = 0; pass < 3; pass += 1) {
+    const parts = calendarZoneParts(new Date(utc), timeZone);
+    const got = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute);
+    if (got === want) break;
+    utc += want - got;
+  }
+  return new Date(utc);
+}
+
+function calendarDateToInput(date) {
+  const parts = calendarZoneParts(date, calendarActiveZone());
+  return parts.year + "-" + parts.month + "-" + parts.day + "T" + parts.hour + ":" + parts.minute;
+}
+
+function calendarHex(color) {
+  return "#" + Number(color || CALENDAR_COLORS[0]).toString(16).padStart(6, "0");
+}
+
+function applyCalendarEvent(event) {
+  if (!event || Number(event.channel_id) !== Number(currentChannelId)) return;
+  const index = currentCalendarEvents.findIndex((row) => Number(row.id) === Number(event.id));
+  if (index === -1) currentCalendarEvents.push(event);
+  else currentCalendarEvents[index] = event;
+  currentCalendarEvents.sort((a, b) => calendarDate(a.starts_at) - calendarDate(b.starts_at));
+  renderCalendar();
+}
+
+function removeCalendarEvent(eventId) {
+  currentCalendarEvents = currentCalendarEvents.filter((row) => Number(row.id) !== Number(eventId));
+  if (Number(calendarEditingId) === Number(eventId)) closeCalendarEvent();
+  renderCalendar();
+}
+
+async function loadCalendar(channelId) {
+  closeCalendarEvent();
+  currentCalendarEvents = [];
+  calendarView = "month";
+  calendarZone = "server";
+  const today = calendarZoneParts(new Date(), calendarActiveZone());
+  calendarYear = Number(today.year);
+  calendarMonth = Number(today.month) - 1;
+  renderCalendar();
+  const response = await fetch(`https://${serverAddress}/get_calendar/${channelId}`, { credentials: "include" });
+  if (!response.ok) return;
+  const data = await response.json();
+  if (Number(currentChannelId) !== Number(channelId)) return;
+  currentCalendarEvents = data.events || [];
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const serverPill = document.getElementById("calendar-zone-server");
+  const localPill = document.getElementById("calendar-zone-local");
+  const monthPill = document.getElementById("calendar-view-month");
+  const upcomingPill = document.getElementById("calendar-view-upcoming");
+  const label = document.getElementById("calendar-month-label");
+  if (serverPill) {
+    serverPill.textContent = calendarAbbrev(calendarServerZone());
+    serverPill.classList.toggle("is-on", calendarZone === "server");
+  }
+  if (localPill) {
+    localPill.textContent = calendarAbbrev(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    localPill.classList.toggle("is-on", calendarZone === "local");
+  }
+  if (monthPill) monthPill.classList.toggle("is-on", calendarView === "month");
+  if (upcomingPill) upcomingPill.classList.toggle("is-on", calendarView === "upcoming");
+  if (label) {
+    label.textContent = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date(calendarYear, calendarMonth, 1));
+  }
+  const grid = document.getElementById("calendar-grid");
+  const upcoming = document.getElementById("calendar-upcoming");
+  const showUpcoming = calendarView === "upcoming";
+  if (grid) grid.hidden = showUpcoming;
+  if (upcoming) upcoming.hidden = !showUpcoming;
+  if (showUpcoming) paintCalendarUpcoming();
+  else paintCalendarMonth();
+}
+
+function paintCalendarMonth() {
+  const grid = document.getElementById("calendar-grid");
+  if (!grid) return;
+  grid.replaceChildren();
+  ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach((name) => {
+    const head = document.createElement("div");
+    head.className = "calendar-dow";
+    head.textContent = name;
+    grid.appendChild(head);
+  });
+  const byDay = {};
+  currentCalendarEvents.forEach((event) => {
+    const key = calendarEventKey(event);
+    if (!byDay[key]) byDay[key] = [];
+    byDay[key].push(event);
+  });
+  const todayKey = calendarKeyFromParts(calendarZoneParts(new Date(), calendarActiveZone()));
+  const first = new Date(calendarYear, calendarMonth, 1);
+  const start = new Date(first);
+  start.setDate(1 - first.getDay());
+  for (let index = 0; index < 42; index += 1) {
+    const day = new Date(start);
+    day.setDate(start.getDate() + index);
+    const key = calendarCellKey(day);
+    const cell = document.createElement("div");
+    cell.className = "calendar-day";
+    if (day.getMonth() !== calendarMonth) cell.classList.add("is-outside");
+    if (key === todayKey) cell.classList.add("is-today");
+    const top = document.createElement("div");
+    top.className = "calendar-day-top";
+    const number = document.createElement("div");
+    number.className = "calendar-day-num";
+    number.textContent = String(day.getDate());
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "calendar-day-add";
+    add.textContent = "+";
+    add.title = "Add event";
+    add.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openCalendarEvent(null, key + "T12:00");
+    });
+    top.appendChild(number);
+    top.appendChild(add);
+    cell.appendChild(top);
+    (byDay[key] || []).forEach((item) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "calendar-chip";
+      const dot = document.createElement("span");
+      dot.className = "calendar-dot";
+      dot.style.background = calendarHex(item.color);
+      const when = document.createElement("span");
+      when.className = "calendar-chip-time";
+      when.textContent = calendarShortTime(calendarDate(item.starts_at));
+      const name = document.createElement("span");
+      name.className = "calendar-chip-name";
+      name.textContent = item.name || "Event";
+      row.appendChild(dot);
+      row.appendChild(when);
+      row.appendChild(name);
+      row.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openCalendarEvent(item);
+      });
+      cell.appendChild(row);
+    });
+    grid.appendChild(cell);
+  }
+}
+
+function paintCalendarUpcoming() {
+  const host = document.getElementById("calendar-upcoming");
+  if (!host) return;
+  host.replaceChildren();
+  const startOfToday = calendarInputToDate(
+    calendarKeyFromParts(calendarZoneParts(new Date(), calendarActiveZone())) + "T00:00",
+    calendarActiveZone()
+  );
+  const rows = currentCalendarEvents.filter((event) => calendarDate(event.starts_at) >= startOfToday);
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "calendar-upcoming-empty";
+    empty.textContent = "No upcoming events.";
+    host.appendChild(empty);
+    return;
+  }
+  rows.forEach((item) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "calendar-upcoming-row";
+    const dot = document.createElement("span");
+    dot.className = "calendar-dot";
+    dot.style.background = calendarHex(item.color);
+    const text = document.createElement("div");
+    text.className = "calendar-upcoming-text";
+    const name = document.createElement("div");
+    name.className = "calendar-upcoming-name";
+    name.textContent = item.name || "Event";
+    const when = document.createElement("div");
+    when.className = "calendar-upcoming-when";
+    when.textContent = calendarLongWhen(calendarDate(item.starts_at));
+    text.appendChild(name);
+    text.appendChild(when);
+    row.appendChild(dot);
+    row.appendChild(text);
+    row.addEventListener("click", () => openCalendarEvent(item));
+    host.appendChild(row);
+  });
+}
+
+function paintCalendarColors() {
+  const host = document.getElementById("calendar-colors");
+  if (!host) return;
+  host.replaceChildren();
+  CALENDAR_COLORS.forEach((color) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "calendar-swatch" + (color === calendarColor ? " is-on" : "");
+    button.style.background = calendarHex(color);
+    button.addEventListener("click", () => {
+      calendarColor = color;
+      paintCalendarColors();
+    });
+    host.appendChild(button);
+  });
+}
+
+function openCalendarEvent(event, inputValue) {
+  calendarEditingId = event ? event.id : null;
+  calendarColor = event ? (CALENDAR_COLORS.includes(Number(event.color)) ? Number(event.color) : CALENDAR_COLORS[0]) : CALENDAR_COLORS[0];
+  const overlay = document.getElementById("calendar-event-overlay");
+  const title = document.getElementById("calendar-event-heading");
+  const name = document.getElementById("calendar-event-name");
+  const start = document.getElementById("calendar-event-start");
+  const remove = document.getElementById("calendar-event-delete");
+  if (title) title.textContent = "Event";
+  if (name) name.value = event ? (event.name || "") : "";
+  if (start) {
+    if (event) start.value = calendarDateToInput(calendarDate(event.starts_at));
+    else start.value = inputValue || calendarDateToInput(new Date());
+  }
+  if (remove) remove.hidden = !event;
+  paintCalendarColors();
+  if (overlay) overlay.hidden = false;
+  if (name) name.focus();
+}
+
+function closeCalendarEvent() {
+  calendarEditingId = null;
+  const overlay = document.getElementById("calendar-event-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+async function saveCalendarEvent() {
+  if (!currentChannelId) return;
+  const nameInput = document.getElementById("calendar-event-name");
+  const startInput = document.getElementById("calendar-event-start");
+  const name = nameInput ? nameInput.value.trim() : "";
+  const when = calendarInputToDate(startInput && startInput.value, calendarActiveZone());
+  if (!name || !when) {
+    window.alert("Name and start time are required.");
+    return;
+  }
+  const editing = calendarEditingId;
+  const path = editing ? "edit_calendar_event" : "calendar_event";
+  const body = editing
+    ? { event_id: editing, name, starts_at: when.toISOString(), color: calendarColor }
+    : { channel_id: currentChannelId, name, starts_at: when.toISOString(), color: calendarColor };
+  const response = await fetch(`https://${serverAddress}/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert((typeof data.detail === "string" && data.detail) || "Could not save that event.");
+    return;
+  }
+  applyCalendarEvent(data);
+  closeCalendarEvent();
+}
+
+async function deleteCalendarEvent() {
+  if (!calendarEditingId) return;
+  const response = await fetch(`https://${serverAddress}/delete_calendar_event`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ event_id: calendarEditingId }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert((typeof data.detail === "string" && data.detail) || "Could not delete that event.");
+    return;
+  }
+  removeCalendarEvent(data.event_id || calendarEditingId);
+}
+
+const calendarPrev = document.getElementById("calendar-prev");
+if (calendarPrev) {
+  calendarPrev.addEventListener("click", () => {
+    const cursor = new Date(calendarYear, calendarMonth - 1, 1);
+    calendarYear = cursor.getFullYear();
+    calendarMonth = cursor.getMonth();
+    renderCalendar();
+  });
+}
+const calendarNext = document.getElementById("calendar-next");
+if (calendarNext) {
+  calendarNext.addEventListener("click", () => {
+    const cursor = new Date(calendarYear, calendarMonth + 1, 1);
+    calendarYear = cursor.getFullYear();
+    calendarMonth = cursor.getMonth();
+    renderCalendar();
+  });
+}
+const calendarAdd = document.getElementById("calendar-add");
+if (calendarAdd) calendarAdd.addEventListener("click", () => openCalendarEvent(null));
+const calendarZoneServer = document.getElementById("calendar-zone-server");
+if (calendarZoneServer) {
+  calendarZoneServer.addEventListener("click", () => {
+    calendarZone = "server";
+    renderCalendar();
+  });
+}
+const calendarZoneLocal = document.getElementById("calendar-zone-local");
+if (calendarZoneLocal) {
+  calendarZoneLocal.addEventListener("click", () => {
+    calendarZone = "local";
+    renderCalendar();
+  });
+}
+const calendarViewMonth = document.getElementById("calendar-view-month");
+if (calendarViewMonth) {
+  calendarViewMonth.addEventListener("click", () => {
+    calendarView = "month";
+    renderCalendar();
+  });
+}
+const calendarViewUpcoming = document.getElementById("calendar-view-upcoming");
+if (calendarViewUpcoming) {
+  calendarViewUpcoming.addEventListener("click", () => {
+    calendarView = "upcoming";
+    renderCalendar();
+  });
+}
+const calendarEventClose = document.getElementById("calendar-event-close");
+if (calendarEventClose) calendarEventClose.addEventListener("click", closeCalendarEvent);
+const calendarEventSave = document.getElementById("calendar-event-save");
+if (calendarEventSave) calendarEventSave.addEventListener("click", saveCalendarEvent);
+const calendarEventDelete = document.getElementById("calendar-event-delete");
+if (calendarEventDelete) calendarEventDelete.addEventListener("click", deleteCalendarEvent);
+const calendarEventOverlay = document.getElementById("calendar-event-overlay");
+if (calendarEventOverlay) {
+  calendarEventOverlay.addEventListener("click", (event) => {
+    if (event.target === calendarEventOverlay) closeCalendarEvent();
+  });
+}

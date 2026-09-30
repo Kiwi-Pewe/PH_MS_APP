@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=217">
+<link rel="stylesheet" href="app.css?v=218">
 </head>
 <body>
 
@@ -387,39 +387,46 @@
               <input type="datetime-local" id="calendar-event-start" class="server-settings-input calendar-datetime">
               <div class="calendar-label">Color</div>
               <div id="calendar-colors" class="calendar-colors"></div>
+              <label class="calendar-label" for="calendar-repeat">Repeat</label>
+              <select id="calendar-repeat" class="server-settings-input">
+                <option value="once">Once</option>
+                <option value="everyDay">Every day</option>
+                <option value="everyWeek">Every week</option>
+                <option value="everyMonth">Every month</option>
+              </select>
+              <label class="calendar-label" for="calendar-description">Description</label>
+              <textarea id="calendar-description" class="list-note-field" rows="5" maxlength="8000" placeholder="Description"></textarea>
+              <div class="calendar-option">
+                <span class="calendar-option-name">Private event</span>
+                <label class="toggle-switch"><input type="checkbox" id="calendar-private"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
+              </div>
+              <div class="calendar-option">
+                <span class="calendar-option-name">Allow RSVPs</span>
+                <label class="toggle-switch"><input type="checkbox" id="calendar-rsvp-enabled" checked><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
+              </div>
+              <div id="calendar-rsvp" class="calendar-rsvp" hidden></div>
+              <label class="calendar-label" for="calendar-limit">Limit attendance</label>
+              <input type="number" id="calendar-limit" class="server-settings-input" min="1" max="100" placeholder="No limit">
+              <div class="calendar-label">Restrict roles</div>
+              <div id="calendar-roles" class="calendar-roles"></div>
+              <label class="calendar-label" for="calendar-invite-input">Invite members</label>
+              <div class="calendar-invite-row">
+                <input type="text" id="calendar-invite-input" class="server-settings-input" placeholder="Username" autocomplete="off">
+                <button type="button" class="ghost-btn" id="calendar-invite-add">Invite</button>
+              </div>
+              <div id="calendar-invites" class="calendar-invites"></div>
               <div class="calendar-later">
-                <label class="calendar-label" for="calendar-repeat">Repeat</label>
-                <select id="calendar-repeat" class="server-settings-input" disabled>
-                  <option>Once</option>
-                </select>
-                <label class="calendar-label" for="calendar-description">Description</label>
-                <textarea id="calendar-description" class="list-note-field" rows="5" placeholder="Description" disabled></textarea>
-                <div class="calendar-option">
-                  <span class="calendar-option-name">Private event</span>
-                  <label class="toggle-switch"><input type="checkbox" disabled><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
-                </div>
-                <div class="calendar-option">
-                  <span class="calendar-option-name">Allow RSVPs</span>
-                  <label class="toggle-switch"><input type="checkbox" disabled><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
-                </div>
-                <label class="calendar-label" for="calendar-limit">Limit attendance</label>
-                <input type="number" id="calendar-limit" class="server-settings-input" disabled placeholder="100">
-                <label class="calendar-label" for="calendar-roles">Restrict roles</label>
-                <select id="calendar-roles" class="server-settings-input" disabled>
-                  <option>Any role</option>
-                </select>
                 <div class="calendar-option">
                   <span class="calendar-option-name">Form on RSVP</span>
                   <label class="toggle-switch"><input type="checkbox" disabled><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
                 </div>
                 <div class="calendar-later-actions">
-                  <button type="button" class="ghost-btn" disabled>Invite members</button>
                   <button type="button" class="ghost-btn" disabled>Join chat</button>
                   <button type="button" class="ghost-btn" disabled>Join voice</button>
-                  <button type="button" class="ghost-btn" disabled>Cancel event</button>
                 </div>
               </div>
               <div class="calendar-event-actions">
+                <button type="button" class="ghost-btn" id="calendar-event-cancel" hidden>Cancel event</button>
                 <button type="button" class="ghost-btn calendar-delete" id="calendar-event-delete" hidden>Delete</button>
                 <button type="button" class="pill-btn" id="calendar-event-save">Save</button>
               </div>
@@ -1636,7 +1643,7 @@
 <script src="comments.js?v=53"></script>
 <script src="forums.js?v=67"></script>
 <script src="lists.js?v=3"></script>
-<script src="calendar.js?v=1"></script>
+<script src="calendar.js?v=2"></script>
 <script src="docs.js?v=46"></script>
 <script src="feedback.js?v=4"></script>
 </body>

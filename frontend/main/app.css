@@ -3606,6 +3606,8 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .calendar-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
 .calendar-chip-time { color: var(--text-dim); flex: 0 0 auto; }
 .calendar-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-chip.is-cancelled .calendar-chip-name,
+.calendar-chip.is-cancelled .calendar-chip-time { text-decoration: line-through; color: var(--text-dim); }
 .calendar-upcoming {
   flex: 1; min-height: 0; overflow: auto; padding: 8px 16px 24px;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
@@ -3660,6 +3662,18 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .calendar-option-name { font-size: 14px; font-weight: 600; }
 .calendar-later-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.calendar-rsvp { margin-top: 12px; }
+.calendar-rsvp-bar { display: flex; gap: 8px; }
+.calendar-rsvp-bar .ghost-btn.is-on { border-color: var(--accent-submenu); color: var(--text); }
+.calendar-rsvp-summary { margin-top: 8px; font-size: 12px; color: var(--text-dim); }
+.calendar-roles { display: flex; flex-direction: column; gap: 8px; }
+.calendar-invite-row { display: flex; gap: 8px; align-items: center; }
+.calendar-invite-row .server-settings-input { flex: 1; min-width: 0; }
+.calendar-invites { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.calendar-invite-chip {
+  background: var(--panel-alt); border: 1px solid var(--border); color: var(--text);
+  border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+}
 .calendar-event-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .calendar-delete { color: var(--danger); border-color: var(--danger); margin-right: auto; }
 

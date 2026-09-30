@@ -7,6 +7,11 @@ let calendarView = "month";
 let calendarZone = "server";
 let calendarEditingId = null;
 let calendarColor = CALENDAR_COLORS[0];
+let calendarRoles = [];
+let calendarMembers = [];
+let calendarRoleIds = [];
+let calendarInviteIds = [];
+let calendarOccurrence = "";
 
 function calendarServerZone() {
   const zone = currentServerData && currentServerData.timezone;
@@ -45,8 +50,12 @@ function calendarKeyFromParts(parts) {
   return parts.year + "-" + parts.month + "-" + parts.day;
 }
 
+function calendarEventWhen(event) {
+  return calendarDate(event.occurs_at || event.starts_at);
+}
+
 function calendarEventKey(event) {
-  return calendarKeyFromParts(calendarZoneParts(calendarDate(event.starts_at), calendarActiveZone()));
+  return calendarKeyFromParts(calendarZoneParts(calendarEventWhen(event), calendarActiveZone()));
 }
 
 function calendarCellKey(date) {
@@ -106,6 +115,55 @@ function calendarDateToInput(date) {
   return parts.year + "-" + parts.month + "-" + parts.day + "T" + parts.hour + ":" + parts.minute;
 }
 
+function calendarMinute(date) {
+  return date.toISOString().slice(0, 16) + ":00Z";
+}
+
+function calendarShiftParts(year, month, day, kind) {
+  if (kind === "everyMonth") {
+    const next = new Date(Date.UTC(year, month, 1));
+    const yy = next.getUTCFullYear();
+    const mm = next.getUTCMonth();
+    const last = new Date(Date.UTC(yy, mm + 1, 0)).getUTCDate();
+    return { y: yy, m: mm + 1, d: Math.min(day, last) };
+  }
+  const extra = kind === "everyWeek" ? 7 : 1;
+  const next = new Date(Date.UTC(year, month - 1, day + extra));
+  return { y: next.getUTCFullYear(), m: next.getUTCMonth() + 1, d: next.getUTCDate() };
+}
+
+function calendarStepDate(date, kind) {
+  const zone = calendarServerZone();
+  const parts = calendarZoneParts(date, zone);
+  const shifted = calendarShiftParts(Number(parts.year), Number(parts.month), Number(parts.day), kind);
+  const mm = String(shifted.m).padStart(2, "0");
+  const dd = String(shifted.d).padStart(2, "0");
+  return calendarInputToDate(shifted.y + "-" + mm + "-" + dd + "T" + parts.hour + ":" + parts.minute, zone);
+}
+
+function calendarExpand(event, from, until) {
+  const kind = event.repeat_kind || "once";
+  const start = calendarDate(event.starts_at);
+  const cap = new Date(start.getTime() + 366 * 24 * 60 * 60 * 1000);
+  const stop = until < cap ? until : cap;
+  const found = [];
+  let cursor = start;
+  let guard = 0;
+  while (cursor && cursor < stop && guard < 400) {
+    if (cursor >= from) found.push(new Date(cursor));
+    if (kind === "once") break;
+    const next = calendarStepDate(cursor, kind);
+    if (!next || next.getTime() <= cursor.getTime()) break;
+    cursor = next;
+    guard += 1;
+  }
+  return found;
+}
+
+function calendarInstance(event, when) {
+  return Object.assign({}, event, { occurs_at: calendarMinute(when) });
+}
+
 function calendarHex(color) {
   return "#" + Number(color || CALENDAR_COLORS[0]).toString(16).padStart(6, "0");
 }
@@ -117,6 +175,10 @@ function applyCalendarEvent(event) {
   else currentCalendarEvents[index] = event;
   currentCalendarEvents.sort((a, b) => calendarDate(a.starts_at) - calendarDate(b.starts_at));
   renderCalendar();
+  if (Number(calendarEditingId) === Number(event.id)) {
+    const fresh = currentCalendarEvents.find((row) => Number(row.id) === Number(event.id));
+    if (fresh) paintCalendarRsvp(Object.assign({}, fresh, { occurs_at: calendarOccurrence || fresh.starts_at }));
+  }
 }
 
 function removeCalendarEvent(eventId) {
@@ -139,6 +201,8 @@ async function loadCalendar(channelId) {
   const data = await response.json();
   if (Number(currentChannelId) !== Number(channelId)) return;
   currentCalendarEvents = data.events || [];
+  calendarRoles = data.roles || [];
+  calendarMembers = data.members || [];
   renderCalendar();
 }
 
@@ -181,18 +245,23 @@ function paintCalendarMonth() {
     grid.appendChild(head);
   });
   const byDay = {};
+  const first = new Date(calendarYear, calendarMonth, 1);
+  const gridStart = new Date(first);
+  gridStart.setDate(1 - first.getDay());
+  const windowStart = new Date(gridStart.getTime() - 24 * 60 * 60 * 1000);
+  const windowEnd = new Date(gridStart.getTime() + 43 * 24 * 60 * 60 * 1000);
   currentCalendarEvents.forEach((event) => {
-    const key = calendarEventKey(event);
-    if (!byDay[key]) byDay[key] = [];
-    byDay[key].push(event);
+    calendarExpand(event, windowStart, windowEnd).forEach((when) => {
+      const instance = calendarInstance(event, when);
+      const key = calendarEventKey(instance);
+      if (!byDay[key]) byDay[key] = [];
+      byDay[key].push(instance);
+    });
   });
   const todayKey = calendarKeyFromParts(calendarZoneParts(new Date(), calendarActiveZone()));
-  const first = new Date(calendarYear, calendarMonth, 1);
-  const start = new Date(first);
-  start.setDate(1 - first.getDay());
   for (let index = 0; index < 42; index += 1) {
-    const day = new Date(start);
-    day.setDate(start.getDate() + index);
+    const day = new Date(gridStart);
+    day.setDate(gridStart.getDate() + index);
     const key = calendarCellKey(day);
     const cell = document.createElement("div");
     cell.className = "calendar-day";
@@ -218,13 +287,13 @@ function paintCalendarMonth() {
     (byDay[key] || []).forEach((item) => {
       const row = document.createElement("button");
       row.type = "button";
-      row.className = "calendar-chip";
+      row.className = "calendar-chip" + (item.cancelled_at ? " is-cancelled" : "");
       const dot = document.createElement("span");
       dot.className = "calendar-dot";
       dot.style.background = calendarHex(item.color);
       const when = document.createElement("span");
       when.className = "calendar-chip-time";
-      when.textContent = calendarShortTime(calendarDate(item.starts_at));
+      when.textContent = calendarShortTime(calendarEventWhen(item));
       const name = document.createElement("span");
       name.className = "calendar-chip-name";
       name.textContent = item.name || "Event";
@@ -249,7 +318,12 @@ function paintCalendarUpcoming() {
     calendarKeyFromParts(calendarZoneParts(new Date(), calendarActiveZone())) + "T00:00",
     calendarActiveZone()
   );
-  const rows = currentCalendarEvents.filter((event) => calendarDate(event.starts_at) >= startOfToday);
+  const until = new Date(startOfToday.getTime() + 120 * 24 * 60 * 60 * 1000);
+  const rows = [];
+  currentCalendarEvents.forEach((event) => {
+    calendarExpand(event, startOfToday, until).forEach((when) => rows.push(calendarInstance(event, when)));
+  });
+  rows.sort((a, b) => calendarEventWhen(a) - calendarEventWhen(b));
   if (!rows.length) {
     const empty = document.createElement("div");
     empty.className = "calendar-upcoming-empty";
@@ -271,7 +345,7 @@ function paintCalendarUpcoming() {
     name.textContent = item.name || "Event";
     const when = document.createElement("div");
     when.className = "calendar-upcoming-when";
-    when.textContent = calendarLongWhen(calendarDate(item.starts_at));
+    when.textContent = (item.cancelled_at ? "Cancelled · " : "") + calendarLongWhen(calendarEventWhen(item));
     text.appendChild(name);
     text.appendChild(when);
     row.appendChild(dot);
@@ -298,22 +372,141 @@ function paintCalendarColors() {
   });
 }
 
+function calendarSameMinute(left, right) {
+  return String(left || "").slice(0, 16) === String(right || "").slice(0, 16);
+}
+
+function paintCalendarRoles() {
+  const host = document.getElementById("calendar-roles");
+  if (!host) return;
+  host.replaceChildren();
+  if (!calendarRoles.length) {
+    const empty = document.createElement("div");
+    empty.className = "calendar-upcoming-when";
+    empty.textContent = "Any role";
+    host.appendChild(empty);
+    return;
+  }
+  calendarRoles.forEach((role) => {
+    const row = document.createElement("div");
+    row.className = "calendar-option";
+    const name = document.createElement("span");
+    name.className = "calendar-option-name";
+    name.textContent = role.name || "Role";
+    const label = document.createElement("label");
+    label.className = "toggle-switch";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = calendarRoleIds.includes(Number(role.id));
+    input.addEventListener("change", () => {
+      const id = Number(role.id);
+      if (input.checked) calendarRoleIds.push(id);
+      else calendarRoleIds = calendarRoleIds.filter((roleId) => roleId !== id);
+    });
+    const track = document.createElement("span");
+    track.className = "toggle-track";
+    const thumb = document.createElement("span");
+    thumb.className = "toggle-thumb";
+    track.appendChild(thumb);
+    label.appendChild(input);
+    label.appendChild(track);
+    row.appendChild(name);
+    row.appendChild(label);
+    host.appendChild(row);
+  });
+}
+
+function paintCalendarInvites() {
+  const host = document.getElementById("calendar-invites");
+  if (!host) return;
+  host.replaceChildren();
+  calendarInviteIds.forEach((userId) => {
+    const member = calendarMembers.find((row) => Number(row.id) === Number(userId));
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "calendar-invite-chip";
+    chip.textContent = (member && member.username) || "Member";
+    chip.title = "Remove invite";
+    chip.addEventListener("click", () => {
+      calendarInviteIds = calendarInviteIds.filter((id) => Number(id) !== Number(userId));
+      paintCalendarInvites();
+    });
+    host.appendChild(chip);
+  });
+}
+
+function paintCalendarRsvp(event) {
+  const host = document.getElementById("calendar-rsvp");
+  if (!host) return;
+  host.replaceChildren();
+  if (!event || event.rsvp_enabled === false) {
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  const when = event.occurs_at || event.starts_at;
+  const rows = (event.rsvps || []).filter((row) => calendarSameMinute(row.occurrence_at, when) && row.status !== "invited");
+  const counts = { going: 0, maybe: 0, declined: 0, waitlisted: 0 };
+  let mine = "";
+  rows.forEach((row) => {
+    if (counts[row.status] != null) counts[row.status] += 1;
+    if (Number(row.user_id) === Number(myUserId)) mine = row.status;
+  });
+  const bar = document.createElement("div");
+  bar.className = "calendar-rsvp-bar";
+  [["going", "Going"], ["maybe", "Maybe"], ["declined", "Declined"]].forEach((pair) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost-btn" + (mine === pair[0] ? " is-on" : "");
+    button.textContent = pair[1];
+    button.disabled = !!event.cancelled_at;
+    button.addEventListener("click", () => setCalendarRsvp(pair[0]));
+    bar.appendChild(button);
+  });
+  host.appendChild(bar);
+  const summary = document.createElement("div");
+  summary.className = "calendar-rsvp-summary";
+  summary.textContent = counts.going + " going · " + counts.maybe + " maybe · " + counts.declined + " declined · " + counts.waitlisted + " waitlist";
+  host.appendChild(summary);
+}
+
 function openCalendarEvent(event, inputValue) {
   calendarEditingId = event ? event.id : null;
+  calendarOccurrence = event ? (event.occurs_at || event.starts_at || "") : "";
   calendarColor = event ? (CALENDAR_COLORS.includes(Number(event.color)) ? Number(event.color) : CALENDAR_COLORS[0]) : CALENDAR_COLORS[0];
+  calendarRoleIds = event && Array.isArray(event.role_ids) ? event.role_ids.map(Number) : [];
+  calendarInviteIds = event ? (event.rsvps || []).filter((row) => row.status === "invited").map((row) => Number(row.user_id)) : [];
   const overlay = document.getElementById("calendar-event-overlay");
   const title = document.getElementById("calendar-event-heading");
   const name = document.getElementById("calendar-event-name");
   const start = document.getElementById("calendar-event-start");
+  const repeat = document.getElementById("calendar-repeat");
+  const description = document.getElementById("calendar-description");
+  const priv = document.getElementById("calendar-private");
+  const rsvpOn = document.getElementById("calendar-rsvp-enabled");
+  const limit = document.getElementById("calendar-limit");
   const remove = document.getElementById("calendar-event-delete");
+  const cancel = document.getElementById("calendar-event-cancel");
   if (title) title.textContent = "Event";
   if (name) name.value = event ? (event.name || "") : "";
   if (start) {
     if (event) start.value = calendarDateToInput(calendarDate(event.starts_at));
     else start.value = inputValue || calendarDateToInput(new Date());
   }
+  if (repeat) repeat.value = (event && event.repeat_kind) || "once";
+  if (description) description.value = event ? (event.description || "") : "";
+  if (priv) priv.checked = !!(event && event.is_private);
+  if (rsvpOn) rsvpOn.checked = event ? event.rsvp_enabled !== false : true;
+  if (limit) limit.value = event && event.rsvp_limit ? String(event.rsvp_limit) : "";
   if (remove) remove.hidden = !event;
+  if (cancel) {
+    cancel.hidden = !event;
+    cancel.textContent = event && event.cancelled_at ? "Restore event" : "Cancel event";
+  }
   paintCalendarColors();
+  paintCalendarRoles();
+  paintCalendarInvites();
+  paintCalendarRsvp(event);
   if (overlay) overlay.hidden = false;
   if (name) name.focus();
 }
@@ -334,11 +527,27 @@ async function saveCalendarEvent() {
     window.alert("Name and start time are required.");
     return;
   }
+  const repeat = document.getElementById("calendar-repeat");
+  const description = document.getElementById("calendar-description");
+  const priv = document.getElementById("calendar-private");
+  const rsvpOn = document.getElementById("calendar-rsvp-enabled");
+  const limitInput = document.getElementById("calendar-limit");
+  const limitValue = limitInput && limitInput.value.trim() ? Number(limitInput.value) : null;
+  const fields = {
+    name,
+    starts_at: when.toISOString(),
+    color: calendarColor,
+    description: description ? description.value : "",
+    repeat_kind: repeat ? repeat.value : "once",
+    is_private: !!(priv && priv.checked),
+    rsvp_enabled: !!(rsvpOn && rsvpOn.checked),
+    rsvp_limit: Number.isFinite(limitValue) ? limitValue : null,
+    role_ids: calendarRoleIds.slice(),
+    invite_ids: calendarInviteIds.slice(),
+  };
   const editing = calendarEditingId;
   const path = editing ? "edit_calendar_event" : "calendar_event";
-  const body = editing
-    ? { event_id: editing, name, starts_at: when.toISOString(), color: calendarColor }
-    : { channel_id: currentChannelId, name, starts_at: when.toISOString(), color: calendarColor };
+  const body = editing ? Object.assign({ event_id: editing }, fields) : Object.assign({ channel_id: currentChannelId }, fields);
   const response = await fetch(`https://${serverAddress}/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -368,6 +577,55 @@ async function deleteCalendarEvent() {
     return;
   }
   removeCalendarEvent(data.event_id || calendarEditingId);
+}
+
+async function setCalendarRsvp(status) {
+  if (!calendarEditingId || !calendarOccurrence) return;
+  const response = await fetch(`https://${serverAddress}/calendar_event_rsvp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ event_id: calendarEditingId, occurrence_at: calendarOccurrence, status }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert((typeof data.detail === "string" && data.detail) || "Could not save that RSVP.");
+    return;
+  }
+  applyCalendarEvent(data);
+  const fresh = currentCalendarEvents.find((row) => Number(row.id) === Number(data.id));
+  if (fresh) paintCalendarRsvp(Object.assign({}, fresh, { occurs_at: calendarOccurrence }));
+}
+
+async function cancelCalendarEvent() {
+  if (!calendarEditingId) return;
+  const response = await fetch(`https://${serverAddress}/cancel_calendar_event`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ event_id: calendarEditingId }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert((typeof data.detail === "string" && data.detail) || "Could not cancel that event.");
+    return;
+  }
+  applyCalendarEvent(data);
+  closeCalendarEvent();
+}
+
+function addCalendarInvite() {
+  const input = document.getElementById("calendar-invite-input");
+  const query = input ? input.value.trim().toLowerCase() : "";
+  if (!query) return;
+  const member = calendarMembers.find((row) => String(row.username || "").toLowerCase() === query);
+  if (!member) {
+    window.alert("That member is not in this server.");
+    return;
+  }
+  if (!calendarInviteIds.includes(Number(member.id))) calendarInviteIds.push(Number(member.id));
+  if (input) input.value = "";
+  paintCalendarInvites();
 }
 
 const calendarPrev = document.getElementById("calendar-prev");
@@ -424,6 +682,10 @@ const calendarEventSave = document.getElementById("calendar-event-save");
 if (calendarEventSave) calendarEventSave.addEventListener("click", saveCalendarEvent);
 const calendarEventDelete = document.getElementById("calendar-event-delete");
 if (calendarEventDelete) calendarEventDelete.addEventListener("click", deleteCalendarEvent);
+const calendarEventCancel = document.getElementById("calendar-event-cancel");
+if (calendarEventCancel) calendarEventCancel.addEventListener("click", cancelCalendarEvent);
+const calendarInviteAdd = document.getElementById("calendar-invite-add");
+if (calendarInviteAdd) calendarInviteAdd.addEventListener("click", addCalendarInvite);
 const calendarEventOverlay = document.getElementById("calendar-event-overlay");
 if (calendarEventOverlay) {
   calendarEventOverlay.addEventListener("click", (event) => {

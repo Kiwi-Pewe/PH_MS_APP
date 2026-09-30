@@ -320,6 +320,24 @@ class Calendar_event(Base):
     color = Column(Integer, default=14910017)
     sender_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
+    description = Column(String, nullable=True)
+    repeat_kind = Column(String, default="once")
+    is_private = Column(Boolean, default=False)
+    rsvp_enabled = Column(Boolean, default=True)
+    rsvp_limit = Column(Integer, nullable=True)
+    role_ids = Column(String, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+
+
+class Calendar_event_rsvp(Base):
+    __tablename__ = "calendar_event_rsvps"
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey("calendar_events.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    occurrence_at = Column(DateTime)
+    status = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("event_id", "user_id", "occurrence_at", name="uq_calendar_rsvp"),)
 
 
 class List_thread_message(Base):

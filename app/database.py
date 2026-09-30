@@ -342,6 +342,25 @@ def ensure_list_columns():
                 conn.rollback()
 
 
+def ensure_calendar_columns():
+    adds = (
+        ("calendar_events", "description", "VARCHAR"),
+        ("calendar_events", "repeat_kind", "VARCHAR"),
+        ("calendar_events", "is_private", "BOOLEAN DEFAULT 0"),
+        ("calendar_events", "rsvp_enabled", "BOOLEAN DEFAULT 1"),
+        ("calendar_events", "rsvp_limit", "INTEGER"),
+        ("calendar_events", "role_ids", "VARCHAR"),
+        ("calendar_events", "cancelled_at", "DATETIME"),
+    )
+    with engine.connect() as conn:
+        for table, column, coltype in adds:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+
 def ensure_role_columns():
     with engine.connect() as conn:
         try:

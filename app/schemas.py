@@ -493,14 +493,36 @@ class Calendar_event_create(BaseModel):
     name: str
     starts_at: str
     color: int = 14910017
+    description: str = ""
+    repeat_kind: str = "once"
+    is_private: bool = False
+    rsvp_enabled: bool = True
+    rsvp_limit: int | None = None
+    role_ids: list[int] = []
+    invite_ids: list[int] = []
 
 class Calendar_event_edit(BaseModel):
     event_id: int
     name: str
     starts_at: str
     color: int = 14910017
+    description: str = ""
+    repeat_kind: str = "once"
+    is_private: bool = False
+    rsvp_enabled: bool = True
+    rsvp_limit: int | None = None
+    role_ids: list[int] = []
+    invite_ids: list[int] = []
 
 class Calendar_event_delete(BaseModel):
+    event_id: int
+
+class Calendar_event_rsvp_set(BaseModel):
+    event_id: int
+    occurrence_at: str
+    status: str
+
+class Calendar_event_cancel(BaseModel):
     event_id: int
 
 class List_thread_create(BaseModel):

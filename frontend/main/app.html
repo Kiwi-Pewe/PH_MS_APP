@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=201">
+<link rel="stylesheet" href="app.css?v=202">
 </head>
 <body>
 
@@ -160,7 +160,10 @@
             <button type="button" class="icon-btn" id="chat-call-btn" title="Call (coming soon)">Call</button>
             <button type="button" class="icon-btn chat-pins-btn" id="chat-pins-btn" title="Pinned messages">Pins</button>
             <div class="chat-search-slot" id="chat-search-slot">
-              <input type="search" id="chat-search-input" class="chat-search-input" placeholder="Search" autocomplete="off" spellcheck="false">
+              <div class="chat-search-shell">
+                <div class="chat-search-chips" id="chat-search-chips"></div>
+                <input type="search" id="chat-search-input" class="chat-search-input" placeholder="Search" autocomplete="off" spellcheck="false">
+              </div>
             </div>
             <button type="button" class="icon-btn" id="chat-overflow-btn" title="Chat settings (coming soon)">&#8942;</button>
           </div>
@@ -478,7 +481,18 @@
          channel) and party chats; hidden on DMs / Friends / Settings. -->
     <div id="user-list">
       <div class="user-list-search" id="user-list-search" hidden>
-        <input type="search" id="rail-search-input" class="chat-search-input" placeholder="Search" autocomplete="off" spellcheck="false">
+        <div class="chat-search-shell">
+          <div class="chat-search-chips" id="rail-search-chips"></div>
+          <input type="search" id="rail-search-input" class="chat-search-input" placeholder="Search" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+      <div id="search-results-panel" hidden>
+        <div class="search-results-header">
+          <span id="search-results-title">Search Results</span>
+          <button type="button" class="search-results-close" id="search-results-close" title="Close">&times;</button>
+        </div>
+        <div id="search-results-body" class="search-results-body"></div>
+        <div id="search-results-footer" class="search-results-footer" hidden></div>
       </div>
       <div id="member-list-body"></div>
     </div>
@@ -1450,8 +1464,8 @@
 <script src="server-dnd.js?v=1"></script>
 <script src="channel-settings.js?v=8"></script>
 <script src="pins.js?v=2"></script>
-<script src="search.js?v=1"></script>
-<script src="members.js?v=13"></script>
+<script src="search.js?v=2"></script>
+<script src="members.js?v=14"></script>
 <script src="mini-profile.js?v=10"></script>
 <script src="server-modals.js?v=48"></script>
 <script src="announcements.js?v=58"></script>

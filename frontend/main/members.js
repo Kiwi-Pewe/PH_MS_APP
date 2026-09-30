@@ -13,12 +13,29 @@ function memberAppearsOnline(status) {
 }
 
 function hideMemberList() {
+  if (typeof searchResultsOpen !== "undefined" && searchResultsOpen) {
+    searchResultsOpen = false;
+    searchRailForced = false;
+    const panel = document.getElementById("search-results-panel");
+    const body = document.getElementById("search-results-body");
+    const footer = document.getElementById("search-results-footer");
+    if (panel) panel.hidden = true;
+    if (body) body.replaceChildren();
+    if (footer) {
+      footer.hidden = true;
+      footer.replaceChildren();
+    }
+  }
   memberListScope = null;
   memberListScopeId = null;
   memberList = [];
   document.getElementById("main-grid").classList.remove("has-member-list");
   document.getElementById("user-list").style.display = "none";
-  document.getElementById("member-list-body").innerHTML = "";
+  const memberBody = document.getElementById("member-list-body");
+  if (memberBody) {
+    memberBody.hidden = false;
+    memberBody.innerHTML = "";
+  }
   if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 }
 

@@ -419,6 +419,20 @@ class Pin_message(BaseModel):
     kind: str
     message_id: int
 
+class Search_messages(BaseModel):
+    scope_kind: str
+    scope_id: str | int
+    content: str = ""
+    page: int = 1
+    author_id: int | None = None
+    channel_id: int | None = None
+    mentions_user_id: int | None = None
+    has: list[str] = []
+    pinned: bool | None = None
+    before: str | None = None
+    after: str | None = None
+    during: str | None = None
+
 class Edit_announcement(BaseModel):
     post_id: int
     title: str

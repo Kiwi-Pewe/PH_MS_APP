@@ -286,6 +286,26 @@ class Announcement_post(Base):
     is_public = Column(Boolean, default=False)
     followed_from_id = Column(Integer, nullable=True)
 
+class List_item(Base):
+    __tablename__ = "list_items"
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    title = Column(String)
+    body = Column(String, nullable=True)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    position = Column(Integer, default=100)
+
+
+class List_check(Base):
+    __tablename__ = "list_checks"
+    id = Column(Integer, primary_key=True)
+    item_id = Column(Integer, ForeignKey("list_items.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("item_id", "user_id", name="uq_list_check"),)
+
+
 class Channel_follow(Base):
     __tablename__ = "channel_follows"
     id = Column(Integer, primary_key=True)

@@ -506,12 +506,14 @@ async function selectChannel(channel, rowEl) {
   const announcementsView = document.getElementById("announcements-view");
   const forumsView = document.getElementById("forums-view");
   const docsView = document.getElementById("docs-view");
+  const listsView = document.getElementById("lists-view");
 
   // Special panels go down up front so each branch below only has to
   // turn its own on.
   announcementsView.style.display = "none";
   forumsView.style.display = "none";
   docsView.style.display = "none";
+  if (listsView) listsView.style.display = "none";
   const overview = document.getElementById("server-overview");
   if (overview) overview.style.display = "none";
   const overviewRow = document.getElementById("server-section-overview");
@@ -547,6 +549,14 @@ async function selectChannel(channel, rowEl) {
     return;
   }
 
+  if (channel.channel_type === "lists") {
+    channelBody.style.display = "none";
+    channelComposer.style.display = "none";
+    if (listsView) listsView.style.display = "flex";
+    if (typeof loadListItems === "function") await loadListItems(channel.id);
+    return;
+  }
+
   if (isDoc) {
     channelBody.style.display = "none";
     channelComposer.style.display = "none";
@@ -566,16 +576,6 @@ async function selectChannel(channel, rowEl) {
     document.getElementById("channel-welcome-title").textContent = `Welcome to ${label}!`;
     document.getElementById("channel-welcome-sub").textContent = "Voice channels aren't supported yet \u2014 text channels are today's focus.";
     disableChannelComposer("Voice channels can't receive text messages yet.");
-    return;
-  }
-
-  if (channel.channel_type === "lists") {
-    channelMessages.style.display = "none";
-    channelEmpty.style.display = "flex";
-    document.getElementById("channel-empty-badge").textContent = "\u2611";
-    document.getElementById("channel-welcome-title").textContent = `Welcome to ${label}!`;
-    document.getElementById("channel-welcome-sub").textContent = "Lists / Tasks aren't available yet.";
-    disableChannelComposer("Lists channels aren't available yet.");
     return;
   }
 
@@ -653,6 +653,8 @@ function showNoChannelSelected() {
   document.getElementById("announcements-view").style.display = "none";
   document.getElementById("forums-view").style.display = "none";
   document.getElementById("docs-view").style.display = "none";
+  const listsPanel = document.getElementById("lists-view");
+  if (listsPanel) listsPanel.style.display = "none";
   document.getElementById("channel-body").style.display = "flex";
   document.getElementById("channel-composer").style.display = "block";
   document.getElementById("channel-header-title").textContent = "No channels yet";
@@ -788,7 +790,7 @@ if (serverSectionOverview) {
 }
 
 function hideChannelSurfaces() {
-  ["announcements-view", "forums-view", "docs-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
+  ["announcements-view", "forums-view", "docs-view", "lists-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });

@@ -455,6 +455,14 @@ function connectSocket() {
       patchCommentReactions(data.comment_id, data.reactions || []);
     }
 
+    if (data.type === "list_item_created" && typeof appendListItem === "function") {
+      appendListItem(data.item);
+    }
+
+    if (data.type === "list_item_deleted" && typeof removeListItem === "function") {
+      if (Number(currentChannelId) === Number(data.channel_id)) removeListItem(data.item_id);
+    }
+
     if (data.type === "announcement_created") {
       const post = data.post;
       if (typeof applyMentionFields === "function") applyMentionFields(post, post);

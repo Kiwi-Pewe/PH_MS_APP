@@ -464,6 +464,18 @@ class Search_messages(BaseModel):
     after: str | None = None
     during: str | None = None
 
+class List_item_create(BaseModel):
+    channel_id: int
+    title: str
+    body: str = ""
+
+class List_item_check(BaseModel):
+    item_id: int
+    on: bool = True
+
+class List_item_delete(BaseModel):
+    item_id: int
+
 class Edit_announcement(BaseModel):
     post_id: int
     title: str

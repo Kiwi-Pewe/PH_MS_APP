@@ -3420,6 +3420,46 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .channel-follow-add { display: flex; gap: 8px; margin-top: 12px; }
 .channel-follow-add select { flex: 1; min-width: 0; }
+#lists-view {
+  flex: 1; min-height: 0; display: none; flex-direction: column;
+}
+.lists-bar { display: flex; justify-content: flex-end; padding: 12px 16px 0; }
+.lists-composer { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 0; }
+#lists-body-input { resize: none; white-space: pre-wrap; overflow: auto; }
+.lists-composer-actions { display: flex; justify-content: flex-end; gap: 8px; }
+#lists-scroll { flex: 1; min-height: 0; overflow: auto; padding: 8px 16px 24px; }
+.lists-section-title { margin: 16px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
+.lists-empty { color: var(--text-dim); padding: 8px 0 4px; }
+.list-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  text-align: left; background: transparent; color: var(--text);
+  border: 0; border-bottom: 1px solid var(--border); padding: 10px 4px; cursor: pointer;
+}
+.list-row:hover { background: var(--rail); }
+.list-check {
+  width: 18px; height: 18px; flex: 0 0 auto; box-sizing: border-box;
+  border: 2px solid var(--text-dim); border-radius: 3px; background: transparent;
+  color: #fff; font-size: 12px; line-height: 1; padding: 0; cursor: pointer;
+}
+.list-check.is-on { background: var(--accent-submenu); border-color: var(--accent-submenu); }
+.list-row-title { font-size: 15px; }
+.list-row.is-done .list-row-title { color: var(--text-dim); }
+#list-item-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+#list-item-overlay[hidden] { display: none; }
+#list-item-card {
+  width: 440px; max-width: calc(100% - 32px); max-height: 70vh;
+  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#list-item-card .view-body { padding: 16px; overflow: auto; }
+.list-item-meta { color: var(--text-dim); font-size: 13px; margin-bottom: 12px; }
+.list-item-body { white-space: pre-wrap; font-size: 15px; }
+#list-item-footer { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--border); }
 
 /* ---- Channel creation modal ---- */
 /* Same overlay/box treatment as the category modal, plus the type-

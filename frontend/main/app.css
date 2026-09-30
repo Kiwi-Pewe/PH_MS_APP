@@ -113,7 +113,7 @@
    inherit a constrained height from its flex parent the way nested
    Flexbox containers do. */
 #main-grid { flex: 1 1 auto; display: grid; grid-template-columns: 72px 240px 1fr; grid-template-rows: 1fr; min-height: 0; }
-#main-grid.has-member-list { grid-template-columns: 72px 240px 1fr 240px; }
+#main-grid.has-member-list { grid-template-columns: 72px 240px minmax(0, 1fr) minmax(0, 240px); }
 
 #server-rail { background: var(--rail); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 0; min-height: 0; }
 #server-rail-main {
@@ -812,41 +812,52 @@
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  min-width: 260px;
-  max-height: min(70vh, 420px);
+  min-width: 0;
+  max-height: min(60vh, 360px);
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   z-index: 50;
-  padding: 6px 0;
+  padding: 4px 0;
+  box-sizing: border-box;
 }
-.user-list-search .search-dropdown { right: 0; left: 0; width: auto; }
-.chat-search-slot .search-dropdown { width: 280px; right: auto; }
+.user-list-search .search-dropdown {
+  left: 0;
+  right: 0;
+  width: auto;
+  max-width: 100%;
+}
+.chat-search-slot .search-dropdown {
+  left: auto;
+  right: 0;
+  width: min(240px, calc(100vw - 16px));
+}
 .search-dropdown-heading {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-dim);
-  padding: 8px 12px 4px;
+  padding: 6px 10px 2px;
 }
 .search-dropdown-history-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding-right: 8px;
+  gap: 6px;
+  padding-right: 6px;
 }
 .search-dropdown-clear {
   background: transparent;
   border: 0;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 3px 5px;
   border-radius: 4px;
 }
 .search-dropdown-clear:hover { color: var(--text); background: var(--panel-alt); }
@@ -858,20 +869,21 @@
   background: transparent;
   border: 0;
   color: var(--text);
-  padding: 8px 12px;
+  padding: 6px 10px;
   cursor: pointer;
+  box-sizing: border-box;
 }
 .search-dropdown-item:hover,
 .search-dropdown-history-item:hover { background: var(--panel-alt); }
-.search-dropdown-item-title { font-size: 13px; font-weight: 600; }
-.search-dropdown-item-detail { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.search-dropdown-item-title { font-size: 12px; font-weight: 600; }
+.search-dropdown-item-detail { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
 .search-dropdown-empty {
-  padding: 8px 12px 12px;
-  font-size: 12px;
+  padding: 6px 10px 10px;
+  font-size: 11px;
   color: var(--text-dim);
 }
 .search-dropdown-history-item {
-  font-size: 12px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2251,88 +2263,181 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 #user-list {
   display: none; flex-direction: column; min-height: 0; min-width: 0;
   border-left: 1px solid var(--border); background: var(--panel);
+  overflow: hidden;
 }
 .user-list-search {
   flex: 0 0 auto;
-  min-height: 52px;
+  min-height: 0;
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   box-sizing: border-box;
+  min-width: 0;
 }
 .user-list-search[hidden] { display: none !important; }
-.user-list-search .chat-search-input { width: 100%; }
+.user-list-search .chat-search-input { width: 100%; min-width: 0; }
+.user-list-search .chat-search-chip { max-width: 96px; font-size: 10px; padding: 1px 5px; }
 #search-results-panel {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 #search-results-panel[hidden] { display: none !important; }
 .search-results-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 6px;
+  padding: 8px 8px 8px 10px;
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
+  min-width: 0;
 }
 #search-results-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .search-results-close {
   background: transparent;
   border: 0;
   color: var(--text-dim);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
-  padding: 2px 6px;
+  padding: 2px 4px;
   border-radius: 4px;
   cursor: pointer;
+  flex: 0 0 auto;
 }
 .search-results-close:hover { color: var(--text); background: var(--panel-alt); }
 .search-results-body {
   flex: 1 1 auto;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: 8px;
+  padding: 4px 6px;
   min-height: 0;
+  min-width: 0;
 }
 .search-results-empty {
-  padding: 24px 16px;
+  padding: 18px 12px;
   text-align: center;
   color: var(--text-dim);
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.35;
 }
 .search-results-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 6px;
+  padding: 8px;
   border-top: 1px solid var(--border);
   flex: 0 0 auto;
+  min-width: 0;
 }
 .search-result-row {
-  padding: 8px 8px 6px;
+  padding: 6px 4px 5px;
   border-radius: 6px;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 .search-result-row:last-child { border-bottom: none; }
 .search-result-row:hover { background: var(--panel-alt); }
 .search-result-meta {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-dim);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.search-result-message { pointer-events: none; }
-.search-result-message .msg-cluster { margin: 0; }
+.search-result-message {
+  pointer-events: none;
+  min-width: 0;
+  overflow: hidden;
+}
+.search-result-message .msg-cluster {
+  margin: 0;
+  gap: 6px;
+  flex-direction: row !important;
+  max-width: 100%;
+  min-width: 0;
+}
+.search-result-message .cluster-avatar {
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+}
+.search-result-message .cluster-body {
+  max-width: calc(100% - 28px);
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: flex-start !important;
+}
+.search-result-message .cluster-header {
+  font-size: 11px;
+  gap: 4px;
+  margin-bottom: 2px;
+  min-width: 0;
+}
+.search-result-message .cluster-header .cluster-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.search-result-message .cluster-header .cluster-time { font-size: 10px; flex: 0 0 auto; }
+.search-result-message .cluster-bubble {
+  max-width: 100%;
+  width: fit-content;
+  padding: 5px 8px;
+  border-radius: 10px;
+  gap: 2px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.search-result-message .bubble-line {
+  font-size: 12px;
+  line-height: 1.35;
+}
+.search-result-message .bubble-line.emoji-only { font-size: 22px; }
+.search-result-message .bubble-line,
+.search-result-message .msg-cluster.self .bubble-line { text-align: left !important; }
+.search-result-message .msg-media,
+.search-result-message .link-embed,
+.search-result-message .invite-card {
+  max-width: 100% !important;
+  width: 100%;
+  box-sizing: border-box;
+  align-self: stretch !important;
+}
+.search-result-message .invite-card {
+  padding: 8px;
+  gap: 6px;
+}
+.search-result-message .invite-card-badge { width: 28px; height: 28px; font-size: 12px; }
+.search-result-message .invite-card-name { font-size: 12px; }
+.search-result-message .invite-card-subtitle,
+.search-result-message .invite-card-invalid-text { font-size: 11px; }
+.search-result-message .invite-card-btn { font-size: 11px; padding: 4px 8px; }
+.search-result-message .msg-media img,
+.search-result-message .msg-media video {
+  max-width: 100%;
+  height: auto;
+}
 #member-list-body { flex: 1 1 auto; overflow-y: auto; padding: 16px 8px 12px; }
 #member-list-body[hidden] { display: none !important; }
 .member-group-header {

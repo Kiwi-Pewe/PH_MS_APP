@@ -19,11 +19,13 @@ function hideMemberList() {
   document.getElementById("main-grid").classList.remove("has-member-list");
   document.getElementById("user-list").style.display = "none";
   document.getElementById("member-list-body").innerHTML = "";
+  if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 }
 
 function showMemberListPanel() {
   document.getElementById("main-grid").classList.add("has-member-list");
   document.getElementById("user-list").style.display = "flex";
+  if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 }
 
 async function loadMemberList(scope, scopeId) {

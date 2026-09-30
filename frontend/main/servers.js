@@ -452,6 +452,10 @@ async function selectChannel(channel, rowEl) {
   }
   if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof closePinsPanel === "function") closePinsPanel();
+  if (typeof setChatSearchPlaceholder === "function") {
+    setChatSearchPlaceholder((isVoice || isDoc) ? ("Search " + channel.name) : ("Search #" + channel.name));
+  }
+  if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 
   const channelEmpty = document.getElementById("channel-empty");
   const channelMessages = document.getElementById("channel-messages");

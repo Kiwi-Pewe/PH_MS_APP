@@ -215,6 +215,8 @@ async function openDirectMessage(id, username) {
   clearUnread("dm", id);
   if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof closePinsPanel === "function") closePinsPanel();
+  if (typeof setChatSearchPlaceholder === "function") setChatSearchPlaceholder("Search @" + username);
+  if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 
   const chatEmpty = document.getElementById("chat-empty");
   const chatMessages = document.getElementById("chat-messages");
@@ -272,6 +274,8 @@ async function openParty(id, name) {
   clearUnread("party", id);
   if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof closePinsPanel === "function") closePinsPanel();
+  if (typeof setChatSearchPlaceholder === "function") setChatSearchPlaceholder("Search " + name);
+  if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 
   const chatEmpty = document.getElementById("chat-empty");
   const chatMessages = document.getElementById("chat-messages");

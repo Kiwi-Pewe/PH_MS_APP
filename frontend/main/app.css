@@ -1755,6 +1755,7 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   gap: 12px;
 }
 .forum-thread-opener-avatar {
+  position: relative;
   flex: 0 0 40px;
   width: 40px;
   height: 40px;
@@ -1767,12 +1768,6 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.forum-thread-opener-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 .forum-thread-opener-main {
   flex: 1 1 auto;
@@ -1824,6 +1819,7 @@ html.legacy-chat-input #mention-picker { display: none !important; }
 .forum-thread-opener .post-media video { max-width: min(100%, 360px); }
 
 .forum-post-avatar {
+  position: relative;
   flex: 0 0 40px;
   width: 40px;
   height: 40px;
@@ -1836,12 +1832,6 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.forum-post-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 /* #channel-composer joins every #composer rule below — same reasoning
@@ -2361,18 +2351,50 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   font-size: 11px;
   white-space: nowrap;
 }
-.forum-settings-tags-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
-.forum-settings-tag-row {
+.forum-settings-tags-list {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel-alt);
+  gap: 8px;
+  margin-top: 10px;
 }
-.forum-settings-tag-label { color: var(--text); font-size: 13px; min-width: 0; }
+.forum-settings-tags-list:empty { display: none; }
+.forum-settings-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+  font-size: 13px;
+}
+.forum-settings-tag-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.forum-settings-tag-remove {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.forum-settings-tag-pill:hover .forum-settings-tag-remove,
+.forum-settings-tag-pill:focus-within .forum-settings-tag-remove { display: inline-flex; }
+.forum-settings-tag-remove:hover { color: var(--text); }
 .forum-settings-tag-add-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .forum-settings-tag-add-row .server-settings-input { flex: 1 1 auto; min-width: 0; }
 .forum-settings-require-host { margin-top: 12px; }

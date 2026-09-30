@@ -454,11 +454,7 @@ function paintChannelSettingsPermBody() {
       name.textContent = row.title;
       const desc = document.createElement("div");
       desc.className = "channel-perms-row-desc";
-      if (!live) {
-        desc.textContent = (row.desc || "") + (row.later ? " Waiting on " + row.later + "." : " Coming later for this channel.");
-      } else {
-        desc.textContent = row.desc || "";
-      }
+      desc.textContent = row.desc || "";
       text.appendChild(name);
       text.appendChild(desc);
       line.appendChild(text);
@@ -551,8 +547,8 @@ function paintChannelSettingsPermissions() {
   const blurb = document.getElementById("channel-settings-perms-blurb");
   if (blurb) {
     blurb.textContent = channelSettingsKind === "category"
-      ? "Category permission packs come later. Channel overrides are edited on each channel."
-      : "Choose a role, then set what that role can do in this channel. Live rows save for this channel. Defaults follow each role (Members starts with view/participate on). Any role that says yes wins.";
+      ? "Permissions set here apply to every channel in this category unless a channel sets its own."
+      : "Choose a role, then set what that role can do in this channel.";
   }
   const sync = document.getElementById("channel-settings-perms-sync");
   if (sync) sync.hidden = channelSettingsKind === "category";
@@ -622,12 +618,6 @@ function paintChannelSettingsShell() {
   if (nameLabel) nameLabel.textContent = isCategory ? "Category Name" : "Channel Name";
   const deleteBtn = document.getElementById("channel-settings-delete");
   if (deleteBtn) deleteBtn.textContent = isCategory ? "Delete Category" : "Delete Channel";
-  const privateHelp = document.getElementById("channel-settings-private-help");
-  if (privateHelp) {
-    privateHelp.textContent = isCategory
-      ? "Only people with access can see this category and its channels when it is private."
-      : "Only people with access can see this channel when it is private.";
-  }
   document.querySelectorAll("#channel-settings-nav .is-channel-only").forEach((btn) => {
     btn.hidden = isCategory;
   });
@@ -706,7 +696,9 @@ function paintChannelSettingsPrivate() {
   });
   host.appendChild(settingsOpt(
     "Private " + (channelSettingsKind === "category" ? "Category" : "Channel"),
-    "",
+    channelSettingsKind === "category"
+      ? "Only people with access can see this category and its channels when it is private."
+      : "Only people with access can see this channel when it is private.",
     toggle
   ));
 }
@@ -906,23 +898,18 @@ function paintChannelSettingsForumTags() {
   if (!host) return;
   host.replaceChildren();
   const tags = channelSettingsForumSettings.tags || [];
-  if (!tags.length) {
-    const empty = document.createElement("p");
-    empty.className = "server-settings-help";
-    empty.textContent = "No tags yet.";
-    host.appendChild(empty);
-    return;
-  }
   tags.forEach((tag) => {
-    const row = document.createElement("div");
-    row.className = "forum-settings-tag-row";
+    const pill = document.createElement("div");
+    pill.className = "forum-settings-tag-pill";
     const label = document.createElement("span");
     label.className = "forum-settings-tag-label";
     label.textContent = ((tag.emoji || "") + " " + (tag.name || "")).trim();
     const remove = document.createElement("button");
     remove.type = "button";
-    remove.className = "ghost-btn";
-    remove.textContent = "Remove";
+    remove.className = "forum-settings-tag-remove";
+    remove.title = "Remove tag";
+    remove.setAttribute("aria-label", "Remove tag");
+    remove.textContent = "\u00d7";
     remove.addEventListener("click", async () => {
       try {
         const data = await postChannelSettings("/delete_forum_tag", { tag_id: tag.id });
@@ -931,9 +918,9 @@ function paintChannelSettingsForumTags() {
         setChannelSettingsForumGuidelinesStatus(err.message || "Could not remove tag.");
       }
     });
-    row.appendChild(label);
-    row.appendChild(remove);
-    host.appendChild(row);
+    pill.appendChild(label);
+    pill.appendChild(remove);
+    host.appendChild(pill);
   });
 }
 

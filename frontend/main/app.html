@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=208">
+<link rel="stylesheet" href="app.css?v=209">
 </head>
 <body>
 
@@ -938,7 +938,6 @@
         <div class="server-settings-field">
           <div class="server-settings-field-title">Private</div>
           <div id="channel-settings-private-host"></div>
-          <p class="server-settings-help" id="channel-settings-private-help">Only people with access can see this channel when it is private.</p>
         </div>
         <div class="server-settings-field is-channel-only is-forums-only" id="channel-settings-forum-guidelines-field" hidden>
           <label class="server-settings-field-title" for="channel-settings-forum-guidelines">Post Guidelines</label>
@@ -953,11 +952,11 @@
         <div class="server-settings-field is-channel-only is-forums-only" id="channel-settings-forum-tags-field" hidden>
           <div class="server-settings-field-title">Tags</div>
           <p class="server-settings-help">Help people organize their posts into subcategories by creating a tag.</p>
-          <div id="channel-settings-forum-tags-list" class="forum-settings-tags-list"></div>
           <div class="forum-settings-tag-add-row">
             <input id="channel-settings-forum-tag-name" class="server-settings-input" type="text" maxlength="40" placeholder="New tag name" autocomplete="off">
             <button type="button" id="channel-settings-forum-tag-add" class="pill-btn" title="Add tag">+</button>
           </div>
+          <div id="channel-settings-forum-tags-list" class="forum-settings-tags-list"></div>
           <div id="channel-settings-forum-require-tags-host" class="forum-settings-require-host"></div>
         </div>
         <div class="server-settings-field is-channel-only is-forums-only" id="channel-settings-forum-reaction-field" hidden>
@@ -975,12 +974,12 @@
             <option value="list" selected>List View</option>
             <option value="gallery">Gallery View</option>
           </select>
-          <p class="server-settings-help">Gallery view comes later. List is the default for now.</p>
+          <p class="server-settings-help">Display posts as a list or a gallery.</p>
         </div>
       </div>
       <div id="channel-settings-permissions" class="server-settings-page" hidden>
         <h2 class="server-settings-page-title">Permissions</h2>
-        <p class="server-settings-help" id="channel-settings-perms-blurb">Choose a role, then set what that role can do in this channel. Layout only — overrides are not saved yet.</p>
+        <p class="server-settings-help" id="channel-settings-perms-blurb">Choose a role, then set what that role can do in this channel.</p>
         <div class="channel-perms-layout">
           <aside class="channel-perms-roles" aria-label="Roles">
             <div class="channel-perms-roles-head">
@@ -1503,7 +1502,7 @@
 <script src="mentions.js?v=12"></script>
 <script src="servers.js?v=96"></script>
 <script src="server-dnd.js?v=1"></script>
-<script src="channel-settings.js?v=10"></script>
+<script src="channel-settings.js?v=11"></script>
 <script src="pins.js?v=2"></script>
 <script src="search.js?v=3"></script>
 <script src="members.js?v=15"></script>

@@ -289,14 +289,43 @@ async function refreshServerContentsSoft() {
   }
 }
 
+function collapsedCategoryKey() {
+  return String(typeof myUserId !== "undefined" ? myUserId : "0") + ":" + String(currentServerId || "0");
+}
+
+function readCollapsedCategories() {
+  try {
+    const store = JSON.parse(localStorage.getItem("oneira-collapsed-categories") || "{}");
+    const list = store[collapsedCategoryKey()];
+    return new Set(Array.isArray(list) ? list.map(Number) : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function writeCollapsedCategory(categoryId, collapsed) {
+  let store = {};
+  try {
+    store = JSON.parse(localStorage.getItem("oneira-collapsed-categories") || "{}");
+  } catch (e) {
+    store = {};
+  }
+  const ids = readCollapsedCategories();
+  if (collapsed) ids.add(Number(categoryId));
+  else ids.delete(Number(categoryId));
+  store[collapsedCategoryKey()] = [...ids];
+  localStorage.setItem("oneira-collapsed-categories", JSON.stringify(store));
+}
+
 function renderServerSidebar(data) {
   const list = document.getElementById("category-list");
   list.innerHTML = "";
   const canLayout = typeof canManageChannels === "function" ? canManageChannels() : data.owner === myUserId;
 
+  const collapsedIds = readCollapsedCategories();
   data.categories.forEach(category => {
     const block = document.createElement("div");
-    block.className = "category-block";
+    block.className = "category-block" + (collapsedIds.has(Number(category.id)) ? " collapsed" : "");
     block.dataset.categoryId = category.id;
     block.dataset.dndKind = "category";
 
@@ -386,6 +415,7 @@ function renderServerSidebar(data) {
       if (e.target.closest(".category-add-btn")) return;
       if (typeof serverDndConsumeClick === "function" && serverDndConsumeClick()) return;
       block.classList.toggle("collapsed");
+      writeCollapsedCategory(category.id, block.classList.contains("collapsed"));
     });
 
     block.appendChild(header);

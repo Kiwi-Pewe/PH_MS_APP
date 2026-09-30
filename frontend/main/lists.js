@@ -3,6 +3,7 @@ let listMoveTargets = [];
 let listCompletedOpen = false;
 let openListThreadId = null;
 let openListNoteId = null;
+let listNoteEditing = false;
 let editingListItemId = null;
 const listThreadCache = {};
 
@@ -356,34 +357,144 @@ async function moveListItem(itemId, channelId) {
   removeListItem(itemId);
 }
 
+function listFace(userId, name) {
+  const face = document.createElement("div");
+  face.className = "cluster-avatar list-note-face";
+  if (typeof paintUserFace === "function") {
+    paintUserFace(face, { username: name, id: userId }, { name: name, userId: userId });
+  }
+  if (userId && typeof openMiniProfile === "function") {
+    face.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openMiniProfile(userId, face);
+    });
+  }
+  return face;
+}
+
+function listNameButton(userId, name) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "list-note-name";
+  button.textContent = name || "Someone";
+  if (userId && typeof openMiniProfile === "function") {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openMiniProfile(userId, button);
+    });
+  }
+  return button;
+}
+
 function openListNote(itemId) {
   openListNoteId = itemId;
+  const item = listItemById(itemId);
+  listNoteEditing = !(item && String(item.note || "").trim());
   const overlay = document.getElementById("list-note-overlay");
   if (overlay) overlay.hidden = false;
-  paintListNote();
+  paintListNote(listNoteEditing);
 }
 
 function closeListNote() {
   openListNoteId = null;
+  listNoteEditing = false;
   const overlay = document.getElementById("list-note-overlay");
   if (overlay) overlay.hidden = true;
 }
 
-function paintListNote() {
+function paintListNote(focusEditor) {
   const item = listItemById(openListNoteId);
-  const title = document.getElementById("list-note-item");
-  const meta = document.getElementById("list-note-meta");
-  const display = document.getElementById("list-note-display");
-  const input = document.getElementById("list-note-input");
-  if (!item || !input) return;
-  if (title) title.textContent = item.title || "Item";
-  if (meta) {
-    const who = item.note ? (item.note_username || item.username || "Someone") : (item.username || "Someone");
-    const when = listWhen(item.note ? item.note_at : item.created_at);
-    meta.textContent = who + (when ? " \u00b7 " + when : "") + " \u00b7 " + (item.thread_count || 0);
+  const body = document.getElementById("list-note-body");
+  if (!item || !body) return;
+  const prior = document.getElementById("list-note-input");
+  const draft = prior ? prior.value : (item.note || "");
+  const showEditor = listNoteEditing || !String(item.note || "").trim();
+  body.replaceChildren();
+
+  const task = document.createElement("div");
+  task.className = "list-note-task";
+  const box = document.createElement("button");
+  box.type = "button";
+  box.className = "list-check" + (item.completed ? " is-on" : "");
+  box.setAttribute("aria-checked", item.completed ? "true" : "false");
+  box.textContent = item.completed ? "\u2713" : "";
+  box.addEventListener("click", () => toggleListItem(item));
+  const title = document.createElement("div");
+  title.className = "list-note-task-title" + (item.completed ? " is-done" : "");
+  title.textContent = item.title || "Item";
+  task.appendChild(box);
+  task.appendChild(title);
+  body.appendChild(task);
+
+  const by = document.createElement("div");
+  by.className = "list-note-by";
+  const byText = document.createElement("div");
+  byText.className = "list-note-by-text";
+  byText.appendChild(listNameButton(item.sender_id, item.username));
+  const when = document.createElement("div");
+  when.className = "list-note-time";
+  when.textContent = listWhen(item.created_at);
+  byText.appendChild(when);
+  const count = document.createElement("div");
+  count.className = "list-note-count";
+  count.textContent = String(item.thread_count || 0);
+  by.appendChild(listFace(item.sender_id, item.username));
+  by.appendChild(byText);
+  by.appendChild(count);
+  body.appendChild(by);
+
+  if (!showEditor) {
+    const message = document.createElement("div");
+    message.className = "list-note-message";
+    message.title = "Edit note";
+    const main = document.createElement("div");
+    main.className = "list-note-message-main";
+    const head = document.createElement("div");
+    head.className = "list-note-message-head";
+    head.appendChild(listNameButton(item.note_sender_id || item.sender_id, item.note_username || item.username));
+    const noteWhen = document.createElement("span");
+    noteWhen.className = "list-note-time";
+    noteWhen.textContent = listWhen(item.note_at);
+    head.appendChild(noteWhen);
+    const text = document.createElement("div");
+    text.className = "list-note-message-body";
+    text.textContent = item.note;
+    main.appendChild(head);
+    main.appendChild(text);
+    message.appendChild(listFace(item.note_sender_id || item.sender_id, item.note_username || item.username));
+    message.appendChild(main);
+    message.addEventListener("click", () => {
+      listNoteEditing = true;
+      paintListNote(true);
+    });
+    body.appendChild(message);
+    return;
   }
-  if (display) display.textContent = item.note || "";
-  input.value = item.note || "";
+
+  const editor = document.createElement("div");
+  editor.className = "list-note-editor";
+  const field = document.createElement("textarea");
+  field.id = "list-note-input";
+  field.className = "list-note-field";
+  field.rows = 5;
+  field.maxLength = 1000;
+  field.placeholder = "Note";
+  field.value = draft;
+  field.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) saveListNote();
+  });
+  const actions = document.createElement("div");
+  actions.className = "lists-composer-actions";
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "pill-btn";
+  save.textContent = "Save";
+  save.addEventListener("click", saveListNote);
+  actions.appendChild(save);
+  editor.appendChild(field);
+  editor.appendChild(actions);
+  body.appendChild(editor);
+  if (focusEditor) field.focus();
 }
 
 async function saveListNote() {
@@ -401,6 +512,7 @@ async function saveListNote() {
     window.alert((typeof data.detail === "string" && data.detail) || "Could not save that note.");
     return;
   }
+  listNoteEditing = !note;
   applyListItem(data, true);
 }
 
@@ -429,8 +541,6 @@ if (listsCompletedToggle) {
 }
 const listNoteClose = document.getElementById("list-note-close");
 if (listNoteClose) listNoteClose.addEventListener("click", closeListNote);
-const listNoteSave = document.getElementById("list-note-save");
-if (listNoteSave) listNoteSave.addEventListener("click", saveListNote);
 const listNoteOverlay = document.getElementById("list-note-overlay");
 if (listNoteOverlay) {
   listNoteOverlay.addEventListener("click", (event) => {

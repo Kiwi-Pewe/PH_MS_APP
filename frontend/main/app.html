@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=215">
+<link rel="stylesheet" href="app.css?v=216">
 </head>
 <body>
 
@@ -350,7 +350,7 @@
                 <button type="button" class="list-icon-btn" id="lists-add-note-btn" title="Note">&#9998;</button>
                 <button type="button" class="pill-btn" id="lists-save-btn" hidden>Save</button>
               </div>
-              <textarea id="lists-note-input" rows="5" maxlength="1000" placeholder="Note" hidden></textarea>
+              <textarea id="lists-note-input" class="list-note-field" rows="5" maxlength="1000" placeholder="Note" hidden></textarea>
             </div>
             <button type="button" class="lists-completed-toggle" id="lists-completed-toggle">0 Completed</button>
             <div id="lists-completed" hidden></div>
@@ -362,15 +362,7 @@
               <span>Notes</span>
               <button type="button" class="icon-btn" id="list-note-close" title="Close">&times;</button>
             </div>
-            <div class="view-body">
-              <div id="list-note-item" class="list-note-item"></div>
-              <div id="list-note-meta" class="list-item-meta"></div>
-              <div id="list-note-display" class="list-item-body"></div>
-              <textarea id="list-note-input" rows="5" maxlength="1000" placeholder="Note"></textarea>
-              <div class="lists-composer-actions">
-                <button type="button" class="pill-btn" id="list-note-save">Save</button>
-              </div>
-            </div>
+            <div class="view-body" id="list-note-body"></div>
           </div>
         </div>
 
@@ -1573,7 +1565,7 @@
 <script src="announcements.js?v=63"></script>
 <script src="comments.js?v=53"></script>
 <script src="forums.js?v=67"></script>
-<script src="lists.js?v=2"></script>
+<script src="lists.js?v=3"></script>
 <script src="docs.js?v=46"></script>
 <script src="feedback.js?v=4"></script>
 </body>

@@ -3464,10 +3464,21 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   font: inherit; font-size: 15px; padding: 8px 0;
 }
 #lists-title-input:focus, .list-edit-input:focus, .list-thread-input:focus { outline: none; }
-#lists-note-input, #list-note-input {
-  width: 100%; box-sizing: border-box; resize: none; white-space: pre-wrap;
-  margin-top: 8px;
+.list-note-field[hidden] { display: none; }
+.list-note-field {
+  display: block; width: 100%; box-sizing: border-box;
+  background: var(--rail); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font: inherit; font-size: 14px; line-height: 1.45;
+  padding: 10px 12px; margin-top: 4px; resize: none;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  min-height: calc(1.45em * 5 + 20px); max-height: 220px; overflow: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
+.list-note-field::-webkit-scrollbar { width: 8px; height: 8px; }
+.list-note-field::-webkit-scrollbar-track,
+.list-note-field::-webkit-scrollbar-corner { background: transparent; }
+.list-note-field::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.list-note-field:focus { outline: none; border-color: var(--text-dim); }
 .lists-composer-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
 .lists-completed-toggle {
   display: block; width: 100%; text-align: left;
@@ -3487,15 +3498,48 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 #list-note-overlay[hidden] { display: none; }
 #list-note-card {
-  width: 480px; max-width: calc(100% - 32px); max-height: 70vh;
+  width: 520px; max-width: calc(100% - 32px); max-height: 70vh;
   background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
   display: flex; flex-direction: column; overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 }
-#list-note-card .view-body { padding: 16px; overflow: auto; }
-.list-note-item { font-size: 16px; margin-bottom: 8px; }
-.list-item-meta { color: var(--text-dim); font-size: 13px; margin-bottom: 12px; }
-.list-item-body { white-space: pre-wrap; font-size: 15px; margin-bottom: 12px; }
+#list-note-card .view-header { font-size: 18px; }
+#list-note-card .view-body {
+  padding: 14px 16px 16px; overflow: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#list-note-card .view-body::-webkit-scrollbar { width: 8px; }
+#list-note-card .view-body::-webkit-scrollbar-track { background: transparent; }
+#list-note-card .view-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.list-note-task {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+.list-note-task-title { font-size: 15px; font-weight: 600; color: var(--text); min-width: 0; }
+.list-note-task-title.is-done { color: var(--text-dim); }
+.list-note-by { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
+.list-note-face { width: 28px; height: 28px; font-size: 12px; cursor: pointer; }
+.list-note-by-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.list-note-name {
+  background: none; border: 0; padding: 0; margin: 0;
+  color: var(--text); font: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer; text-align: left;
+}
+.list-note-name:hover { text-decoration: underline; }
+.list-note-time { color: var(--text-dim); font-size: 12px; font-weight: 500; }
+.list-note-count {
+  margin-left: auto; color: var(--text-dim); font-size: 12px; font-weight: 700;
+}
+.list-note-message {
+  display: flex; gap: 10px; width: 100%; text-align: left; cursor: pointer;
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; color: var(--text);
+}
+.list-note-message:hover { border-color: var(--text-dim); }
+.list-note-message-main { min-width: 0; flex: 1; }
+.list-note-message-head { display: flex; align-items: baseline; gap: 8px; }
+.list-note-message-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; margin-top: 4px; }
+.list-note-editor { display: flex; flex-direction: column; }
 
 /* ---- Channel creation modal ---- */
 /* Same overlay/box treatment as the category modal, plus the type-

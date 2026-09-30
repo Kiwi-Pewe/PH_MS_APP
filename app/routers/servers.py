@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Message_pin, List_item, List_check
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Message_pin, List_item, List_check, List_thread_message
 from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete
 from zoneinfo import available_timezones
 from app.database import get_db
@@ -1023,6 +1023,7 @@ def purge_channel_contents(database, channel):
     list_items = database.query(List_item).filter(List_item.channel_id == channel.id).all()
     for item in list_items:
         database.query(List_check).filter(List_check.item_id == item.id).delete(synchronize_session=False)
+        database.query(List_thread_message).filter(List_thread_message.item_id == item.id).delete(synchronize_session=False)
         database.delete(item)
 
     page = database.query(Doc_page).filter(Doc_page.channel_id == channel.id).first()

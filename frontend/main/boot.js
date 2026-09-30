@@ -463,6 +463,19 @@ function connectSocket() {
       if (Number(currentChannelId) === Number(data.channel_id)) removeListItem(data.item_id);
     }
 
+    if (data.type === "list_item_updated" && typeof applyListItem === "function") {
+      applyListItem(data.item);
+    }
+
+    if (data.type === "list_item_moved" && data.item) {
+      if (typeof removeListItem === "function" && Number(currentChannelId) === Number(data.from_channel_id)) removeListItem(data.item.id);
+      if (typeof appendListItem === "function" && Number(currentChannelId) === Number(data.item.channel_id)) appendListItem(data.item);
+    }
+
+    if (data.type === "list_thread_message" && typeof applyListThreadMessage === "function") {
+      applyListThreadMessage(data.item_id, data.message, data.thread_count);
+    }
+
     if (data.type === "announcement_created") {
       const post = data.post;
       if (typeof applyMentionFields === "function") applyMentionFields(post, post);

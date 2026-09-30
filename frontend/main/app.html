@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=213">
+<link rel="stylesheet" href="app.css?v=214">
 </head>
 <body>
 
@@ -342,36 +342,34 @@
         </div>
 
         <div id="lists-view" style="display:none;">
-          <div class="lists-bar">
-            <button type="button" class="pill-btn" id="lists-add-btn">Add item</button>
-          </div>
-          <div id="lists-composer" class="lists-composer" hidden>
-            <input type="text" id="lists-title-input" class="server-settings-input" maxlength="200" placeholder="Item" autocomplete="off">
-            <textarea id="lists-body-input" class="server-settings-input server-settings-textarea" rows="5" maxlength="2000" placeholder="Description"></textarea>
-            <div class="lists-composer-actions">
-              <button type="button" class="pill-btn" id="lists-save-btn">Add</button>
-              <button type="button" class="ghost-btn" id="lists-cancel-btn">Cancel</button>
-            </div>
-          </div>
           <div id="lists-scroll">
-            <div class="lists-section-title">Pending</div>
-            <div id="lists-pending"></div>
-            <div class="lists-section-title" id="lists-completed-title">Completed</div>
-            <div id="lists-completed"></div>
+            <div id="lists-open"></div>
+            <div class="list-add">
+              <div class="list-add-row">
+                <input type="text" id="lists-title-input" maxlength="200" placeholder="Add an item..." autocomplete="off">
+                <button type="button" class="list-icon-btn" id="lists-add-note-btn" title="Note">&#9998;</button>
+                <button type="button" class="pill-btn" id="lists-save-btn" hidden>Save</button>
+              </div>
+              <textarea id="lists-note-input" rows="5" maxlength="1000" placeholder="Note" hidden></textarea>
+            </div>
+            <button type="button" class="lists-completed-toggle" id="lists-completed-toggle">0 Completed</button>
+            <div id="lists-completed" hidden></div>
           </div>
         </div>
-        <div id="list-item-overlay" hidden>
-          <div id="list-item-card" role="dialog" aria-labelledby="list-item-title">
+        <div id="list-note-overlay" hidden>
+          <div id="list-note-card" role="dialog" aria-label="Notes">
             <div class="view-header">
-              <span id="list-item-title"></span>
-              <button type="button" class="icon-btn" id="list-item-close" title="Close">&times;</button>
+              <span>Notes</span>
+              <button type="button" class="icon-btn" id="list-note-close" title="Close">&times;</button>
             </div>
             <div class="view-body">
-              <div id="list-item-meta" class="list-item-meta"></div>
-              <div id="list-item-body" class="list-item-body"></div>
-            </div>
-            <div id="list-item-footer">
-              <button type="button" class="ghost-btn" id="list-item-delete" hidden>Delete</button>
+              <div id="list-note-item" class="list-note-item"></div>
+              <div id="list-note-meta" class="list-item-meta"></div>
+              <div id="list-note-display" class="list-item-body"></div>
+              <textarea id="list-note-input" rows="5" maxlength="1000" placeholder="Note"></textarea>
+              <div class="lists-composer-actions">
+                <button type="button" class="pill-btn" id="list-note-save">Save</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1510,7 +1508,7 @@
 <script src="util.js?v=51"></script>
 <script src="media.js?v=57"></script>
 <script src="post-media.js?v=54"></script>
-<script src="boot.js?v=97"></script>
+<script src="boot.js?v=98"></script>
 <script src="app-shell.js?v=65"></script>
 <script src="feed.js?v=15"></script>
 <script src="settings.js?v=19"></script>
@@ -1575,7 +1573,7 @@
 <script src="announcements.js?v=63"></script>
 <script src="comments.js?v=53"></script>
 <script src="forums.js?v=67"></script>
-<script src="lists.js?v=1"></script>
+<script src="lists.js?v=2"></script>
 <script src="docs.js?v=46"></script>
 <script src="feedback.js?v=4"></script>
 </body>

@@ -3423,43 +3423,67 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 #lists-view {
   flex: 1; min-height: 0; display: none; flex-direction: column;
 }
-.lists-bar { display: flex; justify-content: flex-end; padding: 12px 16px 0; }
-.lists-composer { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 0; }
-#lists-body-input { resize: none; white-space: pre-wrap; overflow: auto; }
-.lists-composer-actions { display: flex; justify-content: flex-end; gap: 8px; }
-#lists-scroll { flex: 1; min-height: 0; overflow: auto; padding: 8px 16px 24px; }
-.lists-section-title { margin: 16px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
-.lists-empty { color: var(--text-dim); padding: 8px 0 4px; }
+#lists-scroll { flex: 1; min-height: 0; overflow: auto; padding: 8px 0 24px; }
+.list-block { border-bottom: 1px solid var(--border); }
 .list-row {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  text-align: left; background: transparent; color: var(--text);
-  border: 0; border-bottom: 1px solid var(--border); padding: 10px 4px; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px; min-height: 44px;
 }
 .list-row:hover { background: var(--rail); }
 .list-check {
   width: 18px; height: 18px; flex: 0 0 auto; box-sizing: border-box;
-  border: 2px solid var(--text-dim); border-radius: 3px; background: transparent;
-  color: #fff; font-size: 12px; line-height: 1; padding: 0; cursor: pointer;
+  border: 2px solid var(--text-dim); border-radius: 50%; background: transparent;
+  color: #1e1f22; font-size: 12px; line-height: 1; padding: 0; cursor: pointer;
 }
-.list-check.is-on { background: var(--accent-submenu); border-color: var(--accent-submenu); }
-.list-row-title { font-size: 15px; }
+.list-check.is-on { background: #e3b341; border-color: #e3b341; }
+.list-row-title { flex: 1; min-width: 0; font-size: 15px; }
 .list-row.is-done .list-row-title { color: var(--text-dim); }
-#list-item-overlay {
+.list-row-tools { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.list-icon-btn {
+  background: transparent; border: 0; color: var(--text-dim); cursor: pointer;
+  min-width: 28px; height: 28px; border-radius: 4px; padding: 0 6px;
+}
+.list-icon-btn:hover { color: var(--text); background: var(--panel); }
+.list-icon-btn.has-note { color: var(--text); }
+.list-add { padding: 4px 16px 8px; }
+.list-add-row { display: flex; align-items: center; gap: 8px; }
+#lists-title-input, .list-edit-input, .list-thread-input {
+  flex: 1; min-width: 0; background: transparent; border: 0; color: var(--text);
+  font: inherit; font-size: 15px; padding: 8px 0;
+}
+#lists-title-input:focus, .list-edit-input:focus, .list-thread-input:focus { outline: none; }
+#lists-note-input, #list-note-input {
+  width: 100%; box-sizing: border-box; resize: none; white-space: pre-wrap;
+  margin-top: 8px;
+}
+.lists-composer-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+.lists-completed-toggle {
+  display: block; width: 100%; text-align: left;
+  background: transparent; border: 0; color: var(--text-dim);
+  font-size: 13px; font-weight: 700; padding: 14px 16px; cursor: pointer;
+}
+.lists-completed-toggle:hover { color: var(--text); }
+.list-thread { padding: 4px 16px 12px 44px; }
+.list-thread-msg { margin: 8px 0; }
+.list-thread-name { font-size: 13px; font-weight: 700; margin-right: 6px; }
+.list-thread-text { font-size: 14px; white-space: pre-wrap; }
+.list-thread-compose { display: flex; gap: 8px; margin-top: 8px; }
+#list-note-overlay {
   position: fixed; inset: 0; z-index: 900;
   background: rgba(0, 0, 0, 0.6);
   display: flex; align-items: center; justify-content: center;
 }
-#list-item-overlay[hidden] { display: none; }
-#list-item-card {
-  width: 440px; max-width: calc(100% - 32px); max-height: 70vh;
+#list-note-overlay[hidden] { display: none; }
+#list-note-card {
+  width: 480px; max-width: calc(100% - 32px); max-height: 70vh;
   background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
   display: flex; flex-direction: column; overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 }
-#list-item-card .view-body { padding: 16px; overflow: auto; }
+#list-note-card .view-body { padding: 16px; overflow: auto; }
+.list-note-item { font-size: 16px; margin-bottom: 8px; }
 .list-item-meta { color: var(--text-dim); font-size: 13px; margin-bottom: 12px; }
-.list-item-body { white-space: pre-wrap; font-size: 15px; }
-#list-item-footer { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--border); }
+.list-item-body { white-space: pre-wrap; font-size: 15px; margin-bottom: 12px; }
 
 /* ---- Channel creation modal ---- */
 /* Same overlay/box treatment as the category modal, plus the type-

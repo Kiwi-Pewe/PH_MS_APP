@@ -325,6 +325,23 @@ def ensure_channel_columns():
                 conn.rollback()
 
 
+def ensure_list_columns():
+    adds = (
+        ("list_items", "note", "VARCHAR"),
+        ("list_items", "note_sender_id", "INTEGER"),
+        ("list_items", "note_at", "DATETIME"),
+        ("list_items", "completed_by", "INTEGER"),
+        ("list_items", "completed_at", "DATETIME"),
+    )
+    with engine.connect() as conn:
+        for table, column, coltype in adds:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+
 def ensure_role_columns():
     with engine.connect() as conn:
         try:

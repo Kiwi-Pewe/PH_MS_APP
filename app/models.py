@@ -295,6 +295,11 @@ class List_item(Base):
     sender_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
     position = Column(Integer, default=100)
+    note = Column(String, nullable=True)
+    note_sender_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    note_at = Column(DateTime, nullable=True)
+    completed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    completed_at = Column(DateTime, nullable=True)
 
 
 class List_check(Base):
@@ -304,6 +309,15 @@ class List_check(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
     __table_args__ = (UniqueConstraint("item_id", "user_id", name="uq_list_check"),)
+
+
+class List_thread_message(Base):
+    __tablename__ = "list_thread_messages"
+    id = Column(Integer, primary_key=True)
+    item_id = Column(Integer, ForeignKey("list_items.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
 
 
 class Channel_follow(Base):

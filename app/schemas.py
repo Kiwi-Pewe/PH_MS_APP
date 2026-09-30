@@ -467,7 +467,7 @@ class Search_messages(BaseModel):
 class List_item_create(BaseModel):
     channel_id: int
     title: str
-    body: str = ""
+    note: str = ""
 
 class List_item_check(BaseModel):
     item_id: int
@@ -475,6 +475,22 @@ class List_item_check(BaseModel):
 
 class List_item_delete(BaseModel):
     item_id: int
+
+class List_item_edit(BaseModel):
+    item_id: int
+    title: str
+
+class List_item_note(BaseModel):
+    item_id: int
+    note: str = ""
+
+class List_item_move(BaseModel):
+    item_id: int
+    channel_id: int
+
+class List_thread_create(BaseModel):
+    item_id: int
+    content: str
 
 class Edit_announcement(BaseModel):
     post_id: int

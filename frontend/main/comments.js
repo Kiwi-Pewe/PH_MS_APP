@@ -39,7 +39,7 @@ function buildCommentElement(comment) {
   const content = document.createElement("div");
   content.className = "announce-comment-content";
   if (typeof applyMentionFields === "function") applyMentionFields(comment, comment);
-  if (typeof fillMentionText === "function") fillMentionText(content, comment.content, comment.mentionUsers, comment.mentionRoles);
+  if (typeof fillMentionText === "function") fillMentionText(content, comment.content, comment.mentionUsers, comment.mentionRoles, { rich: true });
   else content.textContent = comment.content;
   const reactionsHost = document.createElement("div");
   reactionsHost.className = "announce-comment-reactions";

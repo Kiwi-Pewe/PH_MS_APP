@@ -401,7 +401,7 @@ function pickSearchChannel() {
   if (currentServerData && Array.isArray(currentServerData.categories)) {
     currentServerData.categories.forEach((category) => {
       (category.channels || []).forEach((channel) => {
-        if (channel.channel_type !== "text") return;
+        if (channel.channel_type !== "text" && channel.channel_type !== "announcements" && channel.channel_type !== "forums") return;
         options.push({
           label: "#" + (channel.name || channel.id),
           onSelect: () => {
@@ -717,6 +717,42 @@ function buildSearchResultRow(row) {
   return card;
 }
 
+function flashSearchTarget(el) {
+  if (!el) return false;
+  el.scrollIntoView({ block: "center" });
+  el.classList.add("pin-jump-flash");
+  setTimeout(() => el.classList.remove("pin-jump-flash"), 1600);
+  return true;
+}
+
+async function openSearchChannel(row) {
+  if (!row.channel_id || !currentServerData || Number(currentChannelId) === Number(row.channel_id)) return;
+  let target = null;
+  (currentServerData.categories || []).forEach((category) => {
+    (category.channels || []).forEach((channel) => {
+      if (Number(channel.id) === Number(row.channel_id)) target = channel;
+    });
+  });
+  if (target && typeof selectChannel === "function") await selectChannel(target);
+}
+
+async function revealSearchComment(postId, commentId) {
+  if (!postId || typeof toggleCommentThread !== "function") return;
+  const state = typeof commentThreadState !== "undefined" ? commentThreadState[postId] : null;
+  if (!state || !state.expanded) await toggleCommentThread(postId);
+  const selector = `[data-comment-id="${CSS.escape(String(commentId))}"]`;
+  for (let i = 0; i < 40; i++) {
+    const el = document.querySelector(selector);
+    if (el) {
+      flashSearchTarget(el);
+      return;
+    }
+    const current = typeof commentThreadState !== "undefined" ? commentThreadState[postId] : null;
+    if (!current || !current.hasMore || typeof fetchComments !== "function") return;
+    await fetchComments(postId, 25);
+  }
+}
+
 async function jumpToSearchResult(row) {
   const kind = row.message_kind || row.chat_kind;
   const messageId = row.id;
@@ -727,18 +763,46 @@ async function jumpToSearchResult(row) {
     if (typeof highlightMessageInView === "function") highlightMessageInView(messageId);
     return;
   }
+  await openSearchChannel(row);
   if (kind === "channel") {
-    if (row.channel_id && Number(currentChannelId) !== Number(row.channel_id) && currentServerData) {
-      let target = null;
-      (currentServerData.categories || []).forEach((category) => {
-        (category.channels || []).forEach((channel) => {
-          if (Number(channel.id) === Number(row.channel_id)) target = channel;
-        });
-      });
-      if (target && typeof selectChannel === "function") await selectChannel(target);
-    }
     if (typeof highlightMessageInView === "function" && highlightMessageInView(messageId)) return;
     if (typeof jumpLoadAroundChannel === "function") await jumpLoadAroundChannel(messageId);
+    if (typeof highlightMessageInView === "function") highlightMessageInView(messageId);
+    return;
+  }
+  if (kind === "announcement") {
+    const selector = `.announce-post[data-post-id="${CSS.escape(String(messageId))}"]`;
+    if (flashSearchTarget(document.querySelector(selector))) return;
+    if (typeof jumpLoadAroundAnnouncement === "function") await jumpLoadAroundAnnouncement(messageId);
+    flashSearchTarget(document.querySelector(selector));
+    return;
+  }
+  if (kind === "comment") {
+    const postId = row.post_id;
+    const selector = `.announce-post[data-post-id="${CSS.escape(String(postId))}"]`;
+    if (!document.querySelector(selector) && typeof jumpLoadAroundAnnouncement === "function") {
+      await jumpLoadAroundAnnouncement(postId);
+    }
+    await revealSearchComment(postId, messageId);
+    return;
+  }
+  if (kind === "forum_post" || kind === "forum") {
+    const postId = kind === "forum" ? row.post_id : messageId;
+    if (typeof openForumPost === "function") {
+      await openForumPost({
+        id: postId,
+        title: row.title || "Topic",
+        body: row.body || "",
+        attachment: row.attachment || null,
+      });
+    }
+    if (kind === "forum_post") {
+      const start = document.querySelector(".forum-thread-opener, .forum-start-card, .channel-start-card");
+      if (start) start.scrollIntoView({ block: "center" });
+      return;
+    }
+    if (typeof highlightMessageInView === "function" && highlightMessageInView(messageId)) return;
+    if (typeof jumpLoadAroundForum === "function") await jumpLoadAroundForum(postId, messageId);
     if (typeof highlightMessageInView === "function") highlightMessageInView(messageId);
   }
 }

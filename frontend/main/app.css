@@ -3382,6 +3382,44 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .announce-composer-editing-footer .composer-icon-btn:hover {
   color: var(--text); background: var(--rail);
 }
+.announce-composer-tools {
+  display: flex; align-items: center; gap: 4px; min-width: 0;
+}
+.announce-format-btn { font-size: 15px; font-weight: 700; }
+.announce-format-btn.is-italic { font-style: italic; font-weight: 600; }
+.announce-format-btn.is-underline { text-decoration: underline; font-weight: 600; }
+.announce-notify-all {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: 8px; color: var(--text-dim); font-size: 13px; white-space: nowrap;
+}
+#server-overview {
+  flex: 1; min-height: 0; display: none; flex-direction: column;
+  padding: 20px 24px; overflow: auto;
+}
+.server-overview-title { margin: 0; font-size: 22px; }
+.server-overview-sub { margin: 6px 0 16px; color: var(--text-dim); font-size: 14px; }
+.server-overview-empty { color: var(--text-dim); padding: 12px 0; }
+.server-overview-card {
+  display: block; width: 100%; text-align: left;
+  background: var(--panel, var(--rail)); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
+}
+.server-overview-card:hover { border-color: var(--accent, var(--text-dim)); }
+.server-overview-channel { color: var(--text-dim); font-size: 12px; }
+.server-overview-card-title { font-size: 16px; margin-top: 4px; }
+.server-overview-card-meta { color: var(--text-dim); font-size: 13px; margin-top: 4px; }
+.announce-public-link {
+  background: none; border: 0; padding: 0; margin: 4px 0 0;
+  color: var(--text-dim); font-size: 13px; cursor: pointer;
+}
+.announce-public-link:hover { color: var(--text); }
+.channel-follow-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.channel-follow-add { display: flex; gap: 8px; margin-top: 12px; }
+.channel-follow-add select { flex: 1; min-width: 0; }
 
 /* ---- Channel creation modal ---- */
 /* Same overlay/box treatment as the category modal, plus the type-

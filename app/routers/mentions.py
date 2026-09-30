@@ -59,6 +59,31 @@ def server_allows_everyone(database, server, user_id, channel_id=None):
         return bool(effective_perms_for_user_in_channel(database, server, user_id, channel_id).get("mention_everyone"))
     return bool(effective_perms_for_user(database, server, user_id).get("mention_everyone"))
 
+def tokenize_channel_mentions(database, server, user_id, content):
+    if not content or not server or not user_id:
+        return content or ""
+    is_owner = server.owner_id == user_id
+    named = []
+    categories = database.query(Server_categories).filter(Server_categories.server_id == server.id).all()
+    for category in categories:
+        if category.is_private and not is_owner:
+            continue
+        channels = database.query(Server_channels).filter(Server_channels.category_id == category.id).all()
+        for channel in channels:
+            if channel.is_private and not is_owner:
+                continue
+            name = (channel.name or "").strip()
+            if name:
+                named.append((len(name), channel.id, name))
+    named.sort(key=lambda row: row[0], reverse=True)
+    out = content
+    for _length, channel_id, name in named:
+        pattern = r"#" + re.escape(name) + r"\b"
+        if re.search(pattern, out, flags=re.I):
+            out = re.sub(pattern, f"<#{channel_id}>", out, flags=re.I)
+    return out
+
+
 def tokenize_mentions(content, members, roles=None, allow_everyone=True):
     if not content:
         return content, set()
@@ -327,6 +352,7 @@ def seed_channel_unread(database, channel_id, member_ids, sender_id, seen_at):
 def apply_channel_mentions(database, message, server, member_ids, reply_author_id=None):
     members = member_records(database, member_ids)
     roles = mentionable_role_rows(database, server.id)
+    message.content = tokenize_channel_mentions(database, server, message.sender_id, message.content)
     content, pinged = tokenize_mentions(message.content, members, roles, server_allows_everyone(database, server, message.sender_id, message.channel_id))
     online_ids = [uid for uid in member_ids if uid in active_connections]
     targets = expand_pinged(pinged, member_ids, online_ids, role_member_lookup(database, pinged_role_ids(pinged)))
@@ -350,7 +376,8 @@ def apply_server_text_mentions(database, text, kind, message_id, server, channel
     member_ids = [row.user_id for row in database.query(Server_members).filter(Server_members.server_id == server.id).all()]
     members = member_records(database, member_ids)
     roles = mentionable_role_rows(database, server.id)
-    content, pinged = tokenize_mentions(text or "", members, roles, server_allows_everyone(database, server, sender_id, channel_id))
+    text = tokenize_channel_mentions(database, server, sender_id, text or "")
+    content, pinged = tokenize_mentions(text, members, roles, server_allows_everyone(database, server, sender_id, channel_id))
     online_ids = [uid for uid in member_ids if uid in active_connections]
     targets = expand_pinged(pinged, member_ids, online_ids, role_member_lookup(database, pinged_role_ids(pinged)))
     add_reply_ping(targets, reply_author_id, sender_id)

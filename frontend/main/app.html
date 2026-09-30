@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=210">
+<link rel="stylesheet" href="app.css?v=212">
 </head>
 <body>
 
@@ -281,7 +281,7 @@
           <div class="announce-composer-bar" id="announcements-composer-bar">
             <div id="announce-slowmode-indicator" class="slowmode-indicator is-inline" hidden></div>
             <div id="announce-composer-default" class="announce-composer-default">
-              <input type="text" class="search-box announce-composer-search" placeholder="Search or create a post..." disabled>
+              <input type="search" id="announcement-search-input" class="search-box announce-composer-search" placeholder="Search" autocomplete="off" spellcheck="false">
               <button class="pill-btn" id="announce-new-post-btn">New Post</button>
             </div>
             <div id="announce-composer-editing" class="announce-composer-editing" style="display:none;">
@@ -310,7 +310,19 @@
                 </div>
               </div>
               <div class="announce-composer-editing-footer">
-                <button type="button" class="composer-icon-btn" id="announce-composer-emoji-btn" title="Emoji">🙂</button>
+                <div class="announce-composer-tools">
+                  <button type="button" class="composer-icon-btn announce-format-btn" data-announce-wrap="**" title="Bold">B</button>
+                  <button type="button" class="composer-icon-btn announce-format-btn is-italic" data-announce-wrap="*" title="Italic">I</button>
+                  <button type="button" class="composer-icon-btn announce-format-btn is-underline" data-announce-wrap="__" title="Underline">U</button>
+                  <button type="button" class="composer-icon-btn" id="announce-composer-emoji-btn" title="Emoji">🙂</button>
+                  <div class="announce-notify-all" id="announce-notify-all" hidden>
+                    <span>Notify all members</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="announce-notify-all-input">
+                      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    </label>
+                  </div>
+                </div>
                 <button class="pill-btn" id="announcement-post-btn">Post</button>
               </div>
             </div>
@@ -327,6 +339,14 @@
           <div id="announcements-posts">
             <div class="announce-end-marker">You're up to date!</div>
           </div>
+        </div>
+
+        <div id="server-overview" style="display:none;">
+          <div class="server-overview-head">
+            <h2 class="server-overview-title" id="server-overview-title">Overview</h2>
+            <p class="server-overview-sub">Announcements from this server.</p>
+          </div>
+          <div id="server-overview-list"></div>
         </div>
 
         <!-- Forums channel type. Same sibling-panel pattern as
@@ -938,6 +958,10 @@
           </select>
           <p id="channel-settings-slowmode-help" class="server-settings-help">Members will be restricted to sending one message per this interval, unless they have a slowmode exception.</p>
         </div>
+        <div class="server-settings-field is-channel-only is-announce-only" id="channel-settings-blog-field" hidden>
+          <div class="server-settings-field-title">Blog</div>
+          <div id="channel-settings-blog-host"></div>
+        </div>
         <div class="server-settings-field">
           <div class="server-settings-field-title">Private</div>
           <div id="channel-settings-private-host"></div>
@@ -1044,7 +1068,9 @@
           <div class="server-integrations-section-head">
             <h3 class="server-integrations-section-title">Channel Following</h3>
           </div>
-          <p class="server-settings-help">This channel isn’t receiving followed announcement channels.</p>
+          <div id="channel-settings-follows">
+            <p class="server-settings-help">This channel isn’t receiving followed announcement channels.</p>
+          </div>
         </section>
       </div>
     </section>
@@ -1449,7 +1475,7 @@
 <script src="util.js?v=51"></script>
 <script src="media.js?v=57"></script>
 <script src="post-media.js?v=54"></script>
-<script src="boot.js?v=95"></script>
+<script src="boot.js?v=96"></script>
 <script src="app-shell.js?v=65"></script>
 <script src="feed.js?v=15"></script>
 <script src="settings.js?v=19"></script>
@@ -1502,17 +1528,17 @@
 <script src="account-delete.js?v=1"></script>
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
-<script src="mentions.js?v=12"></script>
-<script src="servers.js?v=98"></script>
+<script src="mentions.js?v=13"></script>
+<script src="servers.js?v=101"></script>
 <script src="server-dnd.js?v=1"></script>
-<script src="channel-settings.js?v=13"></script>
+<script src="channel-settings.js?v=14"></script>
 <script src="pins.js?v=2"></script>
-<script src="search.js?v=3"></script>
+<script src="search.js?v=4"></script>
 <script src="members.js?v=15"></script>
 <script src="mini-profile.js?v=10"></script>
 <script src="server-modals.js?v=48"></script>
-<script src="announcements.js?v=60"></script>
-<script src="comments.js?v=52"></script>
+<script src="announcements.js?v=63"></script>
+<script src="comments.js?v=53"></script>
 <script src="forums.js?v=67"></script>
 <script src="docs.js?v=46"></script>
 <script src="feedback.js?v=4"></script>

@@ -276,6 +276,8 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         "is_private": channel.is_private,
                         "topic": getattr(channel, "topic", None) or "",
                         "slowmode": int(getattr(channel, "slowmode", 0) or 0),
+                        "announce_public": bool(getattr(channel, "announce_public", False)),
+                        "blog_enabled": bool(getattr(channel, "blog_enabled", False)),
                         "unread": notice["unread"],
                         "mention_count": notice["mention_count"],
                         "can_read": bool(channel_perms.get("read_messages")),

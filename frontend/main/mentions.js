@@ -3,6 +3,7 @@
 // rail/channel/party unread vs ping badges in sync with live traffic.
 
 const MENTION_TOKEN_RE = /<@(everyone|here|&\d+|\d+)>/g;
+const MARKUP_TOKEN_RE = /<@((?:everyone|here|&\d+|\d+))>|<#(\d+)>/g;
 
 function mentionMembers() {
   return Array.isArray(memberList) ? memberList : [];
@@ -160,10 +161,10 @@ function applyMentionFields(target, raw) {
   return target;
 }
 
-function fillMentionText(el, text, mentionUsers, mentionRoles) {
+function fillMentionText(el, text, mentionUsers, mentionRoles, options) {
   if (!el) return;
   el.replaceChildren();
-  appendMentionAwareText(el, text || "", { mentionUsers: mentionUsers || {}, mentionRoles: mentionRoles || {} });
+  appendMentionAwareText(el, text || "", { mentionUsers: mentionUsers || {}, mentionRoles: mentionRoles || {} }, options);
 }
 
 function mentionedFromPayload(text, mentionUsers, mentionedFlag, mentionedIds) {
@@ -176,25 +177,77 @@ function mentionedFromPayload(text, mentionUsers, mentionedFlag, mentionedIds) {
   return !!(lookup[myUserId] || lookup[String(myUserId)]);
 }
 
-function appendMentionAwareText(el, text, msg) {
+function appendMentionAwareText(el, text, msg, options) {
   const source = text || "";
   const lookup = (msg && msg.mentionUsers) || {};
   const roles = (msg && msg.mentionRoles) || {};
   let last = 0;
-  MENTION_TOKEN_RE.lastIndex = 0;
+  MARKUP_TOKEN_RE.lastIndex = 0;
   let match;
-  while ((match = MENTION_TOKEN_RE.exec(source))) {
-    if (match.index > last) appendPlainOrLinks(el, source.slice(last, match.index));
-    el.appendChild(buildMentionChip(match[1], lookup, msg, roles));
+  while ((match = MARKUP_TOKEN_RE.exec(source))) {
+    if (match.index > last) appendPlainOrLinks(el, source.slice(last, match.index), options);
+    if (match[1]) el.appendChild(buildMentionChip(match[1], lookup, msg, roles));
+    else el.appendChild(buildChannelMentionChip(match[2]));
     last = match.index + match[0].length;
   }
-  if (last < source.length) appendPlainOrLinks(el, source.slice(last));
+  if (last < source.length) appendPlainOrLinks(el, source.slice(last), options);
 }
 
-function appendPlainOrLinks(el, text) {
+function appendFormattedText(el, text) {
+  const pattern = /\*\*([^*]+)\*\*|\*([^*]+)\*|__([^_]+)__/g;
+  let last = 0;
+  let match;
+  while ((match = pattern.exec(text))) {
+    if (match.index > last) appendPlainOrLinks(el, text.slice(last, match.index));
+    const node = document.createElement(match[1] ? "strong" : match[2] ? "em" : "u");
+    appendPlainOrLinks(node, match[1] || match[2] || match[3]);
+    el.appendChild(node);
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) appendPlainOrLinks(el, text.slice(last));
+}
+
+function appendPlainOrLinks(el, text, options) {
+  if (options && options.rich) {
+    appendFormattedText(el, text);
+    return;
+  }
   if (typeof appendTextWithCustomEmoji === "function") appendTextWithCustomEmoji(el, text);
   else if (typeof renderMessageText === "function") renderMessageText(el, text);
   else el.appendChild(document.createTextNode(text));
+}
+
+function serverChannelsForMention() {
+  const out = [];
+  if (typeof currentServerData === "undefined" || !currentServerData) return out;
+  (currentServerData.categories || []).forEach((category) => {
+    (category.channels || []).forEach((channel) => {
+      if (channel && channel.name) out.push(channel);
+    });
+  });
+  return out;
+}
+
+function buildChannelMentionChip(channelId) {
+  const chip = document.createElement("span");
+  chip.className = "mention-chip mention-channel";
+  let name = "channel";
+  let target = null;
+  serverChannelsForMention().forEach((channel) => {
+    if (Number(channel.id) === Number(channelId)) {
+      name = channel.name;
+      target = channel;
+    }
+  });
+  chip.textContent = "#" + name;
+  if (target) {
+    chip.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof selectChannel === "function") selectChannel(target);
+    });
+  }
+  return chip;
 }
 
 function buildMentionChip(token, lookup, msg, mentionRoles) {
@@ -622,6 +675,7 @@ function renderMentionPicker(items) {
   list.innerHTML = "";
   let specialHeader = false;
   let roleHeader = false;
+  let channelHeader = false;
   let memberHeader = false;
   items.forEach((item, index) => {
     if (item.type === "special" && !specialHeader) {
@@ -638,6 +692,13 @@ function renderMentionPicker(items) {
       heading.textContent = "Roles";
       list.appendChild(heading);
     }
+    if (item.type === "channel" && !channelHeader) {
+      channelHeader = true;
+      const heading = document.createElement("div");
+      heading.className = "mention-picker-heading";
+      heading.textContent = "Channels";
+      list.appendChild(heading);
+    }
     if (item.type === "user" && !memberHeader) {
       memberHeader = true;
       const heading = document.createElement("div");
@@ -651,10 +712,12 @@ function renderMentionPicker(items) {
     if (!item.enabled) row.setAttribute("aria-disabled", "true");
 
     const avatar = document.createElement("div");
-    avatar.className = "mention-picker-avatar" + (item.type === "special" || item.type === "role" ? " mention-picker-at" : "");
+    avatar.className = "mention-picker-avatar" + (item.type === "special" || item.type === "role" || item.type === "channel" ? " mention-picker-at" : "");
     if (item.type === "role") {
       avatar.style.background = item.color || "#99aab5";
       avatar.textContent = "";
+    } else if (item.type === "channel") {
+      avatar.textContent = "#";
     } else {
       if (item.type !== "special" && item.member && typeof paintUserFace === "function") {
         paintUserFace(avatar, item.member, { name: item.label, userId: item.member.id });
@@ -666,7 +729,7 @@ function renderMentionPicker(items) {
 
     const name = document.createElement("div");
     name.className = "mention-picker-name";
-    name.textContent = item.type === "special" || item.type === "role" ? "@" + item.label : item.label;
+    name.textContent = item.type === "special" || item.type === "role" ? "@" + item.label : item.type === "channel" ? "#" + item.label : item.label;
     if (item.type === "role" && item.color) name.style.color = item.color;
     row.appendChild(name);
 
@@ -710,12 +773,47 @@ function showMentionPicker(input, range, items) {
   picker.classList.add("visible");
 }
 
+function channelMentionItems(query) {
+  const q = query || "";
+  return serverChannelsForMention()
+    .filter((channel) => !q || mentionStartsWith(channel.name || "", q))
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }))
+    .map((channel) => ({
+      type: "channel",
+      key: "channel-" + channel.id,
+      label: channel.name,
+      hint: "Channel",
+      enabled: true,
+      insert: "#" + channel.name + " ",
+    }));
+}
+
+function sigilQueryAtCursor(value, cursor, sigil) {
+  const before = value.slice(0, cursor);
+  const match = before.match(new RegExp("(^|[\\s])\\" + sigil + "([^\\s\\" + sigil + "]*)$"));
+  if (!match) return null;
+  const query = match[2];
+  return { start: cursor - query.length - 1, end: cursor, query: query, sigil: sigil };
+}
+
 function updateMentionPicker(input) {
   if (!composerAllowsMentions(input)) {
     hideMentionPicker();
     return;
   }
   const cursor = input.selectionStart;
+  if (typeof currentServerId !== "undefined" && currentServerId) {
+    const hash = sigilQueryAtCursor(input.value, cursor, "#");
+    if (hash) {
+      const channels = channelMentionItems(hash.query);
+      if (!channels.length) {
+        hideMentionPicker();
+        return;
+      }
+      showMentionPicker(input, hash, channels);
+      return;
+    }
+  }
   const range = mentionQueryAtCursor(input.value, cursor);
   if (!range) {
     hideMentionPicker();

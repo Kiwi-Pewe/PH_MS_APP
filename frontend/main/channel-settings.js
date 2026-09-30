@@ -602,12 +602,175 @@ function showChannelSettingsTab(tab) {
     paintChannelSettingsPermissions();
     if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
   }
+  if (tab === "integrations") paintChannelFollows();
 }
 
 function channelSettingsIsForums() {
   return channelSettingsKind === "channel"
     && channelSettingsTarget
     && channelSettingsTarget.channel_type === "forums";
+}
+
+function channelSettingsIsAnnouncements() {
+  return channelSettingsKind === "channel"
+    && channelSettingsTarget
+    && channelSettingsTarget.channel_type === "announcements";
+}
+
+function blogPrivacyOk() {
+  const mode = (currentServerData && currentServerData.privacy_mode) || "private";
+  return mode === "default" || mode === "open";
+}
+
+async function saveAnnouncementBlog(partial) {
+  const channel = channelSettingsTarget;
+  if (!channel || !channelSettingsIsAnnouncements()) return;
+  const announcePublic = partial.announce_public != null ? !!partial.announce_public : !!channel.announce_public;
+  const blogEnabled = announcePublic && (partial.blog_enabled != null ? !!partial.blog_enabled : !!channel.blog_enabled);
+  try {
+    const response = await fetch(`https://${serverAddress}/announcement_channel_settings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        channel_id: channel.id,
+        announce_public: announcePublic,
+        blog_enabled: blogEnabled,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      window.alert((typeof data.detail === "string" && data.detail) || "Could not save blog settings.");
+      paintChannelSettingsBlog();
+      return;
+    }
+    channel.announce_public = !!data.announce_public;
+    channel.blog_enabled = !!data.blog_enabled;
+    const live = findChannelSettingsChannel(channel.id);
+    if (live) {
+      live.announce_public = channel.announce_public;
+      live.blog_enabled = channel.blog_enabled;
+    }
+  } catch (err) {
+    window.alert("Could not save blog settings.");
+  }
+  paintChannelSettingsBlog();
+}
+
+function paintChannelSettingsBlog() {
+  const host = document.getElementById("channel-settings-blog-host");
+  if (!host) return;
+  host.replaceChildren();
+  if (!channelSettingsIsAnnouncements() || typeof settingsOpt !== "function" || typeof settingsToggle !== "function") return;
+  const channel = channelSettingsTarget;
+  const allowed = blogPrivacyOk();
+  const isPublic = !!(channel && channel.announce_public);
+  const blogOn = !!(channel && channel.blog_enabled);
+  if (!allowed && typeof settingsNote === "function") {
+    host.appendChild(settingsNote("Blogs are available on Default and Open entry servers."));
+  }
+  host.appendChild(settingsOpt(
+    "Make channel public",
+    "Posts published while the blog is on can be opened without joining.",
+    settingsToggle(isPublic, !allowed, (on) => saveAnnouncementBlog({ announce_public: on }))
+  ));
+  host.appendChild(settingsOpt(
+    "Enable blog",
+    "New posts get a public link. Turning this off leaves older public posts up.",
+    settingsToggle(blogOn, !allowed || !isPublic, (on) => saveAnnouncementBlog({ blog_enabled: on }))
+  ));
+}
+
+async function paintChannelFollows() {
+  const host = document.getElementById("channel-settings-follows");
+  if (!host) return;
+  host.replaceChildren();
+  const idle = document.createElement("p");
+  idle.className = "server-settings-help";
+  idle.textContent = "This channel isn’t receiving followed announcement channels.";
+  if (!channelSettingsIsAnnouncements() || !channelSettingsTarget) {
+    host.appendChild(idle);
+    return;
+  }
+  const loading = document.createElement("p");
+  loading.className = "server-settings-help";
+  loading.textContent = "Loading followed channels…";
+  host.appendChild(loading);
+  try {
+    const response = await fetch(`https://${serverAddress}/channel_follows/${channelSettingsTarget.id}`, { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      loading.textContent = (typeof data.detail === "string" && data.detail) || "Could not load followed channels.";
+      return;
+    }
+    host.replaceChildren();
+    const follows = data.follows || [];
+    if (!follows.length) host.appendChild(idle);
+    follows.forEach((row) => {
+      const line = document.createElement("div");
+      line.className = "channel-follow-row";
+      const label = document.createElement("div");
+      label.textContent = (row.server_name || "Server") + " / #" + (row.channel_name || "announcements");
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost-btn";
+      remove.textContent = "Unfollow";
+      remove.addEventListener("click", () => removeChannelFollow(row.source_channel_id));
+      line.appendChild(label);
+      line.appendChild(remove);
+      host.appendChild(line);
+    });
+    const sources = data.sources || [];
+    if (sources.length) {
+      const add = document.createElement("div");
+      add.className = "channel-follow-add";
+      const select = document.createElement("select");
+      select.className = "settings-select server-settings-select";
+      sources.forEach((row) => {
+        const option = document.createElement("option");
+        option.value = String(row.channel_id);
+        option.textContent = (row.server_name || "Server") + " / #" + (row.channel_name || "announcements");
+        select.appendChild(option);
+      });
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "pill-btn";
+      button.textContent = "Follow";
+      button.addEventListener("click", () => addChannelFollow(Number(select.value)));
+      add.appendChild(select);
+      add.appendChild(button);
+      host.appendChild(add);
+    }
+  } catch (err) {
+    loading.textContent = "Could not load followed channels.";
+  }
+}
+
+async function addChannelFollow(sourceId) {
+  if (!channelSettingsTarget || !sourceId) return;
+  const response = await fetch(`https://${serverAddress}/channel_follows`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ dest_channel_id: channelSettingsTarget.id, source_channel_id: sourceId }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    window.alert((typeof data.detail === "string" && data.detail) || "Could not follow that channel.");
+    return;
+  }
+  paintChannelFollows();
+}
+
+async function removeChannelFollow(sourceId) {
+  if (!channelSettingsTarget || !sourceId) return;
+  await fetch(`https://${serverAddress}/channel_follows/remove`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ dest_channel_id: channelSettingsTarget.id, source_channel_id: sourceId }),
+  });
+  paintChannelFollows();
 }
 
 function paintChannelSettingsShell() {
@@ -627,8 +790,13 @@ function paintChannelSettingsShell() {
       el.hidden = !isForums;
       return;
     }
+    if (el.classList.contains("is-announce-only")) {
+      el.hidden = !channelSettingsIsAnnouncements();
+      return;
+    }
     el.hidden = isCategory;
   });
+  paintChannelSettingsBlog();
 }
 
 function setChannelSettingsNameStatus(message) {
@@ -1117,6 +1285,7 @@ function openChannelSettings(kind, target) {
   paintChannelSettingsForumRequireTags();
   paintChannelSettingsForumReaction();
   if (channelSettingsIsForums()) loadChannelSettingsForumSettings();
+  paintChannelSettingsBlog();
   const overlay = document.getElementById("channel-settings-overlay");
   if (overlay) overlay.hidden = false;
 }

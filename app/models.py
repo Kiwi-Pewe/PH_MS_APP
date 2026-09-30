@@ -247,6 +247,8 @@ class Server_channels(Base):
     forum_guidelines = Column(String, nullable=True)
     forum_require_tags = Column(Boolean, default=False)
     forum_default_reaction = Column(String, nullable=True)
+    announce_public = Column(Boolean, default=False)
+    blog_enabled = Column(Boolean, default=False)
 
 class Channel_messages(Base):
     __tablename__ = "channel_messages"
@@ -281,6 +283,18 @@ class Announcement_post(Base):
     comment_count = Column(Integer, default= 0)
     attachment = Column(String, nullable=True)
     edited = Column(Boolean, default= False)
+    is_public = Column(Boolean, default=False)
+    followed_from_id = Column(Integer, nullable=True)
+
+class Channel_follow(Base):
+    __tablename__ = "channel_follows"
+    id = Column(Integer, primary_key=True)
+    source_channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    dest_channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("source_channel_id", "dest_channel_id", name="uq_channel_follow"),)
+
 
 class Profile_comment(Base):
     __tablename__ = "profile_comments"

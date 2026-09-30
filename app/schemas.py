@@ -370,12 +370,22 @@ class Category_update(BaseModel):
     name: str | None = None
     is_private: bool | None = None
 
+class Announcement_channel_settings(BaseModel):
+    channel_id: int
+    announce_public: bool = False
+    blog_enabled: bool = False
+
+class Channel_follow_body(BaseModel):
+    dest_channel_id: int
+    source_channel_id: int
+
 class Announcements(BaseModel):
     channel_id: int
     title: str
     body: str = ""
     attachments: list[Attachment_in] = []
     attachment: Attachment_in | None = None
+    notify_all: bool = False
 
 class Comment_create(BaseModel):
     post_id: int

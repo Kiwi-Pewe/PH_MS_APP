@@ -463,7 +463,7 @@ function connectSocket() {
         noteIncomingChannelMessage(
           post.channel_id,
           data.server_id,
-          typeof mentionedFromPayload === "function" ? mentionedFromPayload(post.body, post.mentionUsers || post.mention_users, post.mentioned, post.mentioned_ids) : !!post.mentioned,
+          !post.followed && typeof mentionedFromPayload === "function" ? mentionedFromPayload(post.body, post.mentionUsers || post.mention_users, post.mentioned, post.mentioned_ids) : !!post.mentioned,
           isOpen
         );
       }

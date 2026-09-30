@@ -42,11 +42,80 @@ function paintAnnouncementAccess() {
   }
 }
 
+function announcementSearchParams(extra) {
+  const params = new URLSearchParams(extra || {});
+  const input = document.getElementById("announcement-search-input");
+  const q = input ? input.value.trim() : "";
+  if (q) params.set("q", q);
+  const text = params.toString();
+  return text ? "?" + text : "";
+}
+
+function announcementSearchActive() {
+  const input = document.getElementById("announcement-search-input");
+  return !!(input && input.value.trim());
+}
+
+let announcementSearchTimer = null;
+
+function clearAnnouncementSearch() {
+  if (announcementSearchTimer) clearTimeout(announcementSearchTimer);
+  announcementSearchTimer = null;
+  const input = document.getElementById("announcement-search-input");
+  if (input) input.value = "";
+}
+
+const announcementSearchInput = document.getElementById("announcement-search-input");
+if (announcementSearchInput) {
+  announcementSearchInput.addEventListener("input", () => {
+    if (announcementSearchTimer) clearTimeout(announcementSearchTimer);
+    announcementSearchTimer = setTimeout(() => {
+      if (currentChannelType === "announcements" && currentChannelId) loadAnnouncementPosts(currentChannelId);
+    }, 250);
+  });
+  announcementSearchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (currentChannelType === "announcements" && currentChannelId) loadAnnouncementPosts(currentChannelId);
+    }
+  });
+}
+
+function paintAnnounceNotifyAll() {
+  const row = document.getElementById("announce-notify-all");
+  const input = document.getElementById("announce-notify-all-input");
+  const allowed = typeof channelPerm === "function" && channelPerm("mention_everyone");
+  if (row) row.hidden = !allowed;
+  if (input && !allowed) input.checked = false;
+}
+
+function wrapAnnouncementSelection(marker) {
+  const input = document.getElementById("announcement-body-input");
+  if (!input) return;
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  const value = input.value;
+  const selected = value.slice(start, end);
+  const next = value.slice(0, start) + marker + selected + marker + value.slice(end);
+  input.value = next;
+  const cursor = start + marker.length + selected.length + marker.length;
+  input.setSelectionRange(selected ? cursor : start + marker.length, selected ? cursor : start + marker.length);
+  input.focus();
+  input.dispatchEvent(new Event("input"));
+}
+
+document.querySelectorAll("[data-announce-wrap]").forEach((btn) => {
+  btn.addEventListener("click", () => wrapAnnouncementSelection(btn.getAttribute("data-announce-wrap") || ""));
+});
+
 function showAnnounceComposerEditing() {
   if (typeof canCreateAnnouncements === "function" && !canCreateAnnouncements()) return;
   document.getElementById("announcement-title-input").value = "";
   document.getElementById("announcement-body-input").value = "";
   document.getElementById("announcement-body-input").style.height = "";
+  const notify = document.getElementById("announce-notify-all-input");
+  if (notify) notify.checked = false;
+  paintAnnounceNotifyAll();
   if (typeof clearPostMedia === "function") clearPostMedia("announce");
   document.getElementById("announce-composer-default").style.display = "none";
   document.getElementById("announce-composer-editing").style.display = "flex";
@@ -83,11 +152,13 @@ async function submitCreateAnnouncement() {
   try {
     let attachments = [];
     if (pending.length) attachments = await uploadPendingPostFiles(pending);
-    const response = await fetch(`https://${serverAddress}/post_announcement`, {
+  const notifyInput = document.getElementById("announce-notify-all-input");
+  const notifyAll = !!(notifyInput && notifyInput.checked);
+  const response = await fetch(`https://${serverAddress}/post_announcement`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ channel_id: currentChannelId, title, body, attachments })
+      body: JSON.stringify({ channel_id: currentChannelId, title, body, attachments, notify_all: notifyAll })
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
@@ -107,7 +178,8 @@ async function submitCreateAnnouncement() {
   // client values stand in until a real fetch-on-load exists.
   const cardPost = {
     id: post.id, title: post.title, body: post.body, attachment: post.attachment,
-    created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId, reactions: [], edited: false
+    created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId, reactions: [], edited: false,
+    is_public: !!post.is_public
   };
   if (typeof applyMentionFields === "function") applyMentionFields(cardPost, post);
   appendNewAnnouncementPost(cardPost);
@@ -269,22 +341,51 @@ function updateAnnouncementEndMarker() {
   if (existing) existing.remove();
   const marker = document.createElement("div");
   marker.className = "announce-end-marker";
-  marker.textContent = "You're up to date!";
+  marker.textContent = announcementSearchActive()
+    ? (container.querySelector(".announce-post") ? "" : "No announcements matched that search.")
+    : "You're up to date!";
+  if (!marker.textContent) return;
   container.appendChild(marker);
 }
 
 // Initial fetch on opening an Announcements channel. Ascending
 // (oldest-first) order, same convention as get_channel_history.
+function clearAnnouncementCommentBooks() {
+  Object.keys(commentThreadState).forEach((key) => delete commentThreadState[key]);
+  Object.keys(commentThreadElements).forEach((key) => delete commentThreadElements[key]);
+}
+
+async function jumpLoadAroundAnnouncement(postId) {
+  if (!currentChannelId || !postId) return;
+  const container = document.getElementById("announcements-posts");
+  if (!container) return;
+  try {
+    const response = await fetch(`https://${serverAddress}/get_announcement/${currentChannelId}?around_id=${postId}`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    clearAnnouncementCommentBooks();
+    currentAnnouncementPosts = (data.posts || []).map((post) => {
+      post.reactions = applyReactionMe(post.reactions || []);
+      return post;
+    });
+    announcementHasMoreHistory = true;
+    container.innerHTML = "";
+    currentAnnouncementPosts.forEach((post) => container.appendChild(buildAnnouncementPostCard(post)));
+    updateAnnouncementEndMarker();
+  } catch (e) {}
+}
+
 async function loadAnnouncementPosts(channelId) {
   editingAnnouncementId = null;
   if (typeof clearPostMedia === "function") clearPostMedia("announceEdit");
+  clearAnnouncementCommentBooks();
   currentAnnouncementPosts = [];
   announcementHasMoreHistory = true;
   announcementIsLoadingMore = false;
   const container = document.getElementById("announcements-posts");
   container.innerHTML = "";
   try {
-    const response = await fetch(`https://${serverAddress}/get_announcement/${channelId}`, { credentials: "include" });
+    const response = await fetch(`https://${serverAddress}/get_announcement/${channelId}${announcementSearchParams()}`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
     currentAnnouncementPosts = data.posts.map(post => {
@@ -294,7 +395,8 @@ async function loadAnnouncementPosts(channelId) {
     if (data.posts.length < 25) announcementHasMoreHistory = false;
     data.posts.forEach(post => container.appendChild(buildAnnouncementPostCard(post)));
     updateAnnouncementEndMarker();
-    container.scrollTop = container.scrollHeight;
+    if (announcementSearchActive()) container.scrollTop = 0;
+    else container.scrollTop = container.scrollHeight;
   } catch (e) { /* leave empty on failure */ }
 }
 
@@ -311,7 +413,7 @@ async function loadOlderAnnouncementPosts() {
   const prevScrollTop = container.scrollTop;
 
   try {
-    const response = await fetch(`https://${serverAddress}/get_announcement/${currentChannelId}?before_id=${oldest.id}`, { credentials: "include" });
+    const response = await fetch(`https://${serverAddress}/get_announcement/${currentChannelId}${announcementSearchParams({ before_id: oldest.id })}`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
     if (data.posts.length < 25) announcementHasMoreHistory = false;
@@ -469,11 +571,22 @@ function fillAnnouncePostContent(card, post) {
     titleRow.appendChild(tag);
   }
   wrap.appendChild(titleRow);
+  if (post.is_public) {
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "announce-public-link";
+    link.textContent = "Copy public link";
+    link.addEventListener("click", () => {
+      const url = `https://${serverAddress}/blog/${post.id}`;
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url);
+    });
+    wrap.appendChild(link);
+  }
 
   if (post.body) {
     const body = document.createElement("div");
     body.className = "announce-post-body";
-    if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers, post.mentionRoles);
+    if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers, post.mentionRoles, { rich: true });
     else body.textContent = post.body;
     wrap.appendChild(body);
     if (typeof attachLinkEmbedsIfNeeded === "function") attachLinkEmbedsIfNeeded(body, post.body);

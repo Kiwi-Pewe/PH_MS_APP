@@ -6,6 +6,7 @@ import re
 from app.models import (
     UserInfo, Message, Party_messages, Party_members, Channel_messages,
     Servers, Server_members, Server_categories, Server_channels,
+    Announcement_post, Announcement_comment, Forum_post, Forum_messages,
     Message_pin, Message_mention,
 )
 from app.schemas import Search_messages
@@ -84,7 +85,11 @@ def row_matches_has(content, attachment, has_list):
     return True
 
 
-def visible_text_channel_ids(database, server, user_id):
+SEARCH_CHANNEL_TYPES = ("text", "announcements", "forums")
+SEARCH_SCAN_LIMIT = 800
+
+
+def visible_search_channels(database, server, user_id):
     from app.routers.roles import effective_perms_for_user_in_channel, channel_type_visible
     is_owner = server.owner_id == user_id
     categories = database.query(Server_categories).filter(Server_categories.server_id == server.id).all()
@@ -96,12 +101,12 @@ def visible_text_channel_ids(database, server, user_id):
         for channel in channels:
             if channel.is_private and not is_owner:
                 continue
-            if channel.channel_type != "text":
+            if channel.channel_type not in SEARCH_CHANNEL_TYPES:
                 continue
             perms = effective_perms_for_user_in_channel(database, server, user_id, channel.id)
             if not channel_type_visible(perms, channel.channel_type):
                 continue
-            out.append(channel.id)
+            out.append(channel)
     return out
 
 
@@ -137,6 +142,56 @@ def mention_message_ids(database, kind, user_id, channel_ids=None, party_id=None
     if party_id is not None:
         q = q.filter(Message_mention.party_id == party_id)
     return {row[0] for row in q.all()}
+
+
+def search_hit(kind, row_id, channel_id, sender_id, content, attachment, stamp, edited=False, title="", body="", post_id=None):
+    return {
+        "kind": kind,
+        "id": row_id,
+        "channel_id": channel_id,
+        "sender_id": sender_id,
+        "content": content or "",
+        "attachment": attachment,
+        "stamp": stamp,
+        "edited": bool(edited),
+        "title": title or "",
+        "body": body or "",
+        "post_id": post_id,
+    }
+
+
+def apply_common_filters(database, query, id_col, sender_col, time_col, body, content_cols, content, channel_ids, mention_kind):
+    if content:
+        pattern = f"%{content}%"
+        query = query.filter(or_(*[col.ilike(pattern) for col in content_cols]))
+    if body.author_id is not None:
+        query = query.filter(sender_col == body.author_id)
+    query = apply_time_filters(query, time_col, body.before, body.after, body.during)
+    if body.mentions_user_id is not None:
+        ids = mention_message_ids(database, mention_kind, body.mentions_user_id, channel_ids=channel_ids)
+        if not ids:
+            return None
+        query = query.filter(id_col.in_(ids))
+    return query
+
+
+def pin_id_set(database, channel_ids, message_kind):
+    pin_ids = set()
+    for cid in channel_ids:
+        pin_ids |= pinned_message_ids(database, "channel", cid, message_kind)
+    return pin_ids
+
+
+def apply_pin_filter(query, id_col, pin_ids, pinned):
+    if pinned is None:
+        return query
+    if pinned:
+        if not pin_ids:
+            return None
+        return query.filter(id_col.in_(pin_ids))
+    if pin_ids:
+        return query.filter(~id_col.in_(pin_ids))
+    return query
 
 
 def serialize_hit(kind, msg, username, avatar, channel_id=None, channel_name=None):
@@ -179,6 +234,142 @@ def search_messages(body: Search_messages, database: Session = Depends(get_db), 
     raise HTTPException(status_code=400, detail="Unknown search scope")
 
 
+def joined_text(title, body):
+    title = title or ""
+    body = body or ""
+    if title and body:
+        return title + "\n" + body
+    return title or body
+
+
+def collect_text_hits(database, body, content, channel_ids):
+    if not channel_ids:
+        return []
+    query = database.query(Channel_messages).filter(Channel_messages.channel_id.in_(channel_ids))
+    query = query.filter(Channel_messages.sender_id.isnot(None))
+    query = apply_common_filters(
+        database, query, Channel_messages.id, Channel_messages.sender_id, Channel_messages.timestamp,
+        body, [Channel_messages.content], content, channel_ids, "channel",
+    )
+    query = apply_pin_filter(query, Channel_messages.id, pin_id_set(database, channel_ids, "channel"), body.pinned) if query is not None else None
+    if query is None:
+        return []
+    rows = query.order_by(Channel_messages.timestamp.desc(), Channel_messages.id.desc()).limit(SEARCH_SCAN_LIMIT).all()
+    return [
+        search_hit("channel", row.id, row.channel_id, row.sender_id, row.content, row.attachment, row.timestamp, row.edited)
+        for row in rows
+    ]
+
+
+def collect_announcement_hits(database, body, content, channel_ids):
+    if not channel_ids:
+        return []
+    query = database.query(Announcement_post).filter(Announcement_post.channel_id.in_(channel_ids))
+    query = query.filter(Announcement_post.sender_id.isnot(None))
+    query = apply_common_filters(
+        database, query, Announcement_post.id, Announcement_post.sender_id, Announcement_post.created_at,
+        body, [Announcement_post.title, Announcement_post.body], content, channel_ids, "announcement",
+    )
+    query = apply_pin_filter(query, Announcement_post.id, pin_id_set(database, channel_ids, "announcement"), body.pinned) if query is not None else None
+    if query is None:
+        return []
+    rows = query.order_by(Announcement_post.created_at.desc(), Announcement_post.id.desc()).limit(SEARCH_SCAN_LIMIT).all()
+    return [
+        search_hit(
+            "announcement", row.id, row.channel_id, row.sender_id, joined_text(row.title, row.body),
+            row.attachment, row.created_at, row.edited, title=row.title, body=row.body, post_id=row.id,
+        )
+        for row in rows
+    ]
+
+
+def collect_comment_hits(database, body, content, channel_ids):
+    if not channel_ids:
+        return []
+    query = database.query(Announcement_comment, Announcement_post.channel_id).join(
+        Announcement_post, Announcement_comment.post_id == Announcement_post.id,
+    ).filter(Announcement_post.channel_id.in_(channel_ids))
+    query = query.filter(Announcement_comment.sender_id.isnot(None))
+    query = apply_common_filters(
+        database, query, Announcement_comment.id, Announcement_comment.sender_id, Announcement_comment.created_at,
+        body, [Announcement_comment.content], content, channel_ids, "comment",
+    )
+    query = apply_pin_filter(query, Announcement_comment.id, pin_id_set(database, channel_ids, "comment"), body.pinned) if query is not None else None
+    if query is None:
+        return []
+    rows = query.order_by(Announcement_comment.created_at.desc(), Announcement_comment.id.desc()).limit(SEARCH_SCAN_LIMIT).all()
+    return [
+        search_hit("comment", comment.id, channel_id, comment.sender_id, comment.content, None, comment.created_at, post_id=comment.post_id)
+        for comment, channel_id in rows
+    ]
+
+
+def collect_forum_post_hits(database, body, content, channel_ids):
+    if not channel_ids:
+        return []
+    query = database.query(Forum_post).filter(Forum_post.channel_id.in_(channel_ids))
+    query = query.filter(Forum_post.author_id.isnot(None))
+    query = apply_common_filters(
+        database, query, Forum_post.id, Forum_post.author_id, Forum_post.created_at,
+        body, [Forum_post.title, Forum_post.body], content, channel_ids, "forum_post",
+    )
+    query = apply_pin_filter(query, Forum_post.id, pin_id_set(database, channel_ids, "forum_post"), body.pinned) if query is not None else None
+    if query is None:
+        return []
+    rows = query.order_by(Forum_post.created_at.desc(), Forum_post.id.desc()).limit(SEARCH_SCAN_LIMIT).all()
+    return [
+        search_hit(
+            "forum_post", row.id, row.channel_id, row.author_id, joined_text(row.title, row.body),
+            row.attachment, row.created_at, row.edited, title=row.title, body=row.body, post_id=row.id,
+        )
+        for row in rows
+    ]
+
+
+def collect_forum_reply_hits(database, body, content, channel_ids):
+    if not channel_ids:
+        return []
+    query = database.query(Forum_messages, Forum_post.channel_id, Forum_post.title).join(
+        Forum_post, Forum_messages.post_id == Forum_post.id,
+    ).filter(Forum_post.channel_id.in_(channel_ids))
+    query = query.filter(Forum_messages.author_id.isnot(None))
+    query = apply_common_filters(
+        database, query, Forum_messages.id, Forum_messages.author_id, Forum_messages.created_at,
+        body, [Forum_messages.content], content, channel_ids, "forum",
+    )
+    query = apply_pin_filter(query, Forum_messages.id, pin_id_set(database, channel_ids, "forum"), body.pinned) if query is not None else None
+    if query is None:
+        return []
+    rows = query.order_by(Forum_messages.created_at.desc(), Forum_messages.id.desc()).limit(SEARCH_SCAN_LIMIT).all()
+    return [
+        search_hit(
+            "forum", message.id, channel_id, message.author_id, message.content, message.attachment,
+            message.created_at, message.edited, title=title or "", post_id=message.post_id,
+        )
+        for message, channel_id, title in rows
+    ]
+
+
+def serialize_search_hit(hit, username, avatar, channel_name):
+    return {
+        "id": hit["id"],
+        "message_kind": hit["kind"],
+        "chat_kind": hit["kind"],
+        "sender_id": hit["sender_id"],
+        "username": username or "",
+        "content": hit["content"],
+        "attachment": attachment_public(hit["attachment"]),
+        "timestamp": str(hit["stamp"]) if hit["stamp"] else None,
+        "edited": hit["edited"],
+        "avatar": avatar,
+        "channel_id": hit["channel_id"],
+        "channel_name": channel_name or "",
+        "title": hit["title"],
+        "body": hit["body"],
+        "post_id": hit["post_id"],
+    }
+
+
 def search_server(database, current_user, body, page, content, has_list):
     server_id = str(body.scope_id)
     server = database.query(Servers).filter(Servers.id == server_id).first()
@@ -191,63 +382,37 @@ def search_server(database, current_user, body, page, content, has_list):
     if not member:
         raise HTTPException(status_code=404, detail="Server not found")
 
-    channel_ids = visible_text_channel_ids(database, server, current_user.id)
+    channels = visible_search_channels(database, server, current_user.id)
     if body.channel_id is not None:
-        if body.channel_id not in channel_ids:
+        channels = [channel for channel in channels if channel.id == body.channel_id]
+        if not channels:
             raise HTTPException(status_code=403, detail="You cannot search that channel.")
-        channel_ids = [body.channel_id]
-    if not channel_ids:
+    if not channels:
         return empty_search_page(page)
 
-    query = database.query(Channel_messages).filter(Channel_messages.channel_id.in_(channel_ids))
-    query = query.filter(Channel_messages.sender_id.isnot(None))
-    if content:
-        query = query.filter(Channel_messages.content.ilike(f"%{content}%"))
-    if body.author_id is not None:
-        query = query.filter(Channel_messages.sender_id == body.author_id)
-    query = apply_time_filters(query, Channel_messages.timestamp, body.before, body.after, body.during)
-
-    if body.mentions_user_id is not None:
-        ids = mention_message_ids(database, "channel", body.mentions_user_id, channel_ids=channel_ids)
-        if not ids:
-            return empty_search_page(page)
-        query = query.filter(Channel_messages.id.in_(ids))
-
-    if body.pinned is not None:
-        pin_ids = set()
-        for cid in channel_ids:
-            pin_ids |= pinned_message_ids(database, "channel", cid, "channel")
-        if body.pinned:
-            if not pin_ids:
-                return empty_search_page(page)
-            query = query.filter(Channel_messages.id.in_(pin_ids))
-        elif pin_ids:
-            query = query.filter(~Channel_messages.id.in_(pin_ids))
-
-    rows = query.order_by(Channel_messages.timestamp.desc(), Channel_messages.id.desc()).limit(800).all()
-    filtered = [row for row in rows if row_matches_has(row.content, row.attachment, has_list)]
-    total = len(filtered)
+    text_ids = [channel.id for channel in channels if channel.channel_type == "text"]
+    announce_ids = [channel.id for channel in channels if channel.channel_type == "announcements"]
+    forum_ids = [channel.id for channel in channels if channel.channel_type == "forums"]
+    hits = []
+    hits.extend(collect_text_hits(database, body, content, text_ids))
+    hits.extend(collect_announcement_hits(database, body, content, announce_ids))
+    hits.extend(collect_comment_hits(database, body, content, announce_ids))
+    hits.extend(collect_forum_post_hits(database, body, content, forum_ids))
+    hits.extend(collect_forum_reply_hits(database, body, content, forum_ids))
+    hits = [hit for hit in hits if row_matches_has(hit["content"], hit["attachment"], has_list)]
+    hits.sort(key=lambda hit: (hit["stamp"] or datetime.min, hit["id"] or 0), reverse=True)
+    total = len(hits)
     start = (page - 1) * SEARCH_PAGE_SIZE
-    page_rows = filtered[start:start + SEARCH_PAGE_SIZE]
+    page_rows = hits[start:start + SEARCH_PAGE_SIZE]
 
-    channel_map = {
-        ch.id: ch.name
-        for ch in database.query(Server_channels).filter(Server_channels.id.in_(channel_ids)).all()
-    }
-    sender_ids = list({row.sender_id for row in page_rows if row.sender_id})
+    channel_map = {channel.id: channel.name for channel in channels}
+    sender_ids = list({hit["sender_id"] for hit in page_rows if hit["sender_id"]})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all() if sender_ids else []
-    names = {a.id: a.username for a in accounts}
+    names = {account.id: account.username for account in accounts}
     faces = avatar_lookup(accounts)
     messages = [
-        serialize_hit(
-            "channel",
-            row,
-            names.get(row.sender_id, ""),
-            faces.get(row.sender_id),
-            channel_id=row.channel_id,
-            channel_name=channel_map.get(row.channel_id, ""),
-        )
-        for row in page_rows
+        serialize_search_hit(hit, names.get(hit["sender_id"], ""), faces.get(hit["sender_id"]), channel_map.get(hit["channel_id"], ""))
+        for hit in page_rows
     ]
     mask_message_payloads(database, messages)
     pages = max(1, (total + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE) if total else 1

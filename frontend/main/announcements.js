@@ -90,7 +90,8 @@ async function submitCreateAnnouncement() {
       body: JSON.stringify({ channel_id: currentChannelId, title, body, attachments })
     });
     if (!response.ok) {
-      console.error(`Failed to post announcement: ${response.status}`);
+      const data = await response.json().catch(() => ({}));
+      window.alert((typeof data.detail === "string" && data.detail) || "Could not post that announcement.");
       return;
     }
     post = await response.json();

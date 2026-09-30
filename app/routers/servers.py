@@ -22,6 +22,8 @@ from app.routers.roles import (
     hoist_roles_by_user,
     name_color_roles_by_user,
     require_channel_perm,
+    require_channel_slowmode,
+    normalize_slowmode,
     require_server_member,
     require_server_perm,
     require_server_roster,
@@ -258,7 +260,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         continue
                     notice = channel_notice(database, channel.id, current_user.id)
                     live_flags = {key: bool(channel_perms.get(key)) for key in (
-                        "manage_channels", "mention_everyone",
+                        "manage_channels", "mention_everyone", "bypass_slowmode",
                         "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
                         "view_announcements", "create_announcements", "manage_announcements",
                         "read_forums", "create_topics", "create_topic_replies", "manage_topics",
@@ -273,6 +275,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         "position": channel.position,
                         "is_private": channel.is_private,
                         "topic": getattr(channel, "topic", None) or "",
+                        "slowmode": int(getattr(channel, "slowmode", 0) or 0),
                         "unread": notice["unread"],
                         "mention_count": notice["mention_count"],
                         "can_read": bool(channel_perms.get("read_messages")),
@@ -646,6 +649,7 @@ async def message_server_channel(server_msg: Server_message, database: Session =
     if server_msg.attachment:
         require_channel_perm(database, server, current_user.id, channel.id, "upload_chat_media", "You do not have permission to upload media.")
     require_not_timed_out(is_member)
+    require_channel_slowmode(database, server, current_user.id, channel)
 
     require_message_body(server_msg.content, server_msg.attachment)
     parent = None
@@ -794,7 +798,7 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
     payload = {
         "type": "channel_created",
         "server_id": server.id,
-        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "topic": "", "category_id": new_channel.category_id}
+        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "topic": "", "slowmode": 0, "category_id": new_channel.category_id}
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return "success"
@@ -1031,7 +1035,7 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Category not found")
     server = require_server_member(database, category.server_id, current_user.id)
     require_channel_perm(database, server, current_user.id, channel.id, "manage_channels", "You do not have permission to manage this channel.")
-    if body.name is None and body.is_private is None and body.topic is None:
+    if body.name is None and body.is_private is None and body.topic is None and body.slowmode is None:
         raise HTTPException(status_code=400, detail="Nothing to update")
     if body.name is not None:
         name = (body.name or "").strip()
@@ -1047,6 +1051,8 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
         if len(topic) > 1024:
             topic = topic[:1024]
         channel.topic = topic or None
+    if body.slowmode is not None:
+        channel.slowmode = normalize_slowmode(body.slowmode)
     database.commit()
     database.refresh(channel)
     payload = {
@@ -1059,6 +1065,7 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
             "position": channel.position,
             "is_private": bool(channel.is_private),
             "topic": getattr(channel, "topic", None) or "",
+            "slowmode": int(getattr(channel, "slowmode", 0) or 0),
             "category_id": channel.category_id,
         },
     }

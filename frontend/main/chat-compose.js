@@ -78,6 +78,7 @@ function disableChannelComposer(message) {
   document.getElementById("channel-composer-send-btn").disabled = true;
   document.getElementById("channel-composer-plus-btn").disabled = true;
   document.getElementById("channel-composer-emoji-btn").disabled = true;
+  if (typeof paintSlowmodeIndicator === "function") paintSlowmodeIndicator();
 }
 
 function channelChatNeedsUploadPerm() {
@@ -125,6 +126,35 @@ function enableChannelComposer(label) {
   document.getElementById("channel-composer-plus-btn").disabled = !canAttachChannelMedia();
   document.getElementById("channel-composer-emoji-btn").disabled = false;
   if (!canAttachChannelMedia() && typeof clearPendingAttach === "function") clearPendingAttach();
+  paintSlowmodeIndicator();
+}
+
+function slowmodeIndicatorMarkup(label) {
+  return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="M12 8v5l3 2"></path></svg><span>' + label + '</span>';
+}
+
+function paintSlowmodeIndicator() {
+  const channel = typeof findCurrentServerChannel === "function" ? findCurrentServerChannel() : null;
+  const seconds = channel ? (Number(channel.slowmode) || 0) : 0;
+  const type = typeof currentChannelType !== "undefined" ? currentChannelType : "";
+  const inThread = typeof openForumPostId !== "undefined" && openForumPostId;
+  const immune = typeof channelPerm === "function" && channelPerm("bypass_slowmode");
+  const label = immune ? "Slowmode Immune" : "Slowmode Active";
+  const showChannel = seconds > 0 && (type === "text" || (type === "forums" && inThread));
+  const showAnnounce = seconds > 0 && type === "announcements";
+  const showForum = seconds > 0 && type === "forums" && !inThread;
+  [
+    ["channel-slowmode-indicator", showChannel],
+    ["announce-slowmode-indicator", showAnnounce],
+    ["forum-slowmode-indicator", showForum],
+  ].forEach(([id, on]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.hidden = !on;
+    el.innerHTML = on ? slowmodeIndicatorMarkup(label) : "";
+  });
+  const composer = document.getElementById("channel-composer");
+  if (composer) composer.classList.toggle("has-slowmode", !!showChannel);
 }
 
 async function sendChatMessage() {

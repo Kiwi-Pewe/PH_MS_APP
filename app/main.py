@@ -125,7 +125,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     reply_to_id= data.get("reply_to_id"))
                     new_message = await send_message(message=new_message, database=database, current_user=current_user)
                 except HTTPException as e:
-                    await socket.send_json({"type": "error", "detail": e.detail})
+                    await socket.send_json({"type": "error", "detail": e.detail, "temp_id": data.get("temp_id")})
                     continue
 
                 await socket.send_json({
@@ -156,7 +156,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     )
                     new_party_message = await message_party(party_msg= new_party_message,database=database, current_user=current_user)
                 except HTTPException as e:
-                    await socket.send_json({"type": "error", "detail": e.detail})
+                    await socket.send_json({"type": "error", "detail": e.detail, "temp_id": data.get("temp_id")})
                     continue
                 await socket.send_json({
                     "type": "message_ack",
@@ -192,7 +192,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 try:
                     leave_notice = await leave_party(party_id= data["party_id"], database= database, current_user= current_user)
                 except HTTPException as e:
-                    await socket.send_json({"type": "error", "detail": e.detail})
+                    await socket.send_json({"type": "error", "detail": e.detail, "temp_id": data.get("temp_id")})
                     continue
                 remaining_members = database.query(Party_members).filter(Party_members.party_id == data["party_id"]).all()
 
@@ -221,7 +221,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     )
                     new_server_msg = await message_server_channel(server_msg= new_server_msg, database=database, current_user=current_user)
                 except HTTPException as e:
-                    await socket.send_json({"type": "error", "detail": e.detail})
+                    await socket.send_json({"type": "error", "detail": e.detail, "temp_id": data.get("temp_id")})
                     continue
 
                 await socket.send_json({
@@ -270,7 +270,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     )
                     new_forum_msg = await send_forum_message(forum_message= new_forum_msg, database=database, current_user=current_user)
                 except HTTPException as e:
-                    await socket.send_json({"type": "error", "detail": e.detail})
+                    await socket.send_json({"type": "error", "detail": e.detail, "temp_id": data.get("temp_id")})
                     continue
 
                 await socket.send_json({

@@ -61,6 +61,17 @@ function connectSocket() {
       if (row) row.id = data.id;
     }
 
+    if (data.type === "error" && data.temp_id) {
+      const tempId = data.temp_id;
+      const channelHit = currentChannelMessages.some((row) => row.tempId === tempId);
+      const dmHit = currentMessages.some((row) => row.tempId === tempId);
+      currentChannelMessages = currentChannelMessages.filter((row) => row.tempId !== tempId);
+      currentMessages = currentMessages.filter((row) => row.tempId !== tempId);
+      if (channelHit && typeof renderChannelMessages === "function") renderChannelMessages();
+      if (dmHit && typeof renderMessages === "function") renderMessages();
+      window.alert(data.detail || "Could not send.");
+    }
+
     if (data.type === "message_pending_delete" && deletionEventTargetsOpenChat(data)) {
       markLocalPending(data.kind, data.message_id, data.deletion_requested_at);
     }

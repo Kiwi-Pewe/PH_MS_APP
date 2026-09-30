@@ -24,7 +24,7 @@ const SERVER_ROLE_PERMS = [
       { id: "manage_webhooks", title: "Manage webhooks", desc: "Allows you to create new webhooks and edit or delete existing ones.", later: "Webhooks" },
       { id: "mention_everyone", title: "Can mention @everyone and @here", desc: "Allows you to use @everyone and @here mentions." },
       { id: "moderate_channels", title: "Access moderator view", desc: "Allows you to access the moderator view to see all private replies.", later: "Private replies" },
-      { id: "bypass_slowmode", title: "Slowmode exception", desc: "This role is exempt from any slowmode restrictions.", later: "Slowmode" }
+      { id: "bypass_slowmode", title: "Slowmode exception", desc: "This role is exempt from any slowmode restrictions." }
     ]
   },
   {

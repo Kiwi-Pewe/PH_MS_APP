@@ -493,6 +493,7 @@ async function selectChannel(channel, rowEl) {
     document.getElementById("announce-new-post-btn").style.display =
       (typeof canCreateAnnouncements === "function" && canCreateAnnouncements()) ? "inline-flex" : "none";
     loadAnnouncementPosts(channel.id);
+    if (typeof paintSlowmodeIndicator === "function") paintSlowmodeIndicator();
     return;
   }
 
@@ -507,6 +508,7 @@ async function selectChannel(channel, rowEl) {
     forumFilterTagId = null;
     forumComposerTagIds = [];
     loadForumPosts(channel.id);
+    if (typeof paintSlowmodeIndicator === "function") paintSlowmodeIndicator();
     return;
   }
 
@@ -515,6 +517,7 @@ async function selectChannel(channel, rowEl) {
     channelComposer.style.display = "none";
     docsView.style.display = "flex";
     loadDoc(channel.id);
+    if (typeof paintSlowmodeIndicator === "function") paintSlowmodeIndicator();
     return;
   }
 

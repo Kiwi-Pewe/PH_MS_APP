@@ -239,7 +239,8 @@ async function submitCreateForumPost() {
       })
     });
     if (!response.ok) {
-      console.error(`Failed to create forum post: ${response.status}`);
+      const data = await response.json().catch(() => ({}));
+      window.alert((typeof data.detail === "string" && data.detail) || "Could not create that post.");
       return;
     }
     post = await response.json();
@@ -637,6 +638,7 @@ function closeForumPost() {
     const topic = (live && live.topic) || "";
     setHeaderDescription("channel-header-desc", topic);
   }
+  if (typeof paintSlowmodeIndicator === "function") paintSlowmodeIndicator();
 }
 
 document.getElementById("forum-back-btn").addEventListener("click", closeForumPost);

@@ -9,7 +9,7 @@ from app.r2 import attachment_public, delete_attachment, delete_r2_object, norma
 from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions, accepted_reply_parent, reply_map_for, reply_to_payload
 from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
-from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, require_channel_perm
+from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, require_channel_perm, require_channel_slowmode
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages, toggle_reaction_row
 from app.routers.pins import clear_pins
@@ -131,6 +131,7 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
     require_channel_perm(database, server, current_user.id, channel_exist.id, "create_topics", "You do not have permission to create forum topics.")
     from app.routers.moderation import require_not_timed_out
     require_not_timed_out(is_member)
+    require_channel_slowmode(database, server, current_user.id, channel_exist)
 
     items = normalize_post_attachments(create_forum.attachments, create_forum.attachment)
     require_post_body(create_forum.title, create_forum.body, items)
@@ -356,6 +357,7 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
     require_topic_unlocked(post_exist)
     from app.routers.moderation import require_not_timed_out
     require_not_timed_out(is_member)
+    require_channel_slowmode(database, server, current_user.id, channel)
 
     require_message_body(forum_message.content, forum_message.attachment)
     parent = None

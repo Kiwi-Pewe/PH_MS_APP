@@ -243,6 +243,7 @@ class Server_channels(Base):
     position = Column(Integer)
     is_private = Column(Boolean, default=False)
     topic = Column(String, nullable=True)
+    slowmode = Column(Integer, default=0)
     forum_guidelines = Column(String, nullable=True)
     forum_require_tags = Column(Boolean, default=False)
     forum_default_reaction = Column(String, nullable=True)

@@ -8,7 +8,7 @@ from app.r2 import delete_attachment, delete_r2_object, normalize_post_attachmen
 from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions
 from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
-from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, require_channel_perm
+from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, require_channel_perm, require_channel_slowmode
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.pins import clear_pins
@@ -42,6 +42,7 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
     category = database.query(Server_categories).filter(Server_categories.id == channel_found.category_id).first()
     server = database.query(Servers).filter(Servers.id == category.server_id).first()
     require_channel_perm(database, server, current_user.id, channel_found.id, "create_announcements", "You do not have permission to create announcements.")
+    require_channel_slowmode(database, server, current_user.id, channel_found)
 
     items = normalize_post_attachments(announcement.attachments, announcement.attachment)
     require_post_body(announcement.title, announcement.body, items)

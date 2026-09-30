@@ -1854,6 +1854,29 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   pointer-events: none;
 }
 .typing-indicator[hidden] { display: none !important; }
+#channel-composer.has-slowmode .typing-indicator { right: 148px; }
+.slowmode-indicator {
+  position: absolute;
+  right: 20px;
+  top: 0;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-dim);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.slowmode-indicator[hidden] { display: none !important; }
+.slowmode-indicator.is-inline {
+  position: static;
+  justify-content: flex-end;
+  height: auto;
+  margin: 0 0 8px;
+}
+.slowmode-indicator svg { display: block; flex: 0 0 auto; }
 #composer.attach-drop, #channel-composer.attach-drop { outline: 1px dashed var(--accent); outline-offset: -8px; }
 #composer.attach-drop, #channel-composer.attach-drop { outline: 1px dashed var(--accent); outline-offset: -8px; }
 .attach-preview { margin-bottom: 8px; }

@@ -3,13 +3,14 @@ let channelSettingsTarget = null;
 let channelSettingsSavedName = "";
 let channelSettingsSavedTopic = "";
 let channelSettingsSavedPrivate = false;
+let channelSettingsSavedSlowmode = 0;
 let channelSettingsForumSettings = { guidelines: "", require_tags: false, default_reaction: "", tags: [] };
 let channelSettingsSavedGuidelines = "";
 let channelSettingsForumReactionPick = null;
 let channelSettingsPermRoleId = "members";
 let channelSettingsPermDisplay = {};
 let channelSettingsPermLive = [
-  "manage_channels", "mention_everyone",
+  "manage_channels", "mention_everyone", "bypass_slowmode",
   "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
   "view_announcements", "create_announcements", "manage_announcements",
   "read_forums", "create_topics", "create_topic_replies", "manage_topics",
@@ -811,6 +812,44 @@ function cancelChannelSettingsTopic() {
   syncChannelSettingsTopic(channelSettingsSavedTopic);
 }
 
+function channelSlowmodeApplies() {
+  const type = channelSettingsTarget && channelSettingsTarget.channel_type;
+  return type === "text" || type === "announcements" || type === "forums";
+}
+
+function syncChannelSettingsSlowmode(seconds) {
+  channelSettingsSavedSlowmode = Number(seconds) || 0;
+  const input = document.getElementById("channel-settings-slowmode");
+  const help = document.getElementById("channel-settings-slowmode-help");
+  if (input) {
+    input.disabled = !channelSlowmodeApplies();
+    input.value = channelSettingsSavedSlowmode ? String(channelSettingsSavedSlowmode) : "off";
+  }
+  if (help) {
+    help.textContent = channelSettingsTarget && channelSettingsTarget.channel_type === "forums"
+      ? "Members will be restricted to one new post or reply per this interval, unless they have a slowmode exception."
+      : "Members will be restricted to sending one message per this interval, unless they have a slowmode exception.";
+  }
+}
+
+async function saveChannelSettingsSlowmode() {
+  if (!channelSlowmodeApplies() || !channelSettingsTarget) return;
+  const input = document.getElementById("channel-settings-slowmode");
+  const seconds = !input || input.value === "off" ? 0 : Number(input.value) || 0;
+  if (seconds === channelSettingsSavedSlowmode) return;
+  try {
+    const data = await postChannelSettings("/update_channel", {
+      channel_id: channelSettingsTarget.id,
+      slowmode: seconds,
+    });
+    if (data.channel) applyChannelUpdated(data.channel);
+    else syncChannelSettingsSlowmode(seconds);
+  } catch (err) {
+    syncChannelSettingsSlowmode(channelSettingsSavedSlowmode);
+    setChannelSettingsNameStatus(err.message || "Could not save.");
+  }
+}
+
 function setChannelSettingsForumGuidelinesStatus(message) {
   const el = document.getElementById("channel-settings-forum-guidelines-status");
   if (!el) return;
@@ -1003,6 +1042,7 @@ function applyChannelUpdated(channel) {
     if (channel.position != null) live.position = channel.position;
     if (channel.category_id != null) live.category_id = channel.category_id;
     if (channel.topic != null) live.topic = channel.topic || "";
+    if (channel.slowmode != null) live.slowmode = Number(channel.slowmode) || 0;
   }
   if (channelSettingsKind === "channel" && channelSettingsTarget && Number(channelSettingsTarget.id) === Number(channel.id)) {
     channelSettingsTarget = live || Object.assign({}, channelSettingsTarget, channel);
@@ -1012,6 +1052,7 @@ function applyChannelUpdated(channel) {
     paintChannelSettingsShell();
     syncChannelSettingsName(channelSettingsSavedName);
     syncChannelSettingsTopic(channelSettingsSavedTopic);
+    syncChannelSettingsSlowmode(channelSettingsTarget.slowmode || 0);
   }
   if (currentChannelId && Number(currentChannelId) === Number(channel.id)) {
     currentChannelName = channel.name || currentChannelName;
@@ -1024,6 +1065,7 @@ function applyChannelUpdated(channel) {
     if (channel.topic != null && typeof setHeaderDescription === "function") {
       setHeaderDescription("channel-header-desc", channel.topic || "");
     }
+    if (typeof paintSlowmodeIndicator === "function") paintSlowmodeIndicator();
   }
   renderServerSidebar(currentServerData);
 }
@@ -1068,6 +1110,7 @@ function openChannelSettings(kind, target) {
   paintChannelSettingsPermissions();
   if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
   syncChannelSettingsTopic(channelSettingsKind === "channel" ? (target.topic || "") : "");
+  syncChannelSettingsSlowmode(channelSettingsKind === "channel" ? (target.slowmode || 0) : 0);
   channelSettingsForumSettings = { guidelines: "", require_tags: false, default_reaction: "", tags: [] };
   syncChannelSettingsForumGuidelines("");
   paintChannelSettingsForumTags();
@@ -1143,6 +1186,13 @@ document.getElementById("channel-settings-topic-confirm").addEventListener("clic
 document.getElementById("channel-settings-topic-cancel").addEventListener("click", () => {
   cancelChannelSettingsTopic();
 });
+
+const channelSlowmodeSelect = document.getElementById("channel-settings-slowmode");
+if (channelSlowmodeSelect) {
+  channelSlowmodeSelect.addEventListener("change", () => {
+    saveChannelSettingsSlowmode();
+  });
+}
 
 const forumGuidelinesInput = document.getElementById("channel-settings-forum-guidelines");
 if (forumGuidelinesInput) {

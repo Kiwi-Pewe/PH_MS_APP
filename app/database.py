@@ -310,6 +310,7 @@ def ensure_channel_columns():
         ("server_channels", "forum_guidelines", "VARCHAR"),
         ("server_channels", "forum_require_tags", "BOOLEAN DEFAULT 0"),
         ("server_channels", "forum_default_reaction", "VARCHAR"),
+        ("server_channels", "slowmode", "INTEGER DEFAULT 0"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:

@@ -1,9 +1,10 @@
 import json
 import re
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import UserInfo, Servers, Server_members, Server_roles, Server_role_members, Server_channels, Server_categories, Server_channel_role_perms
+from app.models import UserInfo, Servers, Server_members, Server_roles, Server_role_members, Server_channels, Server_categories, Server_channel_role_perms, Channel_messages, Announcement_post, Forum_post, Forum_messages
 from app.schemas import Server_role_member_in, Server_roles_save, Channel_role_perms_save
 from app.database import get_db
 from app.auth import get_current_user
@@ -19,7 +20,7 @@ DEFAULT_ROLE_COLOR = "#99aab5"
 
 LIVE_ROLE_PERMS = (
     "update_server", "manage_roles", "invite_members", "kick_members",
-    "ban_members", "timeout_members", "manage_channels", "mention_everyone",
+    "ban_members", "timeout_members", "manage_channels", "mention_everyone", "bypass_slowmode",
     "view_announcements", "create_announcements", "manage_announcements",
     "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
     "read_forums", "create_topics", "create_topic_replies", "manage_topics",
@@ -39,6 +40,7 @@ MEMBERS_DEFAULT_PERMS = (
 LIVE_CHANNEL_OVERRIDE_PERMS = (
     "manage_channels",
     "mention_everyone",
+    "bypass_slowmode",
     "read_messages",
     "send_messages",
     "upload_chat_media",
@@ -399,6 +401,63 @@ def require_channel_perm(database, server, user_id, channel_id, perm, detail="Yo
     if not perms.get(perm):
         raise HTTPException(status_code=403, detail=detail)
     return perms
+
+
+SLOWMODE_CHOICES = (0, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 21600)
+
+
+def normalize_slowmode(value):
+    try:
+        seconds = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return seconds if seconds in SLOWMODE_CHOICES else 0
+
+
+def last_channel_slowmode_at(database, channel, user_id):
+    kind = getattr(channel, "channel_type", None)
+    if kind == "forums":
+        post_at = database.query(func.max(Forum_post.created_at)).filter(
+            Forum_post.channel_id == channel.id,
+            Forum_post.author_id == user_id,
+        ).scalar()
+        reply_at = database.query(func.max(Forum_messages.created_at)).join(
+            Forum_post, Forum_post.id == Forum_messages.post_id
+        ).filter(
+            Forum_post.channel_id == channel.id,
+            Forum_messages.author_id == user_id,
+        ).scalar()
+        stamps = [stamp for stamp in (post_at, reply_at) if stamp is not None]
+        return max(stamps) if stamps else None
+    if kind == "announcements":
+        return database.query(func.max(Announcement_post.created_at)).filter(
+            Announcement_post.channel_id == channel.id,
+            Announcement_post.sender_id == user_id,
+        ).scalar()
+    return database.query(func.max(Channel_messages.timestamp)).filter(
+        Channel_messages.channel_id == channel.id,
+        Channel_messages.sender_id == user_id,
+    ).scalar()
+
+
+def require_channel_slowmode(database, server, user_id, channel):
+    seconds = normalize_slowmode(getattr(channel, "slowmode", 0))
+    if seconds <= 0:
+        return
+    if getattr(channel, "channel_type", None) not in ("text", "announcements", "forums"):
+        return
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel.id)
+    if perms.get("bypass_slowmode"):
+        return
+    last_at = last_channel_slowmode_at(database, channel, user_id)
+    if last_at is None:
+        return
+    if getattr(last_at, "tzinfo", None):
+        last_at = last_at.replace(tzinfo=None)
+    remaining = seconds - (datetime.utcnow() - last_at).total_seconds()
+    if remaining > 0:
+        wait = max(1, int(remaining + 0.999))
+        raise HTTPException(status_code=429, detail=f"Slowmode is enabled. You can send again in {wait} seconds.")
 
 
 def display_channel_role_perms(database, channel_id, role):

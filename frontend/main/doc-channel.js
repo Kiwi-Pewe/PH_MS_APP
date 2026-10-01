@@ -110,7 +110,7 @@ function paintDocChannelList() {
     const name = document.createElement("div");
     name.className = "doc-channel-card-name";
     name.textContent = entry.sender_username || "Someone";
-    if (typeof applyServerNameColor === "function") applyServerNameColor(name, entry.sender_id, docEntryRole(entry.sender_id));
+    if (typeof applyServerNameColor === "function") applyServerNameColor(name, entry.sender_id);
     const when = document.createElement("div");
     when.className = "doc-channel-card-when";
     when.textContent = docEntryAgo(entry.updated_at || entry.created_at);

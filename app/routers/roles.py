@@ -26,6 +26,7 @@ LIVE_ROLE_PERMS = (
     "read_forums", "create_topics", "create_topic_replies", "manage_topics",
     "sticky_topics", "lock_topics",
     "view_docs", "create_docs", "manage_docs", "remove_docs",
+    "view_events", "create_events", "manage_events", "remove_events",
     "manage_emoji",
 )
 
@@ -35,6 +36,7 @@ MEMBERS_DEFAULT_PERMS = (
     "view_announcements",
     "read_forums", "create_topics", "create_topic_replies",
     "view_docs",
+    "view_events",
 )
 
 LIVE_CHANNEL_OVERRIDE_PERMS = (
@@ -59,6 +61,10 @@ LIVE_CHANNEL_OVERRIDE_PERMS = (
     "create_docs",
     "manage_docs",
     "remove_docs",
+    "view_events",
+    "create_events",
+    "manage_events",
+    "remove_events",
 )
 
 CHANNEL_OVERRIDE_DEFAULTS = {
@@ -72,6 +78,7 @@ CHANNEL_OVERRIDE_DEFAULTS = {
     "create_topics": True,
     "create_topic_replies": True,
     "view_docs": True,
+    "view_events": True,
 }
 
 
@@ -117,7 +124,10 @@ def parse_role_perms(row):
         data = json.loads(raw) if raw else {}
     except (TypeError, ValueError):
         data = {}
-    return clean_role_perms(data)
+    perms = clean_role_perms(data)
+    if not isinstance(data, dict) or "view_events" not in data:
+        perms["view_events"] = True
+    return perms
 
 
 def serialize_role(row):
@@ -480,6 +490,8 @@ def channel_type_visible(permissions, channel_type):
         return bool(permissions.get("read_messages"))
     if channel_type == "doc":
         return bool(permissions.get("view_docs"))
+    if channel_type == "events":
+        return bool(permissions.get("view_events"))
     return True
 
 

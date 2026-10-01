@@ -9,6 +9,7 @@ from app.schemas import Calendar_event_create, Calendar_event_edit, Calendar_eve
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
+from app.routers.roles import effective_perms_for_user_in_channel, require_channel_perm
 
 router = APIRouter()
 
@@ -30,6 +31,9 @@ def load_calendar_channel(database, channel_id, user_id):
         raise HTTPException(status_code=404, detail="Channel not found")
     is_owner = server.owner_id == user_id
     if (category.is_private or channel.is_private) and not is_owner:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel.id)
+    if not perms.get("view_events"):
         raise HTTPException(status_code=404, detail="Channel not found")
     return channel, server
 
@@ -143,6 +147,18 @@ def can_see_event(event, user_id, rows):
     return any(row.user_id == user_id for row in rows)
 
 
+def require_event_edit(database, server, user_id, event):
+    if event.sender_id == user_id:
+        return
+    require_channel_perm(database, server, user_id, event.channel_id, "manage_events", "You do not have permission to edit that event.")
+
+
+def require_event_delete(database, server, user_id, event):
+    if event.sender_id == user_id:
+        return
+    require_channel_perm(database, server, user_id, event.channel_id, "remove_events", "You do not have permission to delete that event.")
+
+
 def user_can_rsvp(database, server, event, user_id):
     if server.owner_id == user_id or event.sender_id == user_id:
         return True
@@ -164,6 +180,7 @@ def serialize_event(database, event, rows, names):
         "starts_at": stamp(event.starts_at),
         "color": event.color or 14910017,
         "sender_id": event.sender_id,
+        "sender_username": username_for(database, event.sender_id, names),
         "description": event.description or "",
         "repeat_kind": event.repeat_kind or "once",
         "is_private": bool(event.is_private),
@@ -278,6 +295,7 @@ def get_calendar(channel_id: int, database: Session = Depends(get_db), current_u
 @router.post("/calendar_event")
 async def create_calendar_event(body: Calendar_event_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     channel, server = load_calendar_channel(database, body.channel_id, current_user.id)
+    require_channel_perm(database, server, current_user.id, channel.id, "create_events", "You do not have permission to create events.")
     event = Calendar_event(channel_id=channel.id, sender_id=current_user.id)
     apply_fields(database, server, event, body)
     database.add(event)
@@ -299,6 +317,7 @@ async def edit_calendar_event(body: Calendar_event_edit, database: Session = Dep
     _channel, server = load_calendar_channel(database, event.channel_id, current_user.id)
     if not can_see_event(event, current_user.id, event_rsvps(database, event.id)):
         raise HTTPException(status_code=404, detail="Event not found")
+    require_event_edit(database, server, current_user.id, event)
     apply_fields(database, server, event, body)
     database.commit()
     sync_invites(database, server, event, body.invite_ids)
@@ -356,6 +375,7 @@ async def cancel_calendar_event(body: Calendar_event_cancel, database: Session =
     _channel, server = load_calendar_channel(database, event.channel_id, current_user.id)
     if not can_see_event(event, current_user.id, event_rsvps(database, event.id)):
         raise HTTPException(status_code=404, detail="Event not found")
+    require_event_edit(database, server, current_user.id, event)
     event.cancelled_at = None if event.cancelled_at else datetime.now(timezone.utc)
     database.commit()
     database.refresh(event)
@@ -373,6 +393,7 @@ async def delete_calendar_event(body: Calendar_event_delete, database: Session =
     _channel, server = load_calendar_channel(database, channel_id, current_user.id)
     if not can_see_event(event, current_user.id, event_rsvps(database, event.id)):
         raise HTTPException(status_code=404, detail="Event not found")
+    require_event_delete(database, server, current_user.id, event)
     database.query(Calendar_event_rsvp).filter(Calendar_event_rsvp.event_id == event.id).delete(synchronize_session=False)
     database.delete(event)
     database.commit()

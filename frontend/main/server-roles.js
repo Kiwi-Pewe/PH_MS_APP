@@ -62,10 +62,10 @@ const SERVER_ROLE_PERMS = [
   {
     title: "Calendar permissions",
     rows: [
-      { id: "view_events", title: "View events", desc: "Allows you to view events.", later: "Events" },
-      { id: "create_events", title: "Create events", desc: "Allows you to create events.", later: "Events" },
-      { id: "manage_events", title: "Manage events", desc: "Allows you to update events created by others and move them to other channels.", later: "Events" },
-      { id: "remove_events", title: "Remove events", desc: "Allows you to remove events created by others.", later: "Events" },
+      { id: "view_events", title: "View events", desc: "Allows you to view events." },
+      { id: "create_events", title: "Create events", desc: "Allows you to create events." },
+      { id: "manage_events", title: "Manage events", desc: "Allows you to update events created by others and move them to other channels." },
+      { id: "remove_events", title: "Remove events", desc: "Allows you to remove events created by others." },
       { id: "edit_rsvps", title: "Edit RSVPs", desc: "Allows you to edit the RSVP status for members in an event.", later: "Events" }
     ]
   },

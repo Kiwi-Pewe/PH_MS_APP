@@ -266,6 +266,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         "read_forums", "create_topics", "create_topic_replies", "manage_topics",
                         "sticky_topics", "lock_topics",
                         "view_docs", "create_docs", "manage_docs", "remove_docs",
+                        "view_events", "create_events", "manage_events", "remove_events",
                     )}
                     channel_info.append({
                         "id": channel.id,

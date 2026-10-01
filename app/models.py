@@ -340,6 +340,17 @@ class Calendar_event_rsvp(Base):
     __table_args__ = (UniqueConstraint("event_id", "user_id", "occurrence_at", name="uq_calendar_rsvp"),)
 
 
+class Doc_entry(Base):
+    __tablename__ = "doc_entries"
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    title = Column(String)
+    body = Column(String, nullable=True)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, nullable=True)
+
+
 class List_thread_message(Base):
     __tablename__ = "list_thread_messages"
     id = Column(Integer, primary_key=True)

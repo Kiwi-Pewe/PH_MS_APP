@@ -488,6 +488,16 @@ class List_item_move(BaseModel):
     item_id: int
     channel_id: int
 
+class Doc_entry_create(BaseModel):
+    channel_id: int
+    title: str = ""
+    body: str = ""
+
+class Doc_entry_edit(BaseModel):
+    doc_id: int
+    title: str = ""
+    body: str = ""
+
 class Calendar_event_create(BaseModel):
     channel_id: int
     name: str

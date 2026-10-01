@@ -268,6 +268,7 @@ function channelSettingsPermGroupIds(kind, channelType) {
   if (type === "media") return ["general", "media"];
   if (type === "lists") return ["general", "lists"];
   if (type === "events") return ["general", "calendar"];
+  if (type === "docs") return ["general"];
   return ["general", "chat"];
 }
 

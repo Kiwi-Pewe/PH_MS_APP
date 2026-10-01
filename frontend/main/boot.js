@@ -488,6 +488,10 @@ function connectSocket() {
       if (Number(currentChannelId) === Number(data.channel_id)) removeCalendarEvent(data.event_id);
     }
 
+    if ((data.type === "doc_entry_created" || data.type === "doc_entry_updated") && typeof applyDocEntry === "function") {
+      applyDocEntry(data.doc);
+    }
+
     if (data.type === "announcement_created") {
       const post = data.post;
       if (typeof applyMentionFields === "function") applyMentionFields(post, post);

@@ -836,7 +836,7 @@ function openCalendarInfo(item) {
   const authorText = document.createElement("div");
   authorText.className = "calendar-info-author";
   const lead = document.createElement("span");
-  lead.textContent = "Created by ";
+  lead.textContent = "Created by";
   const nameBtn = document.createElement("button");
   nameBtn.type = "button";
   nameBtn.className = "calendar-info-name";

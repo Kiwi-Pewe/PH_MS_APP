@@ -11,6 +11,7 @@ function channelTypeIcon(channelType) {
   if (kind === "lists") return "\u2611";
   if (kind === "media") return "\u{1F5BC}";
   if (kind === "events") return "\u{1F4C5}";
+  if (kind === "docs") return "\u{1F4D5}";
   if (kind === "tournaments") return "\u{1F3C6}";
   if (kind === "watchparty") return "\u{1F3A6}";
   return "#";
@@ -25,6 +26,7 @@ function channelTypeSidebarLabel(channelType) {
   if (kind === "lists") return "Lists Channel";
   if (kind === "media") return "Media Channel";
   if (kind === "events") return "Events Channel";
+  if (kind === "docs") return "Docs Channel";
   if (kind === "tournaments") return "Tournaments Channel";
   if (kind === "watchparty") return "Watch Party Channel";
   return "Text Channel";
@@ -488,7 +490,8 @@ async function selectChannel(channel, rowEl) {
   // stored verbatim at creation time.
   const isForums = channel.channel_type === "forums";
   const isDoc = channel.channel_type === "doc";
-  const label = (isVoice || isDoc) ? channel.name : `#${channel.name}`;
+  const isDocs = channel.channel_type === "docs";
+  const label = (isVoice || isDoc || isDocs) ? channel.name : `#${channel.name}`;
   document.getElementById("channel-header-title").textContent = label;
   if (typeof setHeaderDescription === "function") {
     setHeaderDescription("channel-header-desc", channel.topic || "");
@@ -496,7 +499,7 @@ async function selectChannel(channel, rowEl) {
   if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof closePinsPanel === "function") closePinsPanel();
   if (typeof setChatSearchPlaceholder === "function") {
-    setChatSearchPlaceholder((isVoice || isDoc) ? ("Search " + channel.name) : ("Search #" + channel.name));
+    setChatSearchPlaceholder((isVoice || isDoc || isDocs) ? ("Search " + channel.name) : ("Search #" + channel.name));
   }
   if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 
@@ -509,6 +512,7 @@ async function selectChannel(channel, rowEl) {
   const docsView = document.getElementById("docs-view");
   const listsView = document.getElementById("lists-view");
   const calendarView = document.getElementById("calendar-view");
+  const docChannelView = document.getElementById("doc-channel-view");
 
   // Special panels go down up front so each branch below only has to
   // turn its own on.
@@ -517,6 +521,8 @@ async function selectChannel(channel, rowEl) {
   docsView.style.display = "none";
   if (listsView) listsView.style.display = "none";
   if (calendarView) calendarView.style.display = "none";
+  if (docChannelView) docChannelView.style.display = "none";
+  if (typeof hideDocChannelChrome === "function") hideDocChannelChrome();
   const overview = document.getElementById("server-overview");
   if (overview) overview.style.display = "none";
   const overviewRow = document.getElementById("server-section-overview");
@@ -565,6 +571,14 @@ async function selectChannel(channel, rowEl) {
     channelComposer.style.display = "none";
     if (calendarView) calendarView.style.display = "flex";
     if (typeof loadCalendar === "function") await loadCalendar(channel.id);
+    return;
+  }
+
+  if (isDocs) {
+    channelBody.style.display = "none";
+    channelComposer.style.display = "none";
+    if (docChannelView) docChannelView.style.display = "flex";
+    if (typeof loadDocEntries === "function") await loadDocEntries(channel.id);
     return;
   }
 
@@ -668,6 +682,9 @@ function showNoChannelSelected() {
   if (listsPanel) listsPanel.style.display = "none";
   const calendarPanel = document.getElementById("calendar-view");
   if (calendarPanel) calendarPanel.style.display = "none";
+  const docChannelPanel = document.getElementById("doc-channel-view");
+  if (docChannelPanel) docChannelPanel.style.display = "none";
+  if (typeof hideDocChannelChrome === "function") hideDocChannelChrome();
   if (typeof closeCalendarEvent === "function") closeCalendarEvent();
   document.getElementById("channel-body").style.display = "flex";
   document.getElementById("channel-composer").style.display = "block";
@@ -804,7 +821,7 @@ if (serverSectionOverview) {
 }
 
 function hideChannelSurfaces() {
-  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
+  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });

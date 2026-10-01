@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=219">
+<link rel="stylesheet" href="app.css?v=221">
 </head>
 <body>
 
@@ -206,6 +206,7 @@
         <div class="view-header">
           <div class="header-title-group">
             <button class="icon-btn" id="forum-back-btn" style="display:none;" title="Back to posts">&#8592;</button>
+            <button class="icon-btn" id="doc-channel-back" style="display:none;" title="Back to documents">&#8592;</button>
             <div class="header-title-stack">
               <span id="channel-header-title">No channel selected</span>
               <span id="channel-header-desc" class="header-description" hidden></span>
@@ -216,6 +217,10 @@
             <button class="pill-btn" id="docs-remove-btn" style="display:none;">Remove</button>
             <button class="pill-btn" id="docs-save-btn" style="display:none;">Save</button>
             <button class="icon-btn" id="docs-mode-btn" style="display:none;">View</button>
+            <button class="ghost-btn" id="doc-channel-edit" style="display:none;">Edit doc</button>
+            <button type="button" class="icon-btn" id="doc-channel-menu" style="display:none;" disabled title="Document options">&#8942;</button>
+            <button type="button" class="calendar-add-btn" id="doc-channel-add" style="display:none;" title="New document">+</button>
+            <button class="pill-btn" id="doc-channel-save" style="display:none;">Save</button>
             <button type="button" class="icon-btn chat-pins-btn" id="channel-pins-btn" title="Pinned messages">Pins</button>
           </div>
         </div>
@@ -373,6 +378,25 @@
           </div>
           <div id="calendar-grid" class="calendar-grid"></div>
           <div id="calendar-upcoming" class="calendar-upcoming" hidden></div>
+        </div>
+        <div id="doc-channel-view" style="display:none;">
+          <div id="doc-channel-grid" class="doc-channel-grid"></div>
+          <div id="doc-channel-page" class="doc-channel-page" hidden>
+            <div id="doc-channel-author" class="doc-channel-author"></div>
+            <input type="text" id="doc-channel-title" class="doc-channel-title-input" maxlength="200" placeholder="Untitled document" autocomplete="off">
+            <h2 id="doc-channel-title-read" class="doc-channel-title-read" hidden></h2>
+            <div id="doc-channel-toolbar" class="doc-channel-toolbar calendar-later">
+              <button type="button" disabled>B</button>
+              <button type="button" disabled><em>I</em></button>
+              <button type="button" disabled><u>U</u></button>
+              <button type="button" disabled><s>S</s></button>
+              <button type="button" disabled>List</button>
+              <button type="button" disabled>Quote</button>
+              <button type="button" disabled>Code</button>
+            </div>
+            <textarea id="doc-channel-body" class="list-note-field doc-channel-body" rows="12" maxlength="20000" placeholder="Write here"></textarea>
+            <div id="doc-channel-body-read" class="doc-channel-body-read" hidden></div>
+          </div>
         </div>
         <div id="calendar-info-overlay" hidden>
           <div id="calendar-info-card" role="dialog" aria-label="Event">
@@ -1319,6 +1343,11 @@
                 <span class="channel-type-desc">A single page for rules, welcome, or reference — no chat</span>
               </label>
               <label class="channel-type-option">
+                <input type="radio" name="channel-type" value="docs">
+                <span class="channel-type-name">&#128213; Docs</span>
+                <span class="channel-type-desc">Several documents in one channel</span>
+              </label>
+              <label class="channel-type-option">
                 <!-- "forums" plural, matching what /create_forum and
                      /get_forum_post compare channel_type against. This
                      value is stored verbatim (server-modals.js sends
@@ -1590,7 +1619,7 @@
 <script src="util.js?v=51"></script>
 <script src="media.js?v=57"></script>
 <script src="post-media.js?v=54"></script>
-<script src="boot.js?v=99"></script>
+<script src="boot.js?v=100"></script>
 <script src="app-shell.js?v=65"></script>
 <script src="feed.js?v=15"></script>
 <script src="settings.js?v=19"></script>
@@ -1644,9 +1673,9 @@
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=13"></script>
-<script src="servers.js?v=104"></script>
+<script src="servers.js?v=105"></script>
 <script src="server-dnd.js?v=1"></script>
-<script src="channel-settings.js?v=15"></script>
+<script src="channel-settings.js?v=16"></script>
 <script src="pins.js?v=2"></script>
 <script src="search.js?v=4"></script>
 <script src="members.js?v=15"></script>
@@ -1656,7 +1685,8 @@
 <script src="comments.js?v=53"></script>
 <script src="forums.js?v=67"></script>
 <script src="lists.js?v=3"></script>
-<script src="calendar.js?v=3"></script>
+<script src="calendar.js?v=4"></script>
+<script src="doc-channel.js?v=1"></script>
 <script src="docs.js?v=46"></script>
 <script src="feedback.js?v=4"></script>
 </body>

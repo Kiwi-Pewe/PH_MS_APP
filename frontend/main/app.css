@@ -3544,6 +3544,65 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 #calendar-view {
   flex: 1; min-height: 0; display: none; flex-direction: column;
 }
+#doc-channel-view {
+  flex: 1; min-height: 0; display: none; flex-direction: column; overflow: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#doc-channel-view::-webkit-scrollbar { width: 8px; }
+#doc-channel-view::-webkit-scrollbar-track { background: transparent; }
+#doc-channel-view::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.doc-channel-grid {
+  display: flex; flex-wrap: wrap; align-content: flex-start; gap: 12px;
+  padding: 16px;
+}
+.doc-channel-empty { color: var(--text-dim); padding: 8px 0; }
+.doc-channel-card {
+  width: 280px; max-width: 100%; text-align: left; cursor: pointer;
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.doc-channel-card:hover { border-color: var(--text-dim); }
+.doc-channel-card-title {
+  font-size: 15px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.doc-channel-card-preview {
+  color: var(--text-dim); font-size: 13px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.doc-channel-card-foot { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.doc-channel-face {
+  width: 22px; height: 22px; border-radius: 50%; overflow: hidden; flex: 0 0 auto;
+  border: 0; padding: 0; background: var(--panel); color: var(--text);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
+}
+.doc-channel-card-name { font-size: 13px; font-weight: 700; }
+.doc-channel-card-when { font-size: 12px; color: var(--text-dim); }
+.doc-channel-page { padding: 8px 28px 32px; max-width: 760px; }
+.doc-channel-author { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.doc-channel-author-name {
+  background: transparent; border: 0; padding: 0; font-size: 15px; font-weight: 700;
+  color: var(--text); cursor: pointer;
+}
+.doc-channel-author-role { font-size: 12px; color: var(--text-dim); }
+.doc-channel-title-input, .doc-channel-title-read {
+  display: block; width: 100%; margin: 0 0 12px; background: transparent; border: 0;
+  color: var(--text); font-size: 28px; font-weight: 700; line-height: 1.2;
+}
+.doc-channel-title-input { outline: none; }
+.doc-channel-title-input::placeholder { color: var(--text-dim); font-weight: 600; }
+.doc-channel-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.doc-channel-toolbar button {
+  background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  border-radius: 6px; padding: 4px 8px; font-size: 13px;
+}
+.doc-channel-body { width: 100%; min-height: 16em; }
+.doc-channel-body-read { white-space: pre-wrap; font-size: 15px; line-height: 1.55; color: var(--text); }
+.doc-channel-title-input[hidden],
+.doc-channel-title-read[hidden],
+.doc-channel-toolbar[hidden],
+.doc-channel-body-read[hidden],
+.doc-channel-author[hidden] { display: none; }
 .calendar-toolbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 16px; flex: 0 0 auto;
@@ -3667,7 +3726,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   border: 0; background: var(--panel-alt); color: var(--text); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
 }
-.calendar-info-author { display: flex; align-items: center; min-height: 22px; }
+.calendar-info-author { display: flex; align-items: center; gap: 0.35em; min-height: 22px; }
 .calendar-info-name {
   background: transparent; border: 0; padding: 0; color: var(--accent); font-weight: 700;
   cursor: pointer; font-size: inherit;

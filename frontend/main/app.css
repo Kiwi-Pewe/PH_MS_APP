@@ -3722,7 +3722,13 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .schedule-head-days { display: grid; grid-template-columns: 28px 1fr 28px; align-items: center; }
 .schedule-days { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.schedule-day-head { text-align: center; padding: 8px 4px 10px; }
+.schedule-day-head {
+  text-align: center; padding: 8px 4px 10px;
+  background-color: var(--panel);
+  background-image: linear-gradient(to right, var(--border) 0 1px, transparent 1px);
+}
+.schedule-day-head:last-child { box-shadow: inset -1px 0 0 var(--border); }
+.schedule-day-head.is-alt { background-color: var(--panel-alt); }
 .schedule-day-title { font-size: 15px; font-weight: 700; }
 .schedule-day-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 .schedule-scroll {
@@ -3741,25 +3747,31 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   font-size: 11px; color: var(--text-dim); line-height: 1;
 }
 .schedule-board-wrap { display: grid; grid-template-columns: 28px 1fr 28px; align-items: start; }
-.schedule-gutter { border-top: 1px solid var(--border); }
+.schedule-gutter { align-self: stretch; }
 .schedule-board {
-  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(24, 56px);
   align-items: start;
 }
-.schedule-cell {
+.schedule-day {
+  position: relative;
   box-sizing: border-box;
-  border-top: 1px solid var(--border);
-  border-left: 1px solid var(--border);
-  background: transparent;
+  background-color: var(--panel);
+  background-image:
+    linear-gradient(to right, var(--border) 0 1px, transparent 1px),
+    repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px 56px);
+  box-shadow: inset 0 -1px 0 var(--border);
 }
-.schedule-cell.is-alt { background: rgba(255, 255, 255, 0.045); }
-.schedule-overlay { position: absolute; inset: 0; pointer-events: none; }
+.schedule-day:last-child {
+  background-image:
+    linear-gradient(to left, var(--border) 0 1px, transparent 1px),
+    linear-gradient(to right, var(--border) 0 1px, transparent 1px),
+    repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px 56px);
+}
+.schedule-day.is-alt { background-color: var(--panel-alt); }
 .schedule-now {
-  position: absolute; left: 0; right: 0; height: 2px; background: #4c8dff;
-  z-index: 4; pointer-events: none;
+  position: absolute; left: 0; right: 0; height: 2px; margin-top: -1px;
+  background: #4c8dff; z-index: 1; pointer-events: none;
 }
 .schedule-block { position: absolute; width: 0; pointer-events: none; }
 .schedule-line {
@@ -3790,7 +3802,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; gap: 8px;
 }
-.schedule-card-title { font-size: 14px; font-weight: 700; }
+.schedule-card-title { font-size: 16px; font-weight: 800; }
 .schedule-card-count { font-size: 12px; color: var(--text-dim); }
 .schedule-card-person {
   display: flex; align-items: center; gap: 8px; background: transparent;

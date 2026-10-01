@@ -304,4 +304,44 @@ async def react_message(target: React_message, database: Session = Depends(get_d
             )
         return {"id": comment.id, "reactions": reactions}
 
+    if target.kind == "media_comment":
+        from app.models import Media_comment, Media_item
+        comment = database.query(Media_comment).filter(Media_comment.id == target.message_id).first()
+        if not comment:
+            raise HTTPException(status_code=404, detail="No message found")
+        item = database.query(Media_item).filter(Media_item.id == comment.item_id).first()
+        if not item:
+            raise HTTPException(status_code=404, detail="No message found")
+        channel = database.query(Server_channels).filter(Server_channels.id == item.channel_id).first()
+        category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+        server = database.query(Servers).filter(Servers.id == category.server_id).first()
+        is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+        if not is_member:
+            raise HTTPException(status_code=404, detail="No message found")
+        from app.routers.roles import require_channel_perm
+        require_channel_perm(database, server, current_user.id, channel.id, "see_media", "You do not have permission to see media.")
+        from app.routers.moderation import require_not_timed_out
+        require_not_timed_out(is_member)
+        added = toggle_reaction_row(database, "media_comment", comment.id, current_user.id, emoji)
+        database.commit()
+        reactions = reactions_for_one(database, "media_comment", comment.id, current_user.id)
+        await server_broadcast(server_id=server.id, payload={
+            "type": "media_comment_reacted",
+            "kind": "media_comment",
+            "comment_id": comment.id,
+            "item_id": comment.item_id,
+            "reactions": reactions_for_one(database, "media_comment", comment.id, None)
+        }, database=database, exclude_user_id=current_user.id)
+        if added and comment.sender_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=comment.sender_id,
+                actor_id=current_user.id,
+                message_kind="media_comment",
+                message_id=comment.id,
+                emoji=emoji,
+                server_id=server.id,
+            )
+        return {"id": comment.id, "reactions": reactions}
+
     raise HTTPException(status_code=400, detail="This message type cannot be reacted to yet")

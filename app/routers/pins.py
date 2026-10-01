@@ -20,7 +20,7 @@ from app.site_moderation import mask_message_payloads
 router = APIRouter()
 
 PIN_PAGE_SIZE = 25
-PIN_MESSAGE_KINDS = ("dm", "party", "channel", "forum", "forum_post", "announcement", "comment")
+PIN_MESSAGE_KINDS = ("dm", "party", "channel", "forum", "forum_post", "announcement", "comment", "media_comment")
 
 
 def clear_pins(database, kind, message_id):
@@ -255,6 +255,34 @@ def resolve_message(database, kind, message_id, current_user):
             "post_id": post.id,
         }
 
+    if kind == "media_comment":
+        from app.models import Media_comment, Media_item
+        comment = database.query(Media_comment).filter(Media_comment.id == message_id).first()
+        if not comment:
+            raise HTTPException(status_code=404, detail="No message found")
+        item = database.query(Media_item).filter(Media_item.id == comment.item_id).first()
+        if not item:
+            raise HTTPException(status_code=404, detail="No message found")
+        channel, category, server, _ = channel_server_bundle(database, item.channel_id)
+        if not channel:
+            raise HTTPException(status_code=404, detail="No message found")
+        require_server_member_row(database, server, current_user.id)
+        from app.routers.roles import require_channel_perm
+        require_channel_perm(database, server, current_user.id, channel.id, "see_media", "You do not have permission to see media.")
+        require_pin_perm(database, server, current_user.id, channel.id)
+        if comment.sender_id is None:
+            raise HTTPException(status_code=400, detail="Cannot pin this message")
+        return {
+            "msg": comment,
+            "scope_kind": "channel",
+            "scope_id": channel.id,
+            "server": server,
+            "channel": channel,
+            "party_id": None,
+            "post_id": item.id,
+            "item_id": item.id,
+        }
+
     raise HTTPException(status_code=400, detail="Unknown message kind")
 
 
@@ -446,6 +474,28 @@ def serialize_pin_row(database, pin, current_user):
             "avatar": public_avatar(account) if account else None,
             "post_id": comment.post_id,
             "chat_kind": "comment",
+        })
+        return base
+
+    if kind == "media_comment":
+        from app.models import Media_comment
+        comment = database.query(Media_comment).filter(Media_comment.id == message_id).first()
+        if not comment:
+            return None
+        account = database.query(UserInfo).filter(UserInfo.id == comment.sender_id).first() if comment.sender_id else None
+        base.update({
+            "id": comment.id,
+            "sender_id": comment.sender_id,
+            "username": account.username if account else "",
+            "content": comment.content or "",
+            "attachment": None,
+            "timestamp": str(comment.created_at),
+            "edited": False,
+            "reactions": reactions_for_one(database, "media_comment", comment.id, current_user.id),
+            "avatar": public_avatar(account) if account else None,
+            "item_id": comment.item_id,
+            "post_id": comment.item_id,
+            "chat_kind": "media_comment",
         })
         return base
 

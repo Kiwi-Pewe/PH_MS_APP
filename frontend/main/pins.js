@@ -292,7 +292,7 @@ function mapPinRowToMessage(row) {
 
 async function pinOrUnpinMessage(msg, wantPinned) {
   if (!msg || !msg.id || !msg.chatKind) return;
-  if (!canPinInCurrentScope() && (msg.chatKind === "channel" || msg.chatKind === "forum" || msg.chatKind === "forum_post" || msg.chatKind === "announcement" || msg.chatKind === "comment")) {
+  if (!canPinInCurrentScope() && (msg.chatKind === "channel" || msg.chatKind === "forum" || msg.chatKind === "forum_post" || msg.chatKind === "announcement" || msg.chatKind === "comment" || msg.chatKind === "media_comment")) {
     return;
   }
   const path = wantPinned ? "/pin_message" : "/unpin_message";
@@ -393,7 +393,7 @@ async function jumpToPinnedMessage(row) {
     return;
   }
 
-  if (kind === "comment") {
+  if (kind === "comment" || kind === "media_comment") {
     const el = document.querySelector(`[data-comment-id="${CSS.escape(String(messageId))}"]`);
     if (el) {
       el.scrollIntoView({ block: "center" });

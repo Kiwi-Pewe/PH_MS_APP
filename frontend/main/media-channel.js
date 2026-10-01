@@ -8,6 +8,7 @@ let mediaFormWidth = 0;
 let mediaFormHeight = 0;
 let mediaFormBusy = false;
 let mediaFormSource = "file";
+let mediaCommentState = {};
 
 function canCreateMedia() {
   return typeof channelPerm === "function" && channelPerm("create_media");
@@ -90,6 +91,7 @@ function buildMediaCard(item) {
   const card = document.createElement("button");
   card.type = "button";
   card.className = "media-channel-card";
+  card.dataset.itemId = String(item.id);
   const frame = document.createElement("span");
   frame.className = "media-channel-frame";
   frame.style.aspectRatio = String(mediaCardRatio(item));
@@ -130,7 +132,7 @@ function buildMediaCard(item) {
   if (typeof applyServerNameColor === "function") applyServerNameColor(name, item.sender_id);
   const comments = document.createElement("span");
   comments.className = "media-channel-comments";
-  comments.textContent = "0";
+  comments.textContent = String(item.comment_count || 0);
   foot.appendChild(face);
   foot.appendChild(name);
   foot.appendChild(comments);
@@ -239,6 +241,7 @@ function watchMediaReadout(node) {
 }
 
 function openMediaItem(item) {
+  const switching = !item || Number(mediaItemId) !== Number(item.id);
   mediaItemId = item ? item.id : null;
   const grid = document.getElementById("media-channel-grid");
   const page = document.getElementById("media-channel-page");
@@ -284,6 +287,7 @@ function openMediaItem(item) {
   fillMediaStage(item);
   showMediaButton("media-channel-add", false);
   showMediaButton("media-channel-back", true);
+  if (switching) paintMediaThread(item);
   pinMediaReadout();
 }
 
@@ -291,7 +295,7 @@ function pinMediaReadout() {
   const stage = document.getElementById("media-channel-stage");
   const media = stage && stage.querySelector("img, video, iframe");
   const width = media ? Math.round(media.getBoundingClientRect().width) : 0;
-  ["media-channel-read-title", "media-channel-author", "media-channel-read-body"].forEach((id) => {
+  ["media-channel-read-title", "media-channel-author", "media-channel-read-body", "media-channel-thread"].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.style.width = width > 0 ? width + "px" : "";
@@ -565,6 +569,167 @@ function removeMediaItem(itemId) {
     return;
   }
   if (mediaItemId == null) paintMediaChannelList();
+}
+
+function setMediaCommentCount(itemId, count) {
+  const total = Number(count);
+  if (!Number.isFinite(total)) return;
+  const item = currentMediaItems.find((row) => Number(row.id) === Number(itemId));
+  if (item) item.comment_count = total;
+  document.querySelectorAll(`.media-channel-card[data-item-id="${itemId}"] .media-channel-comments`).forEach((el) => {
+    el.textContent = String(total);
+  });
+  const label = document.getElementById("media-channel-thread-count");
+  if (label && Number(mediaItemId) === Number(itemId)) label.textContent = `${total} comments`;
+}
+
+function paintMediaThread(item) {
+  const host = document.getElementById("media-channel-thread");
+  if (!host) return;
+  host.replaceChildren();
+  if (!item) return;
+  const itemId = item.id;
+  mediaCommentState[itemId] = { comments: [], hasMore: true, expanded: true };
+  const divider = document.createElement("div");
+  divider.className = "announce-divider";
+  const commentsRow = document.createElement("div");
+  commentsRow.className = "announce-comments-row";
+  const commentsBtn = document.createElement("button");
+  commentsBtn.type = "button";
+  commentsBtn.id = "media-channel-thread-count";
+  commentsBtn.className = "announce-comments-btn";
+  commentsBtn.textContent = `${item.comment_count || 0} comments`;
+  commentsRow.appendChild(commentsBtn);
+  const section = document.createElement("div");
+  section.className = "announce-comments-section";
+  section.style.display = "flex";
+  const list = document.createElement("div");
+  list.className = "announce-comments-list";
+  list.id = "media-channel-thread-list";
+  const loadMoreBtn = document.createElement("button");
+  loadMoreBtn.type = "button";
+  loadMoreBtn.className = "announce-comments-loadmore-btn";
+  loadMoreBtn.textContent = "Load more comments";
+  loadMoreBtn.style.display = "none";
+  const composer = document.createElement("div");
+  composer.className = "announce-comment-composer";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "announce-comment-input";
+  input.placeholder = (typeof isServerTimedOut === "function" && isServerTimedOut())
+    ? "You do not have permission to send messages in this channel."
+    : "Add a comment...";
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) input.disabled = true;
+  const send = document.createElement("button");
+  send.type = "button";
+  send.className = "announce-comment-send-btn";
+  send.textContent = "Post";
+  composer.appendChild(input);
+  composer.appendChild(send);
+  input.addEventListener("contextmenu", (event) => event.stopPropagation());
+  section.appendChild(composer);
+  section.appendChild(list);
+  section.appendChild(loadMoreBtn);
+  host.appendChild(divider);
+  host.appendChild(commentsRow);
+  host.appendChild(section);
+  commentsBtn.addEventListener("click", () => {
+    const state = mediaCommentState[itemId];
+    if (!state) return;
+    state.expanded = !state.expanded;
+    section.style.display = state.expanded ? "flex" : "none";
+  });
+  loadMoreBtn.addEventListener("click", () => fetchMediaComments(itemId, 5));
+  send.addEventListener("click", () => submitMediaComment(itemId, input));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") submitMediaComment(itemId, input);
+  });
+  if (typeof bindMentionComposer === "function") bindMentionComposer(input);
+  fetchMediaComments(itemId, 3);
+}
+
+async function fetchMediaComments(itemId, limit) {
+  const state = mediaCommentState[itemId];
+  const list = document.getElementById("media-channel-thread-list");
+  const loadMoreBtn = list && list.parentElement && list.parentElement.querySelector(".announce-comments-loadmore-btn");
+  if (!state || !list || Number(mediaItemId) !== Number(itemId)) return;
+  const lastId = state.comments.length ? state.comments[state.comments.length - 1].id : null;
+  let url = `https://${serverAddress}/get_media_comments/${itemId}?limit=${limit}`;
+  if (lastId) url += `&after_id=${lastId}`;
+  const response = await fetch(url, { credentials: "include" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || Number(mediaItemId) !== Number(itemId)) return;
+  const known = new Set(state.comments.map((row) => Number(row.id)));
+  const incoming = (data.comments || []).map((comment) => {
+    comment.chatKind = "media_comment";
+    comment.reactions = typeof applyReactionMe === "function" ? applyReactionMe(comment.reactions || []) : (comment.reactions || []);
+    if (typeof applyMentionFields === "function") applyMentionFields(comment, comment);
+    return comment;
+  }).filter((comment) => !known.has(Number(comment.id)));
+  state.comments = state.comments.concat(incoming);
+  if (incoming.length < limit) state.hasMore = false;
+  incoming.forEach((comment) => {
+    if (typeof buildCommentElement === "function") list.appendChild(buildCommentElement(comment));
+  });
+  if (loadMoreBtn) loadMoreBtn.style.display = state.hasMore ? "block" : "none";
+}
+
+async function submitMediaComment(itemId, inputEl) {
+  const content = inputEl ? inputEl.value.trim() : "";
+  if (!content || !itemId) return;
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) return;
+  const response = await fetch(`https://${serverAddress}/post_media_comment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ item_id: itemId, content }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert((typeof data.detail === "string" && data.detail) || "Could not post that comment.");
+    return;
+  }
+  inputEl.value = "";
+  if (typeof refreshComposerMentions === "function") refreshComposerMentions(inputEl);
+  if (typeof hideMentionPicker === "function") hideMentionPicker();
+  data.chatKind = "media_comment";
+  applyMediaComment({ item_id: itemId, comment: data });
+}
+
+function applyMediaComment(payload) {
+  const comment = payload && payload.comment;
+  if (!comment) return;
+  const itemId = comment.item_id || payload.item_id;
+  comment.chatKind = "media_comment";
+  comment.item_id = itemId;
+  if (typeof applyMentionFields === "function") applyMentionFields(comment, comment);
+  comment.reactions = typeof applyReactionMe === "function" ? applyReactionMe(comment.reactions || []) : (comment.reactions || []);
+  if (typeof comment.comment_count === "number") setMediaCommentCount(itemId, comment.comment_count);
+  const state = mediaCommentState[itemId];
+  if (!state || Number(mediaItemId) !== Number(itemId)) return;
+  if (state.comments.some((row) => Number(row.id) === Number(comment.id))) return;
+  state.comments.push(comment);
+  const list = document.getElementById("media-channel-thread-list");
+  if (list && typeof buildCommentElement === "function") list.appendChild(buildCommentElement(comment));
+}
+
+function removeMediaComment(itemId, commentId, commentCount) {
+  const state = mediaCommentState[itemId];
+  if (state) state.comments = state.comments.filter((row) => Number(row.id) !== Number(commentId));
+  const row = document.querySelector(`#media-channel-thread [data-comment-id="${commentId}"]`);
+  if (row && Number(mediaItemId) === Number(itemId)) row.remove();
+  if (typeof commentCount === "number") setMediaCommentCount(itemId, commentCount);
+}
+
+function patchMediaCommentReactions(commentId, reactions) {
+  const state = mediaCommentState[mediaItemId];
+  if (!state) return;
+  const comment = state.comments.find((row) => Number(row.id) === Number(commentId));
+  if (!comment) return;
+  comment.reactions = typeof applyReactionMe === "function" ? applyReactionMe(reactions || []) : (reactions || []);
+  const row = document.querySelector(`#media-channel-thread [data-comment-id="${commentId}"]`);
+  const host = row && row.querySelector(".announce-comment-reactions");
+  if (host && typeof fillCommentReactions === "function") fillCommentReactions(host, comment);
 }
 
 async function loadMediaItems(channelId) {

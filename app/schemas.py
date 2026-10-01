@@ -518,6 +518,10 @@ class Media_item_edit(BaseModel):
 class Media_item_delete(BaseModel):
     item_id: int
 
+class Media_comment_create(BaseModel):
+    item_id: int
+    content: str
+
 class Calendar_event_create(BaseModel):
     channel_id: int
     name: str

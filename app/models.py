@@ -366,6 +366,15 @@ class Media_item(Base):
     updated_at = Column(DateTime, nullable=True)
 
 
+class Media_comment(Base):
+    __tablename__ = "media_comments"
+    id = Column(Integer, primary_key=True)
+    item_id = Column(Integer, ForeignKey("media_items.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class List_thread_message(Base):
     __tablename__ = "list_thread_messages"
     id = Column(Integer, primary_key=True)

@@ -80,12 +80,12 @@ function showCommentContextMenu(e, comment) {
     { label: "Copy Comment", onSelect: () => copyCommentContent(comment) },
     { label: "Add Reaction", onSelect: () => openReactionPicker(commentReactionTarget(comment), e.clientX, e.clientY) },
     (typeof canPinMessages !== "function" || canPinMessages()) && {
-      label: (typeof isMessagePinned === "function" && isMessagePinned("comment", comment.id)) ? "Unpin" : "Pin",
+      label: (typeof isMessagePinned === "function" && isMessagePinned(commentKindOf(comment), comment.id)) ? "Unpin" : "Pin",
       onSelect: () => {
         if (typeof pinOrUnpinMessage === "function") {
           pinOrUnpinMessage(
-            { id: comment.id, chatKind: "comment", senderId: comment.sender_id },
-            !(typeof isMessagePinned === "function" && isMessagePinned("comment", comment.id))
+            { id: comment.id, chatKind: commentKindOf(comment), senderId: comment.sender_id },
+            !(typeof isMessagePinned === "function" && isMessagePinned(commentKindOf(comment), comment.id))
           );
         }
       },
@@ -95,10 +95,14 @@ function showCommentContextMenu(e, comment) {
   ]);
 }
 
+function commentKindOf(comment) {
+  return comment && comment.chatKind === "media_comment" ? "media_comment" : "comment";
+}
+
 function commentReactionTarget(comment) {
   return {
     id: comment.id,
-    chatKind: "comment",
+    chatKind: commentKindOf(comment),
     senderId: comment.sender_id,
     reactions: comment.reactions || []
   };
@@ -155,13 +159,20 @@ async function copyCommentContent(comment) {
 // broadcast - so the deleter does its own local cleanup here instead
 // of waiting for the ws event like everyone else does.
 async function deleteCommentFromContextMenu(comment) {
+  const media = commentKindOf(comment) === "media_comment";
+  const path = media ? `delete_media_comment/${comment.id}` : `delete_comment/${comment.id}`;
   try {
-    const response = await fetch(`https://${serverAddress}/delete_comment/${comment.id}`, {
+    const response = await fetch(`https://${serverAddress}/${path}`, {
       method: "POST",
       credentials: "include"
     });
     if (!response.ok) {
       console.error(`Failed to delete comment: ${response.status}`);
+      return;
+    }
+    if (media) {
+      const data = await response.json().catch(() => ({}));
+      if (typeof removeMediaComment === "function") removeMediaComment(comment.item_id || comment.post_id, comment.id, data.comment_count);
       return;
     }
   } catch (e) {

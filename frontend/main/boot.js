@@ -455,6 +455,18 @@ function connectSocket() {
       patchCommentReactions(data.comment_id, data.reactions || []);
     }
 
+    if (data.type === "media_comment" && typeof applyMediaComment === "function") {
+      applyMediaComment(data);
+    }
+
+    if (data.type === "media_comment_deleted" && typeof removeMediaComment === "function") {
+      removeMediaComment(data.item_id, data.comment_id, data.comment_count);
+    }
+
+    if (data.type === "media_comment_reacted" && typeof patchMediaCommentReactions === "function") {
+      patchMediaCommentReactions(data.comment_id, data.reactions || []);
+    }
+
     if (data.type === "list_item_created" && typeof appendListItem === "function") {
       appendListItem(data.item);
     }

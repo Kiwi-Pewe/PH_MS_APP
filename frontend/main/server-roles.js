@@ -101,10 +101,10 @@ const SERVER_ROLE_PERMS = [
   {
     title: "Media permissions",
     rows: [
-      { id: "see_media", title: "See media", desc: "Allows you to see media.", later: "Media channel" },
-      { id: "create_media", title: "Create media", desc: "Allows you to create media.", later: "Media channel" },
-      { id: "manage_media", title: "Manage media", desc: "Allows you to edit media created by others and move media items to other channels.", later: "Media channel" },
-      { id: "remove_media", title: "Remove media", desc: "Allows you to remove media created by others.", later: "Media channel" }
+      { id: "see_media", title: "See media", desc: "Allows you to see media." },
+      { id: "create_media", title: "Create media", desc: "Allows you to create media." },
+      { id: "manage_media", title: "Manage media", desc: "Allows you to edit media created by others and move media items to other channels." },
+      { id: "remove_media", title: "Remove media", desc: "Allows you to remove media created by others." }
     ]
   },
   {
@@ -224,7 +224,7 @@ function emptyServerRolePerms() {
 
 function defaultMembersPerms() {
   const perms = emptyServerRolePerms();
-  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "pin_messages", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_wallpaper", "view_docs"].forEach((id) => {
+  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "pin_messages", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_wallpaper", "view_docs", "see_media"].forEach((id) => {
     perms[id] = true;
   });
   return perms;

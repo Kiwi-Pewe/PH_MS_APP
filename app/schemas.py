@@ -501,6 +501,23 @@ class Doc_entry_edit(BaseModel):
 class Doc_entry_delete(BaseModel):
     doc_id: int
 
+class Media_item_create(BaseModel):
+    channel_id: int
+    title: str = ""
+    description: str = ""
+    kind: str = "image"
+    url: str = ""
+    width: int = 0
+    height: int = 0
+
+class Media_item_edit(BaseModel):
+    item_id: int
+    title: str = ""
+    description: str = ""
+
+class Media_item_delete(BaseModel):
+    item_id: int
+
 class Calendar_event_create(BaseModel):
     channel_id: int
     name: str

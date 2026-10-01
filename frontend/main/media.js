@@ -588,3 +588,32 @@ async function uploadProfileMusicFile(file) {
     kind: intent.kind
   };
 }
+
+async function uploadMediaFile(file) {
+  const reason = rejectReason(file);
+  if (reason) throw new Error(reason);
+  const mime = fileMime(file);
+  const intentRes = await fetch(`https://${serverAddress}/upload_intent`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      content_type: mime,
+      size: file.size,
+      filename: file.name || ""
+    })
+  });
+  const intent = await intentRes.json().catch(() => ({}));
+  if (!intentRes.ok) throw new Error((typeof intent.detail === "string" && intent.detail) || "Could not start upload.");
+  const putRes = await fetch(intent.upload_url, {
+    method: "PUT",
+    headers: { "Content-Type": intent.mime },
+    body: file
+  });
+  if (!putRes.ok) throw new Error("Could not upload that file.");
+  return {
+    url: intent.public_url,
+    kind: intent.kind || (MEDIA_MIME[mime] || "image"),
+    mime: intent.mime || mime
+  };
+}

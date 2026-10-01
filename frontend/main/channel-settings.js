@@ -16,7 +16,8 @@ let channelSettingsPermLive = [
   "read_forums", "create_topics", "create_topic_replies", "manage_topics",
   "sticky_topics", "lock_topics",
   "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
-  "view_docs", "create_docs", "manage_docs", "remove_docs",
+  "view_docs", "create_docs", "manage_docs",   "remove_docs",
+  "see_media", "create_media", "manage_media", "remove_media",
   "view_events", "create_events", "manage_events", "remove_events",
 ];
 let channelSettingsPermLoading = false;
@@ -42,6 +43,7 @@ const CHANNEL_SETTINGS_LIVE_DEFAULTS = {
   create_topic_replies: true,
   view_wallpaper: true,
   view_docs: true,
+  see_media: true,
 };
 const CHANNEL_SETTINGS_PERM_COPY = {
   manage_channels: {

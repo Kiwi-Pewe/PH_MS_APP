@@ -491,7 +491,8 @@ async function selectChannel(channel, rowEl) {
   const isForums = channel.channel_type === "forums";
   const isDoc = channel.channel_type === "doc";
   const isDocs = channel.channel_type === "docs";
-  const label = (isVoice || isDoc || isDocs) ? channel.name : `#${channel.name}`;
+  const isMedia = channel.channel_type === "media";
+  const label = (isVoice || isDoc || isDocs || isMedia) ? channel.name : `#${channel.name}`;
   document.getElementById("channel-header-title").textContent = label;
   if (typeof setHeaderDescription === "function") {
     setHeaderDescription("channel-header-desc", channel.topic || "");
@@ -499,7 +500,7 @@ async function selectChannel(channel, rowEl) {
   if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof closePinsPanel === "function") closePinsPanel();
   if (typeof setChatSearchPlaceholder === "function") {
-    setChatSearchPlaceholder((isVoice || isDoc || isDocs) ? ("Search " + channel.name) : ("Search #" + channel.name));
+    setChatSearchPlaceholder((isVoice || isDoc || isDocs || isMedia) ? ("Search " + channel.name) : ("Search #" + channel.name));
   }
   if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 
@@ -513,6 +514,7 @@ async function selectChannel(channel, rowEl) {
   const listsView = document.getElementById("lists-view");
   const calendarView = document.getElementById("calendar-view");
   const docChannelView = document.getElementById("doc-channel-view");
+  const mediaChannelView = document.getElementById("media-channel-view");
 
   // Special panels go down up front so each branch below only has to
   // turn its own on.
@@ -522,7 +524,9 @@ async function selectChannel(channel, rowEl) {
   if (listsView) listsView.style.display = "none";
   if (calendarView) calendarView.style.display = "none";
   if (docChannelView) docChannelView.style.display = "none";
+  if (mediaChannelView) mediaChannelView.style.display = "none";
   if (typeof hideDocChannelChrome === "function") hideDocChannelChrome();
+  if (typeof hideMediaChannelChrome === "function") hideMediaChannelChrome();
   const overview = document.getElementById("server-overview");
   if (overview) overview.style.display = "none";
   const overviewRow = document.getElementById("server-section-overview");
@@ -579,6 +583,14 @@ async function selectChannel(channel, rowEl) {
     channelComposer.style.display = "none";
     if (docChannelView) docChannelView.style.display = "flex";
     if (typeof loadDocEntries === "function") await loadDocEntries(channel.id);
+    return;
+  }
+
+  if (isMedia) {
+    channelBody.style.display = "none";
+    channelComposer.style.display = "none";
+    if (mediaChannelView) mediaChannelView.style.display = "flex";
+    if (typeof loadMediaItems === "function") await loadMediaItems(channel.id);
     return;
   }
 
@@ -685,6 +697,9 @@ function showNoChannelSelected() {
   const docChannelPanel = document.getElementById("doc-channel-view");
   if (docChannelPanel) docChannelPanel.style.display = "none";
   if (typeof hideDocChannelChrome === "function") hideDocChannelChrome();
+  const mediaChannelPanel = document.getElementById("media-channel-view");
+  if (mediaChannelPanel) mediaChannelPanel.style.display = "none";
+  if (typeof hideMediaChannelChrome === "function") hideMediaChannelChrome();
   if (typeof closeCalendarEvent === "function") closeCalendarEvent();
   document.getElementById("channel-body").style.display = "flex";
   document.getElementById("channel-composer").style.display = "block";
@@ -722,6 +737,10 @@ function channelVisibleInSidebar(channel) {
   if (channel.channel_type === "docs") {
     if (Object.prototype.hasOwnProperty.call(perms, "view_docs")) return !!perms.view_docs;
     return typeof canServerPerm !== "function" || canServerPerm("view_docs");
+  }
+  if (channel.channel_type === "media") {
+    if (Object.prototype.hasOwnProperty.call(perms, "see_media")) return !!perms.see_media;
+    return typeof canServerPerm !== "function" || canServerPerm("see_media");
   }
   return true;
 }
@@ -825,7 +844,7 @@ if (serverSectionOverview) {
 }
 
 function hideChannelSurfaces() {
-  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
+  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });

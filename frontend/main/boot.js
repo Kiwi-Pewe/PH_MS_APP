@@ -496,6 +496,14 @@ function connectSocket() {
       if (Number(currentChannelId) === Number(data.channel_id)) removeDocEntry(data.doc_id);
     }
 
+    if ((data.type === "media_item_created" || data.type === "media_item_updated") && typeof applyMediaItem === "function") {
+      applyMediaItem(data.item);
+    }
+
+    if (data.type === "media_item_deleted" && typeof removeMediaItem === "function") {
+      if (Number(currentChannelId) === Number(data.channel_id)) removeMediaItem(data.item_id);
+    }
+
     if (data.type === "announcement_created") {
       const post = data.post;
       if (typeof applyMentionFields === "function") applyMentionFields(post, post);

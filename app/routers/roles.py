@@ -27,6 +27,7 @@ LIVE_ROLE_PERMS = (
     "sticky_topics", "lock_topics",
     "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
     "view_docs", "create_docs", "manage_docs", "remove_docs",
+    "see_media", "create_media", "manage_media", "remove_media",
     "view_events", "create_events", "manage_events", "remove_events",
     "manage_emoji",
 )
@@ -38,6 +39,7 @@ MEMBERS_DEFAULT_PERMS = (
     "read_forums", "create_topics", "create_topic_replies",
     "view_wallpaper",
     "view_docs",
+    "see_media",
     "view_events",
 )
 
@@ -67,6 +69,10 @@ LIVE_CHANNEL_OVERRIDE_PERMS = (
     "create_docs",
     "manage_docs",
     "remove_docs",
+    "see_media",
+    "create_media",
+    "manage_media",
+    "remove_media",
     "view_events",
     "create_events",
     "manage_events",
@@ -85,6 +91,7 @@ CHANNEL_OVERRIDE_DEFAULTS = {
     "create_topic_replies": True,
     "view_wallpaper": True,
     "view_docs": True,
+    "see_media": True,
     "view_events": True,
 }
 
@@ -160,6 +167,8 @@ def parse_role_perms(row):
         perms["view_wallpaper"] = True
     if "view_docs" not in data:
         perms["view_docs"] = True
+    if "see_media" not in data:
+        perms["see_media"] = True
     return perms
 
 
@@ -526,6 +535,8 @@ def channel_type_visible(permissions, channel_type):
         return bool(permissions.get("view_wallpaper"))
     if channel_type == "docs":
         return bool(permissions.get("view_docs"))
+    if channel_type == "media":
+        return bool(permissions.get("see_media"))
     if channel_type == "events":
         return bool(permissions.get("view_events"))
     return True

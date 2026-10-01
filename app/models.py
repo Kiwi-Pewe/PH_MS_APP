@@ -351,6 +351,21 @@ class Doc_entry(Base):
     updated_at = Column(DateTime, nullable=True)
 
 
+class Media_item(Base):
+    __tablename__ = "media_items"
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    title = Column(String)
+    description = Column(String, nullable=True)
+    kind = Column(String, default="image")
+    url = Column(String)
+    width = Column(Integer, default=0)
+    height = Column(Integer, default=0)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, nullable=True)
+
+
 class List_thread_message(Base):
     __tablename__ = "list_thread_messages"
     id = Column(Integer, primary_key=True)

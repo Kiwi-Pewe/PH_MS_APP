@@ -11,6 +11,7 @@ function channelTypeIcon(channelType) {
   if (kind === "lists") return "\u2611";
   if (kind === "media") return "\u{1F5BC}";
   if (kind === "events") return "\u{1F4C5}";
+  if (kind === "scheduling") return "\u{1F552}";
   if (kind === "docs") return "\u{1F4D5}";
   if (kind === "tournaments") return "\u{1F3C6}";
   if (kind === "watchparty") return "\u{1F3A6}";
@@ -26,6 +27,7 @@ function channelTypeSidebarLabel(channelType) {
   if (kind === "lists") return "Lists Channel";
   if (kind === "media") return "Media Channel";
   if (kind === "events") return "Events Channel";
+  if (kind === "scheduling") return "Scheduling Channel";
   if (kind === "docs") return "Docs Channel";
   if (kind === "tournaments") return "Tournaments Channel";
   if (kind === "watchparty") return "Watch Party Channel";
@@ -492,7 +494,8 @@ async function selectChannel(channel, rowEl) {
   const isDoc = channel.channel_type === "doc";
   const isDocs = channel.channel_type === "docs";
   const isMedia = channel.channel_type === "media";
-  const label = (isVoice || isDoc || isDocs || isMedia) ? channel.name : `#${channel.name}`;
+  const isScheduling = channel.channel_type === "scheduling";
+  const label = (isVoice || isDoc || isDocs || isMedia || isScheduling) ? channel.name : `#${channel.name}`;
   document.getElementById("channel-header-title").textContent = label;
   if (typeof setHeaderDescription === "function") {
     setHeaderDescription("channel-header-desc", channel.topic || "");
@@ -500,7 +503,7 @@ async function selectChannel(channel, rowEl) {
   if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof closePinsPanel === "function") closePinsPanel();
   if (typeof setChatSearchPlaceholder === "function") {
-    setChatSearchPlaceholder((isVoice || isDoc || isDocs || isMedia) ? ("Search " + channel.name) : ("Search #" + channel.name));
+    setChatSearchPlaceholder((isVoice || isDoc || isDocs || isMedia || isScheduling) ? ("Search " + channel.name) : ("Search #" + channel.name));
   }
   if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 
@@ -515,6 +518,7 @@ async function selectChannel(channel, rowEl) {
   const calendarView = document.getElementById("calendar-view");
   const docChannelView = document.getElementById("doc-channel-view");
   const mediaChannelView = document.getElementById("media-channel-view");
+  const scheduleView = document.getElementById("schedule-view");
 
   // Special panels go down up front so each branch below only has to
   // turn its own on.
@@ -525,8 +529,10 @@ async function selectChannel(channel, rowEl) {
   if (calendarView) calendarView.style.display = "none";
   if (docChannelView) docChannelView.style.display = "none";
   if (mediaChannelView) mediaChannelView.style.display = "none";
+  if (scheduleView) scheduleView.style.display = "none";
   if (typeof hideDocChannelChrome === "function") hideDocChannelChrome();
   if (typeof hideMediaChannelChrome === "function") hideMediaChannelChrome();
+  if (typeof hideScheduleChrome === "function") hideScheduleChrome();
   const overview = document.getElementById("server-overview");
   if (overview) overview.style.display = "none";
   const overviewRow = document.getElementById("server-section-overview");
@@ -591,6 +597,16 @@ async function selectChannel(channel, rowEl) {
     channelComposer.style.display = "none";
     if (mediaChannelView) mediaChannelView.style.display = "flex";
     if (typeof loadMediaItems === "function") await loadMediaItems(channel.id);
+    return;
+  }
+
+  if (isScheduling) {
+    channelBody.style.display = "none";
+    channelComposer.style.display = "none";
+    if (scheduleView) scheduleView.style.display = "flex";
+    const pins = document.getElementById("channel-pins-btn");
+    if (pins) pins.style.display = "none";
+    if (typeof loadSchedule === "function") await loadSchedule(channel.id);
     return;
   }
 
@@ -700,6 +716,9 @@ function showNoChannelSelected() {
   const mediaChannelPanel = document.getElementById("media-channel-view");
   if (mediaChannelPanel) mediaChannelPanel.style.display = "none";
   if (typeof hideMediaChannelChrome === "function") hideMediaChannelChrome();
+  if (typeof hideScheduleChrome === "function") hideScheduleChrome();
+  const schedulePanel = document.getElementById("schedule-view");
+  if (schedulePanel) schedulePanel.style.display = "none";
   if (typeof closeCalendarEvent === "function") closeCalendarEvent();
   document.getElementById("channel-body").style.display = "flex";
   document.getElementById("channel-composer").style.display = "block";
@@ -844,7 +863,7 @@ if (serverSectionOverview) {
 }
 
 function hideChannelSurfaces() {
-  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
+  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });

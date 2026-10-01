@@ -517,6 +517,14 @@ function connectSocket() {
       if (Number(currentChannelId) === Number(data.channel_id)) removeMediaItem(data.item_id);
     }
 
+    if (data.type === "schedule_block_created" && typeof applyScheduleBlock === "function") {
+      applyScheduleBlock(data.block);
+    }
+
+    if (data.type === "schedule_block_deleted" && typeof removeScheduleBlock === "function") {
+      if (Number(currentChannelId) === Number(data.channel_id)) removeScheduleBlock(data.block_id);
+    }
+
     if (data.type === "announcement_created") {
       const post = data.post;
       if (typeof applyMentionFields === "function") applyMentionFields(post, post);

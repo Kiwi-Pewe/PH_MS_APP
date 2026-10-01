@@ -522,6 +522,14 @@ class Media_comment_create(BaseModel):
     item_id: int
     content: str
 
+class Schedule_block_create(BaseModel):
+    channel_id: int
+    starts_at: str
+    ends_at: str
+
+class Schedule_block_delete(BaseModel):
+    block_id: int
+
 class Calendar_event_create(BaseModel):
     channel_id: int
     name: str

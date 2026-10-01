@@ -340,6 +340,15 @@ class Calendar_event_rsvp(Base):
     __table_args__ = (UniqueConstraint("event_id", "user_id", "occurrence_at", name="uq_calendar_rsvp"),)
 
 
+class Schedule_block(Base):
+    __tablename__ = "schedule_blocks"
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    starts_at = Column(DateTime)
+    ends_at = Column(DateTime)
+
+
 class Doc_entry(Base):
     __tablename__ = "doc_entries"
     id = Column(Integer, primary_key=True)

@@ -13,6 +13,7 @@ let calendarRoleIds = [];
 let calendarInviteIds = [];
 let calendarOccurrence = "";
 let calendarInfoItem = null;
+let calendarScheduleSlot = null;
 
 function canCreateEvents() {
   return typeof channelPerm === "function" && channelPerm("create_events");
@@ -497,18 +498,63 @@ function paintCalendarRsvp(event) {
   host.appendChild(summary);
 }
 
-function openCalendarEvent(event, inputValue) {
+function scheduleCalendars() {
+  const categories = (currentServerData && currentServerData.categories) || [];
+  const rows = [];
+  categories.forEach((category) => {
+    (category.channels || []).forEach((channel) => {
+      if (channel && channel.channel_type === "events") rows.push(channel);
+    });
+  });
+  return rows;
+}
+
+function paintCalendarScheduleSlot() {
+  const row = document.getElementById("calendar-channel-row");
+  const note = document.getElementById("calendar-slot-note");
+  const pick = document.getElementById("calendar-channel-pick");
+  const on = !!calendarScheduleSlot;
+  if (row) row.hidden = !on;
+  if (note) {
+    note.hidden = !on;
+    note.textContent = on ? (calendarScheduleSlot.label || "") : "";
+  }
+  if (!pick) return;
+  pick.replaceChildren();
+  if (!on) return;
+  const calendars = scheduleCalendars();
+  if (!calendars.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No calendar channel";
+    pick.appendChild(option);
+    pick.disabled = true;
+    return;
+  }
+  pick.disabled = false;
+  calendars.forEach((channel) => {
+    const option = document.createElement("option");
+    option.value = String(channel.id);
+    option.textContent = channel.name || "Calendar";
+    pick.appendChild(option);
+  });
+}
+
+function openCalendarEvent(event, inputValue, slot) {
   if (event && !canEditCalendarEvent(event)) {
     openCalendarInfo(event);
     return;
   }
-  if (!event && !canCreateEvents()) return;
+  if (!event && !slot && !canCreateEvents()) return;
   closeCalendarInfo();
   calendarEditingId = event ? event.id : null;
   calendarOccurrence = event ? (event.occurs_at || event.starts_at || "") : "";
   calendarColor = event ? (CALENDAR_COLORS.includes(Number(event.color)) ? Number(event.color) : CALENDAR_COLORS[0]) : CALENDAR_COLORS[0];
   calendarRoleIds = event && Array.isArray(event.role_ids) ? event.role_ids.map(Number) : [];
   calendarInviteIds = event ? (event.rsvps || []).filter((row) => row.status === "invited").map((row) => Number(row.user_id)) : [];
+  calendarScheduleSlot = slot || null;
+  if (slot && Array.isArray(slot.inviteIds)) calendarInviteIds = slot.inviteIds.map(Number);
+  if (slot && !calendarMembers.length && Array.isArray(memberList)) calendarMembers = memberList.slice();
   const overlay = document.getElementById("calendar-event-overlay");
   const title = document.getElementById("calendar-event-heading");
   const name = document.getElementById("calendar-event-name");
@@ -520,7 +566,7 @@ function openCalendarEvent(event, inputValue) {
   const limit = document.getElementById("calendar-limit");
   const remove = document.getElementById("calendar-event-delete");
   const cancel = document.getElementById("calendar-event-cancel");
-  if (title) title.textContent = "Event";
+  if (title) title.textContent = slot ? "Create an event" : "Event";
   if (name) name.value = event ? (event.name || "") : "";
   if (start) {
     if (event) start.value = calendarDateToInput(calendarDate(event.starts_at));
@@ -540,22 +586,35 @@ function openCalendarEvent(event, inputValue) {
   paintCalendarRoles();
   paintCalendarInvites();
   paintCalendarRsvp(event);
+  paintCalendarScheduleSlot();
   if (overlay) overlay.hidden = false;
   if (name) name.focus();
 }
 
 function closeCalendarEvent() {
   calendarEditingId = null;
+  calendarScheduleSlot = null;
+  paintCalendarScheduleSlot();
   const overlay = document.getElementById("calendar-event-overlay");
   if (overlay) overlay.hidden = true;
 }
 
 async function saveCalendarEvent() {
-  if (!currentChannelId) return;
+  let channelId = currentChannelId;
+  if (calendarScheduleSlot) {
+    const pick = document.getElementById("calendar-channel-pick");
+    channelId = pick ? Number(pick.value) : 0;
+    if (!channelId) {
+      window.alert("Choose a calendar channel.");
+      return;
+    }
+  }
+  if (!channelId) return;
   const nameInput = document.getElementById("calendar-event-name");
   const startInput = document.getElementById("calendar-event-start");
   const name = nameInput ? nameInput.value.trim() : "";
-  const when = calendarInputToDate(startInput && startInput.value, calendarActiveZone());
+  const zone = calendarScheduleSlot ? (Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC") : calendarActiveZone();
+  const when = calendarInputToDate(startInput && startInput.value, zone);
   if (!name || !when) {
     window.alert("Name and start time are required.");
     return;
@@ -580,7 +639,7 @@ async function saveCalendarEvent() {
   };
   const editing = calendarEditingId;
   const path = editing ? "edit_calendar_event" : "calendar_event";
-  const body = editing ? Object.assign({ event_id: editing }, fields) : Object.assign({ channel_id: currentChannelId }, fields);
+  const body = editing ? Object.assign({ event_id: editing }, fields) : Object.assign({ channel_id: channelId }, fields);
   const response = await fetch(`https://${serverAddress}/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -592,7 +651,7 @@ async function saveCalendarEvent() {
     window.alert((typeof data.detail === "string" && data.detail) || "Could not save that event.");
     return;
   }
-  applyCalendarEvent(data);
+  if (currentChannelType === "events" && Number(currentChannelId) === Number(channelId)) applyCalendarEvent(data);
   closeCalendarEvent();
 }
 

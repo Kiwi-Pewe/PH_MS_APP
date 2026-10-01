@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=223">
+<link rel="stylesheet" href="app.css?v=224">
 </head>
 <body>
 
@@ -410,14 +410,19 @@
           </div>
         </div>
         <div id="media-channel-form" hidden>
-          <div class="media-channel-form-card" role="dialog" aria-label="Add media">
+          <div class="media-channel-form-card" role="dialog" aria-label="Upload Media">
+            <div id="media-channel-form-heading" class="media-channel-form-heading">Upload Media</div>
             <div id="media-channel-form-preview" class="media-channel-form-preview"></div>
+            <div id="media-channel-form-source" class="media-channel-form-source">
+              <button type="button" class="media-channel-source-btn is-on" data-source="file">File</button>
+              <button type="button" class="media-channel-source-btn" data-source="link">YouTube Link</button>
+            </div>
             <div id="media-channel-form-file-row" class="media-channel-form-row">
               <button type="button" class="pill-btn" id="media-channel-form-pick">Upload</button>
               <input type="file" id="media-channel-form-file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm" hidden>
             </div>
-            <div id="media-channel-form-link-row" class="media-channel-form-row">
-              <input type="url" id="media-channel-form-link" class="media-channel-form-link" placeholder="YouTube or a link" autocomplete="off">
+            <div id="media-channel-form-link-row" class="media-channel-form-row" hidden>
+              <input type="url" id="media-channel-form-link" class="media-channel-form-link" placeholder="YouTube link" autocomplete="off">
             </div>
             <input type="text" id="media-channel-form-title" class="media-channel-form-title" maxlength="200" placeholder="Untitled media" autocomplete="off">
             <textarea id="media-channel-form-body" class="list-note-field" rows="5" maxlength="4000" placeholder="Description"></textarea>
@@ -1716,7 +1721,7 @@
 <script src="lists.js?v=3"></script>
 <script src="calendar.js?v=4"></script>
 <script src="doc-channel.js?v=6"></script>
-<script src="media-channel.js?v=1"></script>
+<script src="media-channel.js?v=2"></script>
 <script src="docs.js?v=47"></script>
 <script src="feedback.js?v=4"></script>
 </body>

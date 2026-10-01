@@ -7,6 +7,7 @@ let mediaFormUrl = "";
 let mediaFormWidth = 0;
 let mediaFormHeight = 0;
 let mediaFormBusy = false;
+let mediaFormSource = "file";
 
 function canCreateMedia() {
   return typeof channelPerm === "function" && channelPerm("create_media");
@@ -114,6 +115,9 @@ function buildMediaCard(item) {
   const title = document.createElement("span");
   title.className = "media-channel-title";
   title.textContent = item.title || "Untitled media";
+  const copy = document.createElement("span");
+  copy.className = "media-channel-copy";
+  copy.appendChild(title);
   const foot = document.createElement("span");
   foot.className = "media-channel-foot";
   const face = document.createElement("span");
@@ -131,7 +135,7 @@ function buildMediaCard(item) {
   foot.appendChild(name);
   foot.appendChild(comments);
   card.appendChild(frame);
-  card.appendChild(title);
+  card.appendChild(copy);
   card.appendChild(foot);
   card.addEventListener("click", () => openMediaItem(item));
   card.addEventListener("contextmenu", (event) => openMediaItemMenu(event, item));
@@ -185,6 +189,7 @@ function fillMediaStage(item) {
     vid.controls = true;
     vid.playsInline = true;
     stage.appendChild(vid);
+    watchMediaReadout(vid);
     return;
   }
   if (item.kind === "link") {
@@ -196,6 +201,7 @@ function fillMediaStage(item) {
       frame.allowFullscreen = true;
       frame.title = item.title || "Untitled media";
       stage.appendChild(frame);
+      watchMediaReadout(frame);
       return;
     }
   }
@@ -205,6 +211,7 @@ function fillMediaStage(item) {
     img.src = thumb;
     img.alt = item.title || "Untitled media";
     stage.appendChild(img);
+    watchMediaReadout(img);
     return;
   }
   const link = document.createElement("a");
@@ -213,6 +220,22 @@ function fillMediaStage(item) {
   link.rel = "noreferrer";
   link.textContent = item.url || "Link";
   stage.appendChild(link);
+  watchMediaReadout(stage.firstElementChild);
+}
+
+function watchMediaReadout(node) {
+  if (!node) return;
+  const pin = () => pinMediaReadout();
+  if (node.tagName === "IMG") {
+    if (node.complete) pin();
+    else node.addEventListener("load", pin);
+    return;
+  }
+  if (node.tagName === "VIDEO") {
+    node.addEventListener("loadedmetadata", pin);
+    return;
+  }
+  pin();
 }
 
 function openMediaItem(item) {
@@ -261,6 +284,18 @@ function openMediaItem(item) {
   fillMediaStage(item);
   showMediaButton("media-channel-add", false);
   showMediaButton("media-channel-back", true);
+  pinMediaReadout();
+}
+
+function pinMediaReadout() {
+  const stage = document.getElementById("media-channel-stage");
+  const media = stage && stage.querySelector("img, video, iframe");
+  const width = media ? Math.round(media.getBoundingClientRect().width) : 0;
+  ["media-channel-read-title", "media-channel-author", "media-channel-read-body"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.width = width > 0 ? width + "px" : "";
+  });
 }
 
 function showMediaChannelList() {
@@ -287,10 +322,15 @@ function setMediaFormPreview() {
   const host = document.getElementById("media-channel-form-preview");
   if (!host) return;
   host.replaceChildren();
-  if (mediaFormKind === "video" && mediaFormUrl) {
+  if (mediaFormKind === "video") {
+    const src = mediaFormFile ? URL.createObjectURL(mediaFormFile) : mediaFormUrl;
+    if (!src) return;
     const vid = document.createElement("video");
-    vid.src = mediaFormFile ? URL.createObjectURL(mediaFormFile) : mediaFormUrl;
+    vid.src = src;
     vid.muted = true;
+    vid.controls = true;
+    vid.playsInline = true;
+    vid.preload = "metadata";
     host.appendChild(vid);
     return;
   }
@@ -300,6 +340,48 @@ function setMediaFormPreview() {
   img.src = src;
   img.alt = "";
   host.appendChild(img);
+}
+
+function paintMediaFormSource() {
+  const editing = mediaFormId != null;
+  const heading = document.getElementById("media-channel-form-heading");
+  const source = document.getElementById("media-channel-form-source");
+  const fileRow = document.getElementById("media-channel-form-file-row");
+  const linkRow = document.getElementById("media-channel-form-link-row");
+  const card = document.querySelector("#media-channel-form .media-channel-form-card");
+  if (heading) heading.textContent = editing ? "Edit Media" : "Upload Media";
+  if (card) card.setAttribute("aria-label", editing ? "Edit Media" : "Upload Media");
+  if (source) source.hidden = editing;
+  if (fileRow) fileRow.hidden = editing || mediaFormSource !== "file";
+  if (linkRow) linkRow.hidden = editing || mediaFormSource !== "link";
+  document.querySelectorAll(".media-channel-source-btn").forEach((btn) => {
+    btn.classList.toggle("is-on", btn.dataset.source === mediaFormSource);
+  });
+}
+
+function chooseMediaFormSource(source) {
+  if (mediaFormId) return;
+  mediaFormSource = source === "link" ? "link" : "file";
+  if (mediaFormSource === "file") {
+    mediaFormUrl = "";
+    const link = document.getElementById("media-channel-form-link");
+    if (link) link.value = "";
+    if (!mediaFormFile) {
+      mediaFormKind = "";
+      mediaFormWidth = 0;
+      mediaFormHeight = 0;
+    }
+  } else {
+    mediaFormFile = null;
+    const link = document.getElementById("media-channel-form-link");
+    mediaFormUrl = link ? link.value.trim() : "";
+    mediaFormKind = mediaFormUrl ? "link" : "";
+    const id = youtubeId(mediaFormUrl);
+    mediaFormWidth = id ? 480 : 0;
+    mediaFormHeight = id ? 360 : 0;
+  }
+  paintMediaFormSource();
+  setMediaFormPreview();
 }
 
 function measureMediaFile(file) {
@@ -347,17 +429,15 @@ function openMediaForm(item) {
   mediaFormUrl = item ? (item.url || "") : "";
   mediaFormWidth = item ? Number(item.width || 0) : 0;
   mediaFormHeight = item ? Number(item.height || 0) : 0;
+  mediaFormSource = item && item.kind === "link" ? "link" : "file";
   const form = document.getElementById("media-channel-form");
   const title = document.getElementById("media-channel-form-title");
   const body = document.getElementById("media-channel-form-body");
   const link = document.getElementById("media-channel-form-link");
-  const fileRow = document.getElementById("media-channel-form-file-row");
-  const linkRow = document.getElementById("media-channel-form-link-row");
   if (title) title.value = item && item.title && item.title !== "Untitled media" ? item.title : "";
   if (body) body.value = item ? (item.description || "") : "";
   if (link) link.value = item && item.kind === "link" ? (item.url || "") : "";
-  if (fileRow) fileRow.hidden = !!item;
-  if (linkRow) linkRow.hidden = !!item;
+  paintMediaFormSource();
   setMediaFormPreview();
   if (form) form.hidden = false;
   if (title) title.focus();
@@ -368,6 +448,7 @@ function closeMediaForm() {
   mediaFormFile = null;
   mediaFormKind = "";
   mediaFormUrl = "";
+  mediaFormSource = "file";
   mediaFormBusy = false;
   const form = document.getElementById("media-channel-form");
   if (form) form.hidden = true;
@@ -381,8 +462,10 @@ async function onMediaFormFile(file) {
   mediaFormUrl = "";
   mediaFormWidth = measured.width;
   mediaFormHeight = measured.height;
+  mediaFormSource = "file";
   const link = document.getElementById("media-channel-form-link");
   if (link) link.value = "";
+  paintMediaFormSource();
   setMediaFormPreview();
 }
 
@@ -400,21 +483,29 @@ async function saveMediaForm() {
     let payload;
     if (mediaFormId) {
       payload = Object.assign({ item_id: mediaFormId }, fields);
+    } else if (mediaFormSource === "file") {
+      if (!mediaFormFile) {
+        window.alert("Choose a file.");
+        return;
+      }
+      if (typeof uploadMediaFile !== "function") throw new Error("Could not upload that file.");
+      const uploaded = await uploadMediaFile(mediaFormFile);
+      payload = Object.assign({
+        channel_id: currentChannelId,
+        kind: uploaded.kind === "video" ? "video" : "image",
+        url: uploaded.url,
+        width: mediaFormWidth,
+        height: mediaFormHeight,
+      }, fields);
     } else {
-      let url = mediaFormUrl;
-      let kind = mediaFormKind || "link";
-      if (mediaFormFile) {
-        if (typeof uploadMediaFile !== "function") throw new Error("Could not upload that file.");
-        const uploaded = await uploadMediaFile(mediaFormFile);
-        url = uploaded.url;
-        kind = uploaded.kind === "video" ? "video" : "image";
-      } else {
-        url = link ? link.value.trim() : "";
-        kind = "link";
+      const url = link ? link.value.trim() : "";
+      if (!url) {
+        window.alert("Add a YouTube link.");
+        return;
       }
       payload = Object.assign({
         channel_id: currentChannelId,
-        kind,
+        kind: "link",
         url,
         width: mediaFormWidth,
         height: mediaFormHeight,
@@ -511,7 +602,7 @@ if (mediaFormPick && mediaFormFileInput) {
 const mediaFormLink = document.getElementById("media-channel-form-link");
 if (mediaFormLink) {
   mediaFormLink.addEventListener("input", () => {
-    if (mediaFormId) return;
+    if (mediaFormId || mediaFormSource !== "link") return;
     mediaFormFile = null;
     mediaFormUrl = mediaFormLink.value.trim();
     mediaFormKind = mediaFormUrl ? "link" : "";
@@ -521,8 +612,13 @@ if (mediaFormLink) {
     setMediaFormPreview();
   });
 }
+document.querySelectorAll(".media-channel-source-btn").forEach((btn) => {
+  btn.addEventListener("click", () => chooseMediaFormSource(btn.dataset.source));
+});
 window.addEventListener("resize", () => {
-  if (currentChannelType === "media" && mediaItemId == null) paintMediaChannelList();
+  if (currentChannelType !== "media") return;
+  if (mediaItemId == null) paintMediaChannelList();
+  else pinMediaReadout();
 });
 const mediaChannelDrop = document.getElementById("media-channel-view");
 if (mediaChannelDrop) {
@@ -552,6 +648,7 @@ document.addEventListener("paste", (event) => {
   if (!/^https?:\/\//i.test(url)) return;
   event.preventDefault();
   openMediaForm(null);
+  chooseMediaFormSource("link");
   const link = document.getElementById("media-channel-form-link");
   if (!link) return;
   link.value = url;

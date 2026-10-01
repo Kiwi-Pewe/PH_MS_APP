@@ -3733,40 +3733,54 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .schedule-scroll::-webkit-scrollbar-track { background: transparent; }
 .schedule-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .schedule-sheet { display: grid; grid-template-columns: 76px 1fr; min-height: 100%; }
+.schedule-sheet { align-items: start; }
 .schedule-hours { position: relative; }
-.schedule-hour {
-  box-sizing: border-box; padding: 0 8px; font-size: 11px; color: var(--text-dim);
-  border-top: 1px solid var(--border); display: flex; align-items: flex-start;
+.schedule-hour { position: relative; box-sizing: border-box; }
+.schedule-hour-label {
+  position: absolute; top: 0; right: 8px; transform: translateY(-50%);
+  font-size: 11px; color: var(--text-dim); line-height: 1;
 }
-.schedule-board-wrap { display: grid; grid-template-columns: 28px 1fr 28px; }
+.schedule-board-wrap { display: grid; grid-template-columns: 28px 1fr 28px; align-items: start; }
 .schedule-gutter { border-top: 1px solid var(--border); }
 .schedule-board {
-  position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(24, 56px);
+  align-items: start;
 }
-.schedule-column {
-  position: relative; border-left: 1px solid var(--border);
-  background-image: repeating-linear-gradient(to bottom, var(--border) 0, var(--border) 1px, transparent 1px, transparent 56px);
+.schedule-cell {
+  box-sizing: border-box;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  background: transparent;
 }
+.schedule-cell.is-alt { background: rgba(255, 255, 255, 0.045); }
+.schedule-overlay { position: absolute; inset: 0; pointer-events: none; }
 .schedule-now {
   position: absolute; left: 0; right: 0; height: 2px; background: #4c8dff;
   z-index: 4; pointer-events: none;
 }
-.schedule-block {
-  position: absolute; width: 4px; margin-left: -2px; border-radius: 4px; z-index: 2;
+.schedule-block { position: absolute; width: 0; pointer-events: none; }
+.schedule-line {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 4px; margin-left: -2px;
+  border-radius: 4px; z-index: 1; pointer-events: auto;
 }
-.schedule-block.is-ghost { background: #3ba55d; opacity: 0.85; left: 50%; }
+.schedule-block.is-ghost {
+  width: 4px; margin-left: -2px; background: #3ba55d; border-radius: 4px; z-index: 3;
+}
 .schedule-face {
-  position: absolute; left: 50%; top: 0; transform: translate(-50%, -70%);
-  width: 22px; height: 22px; padding: 0;
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
+  width: 28px; height: 28px; padding: 0; z-index: 6; pointer-events: auto; overflow: hidden;
 }
 .schedule-cap {
-  position: absolute; left: 50%; width: 8px; height: 8px; margin-left: -4px;
-  border-radius: 50%; background: #fff;
+  position: absolute; left: 0; width: 8px; height: 8px; margin-left: -4px;
+  border-radius: 50%; background: #fff; z-index: 2;
 }
 .schedule-cap-top { top: -4px; }
 .schedule-cap-foot { bottom: -4px; }
 .schedule-remove {
-  display: none; position: absolute; left: 14px; top: -8px;
+  display: none; position: absolute; left: 16px; top: -8px; pointer-events: auto; z-index: 7;
   width: 16px; height: 16px; border-radius: 50%; background: var(--panel);
   color: var(--text); border: 1px solid var(--border); font-size: 12px; line-height: 1;
 }

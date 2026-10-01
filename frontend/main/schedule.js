@@ -116,13 +116,16 @@ function paintScheduleHours() {
   host.replaceChildren();
   host.style.height = (24 * SCHEDULE_HOUR_PX) + "px";
   for (let hour = 0; hour < 24; hour += 1) {
-    const label = document.createElement("div");
-    label.className = "schedule-hour";
-    label.style.height = SCHEDULE_HOUR_PX + "px";
+    const row = document.createElement("div");
+    row.className = "schedule-hour";
+    row.style.height = SCHEDULE_HOUR_PX + "px";
+    const label = document.createElement("span");
+    label.className = "schedule-hour-label";
     const when = new Date();
     when.setHours(hour, 0, 0, 0);
     label.textContent = when.toLocaleTimeString([], { hour: "numeric" });
-    host.appendChild(label);
+    row.appendChild(label);
+    host.appendChild(row);
   }
 }
 
@@ -147,15 +150,20 @@ function paintScheduleDays() {
   if (zone) zone.textContent = scheduleZoneLabel();
 }
 
-function scheduleLanes(day, blocks) {
+function scheduleDayBlocks(day) {
   const start = scheduleDayStart(day);
   const end = scheduleAddDays(start, 1);
-  const mine = blocks.filter((block) => scheduleOverlaps(block, start, end));
-  const users = [];
-  mine.forEach((block) => {
-    if (!users.includes(block.user_id)) users.push(block.user_id);
-  });
-  return { mine, users };
+  return scheduleBlocks.filter((block) => scheduleOverlaps(block, start, end));
+}
+
+function scheduleCell(dayIndex, hour) {
+  return document.querySelector('#schedule-board .schedule-cell[data-day="' + dayIndex + '"][data-hour="' + hour + '"]');
+}
+
+function scheduleDayBox(dayIndex) {
+  const cell = scheduleCell(dayIndex, 0);
+  if (!cell) return { left: 0, width: 0 };
+  return { left: cell.offsetLeft, width: cell.offsetWidth };
 }
 
 function paintScheduleBoard() {
@@ -165,42 +173,52 @@ function paintScheduleBoard() {
   board.style.height = (24 * SCHEDULE_HOUR_PX) + "px";
   const days = scheduleVisibleDays();
   days.forEach((day, index) => {
-    const column = document.createElement("div");
-    column.className = "schedule-column";
-    column.dataset.day = String(index);
-    column.style.height = (24 * SCHEDULE_HOUR_PX) + "px";
-    const lanes = scheduleLanes(day, scheduleBlocks);
-    const count = Math.max(lanes.users.length, 1);
-    lanes.mine.forEach((block) => {
-      const lane = Math.max(0, lanes.users.indexOf(block.user_id));
-      column.appendChild(scheduleBlockElement(block, day, lane, count));
+    for (let hour = 0; hour < 24; hour += 1) {
+      const cell = document.createElement("div");
+      cell.className = "schedule-cell" + (index % 2 ? " is-alt" : "");
+      cell.dataset.day = String(index);
+      cell.dataset.hour = String(hour);
+      cell.style.gridColumn = String(index + 1);
+      cell.style.gridRow = String(hour + 1);
+      board.appendChild(cell);
+    }
+  });
+  const overlay = document.createElement("div");
+  overlay.className = "schedule-overlay";
+  days.forEach((day, index) => {
+    scheduleDayBlocks(day).forEach((block) => {
+      overlay.appendChild(scheduleBlockElement(block, day, index));
     });
-    column.addEventListener("pointerdown", (event) => schedulePointerDown(event, day, column));
-    board.appendChild(column);
   });
   const now = new Date();
-  const todayIndex = days.findIndex((day) => scheduleDayStart(day).getTime() === scheduleToday().getTime());
+  const todayIndex = days.findIndex((item) => scheduleDayStart(item).getTime() === scheduleToday().getTime());
   if (todayIndex >= 0) {
     const line = document.createElement("div");
     line.className = "schedule-now";
     line.style.top = ((scheduleMinutes(now) / 60) * SCHEDULE_HOUR_PX) + "px";
-    board.appendChild(line);
+    overlay.appendChild(line);
   }
+  board.appendChild(overlay);
 }
 
-function scheduleBlockElement(block, day, lane, count) {
+function scheduleBlockElement(block, day, dayIndex) {
   const dayStart = scheduleDayStart(day).getTime();
   const dayEnd = scheduleAddDays(day, 1).getTime();
   const start = Math.max(new Date(block.starts_at).getTime(), dayStart);
   const end = Math.min(new Date(block.ends_at).getTime(), dayEnd);
   const topMin = (start - dayStart) / 60000;
   const heightMin = Math.max(30, (end - start) / 60000);
+  const box = scheduleDayBox(dayIndex);
+  const ratio = block.x_ratio == null ? 0.5 : Number(block.x_ratio);
   const wrap = document.createElement("div");
   wrap.className = "schedule-block";
   wrap.style.top = ((topMin / 60) * SCHEDULE_HOUR_PX) + "px";
   wrap.style.height = ((heightMin / 60) * SCHEDULE_HOUR_PX) + "px";
-  wrap.style.left = "calc(50% + " + ((lane - (count - 1) / 2) * 16) + "px)";
-  wrap.style.background = scheduleColor(block);
+  wrap.style.left = (box.left + ratio * box.width) + "px";
+  const stroke = document.createElement("div");
+  stroke.className = "schedule-line";
+  stroke.style.background = scheduleColor(block);
+  wrap.appendChild(stroke);
   const face = document.createElement("button");
   face.type = "button";
   face.className = "avatar-dot schedule-face";
@@ -249,71 +267,90 @@ function scheduleScrollToNow() {
   scroller.scrollTop = Math.max(0, top);
 }
 
-function scheduleY(event, column) {
-  const rect = column.getBoundingClientRect();
-  return Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+function scheduleHit(event) {
+  const stack = document.elementsFromPoint ? document.elementsFromPoint(event.clientX, event.clientY) : [document.elementFromPoint(event.clientX, event.clientY)];
+  const cell = stack.find((node) => node && node.classList && node.classList.contains("schedule-cell"));
+  if (!cell) return null;
+  return {
+    day: Number(cell.dataset.day),
+    hour: Number(cell.dataset.hour),
+    ratio: scheduleRatio(event, cell),
+  };
 }
 
-function scheduleSnapMinutes(y) {
-  const raw = (y / SCHEDULE_HOUR_PX) * 60;
-  return Math.max(0, Math.min(24 * 60, Math.round(raw / SCHEDULE_SNAP) * SCHEDULE_SNAP));
+function scheduleRatio(event, cell) {
+  const rect = cell.getBoundingClientRect();
+  if (!rect.width) return 0.5;
+  return Math.max(0.04, Math.min(0.96, (event.clientX - rect.left) / rect.width));
 }
 
-function schedulePointerDown(event, day, column) {
+function schedulePointerDown(event) {
   if (event.button !== 0) return;
   if (event.target.closest(".schedule-face, .schedule-remove")) return;
+  const hit = scheduleHit(event);
+  if (!hit) return;
   closeScheduleCard();
-  const startY = scheduleY(event, column);
-  scheduleDrag = { day, column, startY, lastY: startY, moved: false, pointer: event.pointerId };
-  column.setPointerCapture(event.pointerId);
+  const board = event.currentTarget;
+  scheduleDrag = {
+    day: hit.day,
+    startHour: hit.hour,
+    hour: hit.hour,
+    ratio: hit.ratio,
+    moved: false,
+    pointer: event.pointerId,
+    originY: event.clientY,
+  };
+  board.setPointerCapture(event.pointerId);
   const move = (ev) => {
     if (!scheduleDrag || scheduleDrag.pointer !== ev.pointerId) return;
-    scheduleDrag.lastY = scheduleY(ev, column);
-    if (Math.abs(scheduleDrag.lastY - scheduleDrag.startY) > 6) scheduleDrag.moved = true;
+    if (Math.abs(ev.clientY - scheduleDrag.originY) > 6) scheduleDrag.moved = true;
+    const next = scheduleHit(ev);
+    if (next && next.day === scheduleDrag.day) scheduleDrag.hour = next.hour;
     paintScheduleGhost();
   };
   const up = (ev) => {
     if (!scheduleDrag || scheduleDrag.pointer !== ev.pointerId) return;
-    column.removeEventListener("pointermove", move);
-    column.removeEventListener("pointerup", up);
+    board.removeEventListener("pointermove", move);
+    board.removeEventListener("pointerup", up);
     const drag = scheduleDrag;
     scheduleDrag = null;
     clearScheduleGhost();
+    const days = scheduleVisibleDays();
+    const day = days[drag.day];
+    if (!day) return;
     if (!drag.moved) {
-      openScheduleCard(ev, day, column, startY);
+      openScheduleCard(ev, day, drag.startHour);
       return;
     }
-    const a = scheduleSnapMinutes(drag.startY);
-    const b = scheduleSnapMinutes(drag.lastY);
-    const startMin = Math.min(a, b);
-    const endMin = Math.max(a, b);
-    if (endMin - startMin < SCHEDULE_SNAP) return;
-    createScheduleBlock(scheduleAtMinutes(day, startMin), scheduleAtMinutes(day, endMin));
+    const startHour = Math.min(drag.startHour, drag.hour);
+    const stopHour = Math.max(drag.startHour, drag.hour) + 1;
+    createScheduleBlock(scheduleAtMinutes(day, startHour * 60), scheduleAtMinutes(day, Math.min(24, stopHour) * 60), drag.ratio);
   };
-  column.addEventListener("pointermove", move);
-  column.addEventListener("pointerup", up);
+  board.addEventListener("pointermove", move);
+  board.addEventListener("pointerup", up);
 }
 
 function paintScheduleGhost() {
   clearScheduleGhost();
   if (!scheduleDrag || !scheduleDrag.moved) return;
-  const a = scheduleSnapMinutes(scheduleDrag.startY);
-  const b = scheduleSnapMinutes(scheduleDrag.lastY);
-  const startMin = Math.min(a, b);
-  const endMin = Math.max(startMin + SCHEDULE_SNAP, b);
+  const overlay = document.querySelector("#schedule-board .schedule-overlay");
+  if (!overlay) return;
+  const box = scheduleDayBox(scheduleDrag.day);
+  const startHour = Math.min(scheduleDrag.startHour, scheduleDrag.hour);
+  const stopHour = Math.max(scheduleDrag.startHour, scheduleDrag.hour) + 1;
   const ghost = document.createElement("div");
   ghost.className = "schedule-block is-ghost";
-  ghost.style.top = ((startMin / 60) * SCHEDULE_HOUR_PX) + "px";
-  ghost.style.height = (((endMin - startMin) / 60) * SCHEDULE_HOUR_PX) + "px";
-  scheduleDrag.column.appendChild(ghost);
+  ghost.style.top = (startHour * SCHEDULE_HOUR_PX) + "px";
+  ghost.style.height = ((stopHour - startHour) * SCHEDULE_HOUR_PX) + "px";
+  ghost.style.left = (box.left + scheduleDrag.ratio * box.width) + "px";
+  overlay.appendChild(ghost);
 }
 
 function clearScheduleGhost() {
   document.querySelectorAll(".schedule-block.is-ghost").forEach((node) => node.remove());
 }
 
-function openScheduleCard(event, day, column, y) {
-  const hour = Math.max(0, Math.min(23, Math.floor(y / SCHEDULE_HOUR_PX)));
+function openScheduleCard(event, day, hour) {
   const start = scheduleAtMinutes(day, hour * 60);
   const end = scheduleAtMinutes(day, (hour + 1) * 60);
   const people = scheduleBlocks.filter((block) => scheduleOverlaps(block, start, end));
@@ -367,8 +404,7 @@ function openScheduleCard(event, day, column, y) {
   });
   card.appendChild(create);
   card.hidden = false;
-  const rect = column.getBoundingClientRect();
-  const left = Math.min(rect.left + 12, window.innerWidth - 280);
+  const left = Math.min(event.clientX + 12, window.innerWidth - 280);
   const top = Math.min(event.clientY + 8, window.innerHeight - 220);
   card.style.left = Math.max(8, left) + "px";
   card.style.top = Math.max(8, top) + "px";
@@ -390,13 +426,18 @@ async function loadSchedule(channelId, keepScroll) {
   paintSchedule();
 }
 
-async function createScheduleBlock(start, end) {
+async function createScheduleBlock(start, end, ratio) {
   if (!currentChannelId || currentChannelType !== "scheduling") return;
   const response = await fetch(`https://${serverAddress}/create_schedule_block`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ channel_id: currentChannelId, starts_at: start.toISOString(), ends_at: end.toISOString() }),
+    body: JSON.stringify({
+      channel_id: currentChannelId,
+      starts_at: start.toISOString(),
+      ends_at: end.toISOString(),
+      x_ratio: ratio == null ? 0.5 : ratio,
+    }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -422,6 +463,8 @@ function shiftSchedule(step) {
   if (currentChannelId && currentChannelType === "scheduling") loadSchedule(currentChannelId, true);
 }
 
+const scheduleBoard = document.getElementById("schedule-board");
+if (scheduleBoard) scheduleBoard.addEventListener("pointerdown", schedulePointerDown);
 const schedulePrev = document.getElementById("schedule-prev");
 if (schedulePrev) schedulePrev.addEventListener("click", () => shiftSchedule(-1));
 const scheduleNext = document.getElementById("schedule-next");

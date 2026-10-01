@@ -361,6 +361,15 @@ def ensure_calendar_columns():
                 conn.rollback()
 
 
+def ensure_schedule_columns():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE schedule_blocks ADD COLUMN x_ratio FLOAT DEFAULT 0.5"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_role_columns():
     with engine.connect() as conn:
         try:

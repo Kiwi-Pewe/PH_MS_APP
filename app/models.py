@@ -1,6 +1,6 @@
 # Database table definitions (User, Message, etc.) go here.
 from app.database import Base
-from sqlalchemy import Column, String, Integer,Boolean, ForeignKey, func, DateTime, Index, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, func, DateTime, Float, Index, UniqueConstraint
 
 class UserInfo(Base):
     __tablename__ = "users"
@@ -347,6 +347,7 @@ class Schedule_block(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     starts_at = Column(DateTime)
     ends_at = Column(DateTime)
+    x_ratio = Column(Float, default=0.5)
 
 
 class Doc_entry(Base):

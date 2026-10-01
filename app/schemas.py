@@ -526,6 +526,7 @@ class Schedule_block_create(BaseModel):
     channel_id: int
     starts_at: str
     ends_at: str
+    x_ratio: float = 0.5
 
 class Schedule_block_delete(BaseModel):
     block_id: int

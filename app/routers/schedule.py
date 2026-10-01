@@ -60,6 +60,7 @@ def serialize_block(block, account, avatars, colors, ranks):
         "ends_at": stamp(block.ends_at),
         "name_role": colors.get(block.user_id),
         "highest_role": ranks.get(block.user_id),
+        "x_ratio": 0.5 if block.x_ratio is None else float(block.x_ratio),
     }
 
 
@@ -106,7 +107,12 @@ async def create_schedule_block(body: Schedule_block_create, database: Session =
         raise HTTPException(status_code=400, detail="End is required.")
     if ends - starts > timedelta(hours=24):
         raise HTTPException(status_code=400, detail="Availability can cover one day.")
-    block = Schedule_block(channel_id=channel.id, user_id=current_user.id, starts_at=starts, ends_at=ends)
+    try:
+        ratio = float(body.x_ratio)
+    except (TypeError, ValueError):
+        ratio = 0.5
+    ratio = min(0.96, max(0.04, ratio))
+    block = Schedule_block(channel_id=channel.id, user_id=current_user.id, starts_at=starts, ends_at=ends, x_ratio=ratio)
     database.add(block)
     database.commit()
     database.refresh(block)

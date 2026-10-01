@@ -358,7 +358,7 @@ function paintMediaFormSource() {
   if (source) source.hidden = editing;
   if (fileRow) fileRow.hidden = editing || mediaFormSource !== "file";
   if (linkRow) linkRow.hidden = editing || mediaFormSource !== "link";
-  document.querySelectorAll(".media-channel-source-btn").forEach((btn) => {
+  document.querySelectorAll("#media-channel-form [data-source]").forEach((btn) => {
     btn.classList.toggle("is-on", btn.dataset.source === mediaFormSource);
   });
 }
@@ -777,7 +777,7 @@ if (mediaFormLink) {
     setMediaFormPreview();
   });
 }
-document.querySelectorAll(".media-channel-source-btn").forEach((btn) => {
+document.querySelectorAll("#media-channel-form [data-source]").forEach((btn) => {
   btn.addEventListener("click", () => chooseMediaFormSource(btn.dataset.source));
 });
 window.addEventListener("resize", () => {

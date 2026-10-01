@@ -2,6 +2,14 @@
 // app-shell.js - Main-view switching and the chrome around it.
 // ==================================================================
 
+function publishViewerFocus() {
+  if (typeof ws === "undefined" || !ws || ws.readyState !== 1) return;
+  const view = document.querySelector(".main-view.active");
+  const onChannel = view && view.id === "view-channel";
+  const channelId = onChannel && typeof currentChannelId !== "undefined" ? currentChannelId : null;
+  ws.send(JSON.stringify({ type: "focus", channel_id: channelId || null }));
+}
+
 function switchMainView(viewName) {
   if (viewName !== "profile" && typeof pauseAllOneiraPlayers === "function") {
     pauseAllOneiraPlayers();
@@ -12,6 +20,7 @@ function switchMainView(viewName) {
   document.querySelectorAll(".main-view").forEach(v => v.classList.remove("active"));
   document.getElementById(`view-${viewName}`).classList.add("active");
   updateHomeBadge();
+  if (typeof publishViewerFocus === "function") publishViewerFocus();
 }
 
 function isOneiraAdmin() {

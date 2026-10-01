@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=224">
+<link rel="stylesheet" href="app.css?v=225">
 </head>
 <body>
 
@@ -414,19 +414,28 @@
           <div class="media-channel-form-card" role="dialog" aria-label="Upload Media">
             <div id="media-channel-form-heading" class="media-channel-form-heading">Upload Media</div>
             <div id="media-channel-form-preview" class="media-channel-form-preview"></div>
-            <div id="media-channel-form-source" class="media-channel-form-source">
-              <button type="button" class="media-channel-source-btn is-on" data-source="file">File</button>
-              <button type="button" class="media-channel-source-btn" data-source="link">YouTube Link</button>
-            </div>
-            <div id="media-channel-form-file-row" class="media-channel-form-row">
-              <button type="button" class="pill-btn" id="media-channel-form-pick">Upload</button>
-              <input type="file" id="media-channel-form-file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm" hidden>
-            </div>
-            <div id="media-channel-form-link-row" class="media-channel-form-row" hidden>
-              <input type="url" id="media-channel-form-link" class="media-channel-form-link" placeholder="YouTube link" autocomplete="off">
-            </div>
-            <input type="text" id="media-channel-form-title" class="media-channel-form-title" maxlength="200" placeholder="Untitled media" autocomplete="off">
-            <textarea id="media-channel-form-body" class="list-note-field" rows="5" maxlength="4000" placeholder="Description"></textarea>
+            <section id="media-channel-form-source" class="media-channel-form-section">
+              <div class="media-channel-form-section-title">Media Type</div>
+              <div class="appearance-seg media-channel-form-seg">
+                <button type="button" class="is-on" data-source="file">File</button>
+                <button type="button" data-source="link">YouTube Link</button>
+              </div>
+              <div id="media-channel-form-file-row" class="media-channel-form-row">
+                <button type="button" class="pill-btn" id="media-channel-form-pick">Upload</button>
+                <input type="file" id="media-channel-form-file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm" hidden>
+              </div>
+              <div id="media-channel-form-link-row" class="media-channel-form-row" hidden>
+                <input type="url" id="media-channel-form-link" class="server-settings-input" placeholder="YouTube link" autocomplete="off">
+              </div>
+            </section>
+            <section class="media-channel-form-section">
+              <label class="media-channel-form-section-title" for="media-channel-form-title">Media Title</label>
+              <input type="text" id="media-channel-form-title" class="server-settings-input" maxlength="200" placeholder="Untitled media" autocomplete="off">
+            </section>
+            <section class="media-channel-form-section">
+              <label class="media-channel-form-section-title" for="media-channel-form-body">Media Description</label>
+              <textarea id="media-channel-form-body" class="list-note-field" rows="5" maxlength="4000" placeholder="Description"></textarea>
+            </section>
             <div class="media-channel-form-actions">
               <button type="button" class="pill-btn" id="media-channel-form-cancel">Cancel</button>
               <button type="button" class="pill-btn" id="media-channel-form-done">Done</button>
@@ -1654,8 +1663,8 @@
 <script src="util.js?v=51"></script>
 <script src="media.js?v=58"></script>
 <script src="post-media.js?v=54"></script>
-<script src="boot.js?v=103"></script>
-<script src="app-shell.js?v=65"></script>
+<script src="boot.js?v=104"></script>
+<script src="app-shell.js?v=66"></script>
 <script src="feed.js?v=15"></script>
 <script src="settings.js?v=19"></script>
 <script src="server-settings.js?v=35"></script>
@@ -1722,7 +1731,7 @@
 <script src="lists.js?v=3"></script>
 <script src="calendar.js?v=4"></script>
 <script src="doc-channel.js?v=6"></script>
-<script src="media-channel.js?v=3"></script>
+<script src="media-channel.js?v=4"></script>
 <script src="docs.js?v=47"></script>
 <script src="feedback.js?v=4"></script>
 </body>

@@ -276,6 +276,7 @@ async def post_comment(comment: Comment_create, database: Session = Depends(get_
             post_kind="announcement",
             post_id=announcement.id,
             server_id=server.id,
+            channel_id=channel.id,
         )
     return {"id": new_comment.id, "content": new_comment.content, "created_at": str(new_comment.created_at), "comment_count": announcement.comment_count, "reactions": [], "mention_users": users_map, "mention_roles": roles_map}
 

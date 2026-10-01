@@ -10,7 +10,7 @@ from app.auth import validate_session
 from app.r2 import attachment_public
 from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation, feedback, admin, emojis, notify_prefs, audit, feed, pins, search, lists, calendar, doc_entries, media_items
 from pydantic import ValidationError
-from app.routers.realtime import active_connections, heartbeat, notify_presence, safe_send_json
+from app.routers.realtime import active_connections, heartbeat, notify_presence, safe_send_json, set_viewer_focus
 from app.routers.messages import send_message
 from app.routers.parties import message_party, leave_party
 from app.routers.servers import message_server_channel
@@ -318,6 +318,13 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                         }, member.user_id)
             elif data["type"] == "typing":
                 await relay_typing(data, current_user, database)
+            elif data["type"] == "focus":
+                raw = data.get("channel_id")
+                try:
+                    focused = int(raw) if raw else None
+                except (TypeError, ValueError):
+                    focused = None
+                set_viewer_focus(current_user.id, focused)
 
     except WebSocketDisconnect:
         pass
@@ -330,4 +337,5 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
         await release_doc_locks(current_user.id, database)
         if active_connections.get(current_user.id) is socket:
             del active_connections[current_user.id]
+            set_viewer_focus(current_user.id, None)
             await notify_presence(database, current_user.id, "offline")

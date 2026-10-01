@@ -329,6 +329,14 @@ def reaction_pref_allows(user, kind):
     return True
 
 
+SURFACE_REACTION_KINDS = {"announcement", "forum", "forum_post", "comment", "media_comment"}
+
+
+def watching_surface(user_id, channel_id):
+    from app.routers.realtime import viewer_is_watching_channel
+    return bool(channel_id) and viewer_is_watching_channel(user_id, channel_id)
+
+
 async def notify_activity_reply(
     database,
     *,
@@ -337,8 +345,11 @@ async def notify_activity_reply(
     message_kind,
     message_id,
     server_id=None,
+    channel_id=None,
 ):
     if not receiver_id or not actor_id or receiver_id == actor_id:
+        return
+    if message_kind == "forum" and watching_surface(receiver_id, channel_id):
         return
     await notify_feed_alert(
         database,
@@ -360,8 +371,11 @@ async def notify_activity_reaction(
     message_id,
     emoji,
     server_id=None,
+    channel_id=None,
 ):
     if not receiver_id or not actor_id or receiver_id == actor_id:
+        return
+    if message_kind in SURFACE_REACTION_KINDS and watching_surface(receiver_id, channel_id):
         return
     owner = database.query(UserInfo).filter(UserInfo.id == receiver_id).first()
     if not reaction_pref_allows(owner, message_kind):
@@ -386,8 +400,11 @@ async def notify_activity_post_comment(
     post_kind,
     post_id,
     server_id=None,
+    channel_id=None,
 ):
     if not receiver_id or not actor_id or receiver_id == actor_id:
+        return
+    if watching_surface(receiver_id, channel_id):
         return
     await notify_feed_alert(
         database,

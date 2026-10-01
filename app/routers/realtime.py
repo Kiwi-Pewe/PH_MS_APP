@@ -6,6 +6,23 @@ from starlette.websockets import WebSocketDisconnect
 import asyncio
 
 active_connections = {}
+viewer_focus = {}
+
+
+def set_viewer_focus(user_id, channel_id):
+    if channel_id:
+        viewer_focus[user_id] = int(channel_id)
+    else:
+        viewer_focus.pop(user_id, None)
+
+
+def viewer_is_watching_channel(user_id, channel_id):
+    if not channel_id:
+        return False
+    try:
+        return viewer_focus.get(user_id) == int(channel_id)
+    except (TypeError, ValueError):
+        return False
 
 def presence_status(user_id):
     return "online" if user_id in active_connections else "offline"

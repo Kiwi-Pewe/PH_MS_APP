@@ -41,6 +41,7 @@ function connectSocket() {
   ws.onopen = () => {
     hasOpened = true;
     enterApp();
+    publishViewerFocus();
   };
 
   ws.onclose = () => {

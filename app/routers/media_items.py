@@ -279,7 +279,7 @@ async def post_media_comment(body: Media_comment_create, database: Session = Dep
     }
     await server_broadcast(server_id=server.id, payload={"type": "media_comment", "server_id": server.id, "channel_id": channel.id, "item_id": item.id, "comment": payload_comment}, database=database, exclude_user_id=current_user.id)
     if item.sender_id:
-        await notify_activity_post_comment(database, receiver_id=item.sender_id, actor_id=current_user.id, post_kind="media", post_id=item.id, server_id=server.id)
+        await notify_activity_post_comment(database, receiver_id=item.sender_id, actor_id=current_user.id, post_kind="media", post_id=item.id, server_id=server.id, channel_id=channel.id)
     return payload_comment
 
 

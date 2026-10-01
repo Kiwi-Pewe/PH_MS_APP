@@ -65,11 +65,6 @@ function docEntryFaceSource(entry) {
   return { id: entry && entry.sender_id, username: entry && entry.sender_username };
 }
 
-function docEntryRole(userId) {
-  const member = (typeof memberList !== "undefined" ? memberList : []).find((row) => Number(row.id) === Number(userId));
-  return member && member.name_role ? member.name_role : null;
-}
-
 function paintDocChannelList() {
   const grid = document.getElementById("doc-channel-grid");
   const page = document.getElementById("doc-channel-page");
@@ -154,17 +149,16 @@ function paintDocChannelAuthor(entry) {
   nameBtn.type = "button";
   nameBtn.className = "doc-channel-author-name";
   nameBtn.textContent = name;
-  if (typeof applyServerNameColor === "function") applyServerNameColor(nameBtn, entry.sender_id, docEntryRole(entry.sender_id));
+  if (typeof applyServerNameColor === "function") applyServerNameColor(nameBtn, entry.sender_id);
   nameBtn.addEventListener("click", (event) => {
     event.stopPropagation();
     if (typeof openMiniProfile === "function") openMiniProfile(entry.sender_id, nameBtn);
   });
   text.appendChild(nameBtn);
-  const role = docEntryRole(entry.sender_id);
-  if (role && role.name) {
+  if (entry.sender_role) {
     const roleLine = document.createElement("div");
     roleLine.className = "doc-channel-author-role";
-    roleLine.textContent = role.name;
+    roleLine.textContent = entry.sender_role;
     text.appendChild(roleLine);
   }
   host.appendChild(face);

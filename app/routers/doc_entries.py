@@ -6,6 +6,7 @@ from app.schemas import Doc_entry_create, Doc_entry_edit
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
+from app.routers.roles import highest_role_for_user
 
 router = APIRouter()
 
@@ -57,7 +58,16 @@ def username_for(database, user_id):
     return "Someone"
 
 
-def serialize_entry(database, entry):
+def role_name_for(database, server_id, user_id, cache):
+    if user_id in cache:
+        return cache[user_id]
+    role = highest_role_for_user(database, server_id, user_id)
+    name = (role or {}).get("name") or ""
+    cache[user_id] = name
+    return name
+
+
+def serialize_entry(database, entry, server_id, roles):
     return {
         "id": entry.id,
         "channel_id": entry.channel_id,
@@ -65,6 +75,7 @@ def serialize_entry(database, entry):
         "body": entry.body or "",
         "sender_id": entry.sender_id,
         "sender_username": username_for(database, entry.sender_id),
+        "sender_role": role_name_for(database, server_id, entry.sender_id, roles),
         "created_at": stamp(entry.created_at),
         "updated_at": stamp(entry.updated_at or entry.created_at),
     }
@@ -72,7 +83,7 @@ def serialize_entry(database, entry):
 
 @router.get("/get_doc_entries/{channel_id}")
 def get_doc_entries(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    channel, _server = load_docs_channel(database, channel_id, current_user.id)
+    channel, server = load_docs_channel(database, channel_id, current_user.id)
     rows = database.query(Doc_entry).filter(Doc_entry.channel_id == channel.id).all()
 
     def when(row):
@@ -84,7 +95,8 @@ def get_doc_entries(channel_id: int, database: Session = Depends(get_db), curren
         return value
 
     rows.sort(key=when, reverse=True)
-    return {"channel_id": channel.id, "docs": [serialize_entry(database, row) for row in rows]}
+    roles = {}
+    return {"channel_id": channel.id, "docs": [serialize_entry(database, row, server.id, roles) for row in rows]}
 
 
 @router.post("/create_doc_entry")
@@ -101,7 +113,7 @@ async def create_doc_entry(body: Doc_entry_create, database: Session = Depends(g
     database.add(entry)
     database.commit()
     database.refresh(entry)
-    payload = serialize_entry(database, entry)
+    payload = serialize_entry(database, entry, server.id, {})
     await server_broadcast(server_id=server.id, payload={"type": "doc_entry_created", "server_id": server.id, "doc": payload}, database=database, exclude_user_id=current_user.id)
     return payload
 
@@ -119,6 +131,6 @@ async def edit_doc_entry(body: Doc_entry_edit, database: Session = Depends(get_d
     entry.updated_at = datetime.now(timezone.utc)
     database.commit()
     database.refresh(entry)
-    payload = serialize_entry(database, entry)
+    payload = serialize_entry(database, entry, server.id, {})
     await server_broadcast(server_id=server.id, payload={"type": "doc_entry_updated", "server_id": server.id, "doc": payload}, database=database, exclude_user_id=current_user.id)
     return payload

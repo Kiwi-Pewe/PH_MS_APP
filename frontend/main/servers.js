@@ -716,6 +716,10 @@ function channelVisibleInSidebar(channel) {
     return typeof canServerPerm !== "function" || canServerPerm("read_messages");
   }
   if (channel.channel_type === "doc") {
+    if (Object.prototype.hasOwnProperty.call(perms, "view_wallpaper")) return !!perms.view_wallpaper;
+    return typeof canServerPerm !== "function" || canServerPerm("view_wallpaper");
+  }
+  if (channel.channel_type === "docs") {
     if (Object.prototype.hasOwnProperty.call(perms, "view_docs")) return !!perms.view_docs;
     return typeof canServerPerm !== "function" || canServerPerm("view_docs");
   }

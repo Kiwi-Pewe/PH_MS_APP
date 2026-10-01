@@ -25,6 +25,7 @@ LIVE_ROLE_PERMS = (
     "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
     "read_forums", "create_topics", "create_topic_replies", "manage_topics",
     "sticky_topics", "lock_topics",
+    "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
     "view_docs", "create_docs", "manage_docs", "remove_docs",
     "view_events", "create_events", "manage_events", "remove_events",
     "manage_emoji",
@@ -35,6 +36,7 @@ MEMBERS_DEFAULT_PERMS = (
     "read_messages", "send_messages", "upload_chat_media", "pin_messages",
     "view_announcements",
     "read_forums", "create_topics", "create_topic_replies",
+    "view_wallpaper",
     "view_docs",
     "view_events",
 )
@@ -57,6 +59,10 @@ LIVE_CHANNEL_OVERRIDE_PERMS = (
     "manage_topics",
     "sticky_topics",
     "lock_topics",
+    "view_wallpaper",
+    "create_wallpaper",
+    "manage_wallpaper",
+    "remove_wallpaper",
     "view_docs",
     "create_docs",
     "manage_docs",
@@ -77,6 +83,7 @@ CHANNEL_OVERRIDE_DEFAULTS = {
     "read_forums": True,
     "create_topics": True,
     "create_topic_replies": True,
+    "view_wallpaper": True,
     "view_docs": True,
     "view_events": True,
 }
@@ -109,7 +116,28 @@ def clean_role_name(value, fallback="New Role"):
     return name
 
 
+def lift_legacy_wallpaper_perms(raw):
+    if not isinstance(raw, dict):
+        return raw
+    pairs = (
+        ("view_docs", "view_wallpaper"),
+        ("create_docs", "create_wallpaper"),
+        ("manage_docs", "manage_wallpaper"),
+        ("remove_docs", "remove_wallpaper"),
+    )
+    if any(new in raw for _old, new in pairs):
+        return raw
+    if not any(old in raw for old, _new in pairs):
+        return raw
+    lifted = dict(raw)
+    for old, new in pairs:
+        if old in lifted:
+            lifted[new] = lifted.pop(old)
+    return lifted
+
+
 def clean_role_perms(raw):
+    raw = lift_legacy_wallpaper_perms(raw)
     perms = empty_role_perms()
     if not isinstance(raw, dict):
         return perms
@@ -124,9 +152,14 @@ def parse_role_perms(row):
         data = json.loads(raw) if raw else {}
     except (TypeError, ValueError):
         data = {}
+    data = lift_legacy_wallpaper_perms(data if isinstance(data, dict) else {})
     perms = clean_role_perms(data)
     if not isinstance(data, dict) or "view_events" not in data:
         perms["view_events"] = True
+    if "view_wallpaper" not in data:
+        perms["view_wallpaper"] = True
+    if "view_docs" not in data:
+        perms["view_docs"] = True
     return perms
 
 
@@ -353,6 +386,7 @@ def empty_channel_override_perms():
 
 
 def clean_channel_override_perms(raw, fallback=None):
+    raw = lift_legacy_wallpaper_perms(raw)
     base = fallback if isinstance(fallback, dict) else empty_channel_override_perms()
     perms = {key: bool(base.get(key, CHANNEL_OVERRIDE_DEFAULTS.get(key, False))) for key in LIVE_CHANNEL_OVERRIDE_PERMS}
     if not isinstance(raw, dict):
@@ -489,6 +523,8 @@ def channel_type_visible(permissions, channel_type):
     if channel_type == "text":
         return bool(permissions.get("read_messages"))
     if channel_type == "doc":
+        return bool(permissions.get("view_wallpaper"))
+    if channel_type == "docs":
         return bool(permissions.get("view_docs"))
     if channel_type == "events":
         return bool(permissions.get("view_events"))

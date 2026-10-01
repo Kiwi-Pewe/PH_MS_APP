@@ -10,8 +10,8 @@ function docsPage() {
 
 function docsMayEdit() {
   if (typeof isServerTimedOut === "function" && isServerTimedOut()) return false;
-  if (typeof canManageDocs === "function" && canManageDocs()) return true;
-  if (typeof canCreateDocs === "function" && canCreateDocs()) {
+  if (typeof canManageWallpaper === "function" && canManageWallpaper()) return true;
+  if (typeof canCreateWallpaper === "function" && canCreateWallpaper()) {
     return !docsAuthorId || docsAuthorId === myUserId;
   }
   return false;
@@ -20,8 +20,8 @@ function docsMayEdit() {
 function docsMayRemove() {
   if (!docsAuthorId) return false;
   if (typeof isServerTimedOut === "function" && isServerTimedOut()) return false;
-  if (docsAuthorId === myUserId) return typeof canCreateDocs === "function" && canCreateDocs();
-  return typeof canRemoveDocs === "function" && canRemoveDocs();
+  if (docsAuthorId === myUserId) return typeof canCreateWallpaper === "function" && canCreateWallpaper();
+  return typeof canRemoveWallpaper === "function" && canRemoveWallpaper();
 }
 
 function paintDocsAccess() {
@@ -29,7 +29,7 @@ function paintDocsAccess() {
     updateDocsChrome();
     return;
   }
-  if (typeof canViewDocs === "function" && !canViewDocs()) {
+  if (typeof canViewWallpaper === "function" && !canViewWallpaper()) {
     if (typeof afterServerStructureChange === "function") afterServerStructureChange();
     return;
   }

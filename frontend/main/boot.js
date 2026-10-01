@@ -492,6 +492,10 @@ function connectSocket() {
       applyDocEntry(data.doc);
     }
 
+    if (data.type === "doc_entry_deleted" && typeof removeDocEntry === "function") {
+      if (Number(currentChannelId) === Number(data.channel_id)) removeDocEntry(data.doc_id);
+    }
+
     if (data.type === "announcement_created") {
       const post = data.post;
       if (typeof applyMentionFields === "function") applyMentionFields(post, post);

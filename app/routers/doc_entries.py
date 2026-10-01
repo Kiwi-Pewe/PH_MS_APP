@@ -2,11 +2,11 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Doc_entry
-from app.schemas import Doc_entry_create, Doc_entry_edit
+from app.schemas import Doc_entry_create, Doc_entry_edit, Doc_entry_delete
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
-from app.routers.roles import highest_role_for_user
+from app.routers.roles import highest_role_for_user, effective_perms_for_user_in_channel, require_channel_perm
 
 router = APIRouter()
 
@@ -23,6 +23,9 @@ def load_docs_channel(database, channel_id, user_id):
     if not member:
         raise HTTPException(status_code=404, detail="Channel not found")
     if (category.is_private or channel.is_private) and server.owner_id != user_id:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel.id)
+    if not perms.get("view_docs"):
         raise HTTPException(status_code=404, detail="Channel not found")
     return channel, server
 
@@ -56,6 +59,18 @@ def username_for(database, user_id):
     if account and account.username:
         return account.username
     return "Someone"
+
+
+def require_doc_edit(database, server, user_id, entry):
+    if entry.sender_id == user_id:
+        return
+    require_channel_perm(database, server, user_id, entry.channel_id, "manage_docs", "You do not have permission to edit that document.")
+
+
+def require_doc_delete(database, server, user_id, entry):
+    if entry.sender_id == user_id:
+        return
+    require_channel_perm(database, server, user_id, entry.channel_id, "remove_docs", "You do not have permission to delete that document.")
 
 
 def role_name_for(database, server_id, user_id, cache):
@@ -102,6 +117,7 @@ def get_doc_entries(channel_id: int, database: Session = Depends(get_db), curren
 @router.post("/create_doc_entry")
 async def create_doc_entry(body: Doc_entry_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     channel, server = load_docs_channel(database, body.channel_id, current_user.id)
+    require_channel_perm(database, server, current_user.id, channel.id, "create_docs", "You do not have permission to create documents.")
     now = datetime.now(timezone.utc)
     entry = Doc_entry(
         channel_id=channel.id,
@@ -124,8 +140,7 @@ async def edit_doc_entry(body: Doc_entry_edit, database: Session = Depends(get_d
     if not entry:
         raise HTTPException(status_code=404, detail="Document not found")
     _channel, server = load_docs_channel(database, entry.channel_id, current_user.id)
-    if entry.sender_id != current_user.id and server.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="You do not have permission to edit that document.")
+    require_doc_edit(database, server, current_user.id, entry)
     entry.title = clean_title(body.title)
     entry.body = clean_body(body.body)
     entry.updated_at = datetime.now(timezone.utc)
@@ -134,3 +149,18 @@ async def edit_doc_entry(body: Doc_entry_edit, database: Session = Depends(get_d
     payload = serialize_entry(database, entry, server.id, {})
     await server_broadcast(server_id=server.id, payload={"type": "doc_entry_updated", "server_id": server.id, "doc": payload}, database=database, exclude_user_id=current_user.id)
     return payload
+
+
+@router.post("/delete_doc_entry")
+async def delete_doc_entry(body: Doc_entry_delete, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    entry = database.query(Doc_entry).filter(Doc_entry.id == body.doc_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Document not found")
+    channel_id = entry.channel_id
+    _channel, server = load_docs_channel(database, channel_id, current_user.id)
+    require_doc_delete(database, server, current_user.id, entry)
+    doc_id = entry.id
+    database.delete(entry)
+    database.commit()
+    await server_broadcast(server_id=server.id, payload={"type": "doc_entry_deleted", "server_id": server.id, "channel_id": channel_id, "doc_id": doc_id}, database=database, exclude_user_id=current_user.id)
+    return {"doc_id": doc_id, "channel_id": channel_id}

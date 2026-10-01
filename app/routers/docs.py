@@ -41,17 +41,17 @@ def doc_author_id(page):
 
 def can_edit_doc(database, server, user_id, author_id, channel_id):
     perms = effective_perms_for_user_in_channel(database, server, user_id, channel_id)
-    if perms.get("manage_docs"):
+    if perms.get("manage_wallpaper"):
         return True
-    return bool(perms.get("create_docs") and (author_id is None or author_id == user_id))
+    return bool(perms.get("create_wallpaper") and (author_id is None or author_id == user_id))
 
 def can_remove_doc(database, server, user_id, author_id, channel_id):
     if author_id is None:
         return False
     perms = effective_perms_for_user_in_channel(database, server, user_id, channel_id)
     if user_id == author_id:
-        return bool(perms.get("create_docs"))
-    return bool(perms.get("remove_docs"))
+        return bool(perms.get("create_wallpaper"))
+    return bool(perms.get("remove_wallpaper"))
 
 def load_doc_context(channel_id, database, current_user, require_view=True):
     channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
@@ -63,7 +63,7 @@ def load_doc_context(channel_id, database, current_user, require_view=True):
     if not member:
         raise HTTPException(status_code=404, detail="membership not found")
     if require_view:
-        require_channel_perm(database, server, current_user.id, channel.id, "view_docs", "You do not have permission to view docs.")
+        require_channel_perm(database, server, current_user.id, channel.id, "view_wallpaper", "You do not have permission to view wallpaper.")
     return channel, server, member
 
 def doc_payload_flags(database, server, user_id, page, channel_id):

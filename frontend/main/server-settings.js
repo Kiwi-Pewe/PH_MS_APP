@@ -165,20 +165,20 @@ function canPinMessages() {
   return channelPerm("pin_messages");
 }
 
-function canViewDocs() {
-  return channelPerm("view_docs");
+function canViewWallpaper() {
+  return channelPerm("view_wallpaper");
 }
 
-function canCreateDocs() {
-  return channelPerm("create_docs");
+function canCreateWallpaper() {
+  return channelPerm("create_wallpaper");
 }
 
-function canManageDocs() {
-  return channelPerm("manage_docs");
+function canManageWallpaper() {
+  return channelPerm("manage_wallpaper");
 }
 
-function canRemoveDocs() {
-  return channelPerm("remove_docs");
+function canRemoveWallpaper() {
+  return channelPerm("remove_wallpaper");
 }
 
 function applyServerPerms(perms, highestRole, timeoutUntil) {

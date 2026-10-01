@@ -498,6 +498,9 @@ class Doc_entry_edit(BaseModel):
     title: str = ""
     body: str = ""
 
+class Doc_entry_delete(BaseModel):
+    doc_id: int
+
 class Calendar_event_create(BaseModel):
     channel_id: int
     name: str

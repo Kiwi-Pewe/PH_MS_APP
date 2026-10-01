@@ -53,10 +53,52 @@ function showDocChannelButton(id, on) {
   el.style.display = on ? "inline-flex" : "none";
 }
 
+function canCreateDocEntries() {
+  return typeof channelPerm === "function" && channelPerm("create_docs");
+}
+
+function canManageDocEntries() {
+  return typeof channelPerm === "function" && channelPerm("manage_docs");
+}
+
+function canRemoveDocEntries() {
+  return typeof channelPerm === "function" && channelPerm("remove_docs");
+}
+
 function canEditDocEntry(entry) {
-  if (!entry) return true;
+  if (!entry) return canCreateDocEntries();
   if (Number(entry.sender_id) === Number(myUserId)) return true;
-  return currentServerOwnerId === myUserId;
+  return canManageDocEntries();
+}
+
+function canDeleteDocEntry(entry) {
+  if (!entry) return false;
+  if (Number(entry.sender_id) === Number(myUserId)) return true;
+  return canRemoveDocEntries();
+}
+
+function docEntryMenuOptions(entry, includeOpen) {
+  const options = [];
+  if (includeOpen) options.push({ label: "Open", onSelect: () => openDocEntry(entry) });
+  if (canEditDocEntry(entry)) options.push({ label: "Edit", onSelect: () => openDocEntryEditor(entry) });
+  options.push({ label: "Move", disabled: true });
+  if (canDeleteDocEntry(entry)) options.push({ label: "Delete", danger: true, onSelect: () => deleteDocEntry(entry.id) });
+  return options;
+}
+
+function openDocEntryMenu(event, entry, includeOpen) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (!entry || typeof openContextMenu !== "function") return;
+  openContextMenu(event.clientX, event.clientY, null, docEntryMenuOptions(entry, includeOpen));
+}
+
+function syncDocChannelMenu(entry) {
+  const el = document.getElementById("doc-channel-menu");
+  if (!el) return;
+  const open = (docEntryMode === "read" || docEntryMode === "edit") && !!entry;
+  el.style.display = open ? "inline-flex" : "none";
+  el.disabled = !open;
 }
 
 function docEntryFaceSource(entry) {
@@ -70,11 +112,11 @@ function paintDocChannelList() {
   const page = document.getElementById("doc-channel-page");
   if (page) page.hidden = true;
   if (grid) grid.hidden = false;
-  showDocChannelButton("doc-channel-add", true);
+  showDocChannelButton("doc-channel-add", canCreateDocEntries());
   showDocChannelButton("doc-channel-back", false);
   showDocChannelButton("doc-channel-edit", false);
-  showDocChannelButton("doc-channel-menu", false);
   showDocChannelButton("doc-channel-save", false);
+  syncDocChannelMenu(null);
   if (!grid) return;
   grid.replaceChildren();
   if (!currentDocEntries.length) {
@@ -121,6 +163,7 @@ function paintDocChannelList() {
     card.appendChild(copy);
     card.appendChild(foot);
     card.addEventListener("click", () => openDocEntry(entry));
+    card.addEventListener("contextmenu", (event) => openDocEntryMenu(event, entry, true));
     grid.appendChild(card);
   });
 }
@@ -192,8 +235,8 @@ function openDocEntry(entry) {
   showDocChannelButton("doc-channel-add", false);
   showDocChannelButton("doc-channel-back", true);
   showDocChannelButton("doc-channel-edit", canEditDocEntry(entry));
-  showDocChannelButton("doc-channel-menu", true);
   showDocChannelButton("doc-channel-save", false);
+  syncDocChannelMenu(entry);
 }
 
 function openDocEntryEditor(entry) {
@@ -228,8 +271,8 @@ function openDocEntryEditor(entry) {
   showDocChannelButton("doc-channel-add", false);
   showDocChannelButton("doc-channel-back", true);
   showDocChannelButton("doc-channel-edit", false);
-  showDocChannelButton("doc-channel-menu", false);
   showDocChannelButton("doc-channel-save", true);
+  syncDocChannelMenu(entry);
   if (titleInput) titleInput.focus();
 }
 
@@ -303,8 +346,40 @@ async function saveDocEntry() {
   openDocEntry(data);
 }
 
+function removeDocEntry(docId) {
+  currentDocEntries = currentDocEntries.filter((row) => Number(row.id) !== Number(docId));
+  if (Number(docEntryId) === Number(docId)) {
+    docEntryMode = "list";
+    docEntryId = null;
+    docEntrySnapshot = "";
+    paintDocChannelList();
+    return;
+  }
+  if (docEntryMode === "list") paintDocChannelList();
+}
+
+async function deleteDocEntry(docId) {
+  if (!docId) return;
+  const response = await fetch(`https://${serverAddress}/delete_doc_entry`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ doc_id: docId }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert((typeof data.detail === "string" && data.detail) || "Could not delete that document.");
+    return;
+  }
+  removeDocEntry(data.doc_id || docId);
+}
 const docChannelAdd = document.getElementById("doc-channel-add");
-if (docChannelAdd) docChannelAdd.addEventListener("click", () => openDocEntryEditor(null));
+if (docChannelAdd) {
+  docChannelAdd.addEventListener("click", () => {
+    if (!canCreateDocEntries()) return;
+    openDocEntryEditor(null);
+  });
+}
 const docChannelBack = document.getElementById("doc-channel-back");
 if (docChannelBack) docChannelBack.addEventListener("click", showDocChannelList);
 const docChannelEdit = document.getElementById("doc-channel-edit");
@@ -316,3 +391,13 @@ if (docChannelEdit) {
 }
 const docChannelSave = document.getElementById("doc-channel-save");
 if (docChannelSave) docChannelSave.addEventListener("click", saveDocEntry);
+const docChannelMenu = document.getElementById("doc-channel-menu");
+if (docChannelMenu) {
+  docChannelMenu.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const entry = currentDocEntries.find((row) => Number(row.id) === Number(docEntryId));
+    if (!entry || typeof openContextMenu !== "function") return;
+    const rect = docChannelMenu.getBoundingClientRect();
+    openContextMenu(rect.left, rect.bottom + 4, null, docEntryMenuOptions(entry, false));
+  });
+}

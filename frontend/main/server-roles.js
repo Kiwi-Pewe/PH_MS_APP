@@ -83,10 +83,19 @@ const SERVER_ROLE_PERMS = [
   {
     title: "Wallpaper permissions",
     rows: [
-      { id: "view_docs", title: "View wallpaper", desc: "Allows you to view wallpaper channels." },
-      { id: "create_docs", title: "Create wallpaper", desc: "Allows you to create wallpaper pages." },
-      { id: "manage_docs", title: "Manage wallpaper", desc: "Allows you to update wallpaper pages created by others and move them to other channels." },
-      { id: "remove_docs", title: "Remove wallpaper", desc: "Allows you to remove wallpaper pages created by others." }
+      { id: "view_wallpaper", title: "View wallpaper", desc: "Allows you to view wallpaper channels." },
+      { id: "create_wallpaper", title: "Create wallpaper", desc: "Allows you to create wallpaper pages." },
+      { id: "manage_wallpaper", title: "Manage wallpaper", desc: "Allows you to update wallpaper pages created by others and move them to other channels." },
+      { id: "remove_wallpaper", title: "Remove wallpaper", desc: "Allows you to remove wallpaper pages created by others." }
+    ]
+  },
+  {
+    title: "Docs permissions",
+    rows: [
+      { id: "view_docs", title: "View docs", desc: "Allows you to view docs channels." },
+      { id: "create_docs", title: "Create docs", desc: "Allows you to create documents." },
+      { id: "manage_docs", title: "Manage docs", desc: "Allows you to update documents created by others and move them to other channels." },
+      { id: "remove_docs", title: "Remove docs", desc: "Allows you to remove documents created by others." }
     ]
   },
   {
@@ -215,7 +224,7 @@ function emptyServerRolePerms() {
 
 function defaultMembersPerms() {
   const perms = emptyServerRolePerms();
-  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "pin_messages", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_docs"].forEach((id) => {
+  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "pin_messages", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_wallpaper", "view_docs"].forEach((id) => {
     perms[id] = true;
   });
   return perms;

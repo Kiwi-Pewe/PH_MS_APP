@@ -15,6 +15,7 @@ let channelSettingsPermLive = [
   "view_announcements", "create_announcements", "manage_announcements",
   "read_forums", "create_topics", "create_topic_replies", "manage_topics",
   "sticky_topics", "lock_topics",
+  "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
   "view_docs", "create_docs", "manage_docs", "remove_docs",
   "view_events", "create_events", "manage_events", "remove_events",
 ];
@@ -39,6 +40,7 @@ const CHANNEL_SETTINGS_LIVE_DEFAULTS = {
   read_forums: true,
   create_topics: true,
   create_topic_replies: true,
+  view_wallpaper: true,
   view_docs: true,
 };
 const CHANNEL_SETTINGS_PERM_COPY = {
@@ -134,21 +136,37 @@ const CHANNEL_SETTINGS_PERM_COPY = {
     title: "Lock topics",
     desc: "Allows locking a topic in this channel.",
   },
-  view_docs: {
+  view_wallpaper: {
     title: "View wallpaper",
     desc: "Allows viewing this wallpaper channel.",
   },
-  create_docs: {
+  create_wallpaper: {
     title: "Create wallpaper",
     desc: "Allows creating wallpaper pages in this channel.",
   },
-  manage_docs: {
+  manage_wallpaper: {
     title: "Manage wallpaper",
     desc: "Allows updating others' wallpaper pages in this channel.",
   },
-  remove_docs: {
+  remove_wallpaper: {
     title: "Remove wallpaper",
     desc: "Allows removing others' wallpaper pages in this channel.",
+  },
+  view_docs: {
+    title: "View docs",
+    desc: "Allows viewing documents in this channel.",
+  },
+  create_docs: {
+    title: "Create docs",
+    desc: "Allows creating documents in this channel.",
+  },
+  manage_docs: {
+    title: "Manage docs",
+    desc: "Allows updating others' documents in this channel.",
+  },
+  remove_docs: {
+    title: "Remove docs",
+    desc: "Allows removing others' documents in this channel.",
   },
   see_media: {
     title: "See media",
@@ -258,17 +276,17 @@ const CHANNEL_SETTINGS_PERM_COPY = {
 
 function channelSettingsPermGroupIds(kind, channelType) {
   if (kind === "category") {
-    return ["general", "chat", "announcements", "forums", "docs", "media", "voice", "lists"];
+    return ["general", "chat", "announcements", "forums", "wallpaper", "docs", "media", "voice", "lists"];
   }
   const type = String(channelType || "text").toLowerCase();
   if (type === "announcements") return ["general", "announcements"];
   if (type === "forums") return ["general", "forums"];
-  if (type === "doc") return ["general", "docs"];
+  if (type === "doc") return ["general", "wallpaper"];
   if (type === "voice") return ["general", "voice"];
   if (type === "media") return ["general", "media"];
   if (type === "lists") return ["general", "lists"];
   if (type === "events") return ["general", "calendar"];
-  if (type === "docs") return ["general"];
+  if (type === "docs") return ["general", "docs"];
   return ["general", "chat"];
 }
 
@@ -279,7 +297,8 @@ function channelSettingsPermGroupKey(title) {
   if (t.startsWith("chat")) return "chat";
   if (t.startsWith("calendar")) return "calendar";
   if (t.startsWith("forum")) return "forums";
-  if (t.startsWith("docs") || t.startsWith("wallpaper")) return "docs";
+  if (t.startsWith("wallpaper")) return "wallpaper";
+  if (t.startsWith("docs")) return "docs";
   if (t.startsWith("media")) return "media";
   if (t.startsWith("voice")) return "voice";
   if (t.startsWith("list")) return "lists";

@@ -59,6 +59,12 @@ function canEditDocEntry(entry) {
   return currentServerOwnerId === myUserId;
 }
 
+function docEntryFaceSource(entry) {
+  const member = (typeof memberList !== "undefined" ? memberList : []).find((row) => Number(row.id) === Number(entry && entry.sender_id));
+  if (member) return member;
+  return { id: entry && entry.sender_id, username: entry && entry.sender_username };
+}
+
 function docEntryRole(userId) {
   const member = (typeof memberList !== "undefined" ? memberList : []).find((row) => Number(row.id) === Number(userId));
   return member && member.name_role ? member.name_role : null;
@@ -87,18 +93,23 @@ function paintDocChannelList() {
     const card = document.createElement("button");
     card.type = "button";
     card.className = "doc-channel-card";
+    const copy = document.createElement("div");
+    copy.className = "doc-channel-card-copy";
     const title = document.createElement("div");
     title.className = "doc-channel-card-title";
     title.textContent = entry.title || "Untitled document";
     const preview = document.createElement("div");
     preview.className = "doc-channel-card-preview";
     preview.textContent = docEntryPreview(entry.body) || "Empty document";
+    copy.appendChild(title);
+    copy.appendChild(preview);
     const foot = document.createElement("div");
     foot.className = "doc-channel-card-foot";
     const face = document.createElement("span");
-    face.className = "doc-channel-face";
+    face.className = "avatar-dot";
+    const source = docEntryFaceSource(entry);
     if (typeof paintUserFace === "function") {
-      paintUserFace(face, { username: entry.sender_username }, { userId: entry.sender_id, name: entry.sender_username, circle: true });
+      paintUserFace(face, source, { userId: entry.sender_id, name: entry.sender_username, circle: true });
     }
     const meta = document.createElement("div");
     const name = document.createElement("div");
@@ -112,8 +123,7 @@ function paintDocChannelList() {
     meta.appendChild(when);
     foot.appendChild(face);
     foot.appendChild(meta);
-    card.appendChild(title);
-    card.appendChild(preview);
+    card.appendChild(copy);
     card.appendChild(foot);
     card.addEventListener("click", () => openDocEntry(entry));
     grid.appendChild(card);
@@ -131,9 +141,10 @@ function paintDocChannelAuthor(entry) {
   host.hidden = false;
   const face = document.createElement("button");
   face.type = "button";
-  face.className = "doc-channel-face";
+  face.className = "avatar-dot doc-channel-author-face";
   const name = entry.sender_username || "Someone";
-  if (typeof paintUserFace === "function") paintUserFace(face, { username: name }, { userId: entry.sender_id, name, circle: true });
+  const source = docEntryFaceSource(entry);
+  if (typeof paintUserFace === "function") paintUserFace(face, source, { userId: entry.sender_id, name, circle: true });
   face.addEventListener("click", (event) => {
     event.stopPropagation();
     if (typeof openMiniProfile === "function") openMiniProfile(entry.sender_id, face);

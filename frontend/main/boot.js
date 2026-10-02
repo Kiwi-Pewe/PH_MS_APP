@@ -621,6 +621,10 @@ function connectSocket() {
       applyAnnouncementHighlight(data);
     }
 
+    if (data.type === "voice_roster" && typeof applyVoiceRoster === "function") {
+      applyVoiceRoster(data);
+    }
+
     // Same exclude_user_id pattern — deleter's own cleanup happens
     // directly in deletePostFromContextMenu instead. Not gated on the
     // channel being open, same reasoning as announcement_comment above:

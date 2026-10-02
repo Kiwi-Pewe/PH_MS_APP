@@ -379,6 +379,9 @@ class Channel_follow_body(BaseModel):
     dest_channel_id: int
     source_channel_id: int
 
+class Voice_join(BaseModel):
+    channel_id: int
+
 class Announcements(BaseModel):
     channel_id: int
     title: str

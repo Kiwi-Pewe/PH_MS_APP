@@ -259,6 +259,7 @@ async function openServer(serverId, iconEl) {
   });
 
   renderServerSidebar(data);
+  if (typeof loadVoiceRoster === "function") loadVoiceRoster(serverId);
   if (typeof loadMemberList === "function") loadMemberList("server", serverId);
   if (typeof loadMentionRoles === "function") loadMentionRoles(serverId);
 
@@ -439,9 +440,23 @@ function renderServerSidebar(data) {
   }
   if (typeof paintEventRailRows === "function") paintEventRailRows();
   if (typeof refreshEventRows === "function") refreshEventRows();
+  if (typeof paintVoiceRails === "function") paintVoiceRails();
 }
 
 async function selectChannel(channel, rowEl) {
+  if (channel && channel.channel_type === "voice" && voiceJoinedChannelId !== channel.id) {
+    const stageWasOpen = voiceStageChannelId != null;
+    const joined = typeof joinVoiceChannel === "function" ? await joinVoiceChannel(channel) : false;
+    if (!joined) return;
+    if (stageWasOpen) {
+      if (typeof closeVoiceStage === "function") closeVoiceStage();
+      const next = firstVisibleSidebarChannel();
+      if (next) await selectChannel(next);
+      else showNoChannelSelected();
+    }
+    return;
+  }
+  if (channel && channel.channel_type !== "voice" && typeof closeVoiceStage === "function") closeVoiceStage();
   if (typeof hideMentionPicker === "function") hideMentionPicker();
   if (typeof abandonMessageEdit === "function") abandonMessageEdit();
   if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
@@ -535,6 +550,8 @@ async function selectChannel(channel, rowEl) {
   if (docChannelView) docChannelView.style.display = "none";
   if (mediaChannelView) mediaChannelView.style.display = "none";
   if (scheduleView) scheduleView.style.display = "none";
+  const voiceView = document.getElementById("voice-view");
+  if (voiceView && channel.channel_type !== "voice") voiceView.style.display = "none";
   const eventPage = document.getElementById("event-page");
   if (eventPage) eventPage.style.display = "none";
   if (typeof closeEventPageIf === "function" && openEventId) closeEventPageIf(openEventId);
@@ -631,12 +648,11 @@ async function selectChannel(channel, rowEl) {
   channelComposer.style.display = "block";
 
   if (isVoice) {
+    channelBody.style.display = "none";
+    channelComposer.style.display = "none";
     channelMessages.style.display = "none";
-    channelEmpty.style.display = "flex";
-    document.getElementById("channel-empty-badge").textContent = "\u{1F50A}";
-    document.getElementById("channel-welcome-title").textContent = `Welcome to ${label}!`;
-    document.getElementById("channel-welcome-sub").textContent = "Voice channels aren't supported yet \u2014 text channels are today's focus.";
-    disableChannelComposer("Voice channels can't receive text messages yet.");
+    channelEmpty.style.display = "none";
+    if (typeof openVoiceStage === "function") openVoiceStage(channel);
     return;
   }
 
@@ -727,6 +743,9 @@ function showNoChannelSelected() {
   if (typeof hideScheduleChrome === "function") hideScheduleChrome();
   const schedulePanel = document.getElementById("schedule-view");
   if (schedulePanel) schedulePanel.style.display = "none";
+  const voicePanel = document.getElementById("voice-view");
+  if (voicePanel) voicePanel.style.display = "none";
+  if (typeof closeVoiceStage === "function") closeVoiceStage();
   if (typeof closeCalendarEvent === "function") closeCalendarEvent();
   document.getElementById("channel-body").style.display = "flex";
   document.getElementById("channel-composer").style.display = "block";
@@ -778,7 +797,7 @@ function channelVisibleInSidebar(channel) {
 
 function firstVisibleSidebarChannel() {
   if (!currentServerData) return null;
-  return currentServerData.categories.flatMap(c => c.channels).find(channelVisibleInSidebar) || null;
+  return currentServerData.categories.flatMap(c => c.channels).find((channel) => channelVisibleInSidebar(channel) && channel.channel_type !== "voice") || null;
 }
 
 function channelStillInSidebar(channelId) {

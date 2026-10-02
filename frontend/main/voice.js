@@ -5,6 +5,10 @@ let voiceJoinedServerId = null;
 let voiceJoinedChannelName = "";
 let voiceJoinedServerName = "";
 let voiceStageChannelId = null;
+let voiceMuted = false;
+let voiceDeafened = false;
+let voiceCameraOn = false;
+let voiceNoiseOn = true;
 const voiceBannerColors = new Map();
 
 function voiceFaceUrl(media) {
@@ -91,8 +95,10 @@ async function joinVoiceChannel(channel) {
   voiceJoinedServerId = data.server_id || currentServerId;
   voiceJoinedChannelName = channel.name || "Voice";
   voiceJoinedServerName = (currentServerData && currentServerData.name) || (document.getElementById("server-sidebar-name") || {}).textContent || "Server";
+  voiceCameraOn = false;
   applyVoiceRoster(data);
   paintVoiceDock();
+  paintVoiceInputs();
   return true;
 }
 
@@ -117,15 +123,41 @@ async function leaveVoiceChannel() {
 }
 
 function paintVoiceDock() {
-  const dock = document.getElementById("voice-dock");
-  if (!dock) return;
+  const card = document.getElementById("voice-user-card");
+  if (!card) return;
   if (!voiceJoinedChannelId) {
-    dock.hidden = true;
+    card.hidden = true;
+    const noise = document.getElementById("voice-noise-menu");
+    if (noise) noise.hidden = true;
+    const share = document.getElementById("voice-share-overlay");
+    if (share) share.hidden = true;
     return;
   }
-  dock.hidden = false;
-  const where = document.getElementById("voice-dock-where");
+  card.hidden = false;
+  const where = document.getElementById("voice-user-where");
   if (where) where.textContent = voiceJoinedChannelName + " / " + voiceJoinedServerName;
+  paintVoiceInputs();
+}
+
+function paintVoiceInputs() {
+  const muteOn = voiceMuted || voiceDeafened;
+  document.querySelectorAll("#footer-mute, #voice-ctrl-mute").forEach((button) => {
+    button.classList.toggle("is-off", muteOn);
+  });
+  const deafen = document.getElementById("footer-deafen");
+  if (deafen) deafen.classList.toggle("is-off", voiceDeafened);
+  document.querySelectorAll("#voice-user-camera, #voice-ctrl-camera").forEach((button) => {
+    button.classList.toggle("is-off", !voiceCameraOn);
+  });
+  const noiseInput = document.getElementById("voice-noise-input");
+  if (noiseInput) noiseInput.checked = voiceNoiseOn;
+}
+
+function openVoiceShare() {
+  const share = document.getElementById("voice-share-overlay");
+  if (share) share.hidden = false;
+  const noise = document.getElementById("voice-noise-menu");
+  if (noise) noise.hidden = true;
 }
 
 function closeVoiceStage() {
@@ -303,6 +335,8 @@ function openVoiceStage(channel) {
 function bindVoiceControls() {
   const leave = document.getElementById("voice-ctrl-leave");
   if (leave) leave.addEventListener("click", () => leaveVoiceChannel());
+  const cardLeave = document.getElementById("voice-user-leave");
+  if (cardLeave) cardLeave.addEventListener("click", () => leaveVoiceChannel());
   const more = document.getElementById("voice-ctrl-more");
   const menu = document.getElementById("voice-more");
   if (more && menu) {
@@ -319,11 +353,80 @@ function bindVoiceControls() {
       if (typeof jumpToSettings === "function") jumpToSettings("voice-video");
     });
   }
+  const footerSettings = document.getElementById("footer-settings");
+  if (footerSettings) {
+    footerSettings.addEventListener("click", () => {
+      if (typeof openSettings === "function") openSettings();
+    });
+  }
+  const footerMute = document.getElementById("footer-mute");
+  const stageMute = document.getElementById("voice-ctrl-mute");
+  const toggleMute = () => {
+    voiceMuted = !voiceMuted;
+    if (!voiceMuted) voiceDeafened = false;
+    paintVoiceInputs();
+  };
+  if (footerMute) {
+    footerMute.disabled = false;
+    footerMute.addEventListener("click", toggleMute);
+  }
+  if (stageMute) {
+    stageMute.disabled = false;
+    stageMute.addEventListener("click", toggleMute);
+  }
+  const footerDeafen = document.getElementById("footer-deafen");
+  if (footerDeafen) {
+    footerDeafen.addEventListener("click", () => {
+      voiceDeafened = !voiceDeafened;
+      if (voiceDeafened) voiceMuted = true;
+      paintVoiceInputs();
+    });
+  }
+  const toggleCamera = () => {
+    voiceCameraOn = !voiceCameraOn;
+    paintVoiceInputs();
+  };
+  const cardCamera = document.getElementById("voice-user-camera");
+  const stageCamera = document.getElementById("voice-ctrl-camera");
+  if (cardCamera) cardCamera.addEventListener("click", toggleCamera);
+  if (stageCamera) {
+    stageCamera.disabled = false;
+    stageCamera.addEventListener("click", toggleCamera);
+  }
+  const cardScreen = document.getElementById("voice-user-screen");
+  const stageScreen = document.getElementById("voice-ctrl-screen");
+  if (cardScreen) cardScreen.addEventListener("click", () => openVoiceShare());
+  if (stageScreen) {
+    stageScreen.disabled = false;
+    stageScreen.addEventListener("click", () => openVoiceShare());
+  }
+  const shareClose = document.getElementById("voice-share-close");
+  const shareOverlay = document.getElementById("voice-share-overlay");
+  if (shareClose && shareOverlay) shareClose.addEventListener("click", () => { shareOverlay.hidden = true; });
+  if (shareOverlay) {
+    shareOverlay.addEventListener("click", (event) => {
+      if (event.target === shareOverlay) shareOverlay.hidden = true;
+    });
+  }
+  const noiseBtn = document.getElementById("voice-user-noise");
+  const noiseMenu = document.getElementById("voice-noise-menu");
+  if (noiseBtn && noiseMenu) {
+    noiseBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      noiseMenu.hidden = !noiseMenu.hidden;
+    });
+  }
+  const noiseInput = document.getElementById("voice-noise-input");
+  if (noiseInput) {
+    noiseInput.addEventListener("change", () => {
+      voiceNoiseOn = noiseInput.checked;
+    });
+  }
   document.addEventListener("click", (event) => {
-    if (!menu || menu.hidden) return;
-    if (event.target.closest("#voice-more") || event.target.closest("#voice-ctrl-more")) return;
-    menu.hidden = true;
+    if (menu && !menu.hidden && !event.target.closest("#voice-more") && !event.target.closest("#voice-ctrl-more")) menu.hidden = true;
+    if (noiseMenu && !noiseMenu.hidden && !event.target.closest("#voice-noise-menu") && !event.target.closest("#voice-user-noise")) noiseMenu.hidden = true;
   });
+  paintVoiceInputs();
 }
 
 bindVoiceControls();

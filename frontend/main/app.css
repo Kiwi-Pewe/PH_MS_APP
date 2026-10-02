@@ -3780,12 +3780,17 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .schedule-cap-top { top: -4px; }
 .schedule-cap-foot { bottom: -4px; }
+.schedule-own {
+  position: absolute; left: -16px; top: -16px; width: 54px; height: 36px;
+  z-index: 6; pointer-events: auto;
+}
+.schedule-own .schedule-face { left: 2px; top: 2px; transform: none; }
 .schedule-remove {
-  display: none; position: absolute; left: 16px; top: -8px; pointer-events: auto; z-index: 7;
-  width: 16px; height: 16px; border-radius: 50%; background: var(--panel);
+  display: none; position: absolute; right: 0; top: 4px; pointer-events: auto; z-index: 7;
+  width: 18px; height: 18px; border-radius: 50%; background: var(--panel);
   color: var(--text); border: 1px solid var(--border); font-size: 12px; line-height: 1;
 }
-.schedule-block:hover .schedule-remove { display: inline-flex; align-items: center; justify-content: center; }
+.schedule-own:hover .schedule-remove { display: inline-flex; align-items: center; justify-content: center; }
 .schedule-card {
   position: fixed; z-index: 30; width: 240px; padding: 12px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px;

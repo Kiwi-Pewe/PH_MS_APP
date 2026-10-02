@@ -216,10 +216,13 @@ function scheduleBlockElement(block, day, column) {
   cap.className = "schedule-cap schedule-cap-top";
   const foot = document.createElement("span");
   foot.className = "schedule-cap schedule-cap-foot";
-  wrap.appendChild(face);
   wrap.appendChild(cap);
   wrap.appendChild(foot);
   if (Number(block.user_id) === Number(myUserId)) {
+    const own = document.createElement("div");
+    own.className = "schedule-own";
+    own.addEventListener("pointerdown", (event) => event.stopPropagation());
+    own.appendChild(face);
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "schedule-remove";
@@ -231,7 +234,10 @@ function scheduleBlockElement(block, day, column) {
       closeScheduleCard();
       deleteScheduleBlock(block.id);
     });
-    wrap.appendChild(remove);
+    own.appendChild(remove);
+    wrap.appendChild(own);
+  } else {
+    wrap.appendChild(face);
   }
   return wrap;
 }
@@ -392,10 +398,7 @@ function openScheduleCard(event, day, hour) {
   });
   card.appendChild(create);
   card.hidden = false;
-  const left = Math.min(event.clientX + 12, window.innerWidth - 280);
-  const top = Math.min(event.clientY + 8, window.innerHeight - 220);
-  card.style.left = Math.max(8, left) + "px";
-  card.style.top = Math.max(8, top) + "px";
+  if (typeof positionMenu === "function") positionMenu(card, event.clientX, event.clientY);
 }
 
 async function loadSchedule(channelId, keepScroll) {

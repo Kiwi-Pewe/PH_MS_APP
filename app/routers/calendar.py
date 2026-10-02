@@ -15,6 +15,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
 from app.routers.roles import effective_perms_for_user_in_channel, require_channel_perm
+from app.routers.mentions import note_channel_unread
 
 router = APIRouter()
 
@@ -442,6 +443,7 @@ async def create_calendar_event(body: Calendar_event_create, database: Session =
     event = Calendar_event(channel_id=channel.id, sender_id=current_user.id)
     apply_fields(database, server, event, body)
     database.add(event)
+    note_channel_unread(database, server.id, channel.id, current_user.id)
     database.commit()
     database.refresh(event)
     invited = list(body.invite_ids or [])
@@ -685,11 +687,12 @@ async def create_calendar_event_comment(body: Calendar_event_comment_create, dat
         content = content[:4000]
     comment = Calendar_event_comment(event_id=event.id, user_id=current_user.id, content=content)
     database.add(comment)
+    note_channel_unread(database, server.id, event.channel_id, current_user.id)
     database.commit()
     database.refresh(comment)
     names = {}
     payload = comment_payload(database, comment, names)
-    await server_broadcast(server_id=server.id, payload={"type": "calendar_event_comment", "server_id": server.id, "event_id": event.id, "comment": payload}, database=database, exclude_user_id=current_user.id)
+    await server_broadcast(server_id=server.id, payload={"type": "calendar_event_comment", "server_id": server.id, "channel_id": event.channel_id, "event_id": event.id, "comment": payload}, database=database, exclude_user_id=current_user.id)
     return payload
 
 

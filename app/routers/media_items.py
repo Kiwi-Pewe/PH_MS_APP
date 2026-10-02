@@ -8,7 +8,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
 from app.routers.roles import highest_role_for_user, effective_perms_for_user_in_channel, require_channel_perm, name_color_role_for_user, name_color_roles_by_user
-from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions
+from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions, note_channel_unread
 from app.routers.profile import avatar_lookup, public_avatar
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.pins import clear_pins
@@ -183,6 +183,7 @@ async def create_media_item(body: Media_item_create, database: Session = Depends
         updated_at=now,
     )
     database.add(item)
+    note_channel_unread(database, server.id, channel.id, current_user.id)
     database.commit()
     database.refresh(item)
     payload = serialize_item(database, item, server.id, {})
@@ -253,7 +254,7 @@ async def post_media_comment(body: Media_comment_create, database: Session = Dep
     comment = Media_comment(item_id=item.id, sender_id=current_user.id, content=clean_comment(body.content))
     database.add(comment)
     database.flush()
-    comment.content = apply_server_text_mentions(database, comment.content, "media_comment", comment.id, server, channel.id, sender_id=current_user.id)
+    comment.content = apply_server_text_mentions(database, comment.content, "media_comment", comment.id, server, channel.id, seed=True, sender_id=current_user.id)
     database.commit()
     database.refresh(comment)
     users_map = mention_user_map(database, comment.content)

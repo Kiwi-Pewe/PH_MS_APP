@@ -7,6 +7,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
 from app.routers.roles import highest_role_for_user, effective_perms_for_user_in_channel, require_channel_perm
+from app.routers.mentions import note_channel_unread
 
 router = APIRouter()
 
@@ -127,6 +128,7 @@ async def create_doc_entry(body: Doc_entry_create, database: Session = Depends(g
         updated_at=now,
     )
     database.add(entry)
+    note_channel_unread(database, server.id, channel.id, current_user.id)
     database.commit()
     database.refresh(entry)
     payload = serialize_entry(database, entry, server.id, {})

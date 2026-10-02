@@ -25,6 +25,12 @@ function buildCommentElement(comment) {
   time.textContent = formatClusterTime(parseUtcTimestamp(comment.created_at));
   header.appendChild(name);
   header.appendChild(time);
+  if (comment.edited) {
+    const edited = document.createElement("span");
+    edited.className = "edited-tag";
+    edited.textContent = "edited";
+    header.appendChild(edited);
+  }
 
   // Always rendered now - Copy/React always populate the menu
   // regardless of permission, so it's never empty the way a
@@ -78,6 +84,7 @@ function showCommentContextMenu(e, comment) {
     subtitle: truncateForContextMenu(typeof mentionDisplayText === "function" ? mentionDisplayText(comment.content, comment.mentionUsers, comment.mentionRoles) : comment.content)
   }, [
     { label: "Copy Comment", onSelect: () => copyCommentContent(comment) },
+    isMine && { label: "Edit Comment", onSelect: () => startCommentEdit(comment) },
     { label: "Add Reaction", onSelect: () => openReactionPicker(commentReactionTarget(comment), e.clientX, e.clientY) },
     (typeof canPinMessages !== "function" || canPinMessages()) && {
       label: (typeof isMessagePinned === "function" && isMessagePinned(commentKindOf(comment), comment.id)) ? "Unpin" : "Pin",
@@ -93,6 +100,100 @@ function showCommentContextMenu(e, comment) {
     !isMine && { label: "Report", disabled: true },
     canDelete && { label: "Delete Comment", danger: true, onSelect: () => deleteCommentFromContextMenu(comment) }
   ]);
+}
+
+let editingCommentId = null;
+
+function startCommentEdit(comment) {
+  if (!comment || Number(comment.sender_id) !== Number(myUserId)) return;
+  if (editingCommentId && Number(editingCommentId) !== Number(comment.id)) {
+    const previous = findCommentRecord(editingCommentId);
+    if (previous) cancelCommentEdit(previous);
+  }
+  editingCommentId = comment.id;
+  const row = document.querySelector(`.announce-comment[data-comment-id="${comment.id}"]`);
+  const content = row && row.querySelector(".announce-comment-content");
+  if (!content) return;
+  content.replaceChildren();
+  const editor = document.createElement("div");
+  editor.className = "announce-comment-edit";
+  const field = document.createElement("textarea");
+  field.className = "announce-comment-input";
+  field.rows = 5;
+  field.maxLength = 4000;
+  field.value = typeof mentionDisplayText === "function"
+    ? mentionDisplayText(comment.content || "", comment.mentionUsers, comment.mentionRoles)
+    : (comment.content || "");
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "pill-btn";
+  save.textContent = "Save";
+  save.addEventListener("click", () => confirmCommentEdit(comment, field));
+  field.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") cancelCommentEdit(comment);
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) confirmCommentEdit(comment, field);
+  });
+  editor.appendChild(field);
+  editor.appendChild(save);
+  content.appendChild(editor);
+  if (typeof bindMentionComposer === "function") bindMentionComposer(field);
+  field.focus();
+}
+
+function findCommentRecord(commentId) {
+  const keys = Object.keys(commentThreadState || {});
+  for (let i = 0; i < keys.length; i++) {
+    const found = (commentThreadState[keys[i]].comments || []).find((row) => Number(row.id) === Number(commentId));
+    if (found) return found;
+  }
+  return null;
+}
+
+function cancelCommentEdit(comment) {
+  editingCommentId = null;
+  const row = document.querySelector(`.announce-comment[data-comment-id="${comment.id}"]`);
+  if (row) row.replaceWith(buildCommentElement(comment));
+}
+
+async function confirmCommentEdit(comment, field) {
+  const content = ((field && field.value) || "").trim();
+  if (!content) {
+    window.alert("Write a comment first.");
+    return;
+  }
+  const response = await fetch(`https://${serverAddress}/edit_comment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ comment_id: comment.id, content }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert((typeof data.detail === "string" && data.detail) || "Could not edit that comment.");
+    return;
+  }
+  applyCommentEdit({
+    post_id: comment.post_id,
+    comment_id: comment.id,
+    content: data.content,
+    edited: data.edited,
+    mention_users: data.mention_users,
+    mention_roles: data.mention_roles,
+    mentionUsers: data.mention_users,
+    mentionRoles: data.mention_roles,
+  });
+}
+
+function applyCommentEdit(data) {
+  const state = commentThreadState[data.post_id];
+  const comment = state && (state.comments || []).find((row) => Number(row.id) === Number(data.comment_id));
+  if (!comment) return;
+  comment.content = data.content;
+  comment.edited = !!data.edited;
+  if (typeof applyMentionFields === "function") applyMentionFields(comment, data);
+  editingCommentId = null;
+  const row = document.querySelector(`.announce-comment[data-comment-id="${data.comment_id}"]`);
+  if (row) row.replaceWith(buildCommentElement(comment));
 }
 
 function commentKindOf(comment) {

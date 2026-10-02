@@ -16,6 +16,32 @@ function listWhen(stamp) {
   return formatClusterTime(parseUtcTimestamp(stamp));
 }
 
+function listCan(perm) {
+  if (typeof channelPerm !== "function") return true;
+  return !!channelPerm(perm);
+}
+
+function listOwns(item) {
+  return Number(item && item.sender_id) === Number(myUserId);
+}
+
+function listCanManage(item) {
+  return listOwns(item) || listCan("manage_list");
+}
+
+function listCanRemove(item) {
+  return listOwns(item) || listCan("remove_list");
+}
+
+function listCanComplete(item) {
+  return listOwns(item) || listCan("complete_list");
+}
+
+function paintListComposer() {
+  const add = document.querySelector("#lists-view .list-add");
+  if (add) add.hidden = !listCan("create_list");
+}
+
 function paintListAddState() {
   const title = document.getElementById("lists-title-input");
   const save = document.getElementById("lists-save-btn");
@@ -31,6 +57,7 @@ function renderList() {
   doneHost.replaceChildren();
   const open = currentListItems.filter((item) => !item.completed);
   const done = currentListItems.filter((item) => item.completed);
+  paintListComposer();
   open.forEach((item) => openHost.appendChild(buildListBlock(item)));
   if (toggle) toggle.textContent = done.length + " Completed";
   doneHost.hidden = !listCompletedOpen;
@@ -48,7 +75,8 @@ function buildListBlock(item) {
   box.className = "list-check" + (item.completed ? " is-on" : "");
   box.setAttribute("aria-checked", item.completed ? "true" : "false");
   box.textContent = item.completed ? "\u2713" : "";
-  box.addEventListener("click", () => toggleListItem(item));
+  if (listCanComplete(item)) box.addEventListener("click", () => toggleListItem(item));
+  else box.disabled = true;
   row.appendChild(box);
   if (Number(editingListItemId) === Number(item.id)) {
     const input = document.createElement("input");
@@ -94,9 +122,12 @@ function buildListBlock(item) {
   more.addEventListener("click", (event) => openListItemMenu(event, item));
   tools.appendChild(note);
   tools.appendChild(thread);
-  tools.appendChild(more);
+  if (listCanManage(item) || listCanRemove(item)) {
+    tools.appendChild(more);
+    row.addEventListener("contextmenu", (event) => openListItemMenu(event, item));
+  }
   row.appendChild(tools);
-  row.addEventListener("contextmenu", (event) => openListItemMenu(event, item));
+  bindListDrag(row, item);
   block.appendChild(row);
   if (Number(openListThreadId) === Number(item.id)) block.appendChild(buildListThread(item));
   return block;
@@ -110,12 +141,63 @@ function openListItemMenu(event, item) {
     label: "#" + (channel.name || "list"),
     onSelect: () => moveListItem(item.id, channel.id),
   }));
-  const options = [
-    { label: "Edit", onSelect: () => { editingListItemId = item.id; renderList(); } },
-    move.length ? { label: "Move to channel", submenu: move } : { label: "Move to channel", disabled: true },
-    { label: "Delete", danger: true, onSelect: () => deleteListItem(item.id) },
-  ];
+  const options = [];
+  if (listCanManage(item)) {
+    options.push({ label: "Edit", onSelect: () => { editingListItemId = item.id; renderList(); } });
+    options.push(move.length ? { label: "Move to channel", submenu: move } : { label: "Move to channel", disabled: true });
+  }
+  if (listCanRemove(item)) options.push({ label: "Delete", danger: true, onSelect: () => deleteListItem(item.id) });
+  if (!options.length) return;
   openContextMenu(event.clientX, event.clientY, null, options);
+}
+
+let listDragId = null;
+
+function bindListDrag(row, item) {
+  if (!listCan("reorder_list")) return;
+  row.draggable = true;
+  row.addEventListener("dragstart", (event) => {
+    if (event.target.closest("button, input, textarea, a")) {
+      event.preventDefault();
+      return;
+    }
+    listDragId = Number(item.id);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(item.id));
+  });
+  row.addEventListener("dragover", (event) => {
+    if (!listDragId || Number(listDragId) === Number(item.id)) return;
+    event.preventDefault();
+  });
+  row.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const fromId = listDragId;
+    listDragId = null;
+    if (!fromId || Number(fromId) === Number(item.id)) return;
+    const host = row.closest("#lists-open, #lists-completed");
+    if (host) reorderListSection(host, fromId, item.id);
+  });
+  row.addEventListener("dragend", () => { listDragId = null; });
+}
+
+async function reorderListSection(host, fromId, beforeId) {
+  const ids = [...host.querySelectorAll(".list-block")].map((node) => Number(node.dataset.itemId));
+  const next = ids.filter((id) => id !== Number(fromId));
+  const at = next.indexOf(Number(beforeId));
+  if (at < 0) return;
+  next.splice(at, 0, Number(fromId));
+  const response = await fetch(`https://${serverAddress}/reorder_list_items`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ channel_id: currentChannelId, item_ids: next }),
+  });
+  if (!response.ok) return;
+  const map = new Map(currentListItems.map((row) => [Number(row.id), row]));
+  const moved = next.map((id) => map.get(id)).filter(Boolean);
+  const other = currentListItems.filter((row) => next.indexOf(Number(row.id)) === -1);
+  currentListItems = host.id === "lists-open" ? moved.concat(other) : other.concat(moved);
+  renderList();
 }
 
 function buildListThread(item) {
@@ -204,6 +286,7 @@ function applyListThreadMessage(itemId, message, threadCount) {
 }
 
 async function toggleListItem(item) {
+  if (!listCanComplete(item)) return;
   const next = !item.completed;
   item.completed = next;
   renderList();
@@ -389,7 +472,7 @@ function listNameButton(userId, name) {
 function openListNote(itemId) {
   openListNoteId = itemId;
   const item = listItemById(itemId);
-  listNoteEditing = !(item && String(item.note || "").trim());
+  listNoteEditing = !!(item && listCanManage(item) && !String(item.note || "").trim());
   const overlay = document.getElementById("list-note-overlay");
   if (overlay) overlay.hidden = false;
   paintListNote(listNoteEditing);
@@ -408,7 +491,8 @@ function paintListNote(focusEditor) {
   if (!item || !body) return;
   const prior = document.getElementById("list-note-input");
   const draft = prior ? prior.value : (item.note || "");
-  const showEditor = listNoteEditing || !String(item.note || "").trim();
+  const canEdit = listCanManage(item);
+  const showEditor = canEdit && (listNoteEditing || !String(item.note || "").trim());
   body.replaceChildren();
 
   const task = document.createElement("div");
@@ -418,7 +502,8 @@ function paintListNote(focusEditor) {
   box.className = "list-check" + (item.completed ? " is-on" : "");
   box.setAttribute("aria-checked", item.completed ? "true" : "false");
   box.textContent = item.completed ? "\u2713" : "";
-  box.addEventListener("click", () => toggleListItem(item));
+  if (listCanComplete(item)) box.addEventListener("click", () => toggleListItem(item));
+  else box.disabled = true;
   const title = document.createElement("div");
   title.className = "list-note-task-title" + (item.completed ? " is-done" : "");
   title.textContent = item.title || "Item";
@@ -443,6 +528,8 @@ function paintListNote(focusEditor) {
   by.appendChild(count);
   body.appendChild(by);
 
+  if (!showEditor && !String(item.note || "").trim()) return;
+
   if (!showEditor) {
     const message = document.createElement("div");
     message.className = "list-note-message";
@@ -463,10 +550,14 @@ function paintListNote(focusEditor) {
     main.appendChild(text);
     message.appendChild(listFace(item.note_sender_id || item.sender_id, item.note_username || item.username));
     message.appendChild(main);
-    message.addEventListener("click", () => {
-      listNoteEditing = true;
-      paintListNote(true);
-    });
+    if (canEdit) {
+      message.addEventListener("click", () => {
+        listNoteEditing = true;
+        paintListNote(true);
+      });
+    } else {
+      message.title = "";
+    }
     body.appendChild(message);
     return;
   }

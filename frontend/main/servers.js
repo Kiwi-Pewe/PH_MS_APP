@@ -483,6 +483,7 @@ async function selectChannel(channel, rowEl) {
   currentChannelType = channel.channel_type;
   currentChannelName = channel.name;
   if (typeof markChannelReadLocal === "function") markChannelReadLocal(channel.id);
+  if (typeof stampChannelView === "function") stampChannelView(channel.id);
 
   document.querySelectorAll(".channel-row").forEach(r => r.classList.remove("active"));
   const activeRow = document.querySelector(`.channel-row[data-channel-id="${channel.id}"]`);
@@ -767,6 +768,10 @@ function channelVisibleInSidebar(channel) {
   if (channel.channel_type === "media") {
     if (Object.prototype.hasOwnProperty.call(perms, "see_media")) return !!perms.see_media;
     return typeof canServerPerm !== "function" || canServerPerm("see_media");
+  }
+  if (channel.channel_type === "lists") {
+    if (Object.prototype.hasOwnProperty.call(perms, "view_list")) return !!perms.view_list;
+    return true;
   }
   return true;
 }

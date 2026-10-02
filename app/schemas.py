@@ -386,10 +386,19 @@ class Announcements(BaseModel):
     attachments: list[Attachment_in] = []
     attachment: Attachment_in | None = None
     notify_all: bool = False
+    comments_open: bool = True
 
 class Comment_create(BaseModel):
     post_id: int
     content: str
+
+class Comment_edit(BaseModel):
+    comment_id: int
+    content: str
+
+class Announcement_highlight(BaseModel):
+    post_id: int
+    on: bool = True
 
 class Forum_post_create(BaseModel):
     channel_id: int
@@ -487,6 +496,10 @@ class List_item_note(BaseModel):
 class List_item_move(BaseModel):
     item_id: int
     channel_id: int
+
+class List_items_reorder(BaseModel):
+    channel_id: int
+    item_ids: list[int] = []
 
 class Doc_entry_create(BaseModel):
     channel_id: int
@@ -593,6 +606,7 @@ class Edit_announcement(BaseModel):
     title: str
     body: str = ""
     attachments: list[Attachment_in] = []
+    comments_open: bool = True
 
 class Edit_forum(BaseModel):
     post_id: int

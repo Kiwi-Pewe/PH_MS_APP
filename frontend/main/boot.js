@@ -458,6 +458,9 @@ function connectSocket() {
 
     if (data.type === "media_comment" && typeof applyMediaComment === "function") {
       applyMediaComment(data);
+      if (typeof noteIncomingChannelMessage === "function") {
+        noteIncomingChannelMessage(data.channel_id, data.server_id, false, Number(currentChannelId) === Number(data.channel_id));
+      }
     }
 
     if (data.type === "media_comment_deleted" && typeof removeMediaComment === "function") {
@@ -470,6 +473,9 @@ function connectSocket() {
 
     if (data.type === "list_item_created" && typeof appendListItem === "function") {
       appendListItem(data.item);
+      if (data.item && typeof noteIncomingChannelMessage === "function") {
+        noteIncomingChannelMessage(data.item.channel_id, data.server_id, false, Number(currentChannelId) === Number(data.item.channel_id));
+      }
     }
 
     if (data.type === "list_item_deleted" && typeof removeListItem === "function") {
@@ -487,10 +493,20 @@ function connectSocket() {
 
     if (data.type === "list_thread_message" && typeof applyListThreadMessage === "function") {
       applyListThreadMessage(data.item_id, data.message, data.thread_count);
+      if (typeof noteIncomingChannelMessage === "function") {
+        noteIncomingChannelMessage(data.channel_id, data.server_id, false, Number(currentChannelId) === Number(data.channel_id));
+      }
+    }
+
+    if (data.type === "list_reordered" && typeof loadListItems === "function" && Number(currentChannelId) === Number(data.channel_id)) {
+      loadListItems(data.channel_id);
     }
 
     if (data.type === "calendar_event_created" && typeof applyCalendarEvent === "function") {
       applyCalendarEvent(data.event);
+      if (data.event && typeof noteIncomingChannelMessage === "function") {
+        noteIncomingChannelMessage(data.event.channel_id, data.server_id, false, Number(currentChannelId) === Number(data.event.channel_id));
+      }
       if (typeof noteEventUnread === "function") noteEventUnread(data.event);
       if (typeof refreshEventRows === "function") refreshEventRows();
     }
@@ -510,6 +526,9 @@ function connectSocket() {
 
     if (data.type === "calendar_event_comment" && typeof reloadOpenEventPage === "function") {
       reloadOpenEventPage(data.event_id);
+      if (typeof noteIncomingChannelMessage === "function") {
+        noteIncomingChannelMessage(data.channel_id, data.server_id, false, Number(currentChannelId) === Number(data.channel_id));
+      }
     }
 
     if (data.type === "calendar_event_reacted" && typeof patchEventReactions === "function") {
@@ -518,6 +537,9 @@ function connectSocket() {
 
     if ((data.type === "doc_entry_created" || data.type === "doc_entry_updated") && typeof applyDocEntry === "function") {
       applyDocEntry(data.doc);
+      if (data.type === "doc_entry_created" && data.doc && typeof noteIncomingChannelMessage === "function") {
+        noteIncomingChannelMessage(data.doc.channel_id, data.server_id, false, Number(currentChannelId) === Number(data.doc.channel_id));
+      }
     }
 
     if (data.type === "doc_entry_deleted" && typeof removeDocEntry === "function") {
@@ -526,6 +548,9 @@ function connectSocket() {
 
     if ((data.type === "media_item_created" || data.type === "media_item_updated") && typeof applyMediaItem === "function") {
       applyMediaItem(data.item);
+      if (data.type === "media_item_created" && data.item && typeof noteIncomingChannelMessage === "function") {
+        noteIncomingChannelMessage(data.item.channel_id, data.server_id, false, Number(currentChannelId) === Number(data.item.channel_id));
+      }
     }
 
     if (data.type === "media_item_deleted" && typeof removeMediaItem === "function") {
@@ -586,6 +611,14 @@ function connectSocket() {
     // directly in deleteCommentFromContextMenu instead.
     if (data.type === "comment_deleted") {
       removeCommentFromThread(data.post_id, data.comment_id, data.comment_count);
+    }
+
+    if (data.type === "comment_edited" && typeof applyCommentEdit === "function") {
+      applyCommentEdit(data);
+    }
+
+    if (data.type === "announcement_highlighted" && typeof applyAnnouncementHighlight === "function") {
+      applyAnnouncementHighlight(data);
     }
 
     // Same exclude_user_id pattern — deleter's own cleanup happens

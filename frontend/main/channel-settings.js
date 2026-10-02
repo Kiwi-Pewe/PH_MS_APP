@@ -20,6 +20,7 @@ let channelSettingsPermLive = [
   "see_media", "create_media", "manage_media", "remove_media",
   "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
   "view_schedules", "create_schedule", "delete_schedule",
+  "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
 ];
 let channelSettingsPermLoading = false;
 let channelSettingsPermSaving = {};
@@ -47,6 +48,9 @@ const CHANNEL_SETTINGS_LIVE_DEFAULTS = {
   see_media: true,
   view_schedules: true,
   create_schedule: true,
+  view_list: true,
+  create_list: true,
+  complete_list: true,
 };
 const CHANNEL_SETTINGS_PERM_COPY = {
   manage_channels: {

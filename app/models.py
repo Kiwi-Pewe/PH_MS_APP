@@ -285,6 +285,9 @@ class Announcement_post(Base):
     edited = Column(Boolean, default= False)
     is_public = Column(Boolean, default=False)
     followed_from_id = Column(Integer, nullable=True)
+    comments_open = Column(Boolean, default=True)
+    highlighted = Column(Boolean, default=False)
+    highlighted_at = Column(DateTime, nullable=True)
 
 class List_item(Base):
     __tablename__ = "list_items"
@@ -453,6 +456,7 @@ class Announcement_comment(Base):
     sender_id = Column(Integer, ForeignKey("users.id"))
     content = Column(String)
     created_at = Column(DateTime, server_default=func.now())
+    edited = Column(Boolean, default=False)
 
 class Forum_post(Base):
     __tablename__ = "forum_posts"

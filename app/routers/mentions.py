@@ -8,7 +8,9 @@ from sqlalchemy import func
 from app.models import (
     UserInfo, Servers, Server_members, Server_categories, Server_channels,
     Server_roles, Server_role_members, Channel_messages, Channel_last_viewed,
-    Message_mention, Party_members
+    Message_mention, Party_members, Announcement_post, Announcement_comment,
+    Forum_post, Forum_messages, List_item, List_thread_message, Media_item,
+    Media_comment, Doc_entry, Calendar_event, Calendar_event_comment,
 )
 from app.database import get_db
 from app.auth import get_current_user
@@ -340,6 +342,85 @@ def live_reply_to(database, model, reply_to_id, author_attr="sender_id"):
         return {"id": reply_to_id, "sender_id": None, "username": "", "content": "", "deleted": True}
     return reply_to_payload(database, parent, author_attr)
 
+def note_channel_unread(database, server_id, channel_id, sender_id):
+    member_ids = [row.user_id for row in database.query(Server_members).filter(Server_members.server_id == server_id).all()]
+    seed_channel_unread(database, channel_id, member_ids, sender_id, datetime.utcnow())
+
+
+def other_authored_after(database, model, channel_col, time_col, author_col, channel_id, user_id, since):
+    query = database.query(model.id).filter(
+        channel_col == channel_id,
+        author_col.isnot(None),
+        author_col != user_id,
+    )
+    if since is not None:
+        query = query.filter(time_col > since)
+    return query.first() is not None
+
+
+def channel_has_unseen(database, channel, user_id, since):
+    kind = (channel.channel_type or "text").lower()
+    channel_id = channel.id
+    if kind == "announcements":
+        if other_authored_after(database, Announcement_post, Announcement_post.channel_id, Announcement_post.created_at, Announcement_post.sender_id, channel_id, user_id, since):
+            return True
+        query = database.query(Announcement_comment.id).join(Announcement_post, Announcement_comment.post_id == Announcement_post.id).filter(
+            Announcement_post.channel_id == channel_id,
+            Announcement_comment.sender_id.isnot(None),
+            Announcement_comment.sender_id != user_id,
+        )
+        if since is not None:
+            query = query.filter(Announcement_comment.created_at > since)
+        return query.first() is not None
+    if kind == "forums":
+        if other_authored_after(database, Forum_post, Forum_post.channel_id, Forum_post.created_at, Forum_post.author_id, channel_id, user_id, since):
+            return True
+        query = database.query(Forum_messages.id).join(Forum_post, Forum_messages.post_id == Forum_post.id).filter(
+            Forum_post.channel_id == channel_id,
+            Forum_messages.author_id.isnot(None),
+            Forum_messages.author_id != user_id,
+        )
+        if since is not None:
+            query = query.filter(Forum_messages.created_at > since)
+        return query.first() is not None
+    if kind == "lists":
+        if other_authored_after(database, List_item, List_item.channel_id, List_item.created_at, List_item.sender_id, channel_id, user_id, since):
+            return True
+        query = database.query(List_thread_message.id).join(List_item, List_thread_message.item_id == List_item.id).filter(
+            List_item.channel_id == channel_id,
+            List_thread_message.sender_id.isnot(None),
+            List_thread_message.sender_id != user_id,
+        )
+        if since is not None:
+            query = query.filter(List_thread_message.created_at > since)
+        return query.first() is not None
+    if kind == "media":
+        if other_authored_after(database, Media_item, Media_item.channel_id, Media_item.created_at, Media_item.sender_id, channel_id, user_id, since):
+            return True
+        query = database.query(Media_comment.id).join(Media_item, Media_comment.item_id == Media_item.id).filter(
+            Media_item.channel_id == channel_id,
+            Media_comment.sender_id.isnot(None),
+            Media_comment.sender_id != user_id,
+        )
+        if since is not None:
+            query = query.filter(Media_comment.created_at > since)
+        return query.first() is not None
+    if kind == "docs":
+        return other_authored_after(database, Doc_entry, Doc_entry.channel_id, Doc_entry.created_at, Doc_entry.sender_id, channel_id, user_id, since)
+    if kind == "events":
+        if other_authored_after(database, Calendar_event, Calendar_event.channel_id, Calendar_event.created_at, Calendar_event.sender_id, channel_id, user_id, since):
+            return True
+        query = database.query(Calendar_event_comment.id).join(Calendar_event, Calendar_event_comment.event_id == Calendar_event.id).filter(
+            Calendar_event.channel_id == channel_id,
+            Calendar_event_comment.user_id.isnot(None),
+            Calendar_event_comment.user_id != user_id,
+        )
+        if since is not None:
+            query = query.filter(Calendar_event_comment.created_at > since)
+        return query.first() is not None
+    return other_authored_after(database, Channel_messages, Channel_messages.channel_id, Channel_messages.timestamp, Channel_messages.sender_id, channel_id, user_id, since)
+
+
 def seed_channel_unread(database, channel_id, member_ids, sender_id, seen_at):
     rows = database.query(Channel_last_viewed).filter(Channel_last_viewed.channel_id == channel_id).all()
     existing = {row.user_id for row in rows}
@@ -405,13 +486,8 @@ def channel_notice(database, channel_id, user_id):
     if not viewed:
         return {"unread": False, "mention_count": 0}
     since = viewed.last_viewed_at
-
-    unread = database.query(Channel_messages).filter(
-        Channel_messages.channel_id == channel_id,
-        Channel_messages.sender_id != user_id,
-        Channel_messages.sender_id.isnot(None),
-        Channel_messages.timestamp > since
-    ).first() is not None
+    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    unread = channel_has_unseen(database, channel, user_id, since) if channel else False
 
     mention_count = database.query(func.count(Message_mention.id)).filter(
         Message_mention.channel_id == channel_id,

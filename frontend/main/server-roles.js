@@ -149,12 +149,12 @@ const SERVER_ROLE_PERMS = [
   {
     title: "List permissions",
     rows: [
-      { id: "view_list", title: "View list items", desc: "Allows you to view list items.", later: "Lists" },
-      { id: "create_list", title: "Create list items", desc: "Allows you to create list items.", later: "Lists" },
-      { id: "manage_list", title: "Manage list item messages", desc: "Allows you to update list item messages created by others and move list items to other channels.", later: "Lists" },
-      { id: "remove_list", title: "Remove list items", desc: "Allows you to remove list items created by others.", later: "Lists" },
-      { id: "complete_list", title: "Complete list items", desc: "Allows you to complete list items created by others.", later: "Lists" },
-      { id: "reorder_list", title: "Reorder list items", desc: "Allows you to reorder list items.", later: "Lists" }
+      { id: "view_list", title: "View list items", desc: "Allows you to view list items." },
+      { id: "create_list", title: "Create list items", desc: "Allows you to create list items." },
+      { id: "manage_list", title: "Manage list item messages", desc: "Allows you to update list item messages created by others and move list items to other channels." },
+      { id: "remove_list", title: "Remove list items", desc: "Allows you to remove list items created by others." },
+      { id: "complete_list", title: "Complete list items", desc: "Allows you to complete list items created by others." },
+      { id: "reorder_list", title: "Reorder list items", desc: "Allows you to reorder list items." }
     ]
   },
   {

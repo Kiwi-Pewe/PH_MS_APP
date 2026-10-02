@@ -30,6 +30,7 @@ LIVE_ROLE_PERMS = (
     "see_media", "create_media", "manage_media", "remove_media",
     "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
     "view_schedules", "create_schedule", "delete_schedule",
+    "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
     "manage_emoji",
 )
 
@@ -43,6 +44,7 @@ MEMBERS_DEFAULT_PERMS = (
     "see_media",
     "view_events",
     "view_schedules", "create_schedule",
+    "view_list", "create_list", "complete_list",
 )
 
 LIVE_CHANNEL_OVERRIDE_PERMS = (
@@ -83,6 +85,12 @@ LIVE_CHANNEL_OVERRIDE_PERMS = (
     "view_schedules",
     "create_schedule",
     "delete_schedule",
+    "view_list",
+    "create_list",
+    "manage_list",
+    "remove_list",
+    "complete_list",
+    "reorder_list",
 )
 
 CHANNEL_OVERRIDE_DEFAULTS = {
@@ -101,6 +109,9 @@ CHANNEL_OVERRIDE_DEFAULTS = {
     "view_events": True,
     "view_schedules": True,
     "create_schedule": True,
+    "view_list": True,
+    "create_list": True,
+    "complete_list": True,
 }
 
 
@@ -181,6 +192,12 @@ def parse_role_perms(row):
         perms["view_schedules"] = True
     if isinstance(data, dict) and "create_schedule" not in data:
         perms["create_schedule"] = True
+    if isinstance(data, dict) and "view_list" not in data:
+        perms["view_list"] = True
+    if isinstance(data, dict) and "create_list" not in data:
+        perms["create_list"] = True
+    if isinstance(data, dict) and "complete_list" not in data:
+        perms["complete_list"] = True
     return perms
 
 
@@ -338,6 +355,7 @@ def highest_roles_by_user(database, server_id, user_ids=None):
         if current is None or (int(role.position or 0), role.id) < (int(current["position"] or 0), int(current["id"] or 0)):
             best[user_id] = {
                 "id": role.id,
+                "name": role.name or "Role",
                 "position": int(role.position or 0),
                 "is_members": bool(role.is_members),
             }
@@ -551,6 +569,8 @@ def channel_type_visible(permissions, channel_type):
         return bool(permissions.get("see_media"))
     if channel_type == "events":
         return bool(permissions.get("view_events"))
+    if channel_type == "lists":
+        return bool(permissions.get("view_list"))
     return True
 
 

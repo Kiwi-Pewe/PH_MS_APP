@@ -2,10 +2,12 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, List_item, List_thread_message
-from app.schemas import List_item_create, List_item_check, List_item_delete, List_item_edit, List_item_note, List_item_move, List_thread_create
+from app.schemas import List_item_create, List_item_check, List_item_delete, List_item_edit, List_item_note, List_item_move, List_items_reorder, List_thread_create
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
+from app.routers.roles import require_channel_perm, effective_perms_for_user_in_channel, channel_type_visible
+from app.routers.mentions import note_channel_unread
 
 router = APIRouter()
 
@@ -25,6 +27,14 @@ def load_list_channel(database, channel_id, user_id):
     if (category.is_private or channel.is_private) and not is_owner:
         raise HTTPException(status_code=404, detail="Channel not found")
     return channel, server
+
+
+def require_list_perm(database, server, user_id, channel_id, perm, detail):
+    require_channel_perm(database, server, user_id, channel_id, perm, detail)
+
+
+def list_item_author(item, user_id):
+    return item.sender_id == user_id
 
 
 def username_for(database, user_id):
@@ -69,6 +79,9 @@ def list_destinations(database, server, user_id, skip_channel_id):
                 continue
             if channel.is_private and not is_owner:
                 continue
+            perms = effective_perms_for_user_in_channel(database, server, user_id, channel.id)
+            if not channel_type_visible(perms, "lists"):
+                continue
             found.append({"id": channel.id, "name": channel.name or "list"})
     found.sort(key=lambda row: (row["name"] or "").lower())
     return found
@@ -77,6 +90,7 @@ def list_destinations(database, server, user_id, skip_channel_id):
 @router.get("/get_list/{channel_id}")
 def get_list(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     channel, server = load_list_channel(database, channel_id, current_user.id)
+    require_list_perm(database, server, current_user.id, channel.id, "view_list", "You do not have permission to view this list.")
     items = database.query(List_item).filter(List_item.channel_id == channel.id).order_by(List_item.position.asc(), List_item.id.asc()).all()
     return {
         "channel_id": channel.id,
@@ -88,6 +102,7 @@ def get_list(channel_id: int, database: Session = Depends(get_db), current_user:
 @router.post("/list_item")
 async def create_list_item(body: List_item_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     channel, server = load_list_channel(database, body.channel_id, current_user.id)
+    require_list_perm(database, server, current_user.id, channel.id, "create_list", "You do not have permission to add list items.")
     title = (body.title or "").strip()
     if not title:
         raise HTTPException(status_code=400, detail="Title is required.")
@@ -108,6 +123,7 @@ async def create_list_item(body: List_item_create, database: Session = Depends(g
         item.note_sender_id = current_user.id
         item.note_at = datetime.now(timezone.utc)
     database.add(item)
+    note_channel_unread(database, server.id, channel.id, current_user.id)
     database.commit()
     database.refresh(item)
     payload = serialize_item(database, item)
@@ -120,7 +136,9 @@ async def set_list_item_check(body: List_item_check, database: Session = Depends
     item = database.query(List_item).filter(List_item.id == body.item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    _channel, server = load_list_channel(database, item.channel_id, current_user.id)
+    channel, server = load_list_channel(database, item.channel_id, current_user.id)
+    if not list_item_author(item, current_user.id):
+        require_list_perm(database, server, current_user.id, channel.id, "complete_list", "You do not have permission to complete this item.")
     if body.on:
         item.completed_by = current_user.id
         item.completed_at = datetime.now(timezone.utc)
@@ -139,7 +157,9 @@ async def edit_list_item(body: List_item_edit, database: Session = Depends(get_d
     item = database.query(List_item).filter(List_item.id == body.item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    _channel, server = load_list_channel(database, item.channel_id, current_user.id)
+    channel, server = load_list_channel(database, item.channel_id, current_user.id)
+    if not list_item_author(item, current_user.id):
+        require_list_perm(database, server, current_user.id, channel.id, "manage_list", "You do not have permission to edit this item.")
     title = (body.title or "").strip()
     if not title:
         raise HTTPException(status_code=400, detail="Title is required.")
@@ -158,7 +178,9 @@ async def save_list_item_note(body: List_item_note, database: Session = Depends(
     item = database.query(List_item).filter(List_item.id == body.item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    _channel, server = load_list_channel(database, item.channel_id, current_user.id)
+    channel, server = load_list_channel(database, item.channel_id, current_user.id)
+    if not list_item_author(item, current_user.id):
+        require_list_perm(database, server, current_user.id, channel.id, "manage_list", "You do not have permission to edit this note.")
     note = (body.note or "").strip()
     if len(note) > 1000:
         note = note[:1000]
@@ -182,8 +204,11 @@ async def move_list_item(body: List_item_move, database: Session = Depends(get_d
     item = database.query(List_item).filter(List_item.id == body.item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    _source, server = load_list_channel(database, item.channel_id, current_user.id)
+    source, server = load_list_channel(database, item.channel_id, current_user.id)
+    if not list_item_author(item, current_user.id):
+        require_list_perm(database, server, current_user.id, source.id, "manage_list", "You do not have permission to move this item.")
     dest, dest_server = load_list_channel(database, body.channel_id, current_user.id)
+    require_list_perm(database, dest_server, current_user.id, dest.id, "view_list", "You do not have permission to view that list.")
     if dest_server.id != server.id:
         raise HTTPException(status_code=400, detail="That list is on another server.")
     if dest.id == item.channel_id:
@@ -210,6 +235,8 @@ async def delete_list_item(body: List_item_delete, database: Session = Depends(g
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     channel, server = load_list_channel(database, item.channel_id, current_user.id)
+    if not list_item_author(item, current_user.id):
+        require_list_perm(database, server, current_user.id, channel.id, "remove_list", "You do not have permission to remove this item.")
     item_id = item.id
     channel_id = channel.id
     database.query(List_thread_message).filter(List_thread_message.item_id == item.id).delete(synchronize_session=False)
@@ -224,7 +251,8 @@ def get_list_thread(item_id: int, database: Session = Depends(get_db), current_u
     item = database.query(List_item).filter(List_item.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    load_list_channel(database, item.channel_id, current_user.id)
+    channel, server = load_list_channel(database, item.channel_id, current_user.id)
+    require_list_perm(database, server, current_user.id, channel.id, "view_list", "You do not have permission to view this list.")
     rows = database.query(List_thread_message).filter(List_thread_message.item_id == item.id).order_by(List_thread_message.created_at.asc(), List_thread_message.id.asc()).all()
     return {"item_id": item.id, "messages": [{
         "id": row.id,
@@ -240,7 +268,8 @@ async def create_list_thread_message(body: List_thread_create, database: Session
     item = database.query(List_item).filter(List_item.id == body.item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    _channel, server = load_list_channel(database, item.channel_id, current_user.id)
+    channel, server = load_list_channel(database, item.channel_id, current_user.id)
+    require_list_perm(database, server, current_user.id, channel.id, "view_list", "You do not have permission to view this list.")
     content = (body.content or "").strip()
     if not content:
         raise HTTPException(status_code=400, detail="Message is empty.")
@@ -248,6 +277,7 @@ async def create_list_thread_message(body: List_thread_create, database: Session
         content = content[:2000]
     row = List_thread_message(item_id=item.id, sender_id=current_user.id, content=content)
     database.add(row)
+    note_channel_unread(database, server.id, channel.id, current_user.id)
     database.commit()
     database.refresh(row)
     message = {
@@ -267,3 +297,28 @@ async def create_list_thread_message(body: List_thread_create, database: Session
         "message": message,
     }, database=database, exclude_user_id=current_user.id)
     return {"message": message, "thread_count": count}
+
+
+@router.post("/reorder_list_items")
+async def reorder_list_items(body: List_items_reorder, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    channel, server = load_list_channel(database, body.channel_id, current_user.id)
+    require_list_perm(database, server, current_user.id, channel.id, "reorder_list", "You do not have permission to reorder this list.")
+    rows = database.query(List_item).filter(List_item.channel_id == channel.id).all()
+    by_id = {row.id: row for row in rows}
+    ordered = []
+    seen = set()
+    for item_id in body.item_ids or []:
+        item = by_id.get(int(item_id))
+        if not item or item.id in seen:
+            continue
+        seen.add(item.id)
+        ordered.append(item)
+    for index, item in enumerate(ordered):
+        item.position = (index + 1) * 100
+    database.commit()
+    await server_broadcast(server_id=server.id, payload={
+        "type": "list_reordered",
+        "server_id": server.id,
+        "channel_id": channel.id,
+    }, database=database, exclude_user_id=current_user.id)
+    return {"ok": True}

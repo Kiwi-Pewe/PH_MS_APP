@@ -1,19 +1,20 @@
 import html
 import re
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Server_roles, Announcement_post, Announcement_comment, Channel_follow
-from app.schemas import Announcements, Comment_create, Edit_announcement, Announcement_channel_settings, Channel_follow_body
+from app.schemas import Announcements, Comment_create, Comment_edit, Announcement_highlight, Edit_announcement, Announcement_channel_settings, Channel_follow_body
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
 from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions, write_mentions, server_allows_everyone
 from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
-from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, require_channel_perm, require_channel_slowmode
+from app.routers.roles import effective_perms_for_user_in_channel, highest_roles_by_user, name_color_role_for_user, name_color_roles_by_user, require_channel_perm, require_channel_slowmode
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.pins import clear_pins
@@ -68,6 +69,30 @@ def can_edit_own_announcement(database, server, user_id, channel_id):
     return bool(perms.get("create_announcements") or perms.get("manage_announcements"))
 
 
+def can_highlight_announcement(database, server, user_id, sender_id, channel_id):
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel_id)
+    if perms.get("manage_announcements"):
+        return True
+    return user_id == sender_id and bool(perms.get("create_announcements"))
+
+
+def comments_are_open(post):
+    return getattr(post, "comments_open", True) is not False
+
+
+def chronological_posts(query, before_id, limit):
+    rows = query.filter(or_(Announcement_post.highlighted == False, Announcement_post.highlighted.is_(None)))
+    if before_id:
+        rows = rows.filter(Announcement_post.id < int(before_id))
+    found = rows.order_by(Announcement_post.created_at.desc(), Announcement_post.id.desc()).limit(limit).all()
+    found.reverse()
+    return found
+
+
+def highlighted_posts(query):
+    return query.filter(Announcement_post.highlighted == True).order_by(Announcement_post.highlighted_at.desc(), Announcement_post.id.desc()).all()
+
+
 @router.post("/post_announcement")
 async def create_post(announcement: Announcements, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     channel_found = database.query(Server_channels).filter(Server_channels.id == announcement.channel_id).first()
@@ -89,6 +114,7 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
         body = (announcement.body or "").strip(),
         sender_id = current_user.id,
         attachment = attachment_json,
+        comments_open = bool(announcement.comments_open),
     )
     database.add(new_post)
     database.flush()
@@ -110,11 +136,11 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
     payload = {
         "type": "announcement_created",
         "server_id": server.id,
-        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user), "reactions": [], "edited": False, "is_public": bool(new_post.is_public), "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids, "name_role": name_color_role_for_user(database, server.id, current_user.id)}
+        "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user), "reactions": [], "edited": False, "is_public": bool(new_post.is_public), "comments_open": comments_are_open(new_post), "highlighted": False, "sender_role": ((highest_roles_by_user(database, server.id, [current_user.id]).get(current_user.id) or {}).get("name") or ""), "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids, "name_role": name_color_role_for_user(database, server.id, current_user.id)}
         }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     await fan_out_followed_announcement(database, new_post, current_user)
-    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "edited": False, "is_public": bool(new_post.is_public), "mention_users": users_map, "mention_roles": roles_map}
+    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "edited": False, "is_public": bool(new_post.is_public), "comments_open": comments_are_open(new_post), "highlighted": False, "sender_role": payload["post"]["sender_role"], "mention_users": users_map, "mention_roles": roles_map}
 
 @router.get("/get_announcement/{channel_id}")
 def get_announcement_posts(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id = None, around_id: int = None, q: str = None):
@@ -130,7 +156,6 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
         raise HTTPException(status_code=404, detail="Membership not found")
     require_view_announcements(database, server, current_user.id, correct_channel.id)
 
-    around_mode = False
     posts = announcement_query(database, channel_id, q)
     if around_id and not (q or "").strip():
         target = posts.filter(Announcement_post.id == around_id).first()
@@ -138,12 +163,13 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
             raise HTTPException(status_code=404, detail="Post not found")
         before = posts.filter(Announcement_post.id < around_id).order_by(Announcement_post.created_at.desc()).limit(12).all()
         after = posts.filter(Announcement_post.id > around_id).order_by(Announcement_post.created_at.asc()).limit(12).all()
-        post_history = list(reversed(before)) + [target] + after
-        around_mode = True
+        window = list(reversed(before)) + [target] + after
+        seen = {row.id for row in window}
+        post_history = [row for row in highlighted_posts(posts) if row.id not in seen] + window
     elif before_id:
-        post_history = posts.filter(Announcement_post.id < before_id).order_by(Announcement_post.created_at.desc()).limit(25).all()
+        post_history = chronological_posts(posts, before_id, 25)
     else:
-        post_history = posts.order_by(Announcement_post.created_at.desc()).limit(25).all()
+        post_history = highlighted_posts(posts) + chronological_posts(posts, None, 25)
 
     sender_ids = list({post.sender_id for post in post_history})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all() if sender_ids else []
@@ -152,6 +178,7 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
     reaction_map = reactions_for_messages(database, "announcement", [post.id for post in post_history], current_user.id)
     mention_meta = decorate_ids(database, "announcement", [post.id for post in post_history], [post.body for post in post_history], current_user.id)
     name_map = name_color_roles_by_user(database, server.id, sender_ids)
+    role_map = highest_roles_by_user(database, server.id, sender_ids)
 
     recent_post = []
     for index, post in enumerate(post_history):
@@ -169,13 +196,15 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
             "reactions": reaction_map.get(post.id, []),
             "edited": bool(post.edited),
             "is_public": bool(getattr(post, "is_public", False)),
+            "comments_open": comments_are_open(post),
+            "highlighted": bool(getattr(post, "highlighted", False)),
+            "highlighted_at": str(post.highlighted_at) if getattr(post, "highlighted_at", None) else "",
+            "sender_role": (role_map.get(post.sender_id) or {}).get("name") or "",
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
             "mention_roles": mention_meta[index]["mention_roles"],
         })
 
-    if not around_mode:
-        recent_post.reverse()
     return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "posts": recent_post}
 
 @router.get("/server_overview/{server_id}")
@@ -243,6 +272,8 @@ async def post_comment(comment: Comment_create, database: Session = Depends(get_
     if not is_member:
         raise HTTPException(status_code=404, detail="membership not found")
     require_view_announcements(database, server, current_user.id, channel.id)
+    if not comments_are_open(announcement):
+        raise HTTPException(status_code=400, detail="Comments are turned off for this post.")
     from app.routers.moderation import require_not_timed_out
     require_not_timed_out(is_member)
 
@@ -320,6 +351,7 @@ def get_post_comments(post_id: int, database: Session = Depends(get_db), current
             "name_role": name_map.get(user_comment.sender_id),
             "created_at": str(user_comment.created_at),
             "reactions": reaction_map.get(user_comment.id, []),
+            "edited": bool(getattr(user_comment, "edited", False)),
             "mentioned": mention_meta[index]["mentioned"],
             "mention_users": mention_meta[index]["mention_users"],
             "mention_roles": mention_meta[index]["mention_roles"],
@@ -440,18 +472,20 @@ async def edit_announcement(edit: Edit_announcement, database: Session = Depends
     old_keys = [item.get("key") for item in post_attachments_public(post.attachment) if item.get("key")]
     new_keys = [item.key for item in items]
     tokenized = apply_server_text_mentions(database, body, "announcement", post.id, server, post.channel_id)
-    same = (post.title or "") == title and (post.body or "") == tokenized and old_keys == new_keys
-    if same:
+    comments_open = bool(edit.comments_open)
+    text_same = (post.title or "") == title and (post.body or "") == tokenized and old_keys == new_keys
+    if text_same and comments_are_open(post) == comments_open:
         database.commit()
-        return {"id": post.id, "title": post.title, "body": post.body, "attachment": post_attachments_public(post.attachment), "edited": bool(post.edited), "unchanged": True, "mention_users": mention_user_map(database, post.body), "mention_roles": mention_role_map(database, post.body)}
+        return {"id": post.id, "title": post.title, "body": post.body, "attachment": post_attachments_public(post.attachment), "edited": bool(post.edited), "unchanged": True, "comments_open": comments_are_open(post), "mention_users": mention_user_map(database, post.body), "mention_roles": mention_role_map(database, post.body)}
 
-    for key in set(old_keys) - set(new_keys):
-        delete_r2_object(key)
-
-    post.title = title
-    post.body = tokenized
-    post.attachment = store_post_attachments(items, current_user)
-    post.edited = True
+    if not text_same:
+        for key in set(old_keys) - set(new_keys):
+            delete_r2_object(key)
+        post.title = title
+        post.body = tokenized
+        post.attachment = store_post_attachments(items, current_user)
+        post.edited = True
+    post.comments_open = comments_open
     database.commit()
     public_attachment = post_attachments_public(post.attachment)
     users_map = mention_user_map(database, post.body)
@@ -463,12 +497,90 @@ async def edit_announcement(edit: Edit_announcement, database: Session = Depends
         "title": post.title,
         "body": post.body,
         "attachment": public_attachment,
-        "edited": True,
+        "edited": bool(post.edited),
+        "comments_open": comments_are_open(post),
         "mention_users": users_map,
         "mention_roles": roles_map
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-    return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": True, "unchanged": False, "mention_users": users_map, "mention_roles": roles_map}
+    return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": bool(post.edited), "unchanged": False, "comments_open": comments_are_open(post), "mention_users": users_map, "mention_roles": roles_map}
+
+
+@router.post("/highlight_announcement")
+async def highlight_announcement(body: Announcement_highlight, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    post = database.query(Announcement_post).filter(Announcement_post.id == body.post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first() if channel else None
+    server = database.query(Servers).filter(Servers.id == category.server_id).first() if category else None
+    if not server:
+        raise HTTPException(status_code=404, detail="Post not found")
+    member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if not can_highlight_announcement(database, server, current_user.id, post.sender_id, channel.id):
+        raise HTTPException(status_code=403, detail="You do not have permission to highlight this post.")
+    post.highlighted = bool(body.on)
+    post.highlighted_at = datetime.now(timezone.utc) if post.highlighted else None
+    database.commit()
+    payload = {
+        "type": "announcement_highlighted",
+        "server_id": server.id,
+        "channel_id": post.channel_id,
+        "post_id": post.id,
+        "highlighted": bool(post.highlighted),
+        "highlighted_at": str(post.highlighted_at) if post.highlighted_at else "",
+    }
+    await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    return {"post_id": post.id, "highlighted": bool(post.highlighted), "highlighted_at": payload["highlighted_at"]}
+
+
+@router.post("/edit_comment")
+async def edit_comment(edit: Comment_edit, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    comment = database.query(Announcement_comment).filter(Announcement_comment.id == edit.comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    post = database.query(Announcement_post).filter(Announcement_post.id == comment.post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    channel = database.query(Server_channels).filter(Server_channels.id == post.channel_id).first()
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first() if channel else None
+    server = database.query(Servers).filter(Servers.id == category.server_id).first() if category else None
+    if not server:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    require_view_announcements(database, server, current_user.id, channel.id)
+    if comment.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit comment")
+    content = (edit.content or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Write a comment first.")
+    if len(content) > 4000:
+        content = content[:4000]
+    tokenized = apply_server_text_mentions(database, content, "comment", comment.id, server, channel.id)
+    if (comment.content or "") == tokenized:
+        return {"id": comment.id, "content": comment.content, "edited": bool(getattr(comment, "edited", False)), "unchanged": True, "mention_users": mention_user_map(database, comment.content), "mention_roles": mention_role_map(database, comment.content)}
+    comment.content = tokenized
+    comment.edited = True
+    database.commit()
+    users_map = mention_user_map(database, comment.content)
+    roles_map = mention_role_map(database, comment.content)
+    payload = {
+        "type": "comment_edited",
+        "server_id": server.id,
+        "channel_id": channel.id,
+        "post_id": post.id,
+        "comment_id": comment.id,
+        "content": comment.content,
+        "edited": True,
+        "mention_users": users_map,
+        "mention_roles": roles_map,
+    }
+    await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    return {"id": comment.id, "content": comment.content, "edited": True, "unchanged": False, "mention_users": users_map, "mention_roles": roles_map}
 
 
 def load_joined_announcement(database, channel_id, user_id, perm=None):
@@ -543,6 +655,7 @@ async def fan_out_followed_announcement(database, source_post, author):
             attachment=source_post.attachment,
             followed_from_id=source_post.id,
             is_public=False,
+            comments_open=comments_are_open(source_post),
         )
         database.add(copy)
         copies.append((copy, dest, dest_server))
@@ -570,6 +683,8 @@ async def fan_out_followed_announcement(database, source_post, author):
                 "reactions": [],
                 "edited": False,
                 "is_public": False,
+                "comments_open": comments_are_open(copy),
+                "highlighted": False,
                 "followed": True,
                 "mention_users": users_map,
                 "mention_roles": roles_map,

@@ -16,6 +16,12 @@ function canRemoveAnnouncement(post) {
   return post.sender_id === myUserId && typeof canCreateAnnouncements === "function" && canCreateAnnouncements();
 }
 
+function canHighlightAnnouncement(post) {
+  if (!post) return false;
+  if (typeof canManageAnnouncements === "function" && canManageAnnouncements()) return true;
+  return post.sender_id === myUserId && typeof canCreateAnnouncements === "function" && canCreateAnnouncements();
+}
+
 function canEditAnnouncement(post) {
   if (!post || post.sender_id !== myUserId) return false;
   return (typeof canCreateAnnouncements === "function" && canCreateAnnouncements())
@@ -115,6 +121,8 @@ function showAnnounceComposerEditing() {
   document.getElementById("announcement-body-input").style.height = "";
   const notify = document.getElementById("announce-notify-all-input");
   if (notify) notify.checked = false;
+  const commentsOpen = document.getElementById("announce-comments-open-input");
+  if (commentsOpen) commentsOpen.checked = true;
   paintAnnounceNotifyAll();
   if (typeof clearPostMedia === "function") clearPostMedia("announce");
   document.getElementById("announce-composer-default").style.display = "none";
@@ -154,11 +162,13 @@ async function submitCreateAnnouncement() {
     if (pending.length) attachments = await uploadPendingPostFiles(pending);
   const notifyInput = document.getElementById("announce-notify-all-input");
   const notifyAll = !!(notifyInput && notifyInput.checked);
+  const commentsInput = document.getElementById("announce-comments-open-input");
+  const commentsOpen = !commentsInput || commentsInput.checked;
   const response = await fetch(`https://${serverAddress}/post_announcement`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ channel_id: currentChannelId, title, body, attachments, notify_all: notifyAll })
+      body: JSON.stringify({ channel_id: currentChannelId, title, body, attachments, notify_all: notifyAll, comments_open: commentsOpen })
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
@@ -179,7 +189,8 @@ async function submitCreateAnnouncement() {
   const cardPost = {
     id: post.id, title: post.title, body: post.body, attachment: post.attachment,
     created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId, reactions: [], edited: false,
-    is_public: !!post.is_public
+    is_public: !!post.is_public, comments_open: post.comments_open !== false, highlighted: false,
+    sender_role: post.sender_role || ""
   };
   if (typeof applyMentionFields === "function") applyMentionFields(cardPost, post);
   appendNewAnnouncementPost(cardPost);
@@ -191,7 +202,7 @@ async function submitCreateAnnouncement() {
 function buildAnnouncementPostCard(post) {
   if (typeof applyMentionFields === "function") applyMentionFields(post, post);
   const card = document.createElement("div");
-  card.className = "announce-post";
+  card.className = "announce-post" + (post.highlighted ? " is-highlight" : "");
   // Read back by removePostFromView to find and remove this exact DOM
   // node, same pattern buildCommentElement uses for its own rows.
   card.dataset.postId = post.id;
@@ -210,11 +221,9 @@ function buildAnnouncementPostCard(post) {
   if (typeof applyServerNameColor === "function") applyServerNameColor(name, post.sender_id, post.name_role || post.nameRole);
   const role = document.createElement("div");
   role.className = "announce-post-role";
-  // Only the owner can post right now (server-enforced) - accurate
-  // today, needs to come from the payload once real roles exist.
-  role.textContent = "Owner";
+  role.textContent = post.sender_role || "";
   meta.appendChild(name);
-  meta.appendChild(role);
+  if (post.sender_role) meta.appendChild(role);
   const menuBtn = document.createElement("button");
   menuBtn.className = "announce-post-menu-btn";
   menuBtn.title = "More";
@@ -287,6 +296,7 @@ function buildAnnouncementPostCard(post) {
   commentSendBtn.textContent = "Post";
   commentComposer.appendChild(commentInput);
   commentComposer.appendChild(commentSendBtn);
+  if (post.comments_open === false) commentComposer.hidden = true;
   // Stops the post's own right-click handler (attached to the whole
   // card below) from swallowing native browser paste/spellcheck on this
   // input - preventDefault is NOT called here, so the browser's own
@@ -324,10 +334,68 @@ function buildAnnouncementPostCard(post) {
 
 // New post - just created, or pushed via announcement_created. Goes at
 // the bottom, matching chat's newest-at-bottom direction.
+function ensureAnnouncementSpacer(container) {
+  if (!container) return null;
+  let spacer = container.querySelector(".announce-posts-spacer");
+  if (!spacer) {
+    spacer = document.createElement("div");
+    spacer.className = "announce-posts-spacer";
+    container.insertBefore(spacer, container.firstChild);
+  }
+  return spacer;
+}
+
+function reorderAnnouncementPosts() {
+  const container = document.getElementById("announcements-posts");
+  if (!container) return;
+  const highlights = currentAnnouncementPosts.filter((post) => post.highlighted);
+  const rest = currentAnnouncementPosts.filter((post) => !post.highlighted);
+  highlights.sort((a, b) => String(b.highlighted_at || "").localeCompare(String(a.highlighted_at || "")));
+  currentAnnouncementPosts = highlights.concat(rest);
+  ensureAnnouncementSpacer(container);
+  const marker = container.querySelector(".announce-end-marker");
+  currentAnnouncementPosts.forEach((post) => {
+    const card = container.querySelector(`.announce-post[data-post-id="${post.id}"]`);
+    if (!card) return;
+    card.classList.toggle("is-highlight", !!post.highlighted);
+    container.appendChild(card);
+  });
+  if (marker) container.appendChild(marker);
+}
+
+async function toggleAnnouncementHighlight(post) {
+  const on = !post.highlighted;
+  const response = await fetch(`https://${serverAddress}/highlight_announcement`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ post_id: post.id, on }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert((typeof data.detail === "string" && data.detail) || "Could not highlight that post.");
+    return;
+  }
+  post.highlighted = !!data.highlighted;
+  post.highlighted_at = data.highlighted_at || "";
+  reorderAnnouncementPosts();
+}
+
+function applyAnnouncementHighlight(data) {
+  const post = currentAnnouncementPosts.find((row) => Number(row.id) === Number(data.post_id));
+  if (!post) return;
+  post.highlighted = !!data.highlighted;
+  post.highlighted_at = data.highlighted_at || "";
+  reorderAnnouncementPosts();
+}
+
 function appendNewAnnouncementPost(post) {
   currentAnnouncementPosts.push(post);
   const container = document.getElementById("announcements-posts");
-  container.appendChild(buildAnnouncementPostCard(post));
+  const marker = container.querySelector(".announce-end-marker");
+  const card = buildAnnouncementPostCard(post);
+  if (marker) container.insertBefore(card, marker);
+  else container.appendChild(card);
   updateAnnouncementEndMarker();
   container.scrollTop = container.scrollHeight;
 }
@@ -337,6 +405,7 @@ function appendNewAnnouncementPost(post) {
 // tracking).
 function updateAnnouncementEndMarker() {
   const container = document.getElementById("announcements-posts");
+  ensureAnnouncementSpacer(container);
   const existing = container.querySelector(".announce-end-marker");
   if (existing) existing.remove();
   const marker = document.createElement("div");
@@ -372,6 +441,8 @@ async function jumpLoadAroundAnnouncement(postId) {
     container.innerHTML = "";
     currentAnnouncementPosts.forEach((post) => container.appendChild(buildAnnouncementPostCard(post)));
     updateAnnouncementEndMarker();
+    const card = container.querySelector(`.announce-post[data-post-id="${postId}"]`);
+    if (card && card.scrollIntoView) card.scrollIntoView({ block: "center" });
   } catch (e) {}
 }
 
@@ -395,8 +466,11 @@ async function loadAnnouncementPosts(channelId) {
     if (data.posts.length < 25) announcementHasMoreHistory = false;
     data.posts.forEach(post => container.appendChild(buildAnnouncementPostCard(post)));
     updateAnnouncementEndMarker();
-    if (announcementSearchActive()) container.scrollTop = 0;
-    else container.scrollTop = container.scrollHeight;
+    if (announcementSearchActive()) {
+      const spacer = container.querySelector(".announce-posts-spacer");
+      if (spacer) spacer.remove();
+      container.scrollTop = 0;
+    } else container.scrollTop = container.scrollHeight;
   } catch (e) { /* leave empty on failure */ }
 }
 
@@ -404,7 +478,7 @@ async function loadAnnouncementPosts(channelId) {
 // as loadOlderChannelMessages.
 async function loadOlderAnnouncementPosts() {
   if (announcementIsLoadingMore || !announcementHasMoreHistory || currentAnnouncementPosts.length === 0) return;
-  const oldest = currentAnnouncementPosts[0];
+  const oldest = currentAnnouncementPosts.find((post) => !post.highlighted) || currentAnnouncementPosts[0];
   if (!oldest.id) return;
   announcementIsLoadingMore = true;
 
@@ -421,16 +495,15 @@ async function loadOlderAnnouncementPosts() {
       post.reactions = applyReactionMe(post.reactions || []);
       return post;
     });
-    currentAnnouncementPosts = older.concat(currentAnnouncementPosts);
-    // Reverse-inserted so the batch ends up in ascending order at the top.
-    for (let i = older.length - 1; i >= 0; i--) {
-      const card = buildAnnouncementPostCard(older[i]);
-      if (container.firstChild) {
-        container.insertBefore(card, container.firstChild);
-      } else {
-        container.appendChild(card);
-      }
-    }
+    const highlights = currentAnnouncementPosts.filter((post) => post.highlighted);
+    const rest = currentAnnouncementPosts.filter((post) => !post.highlighted);
+    currentAnnouncementPosts = highlights.concat(older, rest);
+    const anchor = [...container.querySelectorAll(".announce-post")].find((card) => !card.classList.contains("is-highlight"));
+    older.forEach((post) => {
+      const card = buildAnnouncementPostCard(post);
+      if (anchor) container.insertBefore(card, anchor);
+      else container.appendChild(card);
+    });
     container.scrollTop = container.scrollHeight - prevScrollHeight + prevScrollTop;
   } catch (e) { /* leave state as-is on failure */ }
 
@@ -495,6 +568,10 @@ function showPostContextMenu(e, post) {
   }, [
     { label: "Add Reaction", onSelect: () => openReactionPicker(announceReactionTarget(post), e.clientX, e.clientY) },
     canEditAnnouncement(post) && { label: "Edit Post", onSelect: () => startAnnouncementEdit(post) },
+    canHighlightAnnouncement(post) && {
+      label: post.highlighted ? "Remove highlight" : "Highlight",
+      onSelect: () => toggleAnnouncementHighlight(post),
+    },
     (typeof canPinMessages !== "function" || canPinMessages()) && {
       label: (typeof isMessagePinned === "function" && isMessagePinned("announcement", post.id)) ? "Unpin" : "Pin",
       onSelect: () => {
@@ -721,6 +798,25 @@ function fillAnnouncePostEditor(card, post) {
     e.stopPropagation();
     if (typeof openEmojiPicker === "function") openEmojiPicker(emojiBtn, bodyInput, e.clientX, e.clientY);
   });
+  const commentsWrap = document.createElement("div");
+  commentsWrap.className = "announce-notify-all";
+  const commentsLabel = document.createElement("span");
+  commentsLabel.textContent = "Comments";
+  const commentsSwitch = document.createElement("label");
+  commentsSwitch.className = "toggle-switch";
+  const commentsInput = document.createElement("input");
+  commentsInput.type = "checkbox";
+  commentsInput.id = "announce-edit-comments-input";
+  commentsInput.checked = post.comments_open !== false;
+  const commentsTrack = document.createElement("span");
+  commentsTrack.className = "toggle-track";
+  const commentsThumb = document.createElement("span");
+  commentsThumb.className = "toggle-thumb";
+  commentsTrack.appendChild(commentsThumb);
+  commentsSwitch.appendChild(commentsInput);
+  commentsSwitch.appendChild(commentsTrack);
+  commentsWrap.appendChild(commentsLabel);
+  commentsWrap.appendChild(commentsSwitch);
   const confirmBtn = document.createElement("button");
   confirmBtn.type = "button";
   confirmBtn.className = "pill-btn";
@@ -730,6 +826,7 @@ function fillAnnouncePostEditor(card, post) {
     confirmAnnouncementEdit(post);
   });
   footer.appendChild(emojiBtn);
+  footer.appendChild(commentsWrap);
   footer.appendChild(confirmBtn);
 
   editor.appendChild(main);
@@ -754,9 +851,14 @@ function applyAnnouncementEdit(data) {
   post.body = data.body;
   post.attachment = data.attachment;
   post.edited = !!data.edited;
+  if (data.comments_open != null) post.comments_open = !!data.comments_open;
   if (typeof applyMentionFields === "function") applyMentionFields(post, data);
   const card = document.querySelector(`.announce-post[data-post-id="${post.id}"]`);
-  if (card) fillAnnouncePostContent(card, post);
+  if (card) {
+    fillAnnouncePostContent(card, post);
+    const composer = card.querySelector(".announce-comment-composer");
+    if (composer) composer.hidden = post.comments_open === false;
+  }
 }
 
 async function confirmAnnouncementEdit(post) {
@@ -770,7 +872,9 @@ async function confirmAnnouncementEdit(post) {
   const originalBody = typeof mentionDisplayText === "function"
     ? mentionDisplayText(post.body || "", post.mentionUsers, post.mentionRoles).trim()
     : (post.body || "");
-  if (title === (post.title || "") && body === originalBody && announceEditAttachmentKeys() === originalPostAttachmentKeys(post)) {
+  const commentsInput = document.getElementById("announce-edit-comments-input");
+  const commentsOpen = !commentsInput || commentsInput.checked;
+  if (title === (post.title || "") && body === originalBody && announceEditAttachmentKeys() === originalPostAttachmentKeys(post) && commentsOpen === (post.comments_open !== false)) {
     abandonAnnouncementEdit();
     return;
   }
@@ -789,7 +893,7 @@ async function confirmAnnouncementEdit(post) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ post_id: post.id, title, body, attachments })
+      body: JSON.stringify({ post_id: post.id, title, body, attachments, comments_open: commentsOpen })
     });
     if (!response.ok) {
       console.error(`Failed to edit post: ${response.status}`);

@@ -167,18 +167,22 @@ function paintCalendarInfoRsvp(item) {
   });
 }
 
-async function submitCalendarRsvp(item, status) {
+async function submitCalendarRsvp(item, status, userId) {
   if (!item) return;
-  if (status === "declined" && !window.confirm("Leave this event?")) return;
+  const editingOther = userId && Number(userId) !== Number(myUserId);
+  if (status === "declined" && !editingOther && !window.confirm("Leave this event?")) return;
+  if (status === "declined" && editingOther && !window.confirm("Set this RSVP to Declined?")) return;
+  const body = {
+    event_id: item.id,
+    occurrence_at: item.occurs_at || item.starts_at,
+    status,
+  };
+  if (editingOther) body.user_id = Number(userId);
   const response = await fetch(`https://${serverAddress}/calendar_event_rsvp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({
-      event_id: item.id,
-      occurrence_at: item.occurs_at || item.starts_at,
-      status,
-    }),
+    body: JSON.stringify(body),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -187,7 +191,7 @@ async function submitCalendarRsvp(item, status) {
   }
   if (typeof applyCalendarEvent === "function") applyCalendarEvent(data);
   if (typeof refreshEventRows === "function") refreshEventRows();
-  if (status === "declined") {
+  if (status === "declined" && !editingOther) {
     if (typeof closeCalendarInfo === "function") closeCalendarInfo();
     leaveEventPage();
     return;
@@ -306,8 +310,17 @@ function eventZoneShort(zone) {
 }
 
 function eventClockCompact(date, zone) {
-  if (typeof calendarClock !== "function") return "";
-  return calendarClock(date, zone).replace(/\s/g, "").toLowerCase();
+  if (!date) return "";
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: zone || "UTC",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date).toLowerCase().replace(/\s/g, "");
+  } catch (err) {
+    return "";
+  }
 }
 
 function eventReactionTarget(event) {
@@ -584,6 +597,23 @@ function paintEventPeople(event) {
       row.className = "event-page-person";
       row.appendChild(paintEventFace(person));
       row.appendChild(paintEventName(person));
+      const canEditRsvp = typeof channelPerm === "function" && channelPerm("edit_rsvps") && Number(person.user_id) !== Number(myUserId);
+      if (canEditRsvp) {
+        const statusBtn = document.createElement("button");
+        statusBtn.type = "button";
+        statusBtn.className = "event-page-rsvp-edit";
+        const label = person.status === "waitlisted" ? "Waiting" : (person.status || "RSVP");
+        statusBtn.textContent = label.charAt(0).toUpperCase() + label.slice(1);
+        statusBtn.addEventListener("click", (clickEvent) => {
+          clickEvent.stopPropagation();
+          openEventRsvpMenu(clickEvent, event, person);
+        });
+        row.appendChild(statusBtn);
+        row.addEventListener("contextmenu", (clickEvent) => {
+          clickEvent.preventDefault();
+          openEventRsvpMenu(clickEvent, event, person);
+        });
+      }
       if (Number(event.sender_id) === Number(myUserId) && Number(person.user_id) !== Number(myUserId)) {
         const remove = document.createElement("button");
         remove.type = "button";
@@ -602,6 +632,18 @@ function paintEventPeople(event) {
     const pending = members.filter((member) => !inside.has(Number(member.id || member.user_id)));
     note.textContent = members.length && !pending.length ? "All members invited" : "";
   }
+}
+
+function openEventRsvpMenu(clickEvent, event, person) {
+  if (typeof openContextMenu !== "function") return;
+  openContextMenu(clickEvent.clientX, clickEvent.clientY, {
+    title: person.username || "Member",
+    subtitle: "RSVP",
+  }, [
+    { label: "Going", onSelect: () => submitCalendarRsvp(event, "going", person.user_id) },
+    { label: "Maybe", onSelect: () => submitCalendarRsvp(event, "maybe", person.user_id) },
+    { label: "Declined", danger: true, onSelect: () => submitCalendarRsvp(event, "declined", person.user_id) },
+  ]);
 }
 
 async function postEventComment() {

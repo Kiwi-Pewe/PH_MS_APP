@@ -66,7 +66,7 @@ const SERVER_ROLE_PERMS = [
       { id: "create_events", title: "Create events", desc: "Allows you to create events." },
       { id: "manage_events", title: "Manage events", desc: "Allows you to update events created by others and move them to other channels." },
       { id: "remove_events", title: "Remove events", desc: "Allows you to remove events created by others." },
-      { id: "edit_rsvps", title: "Edit RSVPs", desc: "Allows you to edit the RSVP status for members in an event.", later: "Events" }
+      { id: "edit_rsvps", title: "Edit RSVPs", desc: "Allows you to edit the RSVP status for members in an event." }
     ]
   },
   {
@@ -167,9 +167,9 @@ const SERVER_ROLE_PERMS = [
   {
     title: "Scheduling permissions",
     rows: [
-      { id: "view_schedules", title: "View schedules", desc: "Allows you to view server member's schedules.", later: "Schedules" },
-      { id: "create_schedule", title: "Create schedule", desc: "Allows you to let your server know your available schedule.", later: "Schedules" },
-      { id: "delete_schedule", title: "Delete schedule", desc: "Allows you to remove availabilities created by others.", later: "Schedules" }
+      { id: "view_schedules", title: "View schedules", desc: "Allows you to view server member's schedules." },
+      { id: "create_schedule", title: "Create schedule", desc: "Allows you to let your server know your available schedule." },
+      { id: "delete_schedule", title: "Delete schedule", desc: "Allows you to remove availabilities created by others." }
     ]
   },
   {

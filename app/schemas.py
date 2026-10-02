@@ -571,6 +571,7 @@ class Calendar_event_rsvp_set(BaseModel):
     event_id: int
     occurrence_at: str
     status: str
+    user_id: int = 0
 
 class Calendar_event_cancel(BaseModel):
     event_id: int

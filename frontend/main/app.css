@@ -4072,6 +4072,11 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .event-page-see { background: transparent; border: 0; color: var(--text); cursor: pointer; font-weight: 700; }
 .event-page-attend { color: var(--text-dim); }
 .event-page-person { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.event-page-rsvp-edit {
+  margin-left: auto; background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 12px; font-weight: 700;
+}
+.event-page-person .event-page-rsvp-edit + .event-page-remove { margin-left: 0; }
 .event-page-remove {
   margin-left: auto; background: transparent; border: 0; color: var(--text-dim);
   cursor: pointer; font-size: 16px; line-height: 1;

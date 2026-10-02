@@ -18,7 +18,8 @@ let channelSettingsPermLive = [
   "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
   "view_docs", "create_docs", "manage_docs",   "remove_docs",
   "see_media", "create_media", "manage_media", "remove_media",
-  "view_events", "create_events", "manage_events", "remove_events",
+  "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
+  "view_schedules", "create_schedule", "delete_schedule",
 ];
 let channelSettingsPermLoading = false;
 let channelSettingsPermSaving = {};
@@ -44,6 +45,8 @@ const CHANNEL_SETTINGS_LIVE_DEFAULTS = {
   view_wallpaper: true,
   view_docs: true,
   see_media: true,
+  view_schedules: true,
+  create_schedule: true,
 };
 const CHANNEL_SETTINGS_PERM_COPY = {
   manage_channels: {
@@ -274,6 +277,18 @@ const CHANNEL_SETTINGS_PERM_COPY = {
     title: "Edit RSVPs",
     desc: "Allows editing RSVP status for events in this channel.",
   },
+  view_schedules: {
+    title: "View schedules",
+    desc: "Allows viewing other members' availability in this channel.",
+  },
+  create_schedule: {
+    title: "Create schedule",
+    desc: "Allows posting your availability in this channel.",
+  },
+  delete_schedule: {
+    title: "Delete schedule",
+    desc: "Allows removing availability posted by others in this channel.",
+  },
 };
 
 function channelSettingsPermGroupIds(kind, channelType) {
@@ -288,6 +303,7 @@ function channelSettingsPermGroupIds(kind, channelType) {
   if (type === "media") return ["general", "media"];
   if (type === "lists") return ["general", "lists"];
   if (type === "events") return ["general", "calendar"];
+  if (type === "scheduling") return ["general", "scheduling"];
   if (type === "docs") return ["general", "docs"];
   return ["general", "chat"];
 }
@@ -298,6 +314,7 @@ function channelSettingsPermGroupKey(title) {
   if (t.startsWith("announcement")) return "announcements";
   if (t.startsWith("chat")) return "chat";
   if (t.startsWith("calendar")) return "calendar";
+  if (t.startsWith("scheduling")) return "scheduling";
   if (t.startsWith("forum")) return "forums";
   if (t.startsWith("wallpaper")) return "wallpaper";
   if (t.startsWith("docs")) return "docs";

@@ -6,6 +6,7 @@ const FEED_PREF_GROUPS = [
       { type: "reaction", label: "Reactions" },
       { type: "reply", label: "Replies" },
       { type: "post_comment", label: "Post comments" },
+      { type: "event_invite", label: "Event invites" },
     ],
   },
   {

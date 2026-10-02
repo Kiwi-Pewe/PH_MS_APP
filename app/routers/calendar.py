@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -314,6 +315,7 @@ def sync_invites(database, server, event, invite_ids, invited_by_id=None):
         if row.user_id not in keep:
             database.delete(row)
     have = {row.user_id for row in rows}
+    added = []
     for user_id in wanted:
         if user_id in have:
             continue
@@ -324,6 +326,8 @@ def sync_invites(database, server, event, invite_ids, invited_by_id=None):
             status="invited",
             invited_by_id=invited_by_id,
         ))
+        added.append(user_id)
+    return added
 
 
 def ensure_host(database, event):
@@ -355,15 +359,49 @@ def promote_waitlist(database, event, occurrence, rows):
         row.status = "going"
 
 
+def drop_closed_group(database, event):
+    if event.cancelled_at or group_open(event):
+        return
+    rows = event_rsvps(database, event.id)
+    changed = False
+    for row in rows:
+        if (row.status or "") in GROUP_STATUSES:
+            row.status = "closed"
+            changed = True
+    if changed:
+        database.commit()
+
+
 def seed_if_unseeded(database, server, event):
     rows = event_rsvps(database, event.id)
     if rows or not group_open(event):
-        return rows
+        return rows, []
     invited = overlap_user_ids(database, server, event.starts_at, event.ends_at)
-    sync_invites(database, server, event, invited, event.sender_id)
+    added = sync_invites(database, server, event, invited, event.sender_id)
     ensure_host(database, event)
     database.commit()
-    return event_rsvps(database, event.id)
+    return event_rsvps(database, event.id), added
+
+
+async def notify_event_invites(database, server, event, user_ids, actor_id):
+    from app.routers.feed import notify_feed_alert
+    context = json.dumps({
+        "event_id": event.id,
+        "channel_id": event.channel_id,
+        "name": event.name or "Event",
+    })
+    for user_id in user_ids or []:
+        if not user_id or user_id == actor_id:
+            continue
+        await notify_feed_alert(
+            database,
+            receiver_id=user_id,
+            alert_type="event_invite",
+            sender_id=actor_id,
+            alert_family="activity",
+            server_id=server.id,
+            context=context,
+        )
 
 
 def broadcast_event(database, server, event):
@@ -379,6 +417,7 @@ def get_calendar(channel_id: int, database: Session = Depends(get_db), current_u
     names = {}
     visible = []
     for event in rows:
+        drop_closed_group(database, event)
         rsvps = event_rsvps(database, event.id)
         if can_see_event(event, current_user.id, rsvps):
             visible.append(serialize_event(database, event, rsvps, names))
@@ -407,11 +446,12 @@ async def create_calendar_event(body: Calendar_event_create, database: Session =
     database.refresh(event)
     invited = list(body.invite_ids or [])
     invited.extend(overlap_user_ids(database, server, event.starts_at, event.ends_at))
-    sync_invites(database, server, event, invited, event.sender_id)
+    added = sync_invites(database, server, event, invited, event.sender_id)
     ensure_host(database, event)
     database.commit()
     database.refresh(event)
     payload = broadcast_event(database, server, event)
+    await notify_event_invites(database, server, event, added, current_user.id)
     await server_broadcast(server_id=server.id, payload={"type": "calendar_event_created", "server_id": server.id, "event": payload}, database=database, exclude_user_id=current_user.id)
     return payload
 
@@ -427,10 +467,11 @@ async def edit_calendar_event(body: Calendar_event_edit, database: Session = Dep
     require_event_edit(database, server, current_user.id, event)
     apply_fields(database, server, event, body)
     database.commit()
-    sync_invites(database, server, event, body.invite_ids, event.sender_id)
+    added = sync_invites(database, server, event, body.invite_ids, event.sender_id)
     database.commit()
     database.refresh(event)
     payload = broadcast_event(database, server, event)
+    await notify_event_invites(database, server, event, added, current_user.id)
     await server_broadcast(server_id=server.id, payload={"type": "calendar_event_updated", "server_id": server.id, "event": payload}, database=database, exclude_user_id=current_user.id)
     return payload
 
@@ -453,19 +494,24 @@ async def set_calendar_rsvp(body: Calendar_event_rsvp_set, database: Session = D
     status = (body.status or "").strip()
     if status not in RSVP_CHOICES:
         raise HTTPException(status_code=400, detail="Pick Going, Maybe, or Declined.")
-    if not user_can_rsvp(database, server, event, current_user.id):
+    target_id = int(body.user_id or 0) or current_user.id
+    if target_id != current_user.id:
+        require_channel_perm(database, server, current_user.id, event.channel_id, "edit_rsvps", "You do not have permission to edit RSVPs.")
+        if target_id not in member_ids(database, server.id):
+            raise HTTPException(status_code=404, detail="Member not found")
+    elif not user_can_rsvp(database, server, event, current_user.id):
         raise HTTPException(status_code=403, detail="Your role cannot RSVP to that event.")
     occurrence = parse_starts(body.occurrence_at)
-    mine = next((row for row in rows if row.user_id == current_user.id and stamp(row.occurrence_at) == stamp(occurrence)), None)
+    mine = next((row for row in rows if row.user_id == target_id and stamp(row.occurrence_at) == stamp(occurrence)), None)
     if not mine:
-        mine = next((row for row in rows if row.user_id == current_user.id), None)
+        mine = next((row for row in rows if row.user_id == target_id), None)
     if status == "declined":
         if mine:
             mine.status = "declined"
         else:
             database.add(Calendar_event_rsvp(
                 event_id=event.id,
-                user_id=current_user.id,
+                user_id=target_id,
                 occurrence_at=occurrence,
                 status="declined",
             ))
@@ -475,13 +521,13 @@ async def set_calendar_rsvp(body: Calendar_event_rsvp_set, database: Session = D
         await server_broadcast(server_id=server.id, payload={"type": "calendar_event_updated", "server_id": server.id, "event": payload}, database=database, exclude_user_id=current_user.id)
         return payload
     if status == "going" and event.rsvp_limit:
-        going = [row for row in rows if row.status == "going" and stamp(row.occurrence_at) == stamp(occurrence) and row.user_id != current_user.id]
+        going = [row for row in rows if row.status == "going" and stamp(row.occurrence_at) == stamp(occurrence) and row.user_id != target_id]
         if len(going) >= event.rsvp_limit:
             status = "waitlisted"
     if mine:
         mine.status = status
     else:
-        mine = Calendar_event_rsvp(event_id=event.id, user_id=current_user.id, occurrence_at=occurrence, status=status)
+        mine = Calendar_event_rsvp(event_id=event.id, user_id=target_id, occurrence_at=occurrence, status=status)
         database.add(mine)
         rows.append(mine)
     if status != "going":
@@ -579,7 +625,7 @@ def comment_payload(database, comment, names):
 
 
 @router.get("/get_event_rows/{server_id}")
-def get_event_rows(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+async def get_event_rows(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server = database.query(Servers).filter(Servers.id == server_id).first()
     if not server:
         raise HTTPException(status_code=404, detail="Server not found")
@@ -591,24 +637,32 @@ def get_event_rows(server_id: str, database: Session = Depends(get_db), current_
         raise HTTPException(status_code=404, detail="Server not found")
     names = {}
     visible = []
+    fresh = []
     for channel in calendar_channels_for(database, server, current_user.id):
         events = database.query(Calendar_event).filter(Calendar_event.channel_id == channel.id).all()
         for event in events:
+            drop_closed_group(database, event)
             if not group_open(event):
                 continue
-            rows = seed_if_unseeded(database, server, event)
+            rows, added = seed_if_unseeded(database, server, event)
+            if added:
+                fresh.append((event, added))
             if not in_group(rows, current_user.id):
                 continue
             if not can_see_event(event, current_user.id, rows):
                 continue
             visible.append(serialize_event(database, event, rows, names))
+    for event, added in fresh:
+        await notify_event_invites(database, server, event, added, event.sender_id)
     visible.sort(key=lambda row: row["starts_at"] or "")
     return {"events": visible}
 
 
 @router.get("/get_event_page/{event_id}")
 def get_event_page(event_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    event, _server, rows = load_visible_event(database, event_id, current_user.id)
+    event, _server, _rows = load_visible_event(database, event_id, current_user.id)
+    drop_closed_group(database, event)
+    rows = event_rsvps(database, event.id)
     names = {}
     payload = serialize_event(database, event, rows, names)
     payload["comments"] = [comment_payload(database, comment, names) for comment in event_comments(database, event.id)]
@@ -666,6 +720,7 @@ async def invite_event_member(body: Calendar_event_member, database: Session = D
     database.commit()
     database.refresh(event)
     payload = broadcast_event(database, server, event)
+    await notify_event_invites(database, server, event, [body.user_id], current_user.id)
     await server_broadcast(server_id=server.id, payload={"type": "calendar_event_updated", "server_id": server.id, "event": payload}, database=database, exclude_user_id=current_user.id)
     return payload
 

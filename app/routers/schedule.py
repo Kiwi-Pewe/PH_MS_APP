@@ -6,7 +6,7 @@ from app.schemas import Schedule_block_create, Schedule_block_delete, Schedule_b
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
-from app.routers.roles import name_color_roles_by_user, highest_roles_by_user
+from app.routers.roles import name_color_roles_by_user, highest_roles_by_user, require_channel_perm, effective_perms_for_user_in_channel
 from app.routers.profile import avatar_lookup
 
 router = APIRouter()
@@ -85,6 +85,7 @@ def get_schedule_blocks(channel_id: int, start: str = "", end: str = "", databas
         raise HTTPException(status_code=400, detail="End is required.")
     if window_end - window_start > timedelta(days=14):
         raise HTTPException(status_code=400, detail="That range is too long.")
+    perms = effective_perms_for_user_in_channel(database, server, current_user.id, channel.id)
     rows = (
         database.query(Schedule_block)
         .filter(
@@ -95,12 +96,15 @@ def get_schedule_blocks(channel_id: int, start: str = "", end: str = "", databas
         .order_by(Schedule_block.starts_at.asc(), Schedule_block.id.asc())
         .all()
     )
+    if not perms.get("view_schedules"):
+        rows = [row for row in rows if row.user_id == current_user.id]
     return {"blocks": decorate(database, server, rows)}
 
 
 @router.post("/create_schedule_block")
 async def create_schedule_block(body: Schedule_block_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     channel, server = load_schedule_channel(database, body.channel_id, current_user.id)
+    require_channel_perm(database, server, current_user.id, channel.id, "create_schedule", "You do not have permission to post your availability.")
     starts = parse_when(body.starts_at, "Start")
     ends = parse_when(body.ends_at, "End")
     if ends <= starts:
@@ -146,9 +150,11 @@ async def update_schedule_block(body: Schedule_block_update, database: Session =
 @router.post("/delete_schedule_block")
 async def delete_schedule_block(body: Schedule_block_delete, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     block = database.query(Schedule_block).filter(Schedule_block.id == body.block_id).first()
-    if not block or block.user_id != current_user.id:
+    if not block:
         raise HTTPException(status_code=404, detail="Availability not found")
     channel, server = load_schedule_channel(database, block.channel_id, current_user.id)
+    if block.user_id != current_user.id:
+        require_channel_perm(database, server, current_user.id, channel.id, "delete_schedule", "You do not have permission to remove that availability.")
     block_id = block.id
     channel_id = channel.id
     database.delete(block)

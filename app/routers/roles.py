@@ -28,7 +28,8 @@ LIVE_ROLE_PERMS = (
     "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
     "view_docs", "create_docs", "manage_docs", "remove_docs",
     "see_media", "create_media", "manage_media", "remove_media",
-    "view_events", "create_events", "manage_events", "remove_events",
+    "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
+    "view_schedules", "create_schedule", "delete_schedule",
     "manage_emoji",
 )
 
@@ -41,6 +42,7 @@ MEMBERS_DEFAULT_PERMS = (
     "view_docs",
     "see_media",
     "view_events",
+    "view_schedules", "create_schedule",
 )
 
 LIVE_CHANNEL_OVERRIDE_PERMS = (
@@ -77,6 +79,10 @@ LIVE_CHANNEL_OVERRIDE_PERMS = (
     "create_events",
     "manage_events",
     "remove_events",
+    "edit_rsvps",
+    "view_schedules",
+    "create_schedule",
+    "delete_schedule",
 )
 
 CHANNEL_OVERRIDE_DEFAULTS = {
@@ -93,6 +99,8 @@ CHANNEL_OVERRIDE_DEFAULTS = {
     "view_docs": True,
     "see_media": True,
     "view_events": True,
+    "view_schedules": True,
+    "create_schedule": True,
 }
 
 
@@ -169,6 +177,10 @@ def parse_role_perms(row):
         perms["view_docs"] = True
     if "see_media" not in data:
         perms["see_media"] = True
+    if isinstance(data, dict) and "view_schedules" not in data:
+        perms["view_schedules"] = True
+    if isinstance(data, dict) and "create_schedule" not in data:
+        perms["create_schedule"] = True
     return perms
 
 

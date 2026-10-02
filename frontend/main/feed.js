@@ -9,6 +9,7 @@ const FEED_TYPE_LABELS = {
   reaction: "Reaction",
   reply: "Reply",
   post_comment: "Post comment",
+  event_invite: "Event invite",
   widget_comment: "Profile comment",
   widget_update: "Subscription update",
   profile_event: "Profile event",
@@ -153,6 +154,15 @@ function feedAlertBody(alert) {
   }
   if (kind === "post_comment") {
     return feedSenderLabel(alert) + " commented on your post.";
+  }
+  if (kind === "event_invite") {
+    let name = "an event";
+    try {
+      const raw = alert && alert.context;
+      const ctx = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (ctx && ctx.name) name = ctx.name;
+    } catch (err) {}
+    return feedSenderLabel(alert) + " invited you to " + name + ".";
   }
   if (kind === "widget_comment") {
     let ownerId = null;

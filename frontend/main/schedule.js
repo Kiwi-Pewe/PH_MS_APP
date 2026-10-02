@@ -217,12 +217,16 @@ function scheduleBlockElement(block, day, column) {
   foot.className = "schedule-cap schedule-cap-foot";
   wrap.appendChild(cap);
   wrap.appendChild(foot);
-  if (Number(block.user_id) === Number(myUserId)) {
+  const mine = Number(block.user_id) === Number(myUserId);
+  const canDelete = mine || (typeof channelPerm === "function" && channelPerm("delete_schedule"));
+  if (mine) {
     foot.classList.add("is-handle");
     foot.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
       beginScheduleResize(event, block, wrap);
     });
+  }
+  if (canDelete) {
     const own = document.createElement("div");
     own.className = "schedule-own";
     own.addEventListener("pointerdown", (event) => event.stopPropagation());
@@ -352,7 +356,8 @@ function schedulePointerDown(event) {
   board.setPointerCapture(event.pointerId);
   const move = (ev) => {
     if (!scheduleDrag || scheduleDrag.mode !== "place" || scheduleDrag.pointer !== ev.pointerId) return;
-    if (Math.abs(ev.clientY - scheduleDrag.originY) > 6) scheduleDrag.moved = true;
+    const canPlace = typeof channelPerm !== "function" || channelPerm("create_schedule");
+    if (canPlace && Math.abs(ev.clientY - scheduleDrag.originY) > 6) scheduleDrag.moved = true;
     scheduleDrag.min = scheduleColumnMinutes(ev, scheduleDrag.column);
     paintScheduleGhost();
   };

@@ -268,7 +268,8 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
                         "view_docs", "create_docs", "manage_docs", "remove_docs",
                         "see_media", "create_media", "manage_media", "remove_media",
-                        "view_events", "create_events", "manage_events", "remove_events",
+                        "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
+                        "view_schedules", "create_schedule", "delete_schedule",
                     )}
                     channel_info.append({
                         "id": channel.id,

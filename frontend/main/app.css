@@ -3969,21 +3969,24 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .event-rsvp-seg button.is-on { box-shadow: inset 0 0 0 1px var(--accent); }
 .event-rsvp-seg button:disabled { opacity: 0.45; cursor: default; }
 .event-page-invited { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.event-page-card {
+  margin-top: 18px; background: var(--panel-alt); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.event-page-card .event-page-meta { margin-top: 0; }
+.event-page-split { height: 1px; background: var(--border); margin: 18px 0 16px; }
 .event-page-discuss-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
-  margin-top: 22px;
 }
 .event-page-discuss-title { font-weight: 700; margin-bottom: 4px; }
-.event-page-join, .event-page-react, .event-page-share, .event-page-format button {
+.event-page-join, .event-page-share, .event-page-format button {
   opacity: 0.45; cursor: default;
 }
 .event-page-join, .event-page-share {
   background: transparent; border: 1px solid var(--border); color: var(--text);
   border-radius: 6px; padding: 6px 12px; font-weight: 700;
 }
-.event-page-react {
-  background: transparent; border: 0; color: var(--text-dim); padding: 10px 0; font-weight: 600;
-}
+.event-page-card .announce-reactions { margin-top: 2px; }
 .event-page-empty, .event-page-note.is-empty, .event-page-ago { color: var(--text-dim); }
 .event-page-comments { margin-top: 12px; }
 .event-page-comment { display: flex; gap: 10px; margin: 0 0 12px; }

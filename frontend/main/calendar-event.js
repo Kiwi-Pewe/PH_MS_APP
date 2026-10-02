@@ -4,6 +4,7 @@ let eventRailRows = [];
 let eventRailToken = 0;
 let openEventId = null;
 let openEventChannelId = null;
+let openEventRecord = null;
 
 function eventStillOpen(event) {
   if (!event || event.cancelled_at) return false;
@@ -301,7 +302,66 @@ function eventClockCompact(date, zone) {
   return calendarClock(date, zone).replace(/\s/g, "").toLowerCase();
 }
 
+function eventReactionTarget(event) {
+  return {
+    id: event.id,
+    chatKind: "calendar_event",
+    senderId: event.sender_id,
+    reactions: (event && event.reactions) || []
+  };
+}
+
+function paintEventReactions(event) {
+  const host = document.getElementById("event-page-reactions");
+  if (!host || !event) return;
+  host.replaceChildren();
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "announce-add-reaction-btn";
+  add.title = "Add Reaction";
+  add.textContent = "+";
+  add.addEventListener("click", (clickEvent) => {
+    clickEvent.stopPropagation();
+    if (typeof openReactionPicker === "function") openReactionPicker(eventReactionTarget(openEventRecord || event), clickEvent.clientX, clickEvent.clientY);
+  });
+  host.appendChild(add);
+  (event.reactions || []).forEach((reaction) => {
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "reaction-pill" + (reaction.me ? " mine" : "");
+    const emoji = document.createElement("span");
+    emoji.className = "reaction-emoji";
+    emoji.textContent = reaction.emoji;
+    const count = document.createElement("span");
+    count.className = "reaction-count";
+    count.textContent = String(reaction.count);
+    pill.appendChild(emoji);
+    pill.appendChild(count);
+    pill.addEventListener("click", (clickEvent) => {
+      clickEvent.stopPropagation();
+      if (typeof toggleReaction === "function") toggleReaction(eventReactionTarget(openEventRecord || event), reaction.emoji);
+    });
+    host.insertBefore(pill, add);
+  });
+}
+
+function patchEventReactions(eventId, reactions) {
+  if (!openEventRecord || Number(openEventRecord.id) !== Number(eventId)) return;
+  openEventRecord.reactions = typeof applyReactionMe === "function" ? applyReactionMe(reactions || []) : (reactions || []);
+  paintEventReactions(openEventRecord);
+}
+
+function rememberEventRow(event) {
+  if (!event || !eventStillOpen(event)) return;
+  if (!eventInMyGroup(event) && Number(event.sender_id) !== Number(myUserId)) return;
+  const index = eventRailRows.findIndex((row) => Number(row.id) === Number(event.id));
+  if (index === -1) eventRailRows.push(event);
+  else eventRailRows[index] = event;
+  paintEventRailRows();
+}
+
 function paintEventPage(event) {
+  openEventRecord = event;
   const title = document.getElementById("event-page-title");
   if (title) title.textContent = event.name || "Event";
   const rsvp = document.getElementById("event-page-rsvp");
@@ -342,7 +402,9 @@ function paintEventPage(event) {
   if (empty) empty.hidden = comments.length > 0;
   paintEventComments(comments);
   paintEventMeta(event);
+  paintEventReactions(event);
   paintEventPeople(event);
+  rememberEventRow(event);
   const replyFace = document.getElementById("event-page-reply-face");
   if (replyFace && typeof paintUserFace === "function") {
     paintUserFace(replyFace, { username: typeof myUsername !== "undefined" ? myUsername : "" }, {

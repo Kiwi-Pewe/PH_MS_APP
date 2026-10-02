@@ -329,7 +329,7 @@ def reaction_pref_allows(user, kind):
     return True
 
 
-SURFACE_REACTION_KINDS = {"announcement", "forum", "forum_post", "comment", "media_comment"}
+SURFACE_REACTION_KINDS = {"announcement", "forum", "forum_post", "comment", "media_comment", "calendar_event"}
 
 
 def watching_surface(user_id, channel_id):

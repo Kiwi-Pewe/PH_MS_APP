@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models import UserInfo, Message, Party_messages, Party_members, Channel_messages, Message_reaction, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Servers, Server_members, Server_categories, Server_channels
+from app.models import UserInfo, Message, Party_messages, Party_members, Channel_messages, Message_reaction, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Servers, Server_members, Server_categories, Server_channels, Calendar_event
 from app.schemas import React_message
 from app.database import get_db
 from app.auth import get_current_user
@@ -348,5 +348,45 @@ async def react_message(target: React_message, database: Session = Depends(get_d
                 channel_id=channel.id,
             )
         return {"id": comment.id, "reactions": reactions}
+
+    if target.kind == "calendar_event":
+        event = database.query(Calendar_event).filter(Calendar_event.id == target.message_id).first()
+        if not event:
+            raise HTTPException(status_code=404, detail="No message found")
+        channel = database.query(Server_channels).filter(Server_channels.id == event.channel_id).first()
+        category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first() if channel else None
+        server = database.query(Servers).filter(Servers.id == category.server_id).first() if category else None
+        if not server:
+            raise HTTPException(status_code=404, detail="No message found")
+        is_member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+        if not is_member and server.owner_id != current_user.id:
+            raise HTTPException(status_code=404, detail="No message found")
+        from app.routers.roles import require_channel_perm
+        require_channel_perm(database, server, current_user.id, channel.id, "view_events", "You do not have permission to view events.")
+        if is_member:
+            from app.routers.moderation import require_not_timed_out
+            require_not_timed_out(is_member)
+        added = toggle_reaction_row(database, "calendar_event", event.id, current_user.id, emoji)
+        database.commit()
+        reactions = reactions_for_one(database, "calendar_event", event.id, current_user.id)
+        await server_broadcast(server_id=server.id, payload={
+            "type": "calendar_event_reacted",
+            "kind": "calendar_event",
+            "event_id": event.id,
+            "channel_id": event.channel_id,
+            "reactions": reactions_for_one(database, "calendar_event", event.id, None),
+        }, database=database, exclude_user_id=current_user.id)
+        if added and event.sender_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=event.sender_id,
+                actor_id=current_user.id,
+                message_kind="calendar_event",
+                message_id=event.id,
+                emoji=emoji,
+                server_id=server.id,
+                channel_id=event.channel_id,
+            )
+        return {"id": event.id, "reactions": reactions}
 
     raise HTTPException(status_code=400, detail="This message type cannot be reacted to yet")

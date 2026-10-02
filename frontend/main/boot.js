@@ -512,6 +512,10 @@ function connectSocket() {
       reloadOpenEventPage(data.event_id);
     }
 
+    if (data.type === "calendar_event_reacted" && typeof patchEventReactions === "function") {
+      patchEventReactions(data.event_id, data.reactions || []);
+    }
+
     if ((data.type === "doc_entry_created" || data.type === "doc_entry_updated") && typeof applyDocEntry === "function") {
       applyDocEntry(data.doc);
     }

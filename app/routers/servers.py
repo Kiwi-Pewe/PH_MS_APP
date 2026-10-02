@@ -1033,6 +1033,8 @@ def purge_channel_contents(database, channel):
     if event_ids:
         database.query(Calendar_event_rsvp).filter(Calendar_event_rsvp.event_id.in_(event_ids)).delete(synchronize_session=False)
         database.query(Calendar_event_comment).filter(Calendar_event_comment.event_id.in_(event_ids)).delete(synchronize_session=False)
+        for event_id in event_ids:
+            clear_reactions(database, "calendar_event", event_id)
     database.query(Calendar_event).filter(Calendar_event.channel_id == channel.id).delete(synchronize_session=False)
     database.query(Schedule_block).filter(Schedule_block.channel_id == channel.id).delete(synchronize_session=False)
     database.query(Doc_entry).filter(Doc_entry.channel_id == channel.id).delete(synchronize_session=False)

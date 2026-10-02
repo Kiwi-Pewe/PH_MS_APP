@@ -522,6 +522,8 @@ async def delete_calendar_event(body: Calendar_event_delete, database: Session =
     require_event_delete(database, server, current_user.id, event)
     database.query(Calendar_event_rsvp).filter(Calendar_event_rsvp.event_id == event.id).delete(synchronize_session=False)
     database.query(Calendar_event_comment).filter(Calendar_event_comment.event_id == event.id).delete(synchronize_session=False)
+    from app.routers.reactions import clear_reactions
+    clear_reactions(database, "calendar_event", event.id)
     database.delete(event)
     database.commit()
     await server_broadcast(server_id=server.id, payload={"type": "calendar_event_deleted", "server_id": server.id, "channel_id": channel_id, "event_id": body.event_id}, database=database, exclude_user_id=current_user.id)
@@ -577,7 +579,7 @@ def comment_payload(database, comment, names):
 
 
 @router.get("/get_event_rows/{server_id}")
-def get_event_rows(server_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+def get_event_rows(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server = database.query(Servers).filter(Servers.id == server_id).first()
     if not server:
         raise HTTPException(status_code=404, detail="Server not found")
@@ -610,6 +612,8 @@ def get_event_page(event_id: int, database: Session = Depends(get_db), current_u
     names = {}
     payload = serialize_event(database, event, rows, names)
     payload["comments"] = [comment_payload(database, comment, names) for comment in event_comments(database, event.id)]
+    from app.routers.reactions import reactions_for_one
+    payload["reactions"] = reactions_for_one(database, "calendar_event", event.id, current_user.id)
     return payload
 
 

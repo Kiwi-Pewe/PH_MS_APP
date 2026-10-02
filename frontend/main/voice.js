@@ -139,6 +139,8 @@ function closeVoiceStage() {
   }
   const view = document.getElementById("voice-view");
   if (view) view.style.display = "none";
+  const menu = document.getElementById("voice-more");
+  if (menu) menu.hidden = true;
 }
 
 function peopleInVoice(channelId) {
@@ -298,9 +300,30 @@ function openVoiceStage(channel) {
   paintVoiceStage();
 }
 
-function bindVoiceDock() {
-  const leave = document.getElementById("voice-dock-leave");
+function bindVoiceControls() {
+  const leave = document.getElementById("voice-ctrl-leave");
   if (leave) leave.addEventListener("click", () => leaveVoiceChannel());
+  const more = document.getElementById("voice-ctrl-more");
+  const menu = document.getElementById("voice-more");
+  if (more && menu) {
+    more.addEventListener("click", (event) => {
+      event.stopPropagation();
+      menu.hidden = !menu.hidden;
+    });
+  }
+  const settings = document.getElementById("voice-more-settings");
+  if (settings) {
+    settings.addEventListener("click", async () => {
+      if (menu) menu.hidden = true;
+      if (typeof openSettings === "function") await openSettings();
+      if (typeof jumpToSettings === "function") jumpToSettings("voice-video");
+    });
+  }
+  document.addEventListener("click", (event) => {
+    if (!menu || menu.hidden) return;
+    if (event.target.closest("#voice-more") || event.target.closest("#voice-ctrl-more")) return;
+    menu.hidden = true;
+  });
 }
 
-bindVoiceDock();
+bindVoiceControls();

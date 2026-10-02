@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=241">
+<link rel="stylesheet" href="app.css?v=242">
 </head>
 <body>
 
@@ -104,15 +104,6 @@
         <div id="voice-dock" hidden>
           <div class="voice-dock-status">Voice Connected</div>
           <div class="voice-dock-where" id="voice-dock-where"></div>
-          <div class="voice-dock-actions">
-            <button type="button" class="ghost-btn" id="voice-dock-leave">Disconnect</button>
-            <button type="button" class="ghost-btn" disabled>Mute</button>
-            <button type="button" class="ghost-btn" disabled>Deafen</button>
-          </div>
-          <div class="voice-dock-media">
-            <button type="button" class="ghost-btn" disabled>Video</button>
-            <button type="button" class="ghost-btn" disabled>Screen</button>
-          </div>
         </div>
       </div>
 
@@ -243,6 +234,23 @@
         <div id="forum-thread-opener" class="forum-thread-opener" hidden></div>
         <div id="voice-view" style="display:none;">
           <div id="voice-stage"></div>
+          <div id="voice-controls">
+            <button type="button" class="voice-ctrl" id="voice-ctrl-mute" disabled title="Mute">Mute</button>
+            <button type="button" class="voice-ctrl" id="voice-ctrl-camera" disabled title="Camera">Camera</button>
+            <button type="button" class="voice-ctrl" id="voice-ctrl-screen" disabled title="Share screen">Share</button>
+            <div class="voice-ctrl-more-wrap">
+              <button type="button" class="voice-ctrl" id="voice-ctrl-more" title="More">···</button>
+              <div id="voice-more" hidden>
+                <button type="button" class="voice-more-row" disabled>Invite to Voice</button>
+                <div class="voice-more-row is-check">Grid View<span class="voice-more-mark" aria-hidden="true">✓</span></div>
+                <div class="voice-more-row is-check">Show My Own Camera<span class="voice-more-mark" aria-hidden="true">✓</span></div>
+                <div class="voice-more-row is-check">Show Non-Video Participants<span class="voice-more-mark" aria-hidden="true">✓</span></div>
+                <div class="voice-more-row is-check">Show New Message Previews<span class="voice-more-mark" aria-hidden="true">✓</span></div>
+                <button type="button" class="voice-more-row" id="voice-more-settings">Voice &amp; Video Settings</button>
+              </div>
+            </div>
+            <button type="button" class="voice-ctrl voice-ctrl-leave" id="voice-ctrl-leave" title="End call">End</button>
+          </div>
         </div>
         <div id="channel-body">
           <!-- Shown only when no real text channel is selected (a server
@@ -1823,7 +1831,7 @@
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=13"></script>
 <script src="servers.js?v=113"></script>
-<script src="voice.js?v=1"></script>
+<script src="voice.js?v=2"></script>
 <script src="server-dnd.js?v=1"></script>
 <script src="channel-settings.js?v=20"></script>
 <script src="pins.js?v=3"></script>

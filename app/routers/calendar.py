@@ -1,11 +1,15 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models import (
     UserInfo, Servers, Server_members, Server_categories, Server_channels,
     Server_roles, Server_role_members, Calendar_event, Calendar_event_rsvp,
+    Calendar_event_comment, Schedule_block,
 )
-from app.schemas import Calendar_event_create, Calendar_event_edit, Calendar_event_delete, Calendar_event_rsvp_set, Calendar_event_cancel
+from app.schemas import (
+    Calendar_event_create, Calendar_event_edit, Calendar_event_delete, Calendar_event_rsvp_set,
+    Calendar_event_cancel, Calendar_event_comment_create, Calendar_event_member,
+)
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
@@ -16,6 +20,7 @@ router = APIRouter()
 CALENDAR_COLORS = {14910017, 3900150, 11027223, 2278750, 16344086, 15680580, 440276, 15472921}
 REPEAT_KINDS = {"once", "everyDay", "everyWeek", "everyMonth"}
 RSVP_CHOICES = {"going", "maybe", "declined"}
+GROUP_STATUSES = {"invited", "going", "maybe", "waitlisted"}
 
 
 def load_calendar_channel(database, channel_id, user_id):
@@ -46,14 +51,14 @@ def stamp(value):
     return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def parse_starts(value):
+def parse_starts(value, missing="Start time is required."):
     text = (value or "").strip().replace("Z", "+00:00")
     if not text:
-        raise HTTPException(status_code=400, detail="Start time is required.")
+        raise HTTPException(status_code=400, detail=missing)
     try:
         parsed = datetime.fromisoformat(text)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Start time is required.")
+        raise HTTPException(status_code=400, detail=missing)
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc).replace(second=0, microsecond=0)
@@ -172,12 +177,45 @@ def user_can_rsvp(database, server, event, user_id):
     return any(role_id in have for role_id in allowed)
 
 
+def aware(value):
+    if not value:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def event_end(event):
+    if event.ends_at:
+        return aware(event.ends_at)
+    start = aware(event.starts_at)
+    if not start:
+        return None
+    return start + timedelta(hours=1)
+
+
+def group_open(event):
+    end = event_end(event)
+    if not end or end <= datetime.now(timezone.utc):
+        return False
+    if event.cancelled_at:
+        return False
+    return True
+
+
+def in_group(rows, user_id):
+    return any(row.user_id == user_id and (row.status or "") in GROUP_STATUSES for row in rows)
+
+
 def serialize_event(database, event, rows, names):
+    end = event_end(event)
     return {
         "id": event.id,
         "channel_id": event.channel_id,
         "name": event.name or "",
         "starts_at": stamp(event.starts_at),
+        "ends_at": stamp(end),
+        "created_at": stamp(event.created_at),
         "color": event.color or 14910017,
         "sender_id": event.sender_id,
         "sender_username": username_for(database, event.sender_id, names),
@@ -194,6 +232,8 @@ def serialize_event(database, event, rows, names):
                 "username": username_for(database, row.user_id, names),
                 "occurrence_at": stamp(row.occurrence_at),
                 "status": row.status or "",
+                "invited_by_id": row.invited_by_id,
+                "invited_by_username": username_for(database, row.invited_by_id, names) if row.invited_by_id else "",
             }
             for row in rows
         ],
@@ -213,13 +253,50 @@ def apply_fields(database, server, event, body):
     event.rsvp_enabled = bool(body.rsvp_enabled)
     event.rsvp_limit = clean_limit(body.rsvp_limit)
     event.role_ids = clean_role_ids(database, server.id, body.role_ids) or None
+    end_text = (getattr(body, "ends_at", "") or "").strip()
+    if end_text:
+        event.ends_at = parse_starts(end_text, "End time is required.")
+    else:
+        event.ends_at = event.starts_at + timedelta(hours=1)
+    if event.ends_at <= event.starts_at:
+        raise HTTPException(status_code=400, detail="The event has to end after it starts.")
 
 
 def member_ids(database, server_id):
     return {row.user_id for row in database.query(Server_members.user_id).filter(Server_members.server_id == server_id).all()}
 
 
-def sync_invites(database, server, event, invite_ids):
+def scheduling_channel_ids(database, server_id):
+    cats = database.query(Server_categories.id).filter(Server_categories.server_id == server_id).all()
+    cat_ids = [row.id for row in cats]
+    if not cat_ids:
+        return []
+    rows = database.query(Server_channels.id).filter(
+        Server_channels.category_id.in_(cat_ids),
+        Server_channels.channel_type == "scheduling",
+    ).all()
+    return [row.id for row in rows]
+
+
+def overlap_user_ids(database, server, start, end):
+    channel_ids = scheduling_channel_ids(database, server.id)
+    if not channel_ids or not start or not end:
+        return []
+    start = aware(start)
+    end = aware(end)
+    blocks = database.query(Schedule_block).filter(Schedule_block.channel_id.in_(channel_ids)).all()
+    found = []
+    for block in blocks:
+        b0 = aware(block.starts_at)
+        b1 = aware(block.ends_at)
+        if not b0 or not b1:
+            continue
+        if b0 < end and b1 > start and block.user_id not in found:
+            found.append(block.user_id)
+    return found
+
+
+def sync_invites(database, server, event, invite_ids, invited_by_id=None):
     allowed = member_ids(database, server.id)
     wanted = []
     for value in invite_ids or []:
@@ -245,7 +322,23 @@ def sync_invites(database, server, event, invite_ids):
             user_id=user_id,
             occurrence_at=event.starts_at,
             status="invited",
+            invited_by_id=invited_by_id,
         ))
+
+
+def ensure_host(database, event):
+    rows = event_rsvps(database, event.id)
+    mine = next((row for row in rows if row.user_id == event.sender_id), None)
+    if mine:
+        if mine.status == "invited":
+            mine.status = "going"
+        return
+    database.add(Calendar_event_rsvp(
+        event_id=event.id,
+        user_id=event.sender_id,
+        occurrence_at=event.starts_at,
+        status="going",
+    ))
 
 
 def promote_waitlist(database, event, occurrence, rows):
@@ -301,7 +394,12 @@ async def create_calendar_event(body: Calendar_event_create, database: Session =
     database.add(event)
     database.commit()
     database.refresh(event)
-    sync_invites(database, server, event, body.invite_ids)
+    invited = list(body.invite_ids or [])
+    if body.from_schedule:
+        invited.extend(overlap_user_ids(database, server, event.starts_at, event.ends_at))
+    sync_invites(database, server, event, invited, event.sender_id)
+    if body.from_schedule:
+        ensure_host(database, event)
     database.commit()
     database.refresh(event)
     payload = broadcast_event(database, server, event)
@@ -320,7 +418,7 @@ async def edit_calendar_event(body: Calendar_event_edit, database: Session = Dep
     require_event_edit(database, server, current_user.id, event)
     apply_fields(database, server, event, body)
     database.commit()
-    sync_invites(database, server, event, body.invite_ids)
+    sync_invites(database, server, event, body.invite_ids, event.sender_id)
     database.commit()
     database.refresh(event)
     payload = broadcast_event(database, server, event)
@@ -339,6 +437,8 @@ async def set_calendar_rsvp(body: Calendar_event_rsvp_set, database: Session = D
         raise HTTPException(status_code=404, detail="Event not found")
     if event.cancelled_at:
         raise HTTPException(status_code=400, detail="That event is cancelled.")
+    if not group_open(event):
+        raise HTTPException(status_code=400, detail="That event has ended.")
     if event.rsvp_enabled is False:
         raise HTTPException(status_code=400, detail="RSVPs are turned off for that event.")
     status = (body.status or "").strip()
@@ -348,6 +448,16 @@ async def set_calendar_rsvp(body: Calendar_event_rsvp_set, database: Session = D
         raise HTTPException(status_code=403, detail="Your role cannot RSVP to that event.")
     occurrence = parse_starts(body.occurrence_at)
     mine = next((row for row in rows if row.user_id == current_user.id and stamp(row.occurrence_at) == stamp(occurrence)), None)
+    if not mine:
+        mine = next((row for row in rows if row.user_id == current_user.id), None)
+    if status == "declined":
+        if mine:
+            database.delete(mine)
+        database.commit()
+        database.refresh(event)
+        payload = broadcast_event(database, server, event)
+        await server_broadcast(server_id=server.id, payload={"type": "calendar_event_updated", "server_id": server.id, "event": payload}, database=database, exclude_user_id=current_user.id)
+        return payload
     if status == "going" and event.rsvp_limit:
         going = [row for row in rows if row.status == "going" and stamp(row.occurrence_at) == stamp(occurrence) and row.user_id != current_user.id]
         if len(going) >= event.rsvp_limit:
@@ -395,7 +505,161 @@ async def delete_calendar_event(body: Calendar_event_delete, database: Session =
         raise HTTPException(status_code=404, detail="Event not found")
     require_event_delete(database, server, current_user.id, event)
     database.query(Calendar_event_rsvp).filter(Calendar_event_rsvp.event_id == event.id).delete(synchronize_session=False)
+    database.query(Calendar_event_comment).filter(Calendar_event_comment.event_id == event.id).delete(synchronize_session=False)
     database.delete(event)
     database.commit()
     await server_broadcast(server_id=server.id, payload={"type": "calendar_event_deleted", "server_id": server.id, "channel_id": channel_id, "event_id": body.event_id}, database=database, exclude_user_id=current_user.id)
     return {"ok": True, "event_id": body.event_id}
+
+
+def calendar_channels_for(database, server, user_id):
+    cats = database.query(Server_categories).filter(Server_categories.server_id == server.id).all()
+    is_owner = server.owner_id == user_id
+    found = []
+    for cat in cats:
+        if cat.is_private and not is_owner:
+            continue
+        channels = database.query(Server_channels).filter(
+            Server_channels.category_id == cat.id,
+            Server_channels.channel_type == "events",
+        ).all()
+        for channel in channels:
+            if channel.is_private and not is_owner:
+                continue
+            perms = effective_perms_for_user_in_channel(database, server, user_id, channel.id)
+            if perms.get("view_events"):
+                found.append(channel)
+    return found
+
+
+def load_visible_event(database, event_id, user_id):
+    event = database.query(Calendar_event).filter(Calendar_event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    _channel, server = load_calendar_channel(database, event.channel_id, user_id)
+    rows = event_rsvps(database, event.id)
+    if not can_see_event(event, user_id, rows):
+        raise HTTPException(status_code=404, detail="Event not found")
+    return event, server, rows
+
+
+def event_comments(database, event_id):
+    return database.query(Calendar_event_comment).filter(
+        Calendar_event_comment.event_id == event_id
+    ).order_by(Calendar_event_comment.created_at.asc(), Calendar_event_comment.id.asc()).all()
+
+
+def comment_payload(database, comment, names):
+    return {
+        "id": comment.id,
+        "event_id": comment.event_id,
+        "user_id": comment.user_id,
+        "username": username_for(database, comment.user_id, names),
+        "content": comment.content or "",
+        "created_at": stamp(comment.created_at),
+    }
+
+
+@router.get("/get_event_rows/{server_id}")
+def get_event_rows(server_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    member = database.query(Server_members).filter(
+        Server_members.server_id == server.id,
+        Server_members.user_id == current_user.id,
+    ).first()
+    if not member and server.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Server not found")
+    names = {}
+    visible = []
+    for channel in calendar_channels_for(database, server, current_user.id):
+        events = database.query(Calendar_event).filter(Calendar_event.channel_id == channel.id).all()
+        for event in events:
+            if not group_open(event):
+                continue
+            rows = event_rsvps(database, event.id)
+            if not in_group(rows, current_user.id):
+                continue
+            if not can_see_event(event, current_user.id, rows):
+                continue
+            visible.append(serialize_event(database, event, rows, names))
+    visible.sort(key=lambda row: row["starts_at"] or "")
+    return {"events": visible}
+
+
+@router.get("/get_event_page/{event_id}")
+def get_event_page(event_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    event, _server, rows = load_visible_event(database, event_id, current_user.id)
+    names = {}
+    payload = serialize_event(database, event, rows, names)
+    payload["comments"] = [comment_payload(database, comment, names) for comment in event_comments(database, event.id)]
+    return payload
+
+
+@router.post("/calendar_event_comment")
+async def create_calendar_event_comment(body: Calendar_event_comment_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    event, server, rows = load_visible_event(database, body.event_id, current_user.id)
+    if not group_open(event):
+        raise HTTPException(status_code=400, detail="That event has ended.")
+    if not in_group(rows, current_user.id):
+        raise HTTPException(status_code=403, detail="Join the event before commenting.")
+    content = (body.content or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Write a comment first.")
+    if len(content) > 4000:
+        content = content[:4000]
+    comment = Calendar_event_comment(event_id=event.id, user_id=current_user.id, content=content)
+    database.add(comment)
+    database.commit()
+    database.refresh(comment)
+    names = {}
+    payload = comment_payload(database, comment, names)
+    await server_broadcast(server_id=server.id, payload={"type": "calendar_event_comment", "server_id": server.id, "event_id": event.id, "comment": payload}, database=database, exclude_user_id=current_user.id)
+    return payload
+
+
+@router.post("/calendar_event_invite")
+async def invite_event_member(body: Calendar_event_member, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    event, server, rows = load_visible_event(database, body.event_id, current_user.id)
+    if not group_open(event):
+        raise HTTPException(status_code=400, detail="That event has ended.")
+    if event.sender_id != current_user.id and not in_group(rows, current_user.id):
+        raise HTTPException(status_code=403, detail="You are not in this event.")
+    if body.user_id not in member_ids(database, server.id):
+        raise HTTPException(status_code=404, detail="Member not found")
+    existing = next((row for row in rows if row.user_id == body.user_id), None)
+    if existing and (existing.status or "") in GROUP_STATUSES:
+        return broadcast_event(database, server, event)
+    if existing:
+        existing.status = "invited"
+        existing.invited_by_id = current_user.id
+        existing.occurrence_at = event.starts_at
+    else:
+        database.add(Calendar_event_rsvp(
+            event_id=event.id,
+            user_id=body.user_id,
+            occurrence_at=event.starts_at,
+            status="invited",
+            invited_by_id=current_user.id,
+        ))
+    database.commit()
+    database.refresh(event)
+    payload = broadcast_event(database, server, event)
+    await server_broadcast(server_id=server.id, payload={"type": "calendar_event_updated", "server_id": server.id, "event": payload}, database=database, exclude_user_id=current_user.id)
+    return payload
+
+
+@router.post("/calendar_event_remove")
+async def remove_event_member(body: Calendar_event_member, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    event, server, rows = load_visible_event(database, body.event_id, current_user.id)
+    if body.user_id != current_user.id and event.sender_id != current_user.id:
+        require_event_edit(database, server, current_user.id, event)
+    target = next((row for row in rows if row.user_id == body.user_id), None)
+    if target:
+        database.delete(target)
+        database.commit()
+    database.refresh(event)
+    payload = broadcast_event(database, server, event)
+    await server_broadcast(server_id=server.id, payload={"type": "calendar_event_updated", "server_id": server.id, "event": payload}, database=database, exclude_user_id=current_user.id)
+    return payload

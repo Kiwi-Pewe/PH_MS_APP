@@ -491,14 +491,25 @@ function connectSocket() {
 
     if (data.type === "calendar_event_created" && typeof applyCalendarEvent === "function") {
       applyCalendarEvent(data.event);
+      if (typeof noteEventUnread === "function") noteEventUnread(data.event);
+      if (typeof refreshEventRows === "function") refreshEventRows();
     }
 
     if (data.type === "calendar_event_updated" && typeof applyCalendarEvent === "function") {
       applyCalendarEvent(data.event);
+      if (typeof noteEventUnread === "function") noteEventUnread(data.event);
+      if (typeof refreshEventRows === "function") refreshEventRows();
+      if (typeof paintOpenEventPage === "function") paintOpenEventPage(data.event);
     }
 
     if (data.type === "calendar_event_deleted" && typeof removeCalendarEvent === "function") {
       if (Number(currentChannelId) === Number(data.channel_id)) removeCalendarEvent(data.event_id);
+      if (typeof closeEventPageIf === "function") closeEventPageIf(data.event_id);
+      if (typeof refreshEventRows === "function") refreshEventRows();
+    }
+
+    if (data.type === "calendar_event_comment" && typeof reloadOpenEventPage === "function") {
+      reloadOpenEventPage(data.event_id);
     }
 
     if ((data.type === "doc_entry_created" || data.type === "doc_entry_updated") && typeof applyDocEntry === "function") {

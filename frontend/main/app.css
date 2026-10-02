@@ -3938,13 +3938,76 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   cursor: pointer; font-size: inherit;
 }
 .calendar-info-foot {
-  display: flex; justify-content: flex-end;
+  display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;
   border-top: 1px solid var(--border); padding: 10px 12px;
 }
-.calendar-going-placeholder {
-  background: transparent; border: 1px solid var(--border); color: var(--text-dim);
-  border-radius: 6px; padding: 6px 14px; font-weight: 700; opacity: 0.45; cursor: default;
+.calendar-rsvp-choice {
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  border-radius: 6px; padding: 6px 12px; font-weight: 700; cursor: pointer;
 }
+.calendar-rsvp-choice.is-on { border-color: var(--accent); color: var(--accent); }
+.calendar-rsvp-choice:disabled { opacity: 0.45; cursor: default; }
+.channel-row.event-rail-row { padding-left: 28px; }
+#event-page {
+  flex: 1; min-height: 0; display: none; flex-direction: row; min-width: 0;
+}
+.event-page-main {
+  flex: 1; min-width: 0; overflow: auto; padding: 20px 24px 32px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.event-page-main::-webkit-scrollbar,
+.event-page-rail::-webkit-scrollbar { width: 8px; }
+.event-page-main::-webkit-scrollbar-track,
+.event-page-rail::-webkit-scrollbar-track { background: transparent; }
+.event-page-main::-webkit-scrollbar-thumb,
+.event-page-rail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.event-page-head, .event-page-discuss-head, .event-page-compose-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.event-page-head h2 { margin: 0; font-size: 22px; font-weight: 700; }
+.event-page-rsvp { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 8px; }
+.event-page-invited { color: var(--text-dim); margin-bottom: 12px; }
+.event-page-discuss-head { margin: 18px 0 10px; font-weight: 700; }
+.event-page-join, .event-page-react, #event-page-share, .event-page-format button {
+  opacity: 0.45; cursor: default;
+}
+.event-page-format { display: flex; gap: 6px; margin-bottom: 8px; }
+.event-page-format button {
+  background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  border-radius: 6px; padding: 4px 8px;
+}
+.event-page-compose-row { margin-top: 8px; }
+.event-page-empty, .event-page-note.is-empty, .event-page-ago, .event-page-count {
+  color: var(--text-dim);
+}
+.event-page-comment { display: flex; gap: 10px; margin: 0 0 12px; }
+.event-page-comment-body { min-width: 0; }
+.event-page-comment-top { display: flex; align-items: baseline; gap: 8px; }
+.event-page-comment-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.event-page-meta { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+.event-page-when { white-space: pre-line; }
+.event-page-face {
+  width: 28px; height: 28px; border-radius: 50%; overflow: hidden; padding: 0; flex: 0 0 auto;
+  border: 0; background: var(--panel-alt); color: var(--text); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.event-page-person-name {
+  background: transparent; border: 0; padding: 0; color: var(--text); font-weight: 700;
+  cursor: pointer; font-size: inherit;
+}
+.event-page-rail {
+  width: 260px; flex: 0 0 260px; border-left: 1px solid var(--border);
+  padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 12px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.event-page-bucket { color: var(--text-dim); font-size: 12px; font-weight: 700; margin-top: 10px; }
+.event-page-person { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.event-page-remove {
+  margin-left: auto; background: transparent; border: 0; color: var(--text-dim);
+  cursor: pointer; font-size: 16px; line-height: 1;
+}
+.event-page-invite { display: flex; gap: 8px; margin-top: auto; }
+.event-page-invite .server-settings-input { flex: 1; min-width: 0; }
 #calendar-event-card {
   width: 480px; max-width: calc(100% - 32px); max-height: 82vh;
   background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;

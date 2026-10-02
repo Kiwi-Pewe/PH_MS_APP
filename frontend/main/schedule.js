@@ -487,6 +487,7 @@ function openScheduleCard(event, day, hour) {
     openCalendarEvent(null, scheduleInputValue(start), {
       inviteIds: unique.map((block) => Number(block.user_id)),
       label: scheduleClock(start) + " \u2013 " + scheduleClock(end),
+      endsAt: scheduleInputValue(end),
     });
   });
   card.appendChild(create);

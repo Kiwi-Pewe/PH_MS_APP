@@ -547,6 +547,8 @@ class Calendar_event_create(BaseModel):
     rsvp_limit: int | None = None
     role_ids: list[int] = []
     invite_ids: list[int] = []
+    ends_at: str = ""
+    from_schedule: bool = False
 
 class Calendar_event_edit(BaseModel):
     event_id: int
@@ -560,6 +562,7 @@ class Calendar_event_edit(BaseModel):
     rsvp_limit: int | None = None
     role_ids: list[int] = []
     invite_ids: list[int] = []
+    ends_at: str = ""
 
 class Calendar_event_delete(BaseModel):
     event_id: int
@@ -571,6 +574,14 @@ class Calendar_event_rsvp_set(BaseModel):
 
 class Calendar_event_cancel(BaseModel):
     event_id: int
+
+class Calendar_event_comment_create(BaseModel):
+    event_id: int
+    content: str
+
+class Calendar_event_member(BaseModel):
+    event_id: int
+    user_id: int
 
 class List_thread_create(BaseModel):
     item_id: int

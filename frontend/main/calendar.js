@@ -559,6 +559,7 @@ function openCalendarEvent(event, inputValue, slot) {
   const title = document.getElementById("calendar-event-heading");
   const name = document.getElementById("calendar-event-name");
   const start = document.getElementById("calendar-event-start");
+  const end = document.getElementById("calendar-event-end");
   const repeat = document.getElementById("calendar-repeat");
   const description = document.getElementById("calendar-description");
   const priv = document.getElementById("calendar-private");
@@ -571,6 +572,18 @@ function openCalendarEvent(event, inputValue, slot) {
   if (start) {
     if (event) start.value = calendarDateToInput(calendarDate(event.starts_at));
     else start.value = inputValue || calendarDateToInput(new Date());
+  }
+  if (end) {
+    if (event && event.ends_at) end.value = calendarDateToInput(calendarDate(event.ends_at));
+    else if (slot && slot.endsAt) end.value = slot.endsAt;
+    else if (start && start.value) {
+      const zone = slot ? (Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC") : calendarActiveZone();
+      const when = calendarInputToDate(start.value, zone);
+      if (when) {
+        when.setHours(when.getHours() + 1);
+        end.value = calendarDateToInput(when);
+      }
+    }
   }
   if (repeat) repeat.value = (event && event.repeat_kind) || "once";
   if (description) description.value = event ? (event.description || "") : "";
@@ -612,11 +625,17 @@ async function saveCalendarEvent() {
   if (!channelId) return;
   const nameInput = document.getElementById("calendar-event-name");
   const startInput = document.getElementById("calendar-event-start");
+  const endInput = document.getElementById("calendar-event-end");
   const name = nameInput ? nameInput.value.trim() : "";
   const zone = calendarScheduleSlot ? (Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC") : calendarActiveZone();
   const when = calendarInputToDate(startInput && startInput.value, zone);
-  if (!name || !when) {
-    window.alert("Name and start time are required.");
+  const endWhen = calendarInputToDate(endInput && endInput.value, zone);
+  if (!name || !when || !endWhen) {
+    window.alert("Name, start, and end are required.");
+    return;
+  }
+  if (endWhen <= when) {
+    window.alert("The event has to end after it starts.");
     return;
   }
   const repeat = document.getElementById("calendar-repeat");
@@ -628,6 +647,7 @@ async function saveCalendarEvent() {
   const fields = {
     name,
     starts_at: when.toISOString(),
+    ends_at: endWhen.toISOString(),
     color: calendarColor,
     description: description ? description.value : "",
     repeat_kind: repeat ? repeat.value : "once",
@@ -636,6 +656,7 @@ async function saveCalendarEvent() {
     rsvp_limit: Number.isFinite(limitValue) ? limitValue : null,
     role_ids: calendarRoleIds.slice(),
     invite_ids: calendarInviteIds.slice(),
+    from_schedule: !calendarEditingId && !!calendarScheduleSlot,
   };
   const editing = calendarEditingId;
   const path = editing ? "edit_calendar_event" : "calendar_event";
@@ -652,6 +673,7 @@ async function saveCalendarEvent() {
     return;
   }
   if (currentChannelType === "events" && Number(currentChannelId) === Number(channelId)) applyCalendarEvent(data);
+  if (typeof refreshEventRows === "function") refreshEventRows();
   closeCalendarEvent();
 }
 
@@ -834,7 +856,7 @@ function openCalendarInfo(item) {
   dayLine.textContent = (item.cancelled_at ? "Cancelled · " : "") + calendarWeekday(when, zone);
   const timeLine = document.createElement("div");
   timeLine.className = "calendar-info-time";
-  timeLine.textContent = calendarClock(when, zone);
+  timeLine.textContent = item.ends_at ? (calendarClock(when, zone) + " \u2013 " + calendarClock(calendarDate(item.ends_at), zone)) : calendarClock(when, zone);
   whenText.appendChild(dayLine);
   whenText.appendChild(timeLine);
   if (calendarClock(when, zone) !== calendarClock(when, other)) {
@@ -877,6 +899,7 @@ function openCalendarInfo(item) {
     faces.appendChild(face);
   });
   goingText.appendChild(count);
+  if (typeof paintCalendarInfoRsvp === "function") paintCalendarInfoRsvp(item);
   if (going.length) goingText.appendChild(faces);
   goingRow.appendChild(peopleIcon);
   goingRow.appendChild(goingText);

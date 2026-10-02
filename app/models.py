@@ -327,6 +327,7 @@ class Calendar_event(Base):
     rsvp_limit = Column(Integer, nullable=True)
     role_ids = Column(String, nullable=True)
     cancelled_at = Column(DateTime, nullable=True)
+    ends_at = Column(DateTime, nullable=True)
 
 
 class Calendar_event_rsvp(Base):
@@ -336,8 +337,18 @@ class Calendar_event_rsvp(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     occurrence_at = Column(DateTime)
     status = Column(String)
+    invited_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     __table_args__ = (UniqueConstraint("event_id", "user_id", "occurrence_at", name="uq_calendar_rsvp"),)
+
+
+class Calendar_event_comment(Base):
+    __tablename__ = "calendar_event_comments"
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey("calendar_events.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
 
 
 class Schedule_block(Base):

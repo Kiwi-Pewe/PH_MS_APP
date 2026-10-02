@@ -351,6 +351,8 @@ def ensure_calendar_columns():
         ("calendar_events", "rsvp_limit", "INTEGER"),
         ("calendar_events", "role_ids", "VARCHAR"),
         ("calendar_events", "cancelled_at", "DATETIME"),
+        ("calendar_events", "ends_at", "DATETIME"),
+        ("calendar_event_rsvps", "invited_by_id", "INTEGER"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:

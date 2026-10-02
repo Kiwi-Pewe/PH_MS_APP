@@ -437,6 +437,8 @@ function renderServerSidebar(data) {
     const activeRow = document.querySelector(`.channel-row[data-channel-id="${currentChannelId}"]`);
     if (activeRow) activeRow.classList.add("active");
   }
+  if (typeof paintEventRailRows === "function") paintEventRailRows();
+  if (typeof refreshEventRows === "function") refreshEventRows();
 }
 
 async function selectChannel(channel, rowEl) {
@@ -530,6 +532,7 @@ async function selectChannel(channel, rowEl) {
   if (docChannelView) docChannelView.style.display = "none";
   if (mediaChannelView) mediaChannelView.style.display = "none";
   if (scheduleView) scheduleView.style.display = "none";
+  if (typeof closeEventPageIf === "function" && openEventId) closeEventPageIf(openEventId);
   if (typeof hideDocChannelChrome === "function") hideDocChannelChrome();
   if (typeof hideMediaChannelChrome === "function") hideMediaChannelChrome();
   if (typeof hideScheduleChrome === "function") hideScheduleChrome();
@@ -863,10 +866,11 @@ if (serverSectionOverview) {
 }
 
 function hideChannelSurfaces() {
-  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
+  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "event-page", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });
+  if (typeof openEventId !== "undefined" && openEventId) openEventId = null;
 }
 
 async function openServerOverview() {

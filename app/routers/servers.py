@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Schedule_block
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block
 from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete
 from zoneinfo import available_timezones
 from app.database import get_db
@@ -1032,6 +1032,7 @@ def purge_channel_contents(database, channel):
     event_ids = [row.id for row in database.query(Calendar_event.id).filter(Calendar_event.channel_id == channel.id).all()]
     if event_ids:
         database.query(Calendar_event_rsvp).filter(Calendar_event_rsvp.event_id.in_(event_ids)).delete(synchronize_session=False)
+        database.query(Calendar_event_comment).filter(Calendar_event_comment.event_id.in_(event_ids)).delete(synchronize_session=False)
     database.query(Calendar_event).filter(Calendar_event.channel_id == channel.id).delete(synchronize_session=False)
     database.query(Schedule_block).filter(Schedule_block.channel_id == channel.id).delete(synchronize_session=False)
     database.query(Doc_entry).filter(Doc_entry.channel_id == channel.id).delete(synchronize_session=False)

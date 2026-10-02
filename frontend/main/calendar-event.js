@@ -465,6 +465,7 @@ function eventMetaIcon(kind) {
 function paintEventMeta(event) {
   const meta = document.getElementById("event-page-meta");
   if (!meta) return;
+  const reactions = document.getElementById("event-page-reactions");
   meta.replaceChildren();
   const local = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const server = typeof calendarServerZone === "function" ? calendarServerZone() : local;
@@ -510,12 +511,20 @@ function paintEventMeta(event) {
   const by = document.createElement("div");
   by.className = "event-page-line";
   by.appendChild(eventMetaIcon("people"));
+  const byStack = document.createElement("div");
+  byStack.className = "event-page-author-stack";
   const byBody = document.createElement("div");
   byBody.className = "event-page-by";
   byBody.append("Created by ");
   byBody.appendChild(paintEventFace({ user_id: event.sender_id, username: event.sender_username }));
   byBody.appendChild(paintEventName({ user_id: event.sender_id, username: event.sender_username }));
-  by.appendChild(byBody);
+  const ago = document.createElement("div");
+  ago.className = "event-page-ago";
+  const created = eventAgo(event.created_at);
+  ago.textContent = !created || created === "Just now" ? "Created just now" : "Created " + created;
+  byStack.appendChild(byBody);
+  byStack.appendChild(ago);
+  by.appendChild(byStack);
   const note = document.createElement("div");
   note.className = "event-page-line";
   note.appendChild(eventMetaIcon("note"));
@@ -525,12 +534,10 @@ function paintEventMeta(event) {
   noteText.textContent = description || "No description";
   if (!description) noteText.classList.add("is-empty");
   note.appendChild(noteText);
-  const ago = document.createElement("div");
-  ago.className = "event-page-ago";
-  const created = eventAgo(event.created_at);
-  ago.textContent = !created || created === "Just now" ? "Created just now" : "Created " + created;
   const foot = document.createElement("div");
   foot.className = "event-page-foot";
+  const footMain = document.createElement("div");
+  footMain.className = "event-page-foot-main";
   const countWrap = document.createElement("div");
   countWrap.className = "event-page-by";
   countWrap.appendChild(eventMetaIcon("chat"));
@@ -538,17 +545,22 @@ function paintEventMeta(event) {
   const count = document.createElement("span");
   count.textContent = total === 1 ? "1 comment" : total + " comments";
   countWrap.appendChild(count);
+  const bar = document.createElement("span");
+  bar.className = "event-page-foot-bar";
+  bar.textContent = "|";
+  footMain.appendChild(countWrap);
+  footMain.appendChild(bar);
+  if (reactions) footMain.appendChild(reactions);
   const share = document.createElement("button");
   share.type = "button";
   share.className = "event-page-share";
   share.disabled = true;
   share.textContent = "Share";
-  foot.appendChild(countWrap);
+  foot.appendChild(footMain);
   foot.appendChild(share);
   meta.appendChild(when);
   meta.appendChild(note);
   meta.appendChild(by);
-  meta.appendChild(ago);
   meta.appendChild(foot);
 }
 

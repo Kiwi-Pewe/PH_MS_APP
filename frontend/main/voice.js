@@ -8,7 +8,6 @@ let voiceStageChannelId = null;
 let voiceMuted = false;
 let voiceDeafened = false;
 let voiceCameraOn = false;
-let voiceNoiseOn = true;
 const voiceBannerColors = new Map();
 
 function voiceFaceUrl(media) {
@@ -122,21 +121,39 @@ async function leaveVoiceChannel() {
   }
 }
 
+function fitVoiceLine(node, startPx, floorPx) {
+  if (!node) return;
+  let size = startPx;
+  node.style.fontSize = size + "px";
+  const box = node.clientWidth;
+  if (!box) return;
+  while (size > floorPx && node.scrollWidth > box + 1) {
+    size -= 0.5;
+    node.style.fontSize = size + "px";
+  }
+}
+
 function paintVoiceDock() {
   const card = document.getElementById("voice-user-card");
   if (!card) return;
   if (!voiceJoinedChannelId) {
     card.hidden = true;
-    const noise = document.getElementById("voice-noise-menu");
-    if (noise) noise.hidden = true;
     const share = document.getElementById("voice-share-overlay");
     if (share) share.hidden = true;
     return;
   }
   card.hidden = false;
   const where = document.getElementById("voice-user-where");
-  if (where) where.textContent = voiceJoinedChannelName + " / " + voiceJoinedServerName;
+  const place = voiceJoinedChannelName + " / " + voiceJoinedServerName;
+  if (where) {
+    where.textContent = place;
+    where.title = place;
+  }
   paintVoiceInputs();
+  requestAnimationFrame(() => {
+    fitVoiceLine(card.querySelector(".voice-user-status"), 12, 9);
+    fitVoiceLine(where, 11, 8);
+  });
 }
 
 function paintVoiceInputs() {
@@ -149,15 +166,11 @@ function paintVoiceInputs() {
   document.querySelectorAll("#voice-user-camera, #voice-ctrl-camera").forEach((button) => {
     button.classList.toggle("is-off", !voiceCameraOn);
   });
-  const noiseInput = document.getElementById("voice-noise-input");
-  if (noiseInput) noiseInput.checked = voiceNoiseOn;
 }
 
 function openVoiceShare() {
   const share = document.getElementById("voice-share-overlay");
   if (share) share.hidden = false;
-  const noise = document.getElementById("voice-noise-menu");
-  if (noise) noise.hidden = true;
 }
 
 function closeVoiceStage() {
@@ -408,23 +421,8 @@ function bindVoiceControls() {
       if (event.target === shareOverlay) shareOverlay.hidden = true;
     });
   }
-  const noiseBtn = document.getElementById("voice-user-noise");
-  const noiseMenu = document.getElementById("voice-noise-menu");
-  if (noiseBtn && noiseMenu) {
-    noiseBtn.addEventListener("click", (event) => {
-      event.stopPropagation();
-      noiseMenu.hidden = !noiseMenu.hidden;
-    });
-  }
-  const noiseInput = document.getElementById("voice-noise-input");
-  if (noiseInput) {
-    noiseInput.addEventListener("change", () => {
-      voiceNoiseOn = noiseInput.checked;
-    });
-  }
   document.addEventListener("click", (event) => {
     if (menu && !menu.hidden && !event.target.closest("#voice-more") && !event.target.closest("#voice-ctrl-more")) menu.hidden = true;
-    if (noiseMenu && !noiseMenu.hidden && !event.target.closest("#voice-noise-menu") && !event.target.closest("#voice-user-noise")) noiseMenu.hidden = true;
   });
   paintVoiceInputs();
 }

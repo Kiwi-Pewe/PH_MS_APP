@@ -3780,6 +3780,10 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .schedule-cap-top { top: -4px; }
 .schedule-cap-foot { bottom: -4px; }
+.schedule-cap-foot.is-handle {
+  pointer-events: auto; cursor: ns-resize; z-index: 8;
+  width: 12px; height: 12px; margin-left: -6px; bottom: -6px;
+}
 .schedule-own {
   position: absolute; left: -16px; top: -16px; width: 54px; height: 36px;
   z-index: 6; pointer-events: auto;

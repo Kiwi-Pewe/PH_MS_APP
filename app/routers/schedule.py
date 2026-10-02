@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Schedule_block
-from app.schemas import Schedule_block_create, Schedule_block_delete
+from app.schemas import Schedule_block_create, Schedule_block_delete, Schedule_block_update
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
@@ -118,6 +118,28 @@ async def create_schedule_block(body: Schedule_block_create, database: Session =
     database.refresh(block)
     payload = decorate(database, server, [block])[0]
     await server_broadcast(server_id=server.id, payload={"type": "schedule_block_created", "block": payload}, database=database, exclude_user_id=current_user.id)
+    return {"block": payload}
+
+
+@router.post("/update_schedule_block")
+async def update_schedule_block(body: Schedule_block_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    block = database.query(Schedule_block).filter(Schedule_block.id == body.block_id).first()
+    if not block or block.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Availability not found")
+    _channel, server = load_schedule_channel(database, block.channel_id, current_user.id)
+    ends = parse_when(body.ends_at, "End")
+    starts = block.starts_at
+    if starts.tzinfo is None:
+        starts = starts.replace(tzinfo=timezone.utc)
+    if ends <= starts:
+        raise HTTPException(status_code=400, detail="End is required.")
+    if ends - starts > timedelta(hours=24):
+        raise HTTPException(status_code=400, detail="Availability can cover one day.")
+    block.ends_at = ends
+    database.commit()
+    database.refresh(block)
+    payload = decorate(database, server, [block])[0]
+    await server_broadcast(server_id=server.id, payload={"type": "schedule_block_updated", "block": payload}, database=database, exclude_user_id=current_user.id)
     return {"block": payload}
 
 

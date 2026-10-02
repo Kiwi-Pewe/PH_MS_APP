@@ -219,6 +219,11 @@ function scheduleBlockElement(block, day, column) {
   wrap.appendChild(cap);
   wrap.appendChild(foot);
   if (Number(block.user_id) === Number(myUserId)) {
+    foot.classList.add("is-handle");
+    foot.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+      beginScheduleResize(event, block, wrap);
+    });
     const own = document.createElement("div");
     own.className = "schedule-own";
     own.addEventListener("pointerdown", (event) => event.stopPropagation());
@@ -276,24 +281,46 @@ function scheduleColumnRatio(event, column) {
   return Math.max(0.08, Math.min(0.92, (event.clientX - rect.left) / rect.width));
 }
 
-function scheduleDragSpan(drag) {
-  const from = Math.min(drag.startHour, drag.hour);
-  const to = Math.min(24, Math.max(drag.startHour, drag.hour) + 1);
-  return { from, to };
+function scheduleColumnMinutes(event, column) {
+  const rect = column.getBoundingClientRect();
+  const hourPx = scheduleSlotTop(column, 1) || SCHEDULE_HOUR_PX;
+  if (!hourPx) return 0;
+  const minutes = ((event.clientY - rect.top) / hourPx) * 60;
+  const snapped = Math.round(minutes / 30) * 30;
+  return Math.max(0, Math.min(24 * 60, snapped));
+}
+
+function scheduleBlockMinutes(block, day) {
+  const dayStart = scheduleDayStart(day).getTime();
+  const start = Math.max(new Date(block.starts_at).getTime(), dayStart);
+  const end = Math.min(new Date(block.ends_at).getTime(), scheduleAddDays(scheduleDayStart(day), 1).getTime());
+  return {
+    start: Math.round((start - dayStart) / 60000),
+    end: Math.round((end - dayStart) / 60000),
+  };
+}
+
+function schedulePaintLength(wrap, column, startMin, endMin) {
+  const hourPx = scheduleSlotTop(column, 1) || SCHEDULE_HOUR_PX;
+  wrap.style.top = ((startMin / 60) * hourPx) + "px";
+  wrap.style.height = (((endMin - startMin) / 60) * hourPx) + "px";
 }
 
 function schedulePointerDown(event) {
   if (event.button !== 0) return;
-  if (event.target.closest(".schedule-face, .schedule-remove")) return;
+  if (event.target.closest(".schedule-face, .schedule-remove, .schedule-cap-foot.is-handle")) return;
   const column = event.target.closest(".schedule-day");
   if (!column) return;
   closeScheduleCard();
   const board = event.currentTarget;
+  const startMin = scheduleColumnMinutes(event, column);
   scheduleDrag = {
+    mode: "place",
     day: Number(column.dataset.day),
     column,
     startHour: scheduleColumnHour(event, column),
-    hour: scheduleColumnHour(event, column),
+    startMin,
+    min: startMin,
     ratio: scheduleColumnRatio(event, column),
     moved: false,
     pointer: event.pointerId,
@@ -301,13 +328,13 @@ function schedulePointerDown(event) {
   };
   board.setPointerCapture(event.pointerId);
   const move = (ev) => {
-    if (!scheduleDrag || scheduleDrag.pointer !== ev.pointerId) return;
+    if (!scheduleDrag || scheduleDrag.mode !== "place" || scheduleDrag.pointer !== ev.pointerId) return;
     if (Math.abs(ev.clientY - scheduleDrag.originY) > 6) scheduleDrag.moved = true;
-    scheduleDrag.hour = scheduleColumnHour(ev, scheduleDrag.column);
+    scheduleDrag.min = scheduleColumnMinutes(ev, scheduleDrag.column);
     paintScheduleGhost();
   };
   const up = (ev) => {
-    if (!scheduleDrag || scheduleDrag.pointer !== ev.pointerId) return;
+    if (!scheduleDrag || scheduleDrag.mode !== "place" || scheduleDrag.pointer !== ev.pointerId) return;
     board.removeEventListener("pointermove", move);
     board.removeEventListener("pointerup", up);
     const drag = scheduleDrag;
@@ -319,23 +346,66 @@ function schedulePointerDown(event) {
       openScheduleCard(ev, day, drag.startHour);
       return;
     }
-    const span = scheduleDragSpan(drag);
-    createScheduleBlock(scheduleAtMinutes(day, span.from * 60), scheduleAtMinutes(day, span.to * 60), drag.ratio);
+    if (drag.startMin === drag.min) return;
+    const from = Math.min(drag.startMin, drag.min);
+    const to = Math.max(drag.startMin, drag.min);
+    createScheduleBlock(scheduleAtMinutes(day, from), scheduleAtMinutes(day, to), drag.ratio);
   };
   board.addEventListener("pointermove", move);
   board.addEventListener("pointerup", up);
 }
 
+function beginScheduleResize(event, block, wrap) {
+  if (event.button !== 0) return;
+  const column = wrap.closest(".schedule-day");
+  const sheet = document.getElementById("schedule-sheet");
+  if (!column || !sheet) return;
+  const day = scheduleVisibleDays()[Number(column.dataset.day)];
+  if (!day) return;
+  closeScheduleCard();
+  const minutes = scheduleBlockMinutes(block, day);
+  scheduleDrag = {
+    mode: "resize",
+    pointer: event.pointerId,
+    column,
+    wrap,
+    block,
+    day,
+    startMin: minutes.start,
+    endMin: minutes.end,
+  };
+  sheet.setPointerCapture(event.pointerId);
+  const move = (ev) => {
+    if (!scheduleDrag || scheduleDrag.mode !== "resize" || scheduleDrag.pointer !== ev.pointerId) return;
+    let next = scheduleColumnMinutes(ev, column);
+    if (next < scheduleDrag.startMin + 30) next = scheduleDrag.startMin + 30;
+    scheduleDrag.endMin = next;
+    schedulePaintLength(wrap, column, scheduleDrag.startMin, next);
+  };
+  const up = (ev) => {
+    if (!scheduleDrag || scheduleDrag.mode !== "resize" || scheduleDrag.pointer !== ev.pointerId) return;
+    sheet.removeEventListener("pointermove", move);
+    sheet.removeEventListener("pointerup", up);
+    const drag = scheduleDrag;
+    scheduleDrag = null;
+    if (drag.endMin === minutes.end) return;
+    updateScheduleBlock(drag.block.id, scheduleAtMinutes(drag.day, drag.endMin));
+  };
+  sheet.addEventListener("pointermove", move);
+  sheet.addEventListener("pointerup", up);
+}
+
 function paintScheduleGhost() {
   clearScheduleGhost();
-  if (!scheduleDrag || !scheduleDrag.moved || !scheduleDrag.column) return;
-  const span = scheduleDragSpan(scheduleDrag);
-  const top = scheduleSlotTop(scheduleDrag.column, span.from);
-  const bottom = span.to >= 24 ? scheduleSlotTop(scheduleDrag.column, 23) + (scheduleSlotTop(scheduleDrag.column, 1) || SCHEDULE_HOUR_PX) : scheduleSlotTop(scheduleDrag.column, span.to);
+  if (!scheduleDrag || scheduleDrag.mode !== "place" || !scheduleDrag.moved || !scheduleDrag.column) return;
+  if (scheduleDrag.startMin === scheduleDrag.min) return;
+  const from = Math.min(scheduleDrag.startMin, scheduleDrag.min);
+  const to = Math.max(scheduleDrag.startMin, scheduleDrag.min);
+  const hourPx = scheduleSlotTop(scheduleDrag.column, 1) || SCHEDULE_HOUR_PX;
   const ghost = document.createElement("div");
   ghost.className = "schedule-block is-ghost";
-  ghost.style.top = top + "px";
-  ghost.style.height = Math.max(bottom - top, scheduleSlotTop(scheduleDrag.column, 1) || SCHEDULE_HOUR_PX) + "px";
+  ghost.style.top = ((from / 60) * hourPx) + "px";
+  ghost.style.height = (((to - from) / 60) * hourPx) + "px";
   ghost.style.left = (scheduleDrag.ratio * 100) + "%";
   scheduleDrag.column.appendChild(ghost);
 }
@@ -433,6 +503,25 @@ async function createScheduleBlock(start, end, ratio) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     window.alert((typeof data.detail === "string" && data.detail) || "Could not save that availability.");
+    return;
+  }
+  if (data.block) applyScheduleBlock(data.block);
+}
+
+async function updateScheduleBlock(blockId, end) {
+  const response = await fetch(`https://${serverAddress}/update_schedule_block`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      block_id: blockId,
+      ends_at: end.toISOString(),
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    paintSchedule();
+    window.alert((typeof data.detail === "string" && data.detail) || "Could not update that availability.");
     return;
   }
   if (data.block) applyScheduleBlock(data.block);

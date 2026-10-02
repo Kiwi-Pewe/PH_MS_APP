@@ -517,7 +517,7 @@ function connectSocket() {
       if (Number(currentChannelId) === Number(data.channel_id)) removeMediaItem(data.item_id);
     }
 
-    if (data.type === "schedule_block_created" && typeof applyScheduleBlock === "function") {
+    if ((data.type === "schedule_block_created" || data.type === "schedule_block_updated") && typeof applyScheduleBlock === "function") {
       applyScheduleBlock(data.block);
     }
 

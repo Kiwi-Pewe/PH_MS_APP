@@ -355,6 +355,17 @@ def promote_waitlist(database, event, occurrence, rows):
         row.status = "going"
 
 
+def seed_if_unseeded(database, server, event):
+    rows = event_rsvps(database, event.id)
+    if rows or not group_open(event):
+        return rows
+    invited = overlap_user_ids(database, server, event.starts_at, event.ends_at)
+    sync_invites(database, server, event, invited, event.sender_id)
+    ensure_host(database, event)
+    database.commit()
+    return event_rsvps(database, event.id)
+
+
 def broadcast_event(database, server, event):
     rows = event_rsvps(database, event.id)
     payload = serialize_event(database, event, rows, {})
@@ -395,11 +406,9 @@ async def create_calendar_event(body: Calendar_event_create, database: Session =
     database.commit()
     database.refresh(event)
     invited = list(body.invite_ids or [])
-    if body.from_schedule:
-        invited.extend(overlap_user_ids(database, server, event.starts_at, event.ends_at))
+    invited.extend(overlap_user_ids(database, server, event.starts_at, event.ends_at))
     sync_invites(database, server, event, invited, event.sender_id)
-    if body.from_schedule:
-        ensure_host(database, event)
+    ensure_host(database, event)
     database.commit()
     database.refresh(event)
     payload = broadcast_event(database, server, event)
@@ -452,7 +461,14 @@ async def set_calendar_rsvp(body: Calendar_event_rsvp_set, database: Session = D
         mine = next((row for row in rows if row.user_id == current_user.id), None)
     if status == "declined":
         if mine:
-            database.delete(mine)
+            mine.status = "declined"
+        else:
+            database.add(Calendar_event_rsvp(
+                event_id=event.id,
+                user_id=current_user.id,
+                occurrence_at=occurrence,
+                status="declined",
+            ))
         database.commit()
         database.refresh(event)
         payload = broadcast_event(database, server, event)
@@ -578,7 +594,7 @@ def get_event_rows(server_id: int, database: Session = Depends(get_db), current_
         for event in events:
             if not group_open(event):
                 continue
-            rows = event_rsvps(database, event.id)
+            rows = seed_if_unseeded(database, server, event)
             if not in_group(rows, current_user.id):
                 continue
             if not can_see_event(event, current_user.id, rows):

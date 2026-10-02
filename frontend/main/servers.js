@@ -470,6 +470,8 @@ async function selectChannel(channel, rowEl) {
   openForumPostTags = [];
   openForumPostReactions = [];
   document.getElementById("forum-back-btn").style.display = "none";
+  const eventPageBack = document.getElementById("event-page-back");
+  if (eventPageBack) eventPageBack.style.display = "none";
   const forumOpener = document.getElementById("forum-thread-opener");
   if (forumOpener) {
     forumOpener.hidden = true;
@@ -532,6 +534,8 @@ async function selectChannel(channel, rowEl) {
   if (docChannelView) docChannelView.style.display = "none";
   if (mediaChannelView) mediaChannelView.style.display = "none";
   if (scheduleView) scheduleView.style.display = "none";
+  const eventPage = document.getElementById("event-page");
+  if (eventPage) eventPage.style.display = "none";
   if (typeof closeEventPageIf === "function" && openEventId) closeEventPageIf(openEventId);
   if (typeof hideDocChannelChrome === "function") hideDocChannelChrome();
   if (typeof hideMediaChannelChrome === "function") hideMediaChannelChrome();

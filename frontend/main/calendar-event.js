@@ -3,6 +3,7 @@ const EVENT_GROUP = { invited: true, going: true, maybe: true, waitlisted: true 
 let eventRailRows = [];
 let eventRailToken = 0;
 let openEventId = null;
+let openEventChannelId = null;
 
 function eventStillOpen(event) {
   if (!event || event.cancelled_at) return false;
@@ -65,7 +66,7 @@ function paintEventRailRows() {
     groups.get(key).push(event);
   });
   groups.forEach((events, channelId) => {
-    const parent = document.querySelector(`.channel-row[data-channel-id="${channelId}"]`);
+    const parent = document.querySelector(`#category-list .channel-row[data-channel-id="${channelId}"]`);
     if (!parent) return;
     let after = parent;
     events.forEach((event) => {
@@ -179,7 +180,7 @@ async function submitCalendarRsvp(item, status) {
   if (typeof refreshEventRows === "function") refreshEventRows();
   if (status === "declined") {
     if (typeof closeCalendarInfo === "function") closeCalendarInfo();
-    closeEventPageIf(data.id);
+    leaveEventPage();
     return;
   }
   if (typeof calendarInfoItem !== "undefined" && calendarInfoItem && Number(calendarInfoItem.id) === Number(data.id) && typeof openCalendarInfo === "function") {
@@ -188,12 +189,37 @@ async function submitCalendarRsvp(item, status) {
   paintOpenEventPage(data);
 }
 
+function eventChannelRecord(channelId) {
+  const data = typeof currentServerData !== "undefined" ? currentServerData : null;
+  if (!data || !Array.isArray(data.categories)) return null;
+  for (let index = 0; index < data.categories.length; index += 1) {
+    const found = (data.categories[index].channels || []).find((channel) => Number(channel.id) === Number(channelId));
+    if (found) return found;
+  }
+  return null;
+}
+
+function hideEventBack() {
+  const back = document.getElementById("event-page-back");
+  if (back) back.style.display = "none";
+}
+
 function closeEventPageIf(eventId) {
   if (!openEventId || Number(openEventId) !== Number(eventId)) return;
   openEventId = null;
   const page = document.getElementById("event-page");
   if (page) page.style.display = "none";
+  hideEventBack();
   paintEventRailRows();
+}
+
+function leaveEventPage() {
+  const channel = eventChannelRecord(openEventChannelId);
+  openEventId = null;
+  hideEventBack();
+  const page = document.getElementById("event-page");
+  if (page) page.style.display = "none";
+  if (channel && typeof selectChannel === "function") selectChannel(channel);
 }
 
 async function openEventPage(event) {
@@ -203,21 +229,22 @@ async function openEventPage(event) {
   if (typeof switchMainView === "function") switchMainView("channel");
   if (typeof hideChannelSurfaces === "function") hideChannelSurfaces();
   openEventId = Number(event.id);
+  openEventChannelId = event.channel_id;
   const page = document.getElementById("event-page");
   if (page) page.style.display = "flex";
+  const channel = eventChannelRecord(event.channel_id);
   const title = document.getElementById("channel-header-title");
-  if (title) title.textContent = event.name || "Event";
+  if (title) title.textContent = (channel && channel.name) || "Calendar";
+  const back = document.getElementById("event-page-back");
+  if (back) back.style.display = "inline-flex";
   if (typeof setHeaderDescription === "function") setHeaderDescription("channel-header-desc", "");
   paintEventRailRows();
+  if (typeof refreshEventRows === "function") refreshEventRows();
   await reloadOpenEventPage(event.id);
 }
 
 function paintOpenEventPage(event) {
   if (!openEventId || !event || Number(event.id) !== Number(openEventId)) return;
-  if (!eventInMyGroup(event)) {
-    closeEventPageIf(event.id);
-    return;
-  }
   reloadOpenEventPage(event.id);
 }
 
@@ -225,7 +252,7 @@ async function reloadOpenEventPage(eventId) {
   if (!openEventId || Number(openEventId) !== Number(eventId)) return;
   const response = await fetch(`https://${serverAddress}/get_event_page/${eventId}`, { credentials: "include" });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || !eventInMyGroup(data)) {
+  if (!response.ok) {
     closeEventPageIf(eventId);
     return;
   }
@@ -259,54 +286,78 @@ function paintEventName(person) {
   return name;
 }
 
+function eventZoneShort(zone) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "short" }).formatToParts(new Date());
+    const found = parts.find((part) => part.type === "timeZoneName");
+    return found ? found.value : zone;
+  } catch (err) {
+    return zone;
+  }
+}
+
+function eventClockCompact(date, zone) {
+  if (typeof calendarClock !== "function") return "";
+  return calendarClock(date, zone).replace(/\s/g, "").toLowerCase();
+}
+
 function paintEventPage(event) {
   const title = document.getElementById("event-page-title");
   if (title) title.textContent = event.name || "Event";
-  const header = document.getElementById("channel-header-title");
-  if (header) header.textContent = event.name || "Event";
   const rsvp = document.getElementById("event-page-rsvp");
+  const mine = (event.rsvps || []).find((row) => Number(row.user_id) === Number(myUserId));
   if (rsvp) {
     rsvp.replaceChildren();
-    const mine = (event.rsvps || []).find((row) => Number(row.user_id) === Number(myUserId));
     const off = event.rsvp_enabled === false || !!event.cancelled_at || !eventStillOpen(event);
-    ["going", "maybe", "declined"].forEach((status) => {
+    [
+      ["going", "\u2713 Going"],
+      ["maybe", "? Maybe"],
+      ["declined", "\u2715 Declined"],
+    ].forEach((pair) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "calendar-rsvp-choice";
-      button.textContent = status === "going" ? "Going" : status === "maybe" ? "Maybe" : "Declined";
-      if (mine && mine.status === status) button.classList.add("is-on");
+      button.textContent = pair[1];
+      if (mine && mine.status === pair[0]) button.classList.add("is-on");
       button.disabled = off;
-      if (!off) button.addEventListener("click", () => submitCalendarRsvp(event, status));
+      if (!off) button.addEventListener("click", () => submitCalendarRsvp(event, pair[0]));
       rsvp.appendChild(button);
     });
   }
   const invited = document.getElementById("event-page-invited");
-  const mine = (event.rsvps || []).find((row) => Number(row.user_id) === Number(myUserId));
   if (invited) {
+    invited.replaceChildren();
     if (mine && mine.invited_by_username && Number(event.sender_id) !== Number(myUserId)) {
       invited.hidden = false;
-      invited.textContent = "Invited by " + mine.invited_by_username;
+      invited.appendChild(paintEventFace({ user_id: mine.invited_by_id, username: mine.invited_by_username }));
+      const line = document.createElement("span");
+      line.append("Invited by ");
+      line.appendChild(paintEventName({ user_id: mine.invited_by_id, username: mine.invited_by_username }));
+      invited.appendChild(line);
     } else {
       invited.hidden = true;
-      invited.textContent = "";
     }
   }
-  paintEventComments(event.comments || []);
+  const empty = document.getElementById("event-page-discuss-empty");
+  const comments = event.comments || [];
+  if (empty) empty.hidden = comments.length > 0;
+  paintEventComments(comments);
   paintEventMeta(event);
   paintEventPeople(event);
+  const replyFace = document.getElementById("event-page-reply-face");
+  if (replyFace && typeof paintUserFace === "function") {
+    paintUserFace(replyFace, { username: typeof myUsername !== "undefined" ? myUsername : "" }, {
+      userId: myUserId,
+      name: typeof myUsername !== "undefined" ? myUsername : "",
+      circle: true,
+    });
+  }
 }
 
 function paintEventComments(comments) {
   const list = document.getElementById("event-page-comments");
   if (!list) return;
   list.replaceChildren();
-  if (!comments.length) {
-    const empty = document.createElement("div");
-    empty.className = "event-page-empty";
-    empty.textContent = "No comments yet";
-    list.appendChild(empty);
-    return;
-  }
+  if (!comments.length) return;
   comments.forEach((comment) => {
     const row = document.createElement("div");
     row.className = "event-page-comment";
@@ -330,52 +381,123 @@ function paintEventComments(comments) {
   });
 }
 
+function eventMetaIcon(kind) {
+  const slot = document.createElement("span");
+  slot.className = "event-page-icon";
+  if (typeof calendarInfoIcon === "function" && (kind === "clock" || kind === "people")) {
+    slot.appendChild(calendarInfoIcon(kind === "people" ? "people" : "clock"));
+    return slot;
+  }
+  slot.textContent = kind === "clock" ? "\u23F0" : kind === "note" ? "\u2261" : kind === "chat" ? "\u{1F4AC}" : "\u2022";
+  return slot;
+}
+
 function paintEventMeta(event) {
   const meta = document.getElementById("event-page-meta");
   if (!meta) return;
   meta.replaceChildren();
+  const local = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const server = typeof calendarServerZone === "function" ? calendarServerZone() : local;
+  const start = typeof calendarDate === "function" ? calendarDate(event.starts_at) : null;
   const when = document.createElement("div");
-  when.className = "event-page-when";
-  when.textContent = eventWhenText(event);
+  when.className = "event-page-line";
+  when.appendChild(eventMetaIcon("clock"));
+  const whenBody = document.createElement("div");
+  whenBody.className = "event-page-line-body";
+  const whenTop = document.createElement("div");
+  whenTop.className = "event-page-line-top";
+  const whenText = document.createElement("div");
+  if (start) {
+    const day = document.createElement("div");
+    day.textContent = new Intl.DateTimeFormat("en-US", {
+      timeZone: local, weekday: "long", month: "short", day: "numeric",
+    }).format(start);
+    const clock = document.createElement("div");
+    clock.className = "event-page-time";
+    const end = event.ends_at && typeof calendarDate === "function" ? calendarDate(event.ends_at) : null;
+    clock.textContent = eventClockCompact(start, local) + (end ? " \u2013 " + eventClockCompact(end, local) : "") + " " + eventZoneShort(local);
+    whenText.appendChild(day);
+    whenText.appendChild(clock);
+    if (eventClockCompact(start, local) !== eventClockCompact(start, server)) {
+      const alt = document.createElement("div");
+      alt.className = "event-page-time";
+      alt.textContent = eventClockCompact(start, server) + (end ? " \u2013 " + eventClockCompact(end, server) : "") + " " + eventZoneShort(server);
+      whenText.appendChild(alt);
+    }
+  }
+  const menu = document.createElement("button");
+  menu.type = "button";
+  menu.className = "event-page-menu";
+  menu.textContent = "\u22EF";
+  menu.title = "Event options";
+  menu.addEventListener("click", () => {
+    if (typeof openCalendarInfoMenu === "function") openCalendarInfoMenu(menu, event);
+  });
+  whenTop.appendChild(whenText);
+  whenTop.appendChild(menu);
+  whenBody.appendChild(whenTop);
+  when.appendChild(whenBody);
   const by = document.createElement("div");
-  by.className = "event-page-by";
-  by.append("Created by ");
-  by.appendChild(paintEventName({ user_id: event.sender_id, username: event.sender_username }));
-  const ago = document.createElement("span");
-  ago.className = "event-page-ago";
-  ago.textContent = " · " + eventAgo(event.created_at);
-  by.appendChild(ago);
+  by.className = "event-page-line";
+  by.appendChild(eventMetaIcon("people"));
+  const byBody = document.createElement("div");
+  byBody.className = "event-page-by";
+  byBody.append("Created by ");
+  byBody.appendChild(paintEventFace({ user_id: event.sender_id, username: event.sender_username }));
+  byBody.appendChild(paintEventName({ user_id: event.sender_id, username: event.sender_username }));
+  by.appendChild(byBody);
   const note = document.createElement("div");
-  note.className = "event-page-note";
+  note.className = "event-page-line";
+  note.appendChild(eventMetaIcon("note"));
+  const noteText = document.createElement("div");
+  noteText.className = "event-page-note";
   const description = (event.description || "").trim();
-  note.textContent = description || "No description";
-  if (!description) note.classList.add("is-empty");
-  const count = document.createElement("div");
-  count.className = "event-page-count";
+  noteText.textContent = description || "No description";
+  if (!description) noteText.classList.add("is-empty");
+  note.appendChild(noteText);
+  const ago = document.createElement("div");
+  ago.className = "event-page-ago";
+  const created = eventAgo(event.created_at);
+  ago.textContent = !created || created === "Just now" ? "Created just now" : "Created " + created;
+  const foot = document.createElement("div");
+  foot.className = "event-page-foot";
+  const countWrap = document.createElement("div");
+  countWrap.className = "event-page-by";
+  countWrap.appendChild(eventMetaIcon("chat"));
   const total = (event.comments || []).length;
+  const count = document.createElement("span");
   count.textContent = total === 1 ? "1 comment" : total + " comments";
+  countWrap.appendChild(count);
+  const share = document.createElement("button");
+  share.type = "button";
+  share.className = "event-page-share";
+  share.disabled = true;
+  share.textContent = "Share";
+  foot.appendChild(countWrap);
+  foot.appendChild(share);
   meta.appendChild(when);
   meta.appendChild(by);
   meta.appendChild(note);
-  meta.appendChild(count);
+  meta.appendChild(ago);
+  meta.appendChild(foot);
 }
 
 function paintEventPeople(event) {
+  const counts = document.getElementById("event-page-count-line");
+  const attend = document.getElementById("event-page-attend");
   const host = document.getElementById("event-page-people");
-  if (!host) return;
-  host.replaceChildren();
-  [
-    ["going", "Going"],
-    ["maybe", "Maybe"],
-    ["invited", "Invited"],
-    ["waitlisted", "Waiting"],
-  ].forEach(([status, label]) => {
-    const people = (event.rsvps || []).filter((row) => row.status === status);
-    const head = document.createElement("div");
-    head.className = "event-page-bucket";
-    head.textContent = label + " — " + people.length;
-    host.appendChild(head);
-    people.forEach((person) => {
+  const note = document.getElementById("event-page-invite-note");
+  const rows = event.rsvps || [];
+  const tally = (status) => rows.filter((row) => row.status === status).length;
+  if (counts) {
+    counts.textContent = tally("going") + " going \u00B7 " + tally("maybe") + " maybe \u00B7 " + tally("invited") + " invited \u00B7 " + tally("waitlisted") + " waiting";
+  }
+  if (attend) {
+    attend.textContent = tally("going") ? "" : "Nobody is attending \"" + (event.name || "this event") + "\" yet.";
+  }
+  if (host) {
+    host.replaceChildren();
+    rows.filter((row) => EVENT_GROUP[row.status]).forEach((person) => {
       const row = document.createElement("div");
       row.className = "event-page-person";
       row.appendChild(paintEventFace(person));
@@ -391,7 +513,13 @@ function paintEventPeople(event) {
       }
       host.appendChild(row);
     });
-  });
+  }
+  if (note) {
+    const members = typeof memberList !== "undefined" && Array.isArray(memberList) ? memberList : [];
+    const inside = new Set(rows.filter((row) => EVENT_GROUP[row.status]).map((row) => Number(row.user_id)));
+    const pending = members.filter((member) => !inside.has(Number(member.id || member.user_id)));
+    note.textContent = members.length && !pending.length ? "All members invited" : "";
+  }
 }
 
 async function postEventComment() {
@@ -466,3 +594,12 @@ const eventPagePost = document.getElementById("event-page-post");
 if (eventPagePost) eventPagePost.addEventListener("click", () => postEventComment());
 const eventPageInvite = document.getElementById("event-page-invite");
 if (eventPageInvite) eventPageInvite.addEventListener("click", () => inviteEventMember());
+const eventPageBack = document.getElementById("event-page-back");
+if (eventPageBack) eventPageBack.addEventListener("click", () => leaveEventPage());
+const eventPageSee = document.getElementById("event-page-see-all");
+if (eventPageSee) {
+  eventPageSee.addEventListener("click", () => {
+    const people = document.getElementById("event-page-people");
+    if (people) people.hidden = !people.hidden;
+  });
+}

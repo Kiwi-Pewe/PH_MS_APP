@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=232">
+<link rel="stylesheet" href="app.css?v=233">
 </head>
 <body>
 
@@ -206,6 +206,7 @@
         <div class="view-header">
           <div class="header-title-group">
             <button class="icon-btn" id="forum-back-btn" style="display:none;" title="Back to posts">&#8592;</button>
+            <button class="icon-btn" id="event-page-back" style="display:none;" title="Back to calendar">&#8592;</button>
             <button class="icon-btn" id="doc-channel-back" style="display:none;" title="Back to documents">&#8592;</button>
             <button class="icon-btn" id="media-channel-back" style="display:none;" title="Back to media">&#8592;</button>
             <div class="header-title-stack">
@@ -379,38 +380,56 @@
         </div>
         <div id="event-page" style="display:none;">
           <div class="event-page-main">
-            <div class="event-page-head">
-              <h2 id="event-page-title">Event</h2>
-              <button type="button" class="ghost-btn" id="event-page-share" disabled>Share</button>
+            <h2 id="event-page-title">Event</h2>
+            <div class="event-page-rsvp-row">
+              <div id="event-page-rsvp" class="event-rsvp-seg"></div>
+              <div id="event-page-invited" class="event-page-invited" hidden></div>
             </div>
-            <div id="event-page-rsvp" class="event-page-rsvp"></div>
-            <div id="event-page-invited" class="event-page-invited" hidden></div>
             <div class="event-page-discuss-head">
-              <span>Discussion</span>
-              <button type="button" class="ghost-btn event-page-join" disabled>Join chat</button>
+              <div>
+                <div class="event-page-discuss-title">Event discussion</div>
+                <div id="event-page-discuss-empty" class="event-page-empty">No one's chatting yet</div>
+              </div>
+              <button type="button" class="event-page-join" disabled>Join chat</button>
             </div>
             <div id="event-page-comments" class="event-page-comments"></div>
-            <div class="event-page-compose">
-              <div class="event-page-format">
-                <button type="button" disabled>B</button>
-                <button type="button" disabled>I</button>
-                <button type="button" disabled>S</button>
-                <button type="button" disabled>Link</button>
+            <div id="event-page-meta" class="event-page-meta"></div>
+            <button type="button" class="event-page-react" disabled>Add a reaction</button>
+            <div class="event-page-reply">
+              <div class="event-page-reply-label">
+                <span id="event-page-reply-face" class="avatar-dot event-page-face"></span>
+                <span>Post a reply</span>
               </div>
-              <textarea id="event-page-input" class="list-note-field" rows="5" maxlength="4000" placeholder="Write a comment"></textarea>
+              <div class="event-page-box">
+                <div class="event-page-format">
+                  <button type="button" disabled>B</button>
+                  <button type="button" disabled>I</button>
+                  <button type="button" disabled>S</button>
+                  <button type="button" disabled>Link</button>
+                  <button type="button" disabled>List</button>
+                  <button type="button" disabled>Quote</button>
+                  <button type="button" disabled>Code</button>
+                </div>
+                <textarea id="event-page-input" class="list-note-field" rows="5" maxlength="4000" placeholder="Leave a reply. Use @ to tag someone"></textarea>
+              </div>
               <div class="event-page-compose-row">
-                <button type="button" class="ghost-btn event-page-react" disabled>Add a reaction</button>
                 <button type="button" class="pill-btn" id="event-page-post">Post</button>
               </div>
             </div>
-            <div id="event-page-meta" class="event-page-meta"></div>
           </div>
           <aside class="event-page-rail">
-            <div id="event-page-people"></div>
+            <div class="event-page-counts">
+              <span id="event-page-count-line"></span>
+              <button type="button" class="event-page-see" id="event-page-see-all">See all</button>
+            </div>
+            <div id="event-page-attend" class="event-page-attend"></div>
+            <div id="event-page-people" hidden></div>
+            <div class="event-page-invite-title">Invite members to the event</div>
             <div class="event-page-invite">
-              <input type="text" id="event-page-invite-name" class="server-settings-input" placeholder="Username" autocomplete="off">
+              <input type="text" id="event-page-invite-name" class="server-settings-input" placeholder="Search members" autocomplete="off">
               <button type="button" class="pill-btn" id="event-page-invite">Invite</button>
             </div>
+            <div id="event-page-invite-note" class="event-page-empty"></div>
           </aside>
         </div>
         <div id="calendar-view" style="display:none;">
@@ -1777,7 +1796,7 @@
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=13"></script>
-<script src="servers.js?v=109"></script>
+<script src="servers.js?v=110"></script>
 <script src="server-dnd.js?v=1"></script>
 <script src="channel-settings.js?v=18"></script>
 <script src="pins.js?v=3"></script>
@@ -1789,8 +1808,8 @@
 <script src="comments.js?v=54"></script>
 <script src="forums.js?v=67"></script>
 <script src="lists.js?v=3"></script>
-<script src="calendar.js?v=6"></script>
-<script src="calendar-event.js?v=1"></script>
+<script src="calendar.js?v=7"></script>
+<script src="calendar-event.js?v=2"></script>
 <script src="schedule.js?v=8"></script>
 <script src="doc-channel.js?v=6"></script>
 <script src="media-channel.js?v=4"></script>

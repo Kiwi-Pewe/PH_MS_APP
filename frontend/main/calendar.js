@@ -330,7 +330,7 @@ function paintCalendarMonth() {
       row.appendChild(name);
       row.addEventListener("click", (event) => {
         event.stopPropagation();
-        openCalendarInfo(item);
+        if (typeof openEventPage === "function") openEventPage(item);
       });
       cell.appendChild(row);
     });
@@ -378,7 +378,9 @@ function paintCalendarUpcoming() {
     text.appendChild(when);
     row.appendChild(dot);
     row.appendChild(text);
-    row.addEventListener("click", () => openCalendarInfo(item));
+    row.addEventListener("click", () => {
+      if (typeof openEventPage === "function") openEventPage(item);
+    });
     host.appendChild(row);
   });
 }
@@ -542,7 +544,8 @@ function paintCalendarScheduleSlot() {
 
 function openCalendarEvent(event, inputValue, slot) {
   if (event && !canEditCalendarEvent(event)) {
-    openCalendarInfo(event);
+    if (typeof openEventPage === "function") openEventPage(event);
+    else openCalendarInfo(event);
     return;
   }
   if (!event && !slot && !canCreateEvents()) return;
@@ -899,7 +902,6 @@ function openCalendarInfo(item) {
     faces.appendChild(face);
   });
   goingText.appendChild(count);
-  if (typeof paintCalendarInfoRsvp === "function") paintCalendarInfoRsvp(item);
   if (going.length) goingText.appendChild(faces);
   goingRow.appendChild(peopleIcon);
   goingRow.appendChild(goingText);

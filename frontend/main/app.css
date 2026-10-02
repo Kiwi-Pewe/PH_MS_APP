@@ -3942,7 +3942,36 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   border-top: 1px solid var(--border); padding: 10px 12px;
 }
 .calendar-info-foot:empty { display: none; }
-.channel-row.event-rail-row { padding-left: 36px; }
+.channel-row.event-rail-row,
+html.ui-density-compact .channel-row.event-rail-row,
+html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
+.event-rail-spine,
+.event-rail-stem {
+  position: absolute;
+  left: 16px;
+  box-sizing: border-box;
+  pointer-events: none;
+  border-color: var(--text-dim);
+  opacity: 0.7;
+}
+.event-rail-spine {
+  top: 0;
+  width: 14px;
+  height: 50%;
+  border-left: 2px solid var(--text-dim);
+  border-bottom: 2px solid var(--text-dim);
+  border-bottom-left-radius: 8px;
+}
+.event-rail-row.is-first .event-rail-spine {
+  top: -6px;
+  height: calc(50% + 6px);
+}
+.event-rail-stem {
+  top: 50%;
+  bottom: 0;
+  width: 0;
+  border-left: 2px solid var(--text-dim);
+}
 #event-page {
   flex: 1; min-height: 0; display: none; flex-direction: row; min-width: 0;
 }

@@ -70,19 +70,27 @@ function paintEventRailRows() {
     const parent = document.querySelector(`#category-list .channel-row[data-channel-id="${channelId}"]`);
     if (!parent) return;
     let after = parent;
-    events.forEach((event) => {
+    events.forEach((event, index) => {
       const row = document.createElement("div");
       row.className = "channel-row event-rail-row";
+      if (index === 0) row.classList.add("is-first");
+      if (index === events.length - 1) row.classList.add("is-last");
       row.dataset.eventId = String(event.id);
       if (unread.has(Number(event.id))) row.classList.add("has-unread");
       if (openEventId && Number(openEventId) === Number(event.id)) row.classList.add("active");
-      const icon = document.createElement("span");
-      icon.className = "channel-icon";
-      icon.textContent = typeof channelTypeIcon === "function" ? channelTypeIcon("events") : "#";
+      const spine = document.createElement("span");
+      spine.className = "event-rail-spine";
+      spine.setAttribute("aria-hidden", "true");
+      row.appendChild(spine);
+      if (index < events.length - 1) {
+        const stem = document.createElement("span");
+        stem.className = "event-rail-stem";
+        stem.setAttribute("aria-hidden", "true");
+        row.appendChild(stem);
+      }
       const label = document.createElement("span");
       label.className = "channel-label";
       label.textContent = event.name || "Event";
-      row.appendChild(icon);
       row.appendChild(label);
       if (unread.has(Number(event.id))) {
         const badge = document.createElement("span");

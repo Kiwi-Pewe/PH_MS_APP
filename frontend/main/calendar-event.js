@@ -546,8 +546,8 @@ function paintEventMeta(event) {
   foot.appendChild(countWrap);
   foot.appendChild(share);
   meta.appendChild(when);
-  meta.appendChild(by);
   meta.appendChild(note);
+  meta.appendChild(by);
   meta.appendChild(ago);
   meta.appendChild(foot);
 }

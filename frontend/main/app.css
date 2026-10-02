@@ -4000,9 +4000,15 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .event-page-invited { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .event-page-card {
   margin-top: 18px; background: var(--panel-alt); border: 1px solid var(--border);
-  border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;
+  border-radius: 10px; padding: 0 16px; display: flex; flex-direction: column; gap: 0;
 }
-.event-page-card .event-page-meta { margin-top: 0; }
+.event-page-card .event-page-meta { margin-top: 0; gap: 0; }
+.event-page-card .event-page-meta > *,
+.event-page-card .announce-reactions {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+}
+.event-page-card .event-page-meta > :first-child { border-top: 0; }
 .event-page-split { height: 1px; background: var(--border); margin: 18px 0 16px; }
 .event-page-discuss-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
@@ -4015,7 +4021,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   background: transparent; border: 1px solid var(--border); color: var(--text);
   border-radius: 6px; padding: 6px 12px; font-weight: 700;
 }
-.event-page-card .announce-reactions { margin-top: 2px; }
+.event-page-card .announce-reactions { margin-top: 0; }
 .event-page-empty, .event-page-note.is-empty, .event-page-ago { color: var(--text-dim); }
 .event-page-comments { margin-top: 12px; }
 .event-page-comment { display: flex; gap: 10px; margin: 0 0 12px; }

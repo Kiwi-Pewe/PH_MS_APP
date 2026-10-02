@@ -191,11 +191,10 @@ function scheduleBlockElement(block, day, column) {
   const topMin = (start - dayStart) / 60000;
   const heightMin = Math.max(30, (end - start) / 60000);
   const ratio = block.x_ratio == null ? 0.5 : Number(block.x_ratio);
-  const hourPx = scheduleSlotTop(column, 1) || SCHEDULE_HOUR_PX;
   const wrap = document.createElement("div");
   wrap.className = "schedule-block";
-  wrap.style.top = ((topMin / 60) * hourPx) + "px";
-  wrap.style.height = ((heightMin / 60) * hourPx) + "px";
+  wrap.style.top = scheduleMinuteTop(column, topMin) + "px";
+  wrap.style.height = (scheduleMinuteTop(column, topMin + heightMin) - scheduleMinuteTop(column, topMin)) + "px";
   wrap.style.left = (ratio * 100) + "%";
   const stroke = document.createElement("div");
   stroke.className = "schedule-line";
@@ -282,12 +281,36 @@ function scheduleColumnRatio(event, column) {
 }
 
 function scheduleColumnMinutes(event, column) {
-  const rect = column.getBoundingClientRect();
-  const hourPx = scheduleSlotTop(column, 1) || SCHEDULE_HOUR_PX;
-  if (!hourPx) return 0;
-  const minutes = ((event.clientY - rect.top) / hourPx) * 60;
-  const snapped = Math.round(minutes / 30) * 30;
+  const slots = column.querySelectorAll(".schedule-slot");
+  if (!slots.length) return 0;
+  const y = event.clientY;
+  if (y < slots[0].getBoundingClientRect().top) return 0;
+  let index = slots.length - 1;
+  for (let i = 0; i < slots.length; i += 1) {
+    const rect = slots[i].getBoundingClientRect();
+    if (y < rect.bottom) {
+      index = i;
+      break;
+    }
+  }
+  const rect = slots[index].getBoundingClientRect();
+  const ratio = rect.height ? (y - rect.top) / rect.height : 0;
+  const snapped = Math.round((index * 60 + ratio * 60) / 30) * 30;
   return Math.max(0, Math.min(24 * 60, snapped));
+}
+
+function scheduleMinuteTop(column, minutes) {
+  const capped = Math.max(0, Math.min(24 * 60, minutes));
+  if (capped >= 24 * 60) {
+    const last = scheduleSlot(column, 23);
+    if (!last || !last.offsetHeight) return 24 * SCHEDULE_HOUR_PX;
+    return last.offsetTop + last.offsetHeight;
+  }
+  const hour = Math.floor(capped / 60);
+  const part = capped - hour * 60;
+  const slot = scheduleSlot(column, hour);
+  if (!slot || !slot.offsetHeight) return (capped / 60) * SCHEDULE_HOUR_PX;
+  return slot.offsetTop + (part / 60) * slot.offsetHeight;
 }
 
 function scheduleBlockMinutes(block, day) {
@@ -301,9 +324,9 @@ function scheduleBlockMinutes(block, day) {
 }
 
 function schedulePaintLength(wrap, column, startMin, endMin) {
-  const hourPx = scheduleSlotTop(column, 1) || SCHEDULE_HOUR_PX;
-  wrap.style.top = ((startMin / 60) * hourPx) + "px";
-  wrap.style.height = (((endMin - startMin) / 60) * hourPx) + "px";
+  const top = scheduleMinuteTop(column, startMin);
+  wrap.style.top = top + "px";
+  wrap.style.height = (scheduleMinuteTop(column, endMin) - top) + "px";
 }
 
 function schedulePointerDown(event) {
@@ -401,11 +424,11 @@ function paintScheduleGhost() {
   if (scheduleDrag.startMin === scheduleDrag.min) return;
   const from = Math.min(scheduleDrag.startMin, scheduleDrag.min);
   const to = Math.max(scheduleDrag.startMin, scheduleDrag.min);
-  const hourPx = scheduleSlotTop(scheduleDrag.column, 1) || SCHEDULE_HOUR_PX;
+  const top = scheduleMinuteTop(scheduleDrag.column, from);
   const ghost = document.createElement("div");
   ghost.className = "schedule-block is-ghost";
-  ghost.style.top = ((from / 60) * hourPx) + "px";
-  ghost.style.height = (((to - from) / 60) * hourPx) + "px";
+  ghost.style.top = top + "px";
+  ghost.style.height = (scheduleMinuteTop(scheduleDrag.column, to) - top) + "px";
   ghost.style.left = (scheduleDrag.ratio * 100) + "%";
   scheduleDrag.column.appendChild(ghost);
 }

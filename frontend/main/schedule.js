@@ -109,22 +109,16 @@ function removeScheduleBlock(blockId) {
   paintSchedule();
 }
 
-function paintScheduleHours() {
-  const host = document.getElementById("schedule-hours");
-  if (!host) return;
-  host.replaceChildren();
-  host.style.height = (24 * SCHEDULE_HOUR_PX) + "px";
+function paintScheduleHours(sheet) {
   for (let hour = 0; hour < 24; hour += 1) {
-    const row = document.createElement("div");
-    row.className = "schedule-hour";
-    row.style.height = SCHEDULE_HOUR_PX + "px";
-    const label = document.createElement("span");
+    const label = document.createElement("div");
     label.className = "schedule-hour-label";
+    label.style.gridColumn = "1";
+    label.style.gridRow = String(hour + 1);
     const when = new Date();
     when.setHours(hour, 0, 0, 0);
     label.textContent = when.toLocaleTimeString([], { hour: "numeric" });
-    row.appendChild(label);
-    host.appendChild(row);
+    sheet.appendChild(label);
   }
 }
 
@@ -155,27 +149,41 @@ function scheduleDayBlocks(day) {
   return scheduleBlocks.filter((block) => scheduleOverlaps(block, start, end));
 }
 
-function paintScheduleBoard() {
-  const board = document.getElementById("schedule-board");
-  if (!board) return;
-  board.replaceChildren();
+function paintScheduleBoard(sheet) {
   const days = scheduleVisibleDays();
   const nowTop = (scheduleMinutes(new Date()) / 60) * SCHEDULE_HOUR_PX;
   days.forEach((day, index) => {
     const column = document.createElement("div");
-    column.className = "schedule-day" + (index % 2 ? " is-alt" : "");
+    column.className = "schedule-day" + (index % 2 ? " is-alt" : "") + (index === days.length - 1 ? " is-end" : "");
     column.dataset.day = String(index);
-    column.style.height = (24 * SCHEDULE_HOUR_PX) + "px";
-    scheduleDayBlocks(day).forEach((block) => column.appendChild(scheduleBlockElement(block, day)));
+    column.style.gridColumn = String(index + 3);
+    column.style.gridRow = "1 / -1";
+    for (let hour = 0; hour < 24; hour += 1) {
+      const slot = document.createElement("div");
+      slot.className = "schedule-slot";
+      slot.dataset.hour = String(hour);
+      column.appendChild(slot);
+    }
+    scheduleDayBlocks(day).forEach((block) => column.appendChild(scheduleBlockElement(block, day, column)));
     const now = document.createElement("div");
     now.className = "schedule-now";
     now.style.top = nowTop + "px";
     column.appendChild(now);
-    board.appendChild(column);
+    sheet.appendChild(column);
   });
 }
 
-function scheduleBlockElement(block, day) {
+function scheduleSlot(column, hour) {
+  if (!column) return null;
+  return column.querySelector('.schedule-slot[data-hour="' + hour + '"]');
+}
+
+function scheduleSlotTop(column, hour) {
+  const slot = scheduleSlot(column, hour);
+  return slot ? slot.offsetTop : hour * SCHEDULE_HOUR_PX;
+}
+
+function scheduleBlockElement(block, day, column) {
   const dayStart = scheduleDayStart(day).getTime();
   const dayEnd = scheduleAddDays(day, 1).getTime();
   const start = Math.max(new Date(block.starts_at).getTime(), dayStart);
@@ -183,10 +191,11 @@ function scheduleBlockElement(block, day) {
   const topMin = (start - dayStart) / 60000;
   const heightMin = Math.max(30, (end - start) / 60000);
   const ratio = block.x_ratio == null ? 0.5 : Number(block.x_ratio);
+  const hourPx = scheduleSlotTop(column, 1) || SCHEDULE_HOUR_PX;
   const wrap = document.createElement("div");
   wrap.className = "schedule-block";
-  wrap.style.top = ((topMin / 60) * SCHEDULE_HOUR_PX) + "px";
-  wrap.style.height = ((heightMin / 60) * SCHEDULE_HOUR_PX) + "px";
+  wrap.style.top = ((topMin / 60) * hourPx) + "px";
+  wrap.style.height = ((heightMin / 60) * hourPx) + "px";
   wrap.style.left = (ratio * 100) + "%";
   const stroke = document.createElement("div");
   stroke.className = "schedule-line";
@@ -228,9 +237,12 @@ function scheduleBlockElement(block, day) {
 }
 
 function paintSchedule() {
-  paintScheduleHours();
+  const sheet = document.getElementById("schedule-sheet");
   paintScheduleDays();
-  paintScheduleBoard();
+  if (!sheet) return;
+  sheet.replaceChildren();
+  paintScheduleHours(sheet);
+  paintScheduleBoard(sheet);
 }
 
 function scheduleScrollToNow() {
@@ -241,9 +253,15 @@ function scheduleScrollToNow() {
 }
 
 function scheduleColumnHour(event, column) {
-  const rect = column.getBoundingClientRect();
-  const y = event.clientY - rect.top;
-  return Math.max(0, Math.min(23, Math.floor(y / SCHEDULE_HOUR_PX)));
+  const slots = column.querySelectorAll(".schedule-slot");
+  const y = event.clientY;
+  for (let index = 0; index < slots.length; index += 1) {
+    const rect = slots[index].getBoundingClientRect();
+    if (y >= rect.top && y < rect.bottom) return Number(slots[index].dataset.hour);
+  }
+  if (!slots.length) return 0;
+  if (y < slots[0].getBoundingClientRect().top) return 0;
+  return 23;
 }
 
 function scheduleColumnRatio(event, column) {
@@ -306,10 +324,12 @@ function paintScheduleGhost() {
   clearScheduleGhost();
   if (!scheduleDrag || !scheduleDrag.moved || !scheduleDrag.column) return;
   const span = scheduleDragSpan(scheduleDrag);
+  const top = scheduleSlotTop(scheduleDrag.column, span.from);
+  const bottom = span.to >= 24 ? scheduleSlotTop(scheduleDrag.column, 23) + (scheduleSlotTop(scheduleDrag.column, 1) || SCHEDULE_HOUR_PX) : scheduleSlotTop(scheduleDrag.column, span.to);
   const ghost = document.createElement("div");
   ghost.className = "schedule-block is-ghost";
-  ghost.style.top = (span.from * SCHEDULE_HOUR_PX) + "px";
-  ghost.style.height = ((span.to - span.from) * SCHEDULE_HOUR_PX) + "px";
+  ghost.style.top = top + "px";
+  ghost.style.height = Math.max(bottom - top, scheduleSlotTop(scheduleDrag.column, 1) || SCHEDULE_HOUR_PX) + "px";
   ghost.style.left = (scheduleDrag.ratio * 100) + "%";
   scheduleDrag.column.appendChild(ghost);
 }
@@ -431,8 +451,8 @@ function shiftSchedule(step) {
   if (currentChannelId && currentChannelType === "scheduling") loadSchedule(currentChannelId, true);
 }
 
-const scheduleBoard = document.getElementById("schedule-board");
-if (scheduleBoard) scheduleBoard.addEventListener("pointerdown", schedulePointerDown);
+const scheduleSheet = document.getElementById("schedule-sheet");
+if (scheduleSheet) scheduleSheet.addEventListener("pointerdown", schedulePointerDown);
 const schedulePrev = document.getElementById("schedule-prev");
 if (schedulePrev) schedulePrev.addEventListener("click", () => shiftSchedule(-1));
 const scheduleNext = document.getElementById("schedule-next");

@@ -16,7 +16,7 @@ from app.routers.parties import message_party, leave_party
 from app.routers.servers import message_server_channel
 from app.routers.forums import send_forum_message
 from app.routers.docs import release_doc_locks
-from app.routers.voice import drop_voice_user, push_roster
+from app.routers.voice import drop_voice_user, push_roster, relay_voice_signal, relay_voice_speaking
 from app.routers.invites import check_invites
 from app.routers.admin import sweep_completed_feedback
 from app.routers.mentions import mentioned_user_ids, mention_user_map, mention_role_map, live_reply_to
@@ -322,6 +322,10 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                         }, member.user_id)
             elif data["type"] == "typing":
                 await relay_typing(data, current_user, database)
+            elif data["type"] == "voice_signal":
+                await relay_voice_signal(current_user.id, data.get("target_user_id"), data.get("payload") or {})
+            elif data["type"] == "voice_speaking":
+                await relay_voice_speaking(current_user.id, bool(data.get("speaking")))
             elif data["type"] == "focus":
                 raw = data.get("channel_id")
                 try:

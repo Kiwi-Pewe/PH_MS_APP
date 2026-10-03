@@ -7771,7 +7771,10 @@ a.profile-link-row:hover { color: var(--accent); }
   border-radius: 6px;
   background: var(--panel);
 }
-.voice-user-signal:disabled { opacity: 1; cursor: default; }
+.voice-user-signal { cursor: default; }
+.voice-user-signal.is-good { color: #23a559; }
+.voice-user-signal.is-fair { color: #f0b232; }
+.voice-user-signal.is-poor { color: #ed4245; }
 .voice-user-signal svg,
 .voice-user-icon svg,
 .voice-user-tool svg,

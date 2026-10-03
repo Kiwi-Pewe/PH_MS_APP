@@ -34,18 +34,29 @@ function voiceBgTile(label, on) {
 }
 
 function paintVoiceSection(host) {
+  const mic = settingsSelect([{ value: "", label: "Default" }], localStorage.getItem("oneira-voice-mic") || "", false);
+  mic.id = "voice-mic-select";
+  mic.addEventListener("change", () => {
+    localStorage.setItem("oneira-voice-mic", mic.value);
+    if (typeof retargetVoiceMic === "function") retargetVoiceMic();
+  });
   host.appendChild(settingsOpt(
     "Microphone",
     "Which mic Oneira should use in a call.",
-    voiceDisabledSelect("Unavailable until Voice", "none"),
-    voiceLaterNote()
+    mic
   ));
+  const speaker = settingsSelect([{ value: "", label: "Default" }], localStorage.getItem("oneira-voice-speaker") || "", false);
+  speaker.id = "voice-speaker-select";
+  speaker.addEventListener("change", () => {
+    localStorage.setItem("oneira-voice-speaker", speaker.value);
+    if (typeof retargetVoiceSpeaker === "function") retargetVoiceSpeaker();
+  });
   host.appendChild(settingsOpt(
     "Speaker",
     "Which output Oneira should use in a call.",
-    voiceDisabledSelect("Unavailable until Voice", "none"),
-    voiceLaterNote()
+    speaker
   ));
+  if (typeof refreshVoiceDevices === "function") refreshVoiceDevices();
   host.appendChild(settingsOpt(
     "Microphone Volume",
     "How loud you sound to other people.",

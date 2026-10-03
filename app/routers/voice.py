@@ -1,16 +1,20 @@
+import asyncio
 import json
+import os
+import urllib.request
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels
 from app.schemas import Voice_join
 from app.database import get_db
 from app.auth import get_current_user
-from app.routers.realtime import server_broadcast
+from app.routers.realtime import notify_user, server_broadcast
 from app.routers.profile import public_identity
 
 router = APIRouter()
 
 voice_rooms = {}
+VOICE_ROOM_CAP = 10
 
 
 def banner_swatch(user):
@@ -56,6 +60,14 @@ def roster_payload(server_id):
         if people:
             channels[str(channel_id)] = list(people)
     return {"server_id": server_id, "channels": channels}
+
+
+def voice_seat(user_id):
+    for server_id, rooms in voice_rooms.items():
+        for channel_id, people in rooms.items():
+            if any(person["user_id"] == user_id for person in people):
+                return server_id, channel_id, people
+    return None, None, []
 
 
 def drop_voice_user(user_id):
@@ -109,9 +121,99 @@ def get_voice_roster(server_id: str, database: Session = Depends(get_db), curren
     return roster_payload(server.id)
 
 
+def turn_ice_servers():
+    key_id = os.environ.get("CLOUDFLARE_TURN_KEY_ID") or ""
+    token = os.environ.get("CLOUDFLARE_TURN_KEY_TOKEN") or ""
+    if not key_id or not token:
+        return []
+    request = urllib.request.Request(
+        "https://rtc.live.cloudflare.com/v1/turn/keys/" + key_id + "/credentials/generate-ice-servers",
+        data=json.dumps({"ttl": 86400}).encode(),
+        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=8) as response:
+            data = json.loads(response.read().decode())
+    except Exception:
+        return []
+    raw = data.get("iceServers") if isinstance(data, dict) else None
+    if isinstance(raw, dict):
+        raw = [raw]
+    if not isinstance(raw, list):
+        return []
+    servers = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        urls = item.get("urls") or []
+        if isinstance(urls, str):
+            urls = [urls]
+        kept = [url for url in urls if isinstance(url, str) and not url.endswith(":53") and ":53?" not in url]
+        if not kept:
+            continue
+        row = {"urls": kept}
+        if item.get("username"):
+            row["username"] = item["username"]
+        if item.get("credential"):
+            row["credential"] = item["credential"]
+        servers.append(row)
+    return servers
+
+
+async def relay_voice_signal(sender_id, target_id, payload):
+    try:
+        target_id = int(target_id)
+    except (TypeError, ValueError):
+        return
+    server_id, channel_id, _people = voice_seat(sender_id)
+    other_server, other_channel, _others = voice_seat(target_id)
+    if channel_id is None or channel_id != other_channel or server_id != other_server:
+        return
+    if not isinstance(payload, dict):
+        return
+    await notify_user(target_id, {
+        "type": "voice_signal",
+        "from_user_id": sender_id,
+        "channel_id": channel_id,
+        "payload": payload,
+    })
+
+
+async def relay_voice_speaking(user_id, speaking):
+    server_id, channel_id, people = voice_seat(user_id)
+    if channel_id is None:
+        return
+    speaking = bool(speaking)
+    for person in people:
+        if person["user_id"] == user_id:
+            person["speaking"] = speaking
+    notice = {
+        "type": "voice_speaking",
+        "user_id": user_id,
+        "channel_id": channel_id,
+        "server_id": server_id,
+        "speaking": speaking,
+    }
+    for person in people:
+        if person["user_id"] != user_id:
+            await notify_user(person["user_id"], notice)
+
+
+@router.get("/voice_ice")
+async def voice_ice(current_user: UserInfo = Depends(get_current_user)):
+    servers = [{"urls": "stun:stun.cloudflare.com:3478"}]
+    servers.extend(await asyncio.to_thread(turn_ice_servers))
+    return {"iceServers": servers}
+
+
 @router.post("/voice_join")
 async def join_voice(body: Voice_join, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     channel, server = load_voice_channel(database, body.channel_id, current_user.id)
+    existing = (voice_rooms.get(server.id) or {}).get(channel.id) or []
+    others = [person for person in existing if person["user_id"] != current_user.id]
+    if len(others) >= VOICE_ROOM_CAP:
+        raise HTTPException(status_code=400, detail="That voice channel is full.")
     left = drop_voice_user(current_user.id)
     rooms = voice_rooms.setdefault(server.id, {})
     people = rooms.setdefault(channel.id, [])

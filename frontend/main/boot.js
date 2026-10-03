@@ -46,6 +46,7 @@ function connectSocket() {
 
   ws.onclose = () => {
     ws = null;
+    if (typeof dropVoiceOnDisconnect === "function") dropVoiceOnDisconnect();
     if (!hasOpened) {
       window.location.href = "../login.html";
     }
@@ -623,6 +624,12 @@ function connectSocket() {
 
     if (data.type === "voice_roster" && typeof applyVoiceRoster === "function") {
       applyVoiceRoster(data);
+    }
+    if (data.type === "voice_signal" && typeof receiveVoiceSignal === "function") {
+      receiveVoiceSignal(data);
+    }
+    if (data.type === "voice_speaking" && typeof applyVoiceSpeaking === "function") {
+      applyVoiceSpeaking(data);
     }
 
     // Same exclude_user_id pattern — deleter's own cleanup happens

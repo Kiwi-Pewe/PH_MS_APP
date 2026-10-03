@@ -141,8 +141,11 @@ async def heartbeat(socket):
     try:
         while True:
             await asyncio.sleep(45)
-            await socket.send_json({"type": "ping"})
-    except (asyncio.CancelledError, WebSocketDisconnect, RuntimeError):
+            await asyncio.wait_for(socket.send_json({"type": "ping"}), timeout=10)
+    except asyncio.CancelledError:
         return
     except Exception:
-        return
+        try:
+            await asyncio.wait_for(socket.close(), timeout=5)
+        except Exception:
+            return

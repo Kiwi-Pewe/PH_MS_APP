@@ -1,6 +1,6 @@
 // ==================================================================
-// settings-voice.js - Voice & Video. Catalog + layout only. Nothing
-// here talks to a mic, camera, or stream until Voice is built.
+// settings-voice.js - Voice & Video. Mic, output, levels, and input
+// processing are live. Camera, streaming, sounds, and logs stay grey.
 // ==================================================================
 
 const VOICE_LATER = "This feature isn't built yet. Voice is parked.";
@@ -22,6 +22,37 @@ function voiceSlider() {
   input.value = "80";
   input.disabled = true;
   return input;
+}
+
+function voiceLiveSlider(value, onInput) {
+  const input = document.createElement("input");
+  input.type = "range";
+  input.className = "settings-slider";
+  input.min = "0";
+  input.max = "100";
+  input.value = String(value);
+  input.addEventListener("input", () => onInput(Number(input.value)));
+  return input;
+}
+
+function voiceProcessToggle(key) {
+  const on = typeof voiceProcess === "function" ? voiceProcess(key) : true;
+  const label = settingsToggle(on, (typeof voiceProfile === "function" ? voiceProfile() : "isolation") !== "custom");
+  const input = label.querySelector("input");
+  input.addEventListener("change", () => {
+    if (input.disabled) return;
+    localStorage.setItem(key, input.checked ? "1" : "0");
+    if (typeof retargetVoiceMic === "function") retargetVoiceMic();
+  });
+  return label;
+}
+
+function voiceSetToggle(label, on, disabled) {
+  const input = label.querySelector("input");
+  if (!input) return;
+  input.checked = !!on;
+  input.disabled = !!disabled;
+  label.classList.toggle("is-disabled", !!disabled);
 }
 
 function voiceBgTile(label, on) {
@@ -57,88 +88,99 @@ function paintVoiceSection(host) {
     speaker
   ));
   if (typeof refreshVoiceDevices === "function") refreshVoiceDevices();
+  const micVolume = typeof voicePercent === "function" ? voicePercent("oneira-voice-mic-volume", 100) : 100;
   host.appendChild(settingsOpt(
     "Microphone Volume",
     "How loud you sound to other people.",
-    voiceSlider(),
-    voiceLaterNote()
+    voiceLiveSlider(micVolume, (value) => {
+      localStorage.setItem("oneira-voice-mic-volume", String(value));
+      if (typeof applyVoiceMicGain === "function") applyVoiceMicGain();
+    })
   ));
+  const speakerVolume = typeof voicePercent === "function" ? voicePercent("oneira-voice-speaker-volume", 100) : 100;
   host.appendChild(settingsOpt(
     "Speaker Volume",
     "How loud other people sound to you.",
-    voiceSlider(),
-    voiceLaterNote()
+    voiceLiveSlider(speakerVolume, (value) => {
+      localStorage.setItem("oneira-voice-speaker-volume", String(value));
+      if (typeof applyVoicePlayback === "function") applyVoicePlayback();
+    })
   ));
   const test = document.createElement("button");
   test.type = "button";
   test.className = "settings-row-btn";
+  test.id = "voice-mic-test";
   test.textContent = "Mic Test";
-  test.disabled = true;
+  test.addEventListener("click", () => {
+    if (typeof toggleVoiceMicTest === "function") toggleVoiceMicTest();
+  });
   host.appendChild(settingsOpt(
     "Mic Test",
-    "Hear yourself to check the mic. Nothing plays until Voice exists.",
-    test,
-    voiceLaterNote()
+    "Play your microphone through the selected output.",
+    test
   ));
 
+  const profile = typeof voiceProfile === "function" ? voiceProfile() : "isolation";
+  const custom = profile === "custom";
   const profiles = document.createElement("div");
-  profiles.className = "settings-radio-list is-disabled";
+  profiles.className = "settings-radio-list";
   [
     ["isolation", "Voice Isolation", "Cut background noise around your voice."],
     ["studio", "Studio", "Open mic with no processing."],
-    ["custom", "Custom", "Manual sensitivity and processing."]
-  ].forEach((row, index) => {
-    const radio = privacyRadio(row[0], index === 2 ? "custom" : "", row[1], row[2], () => {});
-    radio.disabled = true;
-    profiles.appendChild(radio);
+    ["custom", "Custom", "Choose echo, noise, and gain yourself."]
+  ].forEach((row) => {
+    profiles.appendChild(privacyRadio(row[0], profile, row[1], row[2], (value) => {
+      localStorage.setItem("oneira-voice-profile", value);
+      const locked = value !== "custom";
+      voiceSetToggle(echoToggle, typeof voiceProcess === "function" ? voiceProcess("oneira-voice-echo") : value !== "studio", locked);
+      voiceSetToggle(noiseToggle, typeof voiceProcess === "function" ? voiceProcess("oneira-voice-noise") : value !== "studio", locked);
+      voiceSetToggle(gainToggle, typeof voiceProcess === "function" ? voiceProcess("oneira-voice-auto-gain") : value !== "studio", locked);
+      if (typeof retargetVoiceMic === "function") retargetVoiceMic();
+    }));
   });
-  const profileWrap = document.createElement("div");
-  profileWrap.className = "settings-opt";
-  const profileText = document.createElement("div");
-  profileText.className = "settings-opt-text";
-  const profileTitle = document.createElement("div");
-  profileTitle.className = "settings-opt-title";
-  profileTitle.textContent = "Input Profile";
-  profileText.appendChild(profileTitle);
-  profileText.appendChild(voiceLaterNote());
-  profileWrap.appendChild(profileText);
-  host.appendChild(profileWrap);
+  host.appendChild(settingsOpt("Input Profile", "How the microphone is processed before it is sent.", null));
   host.appendChild(profiles);
 
+  const autoSensitivity = typeof voiceSensitivityAuto === "function" ? voiceSensitivityAuto() : true;
+  const sensitivity = voiceLiveSlider(typeof voicePercent === "function" ? voicePercent("oneira-voice-sensitivity", 73) : 73, (value) => {
+    localStorage.setItem("oneira-voice-sensitivity", String(value));
+  });
+  sensitivity.disabled = autoSensitivity;
   host.appendChild(settingsOpt(
     "Automatically Adjust Input Sensitivity",
-    "Controls how loud you need to be before the mic opens.",
-    settingsToggle(true, true),
-    voiceLaterNote()
+    "Decides how loud you need to be before you show as talking.",
+    settingsToggle(autoSensitivity, false, (on) => {
+      localStorage.setItem("oneira-voice-sensitivity-auto", on ? "1" : "0");
+      sensitivity.disabled = on;
+    })
   ));
   host.appendChild(settingsOpt(
     "Input Sensitivity",
-    "Manual mic gate. Only used if auto-adjust is off.",
-    voiceSlider(),
-    voiceLaterNote()
+    "How loud you need to be before you show as talking. Higher picks up quieter speech.",
+    sensitivity
+  ));
+  const echoToggle = voiceProcessToggle("oneira-voice-echo");
+  const noiseToggle = voiceProcessToggle("oneira-voice-noise");
+  const gainToggle = voiceProcessToggle("oneira-voice-auto-gain");
+  host.appendChild(settingsOpt(
+    "Echo Cancellation",
+    "Stop your speakers from feeding back into the mic.",
+    echoToggle
   ));
   host.appendChild(settingsOpt(
     "Noise Suppression",
     "Reduce background noise from your mic.",
-    voiceDisabledSelect("Off", "off"),
-    voiceLaterNote()
+    noiseToggle
   ));
   host.appendChild(settingsOpt(
-    "Echo Cancellation",
-    "Stop your speakers from feeding back into the mic.",
-    settingsToggle(true, true),
-    voiceLaterNote()
+    "Automatic Gain Control",
+    "Keep your volume even if you move closer or farther from the mic.",
+    gainToggle
   ));
   host.appendChild(settingsOpt(
     "Push to Talk",
     "Hold a key to open the mic. The key itself will live under System → Custom Keybinds.",
     settingsToggle(false, true),
-    voiceLaterNote()
-  ));
-  host.appendChild(settingsOpt(
-    "Automatic Gain Control",
-    "Keep your volume even if you move closer or farther from the mic.",
-    settingsToggle(true, true),
     voiceLaterNote()
   ));
   host.appendChild(settingsOpt(
@@ -323,12 +365,19 @@ function paintVoiceAdvancedSection(host) {
   reset.type = "button";
   reset.className = "settings-danger-btn";
   reset.textContent = "Reset";
-  reset.disabled = true;
+  reset.addEventListener("click", () => {
+    if (typeof resetVoiceSettings === "function") resetVoiceSettings();
+    const pane = host.closest("#settings-general-pane, #settings-user-pane");
+    if (pane && typeof renderVoiceSettings === "function") {
+      const top = pane.scrollTop;
+      renderVoiceSettings(pane);
+      pane.scrollTop = top;
+    }
+  });
   host.appendChild(settingsOpt(
-    "Reset all Voice & Video settings",
-    "Would return this page to defaults. There is nothing to reset yet.",
-    reset,
-    voiceLaterNote()
+    "Reset Voice settings",
+    "Return the microphone, output, and input processing to defaults.",
+    reset
   ));
 }
 

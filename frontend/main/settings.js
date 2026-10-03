@@ -362,6 +362,7 @@ function settingsPaneEl() {
 }
 
 function jumpToSettings(id) {
+  if (id !== "voice-video" && typeof stopVoiceMicTest === "function") stopVoiceMicTest();
   const item = settingsParentOf(id);
   if (!item) return;
   settingsActiveId = id;
@@ -397,6 +398,7 @@ function showSettingsPane(pane) {
 }
 
 function closeSettingsChrome() {
+  if (typeof stopVoiceMicTest === "function") stopVoiceMicTest();
   if (!isSettingsOpen) {
     const settingsSide = document.getElementById("settings-sidebar-view");
     if (settingsSide) settingsSide.style.display = "none";

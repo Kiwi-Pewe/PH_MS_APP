@@ -15,6 +15,10 @@ let voiceAudioContext = null;
 let voiceLevelTimer = 0;
 let voiceStatsTimer = 0;
 let voiceSpeaking = false;
+let voiceGainNode = null;
+let voiceSendStream = null;
+let voiceMicTestAudio = null;
+let voiceMicTestStream = null;
 const voicePeers = new Map();
 const voiceInputDevices = [];
 const voiceOutputDevices = [];
@@ -391,6 +395,54 @@ function voiceSpeakerId() {
   return localStorage.getItem("oneira-voice-speaker") || "";
 }
 
+function voicePercent(key, fallback) {
+  const raw = localStorage.getItem(key);
+  const n = Number(raw);
+  if (raw == null || raw === "" || Number.isNaN(n)) return fallback;
+  return Math.min(100, Math.max(0, n));
+}
+
+function voiceMicVolume() {
+  return voicePercent("oneira-voice-mic-volume", 100) / 100;
+}
+
+function voiceSpeakerVolume() {
+  return voicePercent("oneira-voice-speaker-volume", 100) / 100;
+}
+
+function voiceProfile() {
+  const value = localStorage.getItem("oneira-voice-profile") || "isolation";
+  if (value === "studio" || value === "custom") return value;
+  return "isolation";
+}
+
+function voiceProcess(key) {
+  const profile = voiceProfile();
+  if (profile === "isolation") return true;
+  if (profile === "studio") return false;
+  return localStorage.getItem(key) !== "0";
+}
+
+function voiceSensitivityAuto() {
+  return (localStorage.getItem("oneira-voice-sensitivity-auto") || "1") !== "0";
+}
+
+function voiceSpeakThreshold() {
+  if (voiceSensitivityAuto()) return 0.04;
+  const slider = voicePercent("oneira-voice-sensitivity", 73);
+  return 0.12 - (slider / 100) * 0.11;
+}
+
+function applyVoiceMicGain() {
+  if (voiceGainNode) voiceGainNode.gain.value = voiceMicVolume();
+  applyVoiceTestVolume();
+}
+
+function voiceOutgoingTrack() {
+  if (voiceSendStream && voiceSendStream.getAudioTracks()[0]) return voiceSendStream.getAudioTracks()[0];
+  return voiceLocalStream && voiceLocalStream.getAudioTracks()[0];
+}
+
 function fillVoiceDeviceSelect(select, devices, kind) {
   if (!select) return;
   const stored = kind === "audioinput" ? voiceMicId() : voiceSpeakerId();
@@ -420,29 +472,32 @@ async function refreshVoiceDevices() {
   fillVoiceDeviceSelect(document.getElementById("voice-speaker-select"), voiceOutputDevices, "audiooutput");
 }
 
-function voiceCaptureConstraints() {
-  const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
-  if (voiceMicId()) audio.deviceId = { exact: voiceMicId() };
+function voiceCaptureConstraints(withDevice) {
+  const audio = {
+    echoCancellation: voiceProcess("oneira-voice-echo"),
+    noiseSuppression: voiceProcess("oneira-voice-noise"),
+    autoGainControl: voiceProcess("oneira-voice-auto-gain")
+  };
+  if (withDevice && voiceMicId()) audio.deviceId = { exact: voiceMicId() };
   return { audio: audio, video: false };
 }
 
 async function captureVoiceMic() {
   try {
-    return await navigator.mediaDevices.getUserMedia(voiceCaptureConstraints());
+    return await navigator.mediaDevices.getUserMedia(voiceCaptureConstraints(true));
   } catch (err) {
     if (!voiceMicId()) throw err;
-    return navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: false
-    });
+    return navigator.mediaDevices.getUserMedia(voiceCaptureConstraints(false));
   }
 }
 
 function applyVoiceSendState() {
   const open = !voiceMuted && !voiceDeafened;
-  if (!voiceLocalStream) return;
-  voiceLocalStream.getAudioTracks().forEach((track) => {
-    track.enabled = open;
+  [voiceLocalStream, voiceSendStream].forEach((stream) => {
+    if (!stream) return;
+    stream.getAudioTracks().forEach((track) => {
+      track.enabled = open;
+    });
   });
   if (!open && voiceSpeaking) {
     voiceSpeaking = false;
@@ -456,11 +511,20 @@ function applyVoiceSink(audio) {
   audio.setSinkId(sink).catch(() => {});
 }
 
+function applyVoiceTestVolume() {
+  if (!voiceMicTestAudio) return;
+  const level = voiceMicTestStream ? voiceMicVolume() * voiceSpeakerVolume() : voiceSpeakerVolume();
+  voiceMicTestAudio.volume = level;
+  applyVoiceSink(voiceMicTestAudio);
+}
+
 function applyVoicePlayback() {
   voicePeers.forEach((peer) => {
     peer.audio.muted = voiceDeafened;
+    peer.audio.volume = voiceSpeakerVolume();
     applyVoiceSink(peer.audio);
   });
+  applyVoiceTestVolume();
 }
 
 function paintVoiceSignal(ms) {
@@ -538,10 +602,74 @@ function closeVoicePeer(userId) {
 function stopVoiceLevel() {
   if (voiceLevelTimer) cancelAnimationFrame(voiceLevelTimer);
   voiceLevelTimer = 0;
+  voiceGainNode = null;
+  voiceSendStream = null;
   if (voiceAudioContext) {
     voiceAudioContext.close().catch(() => {});
     voiceAudioContext = null;
   }
+}
+
+function stopVoiceMicTest() {
+  if (voiceMicTestAudio) {
+    voiceMicTestAudio.pause();
+    voiceMicTestAudio.srcObject = null;
+    voiceMicTestAudio.remove();
+    voiceMicTestAudio = null;
+  }
+  if (voiceMicTestStream) {
+    voiceMicTestStream.getTracks().forEach((track) => track.stop());
+    voiceMicTestStream = null;
+  }
+  const button = document.getElementById("voice-mic-test");
+  if (button) button.textContent = "Mic Test";
+}
+
+async function toggleVoiceMicTest() {
+  if (voiceMicTestAudio) {
+    stopVoiceMicTest();
+    return;
+  }
+  let stream = null;
+  if (voiceSendStream && voiceSendStream.getAudioTracks().length) stream = voiceSendStream;
+  else if (voiceLocalStream && voiceLocalStream.getAudioTracks().length) stream = voiceLocalStream;
+  else {
+    try {
+      stream = await captureVoiceMic();
+    } catch (err) {
+      window.alert("Oneira can't use the microphone.");
+      return;
+    }
+    voiceMicTestStream = stream;
+  }
+  const audio = document.createElement("audio");
+  audio.autoplay = true;
+  audio.srcObject = stream;
+  document.body.appendChild(audio);
+  voiceMicTestAudio = audio;
+  applyVoiceTestVolume();
+  audio.play().catch(() => {});
+  const button = document.getElementById("voice-mic-test");
+  if (button) button.textContent = "Stop Test";
+}
+
+function resetVoiceSettings() {
+  [
+    "oneira-voice-mic",
+    "oneira-voice-speaker",
+    "oneira-voice-mic-volume",
+    "oneira-voice-speaker-volume",
+    "oneira-voice-profile",
+    "oneira-voice-echo",
+    "oneira-voice-noise",
+    "oneira-voice-auto-gain",
+    "oneira-voice-sensitivity-auto",
+    "oneira-voice-sensitivity"
+  ].forEach((key) => localStorage.removeItem(key));
+  stopVoiceMicTest();
+  applyVoicePlayback();
+  applyVoiceMicGain();
+  if (voiceLocalStream && voiceLocalStream.getAudioTracks().length) retargetVoiceMic();
 }
 
 function stopVoiceMedia() {
@@ -551,6 +679,7 @@ function stopVoiceMedia() {
   stopVoiceLevel();
   if (voiceSpeaking) sendVoiceSpeaking(false);
   voiceSpeaking = false;
+  stopVoiceMicTest();
   if (voiceLocalStream) {
     voiceLocalStream.getTracks().forEach((track) => track.stop());
     voiceLocalStream = null;
@@ -566,6 +695,12 @@ function watchVoiceLevel() {
   voiceAudioContext = new AudioCtx();
   voiceAudioContext.resume().catch(() => {});
   const source = voiceAudioContext.createMediaStreamSource(voiceLocalStream);
+  voiceGainNode = voiceAudioContext.createGain();
+  voiceGainNode.gain.value = voiceMicVolume();
+  const dest = voiceAudioContext.createMediaStreamDestination();
+  source.connect(voiceGainNode);
+  voiceGainNode.connect(dest);
+  voiceSendStream = dest.stream;
   const analyser = voiceAudioContext.createAnalyser();
   analyser.fftSize = 512;
   source.connect(analyser);
@@ -579,7 +714,7 @@ function watchVoiceLevel() {
       const sample = (samples[i] - 128) / 128;
       sum += sample * sample;
     }
-    const audible = Math.sqrt(sum / samples.length) > 0.04 && !voiceMuted && !voiceDeafened;
+    const audible = Math.sqrt(sum / samples.length) > voiceSpeakThreshold() && !voiceMuted && !voiceDeafened;
     if (audible === voiceSpeaking) return;
     voiceSpeaking = audible;
     markVoiceSpeaking(myUserId, audible);
@@ -642,8 +777,8 @@ async function makeVoiceOffer(userId) {
 
 function openVoicePeer(userId, fromOffer) {
   const pc = new RTCPeerConnection({ iceServers: voiceIceServers });
-  const localTrack = voiceLocalStream && voiceLocalStream.getAudioTracks()[0];
-  if (localTrack) pc.addTrack(localTrack, voiceLocalStream);
+  const localTrack = voiceOutgoingTrack();
+  if (localTrack) pc.addTrack(localTrack, voiceSendStream || voiceLocalStream);
   else pc.addTransceiver("audio", { direction: "recvonly" });
   const audio = document.createElement("audio");
   audio.autoplay = true;
@@ -652,6 +787,7 @@ function openVoicePeer(userId, fromOffer) {
   pc.ontrack = (event) => {
     audio.srcObject = event.streams[0] || new MediaStream([event.track]);
     audio.muted = voiceDeafened;
+    audio.volume = voiceSpeakerVolume();
     applyVoiceSink(audio);
     audio.play().catch(() => {});
   };
@@ -763,16 +899,17 @@ async function retargetVoiceMic() {
     next.getTracks().forEach((item) => item.stop());
     return;
   }
-  let missingSender = false;
-  voicePeers.forEach((peer) => {
-    const sender = peer.pc.getSenders().find((row) => row.track && row.track.kind === "audio");
-    if (sender) sender.replaceTrack(track);
-    else missingSender = true;
-  });
   voiceLocalStream.getTracks().forEach((item) => item.stop());
   voiceLocalStream = next;
   applyVoiceSendState();
   watchVoiceLevel();
+  const outgoing = voiceOutgoingTrack();
+  let missingSender = !outgoing;
+  voicePeers.forEach((peer) => {
+    const sender = peer.pc.getSenders().find((row) => row.track && row.track.kind === "audio");
+    if (sender && outgoing) sender.replaceTrack(outgoing);
+    else missingSender = true;
+  });
   if (!missingSender) return;
   Array.from(voicePeers.keys()).forEach((userId) => closeVoicePeer(userId));
   connectVoicePeers();

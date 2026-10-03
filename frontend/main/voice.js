@@ -21,6 +21,7 @@ let voiceSendStream = null;
 let voiceMicTestAudio = null;
 let voiceMicTestStream = null;
 const voicePeers = new Map();
+var voiceShareStream = null;
 const voiceInputDevices = [];
 const voiceOutputDevices = [];
 const voiceBannerColors = new Map();
@@ -206,11 +207,24 @@ function paintVoiceInputs() {
   document.querySelectorAll("#voice-user-camera, #voice-ctrl-camera").forEach((button) => {
     button.classList.toggle("is-off", !voiceCameraOn);
   });
+  document.querySelectorAll("#voice-user-screen, #voice-ctrl-screen").forEach((button) => {
+    button.classList.toggle("is-live", !!voiceShareStream);
+    button.title = voiceShareStream ? "Stop sharing" : "Share screen";
+  });
   applyVoiceSendState();
   applyVoicePlayback();
 }
 
 function openVoiceShare() {
+  if (voiceShareStream) {
+    if (typeof stopVoiceShare === "function") stopVoiceShare();
+    return;
+  }
+  const devices = document.getElementById("voice-share-devices");
+  if (devices) {
+    devices.hidden = true;
+    devices.replaceChildren();
+  }
   const share = document.getElementById("voice-share-overlay");
   if (share) share.hidden = false;
 }
@@ -257,6 +271,12 @@ function paintVoiceRails() {
       name.textContent = person.username || "Someone";
       line.appendChild(face);
       line.appendChild(name);
+      if (person.sharing) {
+        const live = document.createElement("span");
+        live.className = "voice-rail-live";
+        live.textContent = "Live";
+        line.appendChild(live);
+      }
       line.addEventListener("click", (event) => {
         event.stopPropagation();
         if (typeof openMiniProfile === "function") openMiniProfile(person.user_id, line);
@@ -365,10 +385,20 @@ function paintVoiceTile(person) {
 function paintVoiceStage() {
   const board = document.getElementById("voice-stage");
   if (!board || !voiceStageChannelId) return;
+  const people = peopleInVoice(voiceStageChannelId);
+  const sharer = people.find((person) => person.sharing) || null;
   board.replaceChildren();
-  peopleInVoice(voiceStageChannelId).forEach((person) => {
-    board.appendChild(paintVoiceTile(person));
+  board.classList.toggle("is-streaming", !!sharer || !!voiceShareStream);
+  const showing = sharer || (voiceShareStream ? people.find((person) => Number(person.user_id) === Number(myUserId)) : null);
+  if (showing && typeof paintVoiceStream === "function") board.appendChild(paintVoiceStream(showing));
+  const row = document.createElement("div");
+  if (showing) row.className = "voice-stream-row";
+  people.forEach((person) => {
+    const tile = paintVoiceTile(person);
+    if (showing) row.appendChild(tile);
+    else board.appendChild(tile);
   });
+  if (showing) board.appendChild(row);
 }
 
 function openVoiceStage(channel) {
@@ -524,6 +554,10 @@ function applyVoicePlayback() {
     peer.audio.muted = voiceDeafened;
     peer.audio.volume = voiceSpeakerVolume();
     applyVoiceSink(peer.audio);
+    if (!peer.shareAudio) return;
+    peer.shareAudio.muted = voiceDeafened;
+    peer.shareAudio.volume = voiceSpeakerVolume();
+    applyVoiceSink(peer.shareAudio);
   });
   applyVoiceTestVolume();
 }
@@ -593,9 +627,14 @@ function closeVoicePeer(userId) {
   if (!peer) return;
   peer.pc.onicecandidate = null;
   peer.pc.ontrack = null;
+  peer.pc.onsignalingstatechange = null;
   peer.pc.close();
   peer.audio.srcObject = null;
   peer.audio.remove();
+  if (peer.shareAudio) {
+    peer.shareAudio.srcObject = null;
+    peer.shareAudio.remove();
+  }
   voicePeers.delete(userId);
   if (!voicePeers.size) paintVoiceSignal(null);
 }
@@ -674,6 +713,7 @@ function resetVoiceSettings() {
 }
 
 function stopVoiceMedia() {
+  if (typeof stopVoiceShare === "function") stopVoiceShare(true);
   if (voiceStatsTimer) clearInterval(voiceStatsTimer);
   voiceStatsTimer = 0;
   Array.from(voicePeers.keys()).forEach((userId) => closeVoicePeer(userId));
@@ -772,6 +812,7 @@ async function makeVoiceOffer(userId) {
   try {
     const offer = await peer.pc.createOffer();
     await peer.pc.setLocalDescription(offer);
+    if (typeof voiceCapVideo === "function") voiceCapVideo(peer.pc);
     sendVoiceSignal(userId, { kind: "offer", sdp: peer.pc.localDescription });
   } catch (err) {
     return;
@@ -785,25 +826,55 @@ function openVoicePeer(userId, fromOffer) {
   const localTrack = voiceOutgoingTrack();
   if (localTrack) pc.addTrack(localTrack, voiceSendStream || voiceLocalStream);
   else pc.addTransceiver("audio", { direction: "recvonly" });
+  if (typeof voiceAttachShare === "function") voiceAttachShare(pc);
   const audio = document.createElement("audio");
   audio.autoplay = true;
   audio.dataset.voiceUser = String(userId);
   document.body.appendChild(audio);
+  const shareAudio = document.createElement("audio");
+  shareAudio.autoplay = true;
+  shareAudio.dataset.voiceShare = String(userId);
+  document.body.appendChild(shareAudio);
+  const peer = { pc: pc, audio: audio, shareAudio: shareAudio, videoStream: null, makingOffer: false, iceQueue: [], shareOffer: false };
   pc.ontrack = (event) => {
-    audio.srcObject = event.streams[0] || new MediaStream([event.track]);
-    audio.muted = voiceDeafened;
-    audio.volume = voiceSpeakerVolume();
-    applyVoiceSink(audio);
-    audio.play().catch(() => {});
+    const track = event.track;
+    if (track.kind === "video") {
+      peer.videoStream = event.streams[0] || new MediaStream([track]);
+      track.onended = () => {
+        if (peer.videoStream) peer.videoStream = null;
+        if (voiceStageChannelId) paintVoiceStage();
+      };
+      if (voiceStageChannelId) paintVoiceStage();
+      return;
+    }
+    const element = peer.audio.srcObject ? peer.shareAudio : peer.audio;
+    element.srcObject = event.streams[0] || new MediaStream([track]);
+    element.muted = voiceDeafened;
+    element.volume = voiceSpeakerVolume();
+    applyVoiceSink(element);
+    element.play().catch(() => {});
   };
-  const peer = { pc: pc, audio: audio, makingOffer: false, iceQueue: [] };
+  pc.onsignalingstatechange = () => {
+    if (pc.signalingState !== "stable" || !peer.shareOffer) return;
+    peer.shareOffer = false;
+    makeVoiceOffer(userId);
+  };
   pc.onicecandidate = (event) => {
     if (!event.candidate) return;
     sendVoiceSignal(userId, { kind: "ice", candidate: event.candidate.toJSON() });
   };
   voicePeers.set(userId, peer);
   if (!fromOffer && Number(myUserId) < Number(userId)) makeVoiceOffer(userId);
+  else if (fromOffer && voiceShareStream) peer.shareOffer = true;
   return peer;
+}
+
+function voiceEachPeer(fn) {
+  voicePeers.forEach(fn);
+}
+
+function voicePeer(userId) {
+  return voicePeers.get(Number(userId));
 }
 
 async function receiveVoiceSignal(data) {

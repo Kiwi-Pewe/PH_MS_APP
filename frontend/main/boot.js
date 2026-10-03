@@ -631,6 +631,9 @@ function connectSocket() {
     if (data.type === "voice_speaking" && typeof applyVoiceSpeaking === "function") {
       applyVoiceSpeaking(data);
     }
+    if (data.type === "voice_stream" && typeof applyVoiceStream === "function") {
+      applyVoiceStream(data);
+    }
 
     // Same exclude_user_id pattern — deleter's own cleanup happens
     // directly in deletePostFromContextMenu instead. Not gated on the

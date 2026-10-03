@@ -50,6 +50,7 @@ def voice_person(user):
         "banner_mime": banner.get("mime") or "",
         "banner_color": banner_swatch(user),
         "speaking": False,
+        "sharing": False,
     }
 
 
@@ -178,6 +179,20 @@ async def relay_voice_signal(sender_id, target_id, payload):
         "channel_id": channel_id,
         "payload": payload,
     })
+
+
+async def set_voice_share(user_id, sharing):
+    server_id, channel_id, people = voice_seat(user_id)
+    if channel_id is None:
+        return None
+    sharing = bool(sharing)
+    if sharing and any(person.get("sharing") and person["user_id"] != user_id for person in people):
+        await notify_user(user_id, {"type": "voice_stream", "ok": False, "detail": "Someone is already sharing."})
+        return None
+    for person in people:
+        if person["user_id"] == user_id:
+            person["sharing"] = sharing
+    return server_id
 
 
 async def relay_voice_speaking(user_id, speaking):

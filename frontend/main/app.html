@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=247">
+<link rel="stylesheet" href="app.css?v=248">
 </head>
 <body>
 
@@ -1796,21 +1796,22 @@
           <span>Share your screen</span>
           <button type="button" class="icon-btn" id="voice-share-close" title="Close">&times;</button>
         </div>
-        <button type="button" class="voice-share-option" disabled>
+        <button type="button" class="voice-share-option" id="voice-share-window">
           <span>Application</span>
           <small>Only that application is shown. Anything else on the screen stays off the stream.</small>
         </button>
-        <button type="button" class="voice-share-option" disabled>
+        <button type="button" class="voice-share-option" id="voice-share-screen">
           <span>Entire Screen</span>
           <small>Everything on that screen is shown, including its audio.</small>
         </button>
-        <button type="button" class="voice-share-option" disabled>
+        <button type="button" class="voice-share-option" id="voice-share-device">
           <span>Devices</span>
-          <small>Share a camera or a virtual camera, including its audio.</small>
+          <small>Share a camera or a virtual camera, such as OBS.</small>
         </button>
+        <div id="voice-share-devices" hidden></div>
       </div>
     </div>
-<script src="boot.js?v=113"></script>
+<script src="boot.js?v=114"></script>
 <script src="app-shell.js?v=66"></script>
 <script src="feed.js?v=16"></script>
 <script src="settings.js?v=20"></script>
@@ -1865,7 +1866,8 @@
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=13"></script>
 <script src="servers.js?v=113"></script>
-<script src="voice.js?v=8"></script>
+<script src="voice.js?v=9"></script>
+<script src="voice-stream.js?v=1"></script>
 <script src="server-dnd.js?v=1"></script>
 <script src="channel-settings.js?v=20"></script>
 <script src="pins.js?v=3"></script>

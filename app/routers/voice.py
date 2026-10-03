@@ -129,7 +129,7 @@ def turn_ice_servers():
     request = urllib.request.Request(
         "https://rtc.live.cloudflare.com/v1/turn/keys/" + key_id + "/credentials/generate-ice-servers",
         data=json.dumps({"ttl": 86400}).encode(),
-        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+        headers={"Authorization": "Bearer " + token, "Content-Type": "application/json", "User-Agent": "OneiraVoice/1.0"},
         method="POST",
     )
     try:

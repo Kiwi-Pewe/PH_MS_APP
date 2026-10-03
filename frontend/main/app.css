@@ -1121,6 +1121,20 @@
   font-weight: 400;
 }
 .settings-opt-control { flex: 0 0 auto; padding-top: 2px; }
+.settings-opt:has(.settings-select) { position: relative; }
+.settings-opt:has(.settings-select) .settings-opt-title { padding-right: 240px; }
+.settings-opt:has(.settings-select) .settings-opt-control {
+  position: absolute;
+  top: 16px;
+  right: 0;
+  z-index: 1;
+  width: min(240px, 46%);
+}
+.settings-opt:has(.settings-select) .settings-select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
 .settings-note {
   margin-top: 8px;
   font-size: var(--settings-note, 12px);

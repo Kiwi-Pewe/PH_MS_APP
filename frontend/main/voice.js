@@ -15,6 +15,7 @@ let voiceAudioContext = null;
 let voiceLevelTimer = 0;
 let voiceStatsTimer = 0;
 let voiceSpeaking = false;
+let voiceSpeakUntil = 0;
 let voiceGainNode = null;
 let voiceSendStream = null;
 let voiceMicTestAudio = null;
@@ -714,7 +715,11 @@ function watchVoiceLevel() {
       const sample = (samples[i] - 128) / 128;
       sum += sample * sample;
     }
-    const audible = Math.sqrt(sum / samples.length) > voiceSpeakThreshold() && !voiceMuted && !voiceDeafened;
+    const level = Math.sqrt(sum / samples.length);
+    const open = !voiceMuted && !voiceDeafened;
+    if (open && level > voiceSpeakThreshold()) voiceSpeakUntil = performance.now() + 450;
+    if (!open) voiceSpeakUntil = 0;
+    const audible = open && performance.now() < voiceSpeakUntil;
     if (audible === voiceSpeaking) return;
     voiceSpeaking = audible;
     markVoiceSpeaking(myUserId, audible);

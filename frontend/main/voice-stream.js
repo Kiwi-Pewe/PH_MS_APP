@@ -106,16 +106,24 @@ function applyVoiceWatchers(data) {
   voiceSyncShareViewers(data.viewers || []);
 }
 
-function paintWatchTile() {
-  const tile = document.createElement("div");
-  tile.className = "voice-tile voice-watch-tile";
+function paintWatchTile(person) {
+  const banner = document.createElement("div");
+  banner.className = "voice-watch-banner";
+  const copy = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = (person && person.username ? person.username : "Someone") + " is live";
+  const sub = document.createElement("span");
+  sub.textContent = "Watch their stream";
+  copy.appendChild(title);
+  copy.appendChild(sub);
   const button = document.createElement("button");
   button.type = "button";
   button.className = "voice-watch-btn";
   button.textContent = "Watch Stream";
   button.addEventListener("click", () => startWatchingVoice());
-  tile.appendChild(button);
-  return tile;
+  banner.appendChild(copy);
+  banner.appendChild(button);
+  return banner;
 }
 
 function sendVoiceWatch(watching) {
@@ -127,7 +135,11 @@ function startWatchingVoice() {
   if (voiceShareStream) return;
   voiceWatching = true;
   sendVoiceWatch(true);
+  if (!voiceStageChannelId && voiceJoinedChannelId && typeof openVoiceStage === "function") {
+    openVoiceStage({ id: voiceJoinedChannelId });
+  }
   if (voiceStageChannelId) paintVoiceStage();
+  paintVoiceRails();
 }
 
 function stopWatchingVoice() {
@@ -138,6 +150,7 @@ function stopWatchingVoice() {
     if (peer.shareAudio) peer.shareAudio.srcObject = null;
   });
   if (voiceStageChannelId) paintVoiceStage();
+  paintVoiceRails();
 }
 
 let voiceShareTab = "window";
@@ -228,6 +241,7 @@ function stopVoiceShare(leaving) {
     track.stop();
   });
   sendVoiceShare(false);
+  markMyShare(false);
   paintVoiceInputs();
   if (voiceStageChannelId) paintVoiceStage();
   paintVoiceRails();
@@ -245,9 +259,18 @@ function adoptVoiceShare(stream) {
     };
   });
   sendVoiceShare(true);
+  markMyShare(true);
   paintVoiceInputs();
   if (voiceStageChannelId) paintVoiceStage();
   paintVoiceRails();
+}
+
+function markMyShare(on) {
+  Object.keys(voiceRoster).forEach((channelId) => {
+    (voiceRoster[channelId] || []).forEach((person) => {
+      if (Number(person.user_id) === Number(myUserId)) person.sharing = !!on;
+    });
+  });
 }
 
 function applyVoiceStream(data) {

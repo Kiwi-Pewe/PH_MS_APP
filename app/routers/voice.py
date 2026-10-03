@@ -124,6 +124,18 @@ async def push_roster(database, server_id):
     payload = roster_payload(server_id)
     payload["type"] = "voice_roster"
     await server_broadcast(server_id=server_id, payload=payload, database=database)
+    told = set()
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if server and server.owner_id:
+        await notify_user(server.owner_id, payload)
+        told.add(server.owner_id)
+    for people in (voice_rooms.get(server_id) or {}).values():
+        for person in people:
+            user_id = person["user_id"]
+            if user_id in told:
+                continue
+            told.add(user_id)
+            await notify_user(user_id, payload)
 
 
 @router.get("/voice_roster/{server_id}")

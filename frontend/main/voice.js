@@ -273,6 +273,16 @@ function paintVoiceRails() {
         live.className = "voice-rail-live";
         live.textContent = "LIVE";
         line.appendChild(live);
+        if (Number(person.user_id) !== Number(myUserId)) {
+          const watch = document.createElement("span");
+          watch.className = "voice-rail-watch";
+          watch.textContent = voiceWatching ? "Watching" : "Watch";
+          watch.addEventListener("click", (event) => {
+            event.stopPropagation();
+            if (typeof startWatchingVoice === "function") startWatchingVoice();
+          });
+          line.appendChild(watch);
+        }
       }
       line.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -393,7 +403,7 @@ function paintVoiceStage() {
   board.replaceChildren();
   board.classList.toggle("is-streaming", !!showing);
   if (showing && typeof paintVoiceStream === "function") board.appendChild(paintVoiceStream(showing));
-  if (!showing && someoneElse && typeof paintWatchTile === "function") board.appendChild(paintWatchTile());
+  if (!showing && someoneElse && typeof paintWatchTile === "function") board.appendChild(paintWatchTile(sharer));
   const row = document.createElement("div");
   if (showing) row.className = "voice-stream-row";
   people.forEach((person) => {

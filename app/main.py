@@ -16,7 +16,7 @@ from app.routers.parties import message_party, leave_party
 from app.routers.servers import message_server_channel
 from app.routers.forums import send_forum_message
 from app.routers.docs import release_doc_locks
-from app.routers.voice import drop_voice_user, push_roster, relay_voice_signal, relay_voice_speaking, set_voice_share
+from app.routers.voice import drop_voice_user, notify_watchers, push_roster, relay_voice_signal, relay_voice_speaking, set_voice_share, set_voice_watch
 from app.routers.invites import check_invites
 from app.routers.admin import sweep_completed_feedback
 from app.routers.mentions import mentioned_user_ids, mention_user_map, mention_role_map, live_reply_to
@@ -330,6 +330,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 voice_server_id = await set_voice_share(current_user.id, bool(data.get("sharing")))
                 if voice_server_id:
                     await push_roster(database, voice_server_id)
+            elif data["type"] == "voice_watch":
+                await set_voice_watch(current_user.id, bool(data.get("watching")))
             elif data["type"] == "focus":
                 raw = data.get("channel_id")
                 try:
@@ -347,7 +349,9 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
         except (asyncio.CancelledError, Exception):
             pass
         await release_doc_locks(current_user.id, database)
-        for voice_server_id in set(drop_voice_user(current_user.id)):
+        left_voice, voice_notices = drop_voice_user(current_user.id)
+        await notify_watchers(voice_notices)
+        for voice_server_id in set(left_voice):
             await push_roster(database, voice_server_id)
         if active_connections.get(current_user.id) is socket:
             del active_connections[current_user.id]

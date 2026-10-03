@@ -1,4 +1,5 @@
 let voiceShareStarting = false;
+var voiceShareViewers = new Set();
 
 function voiceAttachShare(pc) {
   if (!voiceShareStream) return;
@@ -63,11 +64,80 @@ function paintVoiceStream(person) {
     video.play().catch(() => {});
   }
   frame.appendChild(video);
-  const label = document.createElement("div");
-  label.className = "voice-stream-label";
-  label.textContent = (person.username || "Someone") + " is sharing";
-  frame.appendChild(label);
+  if (voiceWatching && Number(person.user_id) !== Number(myUserId)) {
+    const stop = document.createElement("button");
+    stop.type = "button";
+    stop.className = "voice-watch-leave";
+    stop.textContent = "Stop watching";
+    stop.addEventListener("click", () => stopWatchingVoice());
+    frame.appendChild(stop);
+  }
   return frame;
+}
+
+function voiceViewerWantsShare(userId) {
+  return voiceShareViewers.has(Number(userId));
+}
+
+function voiceSyncShareViewers(ids) {
+  voiceShareViewers = new Set((ids || []).map((id) => Number(id)));
+  if (!voiceShareStream) return;
+  const tracks = voiceShareStream.getTracks();
+  voiceEachPeer((peer, userId) => {
+    const want = voiceShareViewers.has(Number(userId));
+    const has = peer.pc.getSenders().some((sender) => sender.track && tracks.indexOf(sender.track) !== -1);
+    if (want && !has) {
+      voiceAttachShare(peer.pc);
+      voiceCapVideo(peer.pc);
+    } else if (!want && has) {
+      peer.pc.getSenders().forEach((sender) => {
+        if (sender.track && tracks.indexOf(sender.track) !== -1) peer.pc.removeTrack(sender);
+      });
+    } else {
+      return;
+    }
+    if (peer.pc.signalingState === "stable") makeVoiceOffer(userId);
+    else peer.shareOffer = true;
+  });
+}
+
+function applyVoiceWatchers(data) {
+  if (!data || !voiceShareStream) return;
+  voiceSyncShareViewers(data.viewers || []);
+}
+
+function paintWatchTile() {
+  const tile = document.createElement("div");
+  tile.className = "voice-tile voice-watch-tile";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "voice-watch-btn";
+  button.textContent = "Watch Stream";
+  button.addEventListener("click", () => startWatchingVoice());
+  tile.appendChild(button);
+  return tile;
+}
+
+function sendVoiceWatch(watching) {
+  if (!ws || ws.readyState !== 1 || !voiceJoinedChannelId) return;
+  ws.send(JSON.stringify({ type: "voice_watch", watching: !!watching }));
+}
+
+function startWatchingVoice() {
+  if (voiceShareStream) return;
+  voiceWatching = true;
+  sendVoiceWatch(true);
+  if (voiceStageChannelId) paintVoiceStage();
+}
+
+function stopWatchingVoice() {
+  voiceWatching = false;
+  sendVoiceWatch(false);
+  voiceEachPeer((peer) => {
+    peer.videoStream = null;
+    if (peer.shareAudio) peer.shareAudio.srcObject = null;
+  });
+  if (voiceStageChannelId) paintVoiceStage();
 }
 
 let voiceShareTab = "window";
@@ -151,6 +221,7 @@ function stopVoiceShare(leaving) {
   const stream = voiceShareStream;
   if (!stream) return;
   voiceShareStream = null;
+  voiceShareViewers = new Set();
   if (!leaving) voicePullShare(stream);
   stream.getTracks().forEach((track) => {
     track.onended = null;
@@ -174,7 +245,6 @@ function adoptVoiceShare(stream) {
     };
   });
   sendVoiceShare(true);
-  voicePushShare();
   paintVoiceInputs();
   if (voiceStageChannelId) paintVoiceStage();
   paintVoiceRails();

@@ -22,6 +22,7 @@ let voiceMicTestAudio = null;
 let voiceMicTestStream = null;
 const voicePeers = new Map();
 var voiceShareStream = null;
+var voiceWatching = false;
 const voiceInputDevices = [];
 const voiceOutputDevices = [];
 const voiceBannerColors = new Map();
@@ -270,7 +271,7 @@ function paintVoiceRails() {
       if (person.sharing) {
         const live = document.createElement("span");
         live.className = "voice-rail-live";
-        live.textContent = "Live";
+        live.textContent = "LIVE";
         line.appendChild(live);
       }
       line.addEventListener("click", (event) => {
@@ -383,10 +384,16 @@ function paintVoiceStage() {
   if (!board || !voiceStageChannelId) return;
   const people = peopleInVoice(voiceStageChannelId);
   const sharer = people.find((person) => person.sharing) || null;
+  const someoneElse = !!(sharer && Number(sharer.user_id) !== Number(myUserId));
+  const iAmHost = !!(voiceShareStream && (!sharer || Number(sharer.user_id) === Number(myUserId)));
+  if (!someoneElse) voiceWatching = false;
+  const showing = iAmHost
+    ? people.find((person) => Number(person.user_id) === Number(myUserId))
+    : (someoneElse && voiceWatching ? sharer : null);
   board.replaceChildren();
-  board.classList.toggle("is-streaming", !!sharer || !!voiceShareStream);
-  const showing = sharer || (voiceShareStream ? people.find((person) => Number(person.user_id) === Number(myUserId)) : null);
+  board.classList.toggle("is-streaming", !!showing);
   if (showing && typeof paintVoiceStream === "function") board.appendChild(paintVoiceStream(showing));
+  if (!showing && someoneElse && typeof paintWatchTile === "function") board.appendChild(paintWatchTile());
   const row = document.createElement("div");
   if (showing) row.className = "voice-stream-row";
   people.forEach((person) => {
@@ -822,7 +829,7 @@ function openVoicePeer(userId, fromOffer) {
   const localTrack = voiceOutgoingTrack();
   if (localTrack) pc.addTrack(localTrack, voiceSendStream || voiceLocalStream);
   else pc.addTransceiver("audio", { direction: "recvonly" });
-  if (typeof voiceAttachShare === "function") voiceAttachShare(pc);
+  if (typeof voiceViewerWantsShare === "function" && voiceViewerWantsShare(userId)) voiceAttachShare(pc);
   const audio = document.createElement("audio");
   audio.autoplay = true;
   audio.dataset.voiceUser = String(userId);
@@ -861,7 +868,7 @@ function openVoicePeer(userId, fromOffer) {
   };
   voicePeers.set(userId, peer);
   if (!fromOffer && Number(myUserId) < Number(userId)) makeVoiceOffer(userId);
-  else if (fromOffer && voiceShareStream) peer.shareOffer = true;
+  else if (fromOffer && voiceShareStream && typeof voiceViewerWantsShare === "function" && voiceViewerWantsShare(userId)) peer.shareOffer = true;
   return peer;
 }
 

@@ -14,6 +14,7 @@ from app.routers.profile import public_identity
 router = APIRouter()
 
 voice_rooms = {}
+voice_watchers = {}
 VOICE_ROOM_CAP = 10
 
 
@@ -71,7 +72,24 @@ def voice_seat(user_id):
     return None, None, []
 
 
+def forget_stream_viewer(user_id):
+    notices = []
+    voice_watchers.pop(user_id, None)
+    for host_id, viewers in list(voice_watchers.items()):
+        if user_id not in viewers:
+            continue
+        voice_watchers[host_id] = [viewer for viewer in viewers if viewer != user_id]
+        notices.append((host_id, list(voice_watchers[host_id])))
+    return notices
+
+
+async def notify_watchers(notices):
+    for host_id, viewers in notices:
+        await notify_user(host_id, {"type": "voice_watchers", "viewers": viewers})
+
+
 def drop_voice_user(user_id):
+    notices = forget_stream_viewer(user_id)
     left = []
     for server_id, rooms in list(voice_rooms.items()):
         for channel_id, people in list(rooms.items()):
@@ -79,7 +97,7 @@ def drop_voice_user(user_id):
             if len(kept) != len(people):
                 rooms[channel_id] = kept
                 left.append(server_id)
-    return left
+    return left, notices
 
 
 def load_voice_channel(database, channel_id, user_id):
@@ -192,7 +210,29 @@ async def set_voice_share(user_id, sharing):
     for person in people:
         if person["user_id"] == user_id:
             person["sharing"] = sharing
+            if sharing:
+                voice_watchers[user_id] = []
+            else:
+                voice_watchers.pop(user_id, None)
     return server_id
+
+
+async def set_voice_watch(user_id, watching):
+    server_id, channel_id, people = voice_seat(user_id)
+    if channel_id is None:
+        return
+    host = next((person for person in people if person.get("sharing")), None)
+    if not host or host["user_id"] == user_id:
+        return
+    host_id = host["user_id"]
+    viewers = list(voice_watchers.get(host_id) or [])
+    if watching:
+        if user_id not in viewers:
+            viewers.append(user_id)
+    else:
+        viewers = [viewer for viewer in viewers if viewer != user_id]
+    voice_watchers[host_id] = viewers
+    await notify_user(host_id, {"type": "voice_watchers", "viewers": viewers})
 
 
 async def relay_voice_speaking(user_id, speaking):
@@ -229,7 +269,8 @@ async def join_voice(body: Voice_join, database: Session = Depends(get_db), curr
     others = [person for person in existing if person["user_id"] != current_user.id]
     if len(others) >= VOICE_ROOM_CAP:
         raise HTTPException(status_code=400, detail="That voice channel is full.")
-    left = drop_voice_user(current_user.id)
+    left, notices = drop_voice_user(current_user.id)
+    await notify_watchers(notices)
     rooms = voice_rooms.setdefault(server.id, {})
     people = rooms.setdefault(channel.id, [])
     people.append(voice_person(current_user))
@@ -242,7 +283,8 @@ async def join_voice(body: Voice_join, database: Session = Depends(get_db), curr
 
 @router.post("/voice_leave")
 async def leave_voice(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    left = drop_voice_user(current_user.id)
+    left, notices = drop_voice_user(current_user.id)
+    await notify_watchers(notices)
     for server_id in set(left):
         await push_roster(database, server_id)
     return {"ok": True}

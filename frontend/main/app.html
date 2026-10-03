@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=248">
+<link rel="stylesheet" href="app.css?v=249">
 </head>
 <body>
 
@@ -1792,23 +1792,47 @@
 <script src="post-media.js?v=54"></script>
     <div id="voice-share-overlay" hidden>
       <div id="voice-share-card" role="dialog" aria-label="Share your screen">
-        <div class="voice-share-head">
-          <span>Share your screen</span>
-          <button type="button" class="icon-btn" id="voice-share-close" title="Close">&times;</button>
+        <div class="voice-share-tabs" role="tablist">
+          <button type="button" class="voice-share-tab is-on" data-share-tab="window">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9h18" stroke="currentColor" stroke-width="2"/></svg>
+            Applications
+          </button>
+          <button type="button" class="voice-share-tab" data-share-tab="monitor">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Entire Screen
+          </button>
+          <button type="button" class="voice-share-tab" data-share-tab="device">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="13" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 10.5l6-3v9l-6-3z" fill="currentColor"/></svg>
+            Devices
+          </button>
         </div>
-        <button type="button" class="voice-share-option" id="voice-share-window">
-          <span>Application</span>
-          <small>Only that application is shown. Anything else on the screen stays off the stream.</small>
-        </button>
-        <button type="button" class="voice-share-option" id="voice-share-screen">
-          <span>Entire Screen</span>
-          <small>Everything on that screen is shown, including its audio.</small>
-        </button>
-        <button type="button" class="voice-share-option" id="voice-share-device">
-          <span>Devices</span>
-          <small>Share a camera or a virtual camera, such as OBS.</small>
-        </button>
-        <div id="voice-share-devices" hidden></div>
+        <div id="voice-share-grid" class="voice-share-grid"></div>
+        <div class="voice-share-foot">
+          <div class="voice-share-readout">
+            <div id="voice-share-mode" class="voice-share-mode">Gaming</div>
+            <div class="voice-share-specs">
+              <span id="voice-share-hint">Smoother video</span>
+              <span id="voice-share-res">720p</span>
+              <span id="voice-share-fps">30fps</span>
+            </div>
+          </div>
+          <div class="voice-share-tools">
+            <div class="voice-share-tiers">
+              <button type="button" id="voice-share-sd" class="is-on">SD</button>
+              <button type="button" id="voice-share-hd" disabled>HD</button>
+            </div>
+            <button type="button" id="voice-share-cog" title="Stream options" aria-label="Stream options">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.8 7.8 0 0 0 .1-1 7.8 7.8 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.3 2.5a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.8 7.8 0 0 0-.1 1 7.8 7.8 0 0 0 .1 1l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.3-2.5a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6zM13 15.5A3.5 3.5 0 1 1 13 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+            </button>
+            <div id="voice-share-menu" hidden>
+              <button type="button" data-share-mode="gaming">Gaming<span class="voice-share-check">✓</span></button>
+              <button type="button" data-share-mode="text">Screen Share<span class="voice-share-check">✓</span></button>
+              <div class="voice-share-menu-gap"></div>
+              <button type="button" data-share-flag="mute">Mute Stream Audio<span class="voice-share-check">✓</span></button>
+              <button type="button" data-share-flag="hide">Hide Stream Preview<span class="voice-share-check">✓</span></button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 <script src="boot.js?v=114"></script>
@@ -1866,8 +1890,8 @@
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=13"></script>
 <script src="servers.js?v=113"></script>
-<script src="voice.js?v=9"></script>
-<script src="voice-stream.js?v=1"></script>
+<script src="voice.js?v=10"></script>
+<script src="voice-stream.js?v=2"></script>
 <script src="server-dnd.js?v=1"></script>
 <script src="channel-settings.js?v=20"></script>
 <script src="pins.js?v=3"></script>

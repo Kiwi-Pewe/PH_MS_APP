@@ -220,13 +220,9 @@ function openVoiceShare() {
     if (typeof stopVoiceShare === "function") stopVoiceShare();
     return;
   }
-  const devices = document.getElementById("voice-share-devices");
-  if (devices) {
-    devices.hidden = true;
-    devices.replaceChildren();
-  }
   const share = document.getElementById("voice-share-overlay");
   if (share) share.hidden = false;
+  if (typeof showVoiceShare === "function") showVoiceShare();
 }
 
 function closeVoiceStage() {
@@ -1063,12 +1059,12 @@ function bindVoiceControls() {
     stageScreen.disabled = false;
     stageScreen.addEventListener("click", () => openVoiceShare());
   }
-  const shareClose = document.getElementById("voice-share-close");
   const shareOverlay = document.getElementById("voice-share-overlay");
-  if (shareClose && shareOverlay) shareClose.addEventListener("click", () => { shareOverlay.hidden = true; });
   if (shareOverlay) {
     shareOverlay.addEventListener("click", (event) => {
-      if (event.target === shareOverlay) shareOverlay.hidden = true;
+      if (event.target !== shareOverlay) return;
+      shareOverlay.hidden = true;
+      if (typeof hideVoiceShare === "function") hideVoiceShare();
     });
   }
   document.addEventListener("click", (event) => {

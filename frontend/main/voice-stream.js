@@ -302,10 +302,12 @@ async function paintShareGrid() {
   stopSharePreviews();
   grid.replaceChildren();
   if (voiceShareTab !== "device") {
-    const name = voiceShareTab === "monitor" ? "Entire Screen" : "Application";
-    grid.appendChild(shareSourceTile(name, voiceShareTab, "", null));
+    const card = document.getElementById("voice-share-card");
+    if (card) card.classList.add("is-sources");
     return;
   }
+  const card = document.getElementById("voice-share-card");
+  if (card) card.classList.remove("is-sources");
   if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
     grid.appendChild(shareSourceTile("Camera", "device", "", null));
     return;
@@ -377,7 +379,8 @@ function bindVoiceShare() {
       document.querySelectorAll(".voice-share-tab").forEach((button) => {
         button.classList.toggle("is-on", button === tab);
       });
-      paintShareGrid();
+      if (voiceShareTab === "device") paintShareGrid();
+      else beginVoiceShare(voiceShareTab === "monitor" ? "monitor" : "window");
     });
   });
   const cog = document.getElementById("voice-share-cog");

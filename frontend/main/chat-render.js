@@ -446,8 +446,7 @@ function buildCallLine(msg) {
   const when = document.createElement("span");
   when.className = "call-line-time";
   const date = msg.time instanceof Date ? msg.time : new Date(msg.time);
-  when.textContent = Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
-  if (typeof formatClusterTime === "function" && !Number.isNaN(date.getTime())) when.title = formatClusterTime(date);
+  when.textContent = (typeof formatClusterTime === "function" && !Number.isNaN(date.getTime())) ? formatClusterTime(date) : "";
   row.appendChild(icon);
   row.appendChild(text);
   row.appendChild(when);

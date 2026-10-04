@@ -1483,13 +1483,20 @@
   margin-top: 2px;
 }
 .call-toast {
-  border-width: 2px;
+  position: relative;
+  border: 2px solid rgba(139, 92, 246, 0.25);
   animation: call-breathe 3s ease-in-out infinite;
 }
 .call-toast.is-out { animation: none; }
 @keyframes call-breathe {
-  0%, 100% { border-color: color-mix(in srgb, var(--accent) 32%, var(--border)); }
-  50% { border-color: var(--accent); }
+  0%, 100% {
+    border-color: rgba(139, 92, 246, 0.22);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(139, 92, 246, 0);
+  }
+  50% {
+    border-color: #ddd6fe;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(139, 92, 246, 0.95), 0 0 22px 2px rgba(139, 92, 246, 0.85);
+  }
 }
 .call-toast-actions {
   display: flex;
@@ -8339,11 +8346,14 @@ a.profile-link-row:hover { color: var(--accent); }
 .voice-ctrl.voice-ctrl-leave:hover,
 .call-leave:hover { background: #d83a3e; }
 #voice-user-leave {
-  width: 100%;
-  box-sizing: border-box;
-  height: 32px;
-  padding: 0 10px;
-  font-size: 12px;
+  flex: 0 0 auto;
+  width: auto;
+  height: 26px;
+  margin-left: auto;
+  padding: 0 8px;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 .voice-ctrl-more-wrap { position: relative; }
 #voice-more {
@@ -8487,7 +8497,7 @@ button.voice-more-row:disabled,
 .call-line-phone svg { width: 18px; height: 18px; display: block; }
 .call-line-text { min-width: 0; }
 .call-line-time {
-  margin-left: auto;
+  flex: 0 0 auto;
   color: var(--text-dim);
   font-size: calc(12px * var(--message-scale));
   white-space: nowrap;

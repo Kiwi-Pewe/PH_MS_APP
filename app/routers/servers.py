@@ -268,7 +268,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
                         "view_docs", "create_docs", "manage_docs", "remove_docs",
                         "see_media", "create_media", "manage_media", "remove_media",
-                        "hear_voice", "talk_voice",
+                        "hear_voice", "talk_voice", "mute_members", "deafen_members", "voice_messages",
                         "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
                         "view_schedules", "create_schedule", "delete_schedule",
                         "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
@@ -654,7 +654,8 @@ async def message_server_channel(server_msg: Server_message, database: Session =
 
     if not is_member:
         raise HTTPException(status_code=404, detail= "Server membership not found.")
-    require_channel_perm(database, server, current_user.id, channel.id, "send_messages", "You do not have permission to send messages in this channel.")
+    send_perm = "voice_messages" if channel.channel_type == "voice" else "send_messages"
+    require_channel_perm(database, server, current_user.id, channel.id, send_perm, "You do not have permission to send messages in this channel.")
     if server_msg.attachment:
         require_channel_perm(database, server, current_user.id, channel.id, "upload_chat_media", "You do not have permission to upload media.")
     require_not_timed_out(is_member)
@@ -704,7 +705,8 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
 
     if not is_member:
         raise HTTPException(status_code= 404, detail="Server membership not found")
-    require_channel_perm(database, server, current_user.id, target_channel.id, "read_messages", "You do not have permission to read messages.")
+    read_perm = "hear_voice" if target_channel.channel_type == "voice" else "read_messages"
+    require_channel_perm(database, server, current_user.id, target_channel.id, read_perm, "You do not have permission to read messages.")
 
     base = database.query(Channel_messages).filter(Channel_messages.channel_id == channel_id)
     around_mode = False

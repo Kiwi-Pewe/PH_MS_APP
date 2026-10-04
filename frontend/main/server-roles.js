@@ -118,9 +118,9 @@ const SERVER_ROLE_PERMS = [
       { id: "whisper_voice", title: "Whisper", desc: "Allows you to direct your voice to specific users.", later: "Voice" },
       { id: "priority_speaker", title: "Priority speaker", desc: "Allows you to prioritize your voice when speaking in voice chat.", later: "Voice" },
       { id: "voice_activity", title: "Use voice activity", desc: "Allows you to use voice activity input mode for voice chats.", later: "Voice" },
-      { id: "mute_members", title: "Mute members", desc: "Allows you to mute members in voice chat.", later: "Voice" },
-      { id: "deafen_members", title: "Deafen members", desc: "Allows you to deafen members in voice chat.", later: "Voice" },
-      { id: "voice_messages", title: "Send messages", desc: "Allows you to send chat messages in the voice channel.", later: "Voice" }
+      { id: "mute_members", title: "Mute members", desc: "Allows you to mute members in voice chat." },
+      { id: "deafen_members", title: "Deafen members", desc: "Allows you to deafen members in voice chat." },
+      { id: "voice_messages", title: "Send messages", desc: "Allows you to send chat messages in the voice channel." }
     ]
   },
   {
@@ -224,7 +224,7 @@ function emptyServerRolePerms() {
 
 function defaultMembersPerms() {
   const perms = emptyServerRolePerms();
-  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "pin_messages", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_wallpaper", "view_docs", "see_media"].forEach((id) => {
+  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "pin_messages", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_wallpaper", "view_docs", "see_media", "hear_voice", "talk_voice", "voice_messages"].forEach((id) => {
     perms[id] = true;
   });
   return perms;
@@ -338,6 +338,90 @@ function isDirtyServerRole(role) {
 
 function dirtyServerRoles() {
   return serverRolesDraft.filter(isDirtyServerRole);
+}
+
+function serverRoleOrderDirty() {
+  if (serverRolesDraft.some((role) => role.created)) return true;
+  const saved = (serverRolesSaved || []).map((row) => String(row.id));
+  const draft = serverRolesDraft.filter((role) => !role.created).map((role) => role.id);
+  if (saved.length !== draft.length) return true;
+  return saved.some((id, index) => id !== draft[index]);
+}
+
+function serverRoleOrderChanged(role) {
+  if (!role || role.created || role.builtin) return false;
+  const saved = (serverRolesSaved || []).map((row) => String(row.id));
+  const draft = serverRolesDraft.filter((row) => !row.created).map((row) => row.id);
+  return saved.indexOf(role.id) !== draft.indexOf(role.id);
+}
+
+function positionForServerRole(role) {
+  if (role.builtin) return 10000;
+  let cursor = 0;
+  for (const row of serverRolesDraft) {
+    if (row.builtin) break;
+    if (row.id === role.id) return cursor;
+    if (!row.created && typeof canEditServerRole === "function" && !canEditServerRole(row)) {
+      cursor = Number(row.position) + 100;
+      continue;
+    }
+    cursor += 100;
+  }
+  return cursor;
+}
+
+function rolesToSave() {
+  const map = new Map();
+  dirtyServerRoles().filter(canEditServerRole).forEach((role) => map.set(role.id, role));
+  if (serverRoleOrderDirty()) {
+    serverRolesDraft.forEach((role) => {
+      if (role.builtin || !canEditServerRole(role)) return;
+      map.set(role.id, role);
+    });
+  }
+  return Array.from(map.values());
+}
+
+function revertServerRoleOrder() {
+  const savedIds = (serverRolesSaved || []).map((row) => String(row.id));
+  const byId = {};
+  serverRolesDraft.forEach((role) => { byId[role.id] = role; });
+  const ordered = [];
+  savedIds.forEach((id) => {
+    if (byId[id]) ordered.push(byId[id]);
+  });
+  const created = serverRolesDraft.filter((role) => role.created);
+  const membersIndex = ordered.findIndex((role) => role.builtin);
+  if (membersIndex < 0) serverRolesDraft = ordered.concat(created);
+  else ordered.splice(membersIndex, 0, ...created);
+  if (membersIndex >= 0) serverRolesDraft = ordered;
+  afterRoleChange(false);
+}
+
+function moveServerRoleBefore(roleId, beforeId) {
+  const from = serverRolesDraft.findIndex((row) => String(row.id) === String(roleId));
+  if (from < 0) return;
+  const moving = serverRolesDraft[from];
+  if (moving.builtin || !canEditServerRole(moving)) return;
+  let insertAt;
+  if (beforeId == null) {
+    insertAt = serverRolesDraft.findIndex((row) => row.builtin);
+    if (insertAt < 0) insertAt = serverRolesDraft.length;
+  } else {
+    insertAt = serverRolesDraft.findIndex((row) => String(row.id) === String(beforeId));
+    if (insertAt < 0) return;
+    const target = serverRolesDraft[insertAt];
+    if (!target.builtin && !canEditServerRole(target)) return;
+  }
+  serverRolesDraft.splice(from, 1);
+  if (from < insertAt) insertAt -= 1;
+  serverRolesDraft.splice(insertAt, 0, moving);
+  const membersAt = serverRolesDraft.findIndex((row) => row.builtin);
+  if (membersAt >= 0 && membersAt !== serverRolesDraft.length - 1) {
+    const members = serverRolesDraft.splice(membersAt, 1)[0];
+    serverRolesDraft.push(members);
+  }
+  afterRoleChange(false);
 }
 
 function applyServerRolesFromApi(rows) {
@@ -477,6 +561,8 @@ function paintServerRolesList() {
     btn.className = "server-role-item"
       + (role.id === serverRolesSelectedId ? " is-on" : "")
       + (!canEditServerRole(role) ? " is-locked" : "");
+    btn.dataset.roleId = role.id;
+    if (typeof bindRoleDrag === "function") bindRoleDrag(btn, role);
     const name = document.createElement("span");
     name.className = "server-role-item-name";
     name.textContent = role.name || "New Role";
@@ -488,6 +574,7 @@ function paintServerRolesList() {
       btn.appendChild(dot);
     }
     btn.addEventListener("click", () => {
+      if (typeof serverDndConsumeClick === "function" && serverDndConsumeClick()) return;
       serverRolesSelectedId = role.id;
       paintServerRolesPage();
     });
@@ -743,9 +830,10 @@ function paintServerRolesReview() {
   const host = document.getElementById("server-roles-review");
   if (!host) return;
   const dirty = dirtyServerRoles();
-  host.hidden = dirty.length === 0;
+  const orderDirty = serverRoleOrderDirty();
+  host.hidden = dirty.length === 0 && !orderDirty;
   host.innerHTML = "";
-  if (!dirty.length) return;
+  if (!dirty.length && !orderDirty) return;
 
   const card = document.createElement("div");
   card.className = "server-roles-review-card";
@@ -757,6 +845,25 @@ function paintServerRolesReview() {
 
   const body = document.createElement("div");
   body.className = "server-roles-review-body";
+
+  if (orderDirty) {
+    const row = document.createElement("div");
+    row.className = "server-roles-review-row";
+    const copy = document.createElement("div");
+    copy.className = "server-roles-review-copy";
+    const label = document.createElement("div");
+    label.className = "server-roles-review-label";
+    label.textContent = "Role order";
+    copy.appendChild(label);
+    row.appendChild(copy);
+    const revert = document.createElement("button");
+    revert.type = "button";
+    revert.className = "ghost-btn";
+    revert.textContent = "Revert";
+    revert.addEventListener("click", () => revertServerRoleOrder());
+    row.appendChild(revert);
+    body.appendChild(row);
+  }
 
   dirty.forEach((role) => {
     const wrap = document.createElement("div");
@@ -912,7 +1019,7 @@ async function confirmServerRoles() {
     paintServerRolesReview();
     return;
   }
-  const dirty = dirtyServerRoles().filter(canEditServerRole);
+  const dirty = rolesToSave();
   if (!dirty.length) return;
   serverRolesSaving = true;
   serverRolesSaveError = "";
@@ -929,7 +1036,7 @@ async function confirmServerRoles() {
           client_id: role.id,
           name: role.name,
           color: role.color,
-          position: serverRolesDraft.indexOf(role),
+          position: (serverRoleOrderDirty() || role.created) ? positionForServerRole(role) : Number(role.position || 0),
           mentionable: !!role.mentionable,
           hoist: !!role.hoist,
           name_color: !!role.nameColor,

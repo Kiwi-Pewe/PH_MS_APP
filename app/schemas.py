@@ -321,6 +321,7 @@ class Invite(BaseModel):
     type: str
     server_id: str | None = None
     party_id: int | None = None
+    channel_id: int | None = None
 
 class Server_moderation_in(BaseModel):
     server_id: str
@@ -382,6 +383,12 @@ class Channel_follow_body(BaseModel):
 
 class Voice_join(BaseModel):
     channel_id: int
+
+class Voice_moderate(BaseModel):
+    server_id: str
+    user_id: int
+    muted: bool | None = None
+    deafened: bool | None = None
 
 class Voice_call(BaseModel):
     kind: str

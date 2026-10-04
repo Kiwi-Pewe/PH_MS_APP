@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=259">
+<link rel="stylesheet" href="app.css?v=260">
 </head>
 <body>
 
@@ -259,6 +259,7 @@
         </div>
         <div id="forum-thread-opener" class="forum-thread-opener" hidden></div>
         <div id="voice-view" style="display:none;">
+          <div id="voice-main">
           <div id="voice-stage"></div>
           <div id="voice-controls">
             <button type="button" class="voice-ctrl" id="voice-ctrl-screen" aria-label="Share screen" title="Share screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 3H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h7v2H8v2h8v-2h-2v-2h7a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zm-1 12H4V5h16v10z"/><path fill="currentColor" d="M11 13V8.4L9.4 10 8 8.6 12 4.6l4 4-1.4 1.4L13 8.4V13h-2z"/></svg></button>
@@ -270,6 +271,13 @@
               <button type="button" class="voice-more-row" id="voice-more-settings">Voice &amp; Video Settings</button>
             </div>
           </div>
+          </div>
+          <aside id="voice-chat" hidden>
+            <div id="voice-chat-messages" class="self-right"></div>
+            <div class="voice-chat-compose">
+              <textarea id="voice-chat-input" rows="5" placeholder="Message voice" wrap="soft"></textarea>
+            </div>
+          </aside>
         </div>
         <div id="channel-body">
           <!-- Shown only when no real text channel is selected (a server
@@ -1355,7 +1363,7 @@
       </div>
       <div id="channel-settings-invites" class="server-settings-page is-channel-only" hidden>
         <h2 class="server-settings-page-title">Invites</h2>
-        <p class="server-settings-help">Invite links that open into this channel. Layout only until channel-targeted invites exist.</p>
+        <p class="server-settings-help">Invite links that open into this channel.</p>
         <div class="server-invites-toolbar">
           <div class="server-invites-toolbar-label">Active invite links</div>
           <button type="button" class="ghost-btn server-invites-pause" disabled>Pause Invites</button>
@@ -1372,7 +1380,7 @@
                 <th class="server-invites-col-roles">Roles</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="channel-settings-invites-body">
               <tr class="server-invites-row is-empty-row">
                 <td colspan="5" class="server-settings-help">No active invite links for this channel.</td>
               </tr>
@@ -1860,8 +1868,8 @@
 <script src="app-shell.js?v=66"></script>
 <script src="feed.js?v=16"></script>
 <script src="settings.js?v=20"></script>
-<script src="server-settings.js?v=35"></script>
-<script src="server-roles.js?v=26"></script>
+<script src="server-settings.js?v=36"></script>
+<script src="server-roles.js?v=27"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
@@ -1889,7 +1897,7 @@
 <script src="profile-edit.js?v=66"></script>
 <script src="context-menus.js?v=89"></script>
 <script src="conversations.js?v=62"></script>
-<script src="chat-render.js?v=67"></script>
+<script src="chat-render.js?v=68"></script>
 <script src="chat-history.js?v=51"></script>
 <script src="chat-compose.js?v=62"></script>
 <script src="typing.js?v=2"></script>
@@ -1898,8 +1906,8 @@
 <script src="online-toast.js?v=1"></script>
 <script src="friends.js?v=47"></script>
 <script src="parties.js?v=46"></script>
-<script src="invites.js?v=48"></script>
-<script src="server-invites.js?v=1"></script>
+<script src="invites.js?v=49"></script>
+<script src="server-invites.js?v=2"></script>
 <script src="server-bans.js?v=1"></script>
 <script src="server-privacy.js?v=1"></script>
 <script src="server-emojis.js?v=2"></script>
@@ -1910,12 +1918,12 @@
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=13"></script>
-<script src="servers.js?v=113"></script>
-<script src="voice.js?v=15"></script>
+<script src="servers.js?v=114"></script>
+<script src="voice.js?v=16"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=4"></script>
-<script src="server-dnd.js?v=1"></script>
-<script src="channel-settings.js?v=21"></script>
+<script src="server-dnd.js?v=2"></script>
+<script src="channel-settings.js?v=22"></script>
 <script src="pins.js?v=3"></script>
 <script src="search.js?v=4"></script>
 <script src="members.js?v=15"></script>

@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Parties, Party_members, Party_messages, Message, Conversations, Block_user
-from app.schemas import Voice_join, Voice_call
+from app.schemas import Voice_join, Voice_call, Voice_moderate
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app.privacy import can_send_dm
@@ -18,6 +18,7 @@ router = APIRouter()
 voice_rooms = {}
 voice_watchers = {}
 voice_calls = {}
+voice_moderation = {}
 VOICE_ROOM_CAP = 10
 CALL_CHANNEL = "call"
 
@@ -58,6 +59,26 @@ def banner_swatch(user):
     return ""
 
 
+def moderation_key(server_id, user_id):
+    return (str(server_id), int(user_id))
+
+
+def moderation_for(server_id, user_id):
+    return voice_moderation.get(moderation_key(server_id, user_id)) or {"muted": False, "deafened": False}
+
+
+def stamp_voice_moderation(server_id, person):
+    if is_call_server(server_id):
+        person["server_muted"] = False
+        person["server_deafened"] = False
+        return
+    state = moderation_for(server_id, person["user_id"])
+    person["server_muted"] = bool(state["muted"])
+    person["server_deafened"] = bool(state["deafened"])
+    if person["server_muted"] or person["server_deafened"]:
+        person["speaking"] = False
+
+
 def voice_person(user):
     ident = public_identity(user)
     banner = ident.get("banner") or {}
@@ -78,6 +99,8 @@ def roster_payload(server_id):
     channels = {}
     for channel_id, people in rooms.items():
         if people:
+            for person in people:
+                stamp_voice_moderation(server_id, person)
             channels[str(channel_id)] = list(people)
     return {"server_id": server_id, "channels": channels}
 
@@ -271,6 +294,9 @@ async def relay_voice_speaking(user_id, speaking):
         return
     speaking = bool(speaking)
     if speaking and not is_call_server(server_id):
+        state = moderation_for(server_id, user_id)
+        if state["muted"] or state["deafened"]:
+            speaking = False
         database = SessionLocal()
         try:
             from app.routers.roles import effective_perms_for_user_in_channel
@@ -315,7 +341,9 @@ async def join_voice(body: Voice_join, database: Session = Depends(get_db), curr
     await notify_watchers(notices)
     rooms = voice_rooms.setdefault(server.id, {})
     people = rooms.setdefault(channel.id, [])
-    people.append(voice_person(current_user))
+    person = voice_person(current_user)
+    stamp_voice_moderation(server.id, person)
+    people.append(person)
     touched = set(left)
     touched.add(server.id)
     for server_id in touched:
@@ -323,6 +351,40 @@ async def join_voice(body: Voice_join, database: Session = Depends(get_db), curr
     payload = roster_payload(server.id)
     payload["can_talk"] = can_talk
     return payload
+
+
+@router.post("/voice_moderate")
+async def voice_moderate(body: Voice_moderate, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    from app.routers.roles import can_moderate_target, effective_perms_for_user, effective_perms_for_user_in_channel, require_server_member
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_member(database, body.server_id, body.user_id)
+    if not can_moderate_target(database, server, current_user.id, body.user_id):
+        raise HTTPException(status_code=403, detail="You can only change members below your highest role.")
+    seat_server, seat_channel, _people = voice_seat(body.user_id)
+    if seat_server == server.id and seat_channel is not None and not is_call_server(seat_server):
+        perms = effective_perms_for_user_in_channel(database, server, current_user.id, seat_channel)
+    else:
+        perms = effective_perms_for_user(database, server, current_user.id)
+    state = dict(moderation_for(server.id, body.user_id))
+    if body.muted is not None:
+        if not perms.get("mute_members"):
+            raise HTTPException(status_code=403, detail="You do not have permission to mute members.")
+        state["muted"] = bool(body.muted)
+    if body.deafened is not None:
+        if not perms.get("deafen_members"):
+            raise HTTPException(status_code=403, detail="You do not have permission to deafen members.")
+        state["deafened"] = bool(body.deafened)
+    key = moderation_key(server.id, body.user_id)
+    if state["muted"] or state["deafened"]:
+        voice_moderation[key] = state
+    else:
+        voice_moderation.pop(key, None)
+    for people in (voice_rooms.get(server.id) or {}).values():
+        for person in people:
+            if person["user_id"] == body.user_id:
+                stamp_voice_moderation(server.id, person)
+    await fanout_voice(database, server.id)
+    return {"ok": True, "muted": bool(state["muted"]), "deafened": bool(state["deafened"])}
 
 
 @router.post("/voice_leave")

@@ -269,6 +269,7 @@ class Invite_model(Base):
     type = Column(String)
     creator_id = Column(Integer, ForeignKey("users.id"))
     server_id = Column(String(10), ForeignKey("servers.id"), nullable= True)
+    channel_id = Column(Integer, ForeignKey("server_channels.id"), nullable=True)
     party_id = Column(Integer, ForeignKey("parties.id"), nullable= True)
     use_count = Column(Integer, default= 0)
     created_at = Column(DateTime, server_default=func.now())

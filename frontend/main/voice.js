@@ -7,6 +7,9 @@ let voiceJoinedServerName = "";
 let voiceStageChannelId = null;
 let voiceMuted = false;
 let voiceDeafened = false;
+let voiceServerMuted = false;
+let voiceServerDeafened = false;
+let voiceHoldDeafened = false;
 let voiceCameraOn = false;
 let voiceCanTalk = true;
 let voiceCameraStream = null;
@@ -50,6 +53,7 @@ function applyVoiceRoster(data) {
     syncVoiceSeat(data);
     paintVoiceRails();
     if (voiceStageChannelId) paintVoiceStage();
+    syncServerVoiceHold();
     if (voiceJoinedChannelId) ensureVoiceMedia();
   }
 }
@@ -207,14 +211,39 @@ function paintVoiceDock() {
   });
 }
 
+function myVoicePerson() {
+  if (!voiceJoinedChannelId) return null;
+  return peopleInVoice(voiceJoinedChannelId).find((person) => Number(person.user_id) === Number(myUserId)) || null;
+}
+
+function syncServerVoiceHold() {
+  const me = myVoicePerson();
+  voiceServerMuted = !!(me && me.server_muted);
+  const wasServerDeaf = voiceServerDeafened;
+  voiceServerDeafened = !!(me && me.server_deafened);
+  if (voiceServerMuted || voiceServerDeafened) voiceMuted = true;
+  if (voiceServerDeafened) {
+    voiceDeafened = true;
+    voiceHoldDeafened = true;
+  } else if (wasServerDeaf && voiceHoldDeafened) {
+    voiceDeafened = false;
+    voiceHoldDeafened = false;
+  }
+  paintVoiceInputs();
+}
+
 function paintVoiceInputs() {
-  const muteOn = voiceMuted || voiceDeafened || !voiceCanTalk;
+  const held = voiceServerMuted || voiceServerDeafened;
+  const muteOn = voiceMuted || voiceDeafened || !voiceCanTalk || held;
   document.querySelectorAll("#footer-mute, #voice-ctrl-mute, #chat-call-mute").forEach((button) => {
-    button.disabled = !voiceCanTalk;
+    button.disabled = !voiceCanTalk || held;
     button.classList.toggle("is-off", muteOn);
   });
   const deafen = document.getElementById("footer-deafen");
-  if (deafen) deafen.classList.toggle("is-off", voiceDeafened);
+  if (deafen) {
+    deafen.disabled = voiceServerDeafened;
+    deafen.classList.toggle("is-off", voiceDeafened);
+  }
   document.querySelectorAll("#voice-user-camera, #voice-ctrl-camera, #chat-call-camera").forEach((button) => {
     button.classList.toggle("is-off", !voiceCameraOn);
   });
@@ -247,6 +276,8 @@ function closeVoiceStage() {
   }
   const view = document.getElementById("voice-view");
   if (view) view.style.display = "none";
+  const chat = document.getElementById("voice-chat");
+  if (chat) chat.hidden = true;
   const menu = document.getElementById("voice-more");
   if (menu) menu.hidden = true;
 }
@@ -266,7 +297,7 @@ function paintVoiceRails() {
     people.forEach((person) => {
       const line = document.createElement("button");
       line.type = "button";
-      line.className = "voice-rail-user";
+      line.className = "voice-rail-user" + (person.server_muted || person.server_deafened ? " is-server-muted" : "");
       const face = document.createElement("span");
       face.className = "voice-rail-face";
       mountVoiceFace(face, person, false, 24);
@@ -298,6 +329,7 @@ function paintVoiceRails() {
         event.stopPropagation();
         if (typeof openMiniProfile === "function") openMiniProfile(person.user_id, line);
       });
+      line.addEventListener("contextmenu", (event) => openVoiceModerationMenu(event, person));
       rail.appendChild(line);
     });
     row.after(rail);
@@ -401,7 +433,7 @@ function dominantBannerColor(url) {
 
 function paintVoiceTile(person) {
   const tile = document.createElement("div");
-  tile.className = "voice-tile" + (person.speaking ? " is-speaking" : "");
+  tile.className = "voice-tile" + (person.speaking ? " is-speaking" : "") + (person.server_muted || person.server_deafened ? " is-server-muted" : "");
   tile.dataset.userId = String(person.user_id);
   tile.style.background = person.banner_color || "var(--panel)";
   if (person.banner_url) {
@@ -413,7 +445,78 @@ function paintVoiceTile(person) {
   face.className = "voice-tile-face";
   mountVoiceFace(face, person, !!person.speaking, 96);
   tile.appendChild(face);
+  tile.addEventListener("contextmenu", (event) => openVoiceModerationMenu(event, person));
   return tile;
+}
+
+function voiceChannelIdFor(userId) {
+  let found = null;
+  Object.keys(voiceRoster || {}).forEach((channelId) => {
+    if ((voiceRoster[channelId] || []).some((row) => Number(row.user_id) === Number(userId))) found = channelId;
+  });
+  return found;
+}
+
+function voiceChannelById(channelId) {
+  if (!currentServerData || channelId == null) return null;
+  for (const category of currentServerData.categories || []) {
+    const channel = (category.channels || []).find((row) => Number(row.id) === Number(channelId));
+    if (channel) return channel;
+  }
+  return null;
+}
+
+function canModerateVoicePerson(person, perm) {
+  if (!person || Number(person.user_id) === Number(myUserId)) return false;
+  const channel = voiceChannelById(voiceChannelIdFor(person.user_id));
+  const flags = channel && channel.permissions;
+  const allowed = flags && Object.prototype.hasOwnProperty.call(flags, perm)
+    ? !!flags[perm]
+    : (typeof canServerPerm === "function" && canServerPerm(perm));
+  if (!allowed) return false;
+  if (currentServerOwnerId === myUserId) return true;
+  const member = (typeof memberList !== "undefined" && Array.isArray(memberList) ? memberList : []).find((row) => Number(row.id) === Number(person.user_id));
+  if (member && member.is_owner) return false;
+  if (!currentServerHighestRole) return false;
+  const theirs = (member && member.highest_role) || { position: 10000, id: 0 };
+  return typeof roleIsBelow === "function" && roleIsBelow(theirs, currentServerHighestRole);
+}
+
+function openVoiceModerationMenu(event, person) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (!person || typeof openContextMenu !== "function") return;
+  const options = [];
+  if (canModerateVoicePerson(person, "mute_members")) {
+    options.push({
+      label: person.server_muted ? "Unmute" : "Server Mute",
+      onSelect: () => postVoiceModerate(person.user_id, { muted: !person.server_muted })
+    });
+  }
+  if (canModerateVoicePerson(person, "deafen_members")) {
+    options.push({
+      label: person.server_deafened ? "Undeafen" : "Server Deafen",
+      onSelect: () => postVoiceModerate(person.user_id, { deafened: !person.server_deafened })
+    });
+  }
+  if (!options.length) return;
+  openContextMenu(event.clientX, event.clientY, null, options);
+}
+
+async function postVoiceModerate(userId, change) {
+  if (!currentServerId) return;
+  try {
+    const response = await fetch(`https://${serverAddress}/voice_moderate`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({ server_id: currentServerId, user_id: userId }, change))
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) window.alert(typeof data.detail === "string" ? data.detail : "Could not update that member.");
+  } catch (err) {
+    window.alert("Could not update that member.");
+  }
 }
 
 function paintVoiceStage() {
@@ -453,9 +556,49 @@ function openVoiceStage(channel) {
   if (body) body.style.display = "none";
   if (composer) composer.style.display = "none";
   if (view) view.style.display = "flex";
+  const chat = document.getElementById("voice-chat");
+  if (chat) chat.hidden = false;
   const pins = document.getElementById("channel-pins-btn");
   if (pins) pins.style.display = "none";
   paintVoiceStage();
+  if (typeof paintVoiceChannelChat === "function") paintVoiceChannelChat();
+}
+
+function paintVoiceChannelChat(opts) {
+  const panel = document.getElementById("voice-chat");
+  const wrap = document.getElementById("voice-chat-messages");
+  if (!panel || !wrap) return;
+  const open = voiceStageChannelId != null && currentChannelType === "voice" && Number(voiceStageChannelId) === Number(currentChannelId);
+  panel.hidden = !open;
+  if (!open) return;
+  wrap.replaceChildren();
+  if (typeof buildChannelStartCard === "function" && currentChannelId !== null) {
+    wrap.appendChild(buildChannelStartCard(currentChannelName));
+  }
+  if (typeof renderClusteredMessages === "function") renderClusteredMessages(wrap, currentChannelMessages || []);
+  if (!opts || !opts.preserveScroll) wrap.scrollTop = wrap.scrollHeight;
+  paintVoiceChatComposer();
+}
+
+function paintVoiceChatComposer() {
+  const input = document.getElementById("voice-chat-input");
+  if (!input) return;
+  const allowed = typeof canSendMessages !== "function" || canSendMessages();
+  input.disabled = !allowed;
+  input.placeholder = allowed ? ("Message " + (currentChannelName || "voice")) : "You cannot send messages in this channel.";
+}
+
+async function sendVoiceChatMessage() {
+  const input = document.getElementById("voice-chat-input");
+  const channelInput = document.getElementById("channel-composer-input");
+  if (!input || !channelInput || input.disabled) return;
+  const text = input.value;
+  if (!text.trim()) return;
+  channelInput.value = text;
+  if (typeof sendChannelMessage !== "function") return;
+  await sendChannelMessage();
+  if (!channelInput.value) input.value = "";
+  else input.value = channelInput.value;
 }
 
 function voiceMicId() {
@@ -1201,7 +1344,7 @@ function bindVoiceControls() {
   const footerMute = document.getElementById("footer-mute");
   const stageMute = document.getElementById("voice-ctrl-mute");
   const toggleMute = () => {
-    if (!voiceCanTalk) return;
+    if (!voiceCanTalk || voiceServerMuted || voiceServerDeafened) return;
     voiceMuted = !voiceMuted;
     if (!voiceMuted) voiceDeafened = false;
     paintVoiceInputs();
@@ -1219,6 +1362,7 @@ function bindVoiceControls() {
   const footerDeafen = document.getElementById("footer-deafen");
   if (footerDeafen) {
     footerDeafen.addEventListener("click", () => {
+      if (voiceServerDeafened) return;
       voiceDeafened = !voiceDeafened;
       if (voiceDeafened) voiceMuted = true;
       paintVoiceInputs();
@@ -1250,6 +1394,15 @@ function bindVoiceControls() {
   document.addEventListener("click", (event) => {
     if (menu && !menu.hidden && !event.target.closest("#voice-more")) menu.hidden = true;
   });
+  const voiceChatInput = document.getElementById("voice-chat-input");
+  if (voiceChatInput) {
+    voiceChatInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendVoiceChatMessage();
+      }
+    });
+  }
   paintVoiceInputs();
 }
 

@@ -28,7 +28,7 @@ LIVE_ROLE_PERMS = (
     "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
     "view_docs", "create_docs", "manage_docs", "remove_docs",
     "see_media", "create_media", "manage_media", "remove_media",
-    "hear_voice", "talk_voice",
+    "hear_voice", "talk_voice", "mute_members", "deafen_members", "voice_messages",
     "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
     "view_schedules", "create_schedule", "delete_schedule",
     "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
@@ -43,7 +43,7 @@ MEMBERS_DEFAULT_PERMS = (
     "view_wallpaper",
     "view_docs",
     "see_media",
-    "hear_voice", "talk_voice",
+    "hear_voice", "talk_voice", "voice_messages",
     "view_events",
     "view_schedules", "create_schedule",
     "view_list", "create_list", "complete_list",
@@ -81,6 +81,9 @@ LIVE_CHANNEL_OVERRIDE_PERMS = (
     "remove_media",
     "hear_voice",
     "talk_voice",
+    "mute_members",
+    "deafen_members",
+    "voice_messages",
     "view_events",
     "create_events",
     "manage_events",
@@ -112,6 +115,7 @@ CHANNEL_OVERRIDE_DEFAULTS = {
     "see_media": True,
     "hear_voice": True,
     "talk_voice": True,
+    "voice_messages": True,
     "view_events": True,
     "view_schedules": True,
     "create_schedule": True,
@@ -208,6 +212,8 @@ def parse_role_perms(row):
         perms["hear_voice"] = bool(getattr(row, "is_members", False))
     if "talk_voice" not in data:
         perms["talk_voice"] = bool(getattr(row, "is_members", False))
+    if "voice_messages" not in data:
+        perms["voice_messages"] = bool(getattr(row, "is_members", False))
     return perms
 
 
@@ -616,6 +622,19 @@ def clamp_role_perms(incoming, current, actor_perms, is_owner):
     return out
 
 
+def role_position_for_actor(is_owner, actor_highest, requested):
+    try:
+        position = int(requested)
+    except (TypeError, ValueError):
+        position = 0
+    if is_owner:
+        return position
+    actor_pos = int((actor_highest or {}).get("position") or 0)
+    if position <= actor_pos:
+        raise HTTPException(status_code=403, detail="You can only reorder roles below yours.")
+    return position
+
+
 def next_position_below(database, server_id, actor_highest, extra_positions=None):
     actor_pos = int(actor_highest.get("position") or 0)
     used = {int(row.position or 0) for row in database.query(Server_roles).filter(Server_roles.server_id == server_id).all()}
@@ -681,12 +700,6 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
         row.id: row
         for row in database.query(Server_roles).filter(Server_roles.server_id == server.id).all()
     }
-    lowest = database.query(func.min(Server_roles.position)).filter(
-        Server_roles.server_id == server.id,
-        Server_roles.is_members == False,
-    ).scalar()
-    next_position = 100 if lowest is None else int(lowest) - 100
-    created_positions = []
 
     saved = []
     created_ids = []
@@ -709,6 +722,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
                 row.position = MEMBERS_POSITION
             else:
                 row.name = name
+                row.position = role_position_for_actor(is_owner, actor_highest, item.position)
             row.color = color
             row.mentionable = mentionable
             row.hoist = hoist
@@ -722,12 +736,10 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
             if not is_owner:
                 if not actor_highest or actor_highest.get("is_members"):
                     raise HTTPException(status_code=403, detail="You can only create roles below yours.")
-                create_position = next_position_below(database, server.id, actor_highest, created_positions)
-                created_positions.append(create_position)
+                create_position = role_position_for_actor(False, actor_highest, item.position)
                 perms = clamp_role_perms(perms, empty_role_perms(), actor_perms, False)
             else:
-                create_position = next_position
-                next_position -= 100
+                create_position = int(item.position or 0)
             row = Server_roles(
                 server_id=server.id,
                 name=name,

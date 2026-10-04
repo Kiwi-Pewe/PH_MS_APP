@@ -5,7 +5,7 @@
 // Shared by servers and parties - openInviteModal takes the type so one
 // panel handles both. No cap on recipients (accept_invite is idempotent
 // per-recipient).
-let inviteModalTarget = { type: null, id: null, name: null };
+let inviteModalTarget = { type: null, id: null, name: null, channelId: null };
 let inviteModalCode = null;
 let selectedInviteRecipients = new Set();
 
@@ -16,9 +16,9 @@ document.getElementById("invite-modal-overlay").addEventListener("click", (e) =>
 document.getElementById("invite-copy-btn").addEventListener("click", copyInviteLink);
 document.getElementById("invite-modal-send-btn").addEventListener("click", sendInvitesFromModal);
 
-async function openInviteModal(type, id, name) {
+async function openInviteModal(type, id, name, channelId) {
   if (type === "server" && typeof canInviteMembers === "function" && !canInviteMembers() && id === currentServerId) return;
-  inviteModalTarget = { type, id, name };
+  inviteModalTarget = { type, id, name, channelId: channelId || null };
   selectedInviteRecipients = new Set();
   updateInviteModalCount();
   document.getElementById("invite-modal-title").textContent = `Invite to ${name}`;
@@ -39,7 +39,8 @@ async function openInviteModal(type, id, name) {
       body: JSON.stringify({
         type,
         server_id: type === "server" ? id : null,
-        party_id: type === "party" ? id : null
+        party_id: type === "party" ? id : null,
+        channel_id: type === "server" ? (channelId || null) : null
       })
     });
     if (!response.ok) {
@@ -50,6 +51,7 @@ async function openInviteModal(type, id, name) {
     inviteModalCode = data.invite_code;
     document.getElementById("invite-link-display").value = `https://oneira.cc/invite/${inviteModalCode}`;
     if (typeof refreshServerInvitesPage === "function") refreshServerInvitesPage();
+    if (typeof loadChannelInvitesPage === "function") loadChannelInvitesPage();
   } catch (e) {
     document.getElementById("invite-link-display").value = "Failed to generate invite.";
     return;
@@ -158,6 +160,7 @@ function renderInviteCard(card, code, data) {
   const subtitle = isParty
     ? (data.full ? "This party is currently full." : "Click below to join.")
     : `${data.active_users} Online \u00b7 ${data.total_users} Members`;
+  if (!isParty && data.channel_name) subtitle += " \u00b7 " + data.channel_name;
 
   card.innerHTML = `
     <div class="invite-card-header">
@@ -216,6 +219,6 @@ async function joinInviteFromCard(code, btnEl) {
   } else if (data.type === "server") {
     await loadServers();
     const iconEl = document.querySelector(`.server-icon[data-server-id="${data.id}"]`);
-    openServer(data.id, iconEl);
+    openServer(data.id, iconEl, data.channel_id);
   }
 }

@@ -220,7 +220,7 @@ function selectRailIcon(id, iconEl) {
   iconEl.classList.add("active");
 }
 
-async function openServer(serverId, iconEl) {
+async function openServer(serverId, iconEl, channelId) {
   selectRailIcon(serverId, iconEl);
 
   let data;
@@ -263,9 +263,14 @@ async function openServer(serverId, iconEl) {
   if (typeof loadMemberList === "function") loadMemberList("server", serverId);
   if (typeof loadMentionRoles === "function") loadMentionRoles(serverId);
 
-  // Auto-selects first channel. Remembering last-viewed channel is
-  // deferred (see Handoff).
-  const firstChannel = firstVisibleSidebarChannel();
+  let landing = null;
+  if (channelId && data.categories) {
+    for (const category of data.categories) {
+      landing = (category.channels || []).find((row) => Number(row.id) === Number(channelId) && channelVisibleInSidebar(row)) || null;
+      if (landing) break;
+    }
+  }
+  const firstChannel = landing || firstVisibleSidebarChannel();
   if (firstChannel) {
     selectChannel(firstChannel);
   } else {
@@ -653,12 +658,11 @@ async function selectChannel(channel, rowEl) {
     channelMessages.style.display = "none";
     channelEmpty.style.display = "none";
     if (typeof openVoiceStage === "function") openVoiceStage(channel);
-    return;
+  } else {
+    enableChannelComposer(label);
+    channelEmpty.style.display = "none";
+    channelMessages.style.display = "block";
   }
-
-  enableChannelComposer(label);
-  channelEmpty.style.display = "none";
-  channelMessages.style.display = "block";
   currentChannelMessages = [];
   channelHasMoreHistory = true;
   channelIsLoadingMore = false;

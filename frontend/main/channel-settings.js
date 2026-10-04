@@ -19,6 +19,7 @@ let channelSettingsPermLive = [
   "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
   "view_docs", "create_docs", "manage_docs",   "remove_docs",
   "see_media", "create_media", "manage_media", "remove_media",
+  "hear_voice", "talk_voice", "mute_members", "deafen_members", "voice_messages",
   "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
   "view_schedules", "create_schedule", "delete_schedule",
   "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
@@ -49,6 +50,7 @@ const CHANNEL_SETTINGS_LIVE_DEFAULTS = {
   see_media: true,
   hear_voice: true,
   talk_voice: true,
+  voice_messages: true,
   view_schedules: true,
   create_schedule: true,
   view_list: true,
@@ -473,6 +475,7 @@ function paintChannelSettingsPermBody() {
     loading.className = "placeholder-panel";
     loading.textContent = "Loading permissions…";
     host.appendChild(loading);
+    paintChannelSettingsPermActions();
     return;
   }
   const groups = channelSettingsPermGroups();
@@ -481,6 +484,7 @@ function paintChannelSettingsPermBody() {
     empty.className = "placeholder-panel";
     empty.textContent = "No channel permissions to show for this type yet.";
     host.appendChild(empty);
+    paintChannelSettingsPermActions();
     return;
   }
   const roleId = channelSettingsRoleDisplayId(selected);
@@ -517,6 +521,64 @@ function paintChannelSettingsPermBody() {
     });
     host.appendChild(section);
   });
+  paintChannelSettingsPermActions();
+}
+
+function channelSettingsLivePermIds() {
+  const ids = [];
+  channelSettingsPermGroups().forEach((group) => {
+    (group.rows || []).forEach((row) => {
+      if (channelSettingsPermIsLive(row.id) && !row.later) ids.push(row.id);
+    });
+  });
+  return ids;
+}
+
+function paintChannelSettingsPermActions() {
+  const enable = document.getElementById("channel-settings-perms-enable-all");
+  const clear = document.getElementById("channel-settings-perms-clear-all");
+  const ready = channelSettingsKind === "channel"
+    && !!channelSettingsTarget
+    && !channelSettingsPermLoading
+    && /^\d+$/.test(String(channelSettingsPermRoleId));
+  if (enable) enable.disabled = !ready;
+  if (clear) clear.disabled = !ready;
+}
+
+async function saveChannelSettingsPermBulk(on) {
+  if (channelSettingsKind !== "channel" || !channelSettingsTarget) return;
+  const roleId = channelSettingsPermRoleId;
+  if (String(roleId) === "members" || !/^\d+$/.test(String(roleId))) {
+    setChannelSettingsNameStatus("Load roles before editing permissions.");
+    return;
+  }
+  const ids = channelSettingsLivePermIds();
+  if (!ids.length) return;
+  const key = String(roleId);
+  const previous = Object.assign({}, channelSettingsPermDisplay[key] || {});
+  const next = Object.assign({}, previous);
+  channelSettingsPermLive.forEach((id) => {
+    if (!Object.prototype.hasOwnProperty.call(next, id)) next[id] = channelSettingsPermValue(key, id);
+  });
+  ids.forEach((id) => { next[id] = !!on; });
+  channelSettingsPermDisplay[key] = next;
+  ids.forEach((id) => { channelSettingsPermSaving[key + ":" + id] = true; });
+  paintChannelSettingsPermBody();
+  try {
+    const data = await postChannelSettings("/save_channel_role_perms", {
+      channel_id: channelSettingsTarget.id,
+      role_id: Number(roleId),
+      permissions: next,
+    });
+    channelSettingsPermDisplay[key] = data.display || data.permissions || next;
+    if (typeof refreshServerContentsSoft === "function") await refreshServerContentsSoft();
+  } catch (err) {
+    channelSettingsPermDisplay[key] = previous;
+    setChannelSettingsNameStatus(err.message || "Could not save permission.");
+  } finally {
+    ids.forEach((id) => { delete channelSettingsPermSaving[key + ":" + id]; });
+    paintChannelSettingsPermBody();
+  }
 }
 
 async function loadChannelSettingsRolePerms() {
@@ -650,6 +712,7 @@ function showChannelSettingsTab(tab) {
     if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
   }
   if (tab === "integrations") paintChannelFollows();
+  if (tab === "invites" && typeof loadChannelInvitesPage === "function") loadChannelInvitesPage();
 }
 
 function channelSettingsIsForums() {
@@ -1506,6 +1569,11 @@ if (forumReactionClear) {
     }
   });
 }
+
+const permsEnableAll = document.getElementById("channel-settings-perms-enable-all");
+if (permsEnableAll) permsEnableAll.addEventListener("click", () => saveChannelSettingsPermBulk(true));
+const permsClearAll = document.getElementById("channel-settings-perms-clear-all");
+if (permsClearAll) permsClearAll.addEventListener("click", () => saveChannelSettingsPermBulk(false));
 
 document.getElementById("channel-settings-delete").addEventListener("click", () => {
   if (!channelSettingsTarget) return;

@@ -123,6 +123,7 @@ function renderChannelMessages(opts = {}) {
     const channelBody = document.getElementById("channel-body");
     channelBody.scrollTop = channelBody.scrollHeight;
   }
+  if (typeof paintVoiceChannelChat === "function") paintVoiceChannelChat(opts);
 }
 
 function fillBubbleLine(line, msg) {

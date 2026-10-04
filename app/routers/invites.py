@@ -6,7 +6,7 @@ from app.schemas import Invite
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user, get_optional_user
 from app.routers.realtime import active_connections, serialize_member, server_broadcast, party_broadcast
-from app.routers.roles import effective_perms_for_user, require_server_member, require_server_perm
+from app.routers.roles import channel_type_visible, effective_perms_for_user, effective_perms_for_user_in_channel, require_server_member, require_server_perm
 from app.routers.moderation import active_ban, iso_dt
 from app.routers.deletion import write_audit_log
 from app.routers.account import public_display_name
@@ -64,9 +64,31 @@ def require_server_invites(database, server, user_id):
     return True
 
 
+def invite_channel_for(database, invite, user_id):
+    channel_id = getattr(invite, "channel_id", None)
+    if not channel_id or invite.type != "server":
+        return None
+    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not channel:
+        return None
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    if not category or category.server_id != invite.server_id:
+        return None
+    server = database.query(Servers).filter(Servers.id == invite.server_id).first()
+    if not server:
+        return None
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel.id)
+    if not channel_type_visible(perms, channel.channel_type):
+        return None
+    return channel
+
+
 def serialize_settings_invite(database, invite):
     creator = database.query(UserInfo).filter(UserInfo.id == invite.creator_id).first()
     expires = invite_expires_at(invite)
+    channel = None
+    if getattr(invite, "channel_id", None):
+        channel = database.query(Server_channels).filter(Server_channels.id == invite.channel_id).first()
     payload = {
         "id": invite.id,
         "code": invite.code,
@@ -74,7 +96,8 @@ def serialize_settings_invite(database, invite):
         "max_uses": INVITE_MAX_USES,
         "created_at": iso_dt(invite_created_at(invite)),
         "expires_at": iso_dt(expires) if expires else None,
-        "channel_name": None,
+        "channel_id": invite.channel_id if channel else None,
+        "channel_name": channel.name if channel else None,
         "roles": [],
         "creator": None,
     }
@@ -125,7 +148,12 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
         server = database.query(Servers).filter(Servers.id == invite.server_id).first()
         is_member = database.query(Server_members).filter(Server_members.server_id == invite.server_id, Server_members.user_id == current_user.id).first()
         if is_member:
-            return {"type": "server", "id": invite.server_id, "server_name": server.name, "position": is_member.position}
+            landing = invite_channel_for(database, invite, current_user.id)
+            payload = {"type": "server", "id": invite.server_id, "server_name": server.name, "position": is_member.position}
+            if landing:
+                payload["channel_id"] = landing.id
+                payload["channel_name"] = landing.name
+            return payload
         
         highest_position = database.query(func.max(Server_members.position)).filter(Server_members.user_id == current_user.id).scalar()
         new_member = Server_members(
@@ -163,7 +191,12 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
                 name_color_role_for_user(database, invite.server_id, current_user.id),
             )
         }, database= database, exclude_user_id= current_user.id)
-        return {"type": "server", "id": invite.server_id, "server_name": server.name, "position": new_member.position,}
+        landing = invite_channel_for(database, invite, current_user.id)
+        payload = {"type": "server", "id": invite.server_id, "server_name": server.name, "position": new_member.position}
+        if landing:
+            payload["channel_id"] = landing.id
+            payload["channel_name"] = landing.name
+        return payload
 
     elif invite.type == "party":
         party = database.query(Parties).filter(Parties.id == invite.party_id).first()
@@ -202,7 +235,22 @@ def create_invite(type: Invite, database: Session = Depends(get_db), current_use
         server = require_server_member(database, type.server_id, current_user.id)
         require_server_perm(database, server, current_user.id, "invite_members", "You do not have permission to invite members.")
 
-        previous_invite = database.query(Invite_model).filter(Invite_model.server_id == type.server_id, Invite_model.creator_id == current_user.id).first()
+        if type.channel_id:
+            channel = database.query(Server_channels).filter(Server_channels.id == type.channel_id).first()
+            if not channel:
+                raise HTTPException(status_code=404, detail="Channel not found")
+            category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+            if not category or category.server_id != server.id:
+                raise HTTPException(status_code=400, detail="That channel is not in this server.")
+            channel_perms = effective_perms_for_user_in_channel(database, server, current_user.id, channel.id)
+            if not channel_type_visible(channel_perms, channel.channel_type):
+                raise HTTPException(status_code=403, detail="You do not have permission to invite into this channel.")
+
+        previous_invite = database.query(Invite_model).filter(
+            Invite_model.server_id == type.server_id,
+            Invite_model.creator_id == current_user.id,
+            Invite_model.channel_id == type.channel_id,
+        ).first()
 
         if previous_invite:
             if is_invite_fresh(previous_invite):
@@ -238,6 +286,7 @@ def create_invite(type: Invite, database: Session = Depends(get_db), current_use
         type = type.type,
         creator_id = current_user.id,
         server_id = type.server_id,
+        channel_id = type.channel_id if type.type == "server" else None,
         party_id = type.party_id,
     )
 
@@ -270,5 +319,21 @@ def get_invite_info(code: str, database: Session = Depends(get_db), current_user
         total_members = database.query(Server_members).filter(Server_members.server_id == invite.server_id).count()
         all_members = database.query(Server_members).filter(Server_members.server_id == invite.server_id).all()
         active = sum(1 for member in all_members if member.user_id in active_connections)
-        return {"valid": True, "type": "server", "server_name": server_info.name, "active_users": active, "total_users": total_members}
+        landing = invite_channel_for(database, invite, current_user.id) if current_user else None
+        if landing is None and getattr(invite, "channel_id", None) and not current_user:
+            named = database.query(Server_channels).filter(Server_channels.id == invite.channel_id).first()
+            channel_name = named.name if named else None
+            channel_id = named.id if named else None
+        else:
+            channel_name = landing.name if landing else None
+            channel_id = landing.id if landing else None
+        return {
+            "valid": True,
+            "type": "server",
+            "server_name": server_info.name,
+            "active_users": active,
+            "total_users": total_members,
+            "channel_id": channel_id,
+            "channel_name": channel_name,
+        }
     return {"valid": False}

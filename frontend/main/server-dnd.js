@@ -29,6 +29,9 @@ function markServerDndTarget(el, mode) {
   } else if (serverDndKind === "channel") {
     const row = document.querySelector(`.channel-row[data-channel-id="${serverDndId}"]`);
     if (row) row.classList.add("dnd-dragging");
+  } else if (serverDndKind === "role") {
+    const row = document.querySelector(`.server-role-item[data-role-id="${String(serverDndId)}"]`);
+    if (row) row.classList.add("dnd-dragging");
   }
   if (mode === "before") el.classList.add("dnd-drop-before");
   else if (mode === "after") el.classList.add("dnd-drop-after");
@@ -52,6 +55,50 @@ async function postServerDnd(path, body) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error((typeof data.detail === "string" && data.detail) || "Could not reorder.");
   return data;
+}
+
+function nextRoleIdAfter(roleId) {
+  const index = (serverRolesDraft || []).findIndex((row) => String(row.id) === String(roleId));
+  if (index < 0 || index >= serverRolesDraft.length - 1) return null;
+  return serverRolesDraft[index + 1].id;
+}
+
+function bindRoleDrag(btn, role) {
+  if (!role || role.builtin) return;
+  if (typeof canManageRoles === "function" && !canManageRoles()) return;
+  if (typeof canEditServerRole === "function" && !canEditServerRole(role)) return;
+  btn.draggable = true;
+  btn.addEventListener("dragstart", (e) => {
+    serverDndKind = "role";
+    serverDndId = role.id;
+    serverDndMoved = true;
+    btn.classList.add("dnd-dragging");
+    try { e.dataTransfer.setData("text/plain", String(role.id)); } catch (err) {}
+    e.dataTransfer.effectAllowed = "move";
+  });
+  btn.addEventListener("dragend", () => endServerDnd());
+  btn.addEventListener("dragover", (e) => {
+    if (serverDndKind !== "role" || serverDndId == null) return;
+    if (String(serverDndId) === String(role.id)) return;
+    if (!role.builtin && typeof canEditServerRole === "function" && !canEditServerRole(role)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const rect = btn.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+    serverDndDrop = { kind: "role", beforeId: before ? role.id : nextRoleIdAfter(role.id) };
+    markServerDndTarget(btn, before ? "before" : "after");
+  });
+  btn.addEventListener("drop", (e) => {
+    if (serverDndKind !== "role" || serverDndId == null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const movedId = serverDndId;
+    const beforeId = serverDndDrop && serverDndDrop.kind === "role" ? serverDndDrop.beforeId : role.id;
+    endServerDnd();
+    serverDndMoved = true;
+    if (String(movedId) === String(beforeId)) return;
+    if (typeof moveServerRoleBefore === "function") moveServerRoleBefore(movedId, beforeId);
+  });
 }
 
 function bindServerRailDrag(wrap, server) {

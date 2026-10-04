@@ -150,6 +150,8 @@ function canReadMessages() {
 }
 
 function canSendMessages() {
+  const channel = findCurrentServerChannel();
+  if (channel && channel.channel_type === "voice") return channelPerm("voice_messages");
   return channelPerm("send_messages");
 }
 

@@ -144,6 +144,81 @@ function refreshServerInvitesPage() {
   loadServerInvitesPage(true);
 }
 
+function paintChannelInvitesTable(invites) {
+  const body = document.getElementById("channel-settings-invites-body");
+  if (!body) return;
+  body.innerHTML = "";
+  if (!invites.length) {
+    const tr = document.createElement("tr");
+    tr.className = "server-invites-row is-empty-row";
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.className = "server-settings-help";
+    td.textContent = "No active invite links for this channel.";
+    tr.appendChild(td);
+    body.appendChild(tr);
+    return;
+  }
+  invites.forEach((invite) => {
+    const tr = document.createElement("tr");
+    tr.className = "server-invites-row";
+    const creator = invite.creator || {};
+    const inviterTd = document.createElement("td");
+    inviterTd.className = "server-invites-col-inviter";
+    inviterTd.textContent = creator.display_name || creator.username || "Unknown";
+    tr.appendChild(inviterTd);
+    const codeTd = document.createElement("td");
+    codeTd.className = "server-invites-col-code";
+    codeTd.textContent = invite.code || "—";
+    tr.appendChild(codeTd);
+    const usesTd = document.createElement("td");
+    usesTd.className = "server-invites-col-uses";
+    usesTd.textContent = String(invite.uses != null ? invite.uses : 0);
+    tr.appendChild(usesTd);
+    const expiresTd = document.createElement("td");
+    expiresTd.className = "server-invites-col-expires";
+    expiresTd.textContent = formatInviteExpires(invite.expires_at);
+    tr.appendChild(expiresTd);
+    const rolesTd = document.createElement("td");
+    rolesTd.className = "server-invites-col-roles";
+    tr.appendChild(rolesTd);
+    body.appendChild(tr);
+  });
+}
+
+async function loadChannelInvitesPage() {
+  const create = document.getElementById("channel-settings-invites-create");
+  const channelId = channelSettingsTarget && channelSettingsTarget.id;
+  const canCreate = !!channelId && (typeof canInviteMembers !== "function" || canInviteMembers());
+  if (create) {
+    create.disabled = !canCreate;
+    create.title = canCreate ? "" : "You do not have permission to invite members.";
+  }
+  if (!currentServerId || !channelId) {
+    paintChannelInvitesTable([]);
+    return;
+  }
+  try {
+    const response = await fetch(
+      `https://${serverAddress}/server_settings_invites/${encodeURIComponent(currentServerId)}`,
+      { credentials: "include" }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not load invites.");
+    const invites = (data.invites || []).filter((invite) => Number(invite.channel_id) === Number(channelId));
+    paintChannelInvitesTable(invites);
+  } catch (e) {
+    paintChannelInvitesTable([]);
+  }
+}
+
+function openChannelInvitesCreate() {
+  if (!currentServerId || !channelSettingsTarget) return;
+  if (typeof canInviteMembers === "function" && !canInviteMembers()) return;
+  const name = channelSettingsTarget.name || "Channel";
+  if (typeof openInviteModal === "function") openInviteModal("server", currentServerId, name, channelSettingsTarget.id);
+}
+
 function openServerInvitesCreate() {
   if (!currentServerId || typeof canInviteMembers === "function" && !canInviteMembers()) return;
   const name = typeof currentServerSettingsName === "function"
@@ -155,4 +230,6 @@ function openServerInvitesCreate() {
 (function bindServerInvitesChrome() {
   const create = document.getElementById("server-invites-create");
   if (create) create.addEventListener("click", openServerInvitesCreate);
+  const channelCreate = document.getElementById("channel-settings-invites-create");
+  if (channelCreate) channelCreate.addEventListener("click", openChannelInvitesCreate);
 })();

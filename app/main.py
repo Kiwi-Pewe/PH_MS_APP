@@ -22,7 +22,7 @@ from app.routers.admin import sweep_completed_feedback
 from app.routers.mentions import mentioned_user_ids, mention_user_map, mention_role_map, live_reply_to
 from app.routers.deletion import sweep_pending_deletes
 from app.routers.typing import relay_typing
-from app.routers.profile import public_avatar
+from app.routers.profile import STATUS_MAX, clip_text, public_avatar, public_display_name
 import asyncio
 
 def ws_attachment(data):
@@ -149,6 +149,8 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     "type": "message",
                     "id": new_message.id,
                     "username": current_user.username,
+                    "display_name": public_display_name(current_user),
+                    "status": clip_text(current_user.profile_status, STATUS_MAX).strip(),
                     "sender_id": current_user.id,
                     "content": data.get("content") or "",
                     "attachment": attachment_public(new_message.attachment),

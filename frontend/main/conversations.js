@@ -18,6 +18,8 @@ function loadConversations() {
       type: "dm",
       id: c.id,
       username: c.username,
+      displayName: c.display_name || c.username,
+      status: (c.status || "").trim(),
       unread: c.unread_count || 0,
       timestamp: c.last_message_at,
       avatar: c.avatar || null
@@ -43,12 +45,12 @@ function renderConversationList() {
   rows.innerHTML = "";
   conversationList.forEach(convo => {
     const row = document.createElement("div");
-    const displayName = convo.type === "party" ? convo.name : convo.username;
-    const subtitle = convo.type === "party" ? `${convo.memberCount} Members` : "{Status}";
+    const displayName = convo.type === "party" ? convo.name : (convo.displayName || convo.username);
+    const subtitle = convo.type === "party" ? `${convo.memberCount} Members` : (convo.status || "").trim();
     const isActive = convo.type === openChatType && convo.id === openChatId;
 
     row.className = "dm-item" + (isActive ? " active" : "");
-    row.innerHTML = `<div class="avatar-dot"></div><div class="dm-item-text"><div class="who"></div><div class="dm-subtitle"></div></div><span class="dm-unread-badge"></span>`;
+    row.innerHTML = `<div class="avatar-dot"></div><div class="dm-item-text"><div class="who"></div></div><span class="dm-unread-badge"></span>`;
     const face = row.querySelector(".avatar-dot");
     if (convo.type !== "party" && typeof paintUserFace === "function") {
       paintUserFace(face, convo, { name: displayName, userId: convo.id });
@@ -56,7 +58,12 @@ function renderConversationList() {
       face.textContent = avatarLetter(displayName);
     }
     row.querySelector(".who").textContent = displayName;
-    row.querySelector(".dm-subtitle").textContent = subtitle;
+    if (subtitle) {
+      const sub = document.createElement("div");
+      sub.className = "dm-subtitle";
+      sub.textContent = subtitle;
+      row.querySelector(".dm-item-text").appendChild(sub);
+    }
     if (convo.type === "party") {
       if ((convo.mentions || 0) > 0) {
         const badge = row.querySelector(".dm-unread-badge");
@@ -106,7 +113,10 @@ function bumpConversation(type, id, name, incrementUnread, opts) {
   if (!entry) {
     entry = type === "party"
       ? { type, id, name, memberCount: 0, unread: 0, mentions: 0 }
-      : { type, id, username: name, unread: 0 };
+      : { type, id, username: name, displayName: extra.displayName || name, status: (extra.status || "").trim(), unread: 0 };
+  } else if (type === "dm") {
+    if (extra.displayName) entry.displayName = extra.displayName;
+    if (Object.prototype.hasOwnProperty.call(extra, "status")) entry.status = String(extra.status || "").trim();
   }
   if (incrementUnread) {
     if (type === "party" && extra.mentioned) entry.mentions = (entry.mentions || 0) + 1;

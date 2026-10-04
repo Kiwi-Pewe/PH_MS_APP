@@ -112,7 +112,9 @@ function connectSocket() {
     if (data.type === "message") {
       if (typeof isUserBlocked === "function" && isUserBlocked(data.sender_id)) return;
       const isOpen = openChatType === "dm" && openChatId === data.sender_id;
-      bumpConversation("dm", data.sender_id, data.username, !isOpen);
+      const dmCard = { displayName: data.display_name };
+      if (typeof data.status === "string") dmCard.status = data.status;
+      bumpConversation("dm", data.sender_id, data.username, !isOpen, dmCard);
       if (isOpen) {
         const row = {
           id: data.id,

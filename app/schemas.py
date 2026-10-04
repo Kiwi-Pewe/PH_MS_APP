@@ -382,6 +382,10 @@ class Channel_follow_body(BaseModel):
 class Voice_join(BaseModel):
     channel_id: int
 
+class Voice_call(BaseModel):
+    kind: str
+    chat_id: int
+
 class Announcements(BaseModel):
     channel_id: int
     title: str

@@ -250,6 +250,7 @@ async function openDirectMessage(id, username) {
     if (currentMessages.length < 25) hasMoreHistory = false;
     renderMessages();
   } catch (e) { renderMessages(); }
+  if (typeof refreshOpenCall === "function") refreshOpenCall();
 }
 
 // Mirrors openDirectMessage exactly, pointed at party endpoints -
@@ -312,4 +313,5 @@ async function openParty(id, name) {
     }
   } catch (e) { renderMessages(); }
   if (typeof loadMemberList === "function") loadMemberList("party", id);
+  if (typeof refreshOpenCall === "function") refreshOpenCall();
 }

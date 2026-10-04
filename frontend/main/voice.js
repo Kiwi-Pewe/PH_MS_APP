@@ -37,6 +37,7 @@ function voiceFaceMime(media) {
 
 function applyVoiceRoster(data) {
   if (!data || data.server_id == null) return;
+  if (String(data.server_id).startsWith("dm:") || String(data.server_id).startsWith("party:")) return;
   if (String(voiceRosterServerId) !== String(data.server_id) && String(currentServerId) !== String(data.server_id)) {
     if (String(voiceJoinedServerId) === String(data.server_id)) syncVoiceSeat(data);
     return;
@@ -52,6 +53,7 @@ function applyVoiceRoster(data) {
 }
 
 function syncVoiceSeat(data) {
+  if (!data || String(data.server_id).startsWith("dm:") || String(data.server_id).startsWith("party:")) return;
   let found = null;
   Object.keys(data.channels || {}).forEach((channelId) => {
     if ((data.channels[channelId] || []).some((person) => Number(person.user_id) === Number(myUserId))) {
@@ -186,7 +188,8 @@ function paintVoiceDock() {
   }
   card.hidden = false;
   const where = document.getElementById("voice-user-where");
-  const place = voiceJoinedChannelName + " / " + voiceJoinedServerName;
+  const mine = typeof myVoiceCall === "function" ? myVoiceCall() : null;
+  const place = mine ? (mine.label || voiceJoinedChannelName || "Call") : (voiceJoinedChannelName + " / " + voiceJoinedServerName);
   if (where) {
     where.textContent = place;
     where.title = place;
@@ -605,10 +608,24 @@ function sendVoiceSpeaking(speaking) {
   ws.send(JSON.stringify({ type: "voice_speaking", speaking: !!speaking }));
 }
 
+function voiceMeshPeople() {
+  const mine = typeof myVoiceCall === "function" ? myVoiceCall() : null;
+  if (mine) return mine.joined || [];
+  return peopleInVoice(voiceJoinedChannelId);
+}
+
 function markVoiceSpeaking(userId, speaking) {
-  const people = peopleInVoice(voiceJoinedChannelId);
+  const people = voiceMeshPeople();
   const person = people.find((row) => Number(row.user_id) === Number(userId));
   if (person) person.speaking = !!speaking;
+  document.querySelectorAll(".call-face").forEach((face) => {
+    if (Number(face.dataset.userId) !== Number(userId)) return;
+    const audible = !!speaking && !face.classList.contains("is-ringing");
+    face.classList.toggle("is-speaking", audible);
+    if (!person || voiceFaceMime(person.avatar) !== "image/gif") return;
+    face.replaceChildren();
+    mountVoiceFace(face, person, audible, 80);
+  });
   document.querySelectorAll(".voice-tile").forEach((tile) => {
     if (Number(tile.dataset.userId) !== Number(userId)) return;
     tile.classList.toggle("is-speaking", !!speaking);
@@ -856,8 +873,10 @@ function openVoicePeer(userId, fromOffer) {
       track.onended = () => {
         if (peer.videoStream) peer.videoStream = null;
         if (voiceStageChannelId) paintVoiceStage();
+        if (typeof paintCallChrome === "function") paintCallChrome();
       };
       if (voiceStageChannelId) paintVoiceStage();
+      if (typeof paintCallChrome === "function") paintCallChrome();
       return;
     }
     const element = peer.audio.srcObject ? peer.shareAudio : peer.audio;
@@ -891,7 +910,7 @@ function voicePeer(userId) {
 }
 
 async function receiveVoiceSignal(data) {
-  if (!data || !voiceJoinedChannelId || Number(data.channel_id) !== Number(voiceJoinedChannelId)) return;
+  if (!data || !voiceJoinedChannelId || String(data.channel_id) !== String(voiceJoinedChannelId)) return;
   const userId = Number(data.from_user_id);
   if (!userId || userId === Number(myUserId)) return;
   const payload = data.payload || {};
@@ -927,7 +946,7 @@ async function receiveVoiceSignal(data) {
 function connectVoicePeers() {
   if (!voiceJoinedChannelId || !voiceLocalStream) return;
   const ids = new Set();
-  peopleInVoice(voiceJoinedChannelId).forEach((person) => {
+  voiceMeshPeople().forEach((person) => {
     const userId = Number(person.user_id);
     if (!userId || userId === Number(myUserId)) return;
     ids.add(userId);

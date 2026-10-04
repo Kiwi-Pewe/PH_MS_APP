@@ -2,12 +2,14 @@ import asyncio
 import json
 import os
 import urllib.request
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels
-from app.schemas import Voice_join
-from app.database import get_db
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Parties, Party_members, Party_messages, Message, Conversations, Block_user
+from app.schemas import Voice_join, Voice_call
+from app.database import get_db, SessionLocal
 from app.auth import get_current_user
+from app.privacy import can_send_dm
 from app.routers.realtime import notify_user, server_broadcast
 from app.routers.profile import public_identity
 
@@ -15,7 +17,9 @@ router = APIRouter()
 
 voice_rooms = {}
 voice_watchers = {}
+voice_calls = {}
 VOICE_ROOM_CAP = 10
+CALL_CHANNEL = "call"
 
 
 def banner_swatch(user):
@@ -289,14 +293,311 @@ async def join_voice(body: Voice_join, database: Session = Depends(get_db), curr
     touched = set(left)
     touched.add(server.id)
     for server_id in touched:
-        await push_roster(database, server_id)
+        await fanout_voice(database, server_id)
     return roster_payload(server.id)
 
 
 @router.post("/voice_leave")
 async def leave_voice(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    left, notices = drop_voice_user(current_user.id)
+    await release_voice_seat(database, current_user.id)
+    return {"ok": True}
+
+
+def is_call_server(server_id):
+    return isinstance(server_id, str) and (server_id.startswith("dm:") or server_id.startswith("party:"))
+
+
+def call_room(key):
+    return (voice_rooms.get(key) or {}).get(CALL_CHANNEL) or []
+
+
+def chat_id_for(call, viewer_id):
+    if call["kind"] == "party":
+        return call["party_id"]
+    first, second = call["pair"]
+    return second if viewer_id == first else first
+
+
+def label_for(call, viewer_id):
+    if call["kind"] == "party":
+        return call["name"]
+    return call["names"].get(chat_id_for(call, viewer_id)) or "Call"
+
+
+def ringing_people(database, user_ids):
+    ids = list(user_ids or [])
+    if not ids:
+        return []
+    users = database.query(UserInfo).filter(UserInfo.id.in_(ids)).all()
+    order = {user_id: index for index, user_id in enumerate(ids)}
+    people = [voice_person(user) for user in users]
+    people.sort(key=lambda person: order.get(person["user_id"], 0))
+    return people
+
+
+def payload_for(database, call, viewer_id):
+    return {
+        "type": "voice_call",
+        "active": True,
+        "ended": False,
+        "key": call["key"],
+        "kind": call["kind"],
+        "chat_id": chat_id_for(call, viewer_id),
+        "label": label_for(call, viewer_id),
+        "starter_id": call["starter_id"],
+        "starter_name": call["starter_name"],
+        "joined": list(call_room(call["key"])),
+        "ringing": ringing_people(database, call["ringing"]),
+    }
+
+
+async def publish_call(database, key):
+    call = voice_calls.get(key)
+    if not call:
+        return
+    if not call_room(key):
+        await finish_call(database, key)
+        return
+    for user_id in call["users"]:
+        await notify_user(user_id, payload_for(database, call, user_id))
+
+
+async def finish_call(database, key):
+    call = voice_calls.pop(key, None)
+    if not call:
+        return
+    task = call.get("ring_task")
+    if task and task is not asyncio.current_task():
+        task.cancel()
+    voice_rooms.pop(key, None)
+    seconds = max(0, int((datetime.utcnow() - call["started"]).total_seconds()))
+    content = "oneira-call:" + str(seconds)
+    if call["kind"] == "dm":
+        message = database.query(Message).filter(Message.id == call["message_id"]).first()
+    else:
+        message = database.query(Party_messages).filter(Party_messages.id == call["message_id"]).first()
+    if message:
+        message.content = content
+        database.commit()
+    for user_id in call["users"]:
+        await notify_user(user_id, {
+            "type": "voice_call",
+            "ended": True,
+            "key": key,
+            "kind": call["kind"],
+            "chat_id": chat_id_for(call, user_id),
+        })
+        await notify_user(user_id, {
+            "type": "call_line_update",
+            "kind": call["kind"],
+            "chat_id": chat_id_for(call, user_id),
+            "id": call["message_id"],
+            "content": content,
+        })
+
+
+async def fanout_voice(database, server_id):
+    if is_call_server(server_id):
+        await publish_call(database, server_id)
+    else:
+        await push_roster(database, server_id)
+
+
+async def release_voice_seat(database, user_id):
+    left, notices = drop_voice_user(user_id)
     await notify_watchers(notices)
     for server_id in set(left):
-        await push_roster(database, server_id)
+        await fanout_voice(database, server_id)
+
+
+def arm_ring(key):
+    call = voice_calls.get(key)
+    if not call:
+        return
+    call["ring_gen"] = call.get("ring_gen", 0) + 1
+    gen = call["ring_gen"]
+
+    async def wait():
+        await asyncio.sleep(30)
+        current = voice_calls.get(key)
+        if not current or current.get("ring_gen") != gen or not current["ringing"]:
+            return
+        current["ringing"] = set()
+        database = SessionLocal()
+        try:
+            await publish_call(database, key)
+        finally:
+            database.close()
+
+    call["ring_task"] = asyncio.create_task(wait())
+
+
+def load_call_target(database, kind, chat_id, user_id):
+    me = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not me:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if kind == "dm":
+        other = database.query(UserInfo).filter(UserInfo.id == chat_id).first()
+        if not other or other.id == user_id:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        blocked = database.query(Block_user).filter(
+            ((Block_user.initiated_by == user_id) & (Block_user.blocked_user == other.id))
+            | ((Block_user.initiated_by == other.id) & (Block_user.blocked_user == user_id))
+        ).first()
+        if blocked or not can_send_dm(database, user_id, other):
+            raise HTTPException(status_code=403, detail="This user does not accept Direct Messages from you.")
+        pair = tuple(sorted((user_id, other.id)))
+        return {
+            "key": "dm:" + str(pair[0]) + ":" + str(pair[1]),
+            "kind": "dm",
+            "pair": pair,
+            "party_id": None,
+            "name": "",
+            "names": {me.id: me.username or "", other.id: other.username or ""},
+            "users": [me.id, other.id],
+        }
+    if kind != "party":
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    party = database.query(Parties).filter(Parties.id == chat_id).first()
+    member = database.query(Party_members).filter(Party_members.party_id == chat_id, Party_members.user_id == user_id).first()
+    if not party or not member:
+        raise HTTPException(status_code=404, detail="Party not found")
+    members = database.query(Party_members).filter(Party_members.party_id == chat_id).all()
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_([row.user_id for row in members])).all()
+    return {
+        "key": "party:" + str(party.id),
+        "kind": "party",
+        "pair": None,
+        "party_id": party.id,
+        "name": party.party_name or "Party",
+        "names": {account.id: account.username or "" for account in accounts},
+        "users": [account.id for account in accounts],
+    }
+
+
+def seated_in(key, user_id):
+    return any(person["user_id"] == user_id for person in call_room(key))
+
+
+async def notify_call_line(call, message):
+    for user_id in call["users"]:
+        await notify_user(user_id, {
+            "type": "call_line",
+            "kind": call["kind"],
+            "chat_id": chat_id_for(call, user_id),
+            "label": label_for(call, user_id),
+            "id": message.id,
+            "sender_id": call["starter_id"],
+            "username": call["starter_name"],
+            "content": message.content,
+            "timestamp": str(message.timestamp),
+        })
+
+
+def store_call_line(database, meta, starter):
+    if meta["kind"] == "dm":
+        other_id = meta["pair"][1] if starter.id == meta["pair"][0] else meta["pair"][0]
+        message = Message(sender_id=starter.id, receiver_id=other_id, content="oneira-call", read=False)
+        database.add(message)
+        convo = database.query(Conversations).filter(
+            ((Conversations.user_1 == starter.id) & (Conversations.user_2 == other_id))
+            | ((Conversations.user_1 == other_id) & (Conversations.user_2 == starter.id))
+        ).first()
+        if convo:
+            convo.last_message_at = datetime.utcnow()
+            convo.closed_by_user_1 = False
+            convo.closed_by_user_2 = False
+    else:
+        message = Party_messages(party_id=meta["party_id"], sender_id=starter.id, content="oneira-call")
+        database.add(message)
+    database.commit()
+    database.refresh(message)
+    return message
+
+
+async def enter_call(database, meta, user):
+    key = meta["key"]
+    call = voice_calls.get(key)
+    if not call:
+        raise HTTPException(status_code=404, detail="That call has ended.")
+    if user.id not in call["users"]:
+        raise HTTPException(status_code=404, detail="That call has ended.")
+    if seated_in(key, user.id):
+        return payload_for(database, call, user.id)
+    others = [person for person in call_room(key) if person["user_id"] != user.id]
+    if len(others) >= VOICE_ROOM_CAP:
+        raise HTTPException(status_code=400, detail="That call is full.")
+    await release_voice_seat(database, user.id)
+    call = voice_calls.get(key)
+    if not call:
+        raise HTTPException(status_code=404, detail="That call has ended.")
+    rooms = voice_rooms.setdefault(key, {})
+    people = rooms.setdefault(CALL_CHANNEL, [])
+    people.append(voice_person(user))
+    call["ringing"].discard(user.id)
+    await publish_call(database, key)
+    return payload_for(database, call, user.id)
+
+
+async def begin_call(database, meta, user):
+    key = meta["key"]
+    existing = voice_calls.get(key)
+    if existing:
+        return await enter_call(database, meta, user)
+    await release_voice_seat(database, user.id)
+    message = store_call_line(database, meta, user)
+    ringing = {member_id for member_id in meta["users"] if member_id != user.id}
+    call = {
+        "key": key,
+        "kind": meta["kind"],
+        "pair": meta["pair"],
+        "party_id": meta["party_id"],
+        "name": meta["name"],
+        "names": meta["names"],
+        "users": list(meta["users"]),
+        "starter_id": user.id,
+        "starter_name": user.username or "",
+        "message_id": message.id,
+        "ringing": ringing,
+        "started": datetime.utcnow(),
+        "ring_gen": 0,
+        "ring_task": None,
+    }
+    voice_calls[key] = call
+    voice_rooms.setdefault(key, {})[CALL_CHANNEL] = [voice_person(user)]
+    arm_ring(key)
+    await notify_call_line(call, message)
+    await publish_call(database, key)
+    return payload_for(database, call, user.id)
+
+
+@router.get("/voice_call/{kind}/{chat_id}")
+def read_call(kind: str, chat_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    meta = load_call_target(database, kind, chat_id, current_user.id)
+    call = voice_calls.get(meta["key"])
+    if not call:
+        return {"active": False, "kind": kind, "chat_id": chat_id}
+    return payload_for(database, call, current_user.id)
+
+
+@router.post("/voice_call")
+async def start_call(body: Voice_call, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    meta = load_call_target(database, body.kind, body.chat_id, current_user.id)
+    return await begin_call(database, meta, current_user)
+
+
+@router.post("/voice_call/answer")
+async def answer_call(body: Voice_call, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    meta = load_call_target(database, body.kind, body.chat_id, current_user.id)
+    return await enter_call(database, meta, current_user)
+
+
+@router.post("/voice_call/decline")
+async def decline_call(body: Voice_call, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    meta = load_call_target(database, body.kind, body.chat_id, current_user.id)
+    call = voice_calls.get(meta["key"])
+    if not call:
+        return {"ok": True}
+    call["ringing"].discard(current_user.id)
+    await publish_call(database, meta["key"])
     return {"ok": True}

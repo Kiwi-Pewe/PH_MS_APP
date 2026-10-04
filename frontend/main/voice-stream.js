@@ -263,6 +263,7 @@ function adoptVoiceShare(stream) {
   paintVoiceInputs();
   if (voiceStageChannelId) paintVoiceStage();
   paintVoiceRails();
+  if (typeof syncCallShare === "function") syncCallShare();
 }
 
 function markMyShare(on) {

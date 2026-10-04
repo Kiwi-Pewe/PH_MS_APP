@@ -33,6 +33,12 @@ function renderClusteredMessages(wrap, messages) {
       return;
     }
 
+    if (isCallMessage(msg)) {
+      wrap.appendChild(buildCallLine(msg));
+      openCluster = null;
+      return;
+    }
+
     if (msg.senderId === null) {
       wrap.appendChild(buildSystemDivider(msg));
       openCluster = null;
@@ -402,6 +408,52 @@ function buildEditComposer(msg) {
   return cluster;
 }
 
+function isCallMessage(msg) {
+  return !!msg && typeof msg.content === "string" && (msg.content === "oneira-call" || msg.content.indexOf("oneira-call:") === 0);
+}
+
+function callLengthSeconds(content) {
+  if (content === "oneira-call") return null;
+  const raw = Number(String(content).slice("oneira-call:".length));
+  return Number.isFinite(raw) ? raw : null;
+}
+
+function formatCallLength(seconds) {
+  const whole = Math.max(0, Math.round(seconds));
+  if (whole < 60) return whole + (whole === 1 ? " second" : " seconds");
+  const minutes = Math.round(whole / 60);
+  if (minutes < 60) return minutes + (minutes === 1 ? " minute" : " minutes");
+  const hours = Math.round(minutes / 60);
+  return hours + (hours === 1 ? " hour" : " hours");
+}
+
+function callLineText(msg) {
+  const name = msg.username || "Someone";
+  const seconds = callLengthSeconds(msg.content);
+  if (seconds == null) return name + " started a call.";
+  return name + " started a call that lasted " + formatCallLength(seconds) + ".";
+}
+
+function buildCallLine(msg) {
+  const row = document.createElement("div");
+  row.className = "call-line";
+  const icon = document.createElement("span");
+  icon.className = "call-line-phone";
+  icon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.5.6 3.6.1.4 0 .7-.3 1L6.6 10.8z"/></svg>';
+  const text = document.createElement("span");
+  text.className = "call-line-text";
+  text.textContent = callLineText(msg);
+  const when = document.createElement("span");
+  when.className = "call-line-time";
+  const date = msg.time instanceof Date ? msg.time : new Date(msg.time);
+  when.textContent = Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
+  if (typeof formatClusterTime === "function" && !Number.isNaN(date.getTime())) when.title = formatClusterTime(date);
+  row.appendChild(icon);
+  row.appendChild(text);
+  row.appendChild(when);
+  return row;
+}
+
 function buildSystemDivider(msg) {
   const divider = document.createElement("div");
   divider.className = "system-divider";
@@ -410,6 +462,10 @@ function buildSystemDivider(msg) {
 }
 
 function startNewCluster(wrap, msg) {
+  if (isCallMessage(msg)) {
+    wrap.appendChild(buildCallLine(msg));
+    return { isMine: false, username: "", lastTime: msg.time, bubbleEl: wrap };
+  }
   const cluster = document.createElement("div");
   cluster.className = "msg-cluster " + (msg.isMine ? "self" : "other");
   if (msg.mentioned) cluster.classList.add("mention-highlight");

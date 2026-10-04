@@ -622,6 +622,15 @@ function connectSocket() {
       applyAnnouncementHighlight(data);
     }
 
+    if (data.type === "voice_call" && typeof applyVoiceCall === "function") {
+      applyVoiceCall(data);
+    }
+    if (data.type === "call_line" && typeof applyCallLine === "function") {
+      applyCallLine(data);
+    }
+    if (data.type === "call_line_update" && typeof applyCallLineUpdate === "function") {
+      applyCallLineUpdate(data);
+    }
     if (data.type === "voice_roster" && typeof applyVoiceRoster === "function") {
       applyVoiceRoster(data);
     }

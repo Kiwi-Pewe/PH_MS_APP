@@ -22,6 +22,20 @@ VOICE_ROOM_CAP = 10
 CALL_CHANNEL = "call"
 
 
+def normalize_voice_limit(value):
+    try:
+        count = int(value)
+    except (TypeError, ValueError):
+        return VOICE_ROOM_CAP
+    if count < 1 or count > VOICE_ROOM_CAP:
+        return VOICE_ROOM_CAP
+    return count
+
+
+def channel_voice_cap(channel):
+    return normalize_voice_limit(getattr(channel, "user_limit", None))
+
+
 def banner_swatch(user):
     try:
         raw = json.loads(getattr(user, "profile_layout", None) or "{}")
@@ -256,6 +270,15 @@ async def relay_voice_speaking(user_id, speaking):
     if channel_id is None:
         return
     speaking = bool(speaking)
+    if speaking and not is_call_server(server_id):
+        database = SessionLocal()
+        try:
+            from app.routers.roles import effective_perms_for_user_in_channel
+            server = database.query(Servers).filter(Servers.id == server_id).first()
+            if not server or not effective_perms_for_user_in_channel(database, server, user_id, channel_id).get("talk_voice"):
+                speaking = False
+        finally:
+            database.close()
     for person in people:
         if person["user_id"] == user_id:
             person["speaking"] = speaking
@@ -280,10 +303,13 @@ async def voice_ice(current_user: UserInfo = Depends(get_current_user)):
 
 @router.post("/voice_join")
 async def join_voice(body: Voice_join, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    from app.routers.roles import effective_perms_for_user_in_channel, require_channel_perm
     channel, server = load_voice_channel(database, body.channel_id, current_user.id)
+    require_channel_perm(database, server, current_user.id, channel.id, "hear_voice", "You do not have permission to join this voice channel.")
+    can_talk = bool(effective_perms_for_user_in_channel(database, server, current_user.id, channel.id).get("talk_voice"))
     existing = (voice_rooms.get(server.id) or {}).get(channel.id) or []
     others = [person for person in existing if person["user_id"] != current_user.id]
-    if len(others) >= VOICE_ROOM_CAP:
+    if len(others) >= channel_voice_cap(channel):
         raise HTTPException(status_code=400, detail="That voice channel is full.")
     left, notices = drop_voice_user(current_user.id)
     await notify_watchers(notices)
@@ -294,7 +320,9 @@ async def join_voice(body: Voice_join, database: Session = Depends(get_db), curr
     touched.add(server.id)
     for server_id in touched:
         await fanout_voice(database, server_id)
-    return roster_payload(server.id)
+    payload = roster_payload(server.id)
+    payload["can_talk"] = can_talk
+    return payload
 
 
 @router.post("/voice_leave")

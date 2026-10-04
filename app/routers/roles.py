@@ -28,6 +28,7 @@ LIVE_ROLE_PERMS = (
     "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
     "view_docs", "create_docs", "manage_docs", "remove_docs",
     "see_media", "create_media", "manage_media", "remove_media",
+    "hear_voice", "talk_voice",
     "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
     "view_schedules", "create_schedule", "delete_schedule",
     "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
@@ -42,6 +43,7 @@ MEMBERS_DEFAULT_PERMS = (
     "view_wallpaper",
     "view_docs",
     "see_media",
+    "hear_voice", "talk_voice",
     "view_events",
     "view_schedules", "create_schedule",
     "view_list", "create_list", "complete_list",
@@ -77,6 +79,8 @@ LIVE_CHANNEL_OVERRIDE_PERMS = (
     "create_media",
     "manage_media",
     "remove_media",
+    "hear_voice",
+    "talk_voice",
     "view_events",
     "create_events",
     "manage_events",
@@ -106,6 +110,8 @@ CHANNEL_OVERRIDE_DEFAULTS = {
     "view_wallpaper": True,
     "view_docs": True,
     "see_media": True,
+    "hear_voice": True,
+    "talk_voice": True,
     "view_events": True,
     "view_schedules": True,
     "create_schedule": True,
@@ -198,6 +204,10 @@ def parse_role_perms(row):
         perms["create_list"] = True
     if isinstance(data, dict) and "complete_list" not in data:
         perms["complete_list"] = True
+    if "hear_voice" not in data:
+        perms["hear_voice"] = bool(getattr(row, "is_members", False))
+    if "talk_voice" not in data:
+        perms["talk_voice"] = bool(getattr(row, "is_members", False))
     return perms
 
 
@@ -571,6 +581,8 @@ def channel_type_visible(permissions, channel_type):
         return bool(permissions.get("view_events"))
     if channel_type == "lists":
         return bool(permissions.get("view_list"))
+    if channel_type == "voice":
+        return bool(permissions.get("hear_voice"))
     return True
 
 

@@ -364,6 +364,7 @@ class Channel_update(BaseModel):
     is_private: bool | None = None
     topic: str | None = None
     slowmode: int | None = None
+    user_limit: int | None = None
 
 class Category_update(BaseModel):
     category_id: int

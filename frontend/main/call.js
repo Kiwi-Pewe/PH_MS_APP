@@ -132,6 +132,7 @@ function applyVoiceCall(data) {
   const previous = voiceCalls.get(data.key);
   voiceCalls.set(data.key, Object.assign({}, data, { joined: joined, ringing: ringing, here: here, ringingMe: ringingMe }));
   if (here) {
+    voiceCanTalk = true;
     voiceJoinedChannelId = "call";
     voiceJoinedServerId = data.key;
     voiceJoinedChannelName = data.label || "Call";

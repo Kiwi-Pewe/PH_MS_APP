@@ -8,6 +8,8 @@ let voiceStageChannelId = null;
 let voiceMuted = false;
 let voiceDeafened = false;
 let voiceCameraOn = false;
+let voiceCanTalk = true;
+let voiceCameraStream = null;
 let voiceLocalStream = null;
 let voiceMediaStarting = false;
 let voiceIceServers = [{ urls: "stun:stun.cloudflare.com:3478" }];
@@ -115,6 +117,8 @@ async function joinVoiceChannel(channel) {
   voiceJoinedServerId = data.server_id || currentServerId;
   voiceJoinedChannelName = channel.name || "Voice";
   voiceJoinedServerName = (currentServerData && currentServerData.name) || (document.getElementById("server-sidebar-name") || {}).textContent || "Server";
+  voiceCanTalk = data.can_talk !== false;
+  if (!voiceCanTalk) voiceMuted = true;
   voiceCameraOn = false;
   applyVoiceRoster(data);
   paintVoiceDock();
@@ -152,6 +156,7 @@ async function leaveVoiceChannel() {
   voiceJoinedServerId = null;
   voiceJoinedChannelName = "";
   voiceJoinedServerName = "";
+  voiceCanTalk = true;
   paintVoiceDock();
   try {
     await fetch(`https://${serverAddress}/voice_leave`, { method: "POST", credentials: "include" });
@@ -203,8 +208,9 @@ function paintVoiceDock() {
 }
 
 function paintVoiceInputs() {
-  const muteOn = voiceMuted || voiceDeafened;
+  const muteOn = voiceMuted || voiceDeafened || !voiceCanTalk;
   document.querySelectorAll("#footer-mute, #voice-ctrl-mute, #chat-call-mute").forEach((button) => {
+    button.disabled = !voiceCanTalk;
     button.classList.toggle("is-off", muteOn);
   });
   const deafen = document.getElementById("footer-deafen");
@@ -298,7 +304,24 @@ function paintVoiceRails() {
   });
 }
 
+function voiceCameraFor(userId) {
+  if (voiceCameraStream && Number(userId) === Number(myUserId)) return voiceCameraStream;
+  const peer = typeof voicePeer === "function" ? voicePeer(userId) : null;
+  return peer && peer.cameraStream ? peer.cameraStream : null;
+}
+
 function mountVoiceFace(host, person, speaking, size) {
+  const camera = voiceCameraFor(person && person.user_id);
+  if (camera) {
+    const video = document.createElement("video");
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = camera;
+    video.play().catch(() => {});
+    host.appendChild(video);
+    return;
+  }
   const url = voiceFaceUrl(person.avatar);
   const mime = voiceFaceMime(person.avatar);
   if (!url) {
@@ -623,6 +646,7 @@ function markVoiceSpeaking(userId, speaking) {
     if (Number(face.dataset.userId) !== Number(userId)) return;
     const audible = !!speaking && !face.classList.contains("is-ringing");
     face.classList.toggle("is-speaking", audible);
+    if (voiceCameraFor(userId)) return;
     if (!person || voiceFaceMime(person.avatar) !== "image/gif") return;
     face.replaceChildren();
     mountVoiceFace(face, person, audible, 80);
@@ -631,6 +655,7 @@ function markVoiceSpeaking(userId, speaking) {
     if (Number(tile.dataset.userId) !== Number(userId)) return;
     tile.classList.toggle("is-speaking", !!speaking);
     const face = tile.querySelector(".voice-tile-face");
+    if (voiceCameraFor(userId)) return;
     if (!face || !person || voiceFaceMime(person.avatar) !== "image/gif") return;
     face.replaceChildren();
     mountVoiceFace(face, person, !!speaking, 96);
@@ -743,7 +768,103 @@ function resetVoiceSettings() {
   if (voiceLocalStream && voiceLocalStream.getAudioTracks().length) retargetVoiceMic();
 }
 
+function refreshVoiceFaces() {
+  if (voiceStageChannelId) paintVoiceStage();
+  if (typeof paintVoiceRails === "function") paintVoiceRails();
+  if (typeof paintCallChrome === "function") paintCallChrome();
+}
+
+function voiceCameraMid(pc) {
+  if (!voiceCameraStream || !pc) return "";
+  const track = voiceCameraStream.getVideoTracks()[0];
+  const sender = track && pc.getSenders().find((row) => row.track === track);
+  return sender && sender.transceiver && sender.transceiver.mid ? sender.transceiver.mid : "";
+}
+
+function voiceCapCamera(pc) {
+  if (!voiceCameraStream || !pc) return;
+  const track = voiceCameraStream.getVideoTracks()[0];
+  pc.getSenders().forEach((sender) => {
+    if (!sender.track || sender.track !== track) return;
+    try {
+      const params = sender.getParameters();
+      if (!params.encodings || !params.encodings.length) params.encodings = [{}];
+      params.encodings[0].maxBitrate = 900000;
+      params.encodings[0].maxFramerate = 30;
+      sender.setParameters(params).catch(() => {});
+    } catch (err) {
+      return;
+    }
+  });
+}
+
+function voicePushCamera() {
+  voiceEachPeer((peer, userId) => {
+    const track = voiceCameraStream && voiceCameraStream.getVideoTracks()[0];
+    if (!track) return;
+    if (!peer.pc.getSenders().some((sender) => sender.track === track)) peer.pc.addTrack(track, voiceCameraStream);
+    voiceCapCamera(peer.pc);
+    if (peer.pc.signalingState === "stable") makeVoiceOffer(userId);
+    else peer.shareOffer = true;
+  });
+  refreshVoiceFaces();
+}
+
+function voicePullCamera() {
+  const tracks = voiceCameraStream ? voiceCameraStream.getTracks() : [];
+  voiceEachPeer((peer, userId) => {
+    peer.pc.getSenders().forEach((sender) => {
+      if (sender.track && tracks.indexOf(sender.track) !== -1) peer.pc.removeTrack(sender);
+    });
+    peer.cameraStream = null;
+    peer.cameraMid = "";
+    if (peer.pc.signalingState === "stable") makeVoiceOffer(userId);
+    else peer.shareOffer = true;
+  });
+  refreshVoiceFaces();
+}
+
+async function setVoiceCamera(on) {
+  if (!voiceJoinedChannelId) return;
+  if (!on) {
+    if (voiceCameraStream) {
+      voicePullCamera();
+      voiceCameraStream.getTracks().forEach((track) => track.stop());
+      voiceCameraStream = null;
+    }
+    voiceCameraOn = false;
+    paintVoiceInputs();
+    refreshVoiceFaces();
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: "user", width: { max: 1280 }, height: { max: 720 }, frameRate: { max: 30 } }
+    });
+    if (!voiceJoinedChannelId) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    if (voiceCameraStream) voiceCameraStream.getTracks().forEach((track) => track.stop());
+    voiceCameraStream = stream;
+    voiceCameraOn = true;
+    paintVoiceInputs();
+    voicePushCamera();
+  } catch (err) {
+    voiceCameraOn = false;
+    paintVoiceInputs();
+    window.alert("Oneira can't use the camera.");
+  }
+}
+
 function stopVoiceMedia() {
+  if (voiceCameraStream) {
+    voiceCameraStream.getTracks().forEach((track) => track.stop());
+    voiceCameraStream = null;
+  }
+  voiceCameraOn = false;
   if (typeof stopVoiceShare === "function") stopVoiceShare(true);
   if (voiceStatsTimer) clearInterval(voiceStatsTimer);
   voiceStatsTimer = 0;
@@ -844,7 +965,8 @@ async function makeVoiceOffer(userId) {
     const offer = await peer.pc.createOffer();
     await peer.pc.setLocalDescription(offer);
     if (typeof voiceCapVideo === "function") voiceCapVideo(peer.pc);
-    sendVoiceSignal(userId, { kind: "offer", sdp: peer.pc.localDescription });
+    voiceCapCamera(peer.pc);
+    sendVoiceSignal(userId, { kind: "offer", sdp: peer.pc.localDescription, camera_mid: voiceCameraMid(peer.pc) });
   } catch (err) {
     return;
   } finally {
@@ -857,6 +979,10 @@ function openVoicePeer(userId, fromOffer) {
   const localTrack = voiceOutgoingTrack();
   if (localTrack) pc.addTrack(localTrack, voiceSendStream || voiceLocalStream);
   else pc.addTransceiver("audio", { direction: "recvonly" });
+  if (voiceCameraStream) {
+    const cameraTrack = voiceCameraStream.getVideoTracks()[0];
+    if (cameraTrack) pc.addTrack(cameraTrack, voiceCameraStream);
+  }
   if (typeof voiceViewerWantsShare === "function" && voiceViewerWantsShare(userId)) voiceAttachShare(pc);
   const audio = document.createElement("audio");
   audio.autoplay = true;
@@ -866,10 +992,20 @@ function openVoicePeer(userId, fromOffer) {
   shareAudio.autoplay = true;
   shareAudio.dataset.voiceShare = String(userId);
   document.body.appendChild(shareAudio);
-  const peer = { pc: pc, audio: audio, shareAudio: shareAudio, videoStream: null, makingOffer: false, iceQueue: [], shareOffer: false };
+  const peer = { pc: pc, audio: audio, shareAudio: shareAudio, videoStream: null, cameraStream: null, cameraMid: "", makingOffer: false, iceQueue: [], shareOffer: false };
   pc.ontrack = (event) => {
     const track = event.track;
     if (track.kind === "video") {
+      const mid = event.transceiver && event.transceiver.mid;
+      if (peer.cameraMid && mid === peer.cameraMid) {
+        peer.cameraStream = event.streams[0] || new MediaStream([track]);
+        track.onended = () => {
+          peer.cameraStream = null;
+          refreshVoiceFaces();
+        };
+        refreshVoiceFaces();
+        return;
+      }
       peer.videoStream = event.streams[0] || new MediaStream([track]);
       track.onended = () => {
         if (peer.videoStream) peer.videoStream = null;
@@ -919,6 +1055,8 @@ async function receiveVoiceSignal(data) {
   const existing = voicePeers.get(userId);
   const peer = existing || openVoicePeer(userId, payload.kind === "offer");
   if (payload.kind === "offer" && payload.sdp) {
+    peer.cameraMid = payload.camera_mid || "";
+    if (!peer.cameraMid) peer.cameraStream = null;
     const collision = peer.makingOffer || peer.pc.signalingState !== "stable";
     if (collision && Number(myUserId) < userId) return;
     try {
@@ -926,13 +1064,17 @@ async function receiveVoiceSignal(data) {
       await flushVoiceIce(peer);
       const answer = await peer.pc.createAnswer();
       await peer.pc.setLocalDescription(answer);
-      sendVoiceSignal(userId, { kind: "answer", sdp: peer.pc.localDescription });
+      sendVoiceSignal(userId, { kind: "answer", sdp: peer.pc.localDescription, camera_mid: voiceCameraMid(peer.pc) });
     } catch (err) {
       return;
     }
     return;
   }
   if (payload.kind === "answer" && payload.sdp) {
+    if (Object.prototype.hasOwnProperty.call(payload, "camera_mid")) {
+      peer.cameraMid = payload.camera_mid || "";
+      if (!peer.cameraMid) peer.cameraStream = null;
+    }
     try {
       await peer.pc.setRemoteDescription(payload.sdp);
       await flushVoiceIce(peer);
@@ -971,11 +1113,14 @@ function ensureVoiceMedia() {
       await loadVoiceIce();
       if (!voiceJoinedChannelId) return;
       let stream = null;
-      try {
-        stream = await captureVoiceMic();
-      } catch (err) {
-        stream = new MediaStream();
-        window.alert("Oneira can't use the microphone. You can still hear the channel.");
+      if (!voiceCanTalk) stream = new MediaStream();
+      else {
+        try {
+          stream = await captureVoiceMic();
+        } catch (err) {
+          stream = new MediaStream();
+          window.alert("Oneira can't use the microphone. You can still hear the channel.");
+        }
       }
       if (!voiceJoinedChannelId) {
         stream.getTracks().forEach((track) => track.stop());
@@ -1056,6 +1201,7 @@ function bindVoiceControls() {
   const footerMute = document.getElementById("footer-mute");
   const stageMute = document.getElementById("voice-ctrl-mute");
   const toggleMute = () => {
+    if (!voiceCanTalk) return;
     voiceMuted = !voiceMuted;
     if (!voiceMuted) voiceDeafened = false;
     paintVoiceInputs();
@@ -1079,8 +1225,7 @@ function bindVoiceControls() {
     });
   }
   const toggleCamera = () => {
-    voiceCameraOn = !voiceCameraOn;
-    paintVoiceInputs();
+    setVoiceCamera(!voiceCameraOn);
   };
   const cardCamera = document.getElementById("voice-user-camera");
   const stageCamera = document.getElementById("voice-ctrl-camera");

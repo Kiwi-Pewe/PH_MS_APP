@@ -12,6 +12,7 @@ function voiceAttachShare(pc) {
 function voiceCapVideo(pc) {
   pc.getSenders().forEach((sender) => {
     if (!sender.track || sender.track.kind !== "video") return;
+    if (typeof voiceCameraStream !== "undefined" && voiceCameraStream && voiceCameraStream.getTracks().indexOf(sender.track) !== -1) return;
     try {
       const params = sender.getParameters();
       if (!params.encodings || !params.encodings.length) params.encodings = [{}];

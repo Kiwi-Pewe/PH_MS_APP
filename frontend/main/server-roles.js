@@ -110,8 +110,8 @@ const SERVER_ROLE_PERMS = [
   {
     title: "Voice permissions",
     rows: [
-      { id: "hear_voice", title: "Hear voice", desc: "Allows you to listen to voice chat.", later: "Voice" },
-      { id: "talk_voice", title: "Add voice", desc: "Allows you to talk in voice chat.", later: "Voice" },
+      { id: "hear_voice", title: "Hear voice", desc: "Allows you to listen to voice chat." },
+      { id: "talk_voice", title: "Add voice", desc: "Allows you to talk in voice chat." },
       { id: "manage_voice_rooms", title: "Manage Voice Rooms", desc: "Allows you to create, rename, and delete voice rooms.", later: "Voice" },
       { id: "move_voice", title: "Move members", desc: "Allows you to move members to other voice rooms.", later: "Voice" },
       { id: "broadcast_voice", title: "Broadcast", desc: "Allows you to broadcast your voice to voice rooms lower in the hierarchy when speaking in voice chat.", later: "Voice" },

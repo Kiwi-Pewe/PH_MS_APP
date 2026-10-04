@@ -311,6 +311,7 @@ def ensure_channel_columns():
         ("server_channels", "forum_require_tags", "BOOLEAN DEFAULT 0"),
         ("server_channels", "forum_default_reaction", "VARCHAR"),
         ("server_channels", "slowmode", "INTEGER DEFAULT 0"),
+        ("server_channels", "user_limit", "INTEGER DEFAULT 10"),
         ("server_channels", "announce_public", "BOOLEAN DEFAULT 0"),
         ("server_channels", "blog_enabled", "BOOLEAN DEFAULT 0"),
         ("announcements", "is_public", "BOOLEAN DEFAULT 0"),

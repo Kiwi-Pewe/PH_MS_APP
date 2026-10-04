@@ -8125,7 +8125,8 @@ a.profile-link-row:hover { color: var(--accent); }
   background: var(--panel);
 }
 .voice-rail-face img,
-.voice-rail-face canvas {
+.voice-rail-face canvas,
+.voice-rail-face video {
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -8304,7 +8305,8 @@ a.profile-link-row:hover { color: var(--accent); }
   justify-content: center;
 }
 .voice-tile-face img,
-.voice-tile-face canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
+.voice-tile-face canvas,
+.voice-tile-face video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .voice-tile-face .voice-face-letter { font-size: 32px; }
 #voice-controls {
   flex: 0 0 auto;
@@ -8437,7 +8439,8 @@ button.voice-more-row:disabled,
   box-shadow: 0 0 0 3px transparent;
 }
 .call-face img,
-.call-face canvas {
+.call-face canvas,
+.call-face video {
   width: 80px;
   height: 80px;
   object-fit: cover;

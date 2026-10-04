@@ -4,6 +4,7 @@ let channelSettingsSavedName = "";
 let channelSettingsSavedTopic = "";
 let channelSettingsSavedPrivate = false;
 let channelSettingsSavedSlowmode = 0;
+let channelSettingsSavedUserLimit = 10;
 let channelSettingsForumSettings = { guidelines: "", require_tags: false, default_reaction: "", tags: [] };
 let channelSettingsSavedGuidelines = "";
 let channelSettingsForumReactionPick = null;
@@ -46,6 +47,8 @@ const CHANNEL_SETTINGS_LIVE_DEFAULTS = {
   view_wallpaper: true,
   view_docs: true,
   see_media: true,
+  hear_voice: true,
+  talk_voice: true,
   view_schedules: true,
   create_schedule: true,
   view_list: true,
@@ -838,6 +841,11 @@ function paintChannelSettingsShell() {
       el.hidden = !channelSettingsIsAnnouncements();
       return;
     }
+    if (el.classList.contains("is-voice-only")) {
+      const type = String(channelSettingsTarget && channelSettingsTarget.channel_type || "").toLowerCase();
+      el.hidden = isCategory || type !== "voice";
+      return;
+    }
     el.hidden = isCategory;
   });
   paintChannelSettingsBlog();
@@ -1022,6 +1030,31 @@ async function saveChannelSettingsTopic() {
 
 function cancelChannelSettingsTopic() {
   syncChannelSettingsTopic(channelSettingsSavedTopic);
+}
+
+function syncChannelSettingsUserLimit(count) {
+  const input = document.getElementById("channel-settings-user-limit");
+  const next = Math.min(10, Math.max(1, Number(count) || 10));
+  channelSettingsSavedUserLimit = next;
+  if (input) input.value = String(next);
+}
+
+async function saveChannelSettingsUserLimit() {
+  if (!channelSettingsTarget || String(channelSettingsTarget.channel_type || "").toLowerCase() !== "voice") return;
+  const input = document.getElementById("channel-settings-user-limit");
+  const count = Math.min(10, Math.max(1, Number(input && input.value) || 10));
+  if (count === channelSettingsSavedUserLimit) return;
+  try {
+    const data = await postChannelSettings("/update_channel", {
+      channel_id: channelSettingsTarget.id,
+      user_limit: count,
+    });
+    if (data.channel) applyChannelUpdated(data.channel);
+    else syncChannelSettingsUserLimit(count);
+  } catch (err) {
+    syncChannelSettingsUserLimit(channelSettingsSavedUserLimit);
+    setChannelSettingsNameStatus(err.message || "Could not save.");
+  }
 }
 
 function channelSlowmodeApplies() {
@@ -1255,6 +1288,7 @@ function applyChannelUpdated(channel) {
     if (channel.category_id != null) live.category_id = channel.category_id;
     if (channel.topic != null) live.topic = channel.topic || "";
     if (channel.slowmode != null) live.slowmode = Number(channel.slowmode) || 0;
+    if (channel.user_limit != null) live.user_limit = Number(channel.user_limit) || 10;
   }
   if (channelSettingsKind === "channel" && channelSettingsTarget && Number(channelSettingsTarget.id) === Number(channel.id)) {
     channelSettingsTarget = live || Object.assign({}, channelSettingsTarget, channel);
@@ -1265,6 +1299,7 @@ function applyChannelUpdated(channel) {
     syncChannelSettingsName(channelSettingsSavedName);
     syncChannelSettingsTopic(channelSettingsSavedTopic);
     syncChannelSettingsSlowmode(channelSettingsTarget.slowmode || 0);
+    syncChannelSettingsUserLimit(channelSettingsTarget.user_limit || 10);
   }
   if (currentChannelId && Number(currentChannelId) === Number(channel.id)) {
     currentChannelName = channel.name || currentChannelName;
@@ -1323,6 +1358,7 @@ function openChannelSettings(kind, target) {
   if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
   syncChannelSettingsTopic(channelSettingsKind === "channel" ? (target.topic || "") : "");
   syncChannelSettingsSlowmode(channelSettingsKind === "channel" ? (target.slowmode || 0) : 0);
+  syncChannelSettingsUserLimit(channelSettingsKind === "channel" ? (target.user_limit || 10) : 10);
   channelSettingsForumSettings = { guidelines: "", require_tags: false, default_reaction: "", tags: [] };
   syncChannelSettingsForumGuidelines("");
   paintChannelSettingsForumTags();
@@ -1399,6 +1435,13 @@ document.getElementById("channel-settings-topic-confirm").addEventListener("clic
 document.getElementById("channel-settings-topic-cancel").addEventListener("click", () => {
   cancelChannelSettingsTopic();
 });
+
+const channelUserLimitSelect = document.getElementById("channel-settings-user-limit");
+if (channelUserLimitSelect) {
+  channelUserLimitSelect.addEventListener("change", () => {
+    saveChannelSettingsUserLimit();
+  });
+}
 
 const channelSlowmodeSelect = document.getElementById("channel-settings-slowmode");
 if (channelSlowmodeSelect) {

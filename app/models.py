@@ -244,6 +244,7 @@ class Server_channels(Base):
     is_private = Column(Boolean, default=False)
     topic = Column(String, nullable=True)
     slowmode = Column(Integer, default=0)
+    user_limit = Column(Integer, default=10)
     forum_guidelines = Column(String, nullable=True)
     forum_require_tags = Column(Boolean, default=False)
     forum_default_reaction = Column(String, nullable=True)

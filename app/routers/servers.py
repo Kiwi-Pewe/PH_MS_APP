@@ -268,6 +268,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
                         "view_docs", "create_docs", "manage_docs", "remove_docs",
                         "see_media", "create_media", "manage_media", "remove_media",
+                        "hear_voice", "talk_voice",
                         "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
                         "view_schedules", "create_schedule", "delete_schedule",
                         "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
@@ -281,6 +282,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         "is_private": channel.is_private,
                         "topic": getattr(channel, "topic", None) or "",
                         "slowmode": int(getattr(channel, "slowmode", 0) or 0),
+                        "user_limit": int(getattr(channel, "user_limit", 10) or 10),
                         "announce_public": bool(getattr(channel, "announce_public", False)),
                         "blog_enabled": bool(getattr(channel, "blog_enabled", False)),
                         "unread": notice["unread"],
@@ -805,7 +807,7 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
     payload = {
         "type": "channel_created",
         "server_id": server.id,
-        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "topic": "", "slowmode": 0, "category_id": new_channel.category_id}
+        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "topic": "", "slowmode": 0, "user_limit": int(getattr(new_channel, "user_limit", 10) or 10), "category_id": new_channel.category_id}
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return "success"
@@ -1067,7 +1069,7 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Category not found")
     server = require_server_member(database, category.server_id, current_user.id)
     require_channel_perm(database, server, current_user.id, channel.id, "manage_channels", "You do not have permission to manage this channel.")
-    if body.name is None and body.is_private is None and body.topic is None and body.slowmode is None:
+    if body.name is None and body.is_private is None and body.topic is None and body.slowmode is None and body.user_limit is None:
         raise HTTPException(status_code=400, detail="Nothing to update")
     if body.name is not None:
         name = (body.name or "").strip()
@@ -1085,6 +1087,11 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
         channel.topic = topic or None
     if body.slowmode is not None:
         channel.slowmode = normalize_slowmode(body.slowmode)
+    if body.user_limit is not None:
+        if channel.channel_type != "voice":
+            raise HTTPException(status_code=400, detail="Only a voice channel has a user limit.")
+        from app.routers.voice import normalize_voice_limit
+        channel.user_limit = normalize_voice_limit(body.user_limit)
     database.commit()
     database.refresh(channel)
     payload = {
@@ -1098,6 +1105,7 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
             "is_private": bool(channel.is_private),
             "topic": getattr(channel, "topic", None) or "",
             "slowmode": int(getattr(channel, "slowmode", 0) or 0),
+            "user_limit": int(getattr(channel, "user_limit", 10) or 10),
             "category_id": channel.category_id,
         },
     }

@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=258">
+<link rel="stylesheet" href="app.css?v=259">
 </head>
 <body>
 
@@ -1248,6 +1248,22 @@
           <p id="channel-settings-topic-status" class="server-settings-help" hidden></p>
           <p class="server-settings-help">Shown under the channel name in the chat header.</p>
         </div>
+        <div class="server-settings-field is-channel-only is-voice-only" id="channel-settings-limit-field" hidden>
+          <label class="server-settings-field-title" for="channel-settings-user-limit">User limit</label>
+          <select id="channel-settings-user-limit" class="settings-select server-settings-select">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10" selected>10</option>
+          </select>
+          <p class="server-settings-help">How many people can join this voice channel at once. 10 is the highest.</p>
+        </div>
         <div class="server-settings-field is-channel-only" id="channel-settings-slowmode-field">
           <label class="server-settings-field-title" for="channel-settings-slowmode">Slowmode</label>
           <select id="channel-settings-slowmode" class="settings-select server-settings-select" disabled>
@@ -1845,7 +1861,7 @@
 <script src="feed.js?v=16"></script>
 <script src="settings.js?v=20"></script>
 <script src="server-settings.js?v=35"></script>
-<script src="server-roles.js?v=25"></script>
+<script src="server-roles.js?v=26"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
 <script src="settings-account.js?v=5"></script>
@@ -1895,11 +1911,11 @@
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=13"></script>
 <script src="servers.js?v=113"></script>
-<script src="voice.js?v=14"></script>
-<script src="voice-stream.js?v=7"></script>
-<script src="call.js?v=3"></script>
+<script src="voice.js?v=15"></script>
+<script src="voice-stream.js?v=8"></script>
+<script src="call.js?v=4"></script>
 <script src="server-dnd.js?v=1"></script>
-<script src="channel-settings.js?v=20"></script>
+<script src="channel-settings.js?v=21"></script>
 <script src="pins.js?v=3"></script>
 <script src="search.js?v=4"></script>
 <script src="members.js?v=15"></script>

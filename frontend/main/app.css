@@ -1482,21 +1482,25 @@
   color: var(--text-dim);
   margin-top: 2px;
 }
-.call-toast {
-  position: relative;
-  border: 2px solid rgba(139, 92, 246, 0.25);
+.call-toast { position: relative; }
+.call-toast::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid var(--accent);
+  border-radius: inherit;
+  pointer-events: none;
   animation: call-breathe 3s ease-in-out infinite;
 }
-.call-toast.is-out { animation: none; }
+.call-toast.is-out::after { animation: none; opacity: 0; }
 @keyframes call-breathe {
-  0%, 100% {
-    border-color: rgba(139, 92, 246, 0.22);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(139, 92, 246, 0);
-  }
-  50% {
-    border-color: #ddd6fe;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(139, 92, 246, 0.95), 0 0 22px 2px rgba(139, 92, 246, 0.85);
-  }
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+html.reduced-motion .call-toast::after {
+  animation-duration: 3s !important;
+  animation-iteration-count: infinite !important;
 }
 .call-toast-actions {
   display: flex;

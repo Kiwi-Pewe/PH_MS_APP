@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=254">
+<link rel="stylesheet" href="app.css?v=255">
 </head>
 <body>
 
@@ -190,12 +190,11 @@
           <video id="chat-call-video" hidden autoplay playsinline></video>
           <div id="chat-call-faces"></div>
           <div id="chat-call-tools">
-            <button type="button" class="call-tool" id="chat-call-camera" disabled title="Camera" aria-label="Camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg></button>
-            <button type="button" class="call-tool" id="chat-call-share" title="Share screen" aria-label="Share screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 3H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h7v2H8v2h8v-2h-2v-2h7a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zm-1 12H4V5h16v10z"/></svg></button>
-            <button type="button" class="call-tool" id="chat-call-activity" disabled title="Activity" aria-label="Activity"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 8h10a4 4 0 0 1 4 4v1a4 4 0 0 1-4 4h-.6l-.7 2h-2.2l-.7-2H11l-.7 2H8.1l-.7-2H7a4 4 0 0 1-4-4v-1a4 4 0 0 1 4-4zm1.2 3.2V13H6.6v1.6h1.6v1.6h1.6V14.6h1.6V13H9.8v-1.8H8.2zM16.2 12.2a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2zm2.6-1.2a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2z"/></svg></button>
-            <button type="button" class="call-tool" id="chat-call-sound" disabled title="Soundboard" aria-label="Soundboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 10h2v4H4zm5-3h2v10H9zm5 2h2v6h-2zm5-4h2v14h-2z"/></svg></button>
-            <button type="button" class="call-tool" id="chat-call-more" disabled title="More" aria-label="More"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 10.5a1.5 1.5 0 1 0 .01 0zM12 10.5a1.5 1.5 0 1 0 .01 0zM18 10.5a1.5 1.5 0 1 0 .01 0z"/></svg></button>
-            <button type="button" class="call-tool call-hangup" id="chat-call-hangup" title="Disconnect" aria-label="Disconnect"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 9c-1.6 0-3.1.3-4.5.7-.4.1-.6.5-.5.9l.8 2.4c.1.4.5.6.9.5 1-.3 2-.5 3.1-.5s2.1.2 3.1.5c.4.1.8-.1.9-.5l.8-2.4c.1-.4-.1-.8-.5-.9C15.1 9.3 13.6 9 12 9zm7.4-1.6C17.2 6.5 14.7 5.7 12 5.7S6.8 6.5 4.6 7.4c-.5.2-.8.8-.6 1.3l1.2 3.2c.2.5.7.8 1.2.6 1.5-.5 3-.8 4.6-.8s3.1.3 4.6.8c.5.2 1-.1 1.2-.6l1.2-3.2c.2-.5-.1-1.1-.6-1.3z"/></svg></button>
+            <button type="button" class="call-tool" id="chat-call-share" title="Share screen" aria-label="Share screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 3H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h7v2H8v2h8v-2h-2v-2h7a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zm-1 12H4V5h16v10z"/><path fill="currentColor" d="M11 13V8.4L9.4 10 8 8.6 12 4.6l4 4-1.4 1.4L13 8.4V13h-2z"/></svg></button>
+            <button type="button" class="call-tool" id="chat-call-camera" title="Camera" aria-label="Camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg></button>
+            <button type="button" class="call-leave" id="chat-call-hangup">Leave Call</button>
+            <button type="button" class="call-tool" id="chat-call-mute" title="Mute" aria-label="Mute"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></button>
+            <button type="button" class="call-tool" id="chat-call-settings" title="Voice settings" aria-label="Voice settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.1 12.9a7.4 7.4 0 0 0 .1-1.9 7.4 7.4 0 0 0-.1-1.9l2-1.6-2-3.4-2.4 1a7.2 7.2 0 0 0-1.6-.9l-.4-2.6h-4l-.4 2.6a7.2 7.2 0 0 0-1.6.9l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0-.1 1.9 7.4 7.4 0 0 0 .1 1.9l-2 1.6 2 3.4 2.4-1c.5.4 1 .7 1.6.9l.4 2.6h4l.4-2.6c.6-.2 1.1-.5 1.6-.9l2.4 1 2-3.4-2-1.6zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg></button>
             <button type="button" class="call-join" id="chat-call-join" hidden>Join Call</button>
           </div>
         </div>
@@ -262,21 +261,14 @@
         <div id="voice-view" style="display:none;">
           <div id="voice-stage"></div>
           <div id="voice-controls">
-            <button type="button" class="voice-ctrl" id="voice-ctrl-mute" disabled aria-label="Mute" title="Mute"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></button>
-            <button type="button" class="voice-ctrl" id="voice-ctrl-camera" disabled aria-label="Camera" title="Camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg></button>
-            <button type="button" class="voice-ctrl" id="voice-ctrl-screen" disabled aria-label="Share screen" title="Share screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 3H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h7v2H8v2h8v-2h-2v-2h7a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zm-1 12H4V5h16v10z"/><path fill="currentColor" d="M11 13V8.4L9.4 10 8 8.6 12 4.6l4 4-1.4 1.4L13 8.4V13h-2z"/></svg></button>
-            <div class="voice-ctrl-more-wrap">
-              <button type="button" class="voice-ctrl" id="voice-ctrl-more" aria-label="More" title="More"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="19" cy="12" r="1.7" fill="currentColor"/></svg></button>
-              <div id="voice-more" hidden>
-                <button type="button" class="voice-more-row" disabled>Invite to Voice</button>
-                <div class="voice-more-row is-check">Grid View<span class="voice-more-mark" aria-hidden="true">✓</span></div>
-                <div class="voice-more-row is-check">Show My Own Camera<span class="voice-more-mark" aria-hidden="true">✓</span></div>
-                <div class="voice-more-row is-check">Show Non-Video Participants<span class="voice-more-mark" aria-hidden="true">✓</span></div>
-                <div class="voice-more-row is-check">Show New Message Previews<span class="voice-more-mark" aria-hidden="true">✓</span></div>
-                <button type="button" class="voice-more-row" id="voice-more-settings">Voice &amp; Video Settings</button>
-              </div>
+            <button type="button" class="voice-ctrl" id="voice-ctrl-screen" aria-label="Share screen" title="Share screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 3H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h7v2H8v2h8v-2h-2v-2h7a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1zm-1 12H4V5h16v10z"/><path fill="currentColor" d="M11 13V8.4L9.4 10 8 8.6 12 4.6l4 4-1.4 1.4L13 8.4V13h-2z"/></svg></button>
+            <button type="button" class="voice-ctrl" id="voice-ctrl-camera" aria-label="Camera" title="Camera"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg></button>
+            <button type="button" class="voice-ctrl voice-ctrl-leave" id="voice-ctrl-leave">Leave Call</button>
+            <button type="button" class="voice-ctrl" id="voice-ctrl-mute" aria-label="Mute" title="Mute"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg></button>
+            <button type="button" class="voice-ctrl" id="voice-ctrl-settings" aria-label="Voice settings" title="Voice settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.1 12.9a7.4 7.4 0 0 0 .1-1.9 7.4 7.4 0 0 0-.1-1.9l2-1.6-2-3.4-2.4 1a7.2 7.2 0 0 0-1.6-.9l-.4-2.6h-4l-.4 2.6a7.2 7.2 0 0 0-1.6.9l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0-.1 1.9 7.4 7.4 0 0 0 .1 1.9l-2 1.6 2 3.4 2.4-1c.5.4 1 .7 1.6.9l.4 2.6h4l.4-2.6c.6-.2 1.1-.5 1.6-.9l2.4 1 2-3.4-2-1.6zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg></button>
+            <div id="voice-more" hidden>
+              <button type="button" class="voice-more-row" id="voice-more-settings">Voice &amp; Video Settings</button>
             </div>
-            <button type="button" class="voice-ctrl voice-ctrl-leave" id="voice-ctrl-leave" aria-label="End call" title="End call"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 9c-1.6 0-3.1.3-4.5.7-.4.1-.6.5-.5.9l.8 2.4c.1.4.5.6.9.5 1-.3 2-.5 3.1-.5s2.1.2 3.1.5c.4.1.8-.1.9-.5l.8-2.4c.1-.4-.1-.8-.5-.9C15.1 9.3 13.6 9 12 9zm7.4-1.6C17.2 6.5 14.7 5.7 12 5.7S6.8 6.5 4.6 7.4c-.5.2-.8.8-.6 1.3l1.2 3.2c.2.5.7.8 1.2.6 1.5-.5 3-.8 4.6-.8s3.1.3 4.6.8c.5.2 1-.1 1.2-.6l1.2-3.2c.2-.5-.1-1.1-.6-1.3z"/></svg></button>
           </div>
         </div>
         <div id="channel-body">
@@ -1914,9 +1906,9 @@
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=13"></script>
 <script src="servers.js?v=113"></script>
-<script src="voice.js?v=13"></script>
+<script src="voice.js?v=14"></script>
 <script src="voice-stream.js?v=7"></script>
-<script src="call.js?v=1"></script>
+<script src="call.js?v=2"></script>
 <script src="server-dnd.js?v=1"></script>
 <script src="channel-settings.js?v=20"></script>
 <script src="pins.js?v=3"></script>

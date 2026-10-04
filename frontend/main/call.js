@@ -24,6 +24,16 @@ function openChatCall() {
   return found;
 }
 
+function noteLocalCallLeave() {
+  const call = myVoiceCall();
+  if (!call) return;
+  call.here = false;
+  call.ringingMe = false;
+  call.joined = (call.joined || []).filter((person) => Number(person.user_id) !== Number(myUserId));
+  if (!call.joined.length) voiceCalls.delete(call.key);
+  paintCallChrome();
+}
+
 function leaveCallMedia() {
   if (typeof stopVoiceMedia === "function") stopVoiceMedia();
   voiceJoinedChannelId = null;
@@ -118,7 +128,8 @@ function paintCallChrome() {
   const video = document.getElementById("chat-call-video");
   const join = document.getElementById("chat-call-join");
   if (banner) {
-    const show = !!(call && (openChatType === "dm" || openChatType === "party"));
+    const seated = (call && call.joined || []).length > 0;
+    const show = !!(call && seated && (openChatType === "dm" || openChatType === "party"));
     banner.hidden = !show;
     if (show && faces) {
       faces.replaceChildren();
@@ -126,7 +137,7 @@ function paintCallChrome() {
       (call.ringing || []).forEach((person) => faces.appendChild(callFace(person, true)));
     }
     const inCall = !!(show && call.here);
-    ["chat-call-camera", "chat-call-share", "chat-call-activity", "chat-call-sound", "chat-call-more", "chat-call-hangup"].forEach((id) => {
+    ["chat-call-share", "chat-call-camera", "chat-call-hangup", "chat-call-mute", "chat-call-settings"].forEach((id) => {
       const button = document.getElementById(id);
       if (button) button.hidden = !inCall;
     });
@@ -152,13 +163,13 @@ function paintCallButton() {
   if (!button) return;
   const chat = openChatType === "dm" || openChatType === "party";
   const call = openChatCall();
-  if (!chat || (call && call.here)) {
+  if (!chat || call) {
     button.hidden = true;
     return;
   }
   button.hidden = false;
-  button.textContent = call ? "Join" : "Call";
-  button.title = call ? "Join Call" : "Call";
+  button.textContent = "Call";
+  button.title = "Call";
 }
 
 function paintCallIncoming() {
@@ -272,12 +283,6 @@ function bindCallControls() {
   if (hangup) {
     hangup.addEventListener("click", () => {
       if (typeof leaveVoiceChannel === "function") leaveVoiceChannel();
-    });
-  }
-  const share = document.getElementById("chat-call-share");
-  if (share) {
-    share.addEventListener("click", () => {
-      if (typeof openVoiceShare === "function") openVoiceShare();
     });
   }
   const answer = document.getElementById("call-incoming-answer");

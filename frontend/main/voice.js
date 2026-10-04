@@ -145,6 +145,7 @@ function dropVoiceOnDisconnect() {
 }
 
 async function leaveVoiceChannel() {
+  if (typeof noteLocalCallLeave === "function") noteLocalCallLeave();
   const stageWasOpen = voiceStageChannelId != null;
   stopVoiceMedia();
   voiceJoinedChannelId = null;
@@ -203,15 +204,15 @@ function paintVoiceDock() {
 
 function paintVoiceInputs() {
   const muteOn = voiceMuted || voiceDeafened;
-  document.querySelectorAll("#footer-mute, #voice-ctrl-mute").forEach((button) => {
+  document.querySelectorAll("#footer-mute, #voice-ctrl-mute, #chat-call-mute").forEach((button) => {
     button.classList.toggle("is-off", muteOn);
   });
   const deafen = document.getElementById("footer-deafen");
   if (deafen) deafen.classList.toggle("is-off", voiceDeafened);
-  document.querySelectorAll("#voice-user-camera, #voice-ctrl-camera").forEach((button) => {
+  document.querySelectorAll("#voice-user-camera, #voice-ctrl-camera, #chat-call-camera").forEach((button) => {
     button.classList.toggle("is-off", !voiceCameraOn);
   });
-  document.querySelectorAll("#voice-user-screen, #voice-ctrl-screen").forEach((button) => {
+  document.querySelectorAll("#voice-user-screen, #voice-ctrl-screen, #chat-call-share").forEach((button) => {
     button.classList.toggle("is-live", !!voiceShareStream);
     button.title = voiceShareStream ? "Stop sharing" : "Share screen";
   });
@@ -1027,27 +1028,25 @@ function retargetVoiceSpeaker() {
   applyVoicePlayback();
 }
 
+async function openVoiceSettings() {
+  const menu = document.getElementById("voice-more");
+  if (menu) menu.hidden = true;
+  if (typeof openSettings === "function") await openSettings();
+  if (typeof jumpToSettings === "function") jumpToSettings("voice-video");
+}
+
 function bindVoiceControls() {
   const leave = document.getElementById("voice-ctrl-leave");
   if (leave) leave.addEventListener("click", () => leaveVoiceChannel());
   const cardLeave = document.getElementById("voice-user-leave");
   if (cardLeave) cardLeave.addEventListener("click", () => leaveVoiceChannel());
-  const more = document.getElementById("voice-ctrl-more");
   const menu = document.getElementById("voice-more");
-  if (more && menu) {
-    more.addEventListener("click", (event) => {
-      event.stopPropagation();
-      menu.hidden = !menu.hidden;
-    });
-  }
-  const settings = document.getElementById("voice-more-settings");
-  if (settings) {
-    settings.addEventListener("click", async () => {
-      if (menu) menu.hidden = true;
-      if (typeof openSettings === "function") await openSettings();
-      if (typeof jumpToSettings === "function") jumpToSettings("voice-video");
-    });
-  }
+  const settings = document.getElementById("voice-ctrl-settings");
+  if (settings) settings.addEventListener("click", () => openVoiceSettings());
+  const callSettings = document.getElementById("chat-call-settings");
+  if (callSettings) callSettings.addEventListener("click", () => openVoiceSettings());
+  const legacySettings = document.getElementById("voice-more-settings");
+  if (legacySettings) legacySettings.addEventListener("click", () => openVoiceSettings());
   const footerSettings = document.getElementById("footer-settings");
   if (footerSettings) {
     footerSettings.addEventListener("click", () => {
@@ -1061,6 +1060,7 @@ function bindVoiceControls() {
     if (!voiceMuted) voiceDeafened = false;
     paintVoiceInputs();
   };
+  const callMute = document.getElementById("chat-call-mute");
   if (footerMute) {
     footerMute.disabled = false;
     footerMute.addEventListener("click", toggleMute);
@@ -1069,6 +1069,7 @@ function bindVoiceControls() {
     stageMute.disabled = false;
     stageMute.addEventListener("click", toggleMute);
   }
+  if (callMute) callMute.addEventListener("click", toggleMute);
   const footerDeafen = document.getElementById("footer-deafen");
   if (footerDeafen) {
     footerDeafen.addEventListener("click", () => {
@@ -1083,18 +1084,16 @@ function bindVoiceControls() {
   };
   const cardCamera = document.getElementById("voice-user-camera");
   const stageCamera = document.getElementById("voice-ctrl-camera");
+  const callCamera = document.getElementById("chat-call-camera");
   if (cardCamera) cardCamera.addEventListener("click", toggleCamera);
-  if (stageCamera) {
-    stageCamera.disabled = false;
-    stageCamera.addEventListener("click", toggleCamera);
-  }
+  if (stageCamera) stageCamera.addEventListener("click", toggleCamera);
+  if (callCamera) callCamera.addEventListener("click", toggleCamera);
   const cardScreen = document.getElementById("voice-user-screen");
   const stageScreen = document.getElementById("voice-ctrl-screen");
+  const callScreen = document.getElementById("chat-call-share");
   if (cardScreen) cardScreen.addEventListener("click", () => openVoiceShare());
-  if (stageScreen) {
-    stageScreen.disabled = false;
-    stageScreen.addEventListener("click", () => openVoiceShare());
-  }
+  if (stageScreen) stageScreen.addEventListener("click", () => openVoiceShare());
+  if (callScreen) callScreen.addEventListener("click", () => openVoiceShare());
   const shareOverlay = document.getElementById("voice-share-overlay");
   if (shareOverlay) {
     shareOverlay.addEventListener("click", (event) => {
@@ -1104,7 +1103,7 @@ function bindVoiceControls() {
     });
   }
   document.addEventListener("click", (event) => {
-    if (menu && !menu.hidden && !event.target.closest("#voice-more") && !event.target.closest("#voice-ctrl-more")) menu.hidden = true;
+    if (menu && !menu.hidden && !event.target.closest("#voice-more")) menu.hidden = true;
   });
   paintVoiceInputs();
 }

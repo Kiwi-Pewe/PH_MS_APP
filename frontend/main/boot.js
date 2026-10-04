@@ -30,26 +30,83 @@ window.addEventListener("load", () => {
     });
 });
 
+let socketStarted = false;
+let socketLeaving = false;
+let socketRetry = 0;
+let socketReconnectTimer = null;
+
+window.addEventListener("beforeunload", () => {
+  socketLeaving = true;
+});
+
+function showConnectionStatus() {
+  const el = document.getElementById("connection-status");
+  if (el) el.hidden = false;
+}
+
+function hideConnectionStatus() {
+  const el = document.getElementById("connection-status");
+  if (el) el.hidden = true;
+}
+
+function scheduleSocketReconnect() {
+  if (socketReconnectTimer || socketLeaving) return;
+  const wait = Math.min(10000, 1000 * Math.pow(2, socketRetry));
+  socketRetry += 1;
+  socketReconnectTimer = setTimeout(() => {
+    socketReconnectTimer = null;
+    connectSocket();
+  }, wait);
+}
+
+function noteSocketClosed(opened) {
+  if (socketLeaving) return;
+  if (opened) {
+    showConnectionStatus();
+    scheduleSocketReconnect();
+    return;
+  }
+  fetch(`https://${serverAddress}/whoami`, { credentials: "include" })
+    .then((response) => {
+      if (!response.ok) {
+        window.location.href = "../login.html";
+        return;
+      }
+      showConnectionStatus();
+      scheduleSocketReconnect();
+    })
+    .catch(() => {
+      showConnectionStatus();
+      scheduleSocketReconnect();
+    });
+}
+
 function connectSocket() {
+  if (socketLeaving) return;
+  if (socketReconnectTimer) {
+    clearTimeout(socketReconnectTimer);
+    socketReconnectTimer = null;
+  }
   ws = new WebSocket(`wss://${serverAddress}/ws`);
 
-  // True only once this socket has opened. A page-unload also fires
-  // onclose but isn't a rejected session — only a close BEFORE ever
-  // opening means the server actually refused (e.g. bad session cookie).
   let hasOpened = false;
 
   ws.onopen = () => {
     hasOpened = true;
-    enterApp();
+    socketRetry = 0;
+    hideConnectionStatus();
+    if (!socketStarted) {
+      socketStarted = true;
+      enterApp();
+    }
     publishViewerFocus();
   };
 
   ws.onclose = () => {
+    const opened = hasOpened;
     ws = null;
     if (typeof dropVoiceOnDisconnect === "function") dropVoiceOnDisconnect();
-    if (!hasOpened) {
-      window.location.href = "../login.html";
-    }
+    noteSocketClosed(opened);
   };
 
   ws.onmessage = (event) => {

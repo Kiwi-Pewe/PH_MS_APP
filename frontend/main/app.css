@@ -28,6 +28,19 @@
 #topbar #oneira-update[hidden] { display: none; }
 #topbar #oneira-update svg { width: 18px; height: 18px; display: block; }
 #topbar #oneira-update:hover { background: rgba(35, 165, 89, 0.32); color: #23a559; }
+#connection-status {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #faa61a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#connection-status[hidden] { display: none; }
 #topbar .tab.active { color: var(--text); background: var(--panel-alt); }
 #topbar .tab:hover { color: var(--text); }
 #topbar .tab.is-later,

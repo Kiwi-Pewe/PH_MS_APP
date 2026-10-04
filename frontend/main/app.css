@@ -15,6 +15,19 @@
 #topbar .tabs.top-right { flex: 0 0 auto; margin-left: auto; }
 #topbar .tab { background: transparent; color: var(--text-dim); font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 6px; white-space: nowrap; }
 #topbar .tab[hidden] { display: none; }
+#topbar #oneira-update {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(35, 165, 89, 0.18);
+  color: #23a559;
+}
+#topbar #oneira-update[hidden] { display: none; }
+#topbar #oneira-update svg { width: 18px; height: 18px; display: block; }
+#topbar #oneira-update:hover { background: rgba(35, 165, 89, 0.32); color: #23a559; }
 #topbar .tab.active { color: var(--text); background: var(--panel-alt); }
 #topbar .tab:hover { color: var(--text); }
 #topbar .tab.is-later,

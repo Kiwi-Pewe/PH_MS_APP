@@ -1424,24 +1424,30 @@
   z-index: 9200;
   display: flex;
   flex-direction: column-reverse;
-  gap: 8px;
+  align-items: flex-end;
   pointer-events: none;
 }
 .online-toast {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
+  box-sizing: border-box;
   min-width: 220px;
   max-width: 320px;
+  max-height: 200px;
+  margin-top: 8px;
   padding: 10px 14px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  overflow: hidden;
   transform: translateX(120%);
   opacity: 0;
-  transition: transform 0.28s ease, opacity 0.28s ease;
+  transition: transform 0.28s ease, opacity 0.28s ease, max-height 0.28s ease, margin-top 0.28s ease, padding 0.28s ease;
 }
 .online-toast.is-in {
   transform: translateX(0);
@@ -1450,6 +1456,10 @@
 .online-toast.is-out {
   transform: translateX(120%);
   opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .online-toast-avatar {
   flex: 0 0 36px;
@@ -1458,7 +1468,7 @@
   border-radius: 50%;
   overflow: hidden;
 }
-.online-toast-copy { min-width: 0; }
+.online-toast-copy { min-width: 0; flex: 1 1 auto; }
 .online-toast-title {
   font-size: 14px;
   font-weight: 700;
@@ -1472,6 +1482,37 @@
   color: var(--text-dim);
   margin-top: 2px;
 }
+.call-toast {
+  border-width: 2px;
+  animation: call-breathe 3s ease-in-out infinite;
+}
+.call-toast.is-out { animation: none; }
+@keyframes call-breathe {
+  0%, 100% { border-color: color-mix(in srgb, var(--accent) 32%, var(--border)); }
+  50% { border-color: var(--accent); }
+}
+.call-toast-actions {
+  display: flex;
+  gap: 8px;
+  flex: 1 0 100%;
+}
+.call-toast-actions button {
+  flex: 1 1 0;
+  border: 0;
+  border-radius: 4px;
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.call-toast-decline { background: #ed4245; }
+.call-toast-decline:hover { background: #d83a3e; }
+.call-toast-answer { background: #3ba55d; }
+.call-toast-answer:hover { background: #2d8a4e; }
 .settings-slider {
   width: 160px; accent-color: var(--accent);
 }
@@ -8297,6 +8338,13 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .voice-ctrl.voice-ctrl-leave:hover,
 .call-leave:hover { background: #d83a3e; }
+#voice-user-leave {
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+}
 .voice-ctrl-more-wrap { position: relative; }
 #voice-more {
   position: absolute;
@@ -8337,8 +8385,7 @@ button.voice-more-row:disabled,
 #main-grid.voice-stage-open.has-member-list.has-search-results {
   grid-template-columns: 72px 240px minmax(0, 1fr);
 }
-#chat-call-banner[hidden],
-#call-incoming[hidden] { display: none !important; }
+#chat-call-banner[hidden] { display: none !important; }
 #chat-call-banner {
   flex: 0 0 auto;
   display: flex;
@@ -8445,60 +8492,3 @@ button.voice-more-row:disabled,
   font-size: calc(12px * var(--message-scale));
   white-space: nowrap;
 }
-#call-incoming {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-}
-#call-incoming-card {
-  width: 320px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 28px 24px 20px;
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--text);
-  box-sizing: border-box;
-}
-#call-incoming-face {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: var(--panel-alt);
-  margin-bottom: 8px;
-}
-#call-incoming-face img,
-#call-incoming-face canvas {
-  width: 80px;
-  height: 80px;
-  object-fit: cover;
-  display: block;
-}
-#call-incoming-card strong { font-size: 18px; }
-#call-incoming-card span { color: var(--text-dim); font-size: 14px; }
-#call-incoming-actions {
-  display: flex;
-  gap: 12px;
-  width: 100%;
-  margin-top: 12px;
-}
-#call-incoming-actions button {
-  flex: 1 1 auto;
-  border: 0;
-  border-radius: 8px;
-  color: #fff;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  padding: 10px 12px;
-  cursor: pointer;
-}
-#call-incoming-decline { background: #ed4245; }
-#call-incoming-answer { background: #3ba55d; }

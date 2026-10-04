@@ -8,12 +8,68 @@ function myVoiceCall() {
   return found;
 }
 
-function ringingVoiceCall() {
-  let found = null;
+function ringingVoiceCalls() {
+  const list = [];
   voiceCalls.forEach((call) => {
-    if (call.ringingMe && !call.here) found = call;
+    if (call.ringingMe && !call.here) list.push(call);
   });
-  return found;
+  return list;
+}
+
+function callStarter(call) {
+  return (call.joined || []).find((person) => Number(person.user_id) === Number(call.starter_id))
+    || (call.joined || [])[0]
+    || { user_id: call.starter_id, username: call.starter_name || "Someone", avatar: {} };
+}
+
+function dismissCallToast(toast) {
+  if (!toast || toast.classList.contains("is-out")) return;
+  toast.classList.remove("is-in");
+  toast.classList.add("is-out");
+  window.setTimeout(() => toast.remove(), 280);
+}
+
+function buildCallToast(call) {
+  const toast = document.createElement("div");
+  toast.className = "online-toast call-toast";
+  toast.dataset.callKey = call.key;
+  const person = callStarter(call);
+  const name = person.username || call.starter_name || call.label || "Someone";
+  const face = document.createElement("div");
+  face.className = "online-toast-avatar avatar-dot";
+  if (typeof paintUserFace === "function") {
+    paintUserFace(face, person, { name: name, userId: person.user_id });
+  } else {
+    face.textContent = name.slice(0, 1).toUpperCase();
+  }
+  const copy = document.createElement("div");
+  copy.className = "online-toast-copy";
+  const title = document.createElement("div");
+  title.className = "online-toast-title";
+  title.textContent = name;
+  const line = document.createElement("div");
+  line.className = "online-toast-line";
+  line.textContent = "is calling you";
+  copy.appendChild(title);
+  copy.appendChild(line);
+  const actions = document.createElement("div");
+  actions.className = "call-toast-actions";
+  const decline = document.createElement("button");
+  decline.type = "button";
+  decline.className = "call-toast-decline";
+  decline.textContent = "Decline";
+  decline.addEventListener("click", () => postVoiceCall("/voice_call/decline", call.kind, call.chat_id));
+  const answer = document.createElement("button");
+  answer.type = "button";
+  answer.className = "call-toast-answer";
+  answer.textContent = "Answer";
+  answer.addEventListener("click", () => postVoiceCall("/voice_call/answer", call.kind, call.chat_id));
+  actions.appendChild(decline);
+  actions.appendChild(answer);
+  toast.appendChild(face);
+  toast.appendChild(copy);
+  toast.appendChild(actions);
+  return toast;
 }
 
 function openChatCall() {
@@ -173,23 +229,20 @@ function paintCallButton() {
 }
 
 function paintCallIncoming() {
-  const overlay = document.getElementById("call-incoming");
-  const call = ringingVoiceCall();
-  if (!overlay) return;
-  if (!call) {
-    overlay.hidden = true;
-    return;
-  }
-  overlay.hidden = false;
-  const name = document.getElementById("call-incoming-name");
-  if (name) name.textContent = call.starter_name || call.label || "Someone";
-  const face = document.getElementById("call-incoming-face");
-  if (!face) return;
-  face.replaceChildren();
-  const starter = (call.joined || []).find((person) => Number(person.user_id) === Number(call.starter_id))
-    || (call.joined || [])[0]
-    || { user_id: call.starter_id, username: call.starter_name || "Someone", avatar: {} };
-  if (typeof mountVoiceFace === "function") mountVoiceFace(face, starter, false, 80);
+  if (typeof onlineToastStack !== "function") return;
+  const stack = onlineToastStack();
+  const ringing = ringingVoiceCalls();
+  const live = new Set(ringing.map((call) => call.key));
+  stack.querySelectorAll(".call-toast").forEach((toast) => {
+    if (!live.has(toast.dataset.callKey)) dismissCallToast(toast);
+  });
+  ringing.forEach((call) => {
+    const existing = stack.querySelector('.call-toast[data-call-key="' + call.key + '"]');
+    if (existing) return;
+    const toast = buildCallToast(call);
+    stack.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("is-in"));
+  });
 }
 
 function callStamp(raw) {
@@ -283,22 +336,6 @@ function bindCallControls() {
   if (hangup) {
     hangup.addEventListener("click", () => {
       if (typeof leaveVoiceChannel === "function") leaveVoiceChannel();
-    });
-  }
-  const answer = document.getElementById("call-incoming-answer");
-  if (answer) {
-    answer.addEventListener("click", () => {
-      const call = ringingVoiceCall();
-      if (!call) return;
-      postVoiceCall("/voice_call/answer", call.kind, call.chat_id);
-    });
-  }
-  const decline = document.getElementById("call-incoming-decline");
-  if (decline) {
-    decline.addEventListener("click", () => {
-      const call = ringingVoiceCall();
-      if (!call) return;
-      postVoiceCall("/voice_call/decline", call.kind, call.chat_id);
     });
   }
 }

@@ -277,18 +277,27 @@ function profileOptHint(node, text, hintEl) {
   });
 }
 
+function profileDesignRule(label, row) {
+  const rule = document.createElement("div");
+  rule.className = "profile-design-rule";
+  if (label) rule.appendChild(label);
+  if (row) rule.appendChild(row);
+  return rule;
+}
+
 function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
   const chrome = defaultTextChrome(type, draft);
   const size = profileSelectField("Size", PROFILE_TEXT_SIZES.map(pt => ({
     value: String(pt),
     label: String(pt)
   })), chrome.text_size);
-  box.appendChild(size.label);
   profileOptHint(size.label, "Point size for this widget’s text, same scale Docs uses.", hintEl);
   size.select.addEventListener("change", () => {
     draft.text_size = Number(size.select.value) || 14;
     onChange();
   });
+  box.appendChild(profileDesignRule(size.label));
+
   const alignWrap = document.createElement("div");
   alignWrap.className = "profile-opt-align";
   const alignLabel = document.createElement("div");
@@ -297,7 +306,12 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
   alignWrap.appendChild(alignLabel);
   const row = document.createElement("div");
   row.className = "profile-opt-seg";
-  [["left", "L", "Align text to the left."], ["center", "C", "Center text."], ["right", "R", "Align text to the right."]].forEach(item => {
+  [
+    ["left", "L", "Align text to the left."],
+    ["center", "C", "Center text."],
+    ["right", "R", "Align text to the right."],
+    ["justify", "J", "Stretch each full line to both edges."]
+  ].forEach(item => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = item[1];
@@ -311,7 +325,78 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
     row.appendChild(btn);
   });
   alignWrap.appendChild(row);
-  box.appendChild(alignWrap);
+  box.appendChild(profileDesignRule(alignWrap));
+
+  const custom = profileToggleExtras("Color", "Use a chosen color instead of the theme.", !!draft.text_color, hintEl, (on) => {
+    draft.text_color = on ? (draft.text_color || "#ece7f7") : "";
+    onChange();
+  });
+  const picked = profileColorFields("Color", draft.text_color || "#ece7f7", hintEl, "Text color. This replaces the theme.", (clean) => {
+    draft.text_color = clean;
+    onChange();
+  });
+  custom.extras.appendChild(picked.row);
+  box.appendChild(custom.block);
+  box.appendChild(profileGradientExtras(draft, "text_gradient", "text_color_2", "text_angle", "text_offset", "text_gradient_opacity", hintEl, onChange));
+
+  const track = profileSliderField("Letter spacing", chrome.letter_spacing, -8, 16, hintEl, "How far apart the letters sit. 0 is normal.", (n) => {
+    draft.letter_spacing = n;
+    onChange();
+  });
+  box.appendChild(profileDesignRule(track.label, track.row));
+  const leading = profileSliderField("Line spacing", chrome.line_spacing, 0, 200, hintEl, "0 keeps the current line spacing. A higher number spreads the lines.", (n) => {
+    draft.line_spacing = n;
+    onChange();
+  }, (n) => n ? String(n) : "Auto");
+  box.appendChild(profileDesignRule(leading.label, leading.row));
+
+  const font = profileSelectField("Font", [
+    { value: "app", label: "App" },
+    { value: "serif", label: "Serif" },
+    { value: "mono", label: "Mono" }
+  ], chrome.text_font);
+  profileOptHint(font.label, "Typeface for this widget.", hintEl);
+  font.select.addEventListener("change", () => {
+    draft.text_font = font.select.value;
+    onChange();
+  });
+  box.appendChild(profileDesignRule(font.label));
+
+  const shadow = profileToggleExtras("Shadow", "Draw a shadow behind the letters.", !!draft.show_text_shadow, hintEl, (on) => {
+    draft.show_text_shadow = on;
+    onChange();
+  });
+  const across = profileSliderField("Across", chrome.text_shadow_x, -24, 24, hintEl, "How far the shadow sits to the side.", (n) => {
+    draft.text_shadow_x = n;
+    onChange();
+  });
+  const down = profileSliderField("Down", chrome.text_shadow_y, -24, 24, hintEl, "How far the shadow sits up or down.", (n) => {
+    draft.text_shadow_y = n;
+    onChange();
+  });
+  const blur = profileSliderField("Blur", chrome.text_shadow_blur, 0, 40, hintEl, "How soft the shadow is.", (n) => {
+    draft.text_shadow_blur = n;
+    onChange();
+  });
+  const shade = profileColorFields("Color", chrome.text_shadow_color || "#000000", hintEl, "Shadow color.", (clean) => {
+    draft.text_shadow_color = clean;
+    onChange();
+  });
+  const fade = profileSliderField("Opacity", chrome.text_shadow_opacity, 0, 100, hintEl, "How solid the shadow is.", (n) => {
+    draft.text_shadow_opacity = n;
+    onChange();
+  });
+  shadow.extras.appendChild(across.label);
+  shadow.extras.appendChild(across.row);
+  shadow.extras.appendChild(down.label);
+  shadow.extras.appendChild(down.row);
+  shadow.extras.appendChild(blur.label);
+  shadow.extras.appendChild(blur.row);
+  shadow.extras.appendChild(shade.label);
+  shadow.extras.appendChild(shade.row);
+  shadow.extras.appendChild(fade.label);
+  shadow.extras.appendChild(fade.row);
+  box.appendChild(shadow.block);
 }
 
 function profileHasWidgetSettings(type) {
@@ -1138,7 +1223,7 @@ function fillRailOptions(box, draft, onChange, hintEl) {
   box.appendChild(typeField.label);
 }
 
-function profileSliderField(labelText, value, min, max, hintEl, hint, onInput) {
+function profileSliderField(labelText, value, min, max, hintEl, hint, onInput, format) {
   const label = document.createElement("div");
   label.className = "profile-opt-field-label";
   label.textContent = labelText;
@@ -1153,10 +1238,11 @@ function profileSliderField(labelText, value, min, max, hintEl, hint, onInput) {
   slider.value = String(value);
   const val = document.createElement("div");
   val.className = "profile-opt-slider-val";
-  val.textContent = slider.value;
+  const show = (n) => format ? format(n) : String(n);
+  val.textContent = show(Number(slider.value));
   profileOptHint(slider, hint, hintEl);
   slider.addEventListener("input", () => {
-    val.textContent = slider.value;
+    val.textContent = show(Number(slider.value));
     onInput(Number(slider.value));
   });
   row.appendChild(slider);
@@ -2242,7 +2328,7 @@ function openProfileTileOptions(tile) {
   addTab('widget', 'Widget', 'Basic settings unique to this widget.');
   addTab('design', 'Design', 'Background, border, stacking, thickness, and colors.');
   if (profileHasTextFormat(tile.type)) {
-    addTab('text', 'Text', 'Size and alignment for the text in this widget.');
+    addTab('text', 'Text', 'Color, type, and spacing for the text in this widget.');
   }
 
   function paintPreview() {

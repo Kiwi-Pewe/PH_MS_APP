@@ -5178,6 +5178,106 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile[data-text-align="right"] .profile-text-slot input {
   text-align: right;
 }
+.profile-tile[data-text-align="justify"] .profile-text-slot,
+.profile-tile[data-text-align="justify"] .profile-text-slot textarea,
+.profile-tile[data-text-align="justify"] .profile-text-slot input,
+.profile-tile.is-display_name[data-text-align="justify"],
+.profile-tile[data-text-align="justify"] .profile-action-btn,
+.profile-tile[data-text-align="justify"] .profile-tile-body,
+.profile-tile[data-text-align="justify"] .oneira-wall-title,
+.profile-tile[data-text-align="justify"] .oneira-wall-text {
+  text-align: justify;
+}
+.profile-tile.has-text-font {
+  font-family: var(--profile-text-font);
+}
+.profile-tile.has-text-track,
+.profile-tile.has-text-track .profile-text-title {
+  letter-spacing: var(--profile-letter-spacing);
+}
+.profile-tile.has-text-shadow {
+  text-shadow: var(--profile-text-shadow);
+}
+.profile-tile.has-text-color :is(
+  .profile-tile-name,
+  .profile-tile-handle,
+  .profile-tile-status,
+  .profile-alias-btn,
+  .profile-text-title,
+  .profile-text-slot,
+  .profile-tile-header,
+  .profile-tile-copy,
+  .profile-tile-footnote,
+  .profile-tile-list,
+  .profile-tile-list-edit,
+  .profile-action-btn,
+  .profile-tile-body,
+  .profile-local-clock,
+  .profile-local-date,
+  .profile-clock-live,
+  .profile-clock-label,
+  .oneira-wall-title,
+  .oneira-wall-name,
+  .oneira-wall-text,
+  .oneira-wall-time,
+  .profile-friend-name,
+  .profile-spoiler-title,
+  .profile-callout-copy,
+  .settings-opt-desc
+) {
+  color: var(--profile-text-color);
+}
+.profile-tile.has-text-gradient :is(
+  .profile-tile-name,
+  .profile-tile-handle,
+  .profile-tile-status,
+  .profile-alias-btn,
+  .profile-text-title,
+  .profile-text-slot,
+  .profile-tile-header,
+  .profile-tile-copy,
+  .profile-tile-footnote,
+  .profile-tile-list,
+  .profile-tile-list-edit,
+  .profile-action-btn,
+  .profile-tile-body,
+  .profile-local-clock,
+  .profile-local-date,
+  .profile-clock-live,
+  .profile-clock-label,
+  .oneira-wall-title,
+  .oneira-wall-name,
+  .oneira-wall-text,
+  .oneira-wall-time,
+  .profile-friend-name,
+  .profile-spoiler-title,
+  .profile-callout-copy,
+  .settings-opt-desc
+) {
+  background-image: var(--profile-text-paint);
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.profile-tile.has-text-leading :is(
+  .profile-tile-name,
+  .profile-tile-handle,
+  .profile-tile-status,
+  .profile-text-slot,
+  .profile-tile-header,
+  .profile-tile-copy,
+  .profile-tile-footnote,
+  .profile-tile-list,
+  .profile-action-btn,
+  .profile-local-clock,
+  .profile-clock-live,
+  .oneira-wall-title,
+  .oneira-wall-text
+) {
+  line-height: var(--profile-line-height);
+}
 .profile-text-slot > textarea,
 .profile-text-slot > .profile-tile-header,
 .profile-text-slot > .profile-tile-copy,

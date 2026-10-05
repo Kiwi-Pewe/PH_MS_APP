@@ -358,6 +358,24 @@ function clampProfileOffset(value, fallback) {
   return Math.max(-24, Math.min(24, Math.round(n)));
 }
 
+function clampProfileLetter(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-8, Math.min(16, Math.round(n)));
+}
+
+function clampProfileLeading(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.max(1, Math.min(200, Math.round(n)));
+}
+
+function profileTextFont(value) {
+  if (value === "serif") return "Georgia, \"Times New Roman\", serif";
+  if (value === "mono") return "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  return "";
+}
+
 function profileMixColor(color, opacity) {
   const hex = profileBorderColor(color);
   const pct = clampProfilePercent(opacity, 100);
@@ -396,9 +414,24 @@ function defaultTextChrome(type, prev) {
   const card = type !== "header" && type !== "footnote" && type !== "avatar" && type !== "display_name" && type !== "banner" && type !== "divider" && type !== "rail" && type !== "icon";
   return Object.assign({
     text_size: defaultTextSize(type, row),
-    text_align: row.text_align === "center" || row.text_align === "right" || row.text_align === "left"
+    text_align: row.text_align === "center" || row.text_align === "right" || row.text_align === "left" || row.text_align === "justify"
       ? row.text_align
       : (type === "display_name" ? "center" : "left"),
+    text_color: profileBorderColor(row.text_color) || "",
+    text_gradient: !!row.text_gradient,
+    text_color_2: profileBorderColor(row.text_color_2) || "",
+    text_angle: clampProfileAngle(row.text_angle == null ? 90 : row.text_angle),
+    text_offset: clampProfilePercent(row.text_offset, 50),
+    text_gradient_opacity: clampProfilePercent(row.text_gradient_opacity, 100),
+    letter_spacing: clampProfileLetter(row.letter_spacing),
+    line_spacing: clampProfileLeading(row.line_spacing),
+    text_font: row.text_font === "serif" || row.text_font === "mono" ? row.text_font : "app",
+    show_text_shadow: !!row.show_text_shadow,
+    text_shadow_x: clampProfileOffset(row.text_shadow_x, 0),
+    text_shadow_y: clampProfileOffset(row.text_shadow_y, 2),
+    text_shadow_blur: clampProfileSpan(row.text_shadow_blur, 4, 40),
+    text_shadow_color: profileBorderColor(row.text_shadow_color) || "#000000",
+    text_shadow_opacity: clampProfilePercent(row.text_shadow_opacity, 40),
     show_background: row.show_background != null ? !!row.show_background : card,
     show_border: row.show_border != null ? !!row.show_border : false,
     bg_color: profileBorderColor(row.bg_color) || "",
@@ -434,7 +467,7 @@ function defaultProfileTileProps(type, existing) {
   const chrome = defaultTextChrome(type, prev);
   if (type === "bio") return Object.assign({ text: prev.text || "" }, chrome);
   if (type === "local_time" || type === "details") {
-    const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center"
+    const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center" || prev.text_align === "justify"
       ? prev.text_align
       : "center";
     const format = prev.time_format === "24" || prev.time_format === "system" ? prev.time_format : "12";
@@ -457,7 +490,7 @@ function defaultProfileTileProps(type, existing) {
     return Object.assign({ show_border: false }, defaultBorderChrome(type, prev));
   }
   if (type === "display_name") {
-    const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center"
+    const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center" || prev.text_align === "justify"
       ? prev.text_align
       : "center";
     return Object.assign({}, defaultTextChrome(type, prev), {
@@ -587,7 +620,7 @@ function defaultProfileTileProps(type, existing) {
   }
   if (type === "clock" || type === "countdown") {
     const mode = prev.mode === "countdown" || prev.mode === "timer" ? prev.mode : (type === "countdown" ? "countdown" : "world");
-    const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center"
+    const align = prev.text_align === "left" || prev.text_align === "right" || prev.text_align === "center" || prev.text_align === "justify"
       ? prev.text_align
       : "center";
     const format = prev.time_format === "24" || prev.time_format === "system" ? prev.time_format : "12";
@@ -670,6 +703,46 @@ function profileHasTextFormat(type) {
 
 function profileTextChrome(props, type) {
   return defaultTextChrome(type, props || {});
+}
+
+function profileTextFill(chrome) {
+  const second = profileBorderColor(chrome.text_color_2);
+  if (!chrome.text_gradient || !second) return "";
+  const start = profileBorderColor(chrome.text_color) || "var(--text)";
+  return profileGradientPaint(chrome.text_angle, start, second, chrome.text_offset, chrome.text_gradient_opacity);
+}
+
+function applyProfileTextPaint(el, chrome) {
+  const look = chrome || {};
+  el.dataset.textAlign = look.text_align || "left";
+  el.style.setProperty("--profile-text-size", (look.text_size || 14) + "pt");
+  const solid = profileBorderColor(look.text_color);
+  const paint = profileTextFill(look);
+  el.classList.toggle("has-text-color", !!solid && !paint);
+  if (solid) el.style.setProperty("--profile-text-color", solid);
+  else el.style.removeProperty("--profile-text-color");
+  el.classList.toggle("has-text-gradient", !!paint);
+  if (paint) el.style.setProperty("--profile-text-paint", paint);
+  else el.style.removeProperty("--profile-text-paint");
+  const font = profileTextFont(look.text_font);
+  el.classList.toggle("has-text-font", !!font);
+  if (font) el.style.setProperty("--profile-text-font", font);
+  else el.style.removeProperty("--profile-text-font");
+  const track = clampProfileLetter(look.letter_spacing);
+  el.classList.toggle("has-text-track", track !== 0);
+  if (track) el.style.setProperty("--profile-letter-spacing", track + "px");
+  else el.style.removeProperty("--profile-letter-spacing");
+  const leading = clampProfileLeading(look.line_spacing);
+  el.classList.toggle("has-text-leading", leading > 0);
+  if (leading) el.style.setProperty("--profile-line-height", (leading / 100).toFixed(2));
+  else el.style.removeProperty("--profile-line-height");
+  el.classList.toggle("has-text-shadow", !!look.show_text_shadow);
+  if (look.show_text_shadow) {
+    const color = profileMixColor(look.text_shadow_color || "#000000", look.text_shadow_opacity);
+    el.style.setProperty("--profile-text-shadow", look.text_shadow_x + "px " + look.text_shadow_y + "px " + look.text_shadow_blur + "px " + color);
+  } else {
+    el.style.removeProperty("--profile-text-shadow");
+  }
 }
 
 function mountProfileFixedTitle(el, label) {
@@ -783,8 +856,7 @@ function applyProfileWidgetSurface(el, tile) {
 function mountProfileTextChrome(el, tile) {
   const chrome = profileTextChrome(tile.props, tile.type);
   el.classList.add("is-text-chrome");
-  el.dataset.textAlign = chrome.text_align;
-  el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
+  applyProfileTextPaint(el, chrome);
   applyProfileWidgetSurface(el, tile);
   const shell = document.createElement("div");
   shell.className = "profile-text-shell";
@@ -1137,8 +1209,7 @@ function bindProfileButtonAction(btn, tile) {
 function paintProfileButton(tile, el) {
   const chrome = profileTextChrome(tile.props, tile.type);
   el.classList.add("is-text-chrome");
-  el.dataset.textAlign = chrome.text_align;
-  el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
+  applyProfileTextPaint(el, chrome);
   applyProfileWidgetSurface(el, tile);
   const btn = document.createElement("button");
   btn.type = "button";
@@ -1299,8 +1370,7 @@ function syncProfileLocalTimeClock() {
 function paintProfileLocalTime(tile, el) {
   const chrome = profileTextChrome(tile.props, tile.type);
   el.classList.add("is-text-chrome");
-  el.dataset.textAlign = chrome.text_align;
-  el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
+  applyProfileTextPaint(el, chrome);
   applyProfileWidgetSurface(el, tile);
   const body = document.createElement("div");
   body.className = "profile-tile-body";
@@ -1423,8 +1493,7 @@ function paintProfileGallery(tile, el) {
 
 function paintProfileComments(tile, el) {
   const chrome = typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : null;
-  if (chrome && chrome.text_size) el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
-  if (chrome && chrome.text_align) el.dataset.textAlign = chrome.text_align;
+  if (chrome) applyProfileTextPaint(el, chrome);
   applyProfileWidgetSurface(el, tile);
   if (typeof mountProfileComments !== "function") {
     const empty = document.createElement("div");
@@ -1442,8 +1511,7 @@ function displayServerIdOk(code) {
 
 function paintProfileDisplayServer(tile, el) {
   const chrome = typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : null;
-  if (chrome && chrome.text_size) el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
-  if (chrome && chrome.text_align) el.dataset.textAlign = chrome.text_align;
+  if (chrome) applyProfileTextPaint(el, chrome);
   applyProfileWidgetSurface(el, tile);
   const props = defaultProfileTileProps("display_server", tile.props);
   const head = document.createElement("div");
@@ -1537,8 +1605,7 @@ function paintProfileVideo(tile, el) {
 function paintProfileClock(tile, el) {
   const chrome = profileTextChrome(tile.props, "clock");
   el.classList.add("is-text-chrome");
-  el.dataset.textAlign = chrome.text_align;
-  el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
+  applyProfileTextPaint(el, chrome);
   applyProfileWidgetSurface(el, tile);
   const props = tile.props || {};
   const mode = props.mode === "countdown" || props.mode === "timer" ? props.mode : "world";
@@ -1921,8 +1988,7 @@ function paintProfileTileContent(tile, el) {
   applyProfileWidgetSurface(el, tile);
   if (tile.type === "display_name") {
     const chrome = profileTextChrome(tile.props, "display_name");
-    el.dataset.textAlign = chrome.text_align;
-    el.style.setProperty("--profile-text-size", chrome.text_size + "pt");
+    applyProfileTextPaint(el, chrome);
     const row = document.createElement("div");
     row.className = "profile-tile-name-row";
     const name = document.createElement("div");

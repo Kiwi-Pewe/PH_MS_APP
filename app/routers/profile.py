@@ -85,7 +85,8 @@ TWITCH_RESERVED = {
 }
 ISO_DT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$")
 TEXT_SIZES = (8, 9, 10, 11, 12, 14, 18, 24)
-TEXT_ALIGNS = {"left", "center", "right"}
+TEXT_ALIGNS = {"left", "center", "right", "justify"}
+TEXT_FONTS = {"app", "serif", "mono"}
 BORDER_STYLES = {"solid", "dashed", "dotted", "double"}
 LINK_PLATFORMS = (
     "YouTube", "Twitch", "Steam", "Discord", "X", "Instagram", "TikTok",
@@ -573,6 +574,30 @@ def normalize_design_chrome(data):
         "border_angle": clamp_int(row.get("border_angle"), 0, 360, 90),
         "border_offset": clamp_int(row.get("border_offset"), 0, 100, 50),
         "border_gradient_opacity": clamp_int(row.get("border_gradient_opacity"), 0, 100, 100),
+    }
+
+
+def normalize_text_look(data):
+    row = data if isinstance(data, dict) else {}
+    font = str(row.get("text_font") or "app")
+    if font not in TEXT_FONTS:
+        font = "app"
+    return {
+        "text_color": clean_hex(row.get("text_color"), ""),
+        "text_gradient": bool(row.get("text_gradient")),
+        "text_color_2": clean_hex(row.get("text_color_2"), ""),
+        "text_angle": clamp_int(row.get("text_angle"), 0, 360, 90),
+        "text_offset": clamp_int(row.get("text_offset"), 0, 100, 50),
+        "text_gradient_opacity": clamp_int(row.get("text_gradient_opacity"), 0, 100, 100),
+        "letter_spacing": clamp_int(row.get("letter_spacing"), -8, 16, 0),
+        "line_spacing": clamp_int(row.get("line_spacing"), 0, 200, 0),
+        "text_font": font,
+        "show_text_shadow": bool(row.get("show_text_shadow")),
+        "text_shadow_x": clamp_int(row.get("text_shadow_x"), -24, 24, 0),
+        "text_shadow_y": clamp_int(row.get("text_shadow_y"), -24, 24, 2),
+        "text_shadow_blur": clamp_int(row.get("text_shadow_blur"), 0, 40, 4),
+        "text_shadow_color": clean_hex(row.get("text_shadow_color"), "#000000"),
+        "text_shadow_opacity": clamp_int(row.get("text_shadow_opacity"), 0, 100, 40),
     }
 
 
@@ -1168,6 +1193,7 @@ def normalize_tile(raw, used_ids, banner_fallback):
     props = normalize_props(kind, props_in, banner_fallback)
     if isinstance(props, dict):
         props.update(normalize_design_chrome(props_in))
+        props.update(normalize_text_look(props_in))
     default_w, default_h = default_sizes(kind)
     min_w, min_h, max_w, max_h = tile_bounds(kind, props)
     w = clamp_int(data.get("w"), min_w, min(max_w, GRID_COLS), default_w)

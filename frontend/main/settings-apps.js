@@ -53,7 +53,7 @@ function paintConnectionCard(service, parts) {
   const who = document.createElement("div");
   who.className = "connection-card-who";
   const account = document.createElement("div");
-  account.className = "connection-card-name is-empty";
+  account.className = "connection-card-name";
   account.textContent = service + " name";
   const label = document.createElement("div");
   label.className = "connection-card-service";
@@ -85,7 +85,7 @@ function paintConnectionCard(service, parts) {
 function paintConnections(host) {
   const blurb = document.createElement("p");
   blurb.className = "settings-blurb";
-  blurb.textContent = "These are accounts from other platforms. Connecting them here can unlock new features on Oneira, like the ability to share what you're currently listening to, get paid safely and securely, and more.";
+  blurb.textContent = "These are accounts from other platforms. Connecting them here can unlock new features on Oneira, like sharing what you're playing or listening to, and more.";
   host.appendChild(blurb);
 
   const addTitle = document.createElement("div");

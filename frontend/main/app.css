@@ -1387,9 +1387,8 @@
 }
 .connection-card-who { flex: 1 1 auto; min-width: 0; }
 .connection-card-name {
-  font-size: 16px; font-weight: 700; color: var(--text); line-height: 1.2;
+  font-size: 16px; font-weight: 700; color: var(--accent); line-height: 1.2;
 }
-.connection-card-name.is-empty { color: var(--text-dim); font-weight: 600; }
 .connection-card-service {
   font-size: 12px; font-weight: 500; color: var(--text-dim); margin-top: 2px;
 }
@@ -1401,8 +1400,7 @@
 .connection-card-remove:disabled { opacity: 0.55; cursor: default; }
 .connection-part {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
+  padding: 8px 0;
 }
 .connection-part-title {
   font-size: 14px; font-weight: 600; color: var(--text);

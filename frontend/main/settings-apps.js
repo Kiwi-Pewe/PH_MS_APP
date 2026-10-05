@@ -46,9 +46,20 @@ function paintConnectionIcon(item) {
   return face;
 }
 
+function setConnectionOpen(card, open) {
+  card.classList.toggle("is-open", open);
+  const body = card.querySelector(".connection-card-parts");
+  const toggle = card.querySelector(".connection-card-toggle");
+  const service = card.dataset.service || "connection";
+  body.hidden = !open;
+  toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  toggle.setAttribute("aria-label", (open ? "Hide " : "Show ") + service + " settings");
+}
+
 function paintConnectionCard(service, parts) {
   const card = document.createElement("div");
-  card.className = "connection-card";
+  card.className = "connection-card is-open";
+  card.dataset.service = service;
   const head = document.createElement("div");
   head.className = "connection-card-head";
   const provider = CONNECTION_PROVIDERS.find(item => item.name === service);
@@ -63,14 +74,15 @@ function paintConnectionCard(service, parts) {
   label.textContent = service;
   who.appendChild(account);
   who.appendChild(label);
-  const remove = document.createElement("button");
-  remove.type = "button";
-  remove.className = "connection-card-remove";
-  remove.disabled = true;
-  remove.setAttribute("aria-label", "Disconnect " + service);
-  remove.textContent = "\u00d7";
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "connection-card-toggle";
+  const chevron = document.createElement("span");
+  chevron.className = "connection-chevron";
+  toggle.appendChild(chevron);
+  toggle.addEventListener("click", () => setConnectionOpen(card, !card.classList.contains("is-open")));
   head.appendChild(who);
-  head.appendChild(remove);
+  head.appendChild(toggle);
   card.appendChild(head);
   const body = document.createElement("div");
   body.className = "connection-card-parts";
@@ -85,7 +97,83 @@ function paintConnectionCard(service, parts) {
     body.appendChild(row);
   });
   card.appendChild(body);
+  const foot = document.createElement("div");
+  foot.className = "connection-card-foot";
+  const disconnect = document.createElement("button");
+  disconnect.type = "button";
+  disconnect.className = "connection-disconnect";
+  disconnect.textContent = "Disconnect";
+  disconnect.addEventListener("click", () => openConnectionDisconnect(service));
+  foot.appendChild(disconnect);
+  card.appendChild(foot);
+  setConnectionOpen(card, true);
   return card;
+}
+
+function closeConnectionDisconnect() {
+  const overlay = document.getElementById("connection-disconnect-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+function openConnectionDisconnect(service) {
+  const overlay = document.getElementById("connection-disconnect-overlay");
+  if (!overlay) return;
+  overlay.querySelector(".connection-disconnect-title").textContent = "Disconnect " + service;
+  overlay.querySelector(".connection-disconnect-body").textContent = "Disconnecting " + service + " stops future access and deletes the data Oneira stored from that account.";
+  overlay.hidden = false;
+  overlay.querySelector(".connection-disconnect-cancel").focus();
+}
+
+function ensureConnectionDisconnect() {
+  if (document.getElementById("connection-disconnect-overlay")) return;
+  const overlay = document.createElement("div");
+  overlay.id = "connection-disconnect-overlay";
+  overlay.hidden = true;
+  const modal = document.createElement("div");
+  modal.className = "connection-disconnect-modal";
+  const header = document.createElement("div");
+  header.className = "view-header";
+  const title = document.createElement("span");
+  title.className = "connection-disconnect-title";
+  title.textContent = "Disconnect";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "icon-btn";
+  close.title = "Close";
+  close.textContent = "\u00d7";
+  close.addEventListener("click", closeConnectionDisconnect);
+  header.appendChild(title);
+  header.appendChild(close);
+  const viewBody = document.createElement("div");
+  viewBody.className = "view-body";
+  const copy = document.createElement("p");
+  copy.className = "connection-disconnect-body";
+  viewBody.appendChild(copy);
+  const footer = document.createElement("div");
+  footer.className = "connection-disconnect-footer";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "ghost-btn connection-disconnect-cancel";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", closeConnectionDisconnect);
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.className = "deny-btn";
+  confirm.textContent = "Disconnect";
+  confirm.addEventListener("click", closeConnectionDisconnect);
+  footer.appendChild(cancel);
+  footer.appendChild(confirm);
+  modal.appendChild(header);
+  modal.appendChild(viewBody);
+  modal.appendChild(footer);
+  overlay.appendChild(modal);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeConnectionDisconnect();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !overlay.hidden) closeConnectionDisconnect();
+  });
+  document.body.appendChild(overlay);
 }
 
 function paintConnections(host) {
@@ -157,6 +245,7 @@ function paintAuthorizedApps(host) {
 }
 
 function renderConnectedAppsSettings(pane, jumpChildId) {
+  ensureConnectionDisconnect();
   pane.innerHTML = "";
   const block = document.createElement("section");
   block.className = "settings-block has-sections";

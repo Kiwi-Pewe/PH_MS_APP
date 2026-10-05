@@ -1300,13 +1300,26 @@ function fillNameClusterOptions(box, tile, hintEl) {
   profileOptHint(nameLabel, "The name other people see. It does not change the username.", hintEl);
   box.appendChild(nameLabel);
 
-  const statusRow = settingsOpt(
-    "Show status",
-    "",
-    settingsToggle(!!props.show_status, false, () => {})
-  );
-  profileOptHint(statusRow, "Show the status under the name.", hintEl);
-  box.appendChild(statusRow);
+  function appendToggleField(title, hint, checked, field) {
+    const block = document.createElement("div");
+    block.className = "profile-name-opt";
+    const extras = document.createElement("div");
+    extras.className = "profile-opt-border-extras" + (checked ? " is-open" : "");
+    if (field) extras.appendChild(field);
+    const row = settingsOpt(
+      title,
+      "",
+      settingsToggle(checked, false, (on) => {
+        extras.classList.toggle("is-open", on);
+      })
+    );
+    profileOptHint(row, hint, hintEl);
+    block.appendChild(row);
+    if (field) block.appendChild(extras);
+    box.appendChild(block);
+    return row;
+  }
+
   const statusInput = document.createElement("input");
   statusInput.type = "text";
   statusInput.maxLength = 80;
@@ -1315,15 +1328,8 @@ function fillNameClusterOptions(box, tile, hintEl) {
   statusLabel.textContent = "Status";
   statusLabel.appendChild(statusInput);
   profileOptHint(statusLabel, "Status text for this profile.", hintEl);
-  box.appendChild(statusLabel);
+  const statusRow = appendToggleField("Show status", "Show the status under the name.", !!props.show_status, statusLabel);
 
-  const pronounsRow = settingsOpt(
-    "Show pronouns",
-    "",
-    settingsToggle(!!props.show_pronouns, false, () => {})
-  );
-  profileOptHint(pronounsRow, "Show pronouns next to the username.", hintEl);
-  box.appendChild(pronounsRow);
   const proInput = document.createElement("input");
   proInput.type = "text";
   proInput.maxLength = 32;
@@ -1332,15 +1338,9 @@ function fillNameClusterOptions(box, tile, hintEl) {
   proLabel.textContent = "Pronouns";
   proLabel.appendChild(proInput);
   profileOptHint(proLabel, "Pronouns shown next to the username.", hintEl);
-  box.appendChild(proLabel);
+  const pronounsRow = appendToggleField("Show pronouns", "Show pronouns next to the username.", !!props.show_pronouns, proLabel);
 
-  const aliasRow = settingsOpt(
-    "Show previous alias",
-    "",
-    settingsToggle(props.show_aliases !== false, false, () => {})
-  );
-  profileOptHint(aliasRow, "Show the arrow for previous names.", hintEl);
-  box.appendChild(aliasRow);
+  const aliasRow = appendToggleField("Show previous alias", "Show the arrow for previous names.", props.show_aliases !== false, null);
 
   const statusToggle = statusRow.querySelector("input");
   const pronounsToggle = pronounsRow.querySelector("input");

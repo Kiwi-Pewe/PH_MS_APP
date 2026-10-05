@@ -5486,6 +5486,8 @@ a.profile-link-row:hover { color: var(--accent); }
   display: block; font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 12px;
 }
 .profile-opt-left .toggle-switch { display: inline-block; margin: 0; font-weight: 400; color: inherit; }
+.profile-name-opt .settings-opt { border-bottom: none; padding-bottom: 8px; }
+.profile-name-opt .profile-opt-border-extras.is-open { padding-top: 0; }
 .profile-opt-left input:not([type="checkbox"]):not([type="range"]):not([type="color"]), .profile-opt-left select {
   display: block; width: 100%; margin-top: 6px;
   background: var(--rail); border: 1px solid var(--border); border-radius: 6px;

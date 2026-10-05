@@ -5485,6 +5485,7 @@ a.profile-link-row:hover { color: var(--accent); }
 .profile-opt-left label {
   display: block; font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 12px;
 }
+.profile-opt-left .toggle-switch { display: inline-block; margin: 0; font-weight: 400; color: inherit; }
 .profile-opt-left input:not([type="checkbox"]):not([type="range"]):not([type="color"]), .profile-opt-left select {
   display: block; width: 100%; margin-top: 6px;
   background: var(--rail); border: 1px solid var(--border); border-radius: 6px;

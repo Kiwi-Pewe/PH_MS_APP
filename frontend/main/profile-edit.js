@@ -386,7 +386,7 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     return;
   }
   if (tile.type === "display_name") {
-    bindDraftReaders(box, draft, fillNameClusterOptions(box, fake), onChange);
+    bindDraftReaders(box, draft, fillNameClusterOptions(box, fake, hintEl), onChange);
     return;
   }
   if (tile.type === "link_tree") {
@@ -1288,44 +1288,68 @@ function profileTileHasOptions(type) {
   return !!PROFILE_TILE_TYPES[type];
 }
 
-function fillNameClusterOptions(box, tile) {
+function fillNameClusterOptions(box, tile, hintEl) {
   const props = tile.props || {};
-  const statusCheckLabel = document.createElement("label");
-  statusCheckLabel.className = "settings-check";
-  const statusCheck = document.createElement("input");
-  statusCheck.type = "checkbox";
-  statusCheck.checked = !!props.show_status;
-  statusCheckLabel.appendChild(statusCheck);
-  statusCheckLabel.appendChild(document.createTextNode(" Show status"));
-  box.appendChild(statusCheckLabel);
-  const statusLabel = document.createElement("label");
-  statusLabel.textContent = "Status";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.maxLength = 32;
+  nameInput.value = typeof profileOwnerName === "function" ? profileOwnerName() : "";
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = "Display name";
+  nameLabel.appendChild(nameInput);
+  profileOptHint(nameLabel, "The name other people see. It does not change the username.", hintEl);
+  box.appendChild(nameLabel);
+
+  const statusRow = settingsOpt(
+    "Show status",
+    "",
+    settingsToggle(!!props.show_status, false, () => {})
+  );
+  profileOptHint(statusRow, "Show the status under the name.", hintEl);
+  box.appendChild(statusRow);
   const statusInput = document.createElement("input");
   statusInput.type = "text";
   statusInput.maxLength = 80;
   statusInput.value = profileOwnerStatus();
+  const statusLabel = document.createElement("label");
+  statusLabel.textContent = "Status";
   statusLabel.appendChild(statusInput);
+  profileOptHint(statusLabel, "Status text for this profile.", hintEl);
   box.appendChild(statusLabel);
-  const proCheckLabel = document.createElement("label");
-  proCheckLabel.className = "settings-check";
-  const proCheck = document.createElement("input");
-  proCheck.type = "checkbox";
-  proCheck.checked = !!props.show_pronouns;
-  proCheckLabel.appendChild(proCheck);
-  proCheckLabel.appendChild(document.createTextNode(" Show pronouns"));
-  box.appendChild(proCheckLabel);
-  const proLabel = document.createElement("label");
-  proLabel.textContent = "Pronouns";
+
+  const pronounsRow = settingsOpt(
+    "Show pronouns",
+    "",
+    settingsToggle(!!props.show_pronouns, false, () => {})
+  );
+  profileOptHint(pronounsRow, "Show pronouns next to the username.", hintEl);
+  box.appendChild(pronounsRow);
   const proInput = document.createElement("input");
   proInput.type = "text";
   proInput.maxLength = 32;
   proInput.value = profileOwnerPronouns();
+  const proLabel = document.createElement("label");
+  proLabel.textContent = "Pronouns";
   proLabel.appendChild(proInput);
+  profileOptHint(proLabel, "Pronouns shown next to the username.", hintEl);
   box.appendChild(proLabel);
+
+  const aliasRow = settingsOpt(
+    "Show previous alias",
+    "",
+    settingsToggle(props.show_aliases !== false, false, () => {})
+  );
+  profileOptHint(aliasRow, "Show the arrow for previous names.", hintEl);
+  box.appendChild(aliasRow);
+
+  const statusToggle = statusRow.querySelector("input");
+  const pronounsToggle = pronounsRow.querySelector("input");
+  const aliasToggle = aliasRow.querySelector("input");
   return () => ({
-    show_status: !!statusCheck.checked,
-    show_pronouns: !!proCheck.checked,
-    identity: { status: statusInput.value, pronouns: proInput.value }
+    show_status: !!(statusToggle && statusToggle.checked),
+    show_pronouns: !!(pronounsToggle && pronounsToggle.checked),
+    show_aliases: !!(aliasToggle && aliasToggle.checked),
+    identity: { status: statusInput.value, pronouns: proInput.value, display_name: nameInput.value }
   });
 }
 
@@ -2072,10 +2096,23 @@ function openProfileTileOptions(tile) {
   confirm.addEventListener('click', async () => {
     const identity = draft.identity;
     delete draft.identity;
+    delete draft._namePreview;
     if (identity && typeof saveProfileIdentity === 'function') {
       confirm.disabled = true;
       try {
-        await saveProfileIdentity(identity);
+        await saveProfileIdentity({ status: identity.status || "", pronouns: identity.pronouns || "" });
+        const nextName = String(identity.display_name || "").trim();
+        const currentName = typeof profileOwnerName === "function" ? profileOwnerName() : "";
+        if (nextName !== currentName) {
+          if (!nextName || nextName.length > 32) throw new Error("Display name must be 1–32 characters.");
+          if (typeof postAccount !== "function") throw new Error("Could not save.");
+          const data = await postAccount("/account_display_name", { value: nextName });
+          if (profileUser) {
+            profileUser.display_name = data.display_name || nextName;
+            if (Array.isArray(data.aliases)) profileUser.aliases = data.aliases;
+          }
+          if (typeof applyLocalIdentity === "function") applyLocalIdentity(data);
+        }
       } catch (e) {
         confirm.disabled = false;
         window.alert(e.message || 'Could not save.');

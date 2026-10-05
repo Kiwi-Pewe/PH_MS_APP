@@ -393,6 +393,7 @@ function defaultProfileTileProps(type, existing) {
     return Object.assign({}, defaultTextChrome(type, prev), {
       show_status: !!prev.show_status,
       show_pronouns: !!prev.show_pronouns,
+      show_aliases: prev.show_aliases !== false,
       text_align: align
     });
   }
@@ -1770,10 +1771,13 @@ function paintProfileTileContent(tile, el) {
     row.className = "profile-tile-name-row";
     const name = document.createElement("div");
     name.className = "profile-tile-name";
-    name.textContent = profileOwnerName();
+    const typedName = tile.props && tile.props.identity && tile.props.identity.display_name;
+    const shownName = typedName != null && String(typedName).trim() ? String(typedName).trim() : profileOwnerName();
+    name.textContent = shownName;
     row.appendChild(name);
     const aliases = profileOwnerAliases();
-    if (aliases.length) {
+    const showAliases = !tile.props || tile.props.show_aliases !== false;
+    if (showAliases && aliases.length) {
       const arrow = document.createElement("button");
       arrow.type = "button";
       arrow.className = "profile-alias-btn";
@@ -1785,7 +1789,7 @@ function paintProfileTileContent(tile, el) {
         e.stopPropagation();
         if (typeof openContextMenu !== "function") return;
         openContextMenu(e.clientX, e.clientY, {
-          avatarText: (profileOwnerName() || "?").slice(0, 1),
+          avatarText: (shownName || "?").slice(0, 1),
           title: "Previous names"
         }, aliases.map(label => ({ label, onSelect: () => {} })));
       });

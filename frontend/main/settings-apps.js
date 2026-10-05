@@ -12,16 +12,16 @@ function appsLaterNote(text) {
 }
 
 const CONNECTION_PROVIDERS = [
-  { name: "YouTube", mark: "\u25b6", color: "#ff0033" },
-  { name: "Battle.net", mark: "B", color: "#148eff" },
-  { name: "Bluesky", mark: "B", color: "#1185fe" },
-  { name: "Patreon", mark: "P", color: "#ff424d" },
-  { name: "Reddit", mark: "R", color: "#ff4500" },
-  { name: "Steam", mark: "S", color: "#1b2838", ink: "#66c0f4" },
-  { name: "X", mark: "X", color: "#0f0f0f", ink: "#e7e9ea" },
-  { name: "eBay", mark: "e", color: "#e53238" },
-  { name: "Crunchyroll", mark: "C", color: "#f47521" },
-  { name: "PlayStation", mark: "PS", color: "#003791" }
+  { name: "YouTube", slug: "youtube", color: "#ff0033" },
+  { name: "Battle.net", slug: "battledotnet", color: "#148eff" },
+  { name: "Bluesky", slug: "bluesky", color: "#1185fe" },
+  { name: "Patreon", slug: "patreon", color: "#ff424d" },
+  { name: "Reddit", slug: "reddit", color: "#ff4500" },
+  { name: "Steam", slug: "steam", color: "#1b2838" },
+  { name: "X", slug: "x", color: "#0f0f0f" },
+  { name: "eBay", slug: "ebay", color: "#e53238" },
+  { name: "Crunchyroll", slug: "crunchyroll", color: "#f47521" },
+  { name: "PlayStation", slug: "playstation", color: "#003791" }
 ];
 
 const STEAM_CONNECTION_PARTS = [
@@ -33,13 +33,16 @@ const STEAM_CONNECTION_PARTS = [
   "Level and badges"
 ];
 
-function paintConnectionIcon(name, mark, color, ink) {
+function paintConnectionIcon(item) {
   const face = document.createElement("span");
   face.className = "connection-face";
-  face.style.background = color;
-  face.style.color = ink || "#fff";
-  face.textContent = mark;
-  face.title = name;
+  face.style.background = item.color;
+  face.title = item.name;
+  const logo = document.createElement("img");
+  logo.className = "connection-logo";
+  logo.src = "icons/connections/" + item.slug + ".svg";
+  logo.alt = "";
+  face.appendChild(logo);
   return face;
 }
 
@@ -49,7 +52,7 @@ function paintConnectionCard(service, parts) {
   const head = document.createElement("div");
   head.className = "connection-card-head";
   const provider = CONNECTION_PROVIDERS.find(item => item.name === service);
-  head.appendChild(paintConnectionIcon(service, provider ? provider.mark : service.slice(0, 1), provider ? provider.color : "var(--panel)", provider && provider.ink));
+  head.appendChild(paintConnectionIcon(provider || { name: service, slug: "steam", color: "#1b2838" }));
   const who = document.createElement("div");
   who.className = "connection-card-who";
   const account = document.createElement("div");
@@ -69,6 +72,8 @@ function paintConnectionCard(service, parts) {
   head.appendChild(who);
   head.appendChild(remove);
   card.appendChild(head);
+  const body = document.createElement("div");
+  body.className = "connection-card-parts";
   parts.forEach(part => {
     const row = document.createElement("div");
     row.className = "connection-part";
@@ -77,8 +82,9 @@ function paintConnectionCard(service, parts) {
     title.textContent = part;
     row.appendChild(title);
     row.appendChild(settingsToggle(false, true));
-    card.appendChild(row);
+    body.appendChild(row);
   });
+  card.appendChild(body);
   return card;
 }
 
@@ -102,7 +108,7 @@ function paintConnections(host) {
     btn.title = item.name;
     btn.setAttribute("aria-label", item.name);
     btn.disabled = true;
-    btn.appendChild(paintConnectionIcon(item.name, item.mark, item.color, item.ink));
+    btn.appendChild(paintConnectionIcon(item));
     row.appendChild(btn);
   });
   const more = document.createElement("button");

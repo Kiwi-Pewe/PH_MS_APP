@@ -334,6 +334,43 @@ function profileBorderColor(value) {
   return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw.toLowerCase() : "";
 }
 
+function clampProfileAngle(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 90;
+  return Math.max(0, Math.min(360, Math.round(n)));
+}
+
+function clampProfilePercent(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function clampProfileSpan(value, fallback, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(max, Math.round(n)));
+}
+
+function clampProfileOffset(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(-24, Math.min(24, Math.round(n)));
+}
+
+function profileMixColor(color, opacity) {
+  const hex = profileBorderColor(color);
+  const pct = clampProfilePercent(opacity, 100);
+  const base = hex || "var(--panel-alt)";
+  if (pct >= 100 && hex) return hex;
+  if (pct >= 100) return base;
+  return "color-mix(in srgb, " + base + " " + pct + "%, transparent)";
+}
+
+function profileGradientPaint(angle, colorA, colorB) {
+  return "linear-gradient(" + clampProfileAngle(angle) + "deg, " + colorA + ", " + colorB + ")";
+}
+
 function defaultBorderChrome(type, row) {
   const prev = row || {};
   const fallbackW = (type === "avatar" || type === "banner") ? 3 : 1;
@@ -342,7 +379,10 @@ function defaultBorderChrome(type, row) {
   return {
     border_width: clampProfileBorderWidth(prev.border_width, fallbackW),
     border_color: profileBorderColor(prev.border_color) || "#ffffff",
-    border_style: known ? style : "solid"
+    border_style: known ? style : "solid",
+    border_gradient: !!prev.border_gradient,
+    border_color_2: profileBorderColor(prev.border_color_2) || "",
+    border_angle: clampProfileAngle(prev.border_angle == null ? 90 : prev.border_angle)
   };
 }
 
@@ -355,7 +395,28 @@ function defaultTextChrome(type, prev) {
       ? row.text_align
       : (type === "display_name" ? "center" : "left"),
     show_background: row.show_background != null ? !!row.show_background : card,
-    show_border: row.show_border != null ? !!row.show_border : false
+    show_border: row.show_border != null ? !!row.show_border : false,
+    bg_color: profileBorderColor(row.bg_color) || "",
+    bg_opacity: clampProfilePercent(row.bg_opacity, 100),
+    bg_gradient: !!row.bg_gradient,
+    bg_color_2: profileBorderColor(row.bg_color_2) || "",
+    bg_angle: clampProfileAngle(row.bg_angle == null ? 90 : row.bg_angle),
+    radius: row.radius == null || row.radius === "" ? 10 : clampProfileSpan(row.radius, 10, 40),
+    pad: clampProfileSpan(row.pad, 0, 32),
+    show_frame: !!row.show_frame,
+    frame_width: clampProfileBorderWidth(row.frame_width, 4),
+    frame_color: profileBorderColor(row.frame_color) || "#ffffff",
+    frame_gradient: !!row.frame_gradient,
+    frame_color_2: profileBorderColor(row.frame_color_2) || "",
+    frame_angle: clampProfileAngle(row.frame_angle == null ? 90 : row.frame_angle),
+    show_shadow: !!row.show_shadow,
+    shadow_x: clampProfileOffset(row.shadow_x, 0),
+    shadow_y: clampProfileOffset(row.shadow_y, 4),
+    shadow_blur: clampProfileSpan(row.shadow_blur, 12, 40),
+    shadow_spread: clampProfileSpan(row.shadow_spread, 0, 24),
+    shadow_color: profileBorderColor(row.shadow_color) || "#000000",
+    shadow_opacity: clampProfilePercent(row.shadow_opacity, 35),
+    shadow_inset: !!row.shadow_inset
   }, defaultBorderChrome(type, row));
 }
 
@@ -612,23 +673,102 @@ function mountProfileFixedTitle(el, label) {
   el.appendChild(rule);
 }
 
+function profileFillPaint(chrome) {
+  if (!chrome.show_background) return "";
+  const opacity = clampProfilePercent(chrome.bg_opacity, 100);
+  const first = profileMixColor(chrome.bg_color, opacity);
+  if (chrome.bg_gradient && profileBorderColor(chrome.bg_color_2)) {
+    return profileGradientPaint(chrome.bg_angle, first, profileMixColor(chrome.bg_color_2, opacity));
+  }
+  if (profileBorderColor(chrome.bg_color) || opacity < 100) return first;
+  return "";
+}
+
+function clearProfileRings(el) {
+  el.classList.remove("has-widget-border", "has-gradient-border", "has-widget-frame", "has-widget-pad");
+  el.style.boxShadow = "";
+  ["--profile-widget-border-width", "--profile-widget-border-color", "--profile-widget-border-style", "--profile-border-paint", "--profile-frame-width", "--profile-frame-paint", "--profile-pad"].forEach((name) => {
+    el.style.removeProperty(name);
+  });
+}
+
+function applyProfileRing(el, className, width, paint, widthVar, paintVar) {
+  el.classList.add(className);
+  el.style.setProperty(widthVar, width + "px");
+  el.style.setProperty(paintVar, paint);
+}
+
+function applyProfileFramePaint(el, chrome) {
+  el.classList.remove("has-widget-frame");
+  if (!chrome.show_frame) return;
+  const second = profileBorderColor(chrome.frame_color_2);
+  const paint = chrome.frame_gradient && second
+    ? profileGradientPaint(chrome.frame_angle, chrome.frame_color, second)
+    : chrome.frame_color;
+  applyProfileRing(el, "has-widget-frame", chrome.frame_width, paint, "--profile-frame-width", "--profile-frame-paint");
+}
+
+function applyProfileShadowPaint(el, chrome) {
+  if (!chrome.show_shadow) {
+    el.style.boxShadow = "";
+    return;
+  }
+  const color = profileMixColor(chrome.shadow_color || "#000000", chrome.shadow_opacity);
+  const inset = chrome.shadow_inset ? "inset " : "";
+  el.style.boxShadow = inset + chrome.shadow_x + "px " + chrome.shadow_y + "px " + chrome.shadow_blur + "px " + chrome.shadow_spread + "px " + color;
+}
+
+function applyProfileShapePaint(el, chrome, type) {
+  if (type !== "avatar" && chrome.radius != null) el.style.borderRadius = chrome.radius + "px";
+  const frameW = chrome.show_frame ? chrome.frame_width : 0;
+  const pad = Math.max(clampProfileSpan(chrome.pad, 0, 32), frameW);
+  if (pad > 0 && type !== "avatar") {
+    el.classList.add("has-widget-pad");
+    el.style.setProperty("--profile-pad", pad + "px");
+  }
+}
+
+function applyProfileBorderPaint(el, chrome) {
+  el.classList.remove("has-widget-border", "has-gradient-border");
+  el.style.removeProperty("--profile-widget-border-width");
+  el.style.removeProperty("--profile-widget-border-color");
+  el.style.removeProperty("--profile-widget-border-style");
+  el.style.removeProperty("--profile-border-paint");
+  if (!chrome.show_border) return;
+  const second = profileBorderColor(chrome.border_color_2);
+  if (chrome.border_gradient && second) {
+    applyProfileRing(
+      el,
+      "has-gradient-border",
+      chrome.border_width,
+      profileGradientPaint(chrome.border_angle, chrome.border_color, second),
+      "--profile-widget-border-width",
+      "--profile-border-paint"
+    );
+    return;
+  }
+  el.classList.add("has-widget-border");
+  el.style.setProperty("--profile-widget-border-width", chrome.border_width + "px");
+  el.style.setProperty("--profile-widget-border-color", chrome.border_color);
+  el.style.setProperty("--profile-widget-border-style", chrome.border_style);
+}
+
 function applyProfileWidgetSurface(el, tile) {
   if (tile.type === "avatar" || tile.type === "banner") return;
   const chrome = profileTextChrome(tile.props, tile.type);
+  clearProfileRings(el);
+  el.style.background = "";
+  el.style.borderRadius = "";
   if (tile.type !== "display_name") {
     el.classList.toggle("is-clear", !chrome.show_background);
     el.classList.toggle("has-surface", !!chrome.show_background);
+    const fill = profileFillPaint(chrome);
+    if (fill) el.style.background = fill;
   }
-  el.classList.toggle("has-widget-border", !!chrome.show_border);
-  if (chrome.show_border) {
-    el.style.setProperty("--profile-widget-border-width", chrome.border_width + "px");
-    el.style.setProperty("--profile-widget-border-color", chrome.border_color);
-    el.style.setProperty("--profile-widget-border-style", chrome.border_style);
-  } else {
-    el.style.removeProperty("--profile-widget-border-width");
-    el.style.removeProperty("--profile-widget-border-color");
-    el.style.removeProperty("--profile-widget-border-style");
-  }
+  applyProfileBorderPaint(el, chrome);
+  applyProfileFramePaint(el, chrome);
+  applyProfileShadowPaint(el, chrome);
+  applyProfileShapePaint(el, chrome, tile.type);
 }
 
 function mountProfileTextChrome(el, tile) {
@@ -668,14 +808,21 @@ function mountProfileTextChrome(el, tile) {
 }
 
 function applyProfileTileBorder(el, tile, face) {
-  const props = tile.props || {};
   const target = face || el;
-  if (!props.show_border) {
+  const chrome = profileTextChrome(tile.props, tile.type);
+  clearProfileRings(target);
+  const gradientBorder = !!(chrome.show_border && chrome.border_gradient && profileBorderColor(chrome.border_color_2));
+  if (gradientBorder) {
+    target.style.border = "none";
+    applyProfileBorderPaint(target, chrome);
+  } else if (chrome.show_border) {
+    target.style.border = chrome.border_width + "px " + chrome.border_style + " " + chrome.border_color;
+  } else {
     target.style.border = "";
-    return;
   }
-  const chrome = defaultBorderChrome(tile.type, props);
-  target.style.border = chrome.border_width + "px " + chrome.border_style + " " + chrome.border_color;
+  applyProfileFramePaint(target, chrome);
+  applyProfileShadowPaint(target, chrome);
+  if (tile.type === "banner") applyProfileShapePaint(target, chrome, tile.type);
 }
 
 function profileOwnerStatus() {

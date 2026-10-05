@@ -1138,6 +1138,97 @@ function fillRailOptions(box, draft, onChange, hintEl) {
   box.appendChild(typeField.label);
 }
 
+function profileSliderField(labelText, value, min, max, hintEl, hint, onInput) {
+  const label = document.createElement("div");
+  label.className = "profile-opt-field-label";
+  label.textContent = labelText;
+  const row = document.createElement("div");
+  row.className = "profile-opt-slider-row";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = String(min);
+  slider.max = String(max);
+  slider.step = "1";
+  slider.className = "settings-slider";
+  slider.value = String(value);
+  const val = document.createElement("div");
+  val.className = "profile-opt-slider-val";
+  val.textContent = slider.value;
+  profileOptHint(slider, hint, hintEl);
+  slider.addEventListener("input", () => {
+    val.textContent = slider.value;
+    onInput(Number(slider.value));
+  });
+  row.appendChild(slider);
+  row.appendChild(val);
+  return { label, row };
+}
+
+function profileColorFields(labelText, value, hintEl, hint, onPick) {
+  const label = document.createElement("div");
+  label.className = "profile-opt-field-label";
+  label.textContent = labelText;
+  const row = document.createElement("div");
+  row.className = "profile-opt-color-row";
+  const picker = document.createElement("input");
+  picker.type = "color";
+  picker.value = value || "#ffffff";
+  const hex = document.createElement("input");
+  hex.type = "text";
+  hex.maxLength = 7;
+  hex.spellcheck = false;
+  hex.value = (value || "#ffffff").toUpperCase();
+  function setColor(next) {
+    const clean = (typeof profileBorderColor === "function" && profileBorderColor(next)) || value || "#ffffff";
+    picker.value = clean;
+    hex.value = clean.toUpperCase();
+    onPick(clean);
+  }
+  profileOptHint(picker, hint, hintEl);
+  profileOptHint(hex, hint, hintEl);
+  picker.addEventListener("input", () => setColor(picker.value));
+  hex.addEventListener("change", () => setColor(hex.value));
+  row.appendChild(picker);
+  row.appendChild(hex);
+  return { label, row };
+}
+
+function profileToggleExtras(title, hint, on, hintEl, onToggle) {
+  const block = document.createElement("div");
+  block.className = "profile-name-opt";
+  const extras = document.createElement("div");
+  extras.className = "profile-opt-border-extras" + (on ? " is-open" : "");
+  const row = settingsOpt(title, "", settingsToggle(!!on, false, (checked) => {
+    extras.classList.toggle("is-open", checked);
+    onToggle(checked);
+  }));
+  profileOptHint(row, hint, hintEl);
+  block.appendChild(row);
+  block.appendChild(extras);
+  return { block, extras };
+}
+
+function profileGradientExtras(draft, onKey, colorKey, angleKey, hintEl, onChange) {
+  const group = profileToggleExtras("Gradient", "Blend two colors. The angle sets which way they face.", !!draft[onKey], hintEl, (on) => {
+    draft[onKey] = on;
+    if (on && !draft[colorKey]) draft[colorKey] = "#8b5cf6";
+    onChange();
+  });
+  const color = profileColorFields("Second color", draft[colorKey] || "#8b5cf6", hintEl, "Second color in the blend.", (clean) => {
+    draft[colorKey] = clean;
+    onChange();
+  });
+  const angle = profileSliderField("Angle", draft[angleKey], 0, 360, hintEl, "Direction of the blend, from 0 to 360.", (n) => {
+    draft[angleKey] = n;
+    onChange();
+  });
+  group.extras.appendChild(color.label);
+  group.extras.appendChild(color.row);
+  group.extras.appendChild(angle.label);
+  group.extras.appendChild(angle.row);
+  return group.block;
+}
+
 function fillBorderExtras(host, draft, onChange, hintEl) {
   const wrap = document.createElement("div");
   wrap.className = "profile-opt-border-extras" + (draft.show_border ? " is-open" : "");
@@ -1204,6 +1295,14 @@ function fillBorderExtras(host, draft, onChange, hintEl) {
     onChange();
   });
   wrap.appendChild(typeField.label);
+  const borderBlend = profileGradientExtras(draft, "border_gradient", "border_color_2", "border_angle", hintEl, onChange);
+  const borderBlendToggle = borderBlend.querySelector("input");
+  const syncBorderType = () => {
+    typeField.label.hidden = !!(borderBlendToggle && borderBlendToggle.checked);
+  };
+  if (borderBlendToggle) borderBlendToggle.addEventListener("change", syncBorderType);
+  syncBorderType();
+  wrap.appendChild(borderBlend);
   host.appendChild(wrap);
   return wrap;
 }
@@ -1212,16 +1311,42 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
   const chrome = defaultTextChrome(tile.type, draft);
   Object.assign(draft, chrome);
   if (tile.type !== "avatar" && tile.type !== "banner" && tile.type !== "display_name") {
-    const bgRow = settingsOpt(
-      "Background",
-      "",
-      settingsToggle(draft.show_background, false, (on) => {
-        draft.show_background = on;
-        onChange();
-      })
-    );
-    profileOptHint(bgRow, "Fill the widget with the panel color.", hintEl);
-    box.appendChild(bgRow);
+    const bg = profileToggleExtras("Background", "Fill the widget. A chosen color replaces the theme.", draft.show_background, hintEl, (on) => {
+      draft.show_background = on;
+      onChange();
+    });
+    const custom = profileToggleExtras("Color", "Use a chosen color instead of the theme.", !!draft.bg_color, hintEl, (on) => {
+      draft.bg_color = on ? (draft.bg_color || "#251c3d") : "";
+      onChange();
+    });
+    const picked = profileColorFields("Color", draft.bg_color || "#251c3d", hintEl, "Background color. This replaces the theme.", (clean) => {
+      draft.bg_color = clean;
+      onChange();
+    });
+    custom.extras.appendChild(picked.row);
+    bg.extras.appendChild(custom.block);
+    const fade = profileSliderField("Opacity", draft.bg_opacity, 0, 100, hintEl, "How solid the fill is.", (n) => {
+      draft.bg_opacity = n;
+      onChange();
+    });
+    bg.extras.appendChild(fade.label);
+    bg.extras.appendChild(fade.row);
+    bg.extras.appendChild(profileGradientExtras(draft, "bg_gradient", "bg_color_2", "bg_angle", hintEl, onChange));
+    box.appendChild(bg.block);
+  }
+  if (tile.type !== "avatar") {
+    const radius = profileSliderField("Radius", draft.radius, 0, 40, hintEl, "How round the corners are.", (n) => {
+      draft.radius = n;
+      onChange();
+    });
+    const pad = profileSliderField("Padding", draft.pad, 0, 32, hintEl, "Space inside the widget.", (n) => {
+      draft.pad = n;
+      onChange();
+    });
+    box.appendChild(radius.label);
+    box.appendChild(radius.row);
+    box.appendChild(pad.label);
+    box.appendChild(pad.row);
   }
   const extrasHost = document.createElement("div");
   extrasHost.className = "profile-opt-border-block";
@@ -1238,6 +1363,68 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
   extrasHost.appendChild(borderRow);
   fillBorderExtras(extrasHost, draft, onChange, hintEl);
   box.appendChild(extrasHost);
+
+  const frame = profileToggleExtras("Frame", "Draw a ring around the widget.", draft.show_frame, hintEl, (on) => {
+    draft.show_frame = on;
+    onChange();
+  });
+  const frameWidth = profileSliderField("Thickness", draft.frame_width, 1, 10, hintEl, "How thick the frame is.", (n) => {
+    draft.frame_width = n;
+    onChange();
+  });
+  const frameColor = profileColorFields("Color", draft.frame_color || "#ffffff", hintEl, "Frame color.", (clean) => {
+    draft.frame_color = clean;
+    onChange();
+  });
+  frame.extras.appendChild(frameWidth.label);
+  frame.extras.appendChild(frameWidth.row);
+  frame.extras.appendChild(frameColor.label);
+  frame.extras.appendChild(frameColor.row);
+  frame.extras.appendChild(profileGradientExtras(draft, "frame_gradient", "frame_color_2", "frame_angle", hintEl, onChange));
+  box.appendChild(frame.block);
+
+  const shadow = profileToggleExtras("Shadow", "Draw a shadow on the widget.", draft.show_shadow, hintEl, (on) => {
+    draft.show_shadow = on;
+    onChange();
+  });
+  const shadowX = profileSliderField("Across", draft.shadow_x, -24, 24, hintEl, "Move the shadow left or right.", (n) => {
+    draft.shadow_x = n;
+    onChange();
+  });
+  const shadowY = profileSliderField("Down", draft.shadow_y, -24, 24, hintEl, "Move the shadow up or down.", (n) => {
+    draft.shadow_y = n;
+    onChange();
+  });
+  const shadowBlur = profileSliderField("Blur", draft.shadow_blur, 0, 40, hintEl, "Soften the shadow.", (n) => {
+    draft.shadow_blur = n;
+    onChange();
+  });
+  const shadowSpread = profileSliderField("Spread", draft.shadow_spread, 0, 24, hintEl, "Grow or shrink the shadow.", (n) => {
+    draft.shadow_spread = n;
+    onChange();
+  });
+  const shadowColor = profileColorFields("Color", draft.shadow_color || "#000000", hintEl, "Shadow color.", (clean) => {
+    draft.shadow_color = clean;
+    onChange();
+  });
+  const shadowFade = profileSliderField("Opacity", draft.shadow_opacity, 0, 100, hintEl, "How solid the shadow is.", (n) => {
+    draft.shadow_opacity = n;
+    onChange();
+  });
+  const inset = settingsOpt("Inset", "", settingsToggle(draft.shadow_inset, false, (on) => {
+    draft.shadow_inset = on;
+    onChange();
+  }));
+  inset.classList.add("profile-name-opt");
+  profileOptHint(inset, "Draw the shadow inside the edge.", hintEl);
+  [shadowX, shadowY, shadowBlur, shadowSpread, shadowFade].forEach((field) => {
+    shadow.extras.appendChild(field.label);
+    shadow.extras.appendChild(field.row);
+  });
+  shadow.extras.appendChild(shadowColor.label);
+  shadow.extras.appendChild(shadowColor.row);
+  shadow.extras.appendChild(inset);
+  box.appendChild(shadow.block);
 
   const zBlock = document.createElement("div");
   zBlock.className = "profile-opt-border-block";

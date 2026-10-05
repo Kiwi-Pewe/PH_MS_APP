@@ -12,23 +12,74 @@ function appsLaterNote(text) {
 }
 
 const CONNECTION_PROVIDERS = [
-  "YouTube",
-  "Battle.net",
-  "Bluesky",
-  "Patreon",
-  "Reddit",
-  "Steam",
-  "X",
-  "eBay",
-  "Crunchyroll",
-  "PlayStation"
+  { name: "YouTube", mark: "\u25b6", color: "#ff0033" },
+  { name: "Battle.net", mark: "B", color: "#148eff" },
+  { name: "Bluesky", mark: "B", color: "#1185fe" },
+  { name: "Patreon", mark: "P", color: "#ff424d" },
+  { name: "Reddit", mark: "R", color: "#ff4500" },
+  { name: "Steam", mark: "S", color: "#1b2838", ink: "#66c0f4" },
+  { name: "X", mark: "X", color: "#0f0f0f", ink: "#e7e9ea" },
+  { name: "eBay", mark: "e", color: "#e53238" },
+  { name: "Crunchyroll", mark: "C", color: "#f47521" },
+  { name: "PlayStation", mark: "PS", color: "#003791" }
 ];
 
-function connectionLetter(name) {
-  if (name === "Battle.net") return "Bn";
-  if (name === "PlayStation") return "PS";
-  if (name === "Crunchyroll") return "Cr";
-  return (name || "?").slice(0, 1);
+const STEAM_CONNECTION_PARTS = [
+  "Identity",
+  "Playing now",
+  "Recently played",
+  "Library",
+  "Achievements",
+  "Level and badges"
+];
+
+function paintConnectionIcon(name, mark, color, ink) {
+  const face = document.createElement("span");
+  face.className = "connection-face";
+  face.style.background = color;
+  face.style.color = ink || "#fff";
+  face.textContent = mark;
+  face.title = name;
+  return face;
+}
+
+function paintConnectionCard(service, parts) {
+  const card = document.createElement("div");
+  card.className = "connection-card";
+  const head = document.createElement("div");
+  head.className = "connection-card-head";
+  const provider = CONNECTION_PROVIDERS.find(item => item.name === service);
+  head.appendChild(paintConnectionIcon(service, provider ? provider.mark : service.slice(0, 1), provider ? provider.color : "var(--panel)", provider && provider.ink));
+  const who = document.createElement("div");
+  who.className = "connection-card-who";
+  const account = document.createElement("div");
+  account.className = "connection-card-name is-empty";
+  account.textContent = service + " name";
+  const label = document.createElement("div");
+  label.className = "connection-card-service";
+  label.textContent = service;
+  who.appendChild(account);
+  who.appendChild(label);
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "connection-card-remove";
+  remove.disabled = true;
+  remove.setAttribute("aria-label", "Disconnect " + service);
+  remove.textContent = "\u00d7";
+  head.appendChild(who);
+  head.appendChild(remove);
+  card.appendChild(head);
+  parts.forEach(part => {
+    const row = document.createElement("div");
+    row.className = "connection-part";
+    const title = document.createElement("div");
+    title.className = "connection-part-title";
+    title.textContent = part;
+    row.appendChild(title);
+    row.appendChild(settingsToggle(false, true));
+    card.appendChild(row);
+  });
+  return card;
 }
 
 function paintConnections(host) {
@@ -44,14 +95,14 @@ function paintConnections(host) {
 
   const row = document.createElement("div");
   row.className = "connections-add-row";
-  CONNECTION_PROVIDERS.forEach(name => {
+  CONNECTION_PROVIDERS.forEach(item => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "connection-provider";
-    btn.title = name;
-    btn.setAttribute("aria-label", name);
+    btn.title = item.name;
+    btn.setAttribute("aria-label", item.name);
     btn.disabled = true;
-    btn.textContent = connectionLetter(name);
+    btn.appendChild(paintConnectionIcon(item.name, item.mark, item.color, item.ink));
     row.appendChild(btn);
   });
   const more = document.createElement("button");
@@ -60,28 +111,15 @@ function paintConnections(host) {
   more.title = "More";
   more.setAttribute("aria-label", "More");
   more.disabled = true;
-  more.textContent = ">";
+  more.textContent = "\u203a";
   row.appendChild(more);
   host.appendChild(row);
 
   const count = document.createElement("div");
-  count.className = "settings-opt-title";
-  count.style.marginTop = "18px";
-  count.textContent = "0 connections";
+  count.className = "settings-opt-title connection-count";
+  count.textContent = "1 connection";
   host.appendChild(count);
-
-  const empty = document.createElement("div");
-  empty.className = "settings-empty-card is-left";
-  const emptyTitle = document.createElement("div");
-  emptyTitle.className = "settings-opt-title";
-  emptyTitle.textContent = "No connections";
-  const emptyBody = document.createElement("div");
-  emptyBody.className = "settings-opt-desc";
-  emptyBody.textContent = "Accounts you link here can show on your profile. Display on profile would be a toggle on each connection.";
-  empty.appendChild(emptyTitle);
-  empty.appendChild(emptyBody);
-  host.appendChild(empty);
-  host.appendChild(appsLaterNote("Linking accounts like Steam or Roblox isn't built yet. That's why the list is empty."));
+  host.appendChild(paintConnectionCard("Steam", STEAM_CONNECTION_PARTS));
 }
 
 function paintAuthorizedApps(host) {

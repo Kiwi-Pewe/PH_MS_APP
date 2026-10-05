@@ -67,18 +67,14 @@ const PROFILE_TILE_TYPES = {
   avatar: { w: 4, h: 4, minW: 2, minH: 2, maxW: 4, maxH: 4, label: "Avatar" },
   display_name: { w: 5, h: 2, minW: 3, minH: 2, maxW: 5, maxH: 8, label: "Display name" },
   member_since: { w: 6, h: 2, minW: 4, minH: 2, maxW: 10, maxH: 3, label: "Member since" },
-  bio: { w: 14, h: 5, minW: 6, minH: 5, maxW: 14, maxH: 6, label: "Bio" },
   friends: { w: 6, h: 11, minW: 4, minH: 11, maxW: 6, maxH: 15, label: "Friends" },
   header: { w: 16, h: 2, minW: 4, minH: 1, maxW: 32, maxH: 3, label: "Header" },
   body: { w: 14, h: 4, minW: 6, minH: 2, maxW: 32, maxH: 12, label: "Body" },
   footnote: { w: 12, h: 1, minW: 4, minH: 1, maxW: 32, maxH: 3, label: "Footnote" },
   list: { w: 10, h: 6, minW: 6, minH: 3, maxW: 20, maxH: 16, label: "List" },
   spoiler: { w: 10, h: 3, minW: 6, minH: 2, maxW: 20, maxH: 10, label: "Spoiler" },
-  stats: { w: 10, h: 4, minW: 6, minH: 2, maxW: 20, maxH: 10, label: "Stats" },
-  callout: { w: 12, h: 3, minW: 6, minH: 2, maxW: 24, maxH: 8, label: "Callout" },
   divider: { w: 32, h: 1, minW: 1, minH: 1, maxW: 32, maxH: 24, label: "Divider" },
   rail: { w: 8, h: 1, minW: 1, minH: 1, maxW: 8, maxH: 8, label: "Rail" },
-  spacer: { w: 8, h: 2, minW: 2, minH: 1, maxW: 32, maxH: 8, label: "Spacer" },
   link_tree: { w: 8, h: 10, minW: 5, minH: 6, maxW: 8, maxH: 12, label: "Link Tree" },
   button: { w: 8, h: 2, minW: 4, minH: 1, maxW: 16, maxH: 3, label: "Button" },
   details: { w: 6, h: 2, minW: 5, minH: 2, maxW: 6, maxH: 3, label: "Local Time" },
@@ -97,11 +93,6 @@ const PROFILE_TILE_TYPES = {
 const DISPLAY_SERVER_MAX = 20;
 
 const PROFILE_PLACEHOLDERS = {
-  interests: { label: "Interests", w: 10, h: 3, minW: 6, minH: 2, maxW: 20, maxH: 8 },
-  looking_for: { label: "Looking for", w: 10, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 8 },
-  fun_facts: { label: "Fun facts", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 12 },
-  schedule: { label: "Schedule", w: 10, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 8 },
-  setup: { label: "Setup", w: 10, h: 4, minW: 6, minH: 2, maxW: 16, maxH: 10 },
   connections: { label: "Connections", w: 10, h: 6, minW: 8, minH: 4, maxW: 16, maxH: 14 },
   featured_friend: { label: "Featured friend", w: 8, h: 4, minW: 6, minH: 3, maxW: 12, maxH: 8 },
   mutuals: { label: "Mutuals", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 12 },
@@ -513,8 +504,6 @@ function defaultProfileTileProps(type, existing) {
   if (type === "footnote") return Object.assign({ text: prev.text || "" }, chrome);
   if (type === "list") return Object.assign({ style: "bullet", items: Array.isArray(prev.items) ? prev.items.slice() : [] }, chrome);
   if (type === "spoiler") return Object.assign({ title: prev.title || "", text: prev.text || "", start_open: !!prev.start_open }, chrome);
-  if (type === "stats") return Object.assign({ rows: Array.isArray(prev.rows) ? prev.rows.map(row => Object.assign({}, row)) : [] }, chrome);
-  if (type === "callout") return Object.assign({ text: prev.text || "", tone: prev.tone === "warning" ? "warning" : "tip" }, chrome);
   if (type === "divider") {
     return Object.assign({
       style: prev.style || "solid",
@@ -690,7 +679,7 @@ function applyProfileTileStyle(el, tile) {
 }
 
 function profileUsesTextChrome(type) {
-  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "spoiler" || type === "stats" || type === "callout" || type === "bio";
+  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "spoiler" || type === "bio";
 }
 
 function profileHasFixedTitle(type) {
@@ -1058,14 +1047,6 @@ function paintProfileRail(tile, el) {
   bar.style.setProperty("--profile-rail-thickness", (props.thickness || 4) + "px");
   bar.style.setProperty("--profile-rail-color", props.color || "#ffffff");
   el.appendChild(bar);
-}
-
-function paintProfileSpacer(el) {
-  if (!(profileEditing && profileIsOwn)) return;
-  const note = document.createElement("div");
-  note.className = "profile-spacer-label";
-  note.textContent = "Spacer";
-  el.appendChild(note);
 }
 
 function paintProfileLinkTree(tile, el) {
@@ -1710,7 +1691,7 @@ function paintProfileFriends(host) {
 }
 
 function profileTileIsText(type) {
-  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "bio" || type === "spoiler" || type === "stats" || type === "callout";
+  return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "bio" || type === "spoiler";
 }
 
 function bindProfileTextField(area, tile, onValue) {
@@ -1821,22 +1802,6 @@ function paintProfileList(tile, el) {
   el.appendChild(list);
 }
 
-function profileStatRowsFromText(text) {
-  return String(text || "").split("\n").slice(0, 20).map(line => {
-    const idx = line.indexOf("|");
-    if (idx === -1) return { label: line.trim(), value: "" };
-    return { label: line.slice(0, idx).trim(), value: line.slice(idx + 1).trim() };
-  }).filter(row => row.label || row.value);
-}
-
-function profileStatRowsToText(rows) {
-  return (Array.isArray(rows) ? rows : []).map(row => {
-    const label = (row && row.label) || "";
-    const value = (row && row.value) || "";
-    return value ? label + " | " + value : label;
-  }).join("\n");
-}
-
 function paintProfileSpoiler(tile, el) {
   const title = (tile.props && tile.props.title) || "";
   const text = (tile.props && tile.props.text) || "";
@@ -1883,62 +1848,6 @@ function paintProfileSpoiler(tile, el) {
   wrap.appendChild(toggle);
   wrap.appendChild(body);
   el.appendChild(wrap);
-}
-
-function paintProfileStats(tile, el) {
-  const rows = Array.isArray(tile.props && tile.props.rows) ? tile.props.rows : [];
-  if (profileEditing && profileIsOwn) {
-    const area = document.createElement("textarea");
-    area.className = "profile-tile-list-edit";
-    area.value = profileStatRowsToText(rows);
-    area.placeholder = "Label | value  (one per line)";
-    bindProfileTextField(area, tile, (value) => {
-      tile.props.rows = profileStatRowsFromText(value);
-    });
-    el.appendChild(area);
-    return;
-  }
-  const table = document.createElement("div");
-  table.className = "profile-stats";
-  const shown = rows.filter(row => (row && (row.label || row.value)));
-  if (!shown.length) {
-    const empty = document.createElement("div");
-    empty.className = "is-empty";
-    empty.textContent = "No stats yet.";
-    table.appendChild(empty);
-  } else {
-    shown.forEach(row => {
-      const label = document.createElement("div");
-      label.className = "profile-stat-label";
-      label.textContent = row.label || "";
-      const value = document.createElement("div");
-      value.className = "profile-stat-value";
-      value.textContent = row.value || "";
-      table.appendChild(label);
-      table.appendChild(value);
-    });
-  }
-  el.appendChild(table);
-}
-
-function paintProfileCallout(tile, el) {
-  const text = (tile.props && tile.props.text) || "";
-  const tone = (tile.props && tile.props.tone) === "warning" ? "warning" : "tip";
-  if (profileEditing && profileIsOwn) {
-    const area = document.createElement("textarea");
-    area.className = "profile-callout-copy is-" + tone;
-    area.value = text;
-    area.maxLength = 300;
-    area.placeholder = tone === "warning" ? "Warning" : "Tip";
-    bindProfileTextField(area, tile, (value) => { tile.props.text = value; });
-    el.appendChild(area);
-    return;
-  }
-  const node = document.createElement("div");
-  node.className = "profile-callout-copy is-" + tone;
-  node.textContent = text || (tone === "warning" ? "Warning" : "Tip");
-  if (!text) node.classList.add("is-empty");
-  el.appendChild(node);
 }
 
 function paintProfilePlaceholder(tile, el) {
@@ -2069,28 +1978,12 @@ function paintProfileTileContent(tile, el) {
     paintProfileSpoiler(tile, host);
     return;
   }
-  if (tile.type === "stats") {
-    paintProfileStats(tile, host);
-    return;
-  }
-  if (tile.type === "callout") {
-    paintProfileCallout(tile, host);
-    return;
-  }
-  if (tile.type === "bio") {
-    paintProfileCopy(tile, host, "bio");
-    return;
-  }
   if (tile.type === "divider") {
     paintProfileDivider(tile, el);
     return;
   }
   if (tile.type === "rail") {
     paintProfileRail(tile, el);
-    return;
-  }
-  if (tile.type === "spacer") {
-    paintProfileSpacer(el);
     return;
   }
   if (tile.type === "link_tree") {
@@ -2145,13 +2038,15 @@ function paintProfileTileContent(tile, el) {
     paintProfilePlaceholder(tile, el);
     return;
   }
-  mountProfileFixedTitle(el, "Friends");
-  applyProfileWidgetSurface(el, tile);
-  applyProfileFriendSize(el, tile);
-  const body = document.createElement("div");
-  body.className = "profile-tile-body";
-  paintProfileFriends(body);
-  el.appendChild(body);
+  if (tile.type === "friends") {
+    mountProfileFixedTitle(el, "Friends");
+    applyProfileWidgetSurface(el, tile);
+    applyProfileFriendSize(el, tile);
+    const body = document.createElement("div");
+    body.className = "profile-tile-body";
+    paintProfileFriends(body);
+    el.appendChild(body);
+  }
 }
 
 function syncProfilePaletteForPage() {

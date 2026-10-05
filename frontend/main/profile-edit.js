@@ -60,8 +60,7 @@ const PROFILE_PALETTE = [
       { type: "video", label: "Video" },
       { type: "embed", label: "Embed" },
       { type: "music", label: "Music" },
-      { type: "gallery", label: "Gallery" },
-      { type: "gif", label: "GIF" }
+      { type: "gallery", label: "Gallery" }
     ]
   },
   {

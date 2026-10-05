@@ -20,13 +20,13 @@ router = APIRouter()
 GRID_COLS = 32
 OLD_GRID_COLS = 12
 TILE_TYPES = {
-    "banner", "avatar", "display_name", "member_since", "bio", "friends", "header", "body", "footnote", "list",
-    "divider", "rail", "spacer", "link_tree",
-    "spoiler", "stats", "callout", "button",
-    "local_time", "details", "interests", "looking_for", "fun_facts", "schedule", "setup",
+    "banner", "avatar", "display_name", "member_since", "friends", "header", "body", "footnote", "list",
+    "divider", "rail", "link_tree",
+    "spoiler", "button",
+    "local_time", "details",
     "connections", "featured_friend", "mutuals",
     "frame", "color_block", "icon", "meter", "clock", "countdown",
-    "image", "video", "music", "embed", "gallery", "slideshow", "gif",
+    "image", "video", "music", "embed", "gallery", "slideshow",
     "comments", "display_server", "server_list", "featured_server",
     "achievements", "recently_played", "favorite_game", "currently_playing",
     "want_to_play", "games_played", "game_stats", "library", "review",
@@ -51,9 +51,6 @@ PRONOUNS_MAX = 32
 HEADER_LEVELS = {1, 2, 3}
 LIST_STYLES = {"bullet", "number"}
 DIVIDER_STYLES = {"solid", "dashed", "dotted"}
-CALLOUT_TONES = {"tip", "warning"}
-STAT_MAX_ROWS = 20
-STAT_FIELD_MAX = 80
 BUTTON_ACTIONS = {"link", "page", "friend"}
 BUTTON_LABEL_MAX = 48
 BODY_TITLE_MAX = 48
@@ -158,26 +155,17 @@ def tile_bounds(kind, props=None):
         "avatar": (2, 2, 4, 4),
         "display_name": (3, 2, 5, 8),
         "member_since": (4, 2, 10, 3),
-        "bio": (6, 5, 14, 6),
         "friends": (4, 11, 6, 15),
         "header": (4, 1, 32, 3),
         "body": (6, 2, 32, 12),
         "footnote": (4, 1, 32, 3),
         "list": (6, 3, 20, 16),
         "divider": (6, 1, 32, 2),
-        "spacer": (2, 1, 32, 8),
         "link_tree": (5, 6, 8, 12),
         "spoiler": (6, 2, 20, 10),
-        "stats": (6, 2, 20, 10),
-        "callout": (6, 2, 24, 8),
         "button": (4, 1, 16, 3),
         "local_time": (5, 2, 6, 3),
         "details": (5, 2, 6, 3),
-        "interests": (6, 2, 20, 8),
-        "looking_for": (6, 2, 16, 8),
-        "fun_facts": (6, 3, 16, 12),
-        "schedule": (6, 2, 16, 8),
-        "setup": (6, 2, 16, 10),
         "connections": (8, 4, 16, 14),
         "featured_friend": (6, 3, 12, 8),
         "mutuals": (6, 3, 16, 12),
@@ -193,7 +181,6 @@ def tile_bounds(kind, props=None):
         "embed": (8, 5, 20, 12),
         "gallery": (3, 3, 9, 9),
         "slideshow": (3, 3, 9, 9),
-        "gif": (4, 3, 16, 12),
         "comments": (8, 6, 24, 18),
         "display_server": (6, 4, 16, 18),
         "server_list": (6, 4, 16, 18),
@@ -216,7 +203,6 @@ def default_sizes(kind):
         "avatar": (4, 4),
         "display_name": (5, 2),
         "member_since": (6, 2),
-        "bio": (14, 5),
         "friends": (6, 11),
         "header": (16, 2),
         "body": (14, 4),
@@ -224,19 +210,11 @@ def default_sizes(kind):
         "list": (10, 6),
         "divider": (32, 1),
         "rail": (8, 1),
-        "spacer": (8, 2),
         "link_tree": (8, 10),
         "spoiler": (10, 3),
-        "stats": (10, 4),
-        "callout": (12, 3),
         "button": (8, 2),
         "local_time": (6, 2),
         "details": (6, 2),
-        "interests": (10, 3),
-        "looking_for": (10, 3),
-        "fun_facts": (10, 5),
-        "schedule": (10, 3),
-        "setup": (10, 4),
         "connections": (10, 6),
         "featured_friend": (8, 4),
         "mutuals": (10, 5),
@@ -252,7 +230,6 @@ def default_sizes(kind):
         "embed": (12, 7),
         "gallery": (6, 6),
         "slideshow": (6, 6),
-        "gif": (8, 6),
         "comments": (12, 10),
         "display_server": (10, 8),
         "server_list": (10, 8),
@@ -428,24 +405,6 @@ def normalize_list_items(data):
         if len(items) >= LIST_MAX_ITEMS:
             break
     return items
-
-
-def normalize_stat_rows(data):
-    rows = []
-    raw = data.get("rows")
-    if not isinstance(raw, list):
-        return rows
-    for row in raw:
-        if not isinstance(row, dict):
-            continue
-        label = clip_text(row.get("label"), STAT_FIELD_MAX).strip()
-        value = clip_text(row.get("value"), STAT_FIELD_MAX).strip()
-        if not label and not value:
-            continue
-        rows.append({"label": label, "value": value})
-        if len(rows) >= STAT_MAX_ROWS:
-            break
-    return rows
 
 
 def clean_link_url(value):
@@ -1072,18 +1031,6 @@ def normalize_props(kind, props, banner_fallback):
         out["text"] = clip_text(data.get("text"), BIO_MAX)
         out["start_open"] = bool(data.get("start_open"))
         return out
-    if kind == "stats":
-        out = normalize_text_chrome(data, 14, True)
-        out["rows"] = normalize_stat_rows(data)
-        return out
-    if kind == "callout":
-        tone = str(data.get("tone") or "tip")
-        if tone not in CALLOUT_TONES:
-            tone = "tip"
-        out = normalize_text_chrome(data, 14, True)
-        out["text"] = clip_text(data.get("text"), FOOTNOTE_MAX)
-        out["tone"] = tone
-        return out
     if kind == "button":
         action = str(data.get("action") or "link")
         if action not in BUTTON_ACTIONS:
@@ -1114,8 +1061,6 @@ def normalize_props(kind, props, banner_fallback):
         out["color"] = clean_hex(data.get("color"), "#ffffff")
         out["style"] = style
         return out
-    if kind == "spacer":
-        return normalize_text_chrome(data, 14, False)
     if kind == "link_tree":
         out = normalize_text_chrome(data, 14, True)
         out["links"] = normalize_links(data)
@@ -1307,6 +1252,22 @@ def normalize_layout(raw):
         return seed_layout()
     out = {"grid_cols": GRID_COLS, "pages": ensure_mini_profile_page(pages)}
     raw_mini = data.get("mini_profile") if isinstance(data.get("mini_profile"), dict) else {}
+    if not str(raw_mini.get("text") or "").strip():
+        for page in pages_in:
+            if not isinstance(page, dict):
+                continue
+            found = ""
+            for tile in page.get("tiles") or []:
+                if not isinstance(tile, dict) or tile.get("type") != "bio":
+                    continue
+                props = tile.get("props") if isinstance(tile.get("props"), dict) else {}
+                found = str(props.get("text") or "").strip()
+                if found:
+                    break
+            if found:
+                raw_mini = dict(raw_mini)
+                raw_mini["text"] = found
+                break
     out["mini_profile"] = normalize_props("bio", raw_mini, banner_fallback)
     out["identity"] = normalize_identity(data.get("identity"))
     out["image_recents"] = normalize_image_recents(data.get("image_recents"))

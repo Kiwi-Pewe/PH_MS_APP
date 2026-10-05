@@ -5511,6 +5511,12 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .profile-opt-left label[hidden] { display: none; }
 .profile-opt-left .toggle-switch { display: inline-block; margin: 0; font-weight: 400; color: inherit; }
+.profile-opt-left > .profile-name-opt,
+.profile-opt-left > .profile-design-rule {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
 .profile-name-opt .settings-opt { border-bottom: none; padding-bottom: 8px; }
 .profile-name-opt .profile-opt-border-extras.is-open { padding-top: 0; }
 .profile-opt-left input:not([type="checkbox"]):not([type="range"]):not([type="color"]), .profile-opt-left select {

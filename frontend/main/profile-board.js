@@ -367,8 +367,11 @@ function profileMixColor(color, opacity) {
   return "color-mix(in srgb, " + base + " " + pct + "%, transparent)";
 }
 
-function profileGradientPaint(angle, colorA, colorB) {
-  return "linear-gradient(" + clampProfileAngle(angle) + "deg, " + colorA + ", " + colorB + ")";
+function profileGradientPaint(angle, colorA, colorB, offset, fade) {
+  const stop = clampProfilePercent(offset, 50);
+  const pct = clampProfilePercent(fade, 100);
+  const soften = (color) => pct >= 100 ? color : "color-mix(in srgb, " + color + " " + pct + "%, transparent)";
+  return "linear-gradient(" + clampProfileAngle(angle) + "deg, " + soften(colorA) + " 0%, " + soften(colorB) + " " + stop + "%)";
 }
 
 function defaultBorderChrome(type, row) {
@@ -382,7 +385,9 @@ function defaultBorderChrome(type, row) {
     border_style: known ? style : "solid",
     border_gradient: !!prev.border_gradient,
     border_color_2: profileBorderColor(prev.border_color_2) || "",
-    border_angle: clampProfileAngle(prev.border_angle == null ? 90 : prev.border_angle)
+    border_angle: clampProfileAngle(prev.border_angle == null ? 90 : prev.border_angle),
+    border_offset: clampProfilePercent(prev.border_offset, 50),
+    border_gradient_opacity: clampProfilePercent(prev.border_gradient_opacity, 100)
   };
 }
 
@@ -401,6 +406,8 @@ function defaultTextChrome(type, prev) {
     bg_gradient: !!row.bg_gradient,
     bg_color_2: profileBorderColor(row.bg_color_2) || "",
     bg_angle: clampProfileAngle(row.bg_angle == null ? 90 : row.bg_angle),
+    bg_offset: clampProfilePercent(row.bg_offset, 50),
+    bg_gradient_opacity: clampProfilePercent(row.bg_gradient_opacity, 100),
     radius: row.radius == null || row.radius === "" ? 10 : clampProfileSpan(row.radius, 10, 40),
     pad: clampProfileSpan(row.pad, 0, 32),
     show_frame: !!row.show_frame,
@@ -409,6 +416,8 @@ function defaultTextChrome(type, prev) {
     frame_gradient: !!row.frame_gradient,
     frame_color_2: profileBorderColor(row.frame_color_2) || "",
     frame_angle: clampProfileAngle(row.frame_angle == null ? 90 : row.frame_angle),
+    frame_offset: clampProfilePercent(row.frame_offset, 50),
+    frame_gradient_opacity: clampProfilePercent(row.frame_gradient_opacity, 100),
     show_shadow: !!row.show_shadow,
     shadow_x: clampProfileOffset(row.shadow_x, 0),
     shadow_y: clampProfileOffset(row.shadow_y, 4),
@@ -678,7 +687,7 @@ function profileFillPaint(chrome) {
   const opacity = clampProfilePercent(chrome.bg_opacity, 100);
   const first = profileMixColor(chrome.bg_color, opacity);
   if (chrome.bg_gradient && profileBorderColor(chrome.bg_color_2)) {
-    return profileGradientPaint(chrome.bg_angle, first, profileMixColor(chrome.bg_color_2, opacity));
+    return profileGradientPaint(chrome.bg_angle, first, profileMixColor(chrome.bg_color_2, opacity), chrome.bg_offset, chrome.bg_gradient_opacity);
   }
   if (profileBorderColor(chrome.bg_color) || opacity < 100) return first;
   return "";
@@ -703,7 +712,7 @@ function applyProfileFramePaint(el, chrome) {
   if (!chrome.show_frame) return;
   const second = profileBorderColor(chrome.frame_color_2);
   const paint = chrome.frame_gradient && second
-    ? profileGradientPaint(chrome.frame_angle, chrome.frame_color, second)
+    ? profileGradientPaint(chrome.frame_angle, chrome.frame_color, second, chrome.frame_offset, chrome.frame_gradient_opacity)
     : chrome.frame_color;
   applyProfileRing(el, "has-widget-frame", chrome.frame_width, paint, "--profile-frame-width", "--profile-frame-paint");
 }
@@ -741,7 +750,7 @@ function applyProfileBorderPaint(el, chrome) {
       el,
       "has-gradient-border",
       chrome.border_width,
-      profileGradientPaint(chrome.border_angle, chrome.border_color, second),
+      profileGradientPaint(chrome.border_angle, chrome.border_color, second, chrome.border_offset, chrome.border_gradient_opacity),
       "--profile-widget-border-width",
       "--profile-border-paint"
     );

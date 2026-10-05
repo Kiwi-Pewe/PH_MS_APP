@@ -1208,7 +1208,7 @@ function profileToggleExtras(title, hint, on, hintEl, onToggle) {
   return { block, extras };
 }
 
-function profileGradientExtras(draft, onKey, colorKey, angleKey, hintEl, onChange) {
+function profileGradientExtras(draft, onKey, colorKey, angleKey, offsetKey, fadeKey, hintEl, onChange) {
   const group = profileToggleExtras("Gradient", "Blend two colors. The angle sets which way they face.", !!draft[onKey], hintEl, (on) => {
     draft[onKey] = on;
     if (on && !draft[colorKey]) draft[colorKey] = "#8b5cf6";
@@ -1222,10 +1222,22 @@ function profileGradientExtras(draft, onKey, colorKey, angleKey, hintEl, onChang
     draft[angleKey] = n;
     onChange();
   });
+  const offset = profileSliderField("Offset", draft[offsetKey], 0, 100, hintEl, "How close the second color sits to the center. 50 is the center.", (n) => {
+    draft[offsetKey] = n;
+    onChange();
+  });
+  const fade = profileSliderField("Transparency", 100 - Number(draft[fadeKey] == null ? 100 : draft[fadeKey]), 0, 100, hintEl, "How see-through the blend is.", (n) => {
+    draft[fadeKey] = 100 - n;
+    onChange();
+  });
   group.extras.appendChild(color.label);
   group.extras.appendChild(color.row);
   group.extras.appendChild(angle.label);
   group.extras.appendChild(angle.row);
+  group.extras.appendChild(offset.label);
+  group.extras.appendChild(offset.row);
+  group.extras.appendChild(fade.label);
+  group.extras.appendChild(fade.row);
   return group.block;
 }
 
@@ -1295,7 +1307,7 @@ function fillBorderExtras(host, draft, onChange, hintEl) {
     onChange();
   });
   wrap.appendChild(typeField.label);
-  const borderBlend = profileGradientExtras(draft, "border_gradient", "border_color_2", "border_angle", hintEl, onChange);
+  const borderBlend = profileGradientExtras(draft, "border_gradient", "border_color_2", "border_angle", "border_offset", "border_gradient_opacity", hintEl, onChange);
   const borderBlendToggle = borderBlend.querySelector("input");
   const syncBorderType = () => {
     typeField.label.hidden = !!(borderBlendToggle && borderBlendToggle.checked);
@@ -1331,7 +1343,7 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
     });
     bg.extras.appendChild(fade.label);
     bg.extras.appendChild(fade.row);
-    bg.extras.appendChild(profileGradientExtras(draft, "bg_gradient", "bg_color_2", "bg_angle", hintEl, onChange));
+    bg.extras.appendChild(profileGradientExtras(draft, "bg_gradient", "bg_color_2", "bg_angle", "bg_offset", "bg_gradient_opacity", hintEl, onChange));
     box.appendChild(bg.block);
   }
   if (tile.type !== "avatar") {
@@ -1343,10 +1355,16 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
       draft.pad = n;
       onChange();
     });
-    box.appendChild(radius.label);
-    box.appendChild(radius.row);
-    box.appendChild(pad.label);
-    box.appendChild(pad.row);
+    const radiusRule = document.createElement("div");
+    radiusRule.className = "profile-design-rule";
+    radiusRule.appendChild(radius.label);
+    radiusRule.appendChild(radius.row);
+    const padRule = document.createElement("div");
+    padRule.className = "profile-design-rule";
+    padRule.appendChild(pad.label);
+    padRule.appendChild(pad.row);
+    box.appendChild(radiusRule);
+    box.appendChild(padRule);
   }
   const extrasHost = document.createElement("div");
   extrasHost.className = "profile-opt-border-block";
@@ -1380,7 +1398,7 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
   frame.extras.appendChild(frameWidth.row);
   frame.extras.appendChild(frameColor.label);
   frame.extras.appendChild(frameColor.row);
-  frame.extras.appendChild(profileGradientExtras(draft, "frame_gradient", "frame_color_2", "frame_angle", hintEl, onChange));
+  frame.extras.appendChild(profileGradientExtras(draft, "frame_gradient", "frame_color_2", "frame_angle", "frame_offset", "frame_gradient_opacity", hintEl, onChange));
   box.appendChild(frame.block);
 
   const shadow = profileToggleExtras("Shadow", "Draw a shadow on the widget.", draft.show_shadow, hintEl, (on) => {
@@ -1485,7 +1503,10 @@ function fillNameClusterOptions(box, tile, hintEl) {
   nameLabel.textContent = "Display name";
   nameLabel.appendChild(nameInput);
   profileOptHint(nameLabel, "The name other people see. It does not change the username.", hintEl);
-  box.appendChild(nameLabel);
+  const nameRule = document.createElement("div");
+  nameRule.className = "profile-design-rule";
+  nameRule.appendChild(nameLabel);
+  box.appendChild(nameRule);
 
   function appendToggleField(title, hint, checked, field) {
     const block = document.createElement("div");

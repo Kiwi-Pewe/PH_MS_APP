@@ -540,6 +540,42 @@ def normalize_border_props(data):
     return out
 
 
+def normalize_design_chrome(data):
+    row = data if isinstance(data, dict) else {}
+    return {
+        "bg_color": clean_hex(row.get("bg_color"), ""),
+        "bg_opacity": clamp_int(row.get("bg_opacity"), 0, 100, 100),
+        "bg_gradient": bool(row.get("bg_gradient")),
+        "bg_color_2": clean_hex(row.get("bg_color_2"), ""),
+        "bg_angle": clamp_int(row.get("bg_angle"), 0, 360, 90),
+        "bg_offset": clamp_int(row.get("bg_offset"), 0, 100, 50),
+        "bg_gradient_opacity": clamp_int(row.get("bg_gradient_opacity"), 0, 100, 100),
+        "radius": clamp_int(row.get("radius"), 0, 40, 10),
+        "pad": clamp_int(row.get("pad"), 0, 32, 0),
+        "show_frame": bool(row.get("show_frame")),
+        "frame_width": clamp_int(row.get("frame_width"), 1, 10, 4),
+        "frame_color": clean_hex(row.get("frame_color"), "#ffffff"),
+        "frame_gradient": bool(row.get("frame_gradient")),
+        "frame_color_2": clean_hex(row.get("frame_color_2"), ""),
+        "frame_angle": clamp_int(row.get("frame_angle"), 0, 360, 90),
+        "frame_offset": clamp_int(row.get("frame_offset"), 0, 100, 50),
+        "frame_gradient_opacity": clamp_int(row.get("frame_gradient_opacity"), 0, 100, 100),
+        "show_shadow": bool(row.get("show_shadow")),
+        "shadow_x": clamp_int(row.get("shadow_x"), -24, 24, 0),
+        "shadow_y": clamp_int(row.get("shadow_y"), -24, 24, 4),
+        "shadow_blur": clamp_int(row.get("shadow_blur"), 0, 40, 12),
+        "shadow_spread": clamp_int(row.get("shadow_spread"), 0, 24, 0),
+        "shadow_color": clean_hex(row.get("shadow_color"), "#000000"),
+        "shadow_opacity": clamp_int(row.get("shadow_opacity"), 0, 100, 35),
+        "shadow_inset": bool(row.get("shadow_inset")),
+        "border_gradient": bool(row.get("border_gradient")),
+        "border_color_2": clean_hex(row.get("border_color_2"), ""),
+        "border_angle": clamp_int(row.get("border_angle"), 0, 360, 90),
+        "border_offset": clamp_int(row.get("border_offset"), 0, 100, 50),
+        "border_gradient_opacity": clamp_int(row.get("border_gradient_opacity"), 0, 100, 100),
+    }
+
+
 def empty_profile_image(data):
     out = normalize_text_chrome(data, 14, True)
     out.update({"key": "", "url": "", "mime": "", "size": 0, "name": ""})
@@ -949,6 +985,7 @@ def normalize_props(kind, props, banner_fallback):
         out["text_align"] = align
         out["show_status"] = bool(data.get("show_status"))
         out["show_pronouns"] = bool(data.get("show_pronouns"))
+        out["show_aliases"] = data.get("show_aliases") is not False
         return out
     if kind == "bio":
         out = normalize_text_chrome(data, 14, True)
@@ -1129,6 +1166,8 @@ def normalize_tile(raw, used_ids, banner_fallback):
         tile_id = new_id("tile")
     used_ids.add(tile_id)
     props = normalize_props(kind, props_in, banner_fallback)
+    if isinstance(props, dict):
+        props.update(normalize_design_chrome(props_in))
     default_w, default_h = default_sizes(kind)
     min_w, min_h, max_w, max_h = tile_bounds(kind, props)
     w = clamp_int(data.get("w"), min_w, min(max_w, GRID_COLS), default_w)

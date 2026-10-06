@@ -72,21 +72,29 @@ const PROFILE_PALETTE = [
     ]
   },
   {
-    id: "games",
-    label: "Games",
+    id: "steam",
+    label: "Steam",
+    connection: "steam",
     items: [
-      { type: "achievements", label: "Achievements" },
-      { type: "recently_played", label: "Recently played" },
-      { type: "favorite_game", label: "Favorite game" },
-      { type: "currently_playing", label: "Currently playing" },
-      { type: "want_to_play", label: "Want to play" },
-      { type: "games_played", label: "Games played" },
-      { type: "game_stats", label: "Game stats" },
-      { type: "library", label: "Library" },
-      { type: "review", label: "Review" }
+      { type: "steam_profile", label: "Profile" },
+      { type: "steam_playing_now", label: "Playing Now" },
+      { type: "steam_recently_played", label: "Recently Played" },
+      { type: "steam_library", label: "Library" },
+      { type: "steam_achievements", label: "Achievements" },
+      { type: "steam_badges", label: "Badges" }
     ]
   }
 ];
+
+let profileSteamLinked = false;
+let profileSteamChecked = false;
+let profileSteamLoad = null;
+
+function resetProfileSteamLink() {
+  profileSteamLinked = false;
+  profileSteamChecked = false;
+  profileSteamLoad = null;
+}
 
 function currentProfilePage() {
   return profilePageById(profileDraft, profileActivePageId);
@@ -102,8 +110,24 @@ function markProfileDirty() {
 function renderProfilePalette() {
   const host = document.getElementById("profile-palette-body");
   if (!host) return;
+  if (!profileSteamChecked && !profileSteamLoad && typeof serverAddress === "string" && serverAddress) {
+    profileSteamLoad = fetch(`https://${serverAddress}/connections`, { credentials: "include" })
+      .then(response => response.ok ? response.json() : { connections: [] })
+      .then(data => {
+        profileSteamLinked = (data.connections || []).some(row => row.provider === "steam");
+      })
+      .catch(() => {
+        profileSteamLinked = false;
+      })
+      .finally(() => {
+        profileSteamChecked = true;
+        profileSteamLoad = null;
+        renderProfilePalette();
+      });
+  }
   host.innerHTML = "";
   PROFILE_PALETTE.forEach(group => {
+    if (group.connection === "steam" && !profileSteamLinked) return;
     const wrap = document.createElement("div");
     wrap.className = "profile-palette-group";
     const toggle = document.createElement("button");

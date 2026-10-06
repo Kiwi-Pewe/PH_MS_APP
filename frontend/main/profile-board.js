@@ -108,7 +108,13 @@ const PROFILE_PLACEHOLDERS = {
   games_played: { label: "Games played", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
   game_stats: { label: "Game stats", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
   library: { label: "Library", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 14 },
-  review: { label: "Review", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 }
+  review: { label: "Review", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
+  steam_profile: { label: "Profile", w: 10, h: 4, minW: 6, minH: 3, maxW: 16, maxH: 8 },
+  steam_playing_now: { label: "Playing Now", w: 10, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 6 },
+  steam_recently_played: { label: "Recently Played", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
+  steam_library: { label: "Library", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 14 },
+  steam_achievements: { label: "Achievements", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
+  steam_badges: { label: "Badges", w: 10, h: 4, minW: 6, minH: 3, maxW: 16, maxH: 10 }
 };
 
 Object.keys(PROFILE_PLACEHOLDERS).forEach(type => {

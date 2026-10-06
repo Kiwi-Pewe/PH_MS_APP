@@ -282,6 +282,7 @@ async function saveProfileIdentity(identity) {
 function enterProfileEdit() {
   if (!profileIsOwn) return;
   profileEditing = true;
+  if (typeof resetProfileSteamLink === "function") resetProfileSteamLink();
   profileDraft = cloneProfileLayout(profileSavedLayout);
   profileDirty = false;
   paintProfileChrome();

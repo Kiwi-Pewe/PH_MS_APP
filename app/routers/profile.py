@@ -30,6 +30,8 @@ TILE_TYPES = {
     "comments", "display_server", "server_list", "featured_server",
     "achievements", "recently_played", "favorite_game", "currently_playing",
     "want_to_play", "games_played", "game_stats", "library", "review",
+    "steam_profile", "steam_playing_now", "steam_recently_played",
+    "steam_library", "steam_achievements", "steam_badges",
 }
 PAGE_VIS = {"public", "owner"}
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -194,6 +196,12 @@ def tile_bounds(kind, props=None):
         "game_stats": (6, 3, 16, 10),
         "library": (8, 4, 24, 14),
         "review": (6, 3, 16, 10),
+        "steam_profile": (6, 3, 16, 8),
+        "steam_playing_now": (6, 2, 16, 6),
+        "steam_recently_played": (8, 3, 24, 12),
+        "steam_library": (8, 4, 24, 14),
+        "steam_achievements": (8, 3, 24, 12),
+        "steam_badges": (6, 3, 16, 10),
     }.get(kind, (1, 1, GRID_COLS, 24))
 
 
@@ -243,6 +251,12 @@ def default_sizes(kind):
         "game_stats": (10, 5),
         "library": (12, 6),
         "review": (10, 5),
+        "steam_profile": (10, 4),
+        "steam_playing_now": (10, 3),
+        "steam_recently_played": (12, 5),
+        "steam_library": (12, 6),
+        "steam_achievements": (12, 5),
+        "steam_badges": (10, 4),
     }.get(kind, (8, 3))
 
 

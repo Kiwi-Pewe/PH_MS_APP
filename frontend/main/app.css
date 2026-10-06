@@ -1364,7 +1364,9 @@
   background: transparent; color: var(--text);
   display: inline-flex; align-items: center; justify-content: center;
 }
-.connection-provider:disabled { opacity: 1; cursor: default; }
+.connection-provider:disabled:not(.is-more) {
+  opacity: 0.38; filter: grayscale(1); cursor: default;
+}
 .connection-provider.is-more {
   background: var(--panel-alt); color: var(--text-dim);
   font-size: 22px; font-weight: 600; line-height: 1;

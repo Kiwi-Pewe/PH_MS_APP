@@ -1390,10 +1390,10 @@
 .connection-card.is-open .connection-card-head { border-bottom: 1px solid var(--border); }
 .connection-card-parts { padding: 6px 16px 8px; }
 .connection-card-parts[hidden] { display: none; }
-.connection-card-foot { border-top: 1px solid var(--border); padding: 4px 8px; }
+.connection-card-foot { border-top: 1px solid var(--border); padding: 8px 16px; }
 .connection-disconnect {
-  width: 100%; text-align: left; background: transparent; color: var(--danger);
-  font-size: 14px; font-weight: 600; padding: 10px 8px; border-radius: 4px;
+  display: inline-flex; width: auto; background: transparent; color: var(--danger);
+  font-size: 14px; font-weight: 600; padding: 4px 0; border-radius: 4px;
 }
 .connection-disconnect:hover { background: var(--panel-alt); }
 .connection-card-who { flex: 1 1 auto; min-width: 0; }

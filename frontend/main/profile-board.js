@@ -88,7 +88,8 @@ const PROFILE_TILE_TYPES = {
   gallery: { w: 6, h: 6, minW: 3, minH: 3, maxW: 9, maxH: 9, label: "Gallery" },
   comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" },
   display_server: { w: 10, h: 8, minW: 6, minH: 4, maxW: 16, maxH: 18, label: "Display Server" },
-  steam_profile: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "Profile" }
+  steam_profile: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "Profile" },
+  steam_playing_now: { w: 10, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 6, label: "Playing Now" }
 };
 
 const DISPLAY_SERVER_MAX = 20;
@@ -110,7 +111,6 @@ const PROFILE_PLACEHOLDERS = {
   game_stats: { label: "Game stats", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
   library: { label: "Library", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 14 },
   review: { label: "Review", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
-  steam_playing_now: { label: "Playing Now", w: 10, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 6 },
   steam_recently_played: { label: "Recently Played", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
   steam_library: { label: "Library", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 14 },
   steam_achievements: { label: "Achievements", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
@@ -1877,6 +1877,10 @@ function paintProfilePlaceholder(tile, el) {
 let steamCardOwnerId = "";
 let steamCardData = null;
 let steamCardLoad = null;
+let steamPlayingOwnerId = "";
+let steamPlayingData = null;
+let steamPlayingLoad = null;
+let steamPlayingTimer = null;
 
 function ensureSteamCard() {
   const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
@@ -2072,11 +2076,113 @@ function paintSteamProfile(tile, el) {
   el.appendChild(card);
 }
 
+function steamPlayingTime(minutes) {
+  const n = Number(minutes) || 0;
+  if (n < 5) return "";
+  const hours = Math.floor(n / 60);
+  const mins = n % 60;
+  if (!hours) return n + " minutes";
+  if (!mins) return hours === 1 ? "1 hour" : hours + " hours";
+  return (hours === 1 ? "1 hour " : hours + " hours ") + mins + " minutes";
+}
+
+function refreshSteamPlaying() {
+  const id = steamPlayingOwnerId;
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/steam_playing", { credentials: "include" })
+    .then(response => response.ok ? response.json() : { linked: false })
+    .then(data => {
+      if (steamPlayingOwnerId !== id) return;
+      steamPlayingData = data || { linked: false };
+      if (!profileEditing && String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id && typeof renderProfileBoard === "function") {
+        renderProfileBoard();
+      }
+    })
+    .catch(() => {});
+}
+
+function ensureSteamPlaying() {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  if (!steamPlayingTimer) steamPlayingTimer = setInterval(refreshSteamPlaying, 300000);
+  if (steamPlayingOwnerId === id && (steamPlayingData || steamPlayingLoad)) return;
+  steamPlayingOwnerId = id;
+  steamPlayingData = null;
+  steamPlayingLoad = fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/steam_playing", { credentials: "include" })
+    .then(response => response.ok ? response.json() : { linked: false })
+    .then(data => { steamPlayingData = data || { linked: false }; })
+    .catch(() => { steamPlayingData = { linked: false }; })
+    .finally(() => {
+      steamPlayingLoad = null;
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id && typeof renderProfileBoard === "function") {
+        renderProfileBoard();
+      }
+    });
+}
+
+function paintSteamPlaying(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  const card = document.createElement("div");
+  card.className = "steam-playing-card";
+  const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!steamPlayingData || steamPlayingOwnerId !== owner) {
+    ensureSteamPlaying();
+    el.appendChild(card);
+    return;
+  }
+  const data = steamPlayingData;
+  if (!data.linked) {
+    card.appendChild(steamProfileNote("Connect Steam to show this."));
+    el.appendChild(card);
+    return;
+  }
+  if (data.playing === false) {
+    card.appendChild(steamProfileNote("Turn on Playing now for Steam."));
+    el.appendChild(card);
+    return;
+  }
+  if (!data.in_game) {
+    card.appendChild(steamProfileNote("Not in a game right now."));
+    el.appendChild(card);
+    return;
+  }
+  const appid = String(data.appid || "");
+  if (/^\d+$/.test(appid)) {
+    const img = document.createElement("img");
+    img.className = "steam-playing-art";
+    img.alt = "";
+    img.src = "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appid + "/header.jpg";
+    img.addEventListener("error", () => img.remove());
+    card.appendChild(img);
+  }
+  const copy = document.createElement("div");
+  copy.className = "steam-playing-copy";
+  if (data.name) {
+    const name = document.createElement("div");
+    name.className = "steam-playing-name";
+    name.textContent = data.name;
+    copy.appendChild(name);
+  }
+  const time = steamPlayingTime(data.minutes);
+  if (time) {
+    const line = document.createElement("div");
+    line.className = "steam-playing-time";
+    line.textContent = time;
+    copy.appendChild(line);
+  }
+  if (copy.childNodes.length) card.appendChild(copy);
+  el.appendChild(card);
+}
+
 function paintProfileTileContent(tile, el) {
   el.innerHTML = "";
   el.classList.toggle("is-compact-row", Number(tile.h) === 1);
   if (tile.type === "steam_profile") {
     paintSteamProfile(tile, el);
+    return;
+  }
+  if (tile.type === "steam_playing_now") {
+    paintSteamPlaying(tile, el);
     return;
   }
   if (tile.type === "banner") {

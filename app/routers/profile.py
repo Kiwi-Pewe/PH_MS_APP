@@ -7,7 +7,7 @@ import uuid
 import random
 import colorsys
 from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user, Servers, Server_members
-from app.routers.connections import load_steam_card
+from app.routers.connections import load_steam_card, load_steam_playing
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
 from app.database import get_db
 from app.auth import get_current_user
@@ -1534,6 +1534,16 @@ def get_profile_steam_card(user_id: int, current_user: UserInfo = Depends(get_cu
     if not shown["state"]:
         card["state"] = ""
     return card
+
+
+@router.get("/profile/{user_id}/steam_playing")
+def get_profile_steam_playing(user_id: int, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    return load_steam_playing(database, owner.id)
 
 
 @router.get("/profile/{user_id}/comments")

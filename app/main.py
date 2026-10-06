@@ -18,6 +18,7 @@ from app.routers.forums import send_forum_message
 from app.routers.docs import release_doc_locks
 from app.routers.voice import drop_voice_user, fanout_voice, notify_watchers, relay_voice_signal, relay_voice_speaking, set_voice_share, set_voice_watch
 from app.routers.invites import check_invites
+from app.routers.connections import check_steam_playing
 from app.routers.admin import sweep_completed_feedback
 from app.routers.mentions import mentioned_user_ids, mention_user_map, mention_role_map, live_reply_to
 from app.routers.deletion import sweep_pending_deletes
@@ -106,6 +107,7 @@ app.include_router(connections.router)
 @app.on_event("startup")
 async def interval_tasks():
     asyncio.create_task(check_invites())
+    asyncio.create_task(check_steam_playing())
     asyncio.create_task(sweep_pending_deletes())
     asyncio.create_task(sweep_completed_feedback())
 

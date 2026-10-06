@@ -8,13 +8,15 @@ from urllib.parse import urlencode
 from urllib.request import Request as UrlRequest, urlopen
 from xml.etree import ElementTree
 from dotenv import load_dotenv
+import asyncio
 import json
 import os
 import re
 import secrets
+import time
 
 from app.auth import validate_session
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.models import Account_connection, Connection_nonce
 
 router = APIRouter()
@@ -322,6 +324,98 @@ def steam_card_payload(cache, parts):
             "xp_next": public and xp_next is not None,
         },
     }
+
+
+def steam_playing_payload(cache, parts):
+    appid = str(cache.get("playing_appid") or "").strip()
+    since = steam_number(cache.get("playing_since"))
+    minutes = 0
+    if appid and since:
+        elapsed = int(time.time()) - since
+        if elapsed >= 300:
+            minutes = (elapsed // 300) * 5
+    return {
+        "linked": True,
+        "playing": bool(parts.get("playing_now")),
+        "in_game": bool(appid),
+        "name": clip(cache.get("playing_name"), 120) if appid else "",
+        "appid": appid,
+        "minutes": minutes,
+    }
+
+
+def load_steam_playing(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "steam",
+    ).first()
+    if not row:
+        return {"linked": False, "playing": False, "in_game": False, "name": "", "appid": "", "minutes": 0}
+    return steam_playing_payload(steam_cache(row.cache), read_parts(row.parts))
+
+
+def apply_playing_snapshot(cache, player):
+    if steam_number(player.get("communityvisibilitystate")) != 3:
+        return False
+    gameid = str(player.get("gameid") or "").strip()
+    if gameid:
+        name = clip(player.get("gameextrainfo"), 120)
+        changed = False
+        if str(cache.get("playing_appid") or "") != gameid:
+            cache["playing_appid"] = gameid
+            cache["playing_since"] = int(time.time())
+            changed = True
+        if name and cache.get("playing_name") != name:
+            cache["playing_name"] = name
+            changed = True
+        return changed
+    if cache.get("playing_appid") or cache.get("playing_since") or cache.get("playing_name"):
+        cache.pop("playing_appid", None)
+        cache.pop("playing_name", None)
+        cache.pop("playing_since", None)
+        return True
+    return False
+
+
+def check_steam_playing_once():
+    database = SessionLocal()
+    try:
+        rows = database.query(Account_connection).filter(Account_connection.provider == "steam").all()
+        watched = []
+        for row in rows:
+            if not read_parts(row.parts).get("playing_now"):
+                continue
+            steamid = str(row.external_id or "").strip()
+            if steamid:
+                watched.append((row, steamid))
+        for start in range(0, len(watched), 100):
+            chunk = watched[start:start + 100]
+            payload = steam_json("/ISteamUser/GetPlayerSummaries/v0002/", {"steamids": ",".join(sid for _, sid in chunk)})
+            if not payload:
+                continue
+            players = ((payload.get("response") or {}).get("players") or [])
+            by_id = {str(player.get("steamid") or ""): player for player in players}
+            for row, steamid in chunk:
+                player = by_id.get(steamid)
+                if not player:
+                    continue
+                cache = steam_cache(row.cache)
+                if apply_playing_snapshot(cache, player):
+                    row.cache = json.dumps(cache)
+                    row.refreshed_at = datetime.now()
+        database.commit()
+    finally:
+        database.close()
+
+
+async def check_steam_playing():
+    await asyncio.sleep(3)
+    while True:
+        try:
+            await asyncio.to_thread(check_steam_playing_once)
+        except Exception:
+            pass
+        await asyncio.sleep(300)
 
 
 def load_steam_card(database, user_id):

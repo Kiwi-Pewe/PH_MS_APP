@@ -354,6 +354,40 @@ def load_steam_playing(database, user_id):
     return steam_playing_payload(steam_cache(row.cache), read_parts(row.parts))
 
 
+def steam_recent_payload(cache, parts):
+    public = steam_number(cache.get("communityvisibilitystate")) == 3
+    games = []
+    if public and parts.get("recently_played"):
+        for row in (cache.get("recently_played") or [])[:10]:
+            if not isinstance(row, dict):
+                continue
+            appid = steam_number(row.get("appid"))
+            if not appid:
+                continue
+            games.append({
+                "appid": appid,
+                "name": clip(row.get("name"), 120),
+                "icon": clip(row.get("icon"), 200),
+                "minutes": steam_number(row.get("playtime_2weeks")) or 0,
+            })
+    return {
+        "linked": True,
+        "enabled": bool(parts.get("recently_played")),
+        "public": public,
+        "games": games,
+    }
+
+
+def load_steam_recent(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "steam",
+    ).first()
+    if not row:
+        return {"linked": False, "enabled": False, "public": False, "games": []}
+    return steam_recent_payload(steam_cache(row.cache), read_parts(row.parts))
+
+
 def apply_playing_snapshot(cache, player):
     if steam_number(player.get("communityvisibilitystate")) != 3:
         return False

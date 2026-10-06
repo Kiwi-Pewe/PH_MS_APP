@@ -275,6 +275,7 @@ function bindProfileTileDrag(el, tile, handle) {
     if (e.target.closest(".oneira-player-chrome, .oneira-player-menu, .oneira-player-gear-wrap")) return;
     if (e.target.closest(".oneira-music-seek, .oneira-music-row")) return;
     if (e.target.closest(".oneira-gallery-nav")) return;
+    if (e.target.closest(".steam-recent-pages")) return;
     if (e.target.closest(".oneira-wall-compose, .oneira-wall-pager, .oneira-wall-notify, .oneira-wall-edit, .oneira-wall-input")) return;
     if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
     e.preventDefault();
@@ -431,7 +432,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -542,6 +543,11 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillFixedTitleOptions(box, draft, onChange, "left");
     return;
   }
+  if (tile.type === "steam_recently_played") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillSteamRecentOptions(box, draft, onChange, hintEl);
+    return;
+  }
   const empty = document.createElement("div");
   empty.className = "profile-opt-empty";
   empty.textContent = "No extra settings for this widget yet.";
@@ -584,6 +590,29 @@ function fillFixedTitleOptions(box, draft, onChange, fallback) {
   })));
   block.appendChild(extras);
   box.appendChild(block);
+}
+
+function fillSteamRecentOptions(box, draft, onChange, hintEl) {
+  draft.show_count = Math.max(1, Math.min(10, Math.round(Number(draft.show_count)) || 10));
+  draft.entry_scale = Math.max(50, Math.min(150, Math.round(Number(draft.entry_scale)) || 100));
+  const games = profileSliderField("Games", draft.show_count, 1, 10, hintEl, "How many recent games this card can show.", (n) => {
+    draft.show_count = n;
+    onChange();
+  });
+  const size = profileSliderField("Entry size", draft.entry_scale, 50, 150, hintEl, "Scales each game, including its picture and text.", (n) => {
+    draft.entry_scale = n;
+    onChange();
+  }, (n) => n + "%");
+  const gamesBlock = document.createElement("div");
+  gamesBlock.className = "profile-name-opt";
+  gamesBlock.appendChild(games.label);
+  gamesBlock.appendChild(games.row);
+  const sizeBlock = document.createElement("div");
+  sizeBlock.className = "profile-name-opt";
+  sizeBlock.appendChild(size.label);
+  sizeBlock.appendChild(size.row);
+  box.appendChild(gamesBlock);
+  box.appendChild(sizeBlock);
 }
 
 function fillSteamProfileOptions(box, draft, onChange) {

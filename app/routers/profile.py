@@ -7,7 +7,7 @@ import uuid
 import random
 import colorsys
 from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user, Servers, Server_members
-from app.routers.connections import load_steam_card, load_steam_playing
+from app.routers.connections import load_steam_card, load_steam_playing, load_steam_recent
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
 from app.database import get_db
 from app.auth import get_current_user
@@ -144,7 +144,21 @@ def strip_orientation(kind, props):
     return "horizontal"
 
 
+def steam_recent_limits(props):
+    data = props if isinstance(props, dict) else {}
+    scale = clamp_int(data.get("entry_scale"), 50, 150, 100)
+    floor_w = (7 * scale + 99) // 100
+    floor_h = (6 * scale + 99) // 100
+    entry_w = (168 * scale + 50) // 100
+    entry_h = (56 * scale + 50) // 100
+    need_w = (entry_w + 24 + 35) // 36
+    need_h = (entry_h + 42 + 36 + 35) // 36
+    return (min(24, max(floor_w, need_w, 1)), min(16, max(floor_h, need_h, 1)), 24, 16)
+
+
 def tile_bounds(kind, props=None):
+    if kind == "steam_recently_played":
+        return steam_recent_limits(props)
     if kind == "divider":
         if strip_orientation(kind, props) == "vertical":
             return (1, 1, 1, 24)
@@ -199,7 +213,7 @@ def tile_bounds(kind, props=None):
         "review": (6, 3, 16, 10),
         "steam_profile": (8, 5, 12, 7),
         "steam_playing_now": (7, 4, 10, 6),
-        "steam_recently_played": (8, 3, 24, 12),
+        "steam_recently_played": (7, 6, 24, 16),
         "steam_library": (8, 4, 24, 14),
         "steam_achievements": (8, 3, 24, 12),
         "steam_badges": (6, 3, 16, 10),
@@ -254,7 +268,7 @@ def default_sizes(kind):
         "review": (10, 5),
         "steam_profile": (12, 7),
         "steam_playing_now": (10, 4),
-        "steam_recently_played": (12, 5),
+        "steam_recently_played": (12, 8),
         "steam_library": (12, 6),
         "steam_achievements": (12, 5),
         "steam_badges": (10, 4),
@@ -983,6 +997,17 @@ def normalize_steam_profile_props(data):
     return out
 
 
+def normalize_steam_recent_props(data):
+    out = normalize_text_chrome(data, 14, True)
+    shown = data.get("show_title")
+    align = str(data.get("title_align") or "")
+    out["show_title"] = True if shown is None else bool(shown)
+    out["title_align"] = align if align in ("left", "center", "right") else "left"
+    out["show_count"] = clamp_int(data.get("show_count"), 1, 10, 10)
+    out["entry_scale"] = clamp_int(data.get("entry_scale"), 50, 150, 100)
+    return out
+
+
 def normalize_steam_playing_props(data):
     out = normalize_text_chrome(data, 14, True)
     shown = data.get("show_title")
@@ -1141,6 +1166,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_steam_profile_props(data)
     if kind == "steam_playing_now":
         return normalize_steam_playing_props(data)
+    if kind == "steam_recently_played":
+        return normalize_steam_recent_props(data)
     return normalize_text_chrome(data, 14, True)
 
 
@@ -1558,6 +1585,16 @@ def get_profile_steam_playing(user_id: int, current_user: UserInfo = Depends(get
     if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
         raise HTTPException(status_code=403, detail="You cannot see this profile.")
     return load_steam_playing(database, owner.id)
+
+
+@router.get("/profile/{user_id}/steam_recent")
+def get_profile_steam_recent(user_id: int, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    return load_steam_recent(database, owner.id)
 
 
 @router.get("/profile/{user_id}/comments")

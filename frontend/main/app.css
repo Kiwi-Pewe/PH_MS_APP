@@ -5549,7 +5549,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   font-size: 16px; font-weight: 800; color: var(--text); line-height: 1.2;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.steam-profile-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.steam-profile-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.steam-profile-status-text { min-width: 0; }
 .steam-profile-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); flex: 0 0 auto; }
 .steam-profile-dot.is-online { background: var(--online); }
 .steam-profile-link {

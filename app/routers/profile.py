@@ -197,7 +197,7 @@ def tile_bounds(kind, props=None):
         "game_stats": (6, 3, 16, 10),
         "library": (8, 4, 24, 14),
         "review": (6, 3, 16, 10),
-        "steam_profile": (8, 4, 24, 16),
+        "steam_profile": (8, 5, 12, 7),
         "steam_playing_now": (6, 2, 16, 6),
         "steam_recently_played": (8, 3, 24, 12),
         "steam_library": (8, 4, 24, 14),
@@ -252,7 +252,7 @@ def default_sizes(kind):
         "game_stats": (10, 5),
         "library": (12, 6),
         "review": (10, 5),
-        "steam_profile": (14, 8),
+        "steam_profile": (12, 7),
         "steam_playing_now": (10, 3),
         "steam_recently_played": (12, 5),
         "steam_library": (12, 6),
@@ -968,8 +968,8 @@ def normalize_embed_props(data):
 
 def normalize_steam_profile_props(data):
     on_keys = (
-        "show_name", "show_link", "show_avatar", "show_online", "show_last_logoff",
-        "show_created", "show_visibility", "show_group", "show_level", "show_xp", "show_xp_next",
+        "show_name", "show_link", "show_avatar", "show_online",
+        "show_created", "show_group", "show_level", "show_xp",
     )
     off_keys = ("show_country", "show_state", "show_city")
     out = {}

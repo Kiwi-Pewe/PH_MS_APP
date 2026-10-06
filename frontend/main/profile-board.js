@@ -88,7 +88,7 @@ const PROFILE_TILE_TYPES = {
   gallery: { w: 6, h: 6, minW: 3, minH: 3, maxW: 9, maxH: 9, label: "Gallery" },
   comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" },
   display_server: { w: 10, h: 8, minW: 6, minH: 4, maxW: 16, maxH: 18, label: "Display Server" },
-  steam_profile: { w: 14, h: 8, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Profile" }
+  steam_profile: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "Profile" }
 };
 
 const DISPLAY_SERVER_MAX = 20;
@@ -1878,8 +1878,6 @@ let steamCardOwnerId = "";
 let steamCardData = null;
 let steamCardLoad = null;
 
-const STEAM_PERSONA = ["Offline", "Online", "Busy", "Away", "Snooze", "Looking to trade", "Looking to play"];
-
 function ensureSteamCard() {
   const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
   if (!id || typeof serverAddress !== "string" || !serverAddress) return;
@@ -1990,9 +1988,16 @@ function paintSteamProfile(tile, el) {
       status.className = "steam-profile-status";
       const dot = document.createElement("span");
       const state = Number(data.persona_state);
-      dot.className = "steam-profile-dot" + (state === 1 ? " is-online" : "");
+      const offline = state === 0;
+      dot.className = "steam-profile-dot" + (offline ? "" : " is-online");
       const label = document.createElement("span");
-      label.textContent = STEAM_PERSONA[state] || "Offline";
+      label.className = "steam-profile-status-text";
+      if (offline) {
+        const when = steamDateText(data.last_logoff);
+        label.textContent = when ? ("Offline | Last online : " + when) : "Offline";
+      } else {
+        label.textContent = "Online";
+      }
       status.appendChild(dot);
       status.appendChild(label);
       who.appendChild(status);
@@ -2011,20 +2016,9 @@ function paintSteamProfile(tile, el) {
     if (top.childNodes.length) card.appendChild(top);
     const lines = document.createElement("div");
     lines.className = "steam-profile-lines";
-    if (steamFlag(props, "show_last_logoff", true) && avail.last_logoff) {
-      const line = document.createElement("div");
-      line.textContent = "Last online · " + steamDateText(data.last_logoff);
-      lines.appendChild(line);
-    }
     if (steamFlag(props, "show_created", true) && avail.created) {
       const line = document.createElement("div");
       line.textContent = "Account created · " + steamDateText(data.time_created);
-      lines.appendChild(line);
-    }
-    if (steamFlag(props, "show_visibility", true) && avail.visibility) {
-      const line = document.createElement("div");
-      const vis = Number(data.visibility);
-      line.textContent = vis === 3 ? "Public" : (vis === 2 ? "Friends only" : "Private");
       lines.appendChild(line);
     }
     const place = [];
@@ -2045,10 +2039,9 @@ function paintSteamProfile(tile, el) {
     badge.textContent = String(data.player_level);
     card.appendChild(badge);
   }
-  const showXp = steamFlag(props, "show_xp", true) && avail.xp && levelOn;
-  const showNext = steamFlag(props, "show_xp_next", true) && avail.xp_next && levelOn;
+  const showXp = steamFlag(props, "show_xp", true) && avail.xp && avail.xp_next && levelOn;
   if (levelOn) {
-    if (showXp || showNext) {
+    if (showXp && data.player_xp != null && data.xp_to_next != null) {
       const block = document.createElement("div");
       block.className = "steam-profile-xp";
       const track = document.createElement("div");
@@ -2059,21 +2052,16 @@ function paintSteamProfile(tile, el) {
       const xp = Number(data.player_xp);
       const toNext = Number(data.xp_to_next);
       const floor = Number(data.xp_floor);
-      if (showXp && showNext && data.xp_floor != null && data.player_xp != null && data.xp_to_next != null && toNext >= 0) {
+      if (data.xp_floor != null && toNext >= 0) {
         const into = Math.max(0, xp - floor);
         const span = into + toNext;
         pct = span ? Math.max(0, Math.min(100, Math.round(into / span * 100))) : 0;
-      } else if (showXp) {
-        pct = 100;
       }
       fill.style.width = pct + "%";
       track.appendChild(fill);
       const text = document.createElement("div");
       text.className = "steam-profile-xp-text";
-      const bits = [];
-      if (showXp && data.player_xp != null) bits.push(Number(data.player_xp).toLocaleString() + " XP");
-      if (showNext && data.xp_to_next != null) bits.push(Number(data.xp_to_next).toLocaleString() + " to next");
-      text.textContent = bits.join(" · ");
+      text.textContent = xp.toLocaleString() + " XP · " + toNext.toLocaleString() + " to next";
       block.appendChild(track);
       block.appendChild(text);
       card.appendChild(block);

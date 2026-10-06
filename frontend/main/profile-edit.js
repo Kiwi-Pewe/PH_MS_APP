@@ -540,23 +540,21 @@ function fillSteamProfileOptions(box, draft, onChange) {
     ["show_name", "Display name", true, "name"],
     ["show_link", "Profile link", true, "link"],
     ["show_avatar", "Avatar", true, "avatar"],
-    ["show_online", "Online state", true, "online"],
-    ["show_last_logoff", "Last logoff", true, "last_logoff"],
+    ["show_online", "Online Status", true, "online"],
     ["show_created", "Account created", true, "created"],
-    ["show_visibility", "Visibility", true, "visibility"],
     ["show_country", "Country", false, "country"],
     ["show_state", "State", false, "state"],
     ["show_city", "City", false, "city"],
     ["show_group", "Primary group", true, "group"],
     ["show_level", "Steam level", true, "level"],
-    ["show_xp", "Current XP", true, "xp"],
-    ["show_xp_next", "XP until next level", true, "xp_next"]
+    ["show_xp", "XP", true, "xp"]
   ];
   const card = typeof steamCardData !== "undefined" ? steamCardData : null;
   const avail = card && card.available ? card.available : null;
   rows.forEach(row => {
     if (draft[row[0]] == null) draft[row[0]] = row[2];
-    const locked = !!(avail && avail[row[3]] === false);
+    let locked = !!(avail && avail[row[3]] === false);
+    if (row[0] === "show_xp" && avail && (avail.xp === false || avail.xp_next === false)) locked = true;
     const block = document.createElement("div");
     block.className = "profile-name-opt";
     const toggle = settingsToggle(!!draft[row[0]], locked, (on) => {

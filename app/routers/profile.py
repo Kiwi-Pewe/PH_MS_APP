@@ -7,6 +7,7 @@ import uuid
 import random
 import colorsys
 from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user, Servers, Server_members
+from app.routers.connections import load_steam_card
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
 from app.database import get_db
 from app.auth import get_current_user
@@ -196,7 +197,7 @@ def tile_bounds(kind, props=None):
         "game_stats": (6, 3, 16, 10),
         "library": (8, 4, 24, 14),
         "review": (6, 3, 16, 10),
-        "steam_profile": (6, 3, 16, 8),
+        "steam_profile": (8, 4, 24, 16),
         "steam_playing_now": (6, 2, 16, 6),
         "steam_recently_played": (8, 3, 24, 12),
         "steam_library": (8, 4, 24, 14),
@@ -251,7 +252,7 @@ def default_sizes(kind):
         "game_stats": (10, 5),
         "library": (12, 6),
         "review": (10, 5),
-        "steam_profile": (10, 4),
+        "steam_profile": (14, 8),
         "steam_playing_now": (10, 3),
         "steam_recently_played": (12, 5),
         "steam_library": (12, 6),
@@ -965,6 +966,20 @@ def normalize_embed_props(data):
     return out
 
 
+def normalize_steam_profile_props(data):
+    on_keys = (
+        "show_name", "show_link", "show_avatar", "show_online", "show_last_logoff",
+        "show_created", "show_visibility", "show_group", "show_level", "show_xp", "show_xp_next",
+    )
+    off_keys = ("show_country", "show_state", "show_city")
+    out = {}
+    for key in on_keys:
+        out[key] = True if key not in data or data.get(key) is None else bool(data.get(key))
+    for key in off_keys:
+        out[key] = False if key not in data or data.get(key) is None else bool(data.get(key))
+    return out
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
     if kind == "banner":
@@ -1110,6 +1125,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_display_server_props(data)
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
+    if kind == "steam_profile":
+        return normalize_steam_profile_props(data)
     return normalize_text_chrome(data, 14, True)
 
 
@@ -1489,6 +1506,34 @@ def can_post_profile_comment(database: Session, viewer: UserInfo, owner: UserInf
     if comments_wall_friends_only(layout) and not are_friends(database, viewer.id, owner.id):
         return False
     return True
+
+
+@router.get("/profile/{user_id}/steam_card")
+def get_profile_steam_card(user_id: int, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    card = load_steam_card(database, owner.id)
+    if current_user.id == owner.id:
+        return card
+    layout = ensure_layout(owner, database)
+    shown = {"country": False, "state": False}
+    for page in (layout or {}).get("pages") or []:
+        for tile in page.get("tiles") or []:
+            if tile.get("type") != "steam_profile":
+                continue
+            props = tile.get("props") or {}
+            if props.get("show_country") is True:
+                shown["country"] = True
+            if props.get("show_state") is True:
+                shown["state"] = True
+    if not shown["country"]:
+        card["country"] = ""
+    if not shown["state"]:
+        card["state"] = ""
+    return card
 
 
 @router.get("/profile/{user_id}/comments")

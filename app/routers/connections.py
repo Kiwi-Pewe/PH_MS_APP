@@ -190,11 +190,149 @@ def steam_snapshot(steamid):
         "level": level,
         "player_xp": badge_body.get("player_xp"),
         "player_xp_needed_to_level_up": badge_body.get("player_xp_needed_to_level_up"),
+        "player_xp_needed_current_level": badge_body.get("player_xp_needed_current_level"),
+        "lastlogoff": summary.get("lastlogoff"),
+        "timecreated": summary.get("timecreated"),
+        "loccountrycode": clip(summary.get("loccountrycode"), 8),
+        "locstatecode": clip(str(summary.get("locstatecode") or ""), 16),
+        "loccityid": clip(str(summary.get("loccityid") or ""), 16),
+        "primaryclanid": clip(str(summary.get("primaryclanid") or ""), 32),
+        "profile_ready": True,
         "recently_played": [trim_game(row, True) for row in recent_rows[:100]],
         "owned_games": [trim_game(row, False) for row in owned_rows[:5000]],
         "badges": badges,
     }
     return name, avatar, profile or ("https://steamcommunity.com/profiles/" + steamid), cache
+
+
+def steam_cache(raw):
+    try:
+        data = json.loads(raw or "")
+    except Exception:
+        data = {}
+    return data if isinstance(data, dict) else {}
+
+
+def steam_number(value):
+    try:
+        if value is None or value == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def refresh_steam_profile_cache(database, row):
+    cache = steam_cache(row.cache)
+    if cache.get("profile_ready"):
+        return cache
+    steamid = row.external_id or cache.get("steamid") or ""
+    summary = {}
+    payload = steam_json("/ISteamUser/GetPlayerSummaries/v0002/", {"steamids": steamid}) if steamid else None
+    players = ((payload or {}).get("response") or {}).get("players") or []
+    if players:
+        summary = players[0]
+    level_payload = steam_json("/ISteamUser/GetSteamLevel/v1/", {"steamid": steamid}) if steamid else None
+    level = ((level_payload or {}).get("response") or {}).get("player_level")
+    badge_payload = steam_json("/IPlayerService/GetBadges/v1/", {"steamid": steamid}) if steamid else None
+    badge_body = (badge_payload or {}).get("response") or {}
+    if summary.get("personaname"):
+        cache["personaname"] = clip(summary.get("personaname"), 64)
+        row.display_name = cache["personaname"]
+    if summary.get("avatarfull"):
+        cache["avatar"] = clip(summary.get("avatarfull"), 300)
+        row.avatar_url = cache["avatar"]
+    if summary.get("profileurl"):
+        cache["profileurl"] = clip(summary.get("profileurl"), 300)
+        row.profile_url = cache["profileurl"]
+    cache["personastate"] = summary.get("personastate")
+    cache["communityvisibilitystate"] = summary.get("communityvisibilitystate")
+    cache["lastlogoff"] = summary.get("lastlogoff")
+    cache["timecreated"] = summary.get("timecreated")
+    cache["loccountrycode"] = clip(summary.get("loccountrycode"), 8)
+    cache["locstatecode"] = clip(str(summary.get("locstatecode") or ""), 16)
+    cache["loccityid"] = clip(str(summary.get("loccityid") or ""), 16)
+    cache["primaryclanid"] = clip(str(summary.get("primaryclanid") or ""), 32)
+    if level is not None:
+        cache["level"] = level
+    cache["player_xp"] = badge_body.get("player_xp")
+    cache["player_xp_needed_to_level_up"] = badge_body.get("player_xp_needed_to_level_up")
+    cache["player_xp_needed_current_level"] = badge_body.get("player_xp_needed_current_level")
+    cache["profile_ready"] = True
+    row.cache = json.dumps(cache)
+    row.refreshed_at = datetime.now()
+    database.commit()
+    return cache
+
+
+def steam_state_name(code):
+    text = str(code or "").strip()
+    if not text or text.isdigit():
+        return ""
+    return text[:32]
+
+
+def steam_card_payload(cache, parts):
+    public = steam_number(cache.get("communityvisibilitystate")) == 3
+    country = clip(cache.get("loccountrycode"), 8) if public else ""
+    state = steam_state_name(cache.get("locstatecode")) if public else ""
+    online = steam_number(cache.get("personastate"))
+    last_logoff = steam_number(cache.get("lastlogoff"))
+    created = steam_number(cache.get("timecreated"))
+    level = steam_number(cache.get("level"))
+    xp = steam_number(cache.get("player_xp"))
+    xp_next = steam_number(cache.get("player_xp_needed_to_level_up"))
+    xp_floor = steam_number(cache.get("player_xp_needed_current_level"))
+    visibility = steam_number(cache.get("communityvisibilitystate"))
+    name = clip(cache.get("personaname"), 64)
+    link = clip(cache.get("profileurl"), 300)
+    avatar = clip(cache.get("avatar"), 300)
+    return {
+        "linked": True,
+        "identity": bool(parts.get("identity")),
+        "level": bool(parts.get("level_badges")),
+        "public": public,
+        "name": name,
+        "profile_url": link,
+        "avatar": avatar,
+        "persona_state": online,
+        "visibility": visibility,
+        "last_logoff": last_logoff,
+        "time_created": created,
+        "country": country,
+        "state": state,
+        "player_level": level,
+        "player_xp": xp,
+        "xp_to_next": xp_next,
+        "xp_floor": xp_floor,
+        "available": {
+            "name": bool(name),
+            "link": bool(link),
+            "avatar": bool(avatar),
+            "online": public and online is not None,
+            "last_logoff": public and bool(last_logoff),
+            "created": public and bool(created),
+            "visibility": visibility is not None,
+            "country": public and bool(country),
+            "state": public and bool(state),
+            "city": False,
+            "group": False,
+            "level": public and level is not None,
+            "xp": public and xp is not None,
+            "xp_next": public and xp_next is not None,
+        },
+    }
+
+
+def load_steam_card(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "steam",
+    ).first()
+    if not row:
+        return {"linked": False, "identity": False, "level": False, "available": {}}
+    cache = refresh_steam_profile_cache(database, row)
+    return steam_card_payload(cache, read_parts(row.parts))
 
 
 def steam_is_valid(params):

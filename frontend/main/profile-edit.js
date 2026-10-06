@@ -423,7 +423,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -525,10 +525,47 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillClockOptions(box, draft, onChange, hintEl);
     return;
   }
+  if (tile.type === "steam_profile") {
+    fillSteamProfileOptions(box, draft, onChange);
+    return;
+  }
   const empty = document.createElement("div");
   empty.className = "profile-opt-empty";
   empty.textContent = "No extra settings for this widget yet.";
   box.appendChild(empty);
+}
+
+function fillSteamProfileOptions(box, draft, onChange) {
+  const rows = [
+    ["show_name", "Display name", true, "name"],
+    ["show_link", "Profile link", true, "link"],
+    ["show_avatar", "Avatar", true, "avatar"],
+    ["show_online", "Online state", true, "online"],
+    ["show_last_logoff", "Last logoff", true, "last_logoff"],
+    ["show_created", "Account created", true, "created"],
+    ["show_visibility", "Visibility", true, "visibility"],
+    ["show_country", "Country", false, "country"],
+    ["show_state", "State", false, "state"],
+    ["show_city", "City", false, "city"],
+    ["show_group", "Primary group", true, "group"],
+    ["show_level", "Steam level", true, "level"],
+    ["show_xp", "Current XP", true, "xp"],
+    ["show_xp_next", "XP until next level", true, "xp_next"]
+  ];
+  const card = typeof steamCardData !== "undefined" ? steamCardData : null;
+  const avail = card && card.available ? card.available : null;
+  rows.forEach(row => {
+    if (draft[row[0]] == null) draft[row[0]] = row[2];
+    const locked = !!(avail && avail[row[3]] === false);
+    const block = document.createElement("div");
+    block.className = "profile-name-opt";
+    const toggle = settingsToggle(!!draft[row[0]], locked, (on) => {
+      draft[row[0]] = on;
+      onChange();
+    });
+    block.appendChild(settingsOpt(row[1], "", toggle));
+    box.appendChild(block);
+  });
 }
 
 function fillBannerOptions(box, draft, onChange, hintEl) {

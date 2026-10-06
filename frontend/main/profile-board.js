@@ -87,7 +87,8 @@ const PROFILE_TILE_TYPES = {
   embed: { w: 12, h: 7, minW: 8, minH: 5, maxW: 20, maxH: 12, label: "Embed" },
   gallery: { w: 6, h: 6, minW: 3, minH: 3, maxW: 9, maxH: 9, label: "Gallery" },
   comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" },
-  display_server: { w: 10, h: 8, minW: 6, minH: 4, maxW: 16, maxH: 18, label: "Display Server" }
+  display_server: { w: 10, h: 8, minW: 6, minH: 4, maxW: 16, maxH: 18, label: "Display Server" },
+  steam_profile: { w: 14, h: 8, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Profile" }
 };
 
 const DISPLAY_SERVER_MAX = 20;
@@ -109,7 +110,6 @@ const PROFILE_PLACEHOLDERS = {
   game_stats: { label: "Game stats", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
   library: { label: "Library", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 14 },
   review: { label: "Review", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
-  steam_profile: { label: "Profile", w: 10, h: 4, minW: 6, minH: 3, maxW: 16, maxH: 8 },
   steam_playing_now: { label: "Playing Now", w: 10, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 6 },
   steam_recently_played: { label: "Recently Played", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
   steam_library: { label: "Library", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 14 },
@@ -1874,9 +1874,223 @@ function paintProfilePlaceholder(tile, el) {
   el.appendChild(body);
 }
 
+let steamCardOwnerId = "";
+let steamCardData = null;
+let steamCardLoad = null;
+
+const STEAM_PERSONA = ["Offline", "Online", "Busy", "Away", "Snooze", "Looking to trade", "Looking to play"];
+
+function ensureSteamCard() {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  if (steamCardOwnerId === id && (steamCardData || steamCardLoad)) return;
+  steamCardOwnerId = id;
+  steamCardData = null;
+  steamCardLoad = fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/steam_card", { credentials: "include" })
+    .then(response => response.ok ? response.json() : { linked: false })
+    .then(data => { steamCardData = data || { linked: false }; })
+    .catch(() => { steamCardData = { linked: false }; })
+    .finally(() => {
+      steamCardLoad = null;
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id && typeof renderProfileBoard === "function") {
+        renderProfileBoard();
+      }
+    });
+}
+
+function steamFlag(props, key, fallback) {
+  if (!props || props[key] == null) return fallback;
+  return !!props[key];
+}
+
+function steamDateText(unix) {
+  const n = Number(unix);
+  if (!n) return "";
+  const date = new Date(n * 1000);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function steamCountryName(code) {
+  const text = String(code || "").trim();
+  if (!text) return "";
+  try {
+    const names = new Intl.DisplayNames(["en"], { type: "region" });
+    return names.of(text.toUpperCase()) || text;
+  } catch (e) {
+    return text;
+  }
+}
+
+function steamProfileNote(text) {
+  const note = document.createElement("div");
+  note.className = "steam-profile-note";
+  note.textContent = text;
+  return note;
+}
+
+function paintSteamProfile(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  const card = document.createElement("div");
+  card.className = "steam-profile-card";
+  const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!steamCardData || steamCardOwnerId !== owner) {
+    ensureSteamCard();
+    el.appendChild(card);
+    return;
+  }
+  const data = steamCardData;
+  const props = tile.props || {};
+  if (!data.linked) {
+    card.appendChild(steamProfileNote("Connect Steam to show this."));
+    el.appendChild(card);
+    return;
+  }
+  const avail = data.available || {};
+  const identityOn = data.identity !== false;
+  const levelOn = data.level !== false;
+  if (!identityOn && !levelOn) {
+    card.appendChild(steamProfileNote("Turn on Identity and Level and badges for Steam."));
+    el.appendChild(card);
+    return;
+  }
+  if (identityOn) {
+    const top = document.createElement("div");
+    top.className = "steam-profile-top";
+    const showAvatar = steamFlag(props, "show_avatar", true) && avail.avatar !== false && data.avatar;
+    const showLevel = steamFlag(props, "show_level", true) && avail.level && levelOn && data.player_level != null;
+    if (showAvatar || showLevel) {
+      const face = document.createElement("div");
+      face.className = "steam-profile-face";
+      if (showAvatar) {
+        const img = document.createElement("img");
+        img.className = "steam-profile-avatar";
+        img.src = data.avatar;
+        img.alt = "";
+        face.appendChild(img);
+      }
+      if (showLevel) {
+        const badge = document.createElement("span");
+        badge.className = "steam-profile-level";
+        badge.textContent = String(data.player_level);
+        face.appendChild(badge);
+      }
+      top.appendChild(face);
+    }
+    const who = document.createElement("div");
+    who.className = "steam-profile-who";
+    if (steamFlag(props, "show_name", true) && avail.name !== false && data.name) {
+      const name = document.createElement("div");
+      name.className = "steam-profile-name";
+      name.textContent = data.name;
+      who.appendChild(name);
+    }
+    if (steamFlag(props, "show_online", true) && avail.online) {
+      const status = document.createElement("div");
+      status.className = "steam-profile-status";
+      const dot = document.createElement("span");
+      const state = Number(data.persona_state);
+      dot.className = "steam-profile-dot" + (state === 1 ? " is-online" : "");
+      const label = document.createElement("span");
+      label.textContent = STEAM_PERSONA[state] || "Offline";
+      status.appendChild(dot);
+      status.appendChild(label);
+      who.appendChild(status);
+    }
+    if (steamFlag(props, "show_link", true) && avail.link !== false && data.profile_url) {
+      const link = document.createElement("a");
+      link.className = "steam-profile-link";
+      link.href = data.profile_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = String(data.profile_url).replace(/^https?:\/\//, "").replace(/\/$/, "");
+      link.addEventListener("pointerdown", (e) => e.stopPropagation());
+      who.appendChild(link);
+    }
+    if (who.childNodes.length) top.appendChild(who);
+    if (top.childNodes.length) card.appendChild(top);
+    const lines = document.createElement("div");
+    lines.className = "steam-profile-lines";
+    if (steamFlag(props, "show_last_logoff", true) && avail.last_logoff) {
+      const line = document.createElement("div");
+      line.textContent = "Last online · " + steamDateText(data.last_logoff);
+      lines.appendChild(line);
+    }
+    if (steamFlag(props, "show_created", true) && avail.created) {
+      const line = document.createElement("div");
+      line.textContent = "Account created · " + steamDateText(data.time_created);
+      lines.appendChild(line);
+    }
+    if (steamFlag(props, "show_visibility", true) && avail.visibility) {
+      const line = document.createElement("div");
+      const vis = Number(data.visibility);
+      line.textContent = vis === 3 ? "Public" : (vis === 2 ? "Friends only" : "Private");
+      lines.appendChild(line);
+    }
+    const place = [];
+    if (steamFlag(props, "show_state", false) && avail.state && data.state) place.push(data.state);
+    if (steamFlag(props, "show_country", false) && avail.country && data.country) place.push(steamCountryName(data.country));
+    if (place.length) {
+      const line = document.createElement("div");
+      line.textContent = place.join(", ");
+      lines.appendChild(line);
+    }
+    if (lines.childNodes.length) card.appendChild(lines);
+  } else {
+    card.appendChild(steamProfileNote("Turn on Identity for Steam."));
+  }
+  if (levelOn && !identityOn && steamFlag(props, "show_level", true) && avail.level && data.player_level != null) {
+    const badge = document.createElement("span");
+    badge.className = "steam-profile-level is-alone";
+    badge.textContent = String(data.player_level);
+    card.appendChild(badge);
+  }
+  const showXp = steamFlag(props, "show_xp", true) && avail.xp && levelOn;
+  const showNext = steamFlag(props, "show_xp_next", true) && avail.xp_next && levelOn;
+  if (levelOn) {
+    if (showXp || showNext) {
+      const block = document.createElement("div");
+      block.className = "steam-profile-xp";
+      const track = document.createElement("div");
+      track.className = "steam-profile-xp-track";
+      const fill = document.createElement("div");
+      fill.className = "steam-profile-xp-fill";
+      let pct = 0;
+      const xp = Number(data.player_xp);
+      const toNext = Number(data.xp_to_next);
+      const floor = Number(data.xp_floor);
+      if (showXp && showNext && data.xp_floor != null && data.player_xp != null && data.xp_to_next != null && toNext >= 0) {
+        const into = Math.max(0, xp - floor);
+        const span = into + toNext;
+        pct = span ? Math.max(0, Math.min(100, Math.round(into / span * 100))) : 0;
+      } else if (showXp) {
+        pct = 100;
+      }
+      fill.style.width = pct + "%";
+      track.appendChild(fill);
+      const text = document.createElement("div");
+      text.className = "steam-profile-xp-text";
+      const bits = [];
+      if (showXp && data.player_xp != null) bits.push(Number(data.player_xp).toLocaleString() + " XP");
+      if (showNext && data.xp_to_next != null) bits.push(Number(data.xp_to_next).toLocaleString() + " to next");
+      text.textContent = bits.join(" · ");
+      block.appendChild(track);
+      block.appendChild(text);
+      card.appendChild(block);
+    }
+  } else {
+    card.appendChild(steamProfileNote("Turn on Level and badges for Steam."));
+  }
+  el.appendChild(card);
+}
+
 function paintProfileTileContent(tile, el) {
   el.innerHTML = "";
   el.classList.toggle("is-compact-row", Number(tile.h) === 1);
+  if (tile.type === "steam_profile") {
+    paintSteamProfile(tile, el);
+    return;
+  }
   if (tile.type === "banner") {
     el.style.background = (tile.props && tile.props.color) || "#1e6b8a";
     applyProfileTileBorder(el, tile);

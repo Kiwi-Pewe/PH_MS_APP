@@ -1885,6 +1885,7 @@ let steamPlayingTimer = null;
 function ensureSteamCard() {
   const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
   if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  if (!steamPlayingTimer) steamPlayingTimer = setInterval(refreshSteamSurfaces, 300000);
   if (steamCardOwnerId === id && (steamCardData || steamCardLoad)) return;
   steamCardOwnerId = id;
   steamCardData = null;
@@ -2086,19 +2087,22 @@ function steamPlayingTime(minutes) {
   return (hours === 1 ? "1 hour " : hours + " hours ") + mins + " minutes";
 }
 
-function refreshSteamPlaying() {
-  const id = steamPlayingOwnerId;
+function refreshSteamSurfaces() {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
   if (!id || typeof serverAddress !== "string" || !serverAddress) return;
-  fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/steam_playing", { credentials: "include" })
-    .then(response => response.ok ? response.json() : { linked: false })
-    .then(data => {
-      if (steamPlayingOwnerId !== id) return;
-      steamPlayingData = data || { linked: false };
-      if (!profileEditing && String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id && typeof renderProfileBoard === "function") {
-        renderProfileBoard();
-      }
-    })
-    .catch(() => {});
+  const pull = (path) => fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + path, { credentials: "include" })
+    .then(response => response.ok ? response.json() : null)
+    .catch(() => null);
+  Promise.all([pull("/steam_card"), pull("/steam_playing")]).then(pair => {
+    if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") !== id) return;
+    if (pair[0] && steamCardOwnerId === id) steamCardData = pair[0];
+    if (pair[1] && steamPlayingOwnerId === id) steamPlayingData = pair[1];
+    if (!profileEditing && typeof renderProfileBoard === "function") renderProfileBoard();
+  });
+}
+
+function refreshSteamPlaying() {
+  refreshSteamSurfaces();
 }
 
 function ensureSteamPlaying() {
@@ -2148,12 +2152,15 @@ function paintSteamPlaying(tile, el) {
   }
   const appid = String(data.appid || "");
   if (/^\d+$/.test(appid)) {
+    const frame = document.createElement("div");
+    frame.className = "steam-playing-frame";
     const img = document.createElement("img");
     img.className = "steam-playing-art";
     img.alt = "";
-    img.src = "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appid + "/header.jpg";
-    img.addEventListener("error", () => img.remove());
-    card.appendChild(img);
+    img.src = "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appid + "/library_600x900.jpg";
+    img.addEventListener("error", () => frame.remove());
+    frame.appendChild(img);
+    card.appendChild(frame);
   }
   const copy = document.createElement("div");
   copy.className = "steam-playing-copy";

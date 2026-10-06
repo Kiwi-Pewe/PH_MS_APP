@@ -357,10 +357,18 @@ def load_steam_playing(database, user_id):
 def apply_playing_snapshot(cache, player):
     if steam_number(player.get("communityvisibilitystate")) != 3:
         return False
+    changed = False
+    state = player.get("personastate")
+    if state is not None and cache.get("personastate") != state:
+        cache["personastate"] = state
+        changed = True
+    logoff = player.get("lastlogoff")
+    if logoff and cache.get("lastlogoff") != logoff:
+        cache["lastlogoff"] = logoff
+        changed = True
     gameid = str(player.get("gameid") or "").strip()
     if gameid:
         name = clip(player.get("gameextrainfo"), 120)
-        changed = False
         if str(cache.get("playing_appid") or "") != gameid:
             cache["playing_appid"] = gameid
             cache["playing_since"] = int(time.time())
@@ -374,7 +382,7 @@ def apply_playing_snapshot(cache, player):
         cache.pop("playing_name", None)
         cache.pop("playing_since", None)
         return True
-    return False
+    return changed
 
 
 def check_steam_playing_once():
@@ -383,8 +391,6 @@ def check_steam_playing_once():
         rows = database.query(Account_connection).filter(Account_connection.provider == "steam").all()
         watched = []
         for row in rows:
-            if not read_parts(row.parts).get("playing_now"):
-                continue
             steamid = str(row.external_id or "").strip()
             if steamid:
                 watched.append((row, steamid))

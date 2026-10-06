@@ -5525,7 +5525,16 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-placeholder-note {
   font-size: 13px; color: var(--text-dim); line-height: 1.4;
 }
-.profile-tile.is-steam_profile { overflow: hidden; }
+.profile-tile.is-steam_profile,
+.profile-tile.is-steam_playing_now {
+  display: flex; flex-direction: column; align-items: stretch; overflow: hidden;
+}
+.profile-tile.is-steam_profile > .profile-tile-head { text-align: center; }
+.profile-tile.is-steam_playing_now > .profile-tile-head { text-align: left; }
+.profile-tile.is-steam_profile > .steam-profile-card,
+.profile-tile.is-steam_playing_now > .steam-playing-card {
+  flex: 1 1 auto; min-height: 0; height: auto;
+}
 .steam-profile-card {
   height: 100%; min-height: 0; box-sizing: border-box;
   display: flex; flex-direction: column; gap: 8px;

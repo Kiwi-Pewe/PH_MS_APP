@@ -1934,6 +1934,7 @@ function steamProfileNote(text) {
 
 function paintSteamProfile(tile, el) {
   applyProfileWidgetSurface(el, tile);
+  mountProfileFixedTitle(el, "Steam profile");
   const card = document.createElement("div");
   card.className = "steam-profile-card";
   const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
@@ -2126,6 +2127,7 @@ function ensureSteamPlaying() {
 
 function paintSteamPlaying(tile, el) {
   applyProfileWidgetSurface(el, tile);
+  mountProfileFixedTitle(el, "Currently playing");
   const card = document.createElement("div");
   card.className = "steam-playing-card";
   const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");

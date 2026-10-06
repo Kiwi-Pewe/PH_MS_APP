@@ -967,12 +967,12 @@ def normalize_embed_props(data):
 
 
 def normalize_steam_profile_props(data):
+    out = normalize_text_chrome(data, 14, True)
     on_keys = (
         "show_name", "show_link", "show_avatar", "show_online",
         "show_created", "show_group", "show_level", "show_xp",
     )
     off_keys = ("show_country", "show_state", "show_city")
-    out = {}
     for key in on_keys:
         out[key] = True if key not in data or data.get(key) is None else bool(data.get(key))
     for key in off_keys:
@@ -984,12 +984,12 @@ def normalize_steam_profile_props(data):
 
 
 def normalize_steam_playing_props(data):
+    out = normalize_text_chrome(data, 14, True)
     shown = data.get("show_title")
     align = str(data.get("title_align") or "")
-    return {
-        "show_title": True if shown is None else bool(shown),
-        "title_align": align if align in ("left", "center", "right") else "left",
-    }
+    out["show_title"] = True if shown is None else bool(shown)
+    out["title_align"] = align if align in ("left", "center", "right") else "left"
+    return out
 
 
 def normalize_props(kind, props, banner_fallback):

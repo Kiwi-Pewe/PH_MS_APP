@@ -1982,6 +1982,7 @@ function paintSteamProfile(tile, el) {
         img.className = "steam-profile-avatar";
         img.src = data.avatar;
         img.alt = "";
+        img.draggable = false;
         face.appendChild(img);
       }
       if (showLevel) {
@@ -2170,6 +2171,7 @@ function paintSteamPlaying(tile, el) {
     const img = document.createElement("img");
     img.className = "steam-playing-art";
     img.alt = "";
+    img.draggable = false;
     img.src = "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appid + "/library_600x900.jpg";
     img.addEventListener("error", () => frame.remove());
     frame.appendChild(img);

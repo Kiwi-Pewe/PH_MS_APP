@@ -989,9 +989,6 @@ def normalize_steam_playing_props(data):
     align = str(data.get("title_align") or "")
     out["show_title"] = True if shown is None else bool(shown)
     out["title_align"] = align if align in ("left", "center", "right") else "left"
-    out["image_side"] = "right" if str(data.get("image_side") or "") == "right" else "left"
-    text_align = str(data.get("text_align") or "")
-    out["text_align"] = text_align if text_align in ("left", "center", "right") else "left"
     return out
 
 

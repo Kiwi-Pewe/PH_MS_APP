@@ -2164,9 +2164,6 @@ function paintSteamPlaying(tile, el) {
     el.appendChild(card);
     return;
   }
-  const look = tile.props || {};
-  const textAlign = look.text_align === "center" || look.text_align === "right" ? look.text_align : "left";
-  if (look.image_side === "right") card.classList.add("is-image-right");
   const appid = String(data.appid || "");
   if (/^\d+$/.test(appid)) {
     const frame = document.createElement("div");
@@ -2181,7 +2178,7 @@ function paintSteamPlaying(tile, el) {
     card.appendChild(frame);
   }
   const copy = document.createElement("div");
-  copy.className = "steam-playing-copy is-" + textAlign;
+  copy.className = "steam-playing-copy";
   if (data.name) {
     const name = document.createElement("div");
     name.className = "steam-playing-name";

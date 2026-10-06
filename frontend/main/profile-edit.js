@@ -540,7 +540,6 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "steam_playing_now") {
     fillFixedTitleOptions(box, draft, onChange, "left");
-    fillSteamPlayingLayout(box, draft, onChange);
     return;
   }
   const empty = document.createElement("div");
@@ -585,46 +584,6 @@ function fillFixedTitleOptions(box, draft, onChange, fallback) {
   })));
   block.appendChild(extras);
   box.appendChild(block);
-}
-
-function steamAlignOpt(label, current, choices, onPick) {
-  const block = document.createElement("div");
-  block.className = "profile-name-opt";
-  const alignWrap = document.createElement("div");
-  alignWrap.className = "profile-opt-align";
-  const alignLabel = document.createElement("div");
-  alignLabel.className = "profile-opt-field-label";
-  alignLabel.textContent = label;
-  alignWrap.appendChild(alignLabel);
-  const row = document.createElement("div");
-  row.className = "profile-opt-seg";
-  choices.forEach(item => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.textContent = item[1];
-    btn.className = current === item[0] ? "is-on" : "";
-    btn.addEventListener("click", () => {
-      Array.from(row.children).forEach(child => child.classList.toggle("is-on", child === btn));
-      onPick(item[0]);
-    });
-    row.appendChild(btn);
-  });
-  alignWrap.appendChild(row);
-  block.appendChild(alignWrap);
-  return block;
-}
-
-function fillSteamPlayingLayout(box, draft, onChange) {
-  if (draft.image_side !== "right") draft.image_side = "left";
-  if (draft.text_align !== "center" && draft.text_align !== "right") draft.text_align = "left";
-  box.appendChild(steamAlignOpt("Image", draft.image_side, [["left", "L"], ["right", "R"]], (value) => {
-    draft.image_side = value;
-    onChange();
-  }));
-  box.appendChild(steamAlignOpt("Text", draft.text_align, [["left", "L"], ["center", "C"], ["right", "R"]], (value) => {
-    draft.text_align = value;
-    onChange();
-  }));
 }
 
 function fillSteamProfileOptions(box, draft, onChange) {

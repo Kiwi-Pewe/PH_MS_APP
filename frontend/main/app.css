@@ -5534,7 +5534,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile[data-title-align="right"] > .profile-tile-head { text-align: right; }
 .profile-tile.is-steam_profile > .steam-profile-card,
 .profile-tile.is-steam_playing_now > .steam-playing-card {
-  flex: 1 1 auto; min-height: 0; height: auto;
+  flex: 1 1 auto; min-height: 0; height: 0;
 }
 .steam-profile-card {
   height: 100%; min-height: 0; box-sizing: border-box;
@@ -5583,8 +5583,9 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   display: flex; align-items: center; gap: 12px;
   padding: 8px 10px; overflow: hidden;
 }
+.steam-playing-card.is-image-right { flex-direction: row-reverse; }
 .steam-playing-frame {
-  flex: 0 0 auto; align-self: stretch; height: 100%; width: auto; max-width: 28%;
+  flex: 0 1 auto; align-self: stretch; height: 100%; width: auto; max-width: 34%;
   aspect-ratio: 2 / 3; min-width: 0; min-height: 0; overflow: hidden; border-radius: 4px;
   background: var(--panel);
 }
@@ -5592,6 +5593,11 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block;
 }
 .steam-playing-copy { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.steam-playing-copy.is-center { text-align: center; }
+.steam-playing-copy.is-right { text-align: right; }
+.steam-playing-copy.is-left { text-align: left; }
+.steam-playing-name,
+.steam-playing-time { align-self: stretch; width: 100%; }
 .steam-playing-name {
   font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.2;
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;

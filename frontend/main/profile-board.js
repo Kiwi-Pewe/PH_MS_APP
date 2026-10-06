@@ -89,7 +89,7 @@ const PROFILE_TILE_TYPES = {
   comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" },
   display_server: { w: 10, h: 8, minW: 6, minH: 4, maxW: 16, maxH: 18, label: "Display Server" },
   steam_profile: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "Profile" },
-  steam_playing_now: { w: 10, h: 3, minW: 6, minH: 2, maxW: 16, maxH: 6, label: "Playing Now" }
+  steam_playing_now: { w: 10, h: 4, minW: 7, minH: 4, maxW: 10, maxH: 6, label: "Playing Now" }
 };
 
 const DISPLAY_SERVER_MAX = 20;
@@ -2164,6 +2164,9 @@ function paintSteamPlaying(tile, el) {
     el.appendChild(card);
     return;
   }
+  const look = tile.props || {};
+  const textAlign = look.text_align === "center" || look.text_align === "right" ? look.text_align : "left";
+  if (look.image_side === "right") card.classList.add("is-image-right");
   const appid = String(data.appid || "");
   if (/^\d+$/.test(appid)) {
     const frame = document.createElement("div");
@@ -2178,7 +2181,7 @@ function paintSteamPlaying(tile, el) {
     card.appendChild(frame);
   }
   const copy = document.createElement("div");
-  copy.className = "steam-playing-copy";
+  copy.className = "steam-playing-copy is-" + textAlign;
   if (data.name) {
     const name = document.createElement("div");
     name.className = "steam-playing-name";

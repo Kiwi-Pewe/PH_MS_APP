@@ -198,7 +198,7 @@ def tile_bounds(kind, props=None):
         "library": (8, 4, 24, 14),
         "review": (6, 3, 16, 10),
         "steam_profile": (8, 5, 12, 7),
-        "steam_playing_now": (6, 2, 16, 6),
+        "steam_playing_now": (7, 4, 10, 6),
         "steam_recently_played": (8, 3, 24, 12),
         "steam_library": (8, 4, 24, 14),
         "steam_achievements": (8, 3, 24, 12),
@@ -253,7 +253,7 @@ def default_sizes(kind):
         "library": (12, 6),
         "review": (10, 5),
         "steam_profile": (12, 7),
-        "steam_playing_now": (10, 3),
+        "steam_playing_now": (10, 4),
         "steam_recently_played": (12, 5),
         "steam_library": (12, 6),
         "steam_achievements": (12, 5),
@@ -989,6 +989,9 @@ def normalize_steam_playing_props(data):
     align = str(data.get("title_align") or "")
     out["show_title"] = True if shown is None else bool(shown)
     out["title_align"] = align if align in ("left", "center", "right") else "left"
+    out["image_side"] = "right" if str(data.get("image_side") or "") == "right" else "left"
+    text_align = str(data.get("text_align") or "")
+    out["text_align"] = text_align if text_align in ("left", "center", "right") else "left"
     return out
 
 

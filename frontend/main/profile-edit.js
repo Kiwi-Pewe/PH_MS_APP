@@ -169,15 +169,21 @@ function renderProfilePalette() {
   });
 }
 
-function profileCellFromPoint(clientX, clientY) {
+function profileBoardPoint(clientX, clientY) {
   const board = document.getElementById("profile-board");
   const rect = board.getBoundingClientRect();
-  const pad = profileBoardPad();
   const scale = profileBoardScale || 1;
-  const x = (clientX - rect.left) / scale - (parseFloat(window.getComputedStyle(board).paddingLeft) || 0);
-  const y = (clientY - rect.top) / scale - pad.y;
-  const col = Math.max(0, Math.min(PROFILE_COLS - 1, Math.floor(x / PROFILE_ROW_H)));
-  const row = Math.max(0, Math.floor(y / PROFILE_ROW_H));
+  const styles = window.getComputedStyle(board);
+  return {
+    x: (clientX - rect.left) / scale - (parseFloat(styles.paddingLeft) || 0),
+    y: (clientY - rect.top) / scale - (parseFloat(styles.paddingTop) || 0)
+  };
+}
+
+function profileCellFromPoint(clientX, clientY) {
+  const pt = profileBoardPoint(clientX, clientY);
+  const col = Math.max(0, Math.min(PROFILE_COLS - 1, Math.floor(pt.x / PROFILE_ROW_H)));
+  const row = Math.max(0, Math.floor(pt.y / PROFILE_ROW_H));
   return { x: col, y: row };
 }
 
@@ -214,13 +220,15 @@ function bindProfileTileDrag(el, tile, handle) {
   let mode = null;
   let origin = null;
   let startPt = null;
-  let grabOffset = { x: 0, y: 0 };
+  let grabPx = { x: 0, y: 0 };
 
   function moveTarget(clientX, clientY) {
-    const cell = profileCellFromPoint(clientX, clientY);
+    const pt = profileBoardPoint(clientX, clientY);
+    const x = Math.round((pt.x - grabPx.x) / PROFILE_ROW_H);
+    const y = Math.round((pt.y - grabPx.y) / PROFILE_ROW_H);
     return {
-      x: Math.max(0, Math.min(PROFILE_COLS - tile.w, cell.x - grabOffset.x)),
-      y: Math.max(0, cell.y - grabOffset.y)
+      x: Math.max(0, Math.min(PROFILE_COLS - tile.w, x)),
+      y: Math.max(0, y)
     };
   }
 
@@ -273,10 +281,10 @@ function bindProfileTileDrag(el, tile, handle) {
     mode = "move";
     origin = { x: tile.x, y: tile.y, w: tile.w, h: tile.h };
     startPt = { x: e.clientX, y: e.clientY };
-    const grab = profileCellFromPoint(e.clientX, e.clientY);
-    grabOffset = {
-      x: Math.max(0, Math.min(Math.max(tile.w - 1, 0), grab.x - tile.x)),
-      y: Math.max(0, Math.min(Math.max(tile.h - 1, 0), grab.y - tile.y))
+    const pt = profileBoardPoint(e.clientX, e.clientY);
+    grabPx = {
+      x: pt.x - tile.x * PROFILE_ROW_H,
+      y: pt.y - tile.y * PROFILE_ROW_H
     };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
@@ -532,6 +540,7 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "steam_playing_now") {
     fillFixedTitleOptions(box, draft, onChange, "left");
+    fillSteamPlayingLayout(box, draft, onChange);
     return;
   }
   const empty = document.createElement("div");
@@ -576,6 +585,46 @@ function fillFixedTitleOptions(box, draft, onChange, fallback) {
   })));
   block.appendChild(extras);
   box.appendChild(block);
+}
+
+function steamAlignOpt(label, current, choices, onPick) {
+  const block = document.createElement("div");
+  block.className = "profile-name-opt";
+  const alignWrap = document.createElement("div");
+  alignWrap.className = "profile-opt-align";
+  const alignLabel = document.createElement("div");
+  alignLabel.className = "profile-opt-field-label";
+  alignLabel.textContent = label;
+  alignWrap.appendChild(alignLabel);
+  const row = document.createElement("div");
+  row.className = "profile-opt-seg";
+  choices.forEach(item => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = item[1];
+    btn.className = current === item[0] ? "is-on" : "";
+    btn.addEventListener("click", () => {
+      Array.from(row.children).forEach(child => child.classList.toggle("is-on", child === btn));
+      onPick(item[0]);
+    });
+    row.appendChild(btn);
+  });
+  alignWrap.appendChild(row);
+  block.appendChild(alignWrap);
+  return block;
+}
+
+function fillSteamPlayingLayout(box, draft, onChange) {
+  if (draft.image_side !== "right") draft.image_side = "left";
+  if (draft.text_align !== "center" && draft.text_align !== "right") draft.text_align = "left";
+  box.appendChild(steamAlignOpt("Image", draft.image_side, [["left", "L"], ["right", "R"]], (value) => {
+    draft.image_side = value;
+    onChange();
+  }));
+  box.appendChild(steamAlignOpt("Text", draft.text_align, [["left", "L"], ["center", "C"], ["right", "R"]], (value) => {
+    draft.text_align = value;
+    onChange();
+  }));
 }
 
 function fillSteamProfileOptions(box, draft, onChange) {

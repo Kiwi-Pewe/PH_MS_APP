@@ -157,7 +157,7 @@ def steam_snapshot(steamid):
         name = name or xml_name
         avatar = avatar or xml_avatar
         profile = profile or xml_profile
-    level_payload = steam_json("/ISteamUser/GetSteamLevel/v1/", {"steamid": steamid})
+    level_payload = steam_json("/IPlayerService/GetSteamLevel/v1/", {"steamid": steamid})
     level = ((level_payload or {}).get("response") or {}).get("player_level")
     recent_payload = steam_json("/IPlayerService/GetRecentlyPlayedGames/v0001/", {"steamid": steamid})
     recent_rows = ((recent_payload or {}).get("response") or {}).get("games") or []
@@ -232,7 +232,7 @@ def refresh_steam_profile_cache(database, row):
     players = ((payload or {}).get("response") or {}).get("players") or []
     if players:
         summary = players[0]
-    level_payload = steam_json("/ISteamUser/GetSteamLevel/v1/", {"steamid": steamid}) if steamid else None
+    level_payload = steam_json("/IPlayerService/GetSteamLevel/v1/", {"steamid": steamid}) if steamid else None
     level = ((level_payload or {}).get("response") or {}).get("player_level")
     badge_payload = steam_json("/IPlayerService/GetBadges/v1/", {"steamid": steamid}) if steamid else None
     badge_body = (badge_payload or {}).get("response") or {}

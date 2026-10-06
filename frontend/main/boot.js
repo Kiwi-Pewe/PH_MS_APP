@@ -758,6 +758,7 @@ function enterApp() {
   loadConversations();
   loadServers();
   handleJoinDeepLink();
+  handleConnectionDeepLink();
   if (typeof loadFeedAlerts === "function") loadFeedAlerts();
 
   // Wired once here, not in renderServerSidebar — #server-sidebar-body
@@ -773,6 +774,19 @@ function enterApp() {
 // Handles arriving fresh from invite.html after accepting an invite
 // there. Strips the query params via replaceState so a manual refresh
 // doesn't re-navigate to the same place.
+function handleConnectionDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const connection = params.get("connection");
+  if (!connection) return;
+  const error = params.get("error") || "";
+  history.replaceState({}, "", window.location.pathname);
+  window.connectionLinkNotice = { provider: connection, error: error };
+  if (typeof openSettings !== "function") return;
+  Promise.resolve(openSettings()).then(() => {
+    if (typeof jumpToSettings === "function") jumpToSettings("connections");
+  });
+}
+
 function handleJoinDeepLink() {
   const params = new URLSearchParams(window.location.search);
   const joinType = params.get("join_type");

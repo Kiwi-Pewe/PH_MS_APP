@@ -1,7 +1,7 @@
 // ==================================================================
-// settings-apps.js - Connected Apps. Connections are other-platform
-// accounts. Authorized Apps are games/bots that were granted account
-// access. Both wait — no OAuth, bots, or third-party games yet.
+// settings-apps.js - Connected Apps. Steam linking is live. The other
+// provider icons wait until each one has its own part list. Authorized
+// Apps stay empty until a developer platform exists.
 // Nitro Rewards are Billing; they are not on this page.
 // ==================================================================
 
@@ -25,13 +25,26 @@ const CONNECTION_PROVIDERS = [
 ];
 
 const STEAM_CONNECTION_PARTS = [
-  "Identity",
-  "Playing now",
-  "Recently played",
-  "Library",
-  "Achievements",
-  "Level and badges"
+  { key: "identity", label: "Identity" },
+  { key: "playing_now", label: "Playing now" },
+  { key: "recently_played", label: "Recently played" },
+  { key: "library", label: "Library" },
+  { key: "achievements", label: "Achievements" },
+  { key: "level_badges", label: "Level and badges" }
 ];
+
+const CONNECTION_LINK_ERRORS = {
+  cancel: "Steam sign-in was canceled.",
+  failed: "Steam did not confirm that sign-in.",
+  taken: "That Steam account is already linked to another Oneira account."
+};
+
+let connectionDisconnectService = "";
+
+function connectionSlug(service) {
+  const item = CONNECTION_PROVIDERS.find(row => row.name === service);
+  return item ? item.slug : "";
+}
 
 function paintConnectionIcon(item) {
   const face = document.createElement("span");
@@ -56,7 +69,7 @@ function setConnectionOpen(card, open) {
   toggle.setAttribute("aria-label", (open ? "Hide " : "Show ") + service + " settings");
 }
 
-function paintConnectionCard(service, parts) {
+function paintConnectionCard(service, parts, flags, accountName) {
   const card = document.createElement("div");
   card.className = "connection-card is-open";
   card.dataset.service = service;
@@ -68,7 +81,7 @@ function paintConnectionCard(service, parts) {
   who.className = "connection-card-who";
   const account = document.createElement("div");
   account.className = "connection-card-name";
-  account.textContent = service + " name";
+  account.textContent = accountName || service;
   const label = document.createElement("div");
   label.className = "connection-card-service";
   label.textContent = service;
@@ -91,9 +104,10 @@ function paintConnectionCard(service, parts) {
     row.className = "connection-part";
     const title = document.createElement("div");
     title.className = "connection-part-title";
-    title.textContent = part;
+    title.textContent = part.label;
     row.appendChild(title);
-    row.appendChild(settingsToggle(false, true));
+    const on = !flags || flags[part.key] !== false;
+    row.appendChild(settingsToggle(on, false, (checked) => saveConnectionPart(service, part.key, checked, row)));
     body.appendChild(row);
   });
   card.appendChild(body);
@@ -118,10 +132,80 @@ function closeConnectionDisconnect() {
 function openConnectionDisconnect(service) {
   const overlay = document.getElementById("connection-disconnect-overlay");
   if (!overlay) return;
+  connectionDisconnectService = service;
   overlay.querySelector(".connection-disconnect-title").textContent = "Disconnect " + service;
   overlay.querySelector(".connection-disconnect-body").textContent = "Disconnecting " + service + " stops future access and deletes the data Oneira stored from that account.";
+  const confirm = overlay.querySelector(".connection-disconnect-confirm");
+  if (confirm) confirm.disabled = false;
   overlay.hidden = false;
   overlay.querySelector(".connection-disconnect-cancel").focus();
+}
+
+async function saveConnectionPart(service, key, enabled, row) {
+  const slug = connectionSlug(service);
+  try {
+    const response = await fetch(`https://${serverAddress}/connections/part`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: slug, part: key, enabled: enabled })
+    });
+    if (!response.ok) throw new Error("fail");
+  } catch (e) {
+    const input = row.querySelector("input");
+    if (input) input.checked = !enabled;
+  }
+}
+
+async function submitConnectionDisconnect() {
+  const overlay = document.getElementById("connection-disconnect-overlay");
+  const service = connectionDisconnectService;
+  const slug = connectionSlug(service);
+  const confirm = overlay ? overlay.querySelector(".connection-disconnect-confirm") : null;
+  if (!overlay || !slug || !confirm) return;
+  confirm.disabled = true;
+  try {
+    const response = await fetch(`https://${serverAddress}/connections/${encodeURIComponent(slug)}`, {
+      method: "DELETE",
+      credentials: "include"
+    });
+    if (!response.ok) throw new Error("fail");
+    closeConnectionDisconnect();
+    if (typeof jumpToSettings === "function") jumpToSettings("connections");
+  } catch (e) {
+    confirm.disabled = false;
+    overlay.querySelector(".connection-disconnect-body").textContent = "Could not disconnect " + service + ".";
+  }
+}
+
+async function loadConnectionList(list) {
+  list.replaceChildren();
+  let rows = [];
+  try {
+    const response = await fetch(`https://${serverAddress}/connections`, { credentials: "include" });
+    if (!response.ok) throw new Error("fail");
+    const data = await response.json();
+    rows = data.connections || [];
+  } catch (e) {
+    list.appendChild(settingsNote("Could not load connections."));
+    return;
+  }
+  const notice = window.connectionLinkNotice;
+  window.connectionLinkNotice = null;
+  if (notice && notice.error) {
+    list.appendChild(settingsNote(CONNECTION_LINK_ERRORS[notice.error] || "Could not finish that connection."));
+  }
+  if (!rows.length) return;
+  const count = document.createElement("div");
+  count.className = "settings-opt-title connection-count";
+  count.textContent = rows.length === 1 ? "1 connection" : rows.length + " connections";
+  list.appendChild(count);
+  rows.forEach(item => {
+    const provider = CONNECTION_PROVIDERS.find(row => row.slug === item.provider);
+    if (!provider) return;
+    const parts = item.provider === "steam" ? STEAM_CONNECTION_PARTS : [];
+    list.appendChild(paintConnectionCard(provider.name, parts, item.parts || {}, item.name || provider.name));
+  });
 }
 
 function ensureConnectionDisconnect() {
@@ -158,9 +242,9 @@ function ensureConnectionDisconnect() {
   cancel.addEventListener("click", closeConnectionDisconnect);
   const confirm = document.createElement("button");
   confirm.type = "button";
-  confirm.className = "deny-btn";
+  confirm.className = "deny-btn connection-disconnect-confirm";
   confirm.textContent = "Disconnect";
-  confirm.addEventListener("click", closeConnectionDisconnect);
+  confirm.addEventListener("click", () => submitConnectionDisconnect());
   footer.appendChild(cancel);
   footer.appendChild(confirm);
   modal.appendChild(header);
@@ -195,7 +279,13 @@ function paintConnections(host) {
     btn.className = "connection-provider";
     btn.title = item.name;
     btn.setAttribute("aria-label", item.name);
-    btn.disabled = true;
+    const live = item.slug === "steam";
+    btn.disabled = !live;
+    if (live) {
+      btn.addEventListener("click", () => {
+        window.location.href = `https://${serverAddress}/connections/steam/start`;
+      });
+    }
     btn.appendChild(paintConnectionIcon(item));
     row.appendChild(btn);
   });
@@ -209,11 +299,10 @@ function paintConnections(host) {
   row.appendChild(more);
   host.appendChild(row);
 
-  const count = document.createElement("div");
-  count.className = "settings-opt-title connection-count";
-  count.textContent = "1 connection";
-  host.appendChild(count);
-  host.appendChild(paintConnectionCard("Steam", STEAM_CONNECTION_PARTS));
+  const list = document.createElement("div");
+  list.className = "connection-list";
+  host.appendChild(list);
+  loadConnectionList(list);
 }
 
 function paintAuthorizedApps(host) {

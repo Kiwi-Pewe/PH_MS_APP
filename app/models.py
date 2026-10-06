@@ -642,6 +642,30 @@ class Server_emojis(Base):
     created_at = Column(DateTime, server_default=func.now())
     __table_args__ = (UniqueConstraint("server_id", "name", name="uq_server_emoji_name"),)
 
+class Account_connection(Base):
+    __tablename__ = "account_connections"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    provider = Column(String, nullable=False)
+    external_id = Column(String, nullable=False)
+    display_name = Column(String, nullable=True)
+    avatar_url = Column(String, nullable=True)
+    profile_url = Column(String, nullable=True)
+    parts = Column(String, nullable=True)
+    cache = Column(String, nullable=True)
+    linked_at = Column(DateTime, server_default=func.now())
+    refreshed_at = Column(DateTime, nullable=True)
+    __table_args__ = (
+        UniqueConstraint("user_id", "provider", name="uq_account_connection_user_provider"),
+        UniqueConstraint("provider", "external_id", name="uq_account_connection_provider_external"),
+    )
+
+class Connection_nonce(Base):
+    __tablename__ = "connection_nonces"
+    nonce = Column(String, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False)
+
 Index(
     "ix_forum_post_activity",
     Forum_post.channel_id,

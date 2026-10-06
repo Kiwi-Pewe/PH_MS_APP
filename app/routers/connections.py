@@ -20,7 +20,9 @@ from app.models import Account_connection, Connection_nonce
 router = APIRouter()
 
 API_ORIGIN = "https://api.oneira.cc"
-APP_RETURN = "https://oneira.cc/main/app.html"
+SITE_ORIGIN = "https://oneira.cc"
+APP_RETURN = SITE_ORIGIN + "/main/app.html"
+STEAM_RETURN_PATH = "/steam/callback.html"
 STEAM_OPENID = "https://steamcommunity.com/openid/login"
 STEAM_ID_RE = re.compile(r"^https://steamcommunity\.com/openid/id/(\d{17})$")
 STEAM_PARTS = (
@@ -197,7 +199,11 @@ def steam_snapshot(steamid):
 
 def steam_is_valid(params):
     returned = params.get("openid.return_to") or ""
-    if not returned.startswith(API_ORIGIN + "/connections/steam/callback"):
+    allowed = (
+        SITE_ORIGIN + STEAM_RETURN_PATH,
+        API_ORIGIN + "/connections/steam/callback",
+    )
+    if not any(returned.startswith(prefix) for prefix in allowed):
         return ""
     claimed = params.get("openid.claimed_id") or ""
     match = STEAM_ID_RE.match(claimed)
@@ -306,12 +312,12 @@ def steam_start(session_id: str = Cookie(None), database: Session = Depends(get_
     nonce = secrets.token_urlsafe(24)
     database.add(Connection_nonce(nonce=nonce, user_id=user.id, created_at=datetime.now()))
     database.commit()
-    return_to = API_ORIGIN + "/connections/steam/callback?nonce=" + nonce
+    return_to = SITE_ORIGIN + STEAM_RETURN_PATH + "?nonce=" + nonce
     query = urlencode({
         "openid.ns": "http://specs.openid.net/auth/2.0",
         "openid.mode": "checkid_setup",
         "openid.return_to": return_to,
-        "openid.realm": API_ORIGIN,
+        "openid.realm": SITE_ORIGIN,
         "openid.identity": "http://specs.openid.net/auth/2.0/identifier_select",
         "openid.claimed_id": "http://specs.openid.net/auth/2.0/identifier_select",
     })

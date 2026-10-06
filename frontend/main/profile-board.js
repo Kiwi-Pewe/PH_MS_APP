@@ -750,6 +750,17 @@ function mountProfileFixedTitle(el, label) {
   el.appendChild(rule);
 }
 
+function mountSteamTitle(el, tile, label, fallback) {
+  const props = tile.props || {};
+  if (props.show_title === false) {
+    delete el.dataset.titleAlign;
+    return;
+  }
+  const align = props.title_align === "left" || props.title_align === "center" || props.title_align === "right" ? props.title_align : fallback;
+  el.dataset.titleAlign = align;
+  mountProfileFixedTitle(el, label);
+}
+
 function profileFillPaint(chrome) {
   if (!chrome.show_background) return "";
   const opacity = clampProfilePercent(chrome.bg_opacity, 100);
@@ -1934,7 +1945,7 @@ function steamProfileNote(text) {
 
 function paintSteamProfile(tile, el) {
   applyProfileWidgetSurface(el, tile);
-  mountProfileFixedTitle(el, "Steam profile");
+  mountSteamTitle(el, tile, "Steam profile", "center");
   const card = document.createElement("div");
   card.className = "steam-profile-card";
   const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
@@ -2127,7 +2138,7 @@ function ensureSteamPlaying() {
 
 function paintSteamPlaying(tile, el) {
   applyProfileWidgetSurface(el, tile);
-  mountProfileFixedTitle(el, "Currently playing");
+  mountSteamTitle(el, tile, "Currently playing", "left");
   const card = document.createElement("div");
   card.className = "steam-playing-card";
   const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");

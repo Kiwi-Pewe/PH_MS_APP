@@ -423,7 +423,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -526,13 +526,56 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     return;
   }
   if (tile.type === "steam_profile") {
+    fillFixedTitleOptions(box, draft, onChange, "center");
     fillSteamProfileOptions(box, draft, onChange);
+    return;
+  }
+  if (tile.type === "steam_playing_now") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
     return;
   }
   const empty = document.createElement("div");
   empty.className = "profile-opt-empty";
   empty.textContent = "No extra settings for this widget yet.";
   box.appendChild(empty);
+}
+
+function fillFixedTitleOptions(box, draft, onChange, fallback) {
+  if (draft.show_title == null) draft.show_title = true;
+  if (draft.title_align !== "left" && draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = fallback;
+  const block = document.createElement("div");
+  block.className = "profile-name-opt";
+  const extras = document.createElement("div");
+  extras.className = "profile-opt-border-extras" + (draft.show_title ? " is-open" : "");
+  const alignWrap = document.createElement("div");
+  alignWrap.className = "profile-opt-align";
+  const alignLabel = document.createElement("div");
+  alignLabel.className = "profile-opt-field-label";
+  alignLabel.textContent = "Title alignment";
+  alignWrap.appendChild(alignLabel);
+  const row = document.createElement("div");
+  row.className = "profile-opt-seg";
+  [["left", "L"], ["center", "C"], ["right", "R"]].forEach(item => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = item[1];
+    btn.className = draft.title_align === item[0] ? "is-on" : "";
+    btn.addEventListener("click", () => {
+      draft.title_align = item[0];
+      Array.from(row.children).forEach(child => child.classList.toggle("is-on", child === btn));
+      onChange();
+    });
+    row.appendChild(btn);
+  });
+  alignWrap.appendChild(row);
+  extras.appendChild(alignWrap);
+  block.appendChild(settingsOpt("Title", "", settingsToggle(!!draft.show_title, false, (on) => {
+    draft.show_title = on;
+    extras.classList.toggle("is-open", on);
+    onChange();
+  })));
+  block.appendChild(extras);
+  box.appendChild(block);
 }
 
 function fillSteamProfileOptions(box, draft, onChange) {

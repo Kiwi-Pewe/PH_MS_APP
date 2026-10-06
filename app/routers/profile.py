@@ -977,7 +977,19 @@ def normalize_steam_profile_props(data):
         out[key] = True if key not in data or data.get(key) is None else bool(data.get(key))
     for key in off_keys:
         out[key] = False if key not in data or data.get(key) is None else bool(data.get(key))
+    out["show_title"] = True if "show_title" not in data or data.get("show_title") is None else bool(data.get("show_title"))
+    align = str(data.get("title_align") or "")
+    out["title_align"] = align if align in ("left", "center", "right") else "center"
     return out
+
+
+def normalize_steam_playing_props(data):
+    shown = data.get("show_title")
+    align = str(data.get("title_align") or "")
+    return {
+        "show_title": True if shown is None else bool(shown),
+        "title_align": align if align in ("left", "center", "right") else "left",
+    }
 
 
 def normalize_props(kind, props, banner_fallback):
@@ -1127,6 +1139,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_text_chrome(data, 14, True)
     if kind == "steam_profile":
         return normalize_steam_profile_props(data)
+    if kind == "steam_playing_now":
+        return normalize_steam_playing_props(data)
     return normalize_text_chrome(data, 14, True)
 
 

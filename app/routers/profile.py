@@ -153,7 +153,7 @@ def steam_recent_limits(props):
     entry_h = (56 * scale + 50) // 100
     need_w = (entry_w + 24 + 35) // 36
     need_h = (entry_h + 42 + 36 + 35) // 36
-    return (min(24, max(floor_w, need_w, 1)), min(16, max(floor_h, need_h, 1)), 24, 16)
+    return (min(16, max(floor_w, need_w, 1)), min(16, max(floor_h, need_h, 1)), 16, 16)
 
 
 def tile_bounds(kind, props=None):

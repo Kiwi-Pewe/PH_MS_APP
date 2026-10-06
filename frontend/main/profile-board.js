@@ -90,7 +90,7 @@ const PROFILE_TILE_TYPES = {
   display_server: { w: 10, h: 8, minW: 6, minH: 4, maxW: 16, maxH: 18, label: "Display Server" },
   steam_profile: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "Profile" },
   steam_playing_now: { w: 10, h: 4, minW: 7, minH: 4, maxW: 10, maxH: 6, label: "Playing Now" },
-  steam_recently_played: { w: 12, h: 8, minW: 7, minH: 6, maxW: 24, maxH: 16, label: "Recently Played" }
+  steam_recently_played: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Recently Played" }
 };
 
 const DISPLAY_SERVER_MAX = 20;
@@ -214,7 +214,7 @@ function profileTileBounds(type, tile) {
     const extra = steamRecentMinSize(tile && tile.props);
     bounds.minW = extra.minW;
     bounds.minH = extra.minH;
-    bounds.maxW = Math.min(24, PROFILE_COLS);
+    bounds.maxW = Math.min(16, PROFILE_COLS);
     bounds.maxH = 16;
     if (bounds.minW > bounds.maxW) bounds.minW = bounds.maxW;
     if (bounds.minH > bounds.maxH) bounds.minH = bounds.maxH;
@@ -2136,7 +2136,7 @@ function steamRecentMinSize(props) {
   const needW = Math.ceil((box.w + STEAM_RECENT_FLOW_PAD * 2) / PROFILE_ROW_H);
   const needH = Math.ceil((box.h + STEAM_RECENT_TITLE_H + STEAM_RECENT_PAGE_H) / PROFILE_ROW_H);
   return {
-    minW: Math.min(24, Math.max(floorW, needW, 1)),
+    minW: Math.min(16, Math.max(floorW, needW, 1)),
     minH: Math.min(16, Math.max(floorH, needH, 1))
   };
 }

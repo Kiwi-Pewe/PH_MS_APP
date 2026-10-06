@@ -221,6 +221,7 @@ function bindProfileTileDrag(el, tile, handle) {
   let origin = null;
   let startPt = null;
   let grabPx = { x: 0, y: 0 };
+  let resizePx = { x: 0, y: 0 };
 
   function moveTarget(clientX, clientY) {
     const pt = profileBoardPoint(clientX, clientY);
@@ -232,18 +233,24 @@ function bindProfileTileDrag(el, tile, handle) {
     };
   }
 
+  function resizeTarget(clientX, clientY) {
+    const pt = profileBoardPoint(clientX, clientY);
+    const dw = Math.round((pt.x - resizePx.x) / PROFILE_ROW_H);
+    const dh = Math.round((pt.y - resizePx.y) / PROFILE_ROW_H);
+    return clampProfileTileSize(tile.type, origin.w + dw, origin.h + dh, origin.x, tile);
+  }
+
   function onMove(e) {
     if (!mode) return;
-    const cell = profileCellFromPoint(e.clientX, e.clientY);
     if (mode === "move") {
       const next = moveTarget(e.clientX, e.clientY);
       el.style.gridColumn = (next.x + 1) + " / span " + tile.w;
       el.style.gridRow = (next.y + 1) + " / span " + tile.h;
-    } else {
-      const size = clampProfileTileSize(tile.type, cell.x - origin.x + 1, cell.y - origin.y + 1, origin.x, tile);
-      el.style.gridColumn = (origin.x + 1) + " / span " + size.w;
-      el.style.gridRow = (origin.y + 1) + " / span " + size.h;
+      return;
     }
+    const size = resizeTarget(e.clientX, e.clientY);
+    el.style.gridColumn = (origin.x + 1) + " / span " + size.w;
+    el.style.gridRow = (origin.y + 1) + " / span " + size.h;
   }
 
   function onUp(e) {
@@ -258,9 +265,9 @@ function bindProfileTileDrag(el, tile, handle) {
         const next = moveTarget(e.clientX, e.clientY);
         if (tryMoveTile(tile, next.x, next.y)) profileDirty = true;
       }
-    } else {
-      const cell = profileCellFromPoint(e.clientX, e.clientY);
-      if (tryResizeTile(tile, cell.x - origin.x + 1, cell.y - origin.y + 1)) profileDirty = true;
+    } else if (dist >= 3) {
+      const size = resizeTarget(e.clientX, e.clientY);
+      if (tryResizeTile(tile, size.w, size.h)) profileDirty = true;
     }
     mode = null;
     document.removeEventListener("pointermove", onMove);
@@ -297,6 +304,7 @@ function bindProfileTileDrag(el, tile, handle) {
     mode = "resize";
     origin = { x: tile.x, y: tile.y, w: tile.w, h: tile.h };
     startPt = { x: e.clientX, y: e.clientY };
+    resizePx = profileBoardPoint(e.clientX, e.clientY);
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
   });

@@ -145,6 +145,18 @@ def identity_from_xml(steamid):
     return name, avatar, profile
 
 
+def pull_recent_games(steamid):
+    if not steamid:
+        return None
+    payload = steam_json("/IPlayerService/GetRecentlyPlayedGames/v0001/", {"steamid": steamid})
+    if payload is None:
+        return None
+    rows = ((payload.get("response") or {}).get("games") or [])
+    if not isinstance(rows, list):
+        return None
+    return [trim_game(row, True) for row in rows[:100] if isinstance(row, dict)]
+
+
 def steam_snapshot(steamid):
     summary = {}
     payload = steam_json("/ISteamUser/GetPlayerSummaries/v0002/", {"steamids": steamid})
@@ -161,8 +173,7 @@ def steam_snapshot(steamid):
         profile = profile or xml_profile
     level_payload = steam_json("/IPlayerService/GetSteamLevel/v1/", {"steamid": steamid})
     level = ((level_payload or {}).get("response") or {}).get("player_level")
-    recent_payload = steam_json("/IPlayerService/GetRecentlyPlayedGames/v0001/", {"steamid": steamid})
-    recent_rows = ((recent_payload or {}).get("response") or {}).get("games") or []
+    recent_games = pull_recent_games(steamid)
     owned_payload = steam_json(
         "/IPlayerService/GetOwnedGames/v0001/",
         {"steamid": steamid, "include_appinfo": 1, "include_played_free_games": 1},
@@ -200,7 +211,8 @@ def steam_snapshot(steamid):
         "loccityid": clip(str(summary.get("loccityid") or ""), 16),
         "primaryclanid": clip(str(summary.get("primaryclanid") or ""), 32),
         "profile_ready": True,
-        "recently_played": [trim_game(row, True) for row in recent_rows[:100]],
+        "recently_played": recent_games or [],
+        "recent_ready": recent_games is not None,
         "owned_games": [trim_game(row, False) for row in owned_rows[:5000]],
         "badges": badges,
     }
@@ -385,7 +397,16 @@ def load_steam_recent(database, user_id):
     ).first()
     if not row:
         return {"linked": False, "enabled": False, "public": False, "games": []}
-    return steam_recent_payload(steam_cache(row.cache), read_parts(row.parts))
+    cache = steam_cache(row.cache)
+    if not cache.get("recent_ready"):
+        games = pull_recent_games(row.external_id or "")
+        if games is not None:
+            cache["recently_played"] = games
+            cache["recent_ready"] = True
+            row.cache = json.dumps(cache)
+            row.refreshed_at = datetime.now()
+            database.commit()
+    return steam_recent_payload(cache, read_parts(row.parts))
 
 
 def apply_playing_snapshot(cache, player):
@@ -440,7 +461,14 @@ def check_steam_playing_once():
                 if not player:
                     continue
                 cache = steam_cache(row.cache)
-                if apply_playing_snapshot(cache, player):
+                changed = apply_playing_snapshot(cache, player)
+                if steam_number(player.get("communityvisibilitystate")) == 3:
+                    games = pull_recent_games(steamid)
+                    if games is not None and (cache.get("recently_played") != games or not cache.get("recent_ready")):
+                        cache["recently_played"] = games
+                        cache["recent_ready"] = True
+                        changed = True
+                if changed:
                     row.cache = json.dumps(cache)
                     row.refreshed_at = datetime.now()
         database.commit()

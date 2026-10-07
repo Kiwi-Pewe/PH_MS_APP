@@ -7,7 +7,7 @@ import uuid
 import random
 import colorsys
 from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user, Servers, Server_members
-from app.routers.connections import load_steam_achievements, load_steam_card, load_steam_playing, load_steam_recent, load_steam_library
+from app.routers.connections import load_steam_achievements, load_steam_badges, load_steam_card, load_steam_playing, load_steam_recent, load_steam_library
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
 from app.database import get_db
 from app.auth import get_current_user
@@ -156,6 +156,18 @@ def steam_achievement_limits(props):
     return (min(18, max(floor_w, need_w, 1)), min(13, max(floor_h, need_h, 1)), 18, 13)
 
 
+def steam_badge_limits(props):
+    data = props if isinstance(props, dict) else {}
+    scale = clamp_int(data.get("entry_scale"), 50, 150, 100)
+    floor_w = (7 * scale + 99) // 100
+    floor_h = (6 * scale + 99) // 100
+    entry_w = (248 * scale + 50) // 100
+    entry_h = (72 * scale + 50) // 100
+    need_w = (entry_w + 24 + 35) // 36
+    need_h = (entry_h + 42 + 36 + 35) // 36
+    return (min(18, max(floor_w, need_w, 1)), min(13, max(floor_h, need_h, 1)), 18, 13)
+
+
 def steam_recent_limits(props):
     data = props if isinstance(props, dict) else {}
     scale = clamp_int(data.get("entry_scale"), 50, 150, 100)
@@ -173,6 +185,8 @@ def tile_bounds(kind, props=None):
         return steam_recent_limits(props)
     if kind == "steam_achievements":
         return steam_achievement_limits(props)
+    if kind == "steam_badges":
+        return steam_badge_limits(props)
     if kind == "divider":
         if strip_orientation(kind, props) == "vertical":
             return (1, 1, 1, 24)
@@ -285,7 +299,7 @@ def default_sizes(kind):
         "steam_recently_played": (12, 8),
         "steam_library": (12, 8),
         "steam_achievements": (12, 8),
-        "steam_badges": (10, 4),
+        "steam_badges": (12, 8),
     }.get(kind, (8, 3))
 
 
@@ -1035,6 +1049,18 @@ def normalize_steam_achievement_props(data):
     return out
 
 
+def normalize_steam_badge_props(data):
+    out = normalize_text_chrome(data, 14, True)
+    shown = data.get("show_title")
+    align = str(data.get("title_align") or "")
+    sort = str(data.get("sort") or "")
+    out["show_title"] = True if shown is None else bool(shown)
+    out["title_align"] = align if align in ("left", "center", "right") else "left"
+    out["entry_scale"] = clamp_int(data.get("entry_scale"), 50, 150, 100)
+    out["sort"] = sort if sort in ("recent", "xp", "level") else "recent"
+    return out
+
+
 def normalize_steam_library_props(data):
     out = normalize_text_chrome(data, 14, True)
     shown = data.get("show_title")
@@ -1211,6 +1237,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_steam_library_props(data)
     if kind == "steam_achievements":
         return normalize_steam_achievement_props(data)
+    if kind == "steam_badges":
+        return normalize_steam_badge_props(data)
     return normalize_text_chrome(data, 14, True)
 
 
@@ -1658,6 +1686,16 @@ def get_profile_steam_achievements(user_id: int, appid: int = 0, current_user: U
     if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
         raise HTTPException(status_code=403, detail="You cannot see this profile.")
     return load_steam_achievements(database, owner.id, appid)
+
+
+@router.get("/profile/{user_id}/steam_badges")
+def get_profile_steam_badges(user_id: int, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    return load_steam_badges(database, owner.id)
 
 
 @router.get("/profile/{user_id}/comments")

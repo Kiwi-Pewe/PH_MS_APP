@@ -283,7 +283,7 @@ function bindProfileTileDrag(el, tile, handle) {
     if (e.target.closest(".oneira-music-seek, .oneira-music-row")) return;
     if (e.target.closest(".oneira-gallery-nav")) return;
     if (e.target.closest(".steam-recent-pages")) return;
-    if (e.target.closest(".steam-achieve-entry")) return;
+    if (e.target.closest(".steam-achieve-entry, .steam-badge-entry")) return;
     if (e.target.closest(".oneira-wall-compose, .oneira-wall-pager, .oneira-wall-notify, .oneira-wall-edit, .oneira-wall-input")) return;
     if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
     e.preventDefault();
@@ -441,7 +441,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -565,6 +565,11 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   if (tile.type === "steam_achievements") {
     fillFixedTitleOptions(box, draft, onChange, "left");
     fillSteamAchievementOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "steam_badges") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillSteamBadgeOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   const empty = document.createElement("div");
@@ -708,6 +713,35 @@ function fillSteamAchievementOptions(box, tile, draft, onChange, hintEl) {
   sizeBlock.appendChild(size.label);
   sizeBlock.appendChild(size.row);
   box.appendChild(gameBlock);
+  box.appendChild(sortBlock);
+  box.appendChild(sizeBlock);
+}
+
+function fillSteamBadgeOptions(box, tile, draft, onChange, hintEl) {
+  draft.entry_scale = Math.max(50, Math.min(150, Math.round(Number(draft.entry_scale)) || 100));
+  if (draft.sort !== "xp" && draft.sort !== "level") draft.sort = "recent";
+  const sort = profileSelectField("Sort", [
+    { value: "recent", label: "Most recent" },
+    { value: "xp", label: "XP" },
+    { value: "level", label: "Level" }
+  ], draft.sort);
+  profileOptHint(sort.label, "Most recent lists the newest badges first. XP and Level list the highest first.", hintEl);
+  sort.select.addEventListener("change", () => {
+    draft.sort = sort.select.value === "xp" || sort.select.value === "level" ? sort.select.value : "recent";
+    if (typeof steamBadgePage !== "undefined") steamBadgePage[tile.id] = 1;
+    onChange();
+  });
+  const sortBlock = document.createElement("div");
+  sortBlock.className = "profile-name-opt";
+  sortBlock.appendChild(sort.label);
+  const size = profileSliderField("Entry size", draft.entry_scale, 50, 150, hintEl, "Scales each badge, including its picture and text.", (n) => {
+    draft.entry_scale = n;
+    onChange();
+  }, (n) => n + "%");
+  const sizeBlock = document.createElement("div");
+  sizeBlock.className = "profile-name-opt";
+  sizeBlock.appendChild(size.label);
+  sizeBlock.appendChild(size.row);
   box.appendChild(sortBlock);
   box.appendChild(sizeBlock);
 }

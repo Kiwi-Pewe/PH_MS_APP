@@ -92,7 +92,8 @@ const PROFILE_TILE_TYPES = {
   steam_playing_now: { w: 10, h: 4, minW: 7, minH: 4, maxW: 10, maxH: 6, label: "Playing Now" },
   steam_recently_played: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Recently Played" },
   steam_library: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Library" },
-  steam_achievements: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Achievements" }
+  steam_achievements: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Achievements" },
+  steam_badges: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Badges" }
 };
 
 const DISPLAY_SERVER_MAX = 20;
@@ -113,8 +114,7 @@ const PROFILE_PLACEHOLDERS = {
   games_played: { label: "Games played", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
   game_stats: { label: "Game stats", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
   library: { label: "Library", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 14 },
-  review: { label: "Review", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
-  steam_badges: { label: "Badges", w: 10, h: 4, minW: 6, minH: 3, maxW: 16, maxH: 10 }
+  review: { label: "Review", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 }
 };
 
 Object.keys(PROFILE_PLACEHOLDERS).forEach(type => {
@@ -218,8 +218,8 @@ function profileTileBounds(type, tile) {
     bounds.maxH = 16;
     if (bounds.minW > bounds.maxW) bounds.minW = bounds.maxW;
     if (bounds.minH > bounds.maxH) bounds.minH = bounds.maxH;
-  } else if (type === "steam_achievements") {
-    const extra = steamAchieveMinSize(tile && tile.props);
+  } else if (type === "steam_achievements" || type === "steam_badges") {
+    const extra = type === "steam_badges" ? steamBadgeMinSize(tile && tile.props) : steamAchieveMinSize(tile && tile.props);
     bounds.minW = extra.minW;
     bounds.minH = extra.minH;
     bounds.maxW = Math.min(18, PROFILE_COLS);
@@ -709,7 +709,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
 }
 
 function profileTextChrome(props, type) {
@@ -1939,6 +1939,12 @@ let steamAchieveLoad = null;
 let steamAchieveQueued = null;
 let steamAchieveFill = null;
 const steamAchievePage = {};
+let steamBadgeOwnerId = "";
+let steamBadgeData = null;
+let steamBadgeLoad = null;
+let steamBadgeFill = null;
+let steamBadgeTries = 0;
+const steamBadgePage = {};
 
 function ensureSteamCard() {
   const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
@@ -2228,6 +2234,7 @@ function refreshSteamSurfaces() {
     if (pair[2] && steamRecentOwnerId === id) steamRecentData = pair[2];
     if (pair[3] && steamLibraryOwnerId === id) steamLibraryData = pair[3];
     if (steamAchieveOwnerId === id) pullSteamAchievements(0);
+    if (steamBadgeOwnerId === id) pullSteamBadges();
     if (!profileEditing) repaintProfileSteamTiles();
   });
 }
@@ -2872,6 +2879,270 @@ function paintSteamAchievements(tile, el) {
   el.appendChild(card);
 }
 
+function steamBadgeBox(props) {
+  const scale = steamRecentScale(props);
+  return {
+    scale: scale / 100,
+    w: Math.round(248 * scale / 100),
+    h: Math.round(72 * scale / 100)
+  };
+}
+
+function steamBadgeMinSize(props) {
+  const scale = steamRecentScale(props);
+  const box = steamBadgeBox(props);
+  const floorW = Math.ceil(7 * scale / 100);
+  const floorH = Math.ceil(6 * scale / 100);
+  const needW = Math.ceil((box.w + STEAM_RECENT_FLOW_PAD * 2) / PROFILE_ROW_H);
+  const needH = Math.ceil((box.h + STEAM_RECENT_TITLE_H + STEAM_RECENT_PAGE_H) / PROFILE_ROW_H);
+  return {
+    minW: Math.min(18, Math.max(floorW, needW, 1)),
+    minH: Math.min(13, Math.max(floorH, needH, 1))
+  };
+}
+
+function steamBadgePerPage(tile) {
+  const box = steamBadgeBox(tile.props);
+  const flow = steamRecentFlowBox(tile);
+  const cols = Math.max(1, Math.floor((flow.width + STEAM_RECENT_GAP) / (box.w + STEAM_RECENT_GAP)));
+  const rows = Math.max(1, Math.floor((flow.height + STEAM_RECENT_GAP) / (box.h + STEAM_RECENT_GAP)));
+  return Math.max(1, Math.min(10, cols * rows));
+}
+
+function steamBadgeList(data, props) {
+  const rows = (data.badges || []).slice();
+  const sort = props && props.sort;
+  rows.sort((a, b) => {
+    if (sort === "xp") return (Number(b.xp) || 0) - (Number(a.xp) || 0) || (Number(b.unlocked) || 0) - (Number(a.unlocked) || 0);
+    if (sort === "level") return (Number(b.level) || 0) - (Number(a.level) || 0) || (Number(b.unlocked) || 0) - (Number(a.unlocked) || 0);
+    return (Number(b.unlocked) || 0) - (Number(a.unlocked) || 0);
+  });
+  return rows.slice(0, 100);
+}
+
+function closeSteamBadgeSubmenu() {
+  const overlay = document.getElementById("steam-badge-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+function bindSteamBadgeSubmenu() {
+  if (bindSteamBadgeSubmenu.ready) return;
+  bindSteamBadgeSubmenu.ready = true;
+  const overlay = document.getElementById("steam-badge-overlay");
+  const close = document.getElementById("steam-badge-close");
+  if (close) close.addEventListener("click", closeSteamBadgeSubmenu);
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeSteamBadgeSubmenu();
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    const open = document.getElementById("steam-badge-overlay");
+    if (e.key === "Escape" && open && !open.hidden) closeSteamBadgeSubmenu();
+  });
+}
+
+function openSteamBadgeSubmenu(row) {
+  bindSteamBadgeSubmenu();
+  const overlay = document.getElementById("steam-badge-overlay");
+  const title = document.getElementById("steam-badge-title");
+  const body = document.getElementById("steam-badge-body");
+  if (!overlay || !body) return;
+  if (title) title.textContent = row.name || "Badge";
+  body.innerHTML = "";
+  const top = document.createElement("div");
+  top.className = "steam-achieve-top";
+  const icon = steamAchieveIcon(row.icon);
+  if (icon) {
+    const img = document.createElement("img");
+    img.className = "steam-achieve-art";
+    img.alt = "";
+    img.draggable = false;
+    img.src = icon;
+    img.addEventListener("error", () => img.remove());
+    top.appendChild(img);
+  }
+  const facts = document.createElement("div");
+  facts.className = "steam-achieve-facts";
+  const level = Math.round(Number(row.level)) || 0;
+  if (level) {
+    const line = document.createElement("div");
+    line.className = "steam-achieve-game";
+    line.textContent = "Level " + level;
+    facts.appendChild(line);
+  }
+  const when = steamAchieveDate(row.unlocked);
+  const unlocked = document.createElement("div");
+  unlocked.className = "steam-achieve-fact";
+  unlocked.textContent = when ? ("Unlocked " + when) : "Unlocked";
+  facts.appendChild(unlocked);
+  const scarcity = Math.round(Number(row.scarcity)) || 0;
+  if (scarcity) {
+    const line = document.createElement("div");
+    line.className = "steam-achieve-fact";
+    line.textContent = scarcity.toLocaleString() + " players have this badge";
+    facts.appendChild(line);
+  }
+  if (row.foil) {
+    const line = document.createElement("div");
+    line.className = "steam-achieve-fact";
+    line.textContent = "Foil";
+    facts.appendChild(line);
+  }
+  top.appendChild(facts);
+  body.appendChild(top);
+  overlay.hidden = false;
+}
+
+function scheduleSteamBadgeFill() {
+  if (steamBadgeFill || steamBadgeTries >= 3) return;
+  steamBadgeFill = setTimeout(() => {
+    steamBadgeFill = null;
+    steamBadgeTries += 1;
+    if (steamBadgeData && steamBadgeData.ready === false) pullSteamBadges();
+  }, 15000);
+}
+
+function pullSteamBadges() {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  if (steamBadgeLoad) return;
+  steamBadgeOwnerId = id;
+  steamBadgeLoad = fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/steam_badges", { credentials: "include" })
+    .then(response => response.ok ? response.json() : { linked: false })
+    .then(data => { steamBadgeData = data || { linked: false }; })
+    .catch(() => { steamBadgeData = { linked: false }; })
+    .finally(() => {
+      steamBadgeLoad = null;
+      if (steamBadgeData && steamBadgeData.ready !== false) steamBadgeTries = 0;
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id) repaintProfileSteamTiles();
+      if (steamBadgeData && steamBadgeData.ready === false) scheduleSteamBadgeFill();
+    });
+}
+
+function ensureSteamBadges() {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  if (!steamPlayingTimer) steamPlayingTimer = setInterval(refreshSteamSurfaces, 300000);
+  if (steamBadgeOwnerId === id && (steamBadgeData || steamBadgeLoad)) return;
+  steamBadgeData = null;
+  steamBadgeTries = 0;
+  pullSteamBadges();
+}
+
+function steamBadgeTurn(tile, el, page) {
+  steamBadgePage[tile.id] = page;
+  if (el.classList.contains("is-opt-preview")) {
+    el.innerHTML = "";
+    paintSteamBadges(tile, el);
+    return;
+  }
+  repaintProfileSteamTiles(true);
+}
+
+function paintSteamBadges(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
+  mountSteamTitle(el, tile, "Badges", "left");
+  const card = document.createElement("div");
+  card.className = "steam-recent-card";
+  const flow = document.createElement("div");
+  flow.className = "steam-recent-flow";
+  const pages = document.createElement("div");
+  pages.className = "steam-recent-pages";
+  const box = steamBadgeBox(tile.props);
+  el.style.setProperty("--steam-entry-scale", String(box.scale));
+  const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  let rows = [];
+  let note = "";
+  if (!steamBadgeData || steamBadgeOwnerId !== owner) {
+    ensureSteamBadges();
+  } else if (!steamBadgeData.linked) {
+    note = "Connect Steam to show this.";
+  } else if (steamBadgeData.enabled === false) {
+    note = "Turn on Level and badges for Steam.";
+  } else if (steamBadgeData.public === false) {
+    note = "Badges are hidden on this Steam profile.";
+  } else {
+    rows = steamBadgeList(steamBadgeData, tile.props);
+    if (!rows.length && steamBadgeData.ready !== false) note = "No badges to show.";
+  }
+  const perPage = steamBadgePerPage(tile);
+  const pageCount = Math.max(1, Math.ceil(rows.length / perPage));
+  let page = Math.round(Number(steamBadgePage[tile.id])) || 1;
+  if (page < 1) page = 1;
+  if (page > pageCount) page = pageCount;
+  steamBadgePage[tile.id] = page;
+  if (note) {
+    flow.classList.add("is-note");
+    flow.appendChild(steamProfileNote(note));
+  } else {
+    rows.slice((page - 1) * perPage, page * perPage).forEach(row => {
+      const entry = document.createElement("div");
+      entry.className = "steam-recent-entry steam-badge-entry";
+      entry.style.width = box.w + "px";
+      entry.style.height = box.h + "px";
+      const icon = document.createElement("div");
+      icon.className = "steam-recent-icon";
+      const src = steamAchieveIcon(row.icon);
+      if (src) {
+        const img = document.createElement("img");
+        img.alt = "";
+        img.draggable = false;
+        img.src = src;
+        img.addEventListener("error", () => img.remove());
+        icon.appendChild(img);
+      }
+      const copy = document.createElement("div");
+      copy.className = "steam-recent-copy";
+      const name = document.createElement("div");
+      name.className = "steam-recent-name";
+      name.textContent = row.name || "";
+      const xp = document.createElement("div");
+      xp.className = "steam-badge-xp";
+      xp.textContent = (Math.round(Number(row.xp)) || 0).toLocaleString() + " XP";
+      copy.appendChild(name);
+      copy.appendChild(xp);
+      entry.appendChild(icon);
+      entry.appendChild(copy);
+      entry.addEventListener("pointerdown", (e) => e.stopPropagation());
+      entry.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openSteamBadgeSubmenu(row);
+      });
+      flow.appendChild(entry);
+    });
+  }
+  const prev = document.createElement("button");
+  prev.type = "button";
+  prev.className = "steam-recent-page-btn";
+  prev.textContent = "‹";
+  prev.disabled = page <= 1;
+  prev.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (page > 1) steamBadgeTurn(tile, el, page - 1);
+  });
+  const count = document.createElement("div");
+  count.className = "steam-recent-page-count";
+  count.textContent = String(page);
+  const next = document.createElement("button");
+  next.type = "button";
+  next.className = "steam-recent-page-btn";
+  next.textContent = "›";
+  next.disabled = page >= pageCount;
+  next.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (page < pageCount) steamBadgeTurn(tile, el, page + 1);
+  });
+  pages.addEventListener("pointerdown", (e) => e.stopPropagation());
+  pages.appendChild(prev);
+  pages.appendChild(count);
+  pages.appendChild(next);
+  card.appendChild(flow);
+  card.appendChild(pages);
+  el.appendChild(card);
+}
+
 function paintProfileTileContent(tile, el) {
   el.innerHTML = "";
   el.classList.toggle("is-compact-row", Number(tile.h) === 1);
@@ -2893,6 +3164,10 @@ function paintProfileTileContent(tile, el) {
   }
   if (tile.type === "steam_achievements") {
     paintSteamAchievements(tile, el);
+    return;
+  }
+  if (tile.type === "steam_badges") {
+    paintSteamBadges(tile, el);
     return;
   }
   if (tile.type === "banner") {

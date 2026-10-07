@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request as UrlRequest, urlopen
+from html import unescape
 from xml.etree import ElementTree
 from dotenv import load_dotenv
 import asyncio
@@ -666,6 +667,191 @@ def load_steam_achievements(database, user_id, focus_appid=0):
     return steam_achievements_payload(cache, read_parts(row.parts))
 
 
+def badge_foil(row):
+    appid = steam_number(row.get("appid")) or 0
+    badgeid = steam_number(row.get("badgeid")) or 0
+    border = steam_number(row.get("border_color")) or 0
+    if border == 1 or (appid and badgeid == 2):
+        return 1
+    return 0
+
+
+def badge_mark(rows):
+    marks = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        marks.append((
+            steam_number(row.get("appid")) or 0,
+            steam_number(row.get("badgeid")) or 0,
+            steam_number(row.get("level")) or 0,
+            steam_number(row.get("unlocked")) or steam_number(row.get("completion_time")) or 0,
+        ))
+    marks.sort()
+    return marks
+
+
+def pull_badge_api(steamid):
+    if not steamid:
+        return None
+    payload = steam_json("/IPlayerService/GetBadges/v1/", {"steamid": steamid})
+    if payload is None:
+        return None
+    rows = ((payload.get("response") or {}).get("badges") or [])
+    if not isinstance(rows, list):
+        return None
+    return [row for row in rows if isinstance(row, dict)][:400]
+
+
+def parse_badge_faces(html):
+    faces = {}
+    chunks = re.split(r'<div class="badge_row[\s"]', html or "")
+    for chunk in chunks[1:]:
+        href_match = re.search(r'href="([^"]+)"', chunk)
+        image_match = re.search(r'<img[^>]*\ssrc="([^"]+)"', chunk)
+        title_match = re.search(r'class="badge_info_title"[^>]*>(.*?)</div>', chunk, re.S)
+        if not title_match:
+            continue
+        name = clip(unescape(re.sub(r"<[^>]+>", " ", title_match.group(1))), 120)
+        name = " ".join(name.split())
+        icon = ""
+        if image_match:
+            src = image_match.group(1).strip()
+            if src.startswith("//"):
+                src = "https:" + src
+            icon = steam_icon_url(src)
+        href = href_match.group(1) if href_match else ""
+        game = re.search(r"/gamecards/(\d+)", href)
+        if game:
+            foil = 1 if "border=1" in href else 0
+            faces[(int(game.group(1)), foil)] = (name, icon)
+            continue
+        community = re.search(r"/badges/(\d+)", href)
+        if community:
+            faces[(0, int(community.group(1)))] = (name, icon)
+    return faces
+
+
+def pull_badge_faces(steamid):
+    faces = {}
+    page = 1
+    while page <= 6:
+        url = "https://steamcommunity.com/profiles/" + steamid + "/badges/?l=english"
+        if page > 1:
+            url += "&p=" + str(page)
+        try:
+            raw = steam_request(url, limit=2000000)
+        except Exception:
+            return None if page == 1 else faces
+        text = raw.decode("utf-8", "replace")
+        if page == 1 and "badge_info_title" not in text and "badge_row" not in text:
+            return None
+        found = parse_badge_faces(text)
+        if page == 1 and "badge_info_title" in text and not found:
+            return None
+        faces.update(found)
+        if ("p=" + str(page + 1)) not in text:
+            break
+        page += 1
+    return faces
+
+
+def compose_badges(api_rows, faces, owned):
+    library = {}
+    for row in owned or []:
+        if not isinstance(row, dict):
+            continue
+        appid = steam_number(row.get("appid")) or 0
+        if appid and row.get("name"):
+            library[appid] = clip(row.get("name"), 120)
+    out = []
+    for row in api_rows:
+        appid = steam_number(row.get("appid")) or 0
+        badgeid = steam_number(row.get("badgeid")) or 0
+        foil = badge_foil(row)
+        face = faces.get((appid, foil)) if appid else faces.get((0, badgeid))
+        if appid and not face:
+            face = faces.get((appid, 0))
+        name = face[0] if face else ""
+        icon = face[1] if face else ""
+        if not name and appid:
+            name = library.get(appid, "")
+        if not name:
+            name = "Foil badge" if foil else "Badge"
+        out.append({
+            "name": name,
+            "icon": icon,
+            "xp": steam_number(row.get("xp")) or 0,
+            "level": steam_number(row.get("level")) or 0,
+            "unlocked": steam_number(row.get("completion_time")) or 0,
+            "scarcity": steam_number(row.get("scarcity")) or 0,
+            "foil": foil,
+            "appid": appid,
+            "badgeid": badgeid,
+        })
+    return out[:400]
+
+
+def pull_badges(steamid, owned):
+    api_rows = pull_badge_api(steamid)
+    if api_rows is None:
+        return None
+    if not api_rows:
+        return []
+    faces = pull_badge_faces(steamid)
+    if not faces:
+        return None
+    return compose_badges(api_rows, faces, owned)
+
+
+def steam_badges_payload(cache, parts):
+    public = steam_number(cache.get("communityvisibilitystate")) == 3
+    enabled = bool(parts.get("level_badges"))
+    rows = []
+    if public and enabled:
+        for row in cache.get("badges") or []:
+            if not isinstance(row, dict) or not row.get("name"):
+                continue
+            item = {
+                "name": clip(row.get("name"), 120),
+                "icon": steam_icon_url(row.get("icon")),
+                "xp": steam_number(row.get("xp")) or 0,
+                "level": steam_number(row.get("level")) or 0,
+                "unlocked": steam_number(row.get("unlocked")) or steam_number(row.get("completion_time")) or 0,
+                "scarcity": steam_number(row.get("scarcity")) or 0,
+                "foil": 1 if row.get("foil") else 0,
+            }
+            rows.append(item)
+    return {
+        "linked": True,
+        "enabled": enabled,
+        "public": public,
+        "ready": True if not public else bool(cache.get("badges_ready")),
+        "badges": rows,
+    }
+
+
+def load_steam_badges(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "steam",
+    ).first()
+    if not row:
+        return {"linked": False, "enabled": False, "public": False, "ready": True, "badges": []}
+    cache = steam_cache(row.cache)
+    public = steam_number(cache.get("communityvisibilitystate")) == 3
+    steamid = row.external_id or ""
+    if public and read_parts(row.parts).get("level_badges") and not cache.get("badges_ready"):
+        badges = pull_badges(steamid, cache.get("owned_games") or [])
+        if badges is not None:
+            cache["badges"] = badges
+            cache["badges_ready"] = True
+            row.cache = json.dumps(cache)
+            row.refreshed_at = datetime.now()
+            database.commit()
+    return steam_badges_payload(cache, read_parts(row.parts))
+
+
 def load_steam_library(database, user_id):
     row = database.query(Account_connection).filter(
         Account_connection.user_id == user_id,
@@ -771,6 +957,14 @@ def check_steam_playing_once():
                     if read_parts(row.parts).get("achievements") and not cache.get("achievements_ready"):
                         if advance_achievements(cache, steamid, 0, 4):
                             changed = True
+                    if read_parts(row.parts).get("level_badges"):
+                        fresh = pull_badge_api(steamid)
+                        if fresh is not None and (not cache.get("badges_ready") or badge_mark(fresh) != badge_mark(cache.get("badges"))):
+                            badges = pull_badges(steamid, cache.get("owned_games") or [])
+                            if badges is not None:
+                                cache["badges"] = badges
+                                cache["badges_ready"] = True
+                                changed = True
                 if changed:
                     row.cache = json.dumps(cache)
                     row.refreshed_at = datetime.now()

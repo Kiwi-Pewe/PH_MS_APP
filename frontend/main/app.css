@@ -5302,7 +5302,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .settings-opt-desc,
   .steam-recent-name,
   .steam-recent-time,
-  .steam-achieve-desc
+  .steam-achieve-desc,
+  .steam-badge-xp
 ) {
   color: var(--profile-text-color);
 }
@@ -5334,7 +5335,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .settings-opt-desc,
   .steam-recent-name,
   .steam-recent-time,
-  .steam-achieve-desc
+  .steam-achieve-desc,
+  .steam-badge-xp
 ) {
   background-image: var(--profile-text-paint);
   background-repeat: no-repeat;
@@ -5359,7 +5361,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .oneira-wall-text,
   .steam-recent-name,
   .steam-recent-time,
-  .steam-achieve-desc
+  .steam-achieve-desc,
+  .steam-badge-xp
 ) {
   line-height: var(--profile-line-height);
 }
@@ -5538,7 +5541,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-steam_playing_now,
 .profile-tile.is-steam_recently_played,
 .profile-tile.is-steam_library,
-.profile-tile.is-steam_achievements {
+.profile-tile.is-steam_achievements,
+.profile-tile.is-steam_badges {
   display: flex; flex-direction: column; align-items: stretch; overflow: hidden;
 }
 .profile-tile[data-title-align="left"] > .profile-tile-head { text-align: left; }
@@ -5548,7 +5552,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-steam_playing_now > .steam-playing-card,
 .profile-tile.is-steam_recently_played > .steam-recent-card,
 .profile-tile.is-steam_library > .steam-recent-card,
-.profile-tile.is-steam_achievements > .steam-recent-card {
+.profile-tile.is-steam_achievements > .steam-recent-card,
+.profile-tile.is-steam_badges > .steam-recent-card {
   flex: 1 1 auto; min-height: 0; height: 0;
 }
 .steam-profile-card {
@@ -5614,12 +5619,14 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .steam-playing-time { font-size: 12px; color: var(--text-dim); }
 .profile-tile.is-steam_recently_played > .profile-tile-head,
 .profile-tile.is-steam_library > .profile-tile-head,
-.profile-tile.is-steam_achievements > .profile-tile-head {
+.profile-tile.is-steam_achievements > .profile-tile-head,
+.profile-tile.is-steam_badges > .profile-tile-head {
   height: 28px; box-sizing: border-box; padding: 8px 12px 0; line-height: 20px;
 }
 .profile-tile.is-steam_recently_played > .profile-text-rule,
 .profile-tile.is-steam_library > .profile-text-rule,
-.profile-tile.is-steam_achievements > .profile-text-rule {
+.profile-tile.is-steam_achievements > .profile-text-rule,
+.profile-tile.is-steam_badges > .profile-text-rule {
   height: 1px; margin: 6px 12px 7px;
 }
 .steam-recent-card {
@@ -5681,17 +5688,26 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .steam-achieve-entry { cursor: pointer; align-items: center; }
 .steam-achieve-entry .steam-recent-icon { height: 66.67%; align-self: center; }
 .steam-achieve-entry .steam-recent-icon img { object-fit: contain; }
+.steam-badge-entry { cursor: pointer; align-items: center; }
+.steam-badge-entry .steam-recent-icon img { object-fit: contain; }
+.steam-badge-xp {
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: calc(var(--profile-text-size, 14pt) * 0.58 * var(--steam-entry-scale, 1));
+  color: var(--text-dim); line-height: 1.15;
+}
 .steam-achieve-desc {
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   font-size: calc(var(--profile-text-size, 14pt) * 0.58 * var(--steam-entry-scale, 1));
   color: var(--text-dim); line-height: 1.2;
 }
-#steam-achieve-overlay {
+#steam-achieve-overlay,
+#steam-badge-overlay {
   position: fixed; inset: 0; z-index: 1200;
   display: flex; align-items: center; justify-content: center;
   background: rgba(0, 0, 0, 0.55);
 }
-#steam-achieve-overlay[hidden] { display: none; }
+#steam-achieve-overlay[hidden],
+#steam-badge-overlay[hidden] { display: none; }
 .steam-achieve-modal {
   width: min(440px, calc(100vw - 32px));
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
@@ -5702,7 +5718,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   padding: 14px 12px 14px 16px;
   background: var(--rail); border-bottom: 1px solid var(--border);
 }
-#steam-achieve-title {
+#steam-achieve-title,
+#steam-badge-title {
   min-width: 0; font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.3;
 }
 .steam-achieve-body {

@@ -157,6 +157,22 @@ def pull_recent_games(steamid):
     return [trim_game(row, True) for row in rows[:100] if isinstance(row, dict)]
 
 
+def pull_owned_games(steamid):
+    if not steamid:
+        return None
+    payload = steam_json(
+        "/IPlayerService/GetOwnedGames/v0001/",
+        {"steamid": steamid, "include_appinfo": 1, "include_played_free_games": 1},
+        limit=2000000,
+    )
+    if payload is None:
+        return None
+    rows = ((payload.get("response") or {}).get("games") or [])
+    if not isinstance(rows, list):
+        return None
+    return [trim_game(row, False) for row in rows[:5000] if isinstance(row, dict)]
+
+
 def steam_snapshot(steamid):
     summary = {}
     payload = steam_json("/ISteamUser/GetPlayerSummaries/v0002/", {"steamids": steamid})
@@ -174,12 +190,7 @@ def steam_snapshot(steamid):
     level_payload = steam_json("/IPlayerService/GetSteamLevel/v1/", {"steamid": steamid})
     level = ((level_payload or {}).get("response") or {}).get("player_level")
     recent_games = pull_recent_games(steamid)
-    owned_payload = steam_json(
-        "/IPlayerService/GetOwnedGames/v0001/",
-        {"steamid": steamid, "include_appinfo": 1, "include_played_free_games": 1},
-        limit=2000000,
-    )
-    owned_rows = ((owned_payload or {}).get("response") or {}).get("games") or []
+    owned_games = pull_owned_games(steamid)
     badge_payload = steam_json("/IPlayerService/GetBadges/v1/", {"steamid": steamid})
     badge_body = (badge_payload or {}).get("response") or {}
     badges = []
@@ -213,7 +224,8 @@ def steam_snapshot(steamid):
         "profile_ready": True,
         "recently_played": recent_games or [],
         "recent_ready": recent_games is not None,
-        "owned_games": [trim_game(row, False) for row in owned_rows[:5000]],
+        "owned_games": owned_games or [],
+        "library_ready": owned_games is not None,
         "badges": badges,
     }
     return name, avatar, profile or ("https://steamcommunity.com/profiles/" + steamid), cache
@@ -390,6 +402,51 @@ def steam_recent_payload(cache, parts):
     }
 
 
+def steam_library_payload(cache, parts):
+    public = steam_number(cache.get("communityvisibilitystate")) == 3
+    games = []
+    if public and parts.get("library"):
+        for row in cache.get("owned_games") or []:
+            if not isinstance(row, dict):
+                continue
+            minutes = steam_number(row.get("playtime_forever")) or 0
+            appid = steam_number(row.get("appid"))
+            if not appid or minutes <= 0:
+                continue
+            games.append({
+                "appid": appid,
+                "name": clip(row.get("name"), 120),
+                "icon": clip(row.get("icon"), 200),
+                "minutes": minutes,
+                "last_played": steam_number(row.get("last_played")) or 0,
+            })
+    return {
+        "linked": True,
+        "enabled": bool(parts.get("library")),
+        "public": public,
+        "games": games,
+    }
+
+
+def load_steam_library(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "steam",
+    ).first()
+    if not row:
+        return {"linked": False, "enabled": False, "public": False, "games": []}
+    cache = steam_cache(row.cache)
+    if not cache.get("library_ready"):
+        owned = pull_owned_games(row.external_id or "")
+        if owned is not None:
+            cache["owned_games"] = owned
+            cache["library_ready"] = True
+            row.cache = json.dumps(cache)
+            row.refreshed_at = datetime.now()
+            database.commit()
+    return steam_library_payload(cache, read_parts(row.parts))
+
+
 def load_steam_recent(database, user_id):
     row = database.query(Account_connection).filter(
         Account_connection.user_id == user_id,
@@ -467,6 +524,11 @@ def check_steam_playing_once():
                     if games is not None and (cache.get("recently_played") != games or not cache.get("recent_ready")):
                         cache["recently_played"] = games
                         cache["recent_ready"] = True
+                        changed = True
+                    owned = pull_owned_games(steamid)
+                    if owned is not None and (cache.get("owned_games") != owned or not cache.get("library_ready")):
+                        cache["owned_games"] = owned
+                        cache["library_ready"] = True
                         changed = True
                 if changed:
                     row.cache = json.dumps(cache)

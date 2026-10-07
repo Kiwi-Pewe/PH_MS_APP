@@ -440,7 +440,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -556,6 +556,11 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillSteamRecentOptions(box, draft, onChange, hintEl);
     return;
   }
+  if (tile.type === "steam_library") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillSteamLibraryOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
   const empty = document.createElement("div");
   empty.className = "profile-opt-empty";
   empty.textContent = "No extra settings for this widget yet.";
@@ -620,6 +625,34 @@ function fillSteamRecentOptions(box, draft, onChange, hintEl) {
   sizeBlock.appendChild(size.label);
   sizeBlock.appendChild(size.row);
   box.appendChild(gamesBlock);
+  box.appendChild(sizeBlock);
+}
+
+function fillSteamLibraryOptions(box, tile, draft, onChange, hintEl) {
+  draft.entry_scale = Math.max(50, Math.min(150, Math.round(Number(draft.entry_scale)) || 100));
+  if (draft.sort !== "last_played") draft.sort = "playtime";
+  const sort = profileSelectField("Sort", [
+    { value: "playtime", label: "Play time" },
+    { value: "last_played", label: "Last played" }
+  ], draft.sort);
+  profileOptHint(sort.label, "Play time lists the most played games first. Last played lists the most recent first.", hintEl);
+  sort.select.addEventListener("change", () => {
+    draft.sort = sort.select.value === "last_played" ? "last_played" : "playtime";
+    if (typeof steamLibraryPage !== "undefined") steamLibraryPage[tile.id] = 1;
+    onChange();
+  });
+  const sortBlock = document.createElement("div");
+  sortBlock.className = "profile-name-opt";
+  sortBlock.appendChild(sort.label);
+  const size = profileSliderField("Entry size", draft.entry_scale, 50, 150, hintEl, "Scales each game, including its picture and text.", (n) => {
+    draft.entry_scale = n;
+    onChange();
+  }, (n) => n + "%");
+  const sizeBlock = document.createElement("div");
+  sizeBlock.className = "profile-name-opt";
+  sizeBlock.appendChild(size.label);
+  sizeBlock.appendChild(size.row);
+  box.appendChild(sortBlock);
   box.appendChild(sizeBlock);
 }
 

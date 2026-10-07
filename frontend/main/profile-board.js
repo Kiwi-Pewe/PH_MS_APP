@@ -2421,7 +2421,7 @@ function paintSteamRecent(tile, el) {
   });
   const count = document.createElement("div");
   count.className = "steam-recent-page-count";
-  count.textContent = String(pageCount);
+  count.textContent = String(page);
   const next = document.createElement("button");
   next.type = "button";
   next.className = "steam-recent-page-btn";
@@ -2560,7 +2560,7 @@ function paintSteamLibrary(tile, el) {
   });
   const count = document.createElement("div");
   count.className = "steam-recent-page-count";
-  count.textContent = String(pageCount);
+  count.textContent = String(page);
   const next = document.createElement("button");
   next.type = "button";
   next.className = "steam-recent-page-btn";
@@ -2853,7 +2853,7 @@ function paintSteamAchievements(tile, el) {
   });
   const count = document.createElement("div");
   count.className = "steam-recent-page-count";
-  count.textContent = String(pageCount);
+  count.textContent = String(page);
   const next = document.createElement("button");
   next.type = "button";
   next.className = "steam-recent-page-btn";

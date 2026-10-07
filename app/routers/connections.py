@@ -703,23 +703,31 @@ def pull_badge_api(steamid):
     return [row for row in rows if isinstance(row, dict)][:400]
 
 
+def badge_face_icon(chunk):
+    delayed = re.search(r'data-delayed-image="([^"]+)"', chunk)
+    source = delayed.group(1).strip() if delayed else ""
+    if not source:
+        image_match = re.search(r'<img[^>]*\ssrc="([^"]+)"', chunk)
+        source = image_match.group(1).strip() if image_match else ""
+    if source.startswith("//"):
+        source = "https:" + source
+    icon = steam_icon_url(source)
+    if icon.endswith("/trans.gif"):
+        return ""
+    return icon
+
+
 def parse_badge_faces(html):
     faces = {}
-    chunks = re.split(r'<div class="badge_row[\s"]', html or "")
+    chunks = re.split(r'class="badge_row(?:\s|")', html or "")
     for chunk in chunks[1:]:
         href_match = re.search(r'href="([^"]+)"', chunk)
-        image_match = re.search(r'<img[^>]*\ssrc="([^"]+)"', chunk)
         title_match = re.search(r'class="badge_info_title"[^>]*>(.*?)</div>', chunk, re.S)
         if not title_match:
             continue
         name = clip(unescape(re.sub(r"<[^>]+>", " ", title_match.group(1))), 120)
         name = " ".join(name.split())
-        icon = ""
-        if image_match:
-            src = image_match.group(1).strip()
-            if src.startswith("//"):
-                src = "https:" + src
-            icon = steam_icon_url(src)
+        icon = badge_face_icon(chunk)
         href = href_match.group(1) if href_match else ""
         game = re.search(r"/gamecards/(\d+)", href)
         if game:

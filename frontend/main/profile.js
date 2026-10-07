@@ -150,68 +150,177 @@ function showProfileSidebar() {
   document.getElementById("account-footer").style.display = "flex";
 }
 
+const PROFILE_PUBLIC_CAP = 4;
+const PROFILE_PRIVATE_CAP = 5;
+let profilePageDragId = "";
+let profilePageSuppressClick = false;
+
+function profilePageFixed(page) {
+  return !!page && (page.id === "profile" || isMiniProfilePageId(page.id));
+}
+
+function profileSideOpen(pages, owner) {
+  const count = (pages || []).filter(page => (page.visibility === "owner") === !!owner).length;
+  return count < (owner ? PROFILE_PRIVATE_CAP : PROFILE_PUBLIC_CAP);
+}
+
+function profileOrderedPages(pages) {
+  const rows = pages || [];
+  return rows.filter(page => page.visibility !== "owner").concat(rows.filter(page => page.visibility === "owner"));
+}
+
+function bindProfilePageRail() {
+  if (bindProfilePageRail.ready) return;
+  const host = document.getElementById("profile-page-list");
+  if (!host) return;
+  bindProfilePageRail.ready = true;
+  host.addEventListener("contextmenu", (e) => {
+    if (!profileIsOwn || !profileEditing) return;
+    if (e.target.closest(".profile-page-item")) return;
+    e.preventDefault();
+    const pages = (profileDraft && profileDraft.pages) || [];
+    const full = !profileSideOpen(pages, false) && !profileSideOpen(pages, true);
+    if (typeof openContextMenu !== "function") return;
+    openContextMenu(e.clientX, e.clientY, null, [
+      {
+        label: "Create a new page",
+        disabled: full,
+        onSelect: () => { if (!full && typeof openProfilePageCreate === "function") openProfilePageCreate(); }
+      }
+    ]);
+  });
+}
+
+function clearProfilePageDropMarks(host) {
+  host.querySelectorAll(".profile-page-item").forEach(row => {
+    row.classList.remove("dnd-drop-before", "dnd-drop-after", "dnd-dragging");
+  });
+}
+
+function bindProfilePageDrag(row, page, host) {
+  if (!profileIsOwn || !profileEditing) return;
+  row.draggable = true;
+  row.addEventListener("dragstart", (e) => {
+    profilePageDragId = page.id;
+    profilePageSuppressClick = false;
+    row.classList.add("dnd-dragging");
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", page.id); } catch (err) {}
+  });
+  row.addEventListener("dragend", () => {
+    profilePageDragId = "";
+    profilePageSuppressClick = true;
+    clearProfilePageDropMarks(host);
+    setTimeout(() => { profilePageSuppressClick = false; }, 0);
+  });
+  row.addEventListener("dragover", (e) => {
+    if (!profilePageDragId || profilePageDragId === page.id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const rect = row.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+    host.querySelectorAll(".profile-page-item").forEach(item => {
+      item.classList.remove("dnd-drop-before", "dnd-drop-after");
+    });
+    row.classList.add(before ? "dnd-drop-before" : "dnd-drop-after");
+  });
+  row.addEventListener("drop", (e) => {
+    if (!profilePageDragId || profilePageDragId === page.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = row.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+    const movedId = profilePageDragId;
+    profilePageDragId = "";
+    clearProfilePageDropMarks(host);
+    placeProfilePage(movedId, page.id, !before);
+  });
+}
+
+function placeProfilePage(movedId, targetId, after) {
+  const pages = (profileDraft && profileDraft.pages) || [];
+  const moved = pages.find(page => page.id === movedId);
+  const target = pages.find(page => page.id === targetId);
+  if (!moved || !target || moved.id === target.id) return;
+  const wantOwner = target.visibility === "owner";
+  if (profilePageFixed(moved) && (moved.visibility === "owner") !== wantOwner) return;
+  const sameSide = (moved.visibility === "owner") === wantOwner;
+  if (!sameSide && !profileSideOpen(pages, wantOwner)) return;
+  moved.visibility = wantOwner ? "owner" : "public";
+  const publics = pages.filter(page => page.visibility !== "owner" && page.id !== moved.id);
+  const privates = pages.filter(page => page.visibility === "owner" && page.id !== moved.id);
+  const bucket = wantOwner ? privates : publics;
+  let index = bucket.findIndex(page => page.id === target.id);
+  if (index < 0) index = bucket.length;
+  else if (after) index += 1;
+  bucket.splice(index, 0, moved);
+  profileDraft.pages = publics.concat(privates);
+  if (typeof markProfileDirty === "function") markProfileDirty();
+}
+
 function renderProfilePages() {
   const host = document.getElementById("profile-page-list");
   const tools = document.getElementById("profile-page-tools");
   if (!host) return;
+  bindProfilePageRail();
   host.innerHTML = "";
   if (tools) tools.innerHTML = "";
   const layout = profileDraft || profileSavedLayout || { pages: [] };
-  const pages = layout.pages || [];
-  let sawOwner = false;
-  pages.forEach(page => {
-    if (page.visibility === "owner" && !sawOwner) {
+  const ordered = profileOrderedPages(layout.pages || []);
+  const privateStart = ordered.findIndex(page => page.visibility === "owner");
+  ordered.forEach((page, index) => {
+    if (index === privateStart) {
+      const line = document.createElement("div");
+      line.className = "profile-page-split";
+      host.appendChild(line);
       const label = document.createElement("div");
       label.className = "profile-page-group";
       label.textContent = "Only visible to you";
       host.appendChild(label);
-      sawOwner = true;
     }
     const row = document.createElement("button");
     row.type = "button";
     row.className = "profile-page-item" + (page.id === profileActivePageId ? " is-on" : "");
+    row.dataset.pageId = page.id;
     const name = document.createElement("span");
     name.textContent = page.title;
     row.appendChild(name);
-    if (profileIsOwn && profileEditing) {
-      const btns = document.createElement("div");
-      btns.className = "profile-page-tools-row";
-      const up = document.createElement("button");
-      up.type = "button";
-      up.textContent = "\u2191";
-      up.title = "Move up";
-      up.addEventListener("click", (e) => {
-        e.stopPropagation();
-        moveProfilePage(page.id, -1);
-      });
-      const down = document.createElement("button");
-      down.type = "button";
-      down.textContent = "\u2193";
-      down.title = "Move down";
-      down.addEventListener("click", (e) => {
-        e.stopPropagation();
-        moveProfilePage(page.id, 1);
-      });
-      btns.appendChild(up);
-      btns.appendChild(down);
-      row.appendChild(btns);
-    }
     row.addEventListener("click", () => {
+      if (profilePageSuppressClick) {
+        profilePageSuppressClick = false;
+        return;
+      }
       profileActivePageId = page.id;
       renderProfilePages();
       renderProfileBoard();
     });
-    if (profileIsOwn && profileEditing && !isMiniProfilePageId(page.id)) {
-      row.addEventListener("dblclick", () => renameProfilePage(page.id));
-    }
+    row.addEventListener("contextmenu", (e) => {
+      if (!profileIsOwn || !profileEditing || profilePageFixed(page)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof openContextMenu !== "function") return;
+      openContextMenu(e.clientX, e.clientY, {
+        avatarText: (page.title || "?").slice(0, 1),
+        title: page.title
+      }, [
+        { label: "Modify", onSelect: () => { if (typeof openProfilePageModify === "function") openProfilePageModify(page.id); } },
+        { label: "Remove", danger: true, onSelect: () => { if (typeof removeProfilePage === "function") removeProfilePage(page.id); } }
+      ]);
+    });
+    bindProfilePageDrag(row, page, host);
     host.appendChild(row);
   });
   if (tools && profileIsOwn && profileEditing) {
+    const pages = layout.pages || [];
+    const full = !profileSideOpen(pages, false) && !profileSideOpen(pages, true);
     const add = document.createElement("button");
     add.type = "button";
     add.className = "settings-row-btn";
-    add.textContent = "Add page";
-    add.addEventListener("click", addProfilePage);
+    add.textContent = "Add Page";
+    add.disabled = full;
+    add.addEventListener("click", () => {
+      if (!full && typeof openProfilePageCreate === "function") openProfilePageCreate();
+    });
     tools.appendChild(add);
   }
 }

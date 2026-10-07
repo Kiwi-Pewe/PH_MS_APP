@@ -2904,41 +2904,160 @@ function showProfileTileMenu(e, tile) {
   }, items);
 }
 
-function addProfilePage() {
-  if (typeof openSettingsForm !== "function") return;
-  openSettingsForm("Add page", [
-    { name: "title", label: "Page name", value: "New page", maxlength: 32 }
-  ], "Add", async (values) => {
-    const title = (values.title || "Page").trim() || "Page";
-    profileDraft.pages.push({
-      id: profileNewId("page"),
-      title,
-      visibility: "public",
-      tiles: []
-    });
-    profileActivePageId = profileDraft.pages[profileDraft.pages.length - 1].id;
-    markProfileDirty();
-  });
+const PROFILE_PAGE_LAYOUT_NAMES = {
+  profile: "Profile",
+  gallery: "Gallery",
+  games: "Games",
+  blank: ""
+};
+
+let profilePageModalMode = "create";
+let profilePageModalId = "";
+
+function profilePageModalEls() {
+  return {
+    overlay: document.getElementById("page-modal-overlay"),
+    title: document.getElementById("page-modal-title"),
+    layouts: document.getElementById("page-layout-block"),
+    name: document.getElementById("page-name-input"),
+    priv: document.getElementById("page-private-toggle"),
+    confirm: document.getElementById("page-modal-confirm")
+  };
 }
 
-function renameProfilePage(pageId) {
-  if (isMiniProfilePageId(pageId)) return;
-  const page = profilePageById(profileDraft, pageId);
-  if (!page || typeof openSettingsForm !== "function") return;
-  openSettingsForm("Rename page", [
-    { name: "title", label: "Page name", value: page.title, maxlength: 32 }
-  ], "Save", async (values) => {
-    page.title = (values.title || page.title).trim() || page.title;
-    markProfileDirty();
-  });
+function updateProfilePageModal() {
+  const els = profilePageModalEls();
+  if (!els.confirm || !els.name) return;
+  const name = els.name.value.trim();
+  const selected = document.querySelector('input[name="page-layout"]:checked');
+  const owner = !!(els.priv && els.priv.checked);
+  const pages = (profileDraft && profileDraft.pages) || [];
+  let sideOk = true;
+  if (profilePageModalMode === "create") {
+    sideOk = typeof profileSideOpen !== "function" || profileSideOpen(pages, owner);
+  } else {
+    const page = typeof profilePageById === "function" ? profilePageById(profileDraft, profilePageModalId) : null;
+    const same = !!page && (page.visibility === "owner") === owner;
+    sideOk = same || typeof profileSideOpen !== "function" || profileSideOpen(pages, owner);
+  }
+  els.confirm.disabled = !name || (profilePageModalMode === "create" && !selected) || !sideOk;
 }
 
-function moveProfilePage(pageId, dir) {
+function closeProfilePageModal() {
+  const overlay = document.getElementById("page-modal-overlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+function openProfilePageCreate() {
+  const els = profilePageModalEls();
+  if (!els.overlay) return;
+  profilePageModalMode = "create";
+  profilePageModalId = "";
+  if (els.title) els.title.textContent = "Create Page";
+  if (els.layouts) els.layouts.hidden = false;
+  document.querySelectorAll('input[name="page-layout"]').forEach(radio => { radio.checked = false; });
+  if (els.name) els.name.value = "";
+  if (els.priv) els.priv.checked = false;
+  if (els.confirm) els.confirm.textContent = "Create Page";
+  updateProfilePageModal();
+  els.overlay.style.display = "flex";
+  if (els.name) els.name.focus();
+}
+
+function openProfilePageModify(pageId) {
+  const page = typeof profilePageById === "function" ? profilePageById(profileDraft, pageId) : null;
+  if (!page || (typeof profilePageFixed === "function" && profilePageFixed(page))) return;
+  const els = profilePageModalEls();
+  if (!els.overlay) return;
+  profilePageModalMode = "modify";
+  profilePageModalId = page.id;
+  if (els.title) els.title.textContent = "Modify Page";
+  if (els.layouts) els.layouts.hidden = true;
+  if (els.name) els.name.value = page.title || "";
+  if (els.priv) els.priv.checked = page.visibility === "owner";
+  if (els.confirm) els.confirm.textContent = "Save";
+  updateProfilePageModal();
+  els.overlay.style.display = "flex";
+  if (els.name) els.name.focus();
+}
+
+function submitProfilePageModal() {
+  const els = profilePageModalEls();
+  if (!els.name || !profileDraft) return;
+  const title = els.name.value.trim();
+  if (!title) return;
+  const owner = !!(els.priv && els.priv.checked);
   const pages = profileDraft.pages || [];
-  const index = pages.findIndex(page => page.id === pageId);
-  const next = index + dir;
-  if (index < 0 || next < 0 || next >= pages.length) return;
-  const row = pages.splice(index, 1)[0];
-  pages.splice(next, 0, row);
+  if (profilePageModalMode === "create") {
+    const selected = document.querySelector('input[name="page-layout"]:checked');
+    if (!selected) return;
+    if (typeof profileSideOpen === "function" && !profileSideOpen(pages, owner)) return;
+    const page = {
+      id: profileNewId("page"),
+      title: title.slice(0, 32),
+      visibility: owner ? "owner" : "public",
+      tiles: []
+    };
+    const publics = pages.filter(row => row.visibility !== "owner");
+    const privates = pages.filter(row => row.visibility === "owner");
+    if (owner) privates.push(page);
+    else publics.push(page);
+    profileDraft.pages = publics.concat(privates);
+    profileActivePageId = page.id;
+  } else {
+    const page = typeof profilePageById === "function" ? profilePageById(profileDraft, profilePageModalId) : null;
+    if (!page || (typeof profilePageFixed === "function" && profilePageFixed(page))) return;
+    const same = (page.visibility === "owner") === owner;
+    if (!same && typeof profileSideOpen === "function" && !profileSideOpen(pages, owner)) return;
+    page.title = title.slice(0, 32);
+    if (!same) {
+      page.visibility = owner ? "owner" : "public";
+      const rest = pages.filter(row => row.id !== page.id);
+      const publics = rest.filter(row => row.visibility !== "owner");
+      const privates = rest.filter(row => row.visibility === "owner");
+      if (owner) privates.push(page);
+      else publics.push(page);
+      profileDraft.pages = publics.concat(privates);
+    }
+  }
+  closeProfilePageModal();
   markProfileDirty();
 }
+
+function removeProfilePage(pageId) {
+  if (pageId === "profile" || (typeof isMiniProfilePageId === "function" && isMiniProfilePageId(pageId))) return;
+  const pages = (profileDraft && profileDraft.pages) || [];
+  const next = pages.filter(page => page.id !== pageId);
+  if (next.length === pages.length) return;
+  profileDraft.pages = next;
+  if (profileActivePageId === pageId) {
+    profileActivePageId = next[0] ? next[0].id : "profile";
+  }
+  markProfileDirty();
+}
+
+function bindProfilePageModal() {
+  if (bindProfilePageModal.ready) return;
+  const els = profilePageModalEls();
+  if (!els.overlay || !els.confirm) return;
+  bindProfilePageModal.ready = true;
+  document.getElementById("page-modal-close").addEventListener("click", closeProfilePageModal);
+  document.getElementById("page-modal-cancel").addEventListener("click", closeProfilePageModal);
+  els.overlay.addEventListener("click", (e) => {
+    if (e.target === els.overlay) closeProfilePageModal();
+  });
+  els.confirm.addEventListener("click", submitProfilePageModal);
+  els.name.addEventListener("input", updateProfilePageModal);
+  els.priv.addEventListener("change", updateProfilePageModal);
+  document.querySelectorAll('input[name="page-layout"]').forEach(radio => {
+    radio.addEventListener("change", () => {
+      const next = PROFILE_PAGE_LAYOUT_NAMES[radio.value] || "";
+      const current = els.name.value.trim();
+      const defaults = Object.keys(PROFILE_PAGE_LAYOUT_NAMES).map(key => PROFILE_PAGE_LAYOUT_NAMES[key]);
+      if (!current || defaults.indexOf(current) >= 0) els.name.value = next;
+      updateProfilePageModal();
+    });
+  });
+}
+
+bindProfilePageModal();

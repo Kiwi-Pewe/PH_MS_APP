@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=288">
+<link rel="stylesheet" href="app.css?v=289">
 </head>
 <body>
 
@@ -1651,6 +1651,58 @@
     </div>
   </div>
 
+  <div id="page-modal-overlay" style="display:none;">
+    <div id="page-modal" role="dialog" aria-modal="true" aria-labelledby="page-modal-title">
+      <div class="view-header">
+        <span id="page-modal-title">Create Page</span>
+        <button type="button" class="icon-btn" id="page-modal-close" title="Close">&times;</button>
+      </div>
+      <div class="view-body">
+        <div id="page-layout-block">
+          <div class="channel-type-label">Page</div>
+          <div class="page-layout-list" id="page-layout-list">
+            <label class="channel-type-option">
+              <input type="radio" name="page-layout" value="profile">
+              <span class="channel-type-name">Profile</span>
+              <span class="channel-type-desc">The default profile</span>
+            </label>
+            <label class="channel-type-option">
+              <input type="radio" name="page-layout" value="gallery">
+              <span class="channel-type-name">Gallery</span>
+              <span class="channel-type-desc">An image and media area</span>
+            </label>
+            <label class="channel-type-option">
+              <input type="radio" name="page-layout" value="games">
+              <span class="channel-type-name">Games</span>
+              <span class="channel-type-desc">A games page</span>
+            </label>
+            <label class="channel-type-option">
+              <input type="radio" name="page-layout" value="blank">
+              <span class="channel-type-name">Blank</span>
+              <span class="channel-type-desc">An empty page</span>
+            </label>
+          </div>
+        </div>
+        <label class="server-modal-label" for="page-name-input">Page Name</label>
+        <input type="text" id="page-name-input" class="server-name-input" maxlength="32" placeholder="Page name">
+        <div class="private-toggle-row">
+          <div class="private-toggle-label">
+            <span>Private Page</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="page-private-toggle">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <p class="private-toggle-desc">Only you can see this page.</p>
+        </div>
+      </div>
+      <div id="page-modal-footer">
+        <button type="button" class="ghost-btn" id="page-modal-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="page-modal-confirm" disabled>Create Page</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Compact confirm for owner delete category/channel. Reached from
        those context-menu items. Same overlay family as the other pop-ups,
        smaller body — modeled on Discord's centered Delete Channel card,
@@ -1917,9 +1969,9 @@
 <script src="../shared/gallery-frame.js?v=1"></script>
 <script src="profile-comments.js?v=7"></script>
 <script src="profile-board.js?v=90"></script>
-<script src="profile.js?v=15"></script>
+<script src="profile.js?v=16"></script>
 <script src="profile-identity.js?v=8"></script>
-<script src="profile-edit.js?v=83"></script>
+<script src="profile-edit.js?v=84"></script>
 <script src="context-menus.js?v=89"></script>
 <script src="conversations.js?v=63"></script>
 <script src="chat-render.js?v=68"></script>

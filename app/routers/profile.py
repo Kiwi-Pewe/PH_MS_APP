@@ -97,12 +97,9 @@ LINK_PLATFORMS = (
 STARTER_PAGES = (
     ("profile", "Profile", "public"),
     ("games", "Games", "public"),
-    ("media", "Media", "public"),
+    ("gallery", "Gallery", "public"),
     ("mini_profile", "Mini Profile", "owner"),
-    ("servers", "Servers", "owner"),
-    ("friends", "Friends", "owner"),
-    ("applications", "Applications", "owner"),
-    ("events", "Events", "owner"),
+    ("help", "Help Page", "owner"),
 )
 MINI_PROFILE_PAGE_ID = "mini_profile"
 
@@ -312,7 +309,7 @@ def seed_layout():
                 "id": page_id,
                 "title": title,
                 "visibility": vis,
-                "tiles": default_profile_tiles(banner) if page_id == "profile" else [],
+                "tiles": [],
             }
             for page_id, title, vis in STARTER_PAGES
         ],

@@ -91,7 +91,8 @@ const PROFILE_TILE_TYPES = {
   steam_profile: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "Profile" },
   steam_playing_now: { w: 10, h: 4, minW: 7, minH: 4, maxW: 10, maxH: 6, label: "Playing Now" },
   steam_recently_played: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Recently Played" },
-  steam_library: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Library" }
+  steam_library: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Library" },
+  steam_achievements: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Achievements" }
 };
 
 const DISPLAY_SERVER_MAX = 20;
@@ -113,7 +114,6 @@ const PROFILE_PLACEHOLDERS = {
   game_stats: { label: "Game stats", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
   library: { label: "Library", w: 12, h: 6, minW: 8, minH: 4, maxW: 24, maxH: 14 },
   review: { label: "Review", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 10 },
-  steam_achievements: { label: "Achievements", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
   steam_badges: { label: "Badges", w: 10, h: 4, minW: 6, minH: 3, maxW: 16, maxH: 10 }
 };
 
@@ -210,8 +210,8 @@ function profileTileBounds(type, tile) {
       bounds.minW = 1;
       bounds.maxW = PROFILE_COLS;
     }
-  } else if (type === "steam_recently_played" || type === "steam_library") {
-    const extra = steamRecentMinSize(tile && tile.props);
+  } else if (type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements") {
+    const extra = type === "steam_achievements" ? steamAchieveMinSize(tile && tile.props) : steamRecentMinSize(tile && tile.props);
     bounds.minW = extra.minW;
     bounds.minH = extra.minH;
     bounds.maxW = Math.min(16, PROFILE_COLS);
@@ -701,7 +701,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "steam_recently_played" || type === "steam_library";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements";
 }
 
 function profileTextChrome(props, type) {
@@ -1907,6 +1907,12 @@ let steamLibraryOwnerId = "";
 let steamLibraryData = null;
 let steamLibraryLoad = null;
 const steamLibraryPage = {};
+let steamAchieveOwnerId = "";
+let steamAchieveData = null;
+let steamAchieveLoad = null;
+let steamAchieveQueued = null;
+let steamAchieveFill = null;
+const steamAchievePage = {};
 
 function ensureSteamCard() {
   const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
@@ -2197,6 +2203,7 @@ function refreshSteamSurfaces() {
     if (pair[1] && steamPlayingOwnerId === id) steamPlayingData = pair[1];
     if (pair[2] && steamRecentOwnerId === id) steamRecentData = pair[2];
     if (pair[3] && steamLibraryOwnerId === id) steamLibraryData = pair[3];
+    if (steamAchieveOwnerId === id) pullSteamAchievements(0);
     if (!profileEditing && typeof renderProfileBoard === "function") renderProfileBoard();
   });
 }
@@ -2554,6 +2561,296 @@ function paintSteamLibrary(tile, el) {
   el.appendChild(card);
 }
 
+function steamAchieveBox(props) {
+  const scale = steamRecentScale(props);
+  return {
+    scale: scale / 100,
+    w: Math.round(168 * scale / 100),
+    h: Math.round(88 * scale / 100)
+  };
+}
+
+function steamAchieveMinSize(props) {
+  const scale = steamRecentScale(props);
+  const box = steamAchieveBox(props);
+  const floorW = Math.ceil(7 * scale / 100);
+  const floorH = Math.ceil(6 * scale / 100);
+  const needW = Math.ceil((box.w + STEAM_RECENT_FLOW_PAD * 2) / PROFILE_ROW_H);
+  const needH = Math.ceil((box.h + STEAM_RECENT_TITLE_H + STEAM_RECENT_PAGE_H) / PROFILE_ROW_H);
+  return {
+    minW: Math.min(16, Math.max(floorW, needW, 1)),
+    minH: Math.min(16, Math.max(floorH, needH, 1))
+  };
+}
+
+function steamAchievePerPage(tile) {
+  const box = steamAchieveBox(tile.props);
+  const flow = steamRecentFlowBox(tile);
+  const cols = Math.max(1, Math.floor((flow.width + STEAM_RECENT_GAP) / (box.w + STEAM_RECENT_GAP)));
+  const rows = Math.max(1, Math.floor((flow.height + STEAM_RECENT_GAP) / (box.h + STEAM_RECENT_GAP)));
+  return Math.max(1, Math.min(10, cols * rows));
+}
+
+function steamAchieveList(data, props) {
+  const appid = Math.round(Number(props && props.appid)) || 0;
+  const rows = (data.achievements || []).filter(row => !appid || Number(row.appid) === appid);
+  const byRarity = props && props.sort === "rarity";
+  rows.sort((a, b) => {
+    if (byRarity) {
+      const left = a.percent == null ? 101 : Number(a.percent);
+      const right = b.percent == null ? 101 : Number(b.percent);
+      return left - right || (Number(b.unlocked) || 0) - (Number(a.unlocked) || 0);
+    }
+    return (Number(b.unlocked) || 0) - (Number(a.unlocked) || 0);
+  });
+  return rows.slice(0, 100);
+}
+
+function steamAchieveIcon(url) {
+  const text = String(url || "");
+  return text.indexOf("https://") === 0 ? text : "";
+}
+
+function steamAchieveDate(unix) {
+  const n = Number(unix) || 0;
+  if (!n) return "";
+  const date = new Date(n * 1000);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function steamAchievePercent(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  const rounded = Math.round(n * 10) / 10;
+  return (rounded % 1 ? rounded.toFixed(1) : String(rounded)) + "% of players";
+}
+
+function closeSteamAchieveSubmenu() {
+  const overlay = document.getElementById("steam-achieve-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+function bindSteamAchieveSubmenu() {
+  if (bindSteamAchieveSubmenu.ready) return;
+  bindSteamAchieveSubmenu.ready = true;
+  const overlay = document.getElementById("steam-achieve-overlay");
+  const close = document.getElementById("steam-achieve-close");
+  if (close) close.addEventListener("click", closeSteamAchieveSubmenu);
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeSteamAchieveSubmenu();
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    const open = document.getElementById("steam-achieve-overlay");
+    if (e.key === "Escape" && open && !open.hidden) closeSteamAchieveSubmenu();
+  });
+}
+
+function openSteamAchieveSubmenu(row) {
+  bindSteamAchieveSubmenu();
+  const overlay = document.getElementById("steam-achieve-overlay");
+  const title = document.getElementById("steam-achieve-title");
+  const body = document.getElementById("steam-achieve-body");
+  if (!overlay || !body) return;
+  if (title) title.textContent = row.name || "Achievement";
+  body.innerHTML = "";
+  const top = document.createElement("div");
+  top.className = "steam-achieve-top";
+  const icon = steamAchieveIcon(row.icon);
+  if (icon) {
+    const img = document.createElement("img");
+    img.className = "steam-achieve-art";
+    img.alt = "";
+    img.draggable = false;
+    img.src = icon;
+    img.addEventListener("error", () => img.remove());
+    top.appendChild(img);
+  }
+  const facts = document.createElement("div");
+  facts.className = "steam-achieve-facts";
+  const lines = [];
+  if (row.game) lines.push(row.game);
+  const when = steamAchieveDate(row.unlocked);
+  lines.push(when ? ("Unlocked " + when) : "Unlocked");
+  const percent = steamAchievePercent(row.percent);
+  if (percent) lines.push(percent);
+  lines.forEach(text => {
+    const line = document.createElement("div");
+    line.className = "steam-achieve-fact";
+    line.textContent = text;
+    facts.appendChild(line);
+  });
+  top.appendChild(facts);
+  body.appendChild(top);
+  if (row.description) {
+    const copy = document.createElement("div");
+    copy.className = "steam-achieve-detail";
+    copy.textContent = row.description;
+    body.appendChild(copy);
+  }
+  overlay.hidden = false;
+}
+
+function scheduleSteamAchieveFill() {
+  if (steamAchieveFill) return;
+  steamAchieveFill = setTimeout(() => {
+    steamAchieveFill = null;
+    if (steamAchieveData && steamAchieveData.ready === false) pullSteamAchievements(0);
+  }, 15000);
+}
+
+function pullSteamAchievements(appid) {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  if (steamAchieveLoad) {
+    steamAchieveQueued = appid || 0;
+    return;
+  }
+  const focus = Math.round(Number(appid)) || 0;
+  const query = focus ? ("?appid=" + encodeURIComponent(String(focus))) : "";
+  steamAchieveOwnerId = id;
+  steamAchieveLoad = fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/steam_achievements" + query, { credentials: "include" })
+    .then(response => response.ok ? response.json() : { linked: false })
+    .then(data => { steamAchieveData = data || { linked: false }; })
+    .catch(() => { steamAchieveData = { linked: false }; })
+    .finally(() => {
+      steamAchieveLoad = null;
+      const next = steamAchieveQueued;
+      steamAchieveQueued = null;
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id && typeof renderProfileBoard === "function") {
+        renderProfileBoard();
+      }
+      if (next != null) pullSteamAchievements(next);
+      else if (steamAchieveData && steamAchieveData.ready === false) scheduleSteamAchieveFill();
+    });
+}
+
+function ensureSteamAchievements() {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  if (!steamPlayingTimer) steamPlayingTimer = setInterval(refreshSteamSurfaces, 300000);
+  if (steamAchieveOwnerId === id && (steamAchieveData || steamAchieveLoad)) return;
+  steamAchieveData = null;
+  pullSteamAchievements(0);
+}
+
+function steamAchieveTurn(tile, el, page) {
+  steamAchievePage[tile.id] = page;
+  if (el.classList.contains("is-opt-preview")) {
+    el.innerHTML = "";
+    paintSteamAchievements(tile, el);
+    return;
+  }
+  if (typeof renderProfileBoard === "function") renderProfileBoard();
+}
+
+function paintSteamAchievements(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
+  mountSteamTitle(el, tile, "Achievements", "left");
+  const card = document.createElement("div");
+  card.className = "steam-recent-card";
+  const flow = document.createElement("div");
+  flow.className = "steam-recent-flow";
+  const pages = document.createElement("div");
+  pages.className = "steam-recent-pages";
+  const box = steamAchieveBox(tile.props);
+  el.style.setProperty("--steam-entry-scale", String(box.scale));
+  const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  let rows = [];
+  let note = "";
+  if (!steamAchieveData || steamAchieveOwnerId !== owner) {
+    ensureSteamAchievements();
+  } else if (!steamAchieveData.linked) {
+    note = "Connect Steam to show this.";
+  } else if (steamAchieveData.enabled === false) {
+    note = "Turn on Achievements for Steam.";
+  } else if (steamAchieveData.public === false) {
+    note = "Achievements are hidden on this Steam profile.";
+  } else {
+    rows = steamAchieveList(steamAchieveData, tile.props);
+    if (!rows.length) note = "No achievements to show.";
+  }
+  const perPage = steamAchievePerPage(tile);
+  const pageCount = Math.max(1, Math.ceil(rows.length / perPage));
+  let page = Math.round(Number(steamAchievePage[tile.id])) || 1;
+  if (page < 1) page = 1;
+  if (page > pageCount) page = pageCount;
+  steamAchievePage[tile.id] = page;
+  if (note) {
+    flow.classList.add("is-note");
+    flow.appendChild(steamProfileNote(note));
+  } else {
+    rows.slice((page - 1) * perPage, page * perPage).forEach(row => {
+      const entry = document.createElement("div");
+      entry.className = "steam-recent-entry steam-achieve-entry";
+      entry.style.width = box.w + "px";
+      entry.style.height = box.h + "px";
+      const icon = document.createElement("div");
+      icon.className = "steam-recent-icon";
+      const src = steamAchieveIcon(row.icon);
+      if (src) {
+        const img = document.createElement("img");
+        img.alt = "";
+        img.draggable = false;
+        img.src = src;
+        img.addEventListener("error", () => img.remove());
+        icon.appendChild(img);
+      }
+      const copy = document.createElement("div");
+      copy.className = "steam-recent-copy";
+      const name = document.createElement("div");
+      name.className = "steam-recent-name";
+      name.textContent = row.name || "";
+      copy.appendChild(name);
+      if (row.description) {
+        const desc = document.createElement("div");
+        desc.className = "steam-achieve-desc";
+        desc.textContent = row.description;
+        copy.appendChild(desc);
+      }
+      entry.appendChild(icon);
+      entry.appendChild(copy);
+      entry.addEventListener("pointerdown", (e) => e.stopPropagation());
+      entry.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openSteamAchieveSubmenu(row);
+      });
+      flow.appendChild(entry);
+    });
+  }
+  const prev = document.createElement("button");
+  prev.type = "button";
+  prev.className = "steam-recent-page-btn";
+  prev.textContent = "‹";
+  prev.disabled = page <= 1;
+  prev.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (page > 1) steamAchieveTurn(tile, el, page - 1);
+  });
+  const count = document.createElement("div");
+  count.className = "steam-recent-page-count";
+  count.textContent = String(pageCount);
+  const next = document.createElement("button");
+  next.type = "button";
+  next.className = "steam-recent-page-btn";
+  next.textContent = "›";
+  next.disabled = page >= pageCount;
+  next.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (page < pageCount) steamAchieveTurn(tile, el, page + 1);
+  });
+  pages.addEventListener("pointerdown", (e) => e.stopPropagation());
+  pages.appendChild(prev);
+  pages.appendChild(count);
+  pages.appendChild(next);
+  card.appendChild(flow);
+  card.appendChild(pages);
+  el.appendChild(card);
+}
+
 function paintProfileTileContent(tile, el) {
   el.innerHTML = "";
   el.classList.toggle("is-compact-row", Number(tile.h) === 1);
@@ -2571,6 +2868,10 @@ function paintProfileTileContent(tile, el) {
   }
   if (tile.type === "steam_library") {
     paintSteamLibrary(tile, el);
+    return;
+  }
+  if (tile.type === "steam_achievements") {
+    paintSteamAchievements(tile, el);
     return;
   }
   if (tile.type === "banner") {

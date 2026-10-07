@@ -129,6 +129,7 @@ def trim_game(row, recent):
         item["playtime_2weeks"] = int(row.get("playtime_2weeks") or 0)
     else:
         item["last_played"] = int(row.get("rtime_last_played") or 0)
+        item["stats"] = 1 if row.get("has_community_visible_stats") else 0
     return item
 
 
@@ -428,6 +429,243 @@ def steam_library_payload(cache, parts):
     }
 
 
+def steam_icon_url(value):
+    text = clip(value, 300)
+    if text.startswith("http://"):
+        text = "https://" + text[7:]
+    if not text.startswith("https://"):
+        return ""
+    return text
+
+
+def achievement_targets(cache):
+    rows = []
+    for row in cache.get("owned_games") or []:
+        if not isinstance(row, dict):
+            continue
+        appid = steam_number(row.get("appid"))
+        minutes = steam_number(row.get("playtime_forever")) or 0
+        if not appid or minutes <= 0 or not row.get("stats"):
+            continue
+        rows.append(row)
+    rows.sort(key=lambda item: steam_number(item.get("playtime_forever")) or 0, reverse=True)
+    return rows
+
+
+def owned_needs_stats(cache):
+    for row in cache.get("owned_games") or []:
+        if not isinstance(row, dict):
+            continue
+        if (steam_number(row.get("playtime_forever")) or 0) <= 0:
+            continue
+        if "stats" not in row:
+            return True
+    return False
+
+
+def pull_unlocked_achievements(steamid, appid, fallback_name):
+    payload = steam_json("/ISteamUserStats/GetPlayerAchievements/v1/", {
+        "steamid": steamid,
+        "appid": str(appid),
+        "l": "english",
+    })
+    if payload is None:
+        return None
+    body = payload.get("playerstats") or {}
+    if not isinstance(body, dict) or body.get("success") is False:
+        return []
+    raw_rows = body.get("achievements") or []
+    if not isinstance(raw_rows, list):
+        return []
+    unlocked = []
+    for row in raw_rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            achieved = int(row.get("achieved") or 0)
+        except (TypeError, ValueError):
+            achieved = 0
+        if achieved:
+            unlocked.append(row)
+    icons = {}
+    percents = {}
+    if unlocked:
+        schema = steam_json("/ISteamUserStats/GetSchemaForGame/v2/", {"appid": str(appid), "l": "english"})
+        schema_rows = (((schema or {}).get("game") or {}).get("availableGameStats") or {}).get("achievements") or []
+        if isinstance(schema_rows, list):
+            for row in schema_rows:
+                if isinstance(row, dict) and row.get("name"):
+                    icons[str(row.get("name"))] = steam_icon_url(row.get("icon"))
+        global_payload = steam_json("/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/", {"gameid": str(appid)})
+        percent_rows = ((global_payload or {}).get("achievementpercentages") or {}).get("achievements") or []
+        if isinstance(percent_rows, list):
+            for row in percent_rows:
+                if not isinstance(row, dict) or not row.get("name"):
+                    continue
+                try:
+                    percents[str(row.get("name"))] = round(float(row.get("percent")), 1)
+                except (TypeError, ValueError):
+                    continue
+    game = clip(body.get("gameName") or fallback_name, 120)
+    out = []
+    for row in unlocked:
+        apiname = clip(row.get("apiname"), 80)
+        item = {
+            "appid": int(appid),
+            "game": game,
+            "name": clip(row.get("name") or apiname, 120),
+            "description": clip(row.get("description"), 500),
+            "icon": icons.get(apiname, ""),
+            "unlocked": steam_number(row.get("unlocktime")) or 0,
+        }
+        if apiname in percents:
+            item["percent"] = percents[apiname]
+        out.append(item)
+    return out
+
+
+def store_game_achievements(cache, appid, rows):
+    appid = int(appid)
+    done = []
+    for item in cache.get("achievement_done") or []:
+        number = steam_number(item) or 0
+        if number and number != appid and number not in done:
+            done.append(number)
+    done.append(appid)
+    kept = []
+    for row in cache.get("achievement_rows") or []:
+        if isinstance(row, dict) and steam_number(row.get("appid")) != appid:
+            kept.append(row)
+    kept.extend(rows)
+    if len(kept) > 3000:
+        kept.sort(key=lambda row: steam_number(row.get("unlocked")) or 0, reverse=True)
+        dropped = kept[3000:]
+        kept = kept[:3000]
+        still = {steam_number(row.get("appid")) or 0 for row in kept}
+        lost = {steam_number(row.get("appid")) or 0 for row in dropped} - still
+        done = [item for item in done if item not in lost]
+        if appid not in still and rows:
+            done.append(appid)
+            kept = list(rows) + [row for row in kept if steam_number(row.get("appid")) != appid]
+            kept = kept[:3000]
+    cache["achievement_rows"] = kept
+    cache["achievement_done"] = done[-2000:]
+
+
+def advance_achievements(cache, steamid, focus_appid, limit):
+    if not steamid:
+        return False
+    targets = achievement_targets(cache)
+    done = {steam_number(item) or 0 for item in (cache.get("achievement_done") or [])}
+    changed = False
+    focus = steam_number(focus_appid) or 0
+    queue = []
+    if focus and focus not in done:
+        match = next((row for row in (cache.get("owned_games") or []) if isinstance(row, dict) and steam_number(row.get("appid")) == focus), None)
+        if match and not match.get("stats"):
+            store_game_achievements(cache, focus, [])
+            done.add(focus)
+            changed = True
+        elif match:
+            queue.append(match)
+    for row in targets:
+        appid = steam_number(row.get("appid")) or 0
+        if appid and appid not in done and all((steam_number(item.get("appid")) or 0) != appid for item in queue):
+            queue.append(row)
+    pulled = 0
+    for row in queue:
+        if pulled >= limit:
+            break
+        appid = steam_number(row.get("appid")) or 0
+        if not appid or appid in done:
+            continue
+        rows = pull_unlocked_achievements(steamid, appid, row.get("name") or "")
+        if rows is None:
+            continue
+        store_game_achievements(cache, appid, rows)
+        done.add(appid)
+        changed = True
+        pulled += 1
+    pending = [row for row in targets if (steam_number(row.get("appid")) or 0) not in done]
+    cache["achievements_ready"] = not pending
+    return changed
+
+
+def steam_achievements_payload(cache, parts):
+    public = steam_number(cache.get("communityvisibilitystate")) == 3
+    enabled = bool(parts.get("achievements"))
+    games = []
+    rows = []
+    if public:
+        for row in cache.get("owned_games") or []:
+            if not isinstance(row, dict):
+                continue
+            minutes = steam_number(row.get("playtime_forever")) or 0
+            appid = steam_number(row.get("appid"))
+            if not appid or minutes <= 0:
+                continue
+            games.append({"appid": appid, "name": clip(row.get("name"), 120)})
+        games.sort(key=lambda item: item["name"].lower())
+        if enabled:
+            for row in cache.get("achievement_rows") or []:
+                if not isinstance(row, dict):
+                    continue
+                appid = steam_number(row.get("appid")) or 0
+                name = clip(row.get("name"), 120)
+                if not appid or not name:
+                    continue
+                item = {
+                    "appid": appid,
+                    "game": clip(row.get("game"), 120),
+                    "name": name,
+                    "description": clip(row.get("description"), 500),
+                    "icon": steam_icon_url(row.get("icon")),
+                    "unlocked": steam_number(row.get("unlocked")) or 0,
+                }
+                if row.get("percent") is not None:
+                    try:
+                        item["percent"] = round(float(row.get("percent")), 1)
+                    except (TypeError, ValueError):
+                        pass
+                rows.append(item)
+    return {
+        "linked": True,
+        "enabled": enabled,
+        "public": public,
+        "ready": True if not public else bool(cache.get("achievements_ready")),
+        "done": [steam_number(item) or 0 for item in (cache.get("achievement_done") or [])] if public and enabled else [],
+        "games": games,
+        "achievements": rows,
+    }
+
+
+def load_steam_achievements(database, user_id, focus_appid=0):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "steam",
+    ).first()
+    if not row:
+        return {"linked": False, "enabled": False, "public": False, "ready": True, "done": [], "games": [], "achievements": []}
+    cache = steam_cache(row.cache)
+    public = steam_number(cache.get("communityvisibilitystate")) == 3
+    changed = False
+    steamid = row.external_id or ""
+    if public and (not cache.get("library_ready") or owned_needs_stats(cache)):
+        owned = pull_owned_games(steamid)
+        if owned is not None:
+            cache["owned_games"] = owned
+            cache["library_ready"] = True
+            changed = True
+    if public and read_parts(row.parts).get("achievements"):
+        if advance_achievements(cache, steamid, focus_appid, 5):
+            changed = True
+    if changed:
+        row.cache = json.dumps(cache)
+        row.refreshed_at = datetime.now()
+        database.commit()
+    return steam_achievements_payload(cache, read_parts(row.parts))
+
+
 def load_steam_library(database, user_id):
     row = database.query(Account_connection).filter(
         Account_connection.user_id == user_id,
@@ -530,6 +768,9 @@ def check_steam_playing_once():
                         cache["owned_games"] = owned
                         cache["library_ready"] = True
                         changed = True
+                    if read_parts(row.parts).get("achievements") and not cache.get("achievements_ready"):
+                        if advance_achievements(cache, steamid, 0, 4):
+                            changed = True
                 if changed:
                     row.cache = json.dumps(cache)
                     row.refreshed_at = datetime.now()

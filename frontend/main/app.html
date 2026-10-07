@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=285">
+<link rel="stylesheet" href="app.css?v=286">
 </head>
 <body>
 
@@ -1721,6 +1721,16 @@
     </div>
   </div>
 
+  <div id="steam-achieve-overlay" hidden>
+    <div id="steam-achieve-modal" class="steam-achieve-modal" role="dialog" aria-modal="true" aria-labelledby="steam-achieve-title">
+      <div class="steam-achieve-head">
+        <span id="steam-achieve-title"></span>
+        <button type="button" class="icon-btn" id="steam-achieve-close" title="Close">&times;</button>
+      </div>
+      <div id="steam-achieve-body" class="steam-achieve-body"></div>
+    </div>
+  </div>
+
   <div id="delete-account-overlay" hidden>
     <div id="delete-account-modal" class="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
       <div class="delete-server-header">
@@ -1896,10 +1906,10 @@
 <script src="../shared/embed-frame.js?v=1"></script>
 <script src="../shared/gallery-frame.js?v=1"></script>
 <script src="profile-comments.js?v=6"></script>
-<script src="profile-board.js?v=85"></script>
+<script src="profile-board.js?v=86"></script>
 <script src="profile.js?v=14"></script>
 <script src="profile-identity.js?v=8"></script>
-<script src="profile-edit.js?v=81"></script>
+<script src="profile-edit.js?v=82"></script>
 <script src="context-menus.js?v=89"></script>
 <script src="conversations.js?v=63"></script>
 <script src="chat-render.js?v=68"></script>

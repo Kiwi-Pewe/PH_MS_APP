@@ -283,6 +283,7 @@ function bindProfileTileDrag(el, tile, handle) {
     if (e.target.closest(".oneira-music-seek, .oneira-music-row")) return;
     if (e.target.closest(".oneira-gallery-nav")) return;
     if (e.target.closest(".steam-recent-pages")) return;
+    if (e.target.closest(".steam-achieve-entry")) return;
     if (e.target.closest(".oneira-wall-compose, .oneira-wall-pager, .oneira-wall-notify, .oneira-wall-edit, .oneira-wall-input")) return;
     if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
     e.preventDefault();
@@ -440,7 +441,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -561,6 +562,11 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillSteamLibraryOptions(box, tile, draft, onChange, hintEl);
     return;
   }
+  if (tile.type === "steam_achievements") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillSteamAchievementOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
   const empty = document.createElement("div");
   empty.className = "profile-opt-empty";
   empty.textContent = "No extra settings for this widget yet.";
@@ -652,6 +658,56 @@ function fillSteamLibraryOptions(box, tile, draft, onChange, hintEl) {
   sizeBlock.className = "profile-name-opt";
   sizeBlock.appendChild(size.label);
   sizeBlock.appendChild(size.row);
+  box.appendChild(sortBlock);
+  box.appendChild(sizeBlock);
+}
+
+function fillSteamAchievementOptions(box, tile, draft, onChange, hintEl) {
+  draft.entry_scale = Math.max(50, Math.min(150, Math.round(Number(draft.entry_scale)) || 100));
+  if (draft.sort !== "rarity") draft.sort = "recent";
+  draft.appid = Math.max(0, Math.round(Number(draft.appid)) || 0);
+  const games = (typeof steamAchieveData !== "undefined" && steamAchieveData && steamAchieveData.games) || [];
+  const gameOptions = [{ value: "0", label: "All Games" }];
+  games.forEach(game => {
+    const appid = Math.round(Number(game.appid)) || 0;
+    if (!appid) return;
+    gameOptions.push({ value: String(appid), label: game.name || ("Game " + appid) });
+  });
+  if (draft.appid && games.length && !gameOptions.some(opt => opt.value === String(draft.appid))) draft.appid = 0;
+  const game = profileSelectField("Game", gameOptions, String(draft.appid));
+  profileOptHint(game.label, "All Games shows unlocked achievements from the library. A game shows only that game.", hintEl);
+  game.select.addEventListener("change", () => {
+    draft.appid = Math.max(0, Math.round(Number(game.select.value)) || 0);
+    if (typeof steamAchievePage !== "undefined") steamAchievePage[tile.id] = 1;
+    const done = (typeof steamAchieveData !== "undefined" && steamAchieveData && steamAchieveData.done) || [];
+    if (draft.appid && done.indexOf(draft.appid) < 0 && typeof pullSteamAchievements === "function") pullSteamAchievements(draft.appid);
+    onChange();
+  });
+  const sort = profileSelectField("Sort", [
+    { value: "recent", label: "Most recent" },
+    { value: "rarity", label: "Rarity" }
+  ], draft.sort);
+  profileOptHint(sort.label, "Most recent lists the newest unlocks first. Rarity lists the least common first.", hintEl);
+  sort.select.addEventListener("change", () => {
+    draft.sort = sort.select.value === "rarity" ? "rarity" : "recent";
+    if (typeof steamAchievePage !== "undefined") steamAchievePage[tile.id] = 1;
+    onChange();
+  });
+  const gameBlock = document.createElement("div");
+  gameBlock.className = "profile-name-opt";
+  gameBlock.appendChild(game.label);
+  const sortBlock = document.createElement("div");
+  sortBlock.className = "profile-name-opt";
+  sortBlock.appendChild(sort.label);
+  const size = profileSliderField("Entry size", draft.entry_scale, 50, 150, hintEl, "Scales each achievement, including its picture and text.", (n) => {
+    draft.entry_scale = n;
+    onChange();
+  }, (n) => n + "%");
+  const sizeBlock = document.createElement("div");
+  sizeBlock.className = "profile-name-opt";
+  sizeBlock.appendChild(size.label);
+  sizeBlock.appendChild(size.row);
+  box.appendChild(gameBlock);
   box.appendChild(sortBlock);
   box.appendChild(sizeBlock);
 }

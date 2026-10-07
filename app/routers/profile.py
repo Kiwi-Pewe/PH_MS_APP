@@ -149,7 +149,7 @@ def steam_achievement_limits(props):
     scale = clamp_int(data.get("entry_scale"), 50, 150, 100)
     floor_w = (7 * scale + 99) // 100
     floor_h = (6 * scale + 99) // 100
-    entry_w = (168 * scale + 50) // 100
+    entry_w = (248 * scale + 50) // 100
     entry_h = (88 * scale + 50) // 100
     need_w = (entry_w + 24 + 35) // 36
     need_h = (entry_h + 42 + 36 + 35) // 36

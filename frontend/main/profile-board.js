@@ -2565,7 +2565,7 @@ function steamAchieveBox(props) {
   const scale = steamRecentScale(props);
   return {
     scale: scale / 100,
-    w: Math.round(168 * scale / 100),
+    w: Math.round(248 * scale / 100),
     h: Math.round(88 * scale / 100)
   };
 }
@@ -2623,7 +2623,7 @@ function steamAchievePercent(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "";
   const rounded = Math.round(n * 10) / 10;
-  return (rounded % 1 ? rounded.toFixed(1) : String(rounded)) + "% of players";
+  return (rounded % 1 ? rounded.toFixed(1) : String(rounded)) + "% of players have this achievement";
 }
 
 function closeSteamAchieveSubmenu() {
@@ -2670,8 +2670,13 @@ function openSteamAchieveSubmenu(row) {
   }
   const facts = document.createElement("div");
   facts.className = "steam-achieve-facts";
+  if (row.game) {
+    const game = document.createElement("div");
+    game.className = "steam-achieve-game";
+    game.textContent = row.game;
+    facts.appendChild(game);
+  }
   const lines = [];
-  if (row.game) lines.push(row.game);
   const when = steamAchieveDate(row.unlocked);
   lines.push(when ? ("Unlocked " + when) : "Unlocked");
   const percent = steamAchievePercent(row.percent);

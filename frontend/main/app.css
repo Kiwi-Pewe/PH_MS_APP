@@ -5678,7 +5678,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   min-width: 16px; text-align: center; color: var(--text);
   font-size: 13px; font-weight: 700;
 }
-.steam-achieve-entry { cursor: pointer; }
+.steam-achieve-entry { cursor: pointer; align-items: center; }
+.steam-achieve-entry .steam-recent-icon { height: 66.67%; align-self: center; }
 .steam-achieve-entry .steam-recent-icon img { object-fit: contain; }
 .steam-achieve-desc {
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
@@ -5694,11 +5695,12 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .steam-achieve-modal {
   width: min(440px, calc(100vw - 32px));
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45); overflow: hidden;
 }
 .steam-achieve-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 16px 16px 0;
+  padding: 14px 12px 14px 16px;
+  background: var(--rail); border-bottom: 1px solid var(--border);
 }
 #steam-achieve-title {
   min-width: 0; font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.3;
@@ -5713,6 +5715,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   border-radius: 6px; background: var(--bg);
 }
 .steam-achieve-facts { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.steam-achieve-game { font-size: 15px; font-weight: 400; color: var(--text); line-height: 1.3; }
 .steam-achieve-fact { font-size: 13px; color: var(--text-dim); line-height: 1.35; }
 .steam-achieve-detail { font-size: 14px; color: var(--text); line-height: 1.45; }
 .steam-achieve-body::-webkit-scrollbar { width: 8px; }

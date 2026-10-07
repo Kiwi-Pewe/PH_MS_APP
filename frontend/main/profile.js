@@ -86,6 +86,8 @@ function openMiniProfileEditorPage() {
 function applyProfilePayload(data) {
   profileUser = data.user || null;
   profileOwnerId = profileUser ? profileUser.id : null;
+  if (typeof clearProfileCommentCache === "function") clearProfileCommentCache();
+  if (typeof clearProfileServerCache === "function") clearProfileServerCache();
   profileIsOwn = !!(profileUser && profileUser.id === myUserId);
   profileLimited = !!data.limited;
   profileFriends = data.friends || [];

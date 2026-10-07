@@ -5,6 +5,25 @@
 // ==================================================================
 
 const PROFILE_COMMENT_PAGE = 6;
+const profileCommentPages = {};
+
+function clearProfileCommentCache() {
+  Object.keys(profileCommentPages).forEach(key => delete profileCommentPages[key]);
+}
+
+function profileCommentBucket(ownerId) {
+  const key = String(ownerId || "");
+  if (!profileCommentPages[key]) profileCommentPages[key] = {};
+  return profileCommentPages[key];
+}
+
+function applyIncomingProfileComment(data) {
+  const ownerId = data && data.owner_id;
+  if (!ownerId || String(ownerId) !== String(typeof profileOwnerId !== "undefined" ? profileOwnerId : "")) return;
+  document.querySelectorAll(".profile-tile.is-comments").forEach(el => {
+    if (el._profileComments && el._profileComments.reload) el._profileComments.reload();
+  });
+}
 
 function profileCommentShownName(row) {
   return (row && (row.display_name || row.username)) || "Unknown";
@@ -104,6 +123,15 @@ function mountProfileComments(host, tile) {
       canPost = !!data.can_post;
       watching = !!data.watching;
       rows = Array.isArray(data.comments) ? data.comments : [];
+      profileCommentBucket(ownerId)[page] = {
+        page: page,
+        pages: pages,
+        total: total,
+        canPost: canPost,
+        watching: watching,
+        rows: rows.slice()
+      };
+      profileCommentBucket(ownerId).current = page;
     } catch (e) {
       rows = [];
       canPost = false;
@@ -324,9 +352,23 @@ function mountProfileComments(host, tile) {
   const handle = {
     destroy() {
       if (root.parentNode) root.remove();
+    },
+    reload() {
+      load();
     }
   };
   host._profileComments = handle;
-  load();
+  const remembered = profileCommentBucket(ownerId)[profileCommentBucket(ownerId).current || 1];
+  if (remembered) {
+    page = remembered.page;
+    pages = remembered.pages;
+    total = remembered.total;
+    canPost = remembered.canPost;
+    watching = remembered.watching;
+    rows = remembered.rows.slice();
+    paint();
+  } else {
+    load();
+  }
   return handle;
 }

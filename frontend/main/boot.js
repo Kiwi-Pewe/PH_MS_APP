@@ -645,6 +645,10 @@ function connectSocket() {
     // Not gated on the channel being open — commentThreadElements only
     // has entries for posts actually rendered, so the lookup is the
     // guard. Count always updates; comment only appends if expanded.
+    if (data.type === "profile_comment" && typeof applyIncomingProfileComment === "function") {
+      applyIncomingProfileComment(data);
+    }
+
     if (data.type === "announcement_comment") {
       if (typeof applyMentionFields === "function") applyMentionFields(data.comment, data.comment);
       if (typeof noteIncomingChannelMessage === "function" && data.channel_id) {

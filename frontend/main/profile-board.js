@@ -92,7 +92,7 @@ const PROFILE_TILE_TYPES = {
   steam_playing_now: { w: 10, h: 4, minW: 7, minH: 4, maxW: 10, maxH: 6, label: "Playing Now" },
   steam_recently_played: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Recently Played" },
   steam_library: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Library" },
-  steam_achievements: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Achievements" }
+  steam_achievements: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Achievements" }
 };
 
 const DISPLAY_SERVER_MAX = 20;
@@ -210,12 +210,20 @@ function profileTileBounds(type, tile) {
       bounds.minW = 1;
       bounds.maxW = PROFILE_COLS;
     }
-  } else if (type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements") {
-    const extra = type === "steam_achievements" ? steamAchieveMinSize(tile && tile.props) : steamRecentMinSize(tile && tile.props);
+  } else if (type === "steam_recently_played" || type === "steam_library") {
+    const extra = steamRecentMinSize(tile && tile.props);
     bounds.minW = extra.minW;
     bounds.minH = extra.minH;
     bounds.maxW = Math.min(16, PROFILE_COLS);
     bounds.maxH = 16;
+    if (bounds.minW > bounds.maxW) bounds.minW = bounds.maxW;
+    if (bounds.minH > bounds.maxH) bounds.minH = bounds.maxH;
+  } else if (type === "steam_achievements") {
+    const extra = steamAchieveMinSize(tile && tile.props);
+    bounds.minW = extra.minW;
+    bounds.minH = extra.minH;
+    bounds.maxW = Math.min(18, PROFILE_COLS);
+    bounds.maxH = 13;
     if (bounds.minW > bounds.maxW) bounds.minW = bounds.maxW;
     if (bounds.minH > bounds.maxH) bounds.minH = bounds.maxH;
   } else if (orient === "vertical") {
@@ -1511,6 +1519,52 @@ function paintProfileComments(tile, el) {
   mountProfileComments(el, tile);
 }
 
+const profileServerCache = {};
+
+function clearProfileServerCache() {
+  Object.keys(profileServerCache).forEach(key => delete profileServerCache[key]);
+}
+
+function paintProfileServerRows(body, rows) {
+  body.innerHTML = "";
+  if (!rows.length) {
+    const note = document.createElement("div");
+    note.className = "settings-opt-desc";
+    note.textContent = "No servers to show.";
+    body.appendChild(note);
+    return;
+  }
+  rows.forEach((server) => {
+    const row = document.createElement("div");
+    row.className = "profile-friend-row profile-server-row";
+    const dot = document.createElement("div");
+    dot.className = "avatar-dot";
+    if (server.icon_url) {
+      dot.style.backgroundImage = "url(" + JSON.stringify(server.icon_url) + ")";
+      dot.style.backgroundSize = "cover";
+      dot.style.backgroundPosition = "center";
+    } else {
+      dot.textContent = typeof serverAvatarLetters === "function" ? serverAvatarLetters(server.name) : String(server.name || "?").slice(0, 2);
+    }
+    const name = document.createElement("div");
+    name.className = "profile-friend-name";
+    name.textContent = server.name || "Server";
+    row.appendChild(dot);
+    row.appendChild(name);
+    row.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (profileEditing && profileIsOwn) return;
+      if (body.closest(".is-opt-preview")) return;
+      const mine = Array.isArray(serverList) && serverList.some((item) => item.id === server.id);
+      if (!mine || typeof openServer !== "function") return;
+      const icon = document.querySelector('.server-icon[data-server-id="' + server.id + '"]');
+      if (!icon) return;
+      openServer(server.id, icon);
+    });
+    body.appendChild(row);
+  });
+}
+
 function displayServerIdOk(code) {
   return /^[234679ACDEFGHJKLMNPQRTUVWXYZ]{10}$/.test(String(code || ""));
 }
@@ -1532,57 +1586,29 @@ function paintProfileDisplayServer(tile, el) {
   body.className = "profile-tile-body";
   const empty = document.createElement("div");
   empty.className = "settings-opt-desc";
-  empty.textContent = props.server_ids.length ? "Loading servers…" : "No servers selected.";
-  body.appendChild(empty);
+  empty.textContent = props.server_ids.length ? "" : "No servers selected.";
+  if (!props.server_ids.length) body.appendChild(empty);
   el.appendChild(head);
   el.appendChild(rule);
   el.appendChild(body);
   if (!props.server_ids.length || !profileOwnerId) return;
+  const ids = props.server_ids.filter(displayServerIdOk);
+  const key = String(profileOwnerId) + ":" + ids.join(",");
+  if (profileServerCache[key]) {
+    paintProfileServerRows(body, profileServerCache[key]);
+    return;
+  }
+  empty.textContent = "Loading servers…";
+  body.appendChild(empty);
   const stamp = (el._displayServerStamp || 0) + 1;
   el._displayServerStamp = stamp;
-  const qs = props.server_ids.filter(displayServerIdOk).join(",");
-  fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(profileOwnerId) + "/pinned_servers?ids=" + encodeURIComponent(qs), { credentials: "include" })
+  fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(profileOwnerId) + "/pinned_servers?ids=" + encodeURIComponent(ids.join(",")), { credentials: "include" })
     .then((res) => res.ok ? res.json() : Promise.reject())
     .then((data) => {
       if (el._displayServerStamp !== stamp) return;
       const rows = (data && data.servers) || [];
-      body.innerHTML = "";
-      if (!rows.length) {
-        const note = document.createElement("div");
-        note.className = "settings-opt-desc";
-        note.textContent = "No servers to show.";
-        body.appendChild(note);
-        return;
-      }
-      rows.forEach((server) => {
-        const row = document.createElement("div");
-        row.className = "profile-friend-row profile-server-row";
-        const dot = document.createElement("div");
-        dot.className = "avatar-dot";
-        if (server.icon_url) {
-          dot.style.backgroundImage = "url(" + JSON.stringify(server.icon_url) + ")";
-          dot.style.backgroundSize = "cover";
-          dot.style.backgroundPosition = "center";
-        } else {
-          dot.textContent = typeof serverAvatarLetters === "function" ? serverAvatarLetters(server.name) : String(server.name || "?").slice(0, 2);
-        }
-        const name = document.createElement("div");
-        name.className = "profile-friend-name";
-        name.textContent = server.name || "Server";
-        row.appendChild(dot);
-        row.appendChild(name);
-        row.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (profileEditing && profileIsOwn) return;
-          if (el.classList.contains("is-opt-preview")) return;
-          const mine = Array.isArray(serverList) && serverList.some((item) => item.id === server.id);
-          if (!mine || typeof openServer !== "function") return;
-          const icon = document.querySelector('.server-icon[data-server-id="' + server.id + '"]');
-          if (!icon) return;
-          openServer(server.id, icon);
-        });
-        body.appendChild(row);
-      });
+      profileServerCache[key] = rows;
+      paintProfileServerRows(body, rows);
     })
     .catch(() => {
       if (el._displayServerStamp !== stamp) return;
@@ -1927,9 +1953,7 @@ function ensureSteamCard() {
     .catch(() => { steamCardData = { linked: false }; })
     .finally(() => {
       steamCardLoad = null;
-      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id && typeof renderProfileBoard === "function") {
-        renderProfileBoard();
-      }
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id) repaintProfileSteamTiles();
     });
 }
 
@@ -2204,7 +2228,7 @@ function refreshSteamSurfaces() {
     if (pair[2] && steamRecentOwnerId === id) steamRecentData = pair[2];
     if (pair[3] && steamLibraryOwnerId === id) steamLibraryData = pair[3];
     if (steamAchieveOwnerId === id) pullSteamAchievements(0);
-    if (!profileEditing && typeof renderProfileBoard === "function") renderProfileBoard();
+    if (!profileEditing) repaintProfileSteamTiles();
   });
 }
 
@@ -2225,9 +2249,7 @@ function ensureSteamPlaying() {
     .catch(() => { steamPlayingData = { linked: false }; })
     .finally(() => {
       steamPlayingLoad = null;
-      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id && typeof renderProfileBoard === "function") {
-        renderProfileBoard();
-      }
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id) repaintProfileSteamTiles();
     });
 }
 
@@ -2303,9 +2325,7 @@ function ensureSteamRecent() {
     .catch(() => { steamRecentData = { linked: false }; })
     .finally(() => {
       steamRecentLoad = null;
-      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id && typeof renderProfileBoard === "function") {
-        renderProfileBoard();
-      }
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id) repaintProfileSteamTiles();
     });
 }
 
@@ -2316,7 +2336,7 @@ function steamRecentTurn(tile, el, page) {
     paintSteamRecent(tile, el);
     return;
   }
-  if (typeof renderProfileBoard === "function") renderProfileBoard();
+  repaintProfileSteamTiles(true);
 }
 
 function paintSteamRecent(tile, el) {
@@ -2444,9 +2464,7 @@ function ensureSteamLibrary() {
     .catch(() => { steamLibraryData = { linked: false }; })
     .finally(() => {
       steamLibraryLoad = null;
-      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id && typeof renderProfileBoard === "function") {
-        renderProfileBoard();
-      }
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id) repaintProfileSteamTiles();
     });
 }
 
@@ -2457,7 +2475,7 @@ function steamLibraryTurn(tile, el, page) {
     paintSteamLibrary(tile, el);
     return;
   }
-  if (typeof renderProfileBoard === "function") renderProfileBoard();
+  repaintProfileSteamTiles(true);
 }
 
 function paintSteamLibrary(tile, el) {
@@ -2578,8 +2596,8 @@ function steamAchieveMinSize(props) {
   const needW = Math.ceil((box.w + STEAM_RECENT_FLOW_PAD * 2) / PROFILE_ROW_H);
   const needH = Math.ceil((box.h + STEAM_RECENT_TITLE_H + STEAM_RECENT_PAGE_H) / PROFILE_ROW_H);
   return {
-    minW: Math.min(16, Math.max(floorW, needW, 1)),
-    minH: Math.min(16, Math.max(floorH, needH, 1))
+    minW: Math.min(18, Math.max(floorW, needW, 1)),
+    minH: Math.min(13, Math.max(floorH, needH, 1))
   };
 }
 
@@ -2724,9 +2742,7 @@ function pullSteamAchievements(appid) {
       steamAchieveLoad = null;
       const next = steamAchieveQueued;
       steamAchieveQueued = null;
-      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id && typeof renderProfileBoard === "function") {
-        renderProfileBoard();
-      }
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id) repaintProfileSteamTiles();
       if (next != null) pullSteamAchievements(next);
       else if (steamAchieveData && steamAchieveData.ready === false) scheduleSteamAchieveFill();
     });
@@ -2748,7 +2764,7 @@ function steamAchieveTurn(tile, el, page) {
     paintSteamAchievements(tile, el);
     return;
   }
-  if (typeof renderProfileBoard === "function") renderProfileBoard();
+  repaintProfileSteamTiles(true);
 }
 
 function paintSteamAchievements(tile, el) {
@@ -3136,6 +3152,22 @@ function miniProfileDataFromOpenProfile() {
     roles: [],
     assignable: []
   };
+}
+
+function repaintProfileSteamTiles(force) {
+  if (profileEditing && !force) return;
+  const board = document.getElementById("profile-board");
+  if (!board) return;
+  const layout = profileDraft || profileSavedLayout;
+  const page = typeof profilePageById === "function" ? profilePageById(layout, profileActivePageId) : null;
+  const tiles = (page && page.tiles) || [];
+  board.querySelectorAll(".profile-tile").forEach(el => {
+    const tile = tiles.find(item => item && item.id === el.dataset.tileId);
+    if (!tile || String(tile.type || "").indexOf("steam_") !== 0) return;
+    const handle = el.querySelector(".profile-resize");
+    paintProfileTileContent(tile, el);
+    if (handle) el.appendChild(handle);
+  });
 }
 
 function renderProfileBoard() {

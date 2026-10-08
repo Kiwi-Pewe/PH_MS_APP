@@ -5025,6 +5025,90 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   align-items: center;
   justify-content: center;
 }
+.profile-tile.is-meter {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.profile-tile.is-meter > .profile-tile-head {
+  padding: 6px 12px 0;
+}
+.profile-tile.is-meter > .profile-text-rule {
+  margin: 4px 12px 0;
+}
+.profile-tile.is-meter .profile-tile-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  overflow: hidden;
+}
+.profile-meter-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  margin-top: 14px;
+}
+.profile-tile.is-meter:not(.is-meter-named) .profile-meter-track,
+.profile-tile.is-meter.is-compact-row .profile-meter-track {
+  margin-top: 0;
+}
+.profile-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  max-width: 100%;
+}
+.profile-meter-mark {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text);
+  pointer-events: none;
+}
+.profile-meter-mark-name {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 3px);
+  transform: translateX(-50%);
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-dim);
+}
+.profile-tile.is-meter:not(.is-meter-named) .profile-meter-mark-name {
+  display: none;
+}
+.profile-meter-readout {
+  font-size: var(--profile-text-size, 14px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.profile-tile[data-text-align="center"] .profile-meter-readout { text-align: center; }
+.profile-tile[data-text-align="right"] .profile-meter-readout { text-align: right; }
+.profile-tile[data-text-align="justify"] .profile-meter-readout { text-align: justify; }
+.profile-tile.is-meter.is-compact-row > .profile-tile-head,
+.profile-tile.is-meter.is-compact-row > .profile-text-rule,
+.profile-tile.is-meter.is-compact-row .profile-meter-readout,
+.profile-tile.is-meter.is-compact-row .profile-meter-mark-name {
+  display: none;
+}
+.profile-tile.is-meter.is-compact-row .profile-tile-body {
+  justify-content: center;
+  padding: 0 10px;
+}
 .profile-tile.is-image {
   overflow: hidden;
 }
@@ -5327,7 +5411,9 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .steam-recent-name,
   .steam-recent-time,
   .steam-achieve-desc,
-  .steam-badge-xp
+  .steam-badge-xp,
+  .profile-meter-title,
+  .profile-meter-readout
 ) {
   color: var(--profile-text-color);
 }
@@ -5360,7 +5446,9 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .steam-recent-name,
   .steam-recent-time,
   .steam-achieve-desc,
-  .steam-badge-xp
+  .steam-badge-xp,
+  .profile-meter-title,
+  .profile-meter-readout
 ) {
   background-image: var(--profile-text-paint);
   background-repeat: no-repeat;
@@ -5386,7 +5474,9 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .steam-recent-name,
   .steam-recent-time,
   .steam-achieve-desc,
-  .steam-badge-xp
+  .steam-badge-xp,
+  .profile-meter-title,
+  .profile-meter-readout
 ) {
   line-height: var(--profile-line-height);
 }
@@ -5937,6 +6027,33 @@ a.profile-link-row:hover { color: var(--accent); }
   background: var(--rail); border: 1px solid var(--border); border-radius: 6px;
   color: var(--text); font-size: 14px; padding: 9px 10px;
 }
+.profile-meter-editor { margin-bottom: 8px; }
+.profile-meter-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.profile-opt-left .profile-meter-edit input {
+  width: auto;
+  margin-top: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.profile-opt-left .profile-meter-edit input.profile-meter-threshold {
+  flex: 0 0 88px;
+  width: 88px;
+}
+.profile-meter-edit button {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--rail);
+  color: var(--text);
+}
+.profile-meter-add:disabled { opacity: 0.45; }
 .profile-opt-border-extras { display: none; padding: 0 0 8px; }
 .profile-opt-border-extras.is-open { display: block; }
 .profile-opt-server-picks {

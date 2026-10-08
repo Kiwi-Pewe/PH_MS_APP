@@ -269,7 +269,7 @@ def default_sizes(kind):
         "frame": (12, 8),
         "color_block": (8, 4),
         "icon": (3, 3),
-        "meter": (10, 2),
+        "meter": (10, 3),
         "clock": (6, 3),
         "countdown": (6, 3),
         "image": (10, 6),
@@ -396,6 +396,23 @@ def clean_hex(value, fallback):
     if HEX_COLOR.match(text):
         return text.lower()
     return fallback
+
+
+def meter_number(value, fallback):
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    if num != num or num == float("inf") or num == float("-inf"):
+        return fallback
+    if num < 0:
+        num = 0
+    if num > 1000000000000:
+        num = 1000000000000
+    rounded = round(num, 2)
+    if abs(rounded - round(rounded)) < 1e-9:
+        return int(round(rounded))
+    return rounded
 
 
 def clip_text(value, cap):
@@ -1192,6 +1209,34 @@ def normalize_props(kind, props, banner_fallback):
     if kind == "frame":
         out = normalize_text_chrome(data, 14, True)
         out["group_drag"] = bool(data.get("group_drag"))
+        return out
+    if kind == "meter":
+        out = normalize_text_chrome(data, 14, True)
+        out["show_title"] = True if "show_title" not in data else bool(data.get("show_title"))
+        if "title" in data:
+            out["title"] = clip_text(data.get("title"), 48).strip()
+        else:
+            out["title"] = "Meter"
+        align = str(data.get("title_align") or "left")
+        if align not in ("left", "center", "right"):
+            align = "left"
+        out["title_align"] = align
+        out["current"] = meter_number(data.get("current"), 0)
+        out["goal"] = meter_number(data.get("goal"), 100)
+        marks = []
+        raw_marks = data.get("milestones")
+        if isinstance(raw_marks, list):
+            for row in raw_marks[:5]:
+                if not isinstance(row, dict):
+                    continue
+                threshold = meter_number(row.get("threshold"), None)
+                if threshold is None:
+                    continue
+                marks.append({
+                    "name": clip_text(row.get("name"), 32).strip(),
+                    "threshold": threshold,
+                })
+        out["milestones"] = marks
         return out
     if kind == "link_tree":
         out = normalize_text_chrome(data, 14, True)

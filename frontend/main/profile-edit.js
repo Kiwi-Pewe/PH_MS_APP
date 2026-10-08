@@ -495,7 +495,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "frame" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -576,6 +576,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     );
     profileOptHint(row, "Dragging this frame also moves every widget that sits fully inside it.", hintEl);
     box.appendChild(row);
+    return;
+  }
+  if (tile.type === "meter") {
+    fillMeterOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "display_name") {
@@ -2008,6 +2012,180 @@ function profileSelectField(labelText, options, selected) {
   return { label, select };
 }
 
+function fillMeterOptions(box, draft, onChange, hintEl) {
+  draft.show_title = draft.show_title !== false;
+  if (draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = "left";
+  draft.title = draft.title == null ? "Meter" : String(draft.title);
+  draft.current = profileMeterNumber(draft.current, 0);
+  draft.goal = profileMeterNumber(draft.goal, 100);
+  if (!Array.isArray(draft.milestones)) draft.milestones = [];
+  draft.milestones = draft.milestones.slice(0, 5).map(row => ({
+    name: String((row && row.name) || "").slice(0, 32),
+    threshold: profileMeterNumber(row && row.threshold, 0)
+  }));
+
+  const extras = document.createElement("div");
+  extras.className = "profile-opt-border-extras" + (draft.show_title ? " is-open" : "");
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = "Title";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.maxLength = 48;
+  nameInput.value = draft.title;
+  nameInput.placeholder = "Meter";
+  profileOptHint(nameLabel, "Name shown above the bar.", hintEl);
+  nameInput.addEventListener("input", () => {
+    draft.title = nameInput.value;
+    onChange();
+  });
+  nameLabel.appendChild(nameInput);
+  extras.appendChild(nameLabel);
+  const alignWrap = document.createElement("div");
+  alignWrap.className = "profile-opt-align";
+  const alignLabel = document.createElement("div");
+  alignLabel.className = "profile-opt-field-label";
+  alignLabel.textContent = "Title alignment";
+  alignWrap.appendChild(alignLabel);
+  const alignRow = document.createElement("div");
+  alignRow.className = "profile-opt-seg";
+  [["left", "L", "Put the title on the left."], ["center", "C", "Center the title."], ["right", "R", "Put the title on the right."]].forEach(item => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = item[1];
+    btn.className = draft.title_align === item[0] ? "is-on" : "";
+    profileOptHint(btn, item[2], hintEl);
+    btn.addEventListener("click", () => {
+      draft.title_align = item[0];
+      Array.from(alignRow.children).forEach(child => child.classList.toggle("is-on", child === btn));
+      onChange();
+    });
+    alignRow.appendChild(btn);
+  });
+  alignWrap.appendChild(alignRow);
+  extras.appendChild(alignWrap);
+  const titleBlock = document.createElement("div");
+  titleBlock.className = "profile-opt-border-block";
+  const titleToggle = settingsOpt("Title", "", settingsToggle(draft.show_title, false, (on) => {
+    draft.show_title = on;
+    extras.classList.toggle("is-open", on);
+    onChange();
+  }));
+  profileOptHint(titleToggle, "Show a name above the bar.", hintEl);
+  titleBlock.appendChild(titleToggle);
+  titleBlock.appendChild(extras);
+  box.appendChild(titleBlock);
+
+  function numberField(labelText, key, hint) {
+    const label = document.createElement("label");
+    label.textContent = labelText;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.value = profileMeterText(draft[key]);
+    profileOptHint(label, hint, hintEl);
+    input.addEventListener("input", () => {
+      const text = input.value.trim();
+      if (text === "" || text === ".") return;
+      const n = Number(text);
+      if (!Number.isFinite(n)) return;
+      draft[key] = profileMeterNumber(n, 0);
+      onChange();
+    });
+    input.addEventListener("blur", () => {
+      draft[key] = profileMeterNumber(input.value, 0);
+      input.value = profileMeterText(draft[key]);
+      onChange();
+    });
+    label.appendChild(input);
+    return label;
+  }
+  box.appendChild(numberField("Current", "current", "How far the bar is filled."));
+  box.appendChild(numberField("Goal", "goal", "The value that fills the bar."));
+
+  const marksLabel = document.createElement("div");
+  marksLabel.className = "profile-opt-field-label";
+  marksLabel.textContent = "Milestones";
+  profileOptHint(marksLabel, "Up to 5 marks. Each one has a name and a value on the bar.", hintEl);
+  box.appendChild(marksLabel);
+  const list = document.createElement("div");
+  list.className = "profile-meter-editor";
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "profile-link-add profile-meter-add";
+  add.textContent = "Add milestone";
+  profileOptHint(add, "Up to 5 marks. Each one has a name and a value on the bar.", hintEl);
+  function syncAdd() {
+    add.disabled = draft.milestones.length >= 5;
+  }
+  function paintMarks() {
+    list.innerHTML = "";
+    draft.milestones.forEach((row, index) => {
+      const line = document.createElement("div");
+      line.className = "profile-meter-edit";
+      const name = document.createElement("input");
+      name.type = "text";
+      name.maxLength = 32;
+      name.placeholder = "Name";
+      name.value = row.name;
+      profileOptHint(name, "Name for this mark.", hintEl);
+      name.addEventListener("input", () => {
+        row.name = name.value;
+        onChange();
+      });
+      const threshold = document.createElement("input");
+      threshold.type = "text";
+      threshold.inputMode = "decimal";
+      threshold.autocomplete = "off";
+      threshold.spellcheck = false;
+      threshold.className = "profile-meter-threshold";
+      threshold.value = profileMeterText(row.threshold);
+      profileOptHint(threshold, "Where this mark sits on the bar.", hintEl);
+      threshold.addEventListener("input", () => {
+        const text = threshold.value.trim();
+        if (text === "" || text === ".") return;
+        const n = Number(text);
+        if (!Number.isFinite(n)) return;
+        row.threshold = profileMeterNumber(n, 0);
+        onChange();
+      });
+      threshold.addEventListener("blur", () => {
+        row.threshold = profileMeterNumber(threshold.value, 0);
+        threshold.value = profileMeterText(row.threshold);
+        onChange();
+      });
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "Remove";
+      del.addEventListener("click", () => {
+        draft.milestones.splice(index, 1);
+        paintMarks();
+        syncAdd();
+        onChange();
+      });
+      line.appendChild(name);
+      line.appendChild(threshold);
+      line.appendChild(del);
+      list.appendChild(line);
+    });
+  }
+  add.addEventListener("click", () => {
+    if (draft.milestones.length >= 5) return;
+    draft.milestones.push({ name: "", threshold: 0 });
+    paintMarks();
+    syncAdd();
+    const fields = list.querySelectorAll("input");
+    const last = fields[fields.length - 2];
+    if (last) last.focus();
+    onChange();
+  });
+  paintMarks();
+  syncAdd();
+  box.appendChild(list);
+  box.appendChild(add);
+}
+
 function fillBodyTitleOptions(box, draft, onChange, hintEl) {
   draft.show_title = !!draft.show_title;
   if (draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = "left";
@@ -2590,6 +2768,7 @@ function openProfileTileOptions(tile) {
   tile.props = tile.props || {};
   const draft = Object.assign({}, tile.props);
   if (Array.isArray(draft.links)) draft.links = draft.links.map(row => Object.assign({}, row));
+  if (Array.isArray(draft.milestones)) draft.milestones = draft.milestones.map(row => Object.assign({}, row));
   if (Array.isArray(draft.rows)) draft.rows = draft.rows.map(row => Object.assign({}, row));
   if (Array.isArray(draft.items)) {
     draft.items = draft.items.map((row) => (row && typeof row === "object") ? Object.assign({}, row) : row);

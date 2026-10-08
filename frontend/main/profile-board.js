@@ -94,7 +94,8 @@ const PROFILE_TILE_TYPES = {
   steam_library: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Library" },
   steam_achievements: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Achievements" },
   steam_badges: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Badges" },
-  frame: { label: "Frame", w: 12, h: 8, minW: 1, minH: 1, maxW: 32, maxH: 81 }
+  frame: { label: "Frame", w: 12, h: 8, minW: 1, minH: 1, maxW: 32, maxH: 81 },
+  meter: { label: "Meter", w: 10, h: 3, minW: 6, minH: 1, maxW: 24, maxH: 4 }
 };
 
 const DISPLAY_SERVER_MAX = 20;
@@ -104,7 +105,6 @@ const PROFILE_PLACEHOLDERS = {
   featured_friend: { label: "Featured friend", w: 8, h: 4, minW: 6, minH: 3, maxW: 12, maxH: 8 },
   mutuals: { label: "Mutuals", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 12 },
   color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
-  meter: { label: "Meter", w: 10, h: 2, minW: 6, minH: 1, maxW: 24, maxH: 4 },
   gif: { label: "GIF", w: 8, h: 6, minW: 4, minH: 3, maxW: 16, maxH: 12 },
   achievements: { label: "Achievements", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
   recently_played: { label: "Recently played", w: 10, h: 4, minW: 6, minH: 3, maxW: 20, maxH: 10 },
@@ -559,6 +559,21 @@ function defaultProfileTileProps(type, existing) {
   if (type === "frame") {
     return Object.assign({}, chrome, { group_drag: !!prev.group_drag });
   }
+  if (type === "meter") {
+    const align = prev.title_align === "center" || prev.title_align === "right" ? prev.title_align : "left";
+    const marks = Array.isArray(prev.milestones) ? prev.milestones.slice(0, 5).map(row => ({
+      name: String((row && row.name) || "").trim().slice(0, 32),
+      threshold: profileMeterNumber(row && row.threshold, 0)
+    })) : [];
+    return Object.assign({}, chrome, {
+      show_title: prev.show_title !== false,
+      title: prev.title == null ? "Meter" : String(prev.title).slice(0, 48),
+      title_align: align,
+      current: profileMeterNumber(prev.current, 0),
+      goal: profileMeterNumber(prev.goal, 100),
+      milestones: marks
+    });
+  }
   if (type === "link_tree") {
     return Object.assign({
       links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [],
@@ -726,7 +741,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "meter" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
 }
 
 function profileTextChrome(props, type) {
@@ -1094,6 +1109,77 @@ function paintProfileDivider(tile, el) {
 
 function paintProfileFrame(tile, el) {
   applyProfileWidgetSurface(el, tile);
+}
+
+function profileMeterNumber(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const clamped = Math.max(0, Math.min(1000000000000, n));
+  const rounded = Math.round(clamped * 100) / 100;
+  return Math.abs(rounded - Math.round(rounded)) < 1e-9 ? Math.round(rounded) : rounded;
+}
+
+function profileMeterText(value) {
+  return String(profileMeterNumber(value, 0));
+}
+
+function paintProfileMeter(tile, el) {
+  const chrome = profileTextChrome(tile.props, "meter");
+  el.classList.add("is-text-chrome");
+  applyProfileTextPaint(el, chrome);
+  applyProfileWidgetSurface(el, tile);
+  const props = defaultProfileTileProps("meter", tile.props);
+  el.classList.toggle("is-meter-named", Number(tile.h) >= 3);
+  if (props.show_title !== false) {
+    const align = props.title_align === "center" || props.title_align === "right" ? props.title_align : "left";
+    el.dataset.titleAlign = align;
+    const text = String(props.title || "").trim();
+    if (text || (profileEditing && profileIsOwn)) {
+      const title = document.createElement("div");
+      title.className = "profile-tile-head profile-meter-title" + (text ? "" : " is-empty");
+      title.textContent = text || "Title";
+      const rule = document.createElement("div");
+      rule.className = "profile-text-rule";
+      el.appendChild(title);
+      el.appendChild(rule);
+    }
+  } else {
+    delete el.dataset.titleAlign;
+  }
+  const body = document.createElement("div");
+  body.className = "profile-tile-body profile-meter-body";
+  const track = document.createElement("div");
+  track.className = "profile-meter-track";
+  const goal = profileMeterNumber(props.goal, 0);
+  const current = profileMeterNumber(props.current, 0);
+  const ratio = goal > 0 ? Math.max(0, Math.min(1, current / goal)) : 0;
+  const fill = document.createElement("div");
+  fill.className = "profile-meter-fill";
+  fill.style.width = (Math.round(ratio * 1000) / 10) + "%";
+  track.appendChild(fill);
+  if (goal > 0) {
+    props.milestones.slice().sort((a, b) => a.threshold - b.threshold).forEach(mark => {
+      const pos = Math.max(0, Math.min(1, mark.threshold / goal));
+      const line = document.createElement("div");
+      line.className = "profile-meter-mark";
+      line.style.left = (Math.round(pos * 1000) / 10) + "%";
+      const name = String(mark.name || "").trim();
+      if (name) {
+        line.title = name;
+        const label = document.createElement("div");
+        label.className = "profile-meter-mark-name";
+        label.textContent = name;
+        line.appendChild(label);
+      }
+      track.appendChild(line);
+    });
+  }
+  const readout = document.createElement("div");
+  readout.className = "profile-meter-readout";
+  readout.textContent = profileMeterText(current) + " / " + profileMeterText(goal);
+  body.appendChild(track);
+  body.appendChild(readout);
+  el.appendChild(body);
 }
 
 function paintProfileRail(tile, el) {
@@ -1928,7 +2014,7 @@ function paintProfileSpoiler(tile, el) {
 
 function paintProfilePlaceholder(tile, el) {
   const meta = PROFILE_TILE_TYPES[tile.type] || { label: "Element" };
-  const emptyInView = tile.type === "color_block" || tile.type === "meter";
+  const emptyInView = tile.type === "color_block";
   el.classList.add("is-placeholder");
   if (emptyInView && !(profileEditing && profileIsOwn)) return;
   const head = document.createElement("div");
@@ -3314,6 +3400,10 @@ function paintProfileTileContent(tile, el) {
     paintProfileFrame(tile, el);
     return;
   }
+  if (tile.type === "meter") {
+    paintProfileMeter(tile, el);
+    return;
+  }
   if (tile.type === "link_tree") {
     paintProfileLinkTree(tile, el);
     return;
@@ -3541,7 +3631,7 @@ function renderProfileBoard() {
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
         if (typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) return;
-        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock" || tile.type === "frame") {
+        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock" || tile.type === "frame" || tile.type === "meter") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

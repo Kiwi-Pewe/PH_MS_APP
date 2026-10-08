@@ -303,7 +303,7 @@ function renderProfilePages() {
         avatarText: (page.title || "?").slice(0, 1),
         title: page.title
       }, [
-        { label: "Modify", onSelect: () => { if (typeof openProfilePageModify === "function") openProfilePageModify(page.id); } },
+        { label: "Options", onSelect: () => { if (typeof openProfilePageModify === "function") openProfilePageModify(page.id); } },
         { label: "Remove", danger: true, onSelect: () => { if (typeof removeProfilePage === "function") removeProfilePage(page.id); } }
       ]);
     });

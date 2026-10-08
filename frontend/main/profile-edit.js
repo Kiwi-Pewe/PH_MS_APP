@@ -2971,7 +2971,7 @@ function openProfilePageModify(pageId) {
   if (!els.overlay) return;
   profilePageModalMode = "modify";
   profilePageModalId = page.id;
-  if (els.title) els.title.textContent = "Modify Page";
+  if (els.title) els.title.textContent = "Options";
   if (els.layouts) els.layouts.hidden = true;
   if (els.name) els.name.value = page.title || "";
   if (els.priv) els.priv.checked = page.visibility === "owner";

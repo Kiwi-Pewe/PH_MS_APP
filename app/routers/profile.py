@@ -211,7 +211,7 @@ def tile_bounds(kind, props=None):
         "connections": (8, 4, 16, 14),
         "featured_friend": (6, 3, 12, 8),
         "mutuals": (6, 3, 16, 12),
-        "frame": (6, 4, 32, 18),
+        "frame": (1, 1, 32, 81),
         "color_block": (2, 2, 32, 12),
         "icon": (2, 2, 6, 6),
         "meter": (6, 1, 24, 4),
@@ -1188,6 +1188,10 @@ def normalize_props(kind, props, banner_fallback):
         out["thickness"] = clamp_int(data.get("thickness"), 1, 10, 4)
         out["color"] = clean_hex(data.get("color"), "#ffffff")
         out["style"] = style
+        return out
+    if kind == "frame":
+        out = normalize_text_chrome(data, 14, True)
+        out["group_drag"] = bool(data.get("group_drag"))
         return out
     if kind == "link_tree":
         out = normalize_text_chrome(data, 14, True)

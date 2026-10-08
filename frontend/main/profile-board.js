@@ -93,7 +93,8 @@ const PROFILE_TILE_TYPES = {
   steam_recently_played: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Recently Played" },
   steam_library: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Library" },
   steam_achievements: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Achievements" },
-  steam_badges: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Badges" }
+  steam_badges: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Badges" },
+  frame: { label: "Frame", w: 12, h: 8, minW: 1, minH: 1, maxW: 32, maxH: 81 }
 };
 
 const DISPLAY_SERVER_MAX = 20;
@@ -102,7 +103,6 @@ const PROFILE_PLACEHOLDERS = {
   connections: { label: "Connections", w: 10, h: 6, minW: 8, minH: 4, maxW: 16, maxH: 14 },
   featured_friend: { label: "Featured friend", w: 8, h: 4, minW: 6, minH: 3, maxW: 12, maxH: 8 },
   mutuals: { label: "Mutuals", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 12 },
-  frame: { label: "Frame", w: 12, h: 8, minW: 6, minH: 4, maxW: 32, maxH: 18 },
   color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
   meter: { label: "Meter", w: 10, h: 2, minW: 6, minH: 1, maxW: 24, maxH: 4 },
   gif: { label: "GIF", w: 8, h: 6, minW: 4, minH: 3, maxW: 16, maxH: 12 },
@@ -286,6 +286,20 @@ function profileTilesOverlap(a, b) {
 
 function profileTileAllowsOverlap(tile) {
   return !!(tile && tile.allow_overlap);
+}
+
+function profileTileFullyInside(outer, inner) {
+  if (!outer || !inner || outer.id === inner.id) return false;
+  return inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.w <= outer.x + outer.w && inner.y + inner.h <= outer.y + outer.h;
+}
+
+function profileFrameMembers(page, frame) {
+  if (!frame || frame.type !== "frame") return [];
+  return ((page && page.tiles) || []).filter(tile => profileTileFullyInside(frame, tile));
+}
+
+function profileFrameMovesContents(tile) {
+  return !!(tile && tile.type === "frame" && tile.props && tile.props.group_drag);
 }
 
 function profileColliders(page, candidate, skipId) {
@@ -542,6 +556,9 @@ function defaultProfileTileProps(type, existing) {
       style: known ? style : "solid"
     }, chrome);
   }
+  if (type === "frame") {
+    return Object.assign({}, chrome, { group_drag: !!prev.group_drag });
+  }
   if (type === "link_tree") {
     return Object.assign({
       links: Array.isArray(prev.links) ? prev.links.map(row => Object.assign({}, row)) : [],
@@ -663,7 +680,7 @@ function placeProfileTile(page, type) {
     y: spot.y,
     w: size.w,
     h: size.h,
-    allow_overlap: false,
+    allow_overlap: type === "frame",
     z_index: 0,
     props: defaultProfileTileProps(type)
   };
@@ -675,7 +692,7 @@ function resetProfileTile(tile) {
   const size = PROFILE_TILE_TYPES[tile.type] || { w: 4, h: 3 };
   tile.w = size.w;
   tile.h = size.h;
-  tile.allow_overlap = false;
+  tile.allow_overlap = tile.type === "frame";
   tile.z_index = 0;
   tile.props = defaultProfileTileProps(tile.type, tile.props);
   if (tile.x + tile.w > PROFILE_COLS) tile.x = Math.max(0, PROFILE_COLS - tile.w);
@@ -979,12 +996,16 @@ function profileTileZIndex(tile) {
 }
 
 function profileTilesForPaint(tiles) {
-  return (tiles || []).map((tile, index) => ({ tile, index })).sort((a, b) => {
+  const rows = (tiles || []).map((tile, index) => ({ tile, index }));
+  const byStack = (a, b) => {
     const za = profileTileZIndex(a.tile);
     const zb = profileTileZIndex(b.tile);
     if (za !== zb) return za - zb;
     return a.index - b.index;
-  });
+  };
+  const frames = rows.filter(row => row.tile && row.tile.type === "frame").sort(byStack);
+  const rest = rows.filter(row => !row.tile || row.tile.type !== "frame").sort(byStack);
+  return frames.concat(rest);
 }
 
 function profileIconEmoji(value) {
@@ -1069,6 +1090,10 @@ function paintProfileDivider(tile, el) {
   const line = document.createElement("div");
   line.className = "profile-divider is-" + style + (vertical ? " is-vertical" : "");
   el.appendChild(line);
+}
+
+function paintProfileFrame(tile, el) {
+  applyProfileWidgetSurface(el, tile);
 }
 
 function paintProfileRail(tile, el) {
@@ -1903,7 +1928,7 @@ function paintProfileSpoiler(tile, el) {
 
 function paintProfilePlaceholder(tile, el) {
   const meta = PROFILE_TILE_TYPES[tile.type] || { label: "Element" };
-  const emptyInView = tile.type === "frame" || tile.type === "color_block" || tile.type === "meter";
+  const emptyInView = tile.type === "color_block" || tile.type === "meter";
   el.classList.add("is-placeholder");
   if (emptyInView && !(profileEditing && profileIsOwn)) return;
   const head = document.createElement("div");
@@ -3285,6 +3310,10 @@ function paintProfileTileContent(tile, el) {
     paintProfileRail(tile, el);
     return;
   }
+  if (tile.type === "frame") {
+    paintProfileFrame(tile, el);
+    return;
+  }
   if (tile.type === "link_tree") {
     paintProfileLinkTree(tile, el);
     return;
@@ -3501,7 +3530,7 @@ function renderProfileBoard() {
     const el = document.createElement("div");
     el.className = "profile-tile is-" + tile.type + (profileEditing ? " is-editing" : "") + (tile.allow_overlap ? " allows-overlap" : "");
     el.dataset.tileId = tile.id;
-    el.style.zIndex = String(20 + stack);
+    el.style.zIndex = tile.type === "frame" ? String(stack + 1) : String(200 + stack);
     applyProfileTileStyle(el, tile);
     paintProfileTileContent(tile, el);
     if (profileEditing && profileIsOwn && typeof bindProfileTileDrag === "function") {
@@ -3512,7 +3541,7 @@ function renderProfileBoard() {
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
         if (typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) return;
-        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock") {
+        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock" || tile.type === "frame") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

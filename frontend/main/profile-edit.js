@@ -201,6 +201,36 @@ function tryMoveTile(tile, x, y) {
   return true;
 }
 
+function tryMoveFrameGroup(frame, members, x, y) {
+  const page = currentProfilePage();
+  if (!page) return false;
+  const dx = x - frame.x;
+  const dy = y - frame.y;
+  const moving = [frame].concat(members || []);
+  const movingIds = {};
+  moving.forEach(row => { movingIds[row.id] = true; });
+  const nexts = moving.map(row => Object.assign({}, row, { x: row.x + dx, y: row.y + dy }));
+  for (let i = 0; i < nexts.length; i++) {
+    const next = nexts[i];
+    if (next.x < 0 || next.y < 0 || next.x + next.w > PROFILE_COLS) return false;
+    if (!profileFits(next)) return false;
+    const blocked = (page.tiles || []).some(other => {
+      if (movingIds[other.id]) return false;
+      if (!profileTilesOverlap(other, next)) return false;
+      if (profileTileAllowsOverlap(next) || profileTileAllowsOverlap(other)) return false;
+      return true;
+    });
+    if (blocked) return false;
+  }
+  frame.x = x;
+  frame.y = y;
+  (members || []).forEach(row => {
+    row.x += dx;
+    row.y += dy;
+  });
+  return true;
+}
+
 function tryResizeTile(tile, w, h) {
   const page = currentProfilePage();
   if (!page) return false;
@@ -222,6 +252,7 @@ function bindProfileTileDrag(el, tile, handle) {
   let startPt = null;
   let grabPx = { x: 0, y: 0 };
   let resizePx = { x: 0, y: 0 };
+  let group = [];
 
   function moveTarget(clientX, clientY) {
     const pt = profileBoardPoint(clientX, clientY);
@@ -246,6 +277,13 @@ function bindProfileTileDrag(el, tile, handle) {
       const next = moveTarget(e.clientX, e.clientY);
       el.style.gridColumn = (next.x + 1) + " / span " + tile.w;
       el.style.gridRow = (next.y + 1) + " / span " + tile.h;
+      const dx = next.x - origin.x;
+      const dy = next.y - origin.y;
+      group.forEach(member => {
+        if (!member.el) return;
+        member.el.style.gridColumn = (member.x + dx + 1) + " / span " + member.tile.w;
+        member.el.style.gridRow = (member.y + dy + 1) + " / span " + member.tile.h;
+      });
       return;
     }
     const size = resizeTarget(e.clientX, e.clientY);
@@ -263,16 +301,21 @@ function bindProfileTileDrag(el, tile, handle) {
         if (typeof editProfileIdentity === "function") editProfileIdentity(tile, e);
       } else {
         const next = moveTarget(e.clientX, e.clientY);
-        if (tryMoveTile(tile, next.x, next.y)) profileDirty = true;
+        const did = group.length
+          ? tryMoveFrameGroup(tile, group.map(member => member.tile), next.x, next.y)
+          : tryMoveTile(tile, next.x, next.y);
+        if (did) profileDirty = true;
       }
     } else if (dist >= 3) {
       const size = resizeTarget(e.clientX, e.clientY);
       if (tryResizeTile(tile, size.w, size.h)) profileDirty = true;
     }
     mode = null;
+    const grouped = group.length > 0;
+    group = [];
     document.removeEventListener("pointermove", onMove);
     document.removeEventListener("pointerup", onUp);
-    if (rerender) renderProfileBoard();
+    if (rerender || grouped) renderProfileBoard();
   }
 
   el.addEventListener("pointerdown", (e) => {
@@ -295,6 +338,17 @@ function bindProfileTileDrag(el, tile, handle) {
       x: pt.x - tile.x * PROFILE_ROW_H,
       y: pt.y - tile.y * PROFILE_ROW_H
     };
+    group = [];
+    if (typeof profileFrameMovesContents === "function" && profileFrameMovesContents(tile)) {
+      const page = currentProfilePage();
+      const board = document.getElementById("profile-board");
+      group = (typeof profileFrameMembers === "function" ? profileFrameMembers(page, tile) : []).map(member => ({
+        tile: member,
+        x: member.x,
+        y: member.y,
+        el: board ? board.querySelector('.profile-tile[data-tile-id="' + member.id + '"]') : null
+      }));
+    }
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
   }, true);
@@ -441,7 +495,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "frame" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -509,6 +563,19 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "rail") {
     fillRailOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "frame") {
+    const row = settingsOpt(
+      "Group drag",
+      "",
+      settingsToggle(!!draft.group_drag, false, (on) => {
+        draft.group_drag = on;
+        onChange();
+      })
+    );
+    profileOptHint(row, "Dragging this frame also moves every widget that sits fully inside it.", hintEl);
+    box.appendChild(row);
     return;
   }
   if (tile.type === "display_name") {
@@ -1839,7 +1906,9 @@ function fillDesignOptions(box, tile, draft, onChange, hintEl) {
     onChange();
   });
   const zRow = settingsOpt("Z-Index", "", zInput);
-  profileOptHint(zRow, "Higher sits above lower. Same number: the newer widget stays on top.", hintEl);
+  profileOptHint(zRow, tile.type === "frame"
+    ? "Orders this frame among other frames. A frame stays behind every other widget."
+    : "Higher sits above lower. Same number: the newer widget stays on top.", hintEl);
   zBlock.appendChild(zRow);
   box.appendChild(zBlock);
 }

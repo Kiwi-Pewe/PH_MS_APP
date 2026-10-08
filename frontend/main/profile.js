@@ -264,8 +264,25 @@ function renderProfilePages() {
   if (!host) return;
   bindProfilePageRail();
   host.innerHTML = "";
-  if (tools) tools.innerHTML = "";
   const layout = profileDraft || profileSavedLayout || { pages: [] };
+  if (tools) {
+    const showTools = profileIsOwn && profileEditing;
+    tools.hidden = !showTools;
+    tools.innerHTML = "";
+    if (showTools) {
+      const pages = layout.pages || [];
+      const full = !profileSideOpen(pages, false) && !profileSideOpen(pages, true);
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "settings-row-btn profile-page-add";
+      add.textContent = "Add Page";
+      add.disabled = full;
+      add.addEventListener("click", () => {
+        if (!full && typeof openProfilePageCreate === "function") openProfilePageCreate();
+      });
+      tools.appendChild(add);
+    }
+  }
   const ordered = profileOrderedPages(layout.pages || []);
   const privateStart = ordered.findIndex(page => page.visibility === "owner");
   ordered.forEach((page, index) => {
@@ -310,19 +327,6 @@ function renderProfilePages() {
     bindProfilePageDrag(row, page, host);
     host.appendChild(row);
   });
-  if (tools && profileIsOwn && profileEditing) {
-    const pages = layout.pages || [];
-    const full = !profileSideOpen(pages, false) && !profileSideOpen(pages, true);
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "settings-row-btn";
-    add.textContent = "Add Page";
-    add.disabled = full;
-    add.addEventListener("click", () => {
-      if (!full && typeof openProfilePageCreate === "function") openProfilePageCreate();
-    });
-    tools.appendChild(add);
-  }
 }
 
 function paintProfileChrome() {

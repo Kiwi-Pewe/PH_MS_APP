@@ -96,7 +96,7 @@ async function confirmDeleteAccountSubmenu() {
       try { ws.close(); } catch (e) { /* ignore */ }
       ws = null;
     }
-    window.location.href = "../login.html";
+    window.location.href = "/sign-in";
   } catch (e) {
     if (err) {
       err.hidden = false;

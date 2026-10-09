@@ -1,14 +1,5 @@
-# 200 keeps the address bar. Do not point these at a .html file.
-# Pages answers /main/app.html with a 308 to /main/app, and the browser
-# follows that, so /profile/Kiwi and a server address both become the
-# home page. /main/app is the address that already returns the app.
-/invite/* /invite 200
+/invite/* /invite.html 200
 /profile/* /main/app 200
 /messages /main/app 200
 /server/* /main/app 200
-/login.html /login 200
-/login /login 200
-/invite.html /invite 200
-/invite /invite 200
-/index.html / 200
-/:slug /main/app 200
+/sign-in /login 200

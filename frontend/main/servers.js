@@ -237,6 +237,8 @@ async function openServer(serverId, iconEl, channelId) {
   if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;
+  const profileView = document.getElementById("view-profile");
+  if (profileView) profileView.classList.remove("active");
   if (typeof setTopbarTab === "function") setTopbarTab("messages");
 
   currentServerId = serverId;
@@ -272,7 +274,7 @@ async function openServer(serverId, iconEl, channelId) {
   }
   const firstChannel = landing || firstVisibleSidebarChannel();
   if (firstChannel) {
-    selectChannel(firstChannel);
+    await selectChannel(firstChannel);
   } else {
     showNoChannelSelected();
   }

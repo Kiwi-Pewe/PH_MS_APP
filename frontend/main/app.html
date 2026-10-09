@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=293">
+<link rel="stylesheet" href="app.css?v=294">
 </head>
 <body>
 
@@ -23,9 +23,9 @@
       <button class="tab active" data-tab="messages">Messages</button>
       <button class="tab" data-tab="profile">Profile</button>
       <button class="tab" data-tab="settings">Settings</button>
-      <button class="tab" data-tab="community">Communities</button>
+      <button class="tab is-later" type="button" disabled>Communities</button>
       <button class="tab is-later" type="button" disabled>Games</button>
-      <button class="tab" data-tab="announcements">Announcements</button>
+      <button class="tab is-later" type="button" disabled>Announcements</button>
     </div>
     <div id="connection-status" hidden>Connection lost. Reconnecting…</div>
     <div class="tabs top-right">
@@ -807,18 +807,6 @@
       <div class="main-view" id="view-settings">
         <div id="settings-general-pane" class="settings-pane"></div>
         <div id="settings-user-pane" class="settings-pane" hidden></div>
-      </div>
-
-      <div class="main-view" id="view-community">
-        <div class="site-place">
-          <h2 class="site-place-title">Communities</h2>
-        </div>
-      </div>
-
-      <div class="main-view" id="view-announcements">
-        <div class="site-place">
-          <h2 class="site-place-title">Announcements</h2>
-        </div>
       </div>
 
       <div class="main-view" id="view-profile">
@@ -1961,7 +1949,7 @@
       </div>
     </div>
 <script src="boot.js?v=121"></script>
-<script src="app-shell.js?v=67"></script>
+<script src="app-shell.js?v=68"></script>
 <script src="feed.js?v=16"></script>
 <script src="settings.js?v=20"></script>
 <script src="server-settings.js?v=37"></script>
@@ -2014,7 +2002,7 @@
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=13"></script>
-<script src="servers.js?v=115"></script>
+<script src="servers.js?v=116"></script>
 <script src="voice.js?v=16"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=4"></script>

@@ -2882,9 +2882,6 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 .member-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .member-name { flex: 0 1 auto; min-width: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .member-status-line { font-size: 12px; line-height: 1.2; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.site-place { padding: 28px 32px; }
-.site-place-title { margin: 0; font-size: 22px; font-weight: 700; color: var(--text); }
-
 /* Sits once at the very top of message history — signals "you've
    reached the start, nothing more to load" and hosts quick actions.
    Rebuilt on every renderMessages() call along with the rest of the

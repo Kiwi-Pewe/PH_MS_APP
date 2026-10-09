@@ -67,10 +67,6 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
     if (btn.dataset.tab === "messages") {
       await goHome();
     }
-    if (btn.dataset.tab === "community" || btn.dataset.tab === "announcements") {
-      await openSitePlace(btn.dataset.tab);
-      return;
-    }
     if (btn.id === "mail-tab") {
       if (typeof toggleMailTray === "function") toggleMailTray();
       return;
@@ -125,18 +121,8 @@ function setAppAddress(path) {
 function syncAppAddress() {
   if (appAddressLock) return;
   const profileView = document.getElementById("view-profile");
-  const communityView = document.getElementById("view-community");
-  const announcementsView = document.getElementById("view-announcements");
   if (profileView && profileView.classList.contains("active") && typeof profileUser !== "undefined" && profileUser && profileUser.username) {
     setAppAddress("/profile/" + encodeURIComponent(profileUser.username));
-    return;
-  }
-  if (communityView && communityView.classList.contains("active")) {
-    setAppAddress("/community");
-    return;
-  }
-  if (announcementsView && announcementsView.classList.contains("active")) {
-    setAppAddress("/announcements");
     return;
   }
   if (typeof currentServerId !== "undefined" && currentServerId && typeof currentServerData !== "undefined" && currentServerData && currentServerData.url_slug) {
@@ -148,34 +134,6 @@ function syncAppAddress() {
     return;
   }
   setAppAddress("/messages");
-}
-
-async function openSitePlace(place) {
-  if (typeof leaveDocIfNeeded === "function" && !(await leaveDocIfNeeded())) return false;
-  if (typeof closeMiniProfile === "function") closeMiniProfile();
-  if (typeof closeSettingsChrome === "function") closeSettingsChrome();
-  if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
-  if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
-  if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return false;
-  if (typeof hideMemberList === "function") hideMemberList();
-  if (typeof hideDocsChrome === "function") hideDocsChrome();
-  currentServerId = null;
-  currentServerOwnerId = null;
-  currentServerPerms = {};
-  currentServerHighestRole = null;
-  currentServerTimeoutUntil = null;
-  currentChannelId = null;
-  currentChannelType = null;
-  currentChannelName = null;
-  const serverSide = document.getElementById("server-sidebar-view");
-  const dmSide = document.getElementById("dm-sidebar-view");
-  if (serverSide) serverSide.style.display = "none";
-  if (dmSide) dmSide.style.display = "flex";
-  if (typeof selectRailIcon === "function") selectRailIcon("home", document.getElementById("home-icon"));
-  switchMainView(place);
-  if (typeof setTopbarTab === "function") setTopbarTab(place);
-  syncAppAddress();
-  return true;
 }
 
 async function applyAppAddress() {
@@ -190,14 +148,6 @@ async function applyAppAddress() {
   try {
     if (parts[0] === "messages") {
       await goHome();
-      return;
-    }
-    if (parts[0] === "community") {
-      await openSitePlace("community");
-      return;
-    }
-    if (parts[0] === "announcements") {
-      await openSitePlace("announcements");
       return;
     }
     if (parts[0] === "profile" && parts[1]) {

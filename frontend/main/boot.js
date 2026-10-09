@@ -27,7 +27,7 @@ window.addEventListener("load", () => {
     })
     .catch(() => {
       const path = window.location.pathname || "";
-      const stay = path === "/main/app.html" || path === "/" || path.endsWith("/login.html");
+      const stay = path === "/main/app.html" || path === "/main/app" || path === "/" || path.endsWith("/login.html");
       const next = !stay && path.charAt(0) === "/" ? path + window.location.search : "";
       window.location.href = "../login.html" + (next ? ("?redirect=" + encodeURIComponent(next)) : "");
     });

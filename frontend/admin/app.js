@@ -1425,7 +1425,7 @@ async function bootAdmin() {
   try {
     const response = await adminApi("/admin/me");
     if (response.status === 401) {
-      window.location.href = "/sign-in?redirect=/admin/app.html";
+      window.location.href = "../login.html?redirect=/admin/app.html";
       return;
     }
     if (!response.ok) {
@@ -1438,7 +1438,7 @@ async function bootAdmin() {
     document.getElementById("admin-card").hidden = false;
     paintMain();
   } catch (e) {
-    window.location.href = "/sign-in?redirect=/admin/app.html";
+    window.location.href = "../login.html?redirect=/admin/app.html";
   }
 }
 

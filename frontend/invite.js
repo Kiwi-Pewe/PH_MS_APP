@@ -92,7 +92,7 @@ function showValidCard(loggedIn) {
     // the pretty /invite/{code} form, so no reconstruction needed.
     btn.textContent = "Log In to Join";
     btn.addEventListener("click", () => {
-      window.location.href = `/sign-in?redirect=${encodeURIComponent(window.location.pathname)}`;
+      window.location.href = `login.html?redirect=${encodeURIComponent(window.location.pathname)}`;
     });
     return;
   }

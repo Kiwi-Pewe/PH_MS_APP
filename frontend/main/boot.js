@@ -27,9 +27,9 @@ window.addEventListener("load", () => {
     })
     .catch(() => {
       const path = window.location.pathname || "";
-      const stay = path === "/main/app.html" || path === "/main/app" || path === "/" || path === "/sign-in" || path.endsWith("/login.html");
+      const stay = path === "/main/app.html" || path === "/" || path.endsWith("/login.html");
       const next = !stay && path.charAt(0) === "/" ? path + window.location.search : "";
-      window.location.href = "/sign-in" + (next ? ("?redirect=" + encodeURIComponent(next)) : "");
+      window.location.href = "../login.html" + (next ? ("?redirect=" + encodeURIComponent(next)) : "");
     });
 });
 
@@ -72,7 +72,7 @@ function noteSocketClosed(opened) {
   fetch(`https://${serverAddress}/whoami`, { credentials: "include" })
     .then((response) => {
       if (!response.ok) {
-        window.location.href = "/sign-in";
+        window.location.href = "../login.html";
         return;
       }
       showConnectionStatus();

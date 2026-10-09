@@ -30,7 +30,7 @@ function ownRedirect(value) {
 function finishLogin(user) {
   const params = new URLSearchParams(window.location.search);
   const redirectTarget = ownRedirect(params.get("redirect"));
-  window.location.href = redirectTarget || `/main/app?user=${encodeURIComponent(user.username)}`;
+  window.location.href = redirectTarget || `main/app.html?user=${encodeURIComponent(user.username)}`;
 }
 
 async function register() {

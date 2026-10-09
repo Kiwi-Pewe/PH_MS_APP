@@ -736,5 +736,5 @@ async function logout() {
     await fetch(`https://${serverAddress}/logout`, { method: "POST", credentials: "include" });
   } catch (e) { /* tear down locally regardless */ }
   if (ws) { ws.close(); ws = null; }
-  window.location.href = "/sign-in";
+  window.location.href = "../login.html";
 }

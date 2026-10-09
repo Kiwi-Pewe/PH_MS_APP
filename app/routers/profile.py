@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 import json
 import re
 import uuid
@@ -1592,6 +1592,25 @@ def update_own_profile_identity(body: Profile_identity_in, current_user: UserInf
     database.commit()
     layout = ensure_layout(current_user, database)
     return profile_payload(current_user, layout, False, friend_preview(database, current_user.id))
+
+
+@router.get("/user_status/{user_id}")
+def user_status(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    user = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return {"id": user.id, "status": clip_text(user.profile_status, STATUS_MAX).strip()}
+
+
+@router.get("/user_by_username/{username}")
+def user_by_username(username: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    handle = (username or "").strip().lstrip("@")
+    if not handle:
+        raise HTTPException(status_code=404, detail="User not found.")
+    user = database.query(UserInfo).filter(func.lower(UserInfo.username) == handle.lower()).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return {"id": user.id, "username": user.username}
 
 
 @router.get("/profile_layout")

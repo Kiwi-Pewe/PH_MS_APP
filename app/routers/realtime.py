@@ -44,8 +44,9 @@ def serialize_member(user, is_owner, hoist_role=None, name_role=None, highest_ro
         payload["timeout_until"] = timeout_until
     if timeout_reason:
         payload["timeout_reason"] = timeout_reason
-    from app.routers.profile import public_avatar
+    from app.routers.profile import public_avatar, clip_text, STATUS_MAX
     payload["avatar"] = public_avatar(user)
+    payload["status_line"] = clip_text(getattr(user, "profile_status", None), STATUS_MAX).strip()
     return payload
 
 
@@ -77,26 +78,16 @@ async def party_broadcast(party_id, payload, database, exclude_user_id=None):
         if member.user_id != exclude_user_id and member.user_id in active_connections:
             await safe_send_json(active_connections.get(member.user_id), payload, member.user_id)
 
-async def notify_presence(database, user_id, status):
-    user = database.query(UserInfo).filter(UserInfo.id == user_id).first()
-    from app.routers.profile import public_avatar
-    payload = {
-        "type": "presence",
-        "user_id": user_id,
-        "status": status,
-        "username": user.username if user else None,
-        "display_name": (user.display_name or user.username) if user else None,
-        "avatar": public_avatar(user) if user else None,
-    }
+def presence_peer_ids(database, user_id):
     seen = set()
+    peers = []
 
     def queue_peer(peer_id):
         if peer_id == user_id or peer_id in seen:
-            return
+            return None
         seen.add(peer_id)
         return peer_id
 
-    peers = []
     server_ids = [row.server_id for row in database.query(Server_members).filter(Server_members.user_id == user_id).all()]
     for server_id in server_ids:
         for peer in database.query(Server_members).filter(Server_members.server_id == server_id).all():
@@ -111,7 +102,6 @@ async def notify_presence(database, user_id, status):
             if pid is not None:
                 peers.append(pid)
 
-    # Friends need presence even with no shared server/party (Steam toast).
     friend_rows = database.query(Friend_request).filter(
         or_(Friend_request.user_1 == user_id, Friend_request.user_2 == user_id),
         Friend_request.pending == False,
@@ -121,11 +111,40 @@ async def notify_presence(database, user_id, status):
         pid = queue_peer(other)
         if pid is not None:
             peers.append(pid)
+    return peers
 
-    for peer_id in peers:
+
+async def fanout_to_peers(database, user_id, payload):
+    for peer_id in presence_peer_ids(database, user_id):
         socket = active_connections.get(peer_id)
         if socket:
             await safe_send_json(socket, payload, peer_id)
+
+
+async def notify_presence(database, user_id, status):
+    user = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    from app.routers.profile import public_avatar
+    payload = {
+        "type": "presence",
+        "user_id": user_id,
+        "status": status,
+        "username": user.username if user else None,
+        "display_name": (user.display_name or user.username) if user else None,
+        "avatar": public_avatar(user) if user else None,
+    }
+    await fanout_to_peers(database, user_id, payload)
+
+
+async def notify_status_line(database, user_id, status_line):
+    user = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    payload = {
+        "type": "status_line",
+        "user_id": user_id,
+        "status_line": status_line or "",
+        "username": user.username if user else None,
+    }
+    await fanout_to_peers(database, user_id, payload)
+
 
 async def notify_user(user_id, payload):
     socket = active_connections.get(user_id)

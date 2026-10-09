@@ -20,6 +20,7 @@ function applyServerPrivacy(serverId, fields) {
   if (typeof currentServerData !== "undefined" && currentServerData && String(currentServerId) === String(serverId)) {
     currentServerData.privacy_mode = fields.privacy_mode || "private";
     currentServerData.discoverable = !!fields.discoverable && fields.privacy_mode !== "private";
+    if (typeof paintServerPublicListing === "function") paintServerPublicListing();
   }
 }
 

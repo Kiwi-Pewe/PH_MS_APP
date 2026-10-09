@@ -276,6 +276,7 @@ async function openServer(serverId, iconEl, channelId) {
   } else {
     showNoChannelSelected();
   }
+  if (typeof syncAppAddress === "function") syncAppAddress();
 }
 
 async function refreshServerContentsSoft() {

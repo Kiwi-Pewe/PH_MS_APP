@@ -714,7 +714,7 @@ const SERVER_SLUG_RE = new RegExp("^[A-Za-z](?:[A-Za-z0-9-]{0," + Math.max(0, SE
 const RESERVED_SERVER_SLUGS = {
   main: true, app: true, login: true, invite: true, admin: true, shared: true,
   accessibility: true, index: true, api: true, cdn: true, settings: true,
-  profile: true, communities: true, games: true, announcements: true,
+  profile: true, communities: true, community: true, games: true, announcements: true,
   feedback: true, messages: true, home: true, server: true, servers: true,
   about: true, help: true, support: true, legal: true, terms: true,
   privacy: true, status: true, blog: true, docs: true, static: true,
@@ -1030,6 +1030,13 @@ async function saveServerSettingsType(kind) {
   }
 }
 
+function paintServerPublicListing() {
+  const line = document.getElementById("server-settings-discoverable-line");
+  if (!line) return;
+  const on = !!(currentServerData && currentServerData.discoverable);
+  line.textContent = on ? "Discoverable" : "Not discoverable";
+}
+
 function openServerSettings() {
   if (!currentServerId || !canOpenServerSettings()) return;
   if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
@@ -1050,6 +1057,7 @@ function openServerSettings() {
   syncServerSettingsAbout(savedServerSettingsAbout());
   syncServerSettingsUrl(savedServerSettingsUrl());
   syncServerSettingsType(savedServerSettingsType());
+  paintServerPublicListing();
   syncServerSettingsTimezone(savedServerSettingsTimezone());
   syncServerSettingsNotifications(savedServerSettingsNotifications());
   setServerSettingsAvatarStatus("");

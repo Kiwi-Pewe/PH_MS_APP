@@ -67,6 +67,10 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
     if (btn.dataset.tab === "messages") {
       await goHome();
     }
+    if (btn.dataset.tab === "community" || btn.dataset.tab === "announcements") {
+      await openSitePlace(btn.dataset.tab);
+      return;
+    }
     if (btn.id === "mail-tab") {
       if (typeof toggleMailTray === "function") toggleMailTray();
       return;
@@ -104,7 +108,121 @@ async function goHome() {
 
   resetChatView();
   if (typeof setTopbarTab === "function") setTopbarTab("messages");
+  syncAppAddress();
   return true;
 }
 
 document.getElementById("home-icon").addEventListener("click", () => goHome());
+
+let appAddressLock = false;
+
+function setAppAddress(path) {
+  if (!path || appAddressLock) return;
+  if (window.location.pathname === path) return;
+  history.pushState({ oneira: path }, "", path);
+}
+
+function syncAppAddress() {
+  if (appAddressLock) return;
+  const profileView = document.getElementById("view-profile");
+  const communityView = document.getElementById("view-community");
+  const announcementsView = document.getElementById("view-announcements");
+  if (profileView && profileView.classList.contains("active") && typeof profileUser !== "undefined" && profileUser && profileUser.username) {
+    setAppAddress("/profile/" + encodeURIComponent(profileUser.username));
+    return;
+  }
+  if (communityView && communityView.classList.contains("active")) {
+    setAppAddress("/community");
+    return;
+  }
+  if (announcementsView && announcementsView.classList.contains("active")) {
+    setAppAddress("/announcements");
+    return;
+  }
+  if (typeof currentServerId !== "undefined" && currentServerId && typeof currentServerData !== "undefined" && currentServerData && currentServerData.url_slug) {
+    setAppAddress("/" + currentServerData.url_slug);
+    return;
+  }
+  if (typeof currentServerId !== "undefined" && currentServerId) {
+    setAppAddress("/server/" + encodeURIComponent(currentServerId));
+    return;
+  }
+  setAppAddress("/messages");
+}
+
+async function openSitePlace(place) {
+  if (typeof leaveDocIfNeeded === "function" && !(await leaveDocIfNeeded())) return false;
+  if (typeof closeMiniProfile === "function") closeMiniProfile();
+  if (typeof closeSettingsChrome === "function") closeSettingsChrome();
+  if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
+  if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
+  if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return false;
+  if (typeof hideMemberList === "function") hideMemberList();
+  if (typeof hideDocsChrome === "function") hideDocsChrome();
+  currentServerId = null;
+  currentServerOwnerId = null;
+  currentServerPerms = {};
+  currentServerHighestRole = null;
+  currentServerTimeoutUntil = null;
+  currentChannelId = null;
+  currentChannelType = null;
+  currentChannelName = null;
+  const serverSide = document.getElementById("server-sidebar-view");
+  const dmSide = document.getElementById("dm-sidebar-view");
+  if (serverSide) serverSide.style.display = "none";
+  if (dmSide) dmSide.style.display = "flex";
+  if (typeof selectRailIcon === "function") selectRailIcon("home", document.getElementById("home-icon"));
+  switchMainView(place);
+  if (typeof setTopbarTab === "function") setTopbarTab(place);
+  syncAppAddress();
+  return true;
+}
+
+async function applyAppAddress() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("join_type") || params.get("connection")) return;
+  const parts = (window.location.pathname || "").split("/").filter(Boolean);
+  if (!parts.length || parts[0] === "main") {
+    setAppAddress("/messages");
+    return;
+  }
+  appAddressLock = true;
+  try {
+    if (parts[0] === "messages") {
+      await goHome();
+      return;
+    }
+    if (parts[0] === "community") {
+      await openSitePlace("community");
+      return;
+    }
+    if (parts[0] === "announcements") {
+      await openSitePlace("announcements");
+      return;
+    }
+    if (parts[0] === "profile" && parts[1]) {
+      const response = await fetch(`https://${serverAddress}/user_by_username/${encodeURIComponent(decodeURIComponent(parts[1]))}`, { credentials: "include" });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data && data.id && typeof openUserProfile === "function") await openUserProfile(data.id);
+      return;
+    }
+    if (parts[0] === "server" && parts[1] && typeof openServer === "function") {
+      await openServer(decodeURIComponent(parts[1]));
+      return;
+    }
+    if (parts.length === 1) {
+      const response = await fetch(`https://${serverAddress}/server_by_slug/${encodeURIComponent(parts[0])}`, { credentials: "include" });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data && data.id && typeof openServer === "function") await openServer(data.id);
+    }
+  } finally {
+    appAddressLock = false;
+    syncAppAddress();
+  }
+}
+
+window.addEventListener("popstate", () => {
+  applyAppAddress();
+});

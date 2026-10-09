@@ -26,7 +26,10 @@ window.addEventListener("load", () => {
       connectSocket();
     })
     .catch(() => {
-      window.location.href = "../login.html";
+      const path = window.location.pathname || "";
+      const stay = path === "/main/app.html" || path === "/" || path.endsWith("/login.html");
+      const next = !stay && path.charAt(0) === "/" ? path + window.location.search : "";
+      window.location.href = "../login.html" + (next ? ("?redirect=" + encodeURIComponent(next)) : "");
     });
 });
 
@@ -478,6 +481,10 @@ function connectSocket() {
       if (typeof noteFriendPresenceForToast === "function") noteFriendPresenceForToast(data);
     }
 
+    if (data.type === "status_line" && typeof applyUserStatusLine === "function") {
+      applyUserStatusLine(data.user_id, data.status_line || "");
+    }
+
     if (data.type === "member_joined") {
       applyMemberJoined(data.scope, data.scope_id, data.member);
     }
@@ -763,6 +770,7 @@ function enterApp() {
   loadServers();
   handleJoinDeepLink();
   handleConnectionDeepLink();
+  if (typeof applyAppAddress === "function") applyAppAddress();
   if (typeof loadFeedAlerts === "function") loadFeedAlerts();
 
   // Wired once here, not in renderServerSidebar — #server-sidebar-body

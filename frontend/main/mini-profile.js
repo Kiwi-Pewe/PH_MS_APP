@@ -333,6 +333,7 @@ function paintMiniProfileInto(card, data, opts) {
   const side = document.createElement("div");
   side.className = "mini-profile-side";
   if (user.status || editing) {
+    if (user.id && typeof rememberUserStatus === "function") rememberUserStatus(user.id, user.status);
     const status = document.createElement("div");
     status.className = "mini-profile-status" + (user.status ? "" : " is-empty");
     status.textContent = user.status || "Status";

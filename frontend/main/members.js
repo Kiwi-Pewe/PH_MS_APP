@@ -64,6 +64,7 @@ async function loadMemberList(scope, scopeId) {
     memberList = data.members || [];
     memberList.forEach((member) => {
       if (typeof rememberIdentityFace === "function") rememberIdentityFace(member.id, member && member.avatar);
+      if (typeof rememberUserStatus === "function") rememberUserStatus(member.id, member && member.status_line);
     });
     showMemberListPanel();
     renderMemberList();
@@ -249,6 +250,7 @@ function paintMemberRowState(row, member) {
   if (name && memberListScope === "server" && typeof applyServerNameColor === "function") {
     applyServerNameColor(name, member.id, member.name_role);
   }
+  paintMemberStatusLine(row, member);
 }
 
 function placeMemberRow(member) {
@@ -301,6 +303,23 @@ function appendMemberGroup(body, label, members, color, key, role) {
   });
 }
 
+function paintMemberStatusLine(row, member) {
+  const text = row.querySelector(".member-text");
+  if (!text) return;
+  let sub = text.querySelector(".member-status-line");
+  const line = String((member && member.status_line) || "").trim();
+  if (!line) {
+    if (sub) sub.remove();
+    return;
+  }
+  if (!sub) {
+    sub = document.createElement("div");
+    sub.className = "member-status-line";
+    text.appendChild(sub);
+  }
+  sub.textContent = line;
+}
+
 function buildMemberRow(member) {
   const row = document.createElement("div");
   const status = memberAppearsOnline(member.status) ? member.status : "offline";
@@ -321,7 +340,11 @@ function buildMemberRow(member) {
   if (memberListScope === "server" && typeof applyServerNameColor === "function") {
     applyServerNameColor(name, member.id, member.name_role);
   }
-  row.appendChild(name);
+  const text = document.createElement("div");
+  text.className = "member-text";
+  text.appendChild(name);
+  row.appendChild(text);
+  paintMemberStatusLine(row, member);
 
   if (member.is_owner) {
     const crown = document.createElement("span");

@@ -105,9 +105,9 @@ def get_friends(database: Session = Depends(get_db), current_user: UserInfo = De
         actual_account = database.query(UserInfo).filter(UserInfo.id == other_id).first()
 
         if actual_account.id in active_connections:
-            online_friends.append({"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account)})
+            online_friends.append({"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account), "status": (actual_account.profile_status or "").strip()})
         else:
-            offline_friends.append({"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account)})
+            offline_friends.append({"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account), "status": (actual_account.profile_status or "").strip()})
 
     return {"pending_requests": all_requests, "online_friends": online_friends, "offline_friends": offline_friends}
 

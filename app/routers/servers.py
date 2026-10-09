@@ -58,7 +58,7 @@ SERVER_PRIVACY_MODES = ("private", "default", "open")
 SERVER_PRIVACY_DEFAULT = "private"
 RESERVED_SERVER_SLUGS = {
     "main", "app", "login", "invite", "admin", "shared", "accessibility",
-    "index", "api", "cdn", "settings", "profile", "communities", "games",
+    "index", "api", "cdn", "settings", "profile", "communities", "community", "games",
     "announcements", "feedback", "messages", "home", "server", "servers",
     "about", "help", "support", "legal", "terms", "privacy", "status",
     "blog", "docs", "static", "assets", "oneira", "www", "mail",
@@ -478,6 +478,23 @@ async def update_server_url(body: Server_url_update, database: Session = Depends
         exclude_user_id=current_user.id,
     )
     return {"ok": True, "url_slug": slug}
+
+
+@router.get("/server_by_slug/{slug}")
+def server_by_slug(slug: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    text = clean_server_slug(slug)
+    if not text or text.lower() in RESERVED_SERVER_SLUGS:
+        raise HTTPException(status_code=404, detail="Server not found.")
+    server = database.query(Servers).filter(func.lower(Servers.url_slug) == text.lower()).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found.")
+    member = database.query(Server_members).filter(
+        Server_members.server_id == server.id,
+        Server_members.user_id == current_user.id,
+    ).first()
+    if not member and server.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Server not found.")
+    return {"id": server.id, "name": server.name or "", "url_slug": server_url_slug(server)}
 
 
 @router.post("/update_server_type")

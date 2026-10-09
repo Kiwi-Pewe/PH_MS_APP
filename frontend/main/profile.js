@@ -86,6 +86,7 @@ function openMiniProfileEditorPage() {
 function applyProfilePayload(data) {
   profileUser = data.user || null;
   profileOwnerId = profileUser ? profileUser.id : null;
+  if (profileUser && typeof rememberUserStatus === "function") rememberUserStatus(profileUser.id, profileUser.status);
   if (typeof clearProfileCommentCache === "function") clearProfileCommentCache();
   if (typeof clearProfileServerCache === "function") clearProfileServerCache();
   profileIsOwn = !!(profileUser && profileUser.id === myUserId);
@@ -374,6 +375,7 @@ async function openUserProfile(userId) {
   setTopbarTab(profileIsOwn ? "profile" : "");
   switchMainView("profile");
   paintProfileChrome();
+  if (typeof syncAppAddress === "function") syncAppAddress();
 }
 
 async function openOwnProfile() {
@@ -389,6 +391,10 @@ async function saveProfileIdentity(identity) {
   const data = await response.json();
   if (data.user && profileUser) {
     profileUser.status = data.user.status || "";
+    if (typeof rememberUserStatus === "function") rememberUserStatus(profileUser.id, profileUser.status);
+    if (typeof ws !== "undefined" && ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: "status_line" }));
+    }
     profileUser.pronouns = data.user.pronouns || "";
     profileUser.aliases = data.user.aliases || [];
   }

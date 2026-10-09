@@ -64,6 +64,7 @@ function renderConversationList() {
       sub.textContent = subtitle;
       row.querySelector(".dm-item-text").appendChild(sub);
     }
+    if (convo.type !== "party" && typeof rememberUserStatus === "function") rememberUserStatus(convo.id, convo.status);
     if (convo.type === "party") {
       if ((convo.mentions || 0) > 0) {
         const badge = row.querySelector(".dm-unread-badge");

@@ -56,10 +56,19 @@ function renderFriendList(kind, list) {
     const row = document.createElement("div");
     row.className = "friend-row";
     row.style.cursor = "pointer";
-    row.innerHTML = `<div class="avatar-dot"></div><div class="who"></div>`;
+    row.innerHTML = `<div class="avatar-dot"></div><div class="friend-text"><div class="who"></div></div>`;
     if (typeof paintUserFace === "function") paintUserFace(row.querySelector(".avatar-dot"), friend, { name: friend.username, userId: friend.id });
     else row.querySelector(".avatar-dot").textContent = avatarLetter(friend.username);
     row.querySelector(".who").textContent = friend.username;
+    row.dataset.userId = String(friend.id);
+    if (typeof rememberUserStatus === "function") rememberUserStatus(friend.id, friend.status);
+    const line = String(friend.status || "").trim();
+    if (line) {
+      const sub = document.createElement("div");
+      sub.className = "friend-status";
+      sub.textContent = line;
+      row.querySelector(".friend-text").appendChild(sub);
+    }
     row.addEventListener("click", () => openDirectMessage(friend.id, friend.username));
     row.addEventListener("contextmenu", (e) => showProfileContextMenu(e, friend.id, friend.username, false));
     rows.appendChild(row);

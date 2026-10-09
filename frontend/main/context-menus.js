@@ -295,9 +295,10 @@ async function showMemberContextMenu(e, member) {
   e.stopPropagation();
   const isSelf = member.id === myUserId;
   const relation = isSelf ? { self: true } : await fetchRelationship(member.id);
-  const statusLabel = memberAppearsOnline(member.status)
+  const line = (member.status_line || (typeof userStatusLine === "function" ? userStatusLine(member.id) : "") || "").trim();
+  const statusLabel = line || (memberAppearsOnline(member.status)
     ? member.status.charAt(0).toUpperCase() + member.status.slice(1)
-    : "Offline";
+    : "Offline");
 
   const options = isSelf ? [
     { label: "Profile", onSelect: () => openUserProfile(member.id) },
@@ -351,8 +352,73 @@ async function addFriendFromContextMenu(username) {
   }
 }
 
-function showProfileContextMenu(e, id, username, isSelf) {
+const userStatusLines = {};
+const userStatusKnown = {};
+
+function rememberUserStatus(userId, status) {
+  if (userId === null || userId === undefined || userId === "") return;
+  userStatusKnown[String(userId)] = true;
+  userStatusLines[String(userId)] = String(status || "").trim();
+}
+
+function userStatusLine(userId) {
+  if (userId === null || userId === undefined) return "";
+  return userStatusLines[String(userId)] || "";
+}
+
+function applyUserStatusLine(userId, status) {
+  const line = String(status || "").trim();
+  rememberUserStatus(userId, line);
+  if (typeof memberList !== "undefined" && Array.isArray(memberList)) {
+    memberList.forEach((member) => {
+      if (String(member.id) !== String(userId)) return;
+      member.status_line = line;
+      const row = typeof findMemberRow === "function" ? findMemberRow(member.id) : null;
+      if (row && typeof paintMemberStatusLine === "function") paintMemberStatusLine(row, member);
+    });
+  }
+  if (typeof conversationList !== "undefined" && Array.isArray(conversationList)) {
+    let changed = false;
+    conversationList.forEach((convo) => {
+      if (!convo || convo.type === "party") return;
+      if (String(convo.id) !== String(userId)) return;
+      convo.status = line;
+      changed = true;
+    });
+    if (changed && typeof renderConversationList === "function") renderConversationList();
+  }
+  document.querySelectorAll(".friend-row").forEach((row) => {
+    if (String(row.dataset.userId) !== String(userId)) return;
+    let sub = row.querySelector(".friend-status");
+    if (!line) {
+      if (sub) sub.remove();
+      return;
+    }
+    if (!sub) {
+      const host = row.querySelector(".friend-text") || row;
+      sub = document.createElement("div");
+      sub.className = "friend-status";
+      host.appendChild(sub);
+    }
+    sub.textContent = line;
+  });
+}
+
+async function showProfileContextMenu(e, id, username, isSelf) {
   e.preventDefault();
+  let line = userStatusLine(id);
+  if (id && !userStatusKnown[String(id)]) {
+    try {
+      const response = await fetch(`https://${serverAddress}/user_status/${encodeURIComponent(id)}`, { credentials: "include" });
+      if (response.ok) {
+        const data = await response.json();
+        line = String((data && data.status) || "").trim();
+        rememberUserStatus(id, line);
+      }
+    } catch (err) {
+      line = "";
+    }
+  }
   const options = isSelf ? [
     { label: "Profile", onSelect: () => openUserProfile(id) },
     { label: "Settings", onSelect: () => console.log("Open settings from context menu — not implemented yet") }
@@ -367,7 +433,7 @@ function showProfileContextMenu(e, id, username, isSelf) {
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(username),
     title: username,
-    subtitle: "{Status}",
+    subtitle: line,
     userId: id
   }, options);
 }

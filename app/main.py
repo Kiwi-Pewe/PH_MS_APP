@@ -10,7 +10,7 @@ from app.auth import validate_session
 from app.r2 import attachment_public
 from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation, feedback, admin, emojis, notify_prefs, audit, feed, pins, search, lists, calendar, doc_entries, media_items, schedule, voice, connections
 from pydantic import ValidationError
-from app.routers.realtime import active_connections, heartbeat, notify_presence, safe_send_json, set_viewer_focus
+from app.routers.realtime import active_connections, heartbeat, notify_presence, notify_status_line, safe_send_json, set_viewer_focus
 from app.routers.messages import send_message
 from app.routers.parties import message_party, leave_party
 from app.routers.servers import message_server_channel
@@ -345,6 +345,14 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 except (TypeError, ValueError):
                     focused = None
                 set_viewer_focus(current_user.id, focused)
+            elif data["type"] == "status_line":
+                database.refresh(current_user)
+                from app.routers.profile import clip_text, STATUS_MAX
+                await notify_status_line(
+                    database,
+                    current_user.id,
+                    clip_text(current_user.profile_status, STATUS_MAX).strip(),
+                )
 
     except WebSocketDisconnect:
         pass

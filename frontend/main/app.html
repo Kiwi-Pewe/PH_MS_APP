@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="oneira-build" content="1">
+<base href="/main/">
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=11">
 <link rel="stylesheet" href="../shared/context-menu.css?v=5">
@@ -10,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=292">
+<link rel="stylesheet" href="app.css?v=293">
 </head>
 <body>
 
@@ -22,9 +23,9 @@
       <button class="tab active" data-tab="messages">Messages</button>
       <button class="tab" data-tab="profile">Profile</button>
       <button class="tab" data-tab="settings">Settings</button>
-      <button class="tab is-later" type="button" disabled>Communities</button>
+      <button class="tab" data-tab="community">Communities</button>
       <button class="tab is-later" type="button" disabled>Games</button>
-      <button class="tab is-later" type="button" disabled>Announcements</button>
+      <button class="tab" data-tab="announcements">Announcements</button>
     </div>
     <div id="connection-status" hidden>Connection lost. Reconnecting…</div>
     <div class="tabs top-right">
@@ -808,6 +809,18 @@
         <div id="settings-user-pane" class="settings-pane" hidden></div>
       </div>
 
+      <div class="main-view" id="view-community">
+        <div class="site-place">
+          <h2 class="site-place-title">Communities</h2>
+        </div>
+      </div>
+
+      <div class="main-view" id="view-announcements">
+        <div class="site-place">
+          <h2 class="site-place-title">Announcements</h2>
+        </div>
+      </div>
+
       <div class="main-view" id="view-profile">
         <div class="profile-top">
           <button type="button" id="profile-edit-btn" hidden>Edit Profile</button>
@@ -959,6 +972,12 @@
             <option value="other">Other</option>
           </select>
           <p id="server-settings-type-status" class="server-settings-help" hidden></p>
+        </div>
+
+        <div class="server-settings-field">
+          <div class="server-settings-field-title">Public listing</div>
+          <p class="server-settings-help">People outside this server can see the name, the description, and the type. Discoverable is set on Privacy.</p>
+          <p id="server-settings-discoverable-line" class="server-settings-help"></p>
         </div>
 
         <div class="server-settings-field">
@@ -1941,11 +1960,11 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=120"></script>
-<script src="app-shell.js?v=66"></script>
+<script src="boot.js?v=121"></script>
+<script src="app-shell.js?v=67"></script>
 <script src="feed.js?v=16"></script>
 <script src="settings.js?v=20"></script>
-<script src="server-settings.js?v=36"></script>
+<script src="server-settings.js?v=37"></script>
 <script src="server-roles.js?v=27"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=2"></script>
@@ -1969,11 +1988,11 @@
 <script src="../shared/gallery-frame.js?v=1"></script>
 <script src="profile-comments.js?v=7"></script>
 <script src="profile-board.js?v=92"></script>
-<script src="profile.js?v=18"></script>
+<script src="profile.js?v=19"></script>
 <script src="profile-identity.js?v=8"></script>
 <script src="profile-edit.js?v=87"></script>
-<script src="context-menus.js?v=89"></script>
-<script src="conversations.js?v=63"></script>
+<script src="context-menus.js?v=90"></script>
+<script src="conversations.js?v=64"></script>
 <script src="chat-render.js?v=68"></script>
 <script src="chat-history.js?v=51"></script>
 <script src="chat-compose.js?v=62"></script>
@@ -1981,12 +2000,12 @@
 <script src="emoji-data.js?v=1"></script>
 <script src="emoji-picker.js?v=55"></script>
 <script src="online-toast.js?v=1"></script>
-<script src="friends.js?v=47"></script>
+<script src="friends.js?v=48"></script>
 <script src="parties.js?v=46"></script>
 <script src="invites.js?v=49"></script>
 <script src="server-invites.js?v=2"></script>
 <script src="server-bans.js?v=1"></script>
-<script src="server-privacy.js?v=1"></script>
+<script src="server-privacy.js?v=2"></script>
 <script src="server-emojis.js?v=2"></script>
 <script src="server-integrations.js?v=1"></script>
 <script src="server-audit.js?v=1"></script>
@@ -1995,7 +2014,7 @@
 <script src="server-notify.js?v=1"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=13"></script>
-<script src="servers.js?v=114"></script>
+<script src="servers.js?v=115"></script>
 <script src="voice.js?v=16"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=4"></script>
@@ -2003,8 +2022,8 @@
 <script src="channel-settings.js?v=22"></script>
 <script src="pins.js?v=3"></script>
 <script src="search.js?v=4"></script>
-<script src="members.js?v=15"></script>
-<script src="mini-profile.js?v=10"></script>
+<script src="members.js?v=16"></script>
+<script src="mini-profile.js?v=11"></script>
 <script src="server-modals.js?v=48"></script>
 <script src="announcements.js?v=64"></script>
 <script src="comments.js?v=55"></script>

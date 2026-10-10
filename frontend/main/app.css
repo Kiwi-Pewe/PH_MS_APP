@@ -4402,25 +4402,123 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   display: flex; align-items: center; justify-content: center;
 }
 #invite-modal {
-  width: 420px; max-height: 70vh;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  max-height: min(720px, calc(100vh - 48px));
   background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
   display: flex; flex-direction: column; overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 }
-#invite-modal .view-header { flex: 0 0 auto; }
-#invite-modal .view-body { flex: 1 1 auto; overflow-y: auto; }
-#invite-link-row { display: flex; gap: 8px; margin-bottom: 4px; }
+#invite-modal .view-header { flex: 0 0 auto; height: auto; padding: 16px 16px 0; border-bottom: none; }
+.invite-modal-landing {
+  margin: 4px 16px 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.invite-modal-search { margin: 12px 16px 0; width: auto; }
+.invite-modal-list {
+  flex: 1 1 auto;
+  min-height: 180px;
+  overflow: auto;
+  margin-top: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.invite-modal-list::-webkit-scrollbar { width: 8px; }
+.invite-modal-list::-webkit-scrollbar-track,
+.invite-modal-list::-webkit-scrollbar-corner { background: transparent; }
+.invite-modal-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.invite-modal-empty { margin: 12px 16px; font-size: 13px; color: var(--text-dim); }
+.invite-recipient {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+}
+.invite-recipient-face { width: 32px; height: 32px; flex: 0 0 auto; }
+.invite-recipient-text { min-width: 0; flex: 1 1 auto; }
+.invite-recipient-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.invite-recipient-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.invite-recipient-btn { flex: 0 0 auto; }
+.invite-modal-linkbox {
+  flex: 0 0 auto;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border);
+}
+.invite-modal-link-label { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+#invite-link-row { display: flex; gap: 8px; }
 #invite-link-display {
   flex: 1; min-width: 0; background: var(--panel-alt); border: 1px solid var(--border);
   border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px;
 }
 #invite-link-display:focus { outline: none; border-color: var(--accent-submenu); }
-#invite-copy-status { font-size: 12px; color: var(--online); min-height: 16px; margin-bottom: 10px; }
-#invite-modal-footer {
-  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; border-top: 1px solid var(--border);
+#invite-copy-status { font-size: 12px; color: var(--online); min-height: 16px; }
+.invite-modal-expiry { margin: 6px 0 0; font-size: 12px; color: var(--text-dim); }
+.invite-modal-edit {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
 }
-#invite-modal-footer span { font-size: 12px; color: var(--text-dim); }
+#invite-settings-overlay {
+  position: fixed; inset: 0; z-index: 960;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+#invite-settings-modal {
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  background: var(--panel);
+  border: 1px solid var(--accent-submenu);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+#invite-settings-modal .view-header { height: auto; padding: 16px 16px 0; border-bottom: none; }
+.invite-settings-body {
+  padding: 12px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.invite-settings-label { font-size: 12px; font-weight: 700; color: var(--text); }
+.invite-settings-select {
+  width: 100%;
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+}
+.invite-settings-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.invite-settings-help { margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: var(--text-dim); }
+.invite-settings-temp { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 4px; }
+.invite-settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 16px 16px;
+}
 
 /* ---- In-chat invite card ---- */
 /* Rendered underneath a message bubble-line whenever its content is

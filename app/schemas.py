@@ -322,6 +322,11 @@ class Invite(BaseModel):
     server_id: str | None = None
     party_id: int | None = None
     channel_id: int | None = None
+    max_age: int | None = None
+    max_uses: int | None = None
+    role_ids: list[int] = []
+    temporary: bool = False
+    replace: bool = False
 
 class Server_moderation_in(BaseModel):
     server_id: str

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Parties, Party_members, Party_messages, Invite_model
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Server_roles, Server_role_members, Channel_messages, Parties, Party_members, Party_messages, Invite_model, Audit_log
 from app.schemas import Invite
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user, get_optional_user
@@ -13,12 +13,17 @@ from app.routers.account import public_display_name
 from app.routers.profile import public_avatar
 from datetime import datetime, timedelta
 import asyncio
+import json
 import random
 
 router = APIRouter()
 
 INVITE_TTL = timedelta(hours=24)
 INVITE_MAX_USES = 10
+INVITE_AGE_CHOICES = (1800, 3600, 21600, 43200, 86400, 604800, 2592000, 0)
+INVITE_USE_CHOICES = (1, 5, 10, 25, 50, 100, 0)
+DEFAULT_MAX_AGE = 2592000
+DEFAULT_MAX_USES = 0
 
 
 def invite_created_at(invite):
@@ -34,21 +39,98 @@ def invite_created_at(invite):
         value = value.replace(tzinfo=None)
     return value
 
-def is_invite_fresh(invite):
+def is_invite_fresh(invite, max_age=None):
+    if max_age == 0:
+        return True
     created = invite_created_at(invite)
     if created is None:
         return False
-    return datetime.utcnow() - created < INVITE_TTL
+    window = INVITE_TTL if max_age is None else timedelta(seconds=int(max_age))
+    return datetime.utcnow() - created < window
 
-def is_invite_valid(invite: Invite_model):
+
+def legacy_invite_limits():
+    return {
+        "max_age": int(INVITE_TTL.total_seconds()),
+        "max_uses": INVITE_MAX_USES,
+        "role_ids": [],
+        "temporary": False,
+    }
+
+
+def clean_max_age(value):
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_AGE
+    if value not in INVITE_AGE_CHOICES:
+        return DEFAULT_MAX_AGE
+    return value
+
+
+def clean_max_uses(value):
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_USES
+    if value not in INVITE_USE_CHOICES:
+        return DEFAULT_MAX_USES
+    return value
+
+
+def invite_saved_settings(database, invite):
+    if not database or getattr(invite, "type", None) != "server" or not invite.server_id or not invite.code:
+        return None
+    row = database.query(Audit_log).filter(
+        Audit_log.server_id == invite.server_id,
+        Audit_log.action == "create_invite",
+        Audit_log.detail.like('%"code": "' + invite.code + '"%'),
+    ).order_by(Audit_log.id.desc()).first()
+    if not row or not row.detail:
+        return None
+    try:
+        detail = json.loads(row.detail)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(detail, dict) or detail.get("code") != invite.code:
+        return None
+    if "max_age" not in detail and "max_uses" not in detail:
+        return None
+    role_ids = []
+    for raw in detail.get("role_ids") or []:
+        try:
+            role_ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    return {
+        "max_age": clean_max_age(detail.get("max_age")),
+        "max_uses": clean_max_uses(detail.get("max_uses")),
+        "role_ids": role_ids,
+        "temporary": bool(detail.get("temporary")),
+    }
+
+
+def invite_limits(database, invite):
+    saved = invite_saved_settings(database, invite)
+    return saved if saved else legacy_invite_limits()
+
+
+def is_invite_valid(invite: Invite_model, database=None):
+    limits = invite_limits(database, invite)
     uses = invite.use_count if invite.use_count is not None else 0
-    return is_invite_fresh(invite) and uses < INVITE_MAX_USES
+    if limits["max_uses"] and uses >= limits["max_uses"]:
+        return False
+    return is_invite_fresh(invite, limits["max_age"])
 
-def invite_expires_at(invite):
+
+def invite_expires_at(invite, max_age=None):
+    if max_age == 0:
+        return None
     created = invite_created_at(invite)
     if created is None:
         return None
-    return created + INVITE_TTL
+    window = INVITE_TTL if max_age is None else timedelta(seconds=int(max_age))
+    return created + window
 
 
 def can_open_server_invites(database, server, user_id):
@@ -85,20 +167,30 @@ def invite_channel_for(database, invite, user_id):
 
 def serialize_settings_invite(database, invite):
     creator = database.query(UserInfo).filter(UserInfo.id == invite.creator_id).first()
-    expires = invite_expires_at(invite)
+    limits = invite_limits(database, invite)
+    expires = invite_expires_at(invite, limits["max_age"])
     channel = None
     if getattr(invite, "channel_id", None):
         channel = database.query(Server_channels).filter(Server_channels.id == invite.channel_id).first()
+    roles = []
+    if limits["role_ids"]:
+        rows = database.query(Server_roles).filter(
+            Server_roles.server_id == invite.server_id,
+            Server_roles.id.in_(limits["role_ids"]),
+        ).all()
+        roles = [{"id": row.id, "name": row.name or "Role", "color": row.color or ""} for row in rows]
     payload = {
         "id": invite.id,
         "code": invite.code,
         "uses": invite.use_count if invite.use_count is not None else 0,
-        "max_uses": INVITE_MAX_USES,
+        "max_uses": limits["max_uses"],
+        "max_age": limits["max_age"],
+        "temporary": limits["temporary"],
         "created_at": iso_dt(invite_created_at(invite)),
         "expires_at": iso_dt(expires) if expires else None,
         "channel_id": invite.channel_id if channel else None,
         "channel_name": channel.name if channel else None,
-        "roles": [],
+        "roles": roles,
         "creator": None,
     }
     if creator:
@@ -119,7 +211,7 @@ def server_settings_invites(server_id: str, database: Session = Depends(get_db),
         Invite_model.server_id == server_id,
         Invite_model.type == "server",
     ).order_by(Invite_model.created_at.desc()).all()
-    invites = [serialize_settings_invite(database, row) for row in rows if is_invite_valid(row)]
+    invites = [serialize_settings_invite(database, row) for row in rows if is_invite_valid(row, database)]
     return {"server_id": server_id, "invites": invites}
 
 
@@ -130,7 +222,7 @@ async def check_invites():
         all_invites = database.query(Invite_model).all()
 
         for invite in all_invites:
-            if is_invite_valid(invite) == False:
+            if is_invite_valid(invite, database) == False:
                 database.delete(invite)
         database.commit()
         database.close()
@@ -139,7 +231,7 @@ async def check_invites():
 @router.post("/accept_invite")
 async def accept_invite(code: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     invite = database.query(Invite_model).filter(Invite_model.code == code).first()
-    if not invite or not is_invite_valid(invite):
+    if not invite or not is_invite_valid(invite, database):
         raise HTTPException(status_code=404, detail= "Invite not found")
 
     if invite.type == "server":
@@ -165,6 +257,22 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
 
         from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user
         assign_members_role(database, invite.server_id, current_user.id)
+        limits = invite_limits(database, invite)
+        for role_id in limits["role_ids"]:
+            role = database.query(Server_roles).filter(
+                Server_roles.id == role_id,
+                Server_roles.server_id == invite.server_id,
+                Server_roles.is_members == False,
+            ).first()
+            if not role:
+                continue
+            already = database.query(Server_role_members).filter(
+                Server_role_members.role_id == role.id,
+                Server_role_members.user_id == current_user.id,
+            ).first()
+            if not already:
+                database.add(Server_role_members(role_id=role.id, user_id=current_user.id))
+        invite.use_count = (invite.use_count or 0) + 1
 
         category = database.query(Server_categories).filter(Server_categories.server_id == invite.server_id).order_by(Server_categories.position).first()
         channel = database.query(Server_channels).filter(Server_channels.category_id == category.id).order_by(Server_channels.position).first()
@@ -228,6 +336,35 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
         }, database= database, exclude_user_id= current_user.id)
         return {"type": "party", "id": invite.party_id, "party_name": party.party_name}
         
+def clean_invite_role_ids(database, server, actor_id, role_ids):
+    if not server:
+        return []
+    from app.routers.roles import actor_highest_role, can_manage_target_role
+    is_owner = server.owner_id == actor_id
+    if not is_owner:
+        perms = effective_perms_for_user(database, server, actor_id)
+        if not perms.get("manage_roles"):
+            return []
+    actor_highest = None if is_owner else actor_highest_role(database, server, actor_id)
+    kept = []
+    for raw in role_ids or []:
+        try:
+            role_id = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if role_id in kept:
+            continue
+        role = database.query(Server_roles).filter(
+            Server_roles.id == role_id,
+            Server_roles.server_id == server.id,
+            Server_roles.is_members == False,
+        ).first()
+        if not role or not can_manage_target_role(is_owner, actor_highest, role):
+            continue
+        kept.append(role_id)
+    return kept
+
+
 @router.post("/create_invite")
 def create_invite(type: Invite, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
@@ -252,12 +389,19 @@ def create_invite(type: Invite, database: Session = Depends(get_db), current_use
             Invite_model.channel_id == type.channel_id,
         ).first()
 
+        if previous_invite and not type.replace and is_invite_valid(previous_invite, database):
+            limits = invite_limits(database, previous_invite)
+            return {
+                "invite_code": previous_invite.code,
+                "max_age": limits["max_age"],
+                "max_uses": limits["max_uses"],
+                "role_ids": limits["role_ids"],
+                "temporary": limits["temporary"],
+                "uses": previous_invite.use_count or 0,
+            }
         if previous_invite:
-            if is_invite_fresh(previous_invite):
-                return {"invite_code": previous_invite.code}
-            else:
-                database.delete(previous_invite)
-                database.commit()
+            database.delete(previous_invite)
+            database.commit()
     elif type.type == "party":
         is_member = database.query(Party_members).filter(Party_members.party_id == type.party_id, Party_members.user_id == current_user.id).first()
 
@@ -266,12 +410,19 @@ def create_invite(type: Invite, database: Session = Depends(get_db), current_use
 
         previous_invite = database.query(Invite_model).filter(Invite_model.party_id == type.party_id, Invite_model.creator_id == current_user.id).first()
 
+        if previous_invite and not type.replace and is_invite_fresh(previous_invite):
+            legacy = legacy_invite_limits()
+            return {
+                "invite_code": previous_invite.code,
+                "max_age": legacy["max_age"],
+                "max_uses": legacy["max_uses"],
+                "role_ids": [],
+                "temporary": False,
+                "uses": previous_invite.use_count or 0,
+            }
         if previous_invite:
-            if is_invite_fresh(previous_invite):
-                return {"invite_code": previous_invite.code}
-            else:
-                database.delete(previous_invite)
-                database.commit()
+            database.delete(previous_invite)
+            database.commit()
     elif type.type not in ("server", "party"):
         raise HTTPException(status_code= 400, detail="Invalid invite type")
 
@@ -291,17 +442,36 @@ def create_invite(type: Invite, database: Session = Depends(get_db), current_use
     )
 
     database.add(invite_card)
+    limits = legacy_invite_limits()
     if type.type == "server" and type.server_id:
+        server = database.query(Servers).filter(Servers.id == type.server_id).first()
+        limits = {
+            "max_age": clean_max_age(DEFAULT_MAX_AGE if type.max_age is None else type.max_age),
+            "max_uses": clean_max_uses(DEFAULT_MAX_USES if type.max_uses is None else type.max_uses),
+            "role_ids": clean_invite_role_ids(database, server, current_user.id, type.role_ids),
+            "temporary": bool(type.temporary),
+        }
         write_audit_log(database, type.server_id, current_user.id, "create_invite", "invite", 0, {
             "code": new_code,
+            "max_age": limits["max_age"],
+            "max_uses": limits["max_uses"],
+            "role_ids": limits["role_ids"],
+            "temporary": limits["temporary"],
         })
     database.commit()
-    return {"invite_code": new_code}
+    return {
+        "invite_code": new_code,
+        "max_age": limits["max_age"],
+        "max_uses": limits["max_uses"],
+        "role_ids": limits["role_ids"],
+        "temporary": limits["temporary"],
+        "uses": 0,
+    }
 
 @router.get("/invite/{code}")
 def get_invite_info(code: str, database: Session = Depends(get_db), current_user: UserInfo | None = Depends(get_optional_user)):
     invite = database.query(Invite_model).filter(Invite_model.code == code).first()
-    if not invite or not is_invite_valid(invite):
+    if not invite or not is_invite_valid(invite, database):
         return {"valid": False}
     if invite.type == "server" and current_user and active_ban(database, invite.server_id, current_user.id):
         return {"valid": False}
@@ -337,3 +507,53 @@ def get_invite_info(code: str, database: Session = Depends(get_db), current_user
             "channel_name": channel_name,
         }
     return {"valid": False}
+
+
+async def release_temporary_members(user_id):
+    await asyncio.sleep(20)
+    from app.routers.realtime import active_connections
+    if active_connections.get(user_id):
+        return
+    database = SessionLocal()
+    try:
+        memberships = database.query(Server_members).filter(Server_members.user_id == user_id).all()
+        for membership in list(memberships):
+            server = database.query(Servers).filter(Servers.id == membership.server_id).first()
+            if not server or server.owner_id == user_id:
+                continue
+            joined = database.query(Audit_log).filter(
+                Audit_log.server_id == server.id,
+                Audit_log.action == "member_joined",
+                Audit_log.target_id == user_id,
+            ).order_by(Audit_log.id.desc()).first()
+            if not joined or not joined.detail:
+                continue
+            try:
+                detail = json.loads(joined.detail)
+            except (TypeError, ValueError):
+                continue
+            code = detail.get("invite_code") if isinstance(detail, dict) else None
+            if not code:
+                continue
+            probe = Invite_model(code=code, type="server", server_id=server.id)
+            limits = invite_saved_settings(database, probe)
+            if not limits or not limits.get("temporary"):
+                continue
+            extra = database.query(Server_role_members).join(
+                Server_roles, Server_roles.id == Server_role_members.role_id
+            ).filter(
+                Server_role_members.user_id == user_id,
+                Server_roles.server_id == server.id,
+                Server_roles.is_members == False,
+            ).first()
+            if extra:
+                continue
+            actor = database.query(UserInfo).filter(UserInfo.id == server.owner_id).first()
+            target = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+            fresh = database.query(Server_members).filter(Server_members.id == membership.id).first()
+            if not actor or not target or not fresh:
+                continue
+            from app.routers.moderation import remove_member
+            await remove_member(database, server, target, fresh, actor, "kick", "Temporary membership ended", None, None)
+    finally:
+        database.close()

@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=298">
+<link rel="stylesheet" href="app.css?v=299">
 </head>
 <body>
 
@@ -1877,23 +1877,57 @@
        reuse-if-valid logic, so reopening this for the same target within
        24 hours shows the same link rather than minting a new one. -->
   <div id="invite-modal-overlay" style="display:none;">
-    <div id="invite-modal">
+    <div id="invite-modal" role="dialog" aria-modal="true" aria-labelledby="invite-modal-title">
       <div class="view-header">
         <span id="invite-modal-title">Invite People</span>
         <button class="icon-btn" id="invite-modal-close" title="Close">&times;</button>
       </div>
-      <div class="view-body">
+      <p id="invite-modal-landing" class="invite-modal-landing"></p>
+      <input id="invite-modal-search" class="server-settings-input invite-modal-search" type="search" placeholder="Search for friends" autocomplete="off" spellcheck="false">
+      <div id="invite-modal-friend-rows" class="invite-modal-list"></div>
+      <p id="invite-modal-empty-note" class="invite-modal-empty" hidden>You have no friends to send this to yet.</p>
+      <div class="invite-modal-linkbox">
+        <div id="invite-modal-link-label" class="invite-modal-link-label">Or, send a server invite link to a friend</div>
         <div id="invite-link-row">
           <input type="text" id="invite-link-display" readonly>
           <button class="pill-btn" id="invite-copy-btn">Copy</button>
         </div>
         <div id="invite-copy-status"></div>
-        <div class="empty-note" id="invite-modal-empty-note">You have no friends to send this to yet.</div>
-        <div id="invite-modal-friend-rows"></div>
+        <p id="invite-modal-expiry" class="invite-modal-expiry"></p>
       </div>
-      <div id="invite-modal-footer">
-        <span id="invite-modal-count">0 selected</span>
-        <button class="pill-btn" id="invite-modal-send-btn">Send</button>
+    </div>
+  </div>
+
+  <div id="invite-settings-overlay" style="display:none;">
+    <div id="invite-settings-modal" role="dialog" aria-modal="true" aria-labelledby="invite-settings-title">
+      <div class="view-header">
+        <span id="invite-settings-title">Server invite link settings</span>
+        <button type="button" class="icon-btn" id="invite-settings-close" title="Close">&times;</button>
+      </div>
+      <div class="invite-settings-body">
+        <label class="invite-settings-label" for="invite-settings-age">Expire After</label>
+        <select id="invite-settings-age" class="invite-settings-select"></select>
+        <label class="invite-settings-label" for="invite-settings-uses">Max Number of Uses</label>
+        <select id="invite-settings-uses" class="invite-settings-select"></select>
+        <label class="invite-settings-label" for="invite-settings-roles">Roles (Optional)</label>
+        <select id="invite-settings-roles" class="invite-settings-select">
+          <option value="">Select Roles</option>
+        </select>
+        <div id="invite-settings-role-picks" class="invite-settings-picks"></div>
+        <div class="invite-settings-temp">
+          <div>
+            <div class="invite-settings-label">Grant temporary membership</div>
+            <p class="invite-settings-help">Temporary members are automatically kicked when they disconnect unless a role has been assigned.</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="invite-settings-temporary">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+        </div>
+      </div>
+      <div class="invite-settings-footer">
+        <button type="button" class="ghost-btn" id="invite-settings-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="invite-settings-generate">Generate a New Link</button>
       </div>
     </div>
   </div>
@@ -2023,8 +2057,8 @@
 <script src="online-toast.js?v=1"></script>
 <script src="friends.js?v=48"></script>
 <script src="parties.js?v=46"></script>
-<script src="invites.js?v=49"></script>
-<script src="server-invites.js?v=2"></script>
+<script src="invites.js?v=50"></script>
+<script src="server-invites.js?v=3"></script>
 <script src="server-bans.js?v=1"></script>
 <script src="server-privacy.js?v=2"></script>
 <script src="server-emojis.js?v=2"></script>

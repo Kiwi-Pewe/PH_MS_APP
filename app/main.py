@@ -17,7 +17,7 @@ from app.routers.servers import message_server_channel
 from app.routers.forums import send_forum_message
 from app.routers.docs import release_doc_locks
 from app.routers.voice import drop_voice_user, fanout_voice, notify_watchers, relay_voice_signal, relay_voice_speaking, set_voice_share, set_voice_watch
-from app.routers.invites import check_invites
+from app.routers.invites import check_invites, release_temporary_members
 from app.routers.connections import check_steam_playing
 from app.routers.admin import sweep_completed_feedback
 from app.routers.mentions import mentioned_user_ids, mention_user_map, mention_role_map, live_reply_to
@@ -371,3 +371,4 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
             del active_connections[current_user.id]
             set_viewer_focus(current_user.id, None)
             await notify_presence(database, current_user.id, "offline")
+            asyncio.create_task(release_temporary_members(current_user.id))

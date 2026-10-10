@@ -72,17 +72,17 @@ function paintServerInvitesTable() {
 
     const usesTd = document.createElement("td");
     usesTd.className = "server-invites-col-uses";
-    usesTd.textContent = String(invite.uses != null ? invite.uses : 0);
+    usesTd.textContent = invite.max_uses ? ((invite.uses || 0) + " / " + invite.max_uses) : String(invite.uses != null ? invite.uses : 0);
     tr.appendChild(usesTd);
 
     const expiresTd = document.createElement("td");
     expiresTd.className = "server-invites-col-expires";
-    expiresTd.textContent = formatInviteExpires(invite.expires_at);
+    expiresTd.textContent = Number(invite.max_age) === 0 ? "Never" : formatInviteExpires(invite.expires_at);
     tr.appendChild(expiresTd);
 
     const rolesTd = document.createElement("td");
     rolesTd.className = "server-invites-col-roles";
-    rolesTd.textContent = "";
+    rolesTd.textContent = (invite.roles || []).map((role) => role.name || "Role").join(", ");
     tr.appendChild(rolesTd);
 
     body.appendChild(tr);
@@ -173,14 +173,15 @@ function paintChannelInvitesTable(invites) {
     tr.appendChild(codeTd);
     const usesTd = document.createElement("td");
     usesTd.className = "server-invites-col-uses";
-    usesTd.textContent = String(invite.uses != null ? invite.uses : 0);
+    usesTd.textContent = invite.max_uses ? ((invite.uses || 0) + " / " + invite.max_uses) : String(invite.uses != null ? invite.uses : 0);
     tr.appendChild(usesTd);
     const expiresTd = document.createElement("td");
     expiresTd.className = "server-invites-col-expires";
-    expiresTd.textContent = formatInviteExpires(invite.expires_at);
+    expiresTd.textContent = Number(invite.max_age) === 0 ? "Never" : formatInviteExpires(invite.expires_at);
     tr.appendChild(expiresTd);
     const rolesTd = document.createElement("td");
     rolesTd.className = "server-invites-col-roles";
+    rolesTd.textContent = (invite.roles || []).map((role) => role.name || "Role").join(", ");
     tr.appendChild(rolesTd);
     body.appendChild(tr);
   });
@@ -216,7 +217,10 @@ function openChannelInvitesCreate() {
   if (!currentServerId || !channelSettingsTarget) return;
   if (typeof canInviteMembers === "function" && !canInviteMembers()) return;
   const name = channelSettingsTarget.name || "Channel";
-  if (typeof openInviteModal === "function") openInviteModal("server", currentServerId, name, channelSettingsTarget.id);
+  const serverName = typeof currentServerSettingsName === "function"
+    ? currentServerSettingsName()
+    : ((typeof serverList !== "undefined" && serverList.find((s) => s.id === currentServerId)) || {}).name || "Server";
+  if (typeof openInviteModal === "function") openInviteModal("server", currentServerId, serverName, channelSettingsTarget.id, name);
 }
 
 function openServerInvitesCreate() {

@@ -7993,7 +7993,6 @@ a.profile-link-row:hover { color: var(--accent); }
   color: var(--text-dim);
   font-size: 13px;
 }
-.server-invites-col-roles { min-width: 120px; }
 .server-invites-col-actions {
   width: 1%;
   white-space: nowrap;
@@ -8038,13 +8037,6 @@ a.profile-link-row:hover { color: var(--accent); }
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.server-invites-inviter-channel {
-  font-size: 12px;
-  color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

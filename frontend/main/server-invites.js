@@ -69,11 +69,7 @@ function paintServerInvitesTable() {
     name.className = "server-invites-inviter-name";
     const creator = invite.creator || {};
     name.textContent = creator.display_name || creator.username || "Unknown";
-    const channel = document.createElement("div");
-    channel.className = "server-invites-inviter-channel";
-    channel.textContent = invite.channel_name || "Unknown";
     labels.appendChild(name);
-    labels.appendChild(channel);
     inviter.appendChild(labels);
     inviterTd.appendChild(inviter);
     tr.appendChild(inviterTd);
@@ -92,11 +88,6 @@ function paintServerInvitesTable() {
     expiresTd.className = "server-invites-col-expires";
     expiresTd.textContent = Number(invite.max_age) === 0 ? "Never" : formatInviteExpires(invite.expires_at);
     tr.appendChild(expiresTd);
-
-    const rolesTd = document.createElement("td");
-    rolesTd.className = "server-invites-col-roles";
-    rolesTd.textContent = (invite.roles || []).map((role) => role.name || "Role").join(", ");
-    tr.appendChild(rolesTd);
     appendInviteStaff(tr, invite);
     if (invite.paused) tr.classList.add("is-paused");
 
@@ -167,7 +158,7 @@ function paintChannelInvitesTable(invites) {
     const tr = document.createElement("tr");
     tr.className = "server-invites-row is-empty-row";
     const td = document.createElement("td");
-    td.colSpan = 6;
+    td.colSpan = 5;
     td.className = "server-settings-help";
     td.textContent = "No active invite links for this channel.";
     tr.appendChild(td);
@@ -194,10 +185,6 @@ function paintChannelInvitesTable(invites) {
     expiresTd.className = "server-invites-col-expires";
     expiresTd.textContent = Number(invite.max_age) === 0 ? "Never" : formatInviteExpires(invite.expires_at);
     tr.appendChild(expiresTd);
-    const rolesTd = document.createElement("td");
-    rolesTd.className = "server-invites-col-roles";
-    rolesTd.textContent = (invite.roles || []).map((role) => role.name || "Role").join(", ");
-    tr.appendChild(rolesTd);
     appendInviteStaff(tr, invite);
     if (invite.paused) tr.classList.add("is-paused");
     body.appendChild(tr);

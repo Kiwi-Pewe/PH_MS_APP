@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=302">
+<link rel="stylesheet" href="app.css?v=303">
 </head>
 <body>
 
@@ -1781,19 +1781,39 @@
   </div>
 
   <div id="unban-overlay" style="display:none;">
-    <div id="unban-modal" role="dialog" aria-modal="true" aria-labelledby="unban-title">
-      <div class="view-header">
-        <span id="unban-title">Unban</span>
-        <button type="button" class="icon-btn" id="unban-close" title="Close">&times;</button>
+    <div id="unban-modal" class="unban-card" role="dialog" aria-modal="true" aria-labelledby="unban-display">
+      <div class="unban-card-top">
+        <div id="unban-face" class="avatar-dot unban-card-avatar"></div>
+        <div class="unban-card-names">
+          <div id="unban-display" class="unban-card-display"></div>
+          <div id="unban-account" class="unban-card-account"></div>
+        </div>
       </div>
-      <div class="view-body">
-        <div class="server-modal-label">Reason</div>
-        <p id="unban-reason" class="moderation-copy"></p>
+      <div class="unban-card-main">
+        <div class="unban-card-field">
+          <div class="unban-card-label">Banned By</div>
+          <div class="unban-card-by">
+            <div id="unban-by-face" class="avatar-dot unban-card-by-avatar"></div>
+            <div class="unban-card-names">
+              <div id="unban-by-display" class="unban-card-by-name"></div>
+              <div id="unban-by-account" class="unban-card-by-account"></div>
+            </div>
+          </div>
+        </div>
+        <div class="unban-card-field">
+          <div class="unban-card-label">Reason</div>
+          <div id="unban-reason" class="unban-card-value"></div>
+        </div>
+        <div class="unban-card-when">
+          <span>Banned on: <span id="unban-when"></span></span>
+          <span class="unban-card-split">|</span>
+          <span>Expires on: <span id="unban-expires"></span></span>
+        </div>
       </div>
-      <div id="unban-footer">
-        <p id="unban-error" class="server-settings-help" hidden></p>
-        <button type="button" class="ghost-btn" id="unban-cancel">Cancel</button>
-        <button type="button" class="deny-btn" id="unban-confirm">Unban</button>
+      <div class="unban-card-bottom">
+        <p id="unban-error" class="unban-card-error" hidden></p>
+        <button type="button" id="unban-cancel">Cancel</button>
+        <button type="button" id="unban-confirm">Unban</button>
       </div>
     </div>
   </div>
@@ -2078,7 +2098,7 @@
 <script src="parties.js?v=46"></script>
 <script src="invites.js?v=50"></script>
 <script src="server-invites.js?v=5"></script>
-<script src="server-bans.js?v=2"></script>
+<script src="server-bans.js?v=3"></script>
 <script src="server-privacy.js?v=2"></script>
 <script src="server-emojis.js?v=2"></script>
 <script src="server-integrations.js?v=1"></script>

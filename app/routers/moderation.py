@@ -348,6 +348,7 @@ def serialize_settings_ban(database, row, user_lookup):
             "id": actor.id,
             "username": actor.username,
             "display_name": public_display_name(actor),
+            "avatar": public_avatar(actor),
         }
     return payload
 

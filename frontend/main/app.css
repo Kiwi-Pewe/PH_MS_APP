@@ -3447,21 +3447,126 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   background: rgba(0, 0, 0, 0.6);
   display: flex; align-items: center; justify-content: center;
 }
-#unban-modal {
-  width: 440px;
-  max-width: calc(100vw - 32px);
-  background: var(--panel); border: 1px solid var(--accent-submenu); border-radius: 10px;
-  display: flex; flex-direction: column; overflow: hidden;
+.unban-card {
+  width: min(480px, calc(100vw - 32px));
+  display: grid;
+  grid-template-rows: auto auto auto;
+  background: var(--panel);
+  border: 1px solid var(--accent-submenu);
+  border-radius: 10px;
+  overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 }
-#unban-modal .view-header { height: auto; padding: 16px 16px 0; border-bottom: none; }
-#unban-modal .view-body { padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 8px; }
-#unban-reason { white-space: pre-wrap; word-break: break-word; }
-#unban-footer {
-  flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px;
-  padding: 0 16px 16px; flex-wrap: wrap;
+.unban-card-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--rail);
 }
-#unban-error { margin: 0 auto 0 0; flex: 1 1 100%; }
+.unban-card-avatar {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+}
+.unban-card-names { min-width: 0; }
+.unban-card-display {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.unban-card-account {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.unban-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+}
+.unban-card-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.unban-card-by {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.unban-card-by-avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+}
+.unban-card-by-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.unban-card-by-account {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.unban-card-value {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.unban-card-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.unban-card-when span span { color: var(--text); font-weight: 600; }
+.unban-card-split { color: var(--text-dim); font-weight: 700; }
+.unban-card-bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--rail);
+}
+.unban-card-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+.unban-card-bottom > button {
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+}
+#unban-cancel { justify-self: start; }
+#unban-confirm {
+  justify-self: end;
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
 
 /* ---- Announcement composer (inline, not a modal) ---- */
 /* Two states living in the SAME .announce-composer-bar slot, toggled by

@@ -15,11 +15,23 @@ function setServerBansStatus(text) {
   status.textContent = text || "";
 }
 
-function formatBanStamp(ts) {
-  if (!ts) return "—";
+function banDate(ts) {
+  if (!ts) return null;
   const date = typeof parseUtcTimestamp === "function" ? parseUtcTimestamp(ts) : new Date(ts);
-  if (!date || Number.isNaN(date.getTime())) return "—";
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function formatBanStamp(ts) {
+  const date = banDate(ts);
+  if (!date) return "—";
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatBanDateTime(ts) {
+  const date = banDate(ts);
+  if (!date) return "—";
+  return date.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 function formatBanExpires(ban) {
@@ -146,6 +158,9 @@ async function loadServerBansPage(force) {
       if (ban.user && typeof rememberIdentityFace === "function") {
         rememberIdentityFace(ban.user.id, ban.user.avatar);
       }
+      if (ban.actor && typeof rememberIdentityFace === "function") {
+        rememberIdentityFace(ban.actor.id, ban.actor.avatar);
+      }
     });
     paintServerBansList();
   } catch (e) {
@@ -167,18 +182,41 @@ function closeUnbanModal() {
   unbanDraft = null;
 }
 
+function paintUnbanFace(el, person) {
+  if (!el) return;
+  el.innerHTML = "";
+  if (!person || !person.id || typeof paintUserFace !== "function") return;
+  paintUserFace(el, person, { name: person.username, userId: person.id });
+}
+
 function openUnbanModal(ban) {
   if (!ban || !currentServerId) return;
   const overlay = document.getElementById("unban-overlay");
-  const title = document.getElementById("unban-title");
+  const display = document.getElementById("unban-display");
+  const account = document.getElementById("unban-account");
   const reason = document.getElementById("unban-reason");
+  const when = document.getElementById("unban-when");
+  const expires = document.getElementById("unban-expires");
+  const byDisplay = document.getElementById("unban-by-display");
+  const byAccount = document.getElementById("unban-by-account");
   const err = document.getElementById("unban-error");
   const confirm = document.getElementById("unban-confirm");
-  if (!overlay || !title || !reason) return;
+  if (!overlay || !display || !reason) return;
   const user = ban.user || {};
+  const actor = ban.actor || {};
   unbanDraft = { user_id: user.id || ban.user_id };
-  title.textContent = user.username || user.display_name || ("User " + (ban.user_id || ""));
+  display.textContent = user.display_name || user.username || ("User " + (ban.user_id || ""));
+  account.textContent = user.username || String(ban.user_id || "");
+  byDisplay.textContent = actor.display_name || actor.username || "—";
+  if (byAccount) {
+    byAccount.textContent = actor.username || "";
+    byAccount.hidden = !actor.username;
+  }
   reason.textContent = ban.reason ? ban.reason : "—";
+  if (when) when.textContent = formatBanStamp(ban.created_at);
+  if (expires) expires.textContent = ban.expires_at ? formatBanDateTime(ban.expires_at) : "Never";
+  paintUnbanFace(document.getElementById("unban-face"), user.id ? user : null);
+  paintUnbanFace(document.getElementById("unban-by-face"), actor.id ? actor : null);
   if (err) {
     err.hidden = true;
     err.textContent = "";
@@ -226,11 +264,9 @@ async function confirmUnban() {
     });
   }
   if (btn) btn.addEventListener("click", runServerBansSearch);
-  const close = document.getElementById("unban-close");
   const cancel = document.getElementById("unban-cancel");
   const confirm = document.getElementById("unban-confirm");
   const overlay = document.getElementById("unban-overlay");
-  if (close) close.addEventListener("click", closeUnbanModal);
   if (cancel) cancel.addEventListener("click", closeUnbanModal);
   if (confirm) confirm.addEventListener("click", confirmUnban);
   if (overlay) {

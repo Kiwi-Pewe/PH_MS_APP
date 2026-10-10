@@ -453,16 +453,29 @@ function showPartyContextMenu(e, id, name, memberCount) {
   ]);
 }
 
+function serverContextReference(serverId, name) {
+  let icon = "";
+  if (typeof currentServerId !== "undefined" && String(currentServerId) === String(serverId) && currentServerData && currentServerData.icon_url) {
+    icon = currentServerData.icon_url;
+  }
+  if (!icon && typeof serverList !== "undefined") {
+    const meta = (serverList || []).find((row) => row && String(row.id) === String(serverId));
+    if (meta && meta.icon_url) icon = meta.icon_url;
+  }
+  return {
+    image: icon,
+    avatarText: typeof serverAvatarLetters === "function" ? serverAvatarLetters(name) : (name || "?").slice(0, 2),
+    title: name || ""
+  };
+}
+
 function showServerContextMenu(e, id, name, ownerId) {
   e.preventDefault();
   const x = e.clientX;
   const y = e.clientY;
   const open = (prefs) => {
     const muted = !!(prefs && prefs.muted);
-    openContextMenu(x, y, {
-      avatarText: serverAvatarLetters(name),
-      title: name
-    }, [
+    openContextMenu(x, y, serverContextReference(id, name), [
       (id === currentServerId
         ? (typeof canInviteMembers === "function" ? canInviteMembers() : true)
         : true) && { label: "Invite People", onSelect: () => openInviteModal("server", id, name) },
@@ -552,7 +565,7 @@ function showServerHeaderMenu(e) {
       },
       { label: "Hide Muted Channels", disabled: true }
     );
-    openContextMenu(rect.left, rect.bottom, null, options);
+    openContextMenu(rect.left, rect.bottom, serverContextReference(serverId, name), options);
   };
 
   if (typeof loadServerNotifyPrefs === "function") {

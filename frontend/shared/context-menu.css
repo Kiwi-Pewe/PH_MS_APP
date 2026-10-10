@@ -41,6 +41,12 @@
   font-weight: 600;
   color: var(--text);
 }
+.context-menu-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 
 .context-menu-reference-text {
   min-width: 0;

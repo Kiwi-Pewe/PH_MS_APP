@@ -101,7 +101,13 @@ function buildReferenceArea(reference) {
 
   const avatar = document.createElement("div");
   avatar.className = "context-menu-avatar";
-  if (typeof paintUserFace === "function" && (reference.avatar || reference.userId)) {
+  if (reference.image) {
+    const img = document.createElement("img");
+    img.className = "context-menu-avatar-img";
+    img.src = reference.image;
+    img.alt = "";
+    avatar.appendChild(img);
+  } else if (typeof paintUserFace === "function" && (reference.avatar || reference.userId)) {
     paintUserFace(avatar, { avatar: reference.avatar, id: reference.userId, username: reference.title }, { name: reference.title || reference.avatarText, userId: reference.userId });
   } else {
     avatar.textContent = reference.avatarText || "?";

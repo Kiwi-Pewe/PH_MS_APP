@@ -687,6 +687,35 @@ def get_server_roles(server_id: str, database: Session = Depends(get_db), curren
     }
 
 
+def role_audit_changes(before, row, perms):
+    changes = []
+    if (row.name or "") != (before["name"] or ""):
+        changes.append({"key": "name", "kind": "text", "from": before["name"] or "", "to": row.name or ""})
+    if clean_role_color(row.color) != clean_role_color(before["color"]):
+        changes.append({
+            "key": "color",
+            "kind": "color",
+            "from": clean_role_color(before["color"]),
+            "to": clean_role_color(row.color),
+        })
+    flags = (
+        ("mentionable", "mentionable", bool(row.mentionable)),
+        ("hoist", "hoist", bool(row.hoist)),
+        ("nameColor", "name_color", bool(row.name_color)),
+        ("selfAssign", "self_assignable", bool(row.self_assignable)),
+    )
+    for key, src, now in flags:
+        was = bool(before[src])
+        if now != was:
+            changes.append({"key": key, "kind": "toggle", "from": was, "to": now})
+    for key in LIVE_ROLE_PERMS:
+        now = bool(perms.get(key))
+        was = bool(before["perms"].get(key))
+        if now != was:
+            changes.append({"key": "perm:" + key, "kind": "toggle", "from": was, "to": now})
+    return changes
+
+
 @router.post("/save_server_roles")
 async def save_server_roles(body: Server_roles_save, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server = require_server_member(database, body.server_id, current_user.id)
@@ -703,6 +732,8 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
 
     saved = []
     created_ids = []
+    audit_roles = []
+    order_changed = False
     for item in body.roles or []:
         name = clean_role_name(item.name)
         color = clean_role_color(item.color)
@@ -716,7 +747,18 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
             row = existing[item.id]
             if not can_manage_target_role(is_owner, actor_highest, row):
                 raise HTTPException(status_code=403, detail="You can only change roles below yours.")
-            perms = clamp_role_perms(perms, parse_role_perms(row), actor_perms, is_owner)
+            before_perms = parse_role_perms(row)
+            perms = clamp_role_perms(perms, before_perms, actor_perms, is_owner)
+            before = {
+                "name": row.name or "",
+                "color": row.color,
+                "position": int(row.position or 0),
+                "mentionable": bool(row.mentionable),
+                "hoist": bool(row.hoist),
+                "name_color": bool(row.name_color),
+                "self_assignable": bool(row.self_assignable),
+                "perms": before_perms,
+            }
             if row.is_members:
                 row.name = clean_role_name(item.name, "Members")
                 row.position = MEMBERS_POSITION
@@ -729,6 +771,17 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
             row.name_color = name_color
             row.self_assignable = False if row.is_members else self_assignable
             row.permissions = json.dumps(perms)
+            if int(row.position or 0) != before["position"]:
+                order_changed = True
+            changes = role_audit_changes(before, row, perms)
+            if changes:
+                audit_roles.append({
+                    "id": row.id,
+                    "name": row.name,
+                    "color": row.color,
+                    "created": False,
+                    "changes": changes,
+                })
             saved.append({"client_id": item.client_id or "", "role": row})
         elif item.id:
             raise HTTPException(status_code=404, detail="Role not found")
@@ -755,11 +808,21 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
             database.add(row)
             database.flush()
             created_ids.append(row.id)
+            order_changed = True
+            audit_roles.append({
+                "id": row.id,
+                "name": row.name,
+                "color": row.color,
+                "created": True,
+                "changes": [{"key": "created", "kind": "created"}],
+            })
             saved.append({"client_id": item.client_id or "", "role": row})
 
     write_audit_log(database, server.id, current_user.id, "roles_modified", "roles", members_row.id if members_row else 0, {
         "updated_ids": [item["role"].id for item in saved if item["role"].id not in created_ids],
         "created_ids": created_ids,
+        "roles": audit_roles,
+        "order_changed": order_changed,
     })
     database.commit()
     payload_roles = list_server_roles(database, server.id)

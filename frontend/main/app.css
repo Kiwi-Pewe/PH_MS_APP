@@ -8648,6 +8648,7 @@ a.profile-link-row:hover { color: var(--accent); }
   white-space: nowrap;
 }
 .server-audit-table tbody tr:last-child td { border-bottom: none; }
+.server-audit-table tbody tr { cursor: pointer; }
 .server-audit-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
 .server-audit-user {
   display: flex;
@@ -8681,6 +8682,96 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 #server-audit-empty,
 #server-audit-status { margin-top: 12px; }
+
+#audit-entry-overlay {
+  position: fixed; inset: 0; z-index: 960;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+.audit-entry-card {
+  width: min(480px, calc(100vw - 32px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: min(640px, calc(100vh - 32px));
+  background: var(--panel);
+  border: 1px solid var(--accent-submenu);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.audit-entry-card.is-roles { width: min(560px, calc(100vw - 32px)); }
+.audit-entry-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--rail);
+}
+.audit-entry-avatar {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+}
+.audit-entry-names { min-width: 0; }
+.audit-entry-display {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.audit-entry-account {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.audit-entry-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.audit-entry-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.audit-entry-value {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.audit-entry-main .server-roles-review-role + .server-roles-review-role {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.audit-entry-bottom {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--rail);
+}
+.audit-entry-bottom > button {
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+}
 
 #delete-server-overlay,
 #delete-account-overlay {

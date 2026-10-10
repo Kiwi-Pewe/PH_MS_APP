@@ -7,7 +7,7 @@ from app.models import UserInfo, Audit_log
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.roles import require_server_member, require_server_perm
-from app.routers.profile import public_avatar
+from app.routers.profile import public_avatar, public_display_name
 
 router = APIRouter()
 
@@ -92,6 +92,7 @@ def serialize_audit_row(row, actor):
         "id": row.id,
         "actor_id": row.actor_id,
         "actor_username": actor.username if actor else None,
+        "actor_display_name": public_display_name(actor) if actor else None,
         "actor_avatar": public_avatar(actor) if actor else None,
         "action": action,
         "action_label": ACTION_LABELS.get(action, action.replace("_", " ").title() if action else "Event"),

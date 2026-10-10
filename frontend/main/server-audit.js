@@ -195,81 +195,6 @@ function auditEntryFields(row) {
   return fields;
 }
 
-function appendAuditRoleReview(host, detail) {
-  if (detail.order_changed) {
-    const order = document.createElement("div");
-    order.className = "server-roles-review-row";
-    const label = document.createElement("div");
-    label.className = "server-roles-review-label";
-    label.textContent = "Role order";
-    order.appendChild(label);
-    host.appendChild(order);
-  }
-  (detail.roles || []).forEach((role) => {
-    const wrap = document.createElement("div");
-    wrap.className = "server-roles-review-role";
-    const header = document.createElement("button");
-    header.type = "button";
-    header.className = "server-roles-review-head is-open";
-    header.setAttribute("aria-expanded", "true");
-    const name = document.createElement("span");
-    name.className = "server-roles-review-head-name";
-    name.style.color = role.color || "";
-    name.textContent = role.name || "Role";
-    const caret = document.createElement("span");
-    caret.className = "server-roles-review-caret";
-    caret.textContent = "▾";
-    header.appendChild(name);
-    header.appendChild(caret);
-    const list = document.createElement("div");
-    list.className = "server-roles-review-list";
-    (role.changes || []).forEach((change) => {
-      const row = document.createElement("div");
-      row.className = "server-roles-review-row";
-      const copy = document.createElement("div");
-      copy.className = "server-roles-review-copy";
-      const label = document.createElement("div");
-      label.className = "server-roles-review-label";
-      label.textContent = auditRoleChangeLabel(change);
-      copy.appendChild(label);
-      if (change.kind !== "created") {
-        const diff = document.createElement("div");
-        diff.className = "server-roles-review-diff";
-        if (typeof paintChangeValue === "function") {
-          diff.appendChild(paintChangeValue(change.kind, change.from));
-        } else {
-          const from = document.createElement("span");
-          from.textContent = change.from == null ? "" : String(change.from);
-          diff.appendChild(from);
-        }
-        const arrow = document.createElement("span");
-        arrow.textContent = "→";
-        diff.appendChild(arrow);
-        if (typeof paintChangeValue === "function") {
-          diff.appendChild(paintChangeValue(change.kind, change.to));
-        } else {
-          const to = document.createElement("span");
-          to.textContent = change.to == null ? "" : String(change.to);
-          diff.appendChild(to);
-        }
-        copy.appendChild(diff);
-      }
-      row.appendChild(copy);
-      list.appendChild(row);
-    });
-    header.addEventListener("click", () => {
-      const open = !header.classList.contains("is-open");
-      header.classList.toggle("is-open", open);
-      header.setAttribute("aria-expanded", open ? "true" : "false");
-      caret.textContent = open ? "▾" : "▸";
-      list.hidden = !open;
-    });
-    wrap.appendChild(header);
-    wrap.appendChild(list);
-    host.appendChild(wrap);
-  });
-}
-
 function closeAuditEntry() {
   const overlay = document.getElementById("audit-entry-overlay");
   if (overlay) overlay.style.display = "none";
@@ -302,12 +227,30 @@ function openAuditEntry(row) {
     }
   }
   main.innerHTML = "";
-  appendAuditField(main, "Action", row.action_label || row.action || "Event");
-  appendAuditField(main, "When", formatAuditWhen(row.created_at) || "—");
-  const review = auditEntryUsesRoleReview(row);
+  const review = auditEntryUsesRoleReview(row) && typeof paintRoleReviewCard === "function";
   if (card) card.classList.toggle("is-roles", review);
-  if (review) appendAuditRoleReview(main, row.detail || {});
-  else auditEntryFields(row).forEach((field) => appendAuditField(main, field.label, field.value));
+  if (review) {
+    const host = document.createElement("div");
+    host.className = "audit-entry-role-review";
+    const detail = row.detail || {};
+    paintRoleReviewCard(host, {
+      orderChanged: !!detail.order_changed,
+      roles: (detail.roles || []).map((role) => ({
+        id: role.id,
+        name: role.name,
+        color: role.color,
+        changes: (role.changes || []).map((change) => Object.assign({}, change, {
+          label: auditRoleChangeLabel(change),
+        })),
+      })),
+      onClose: () => closeAuditEntry(),
+    });
+    main.appendChild(host);
+  } else {
+    appendAuditField(main, "Action", row.action_label || row.action || "Event");
+    appendAuditField(main, "When", formatAuditWhen(row.created_at) || "—");
+    auditEntryFields(row).forEach((field) => appendAuditField(main, field.label, field.value));
+  }
   overlay.style.display = "flex";
 }
 

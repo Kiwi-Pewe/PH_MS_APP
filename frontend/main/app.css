@@ -8699,7 +8699,26 @@ a.profile-link-row:hover { color: var(--accent); }
   overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
 }
-.audit-entry-card.is-roles { width: min(560px, calc(100vw - 32px)); }
+.audit-entry-card.is-roles {
+  width: 280px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+  display: block;
+  max-height: none;
+}
+.audit-entry-card.is-roles .audit-entry-top,
+.audit-entry-card.is-roles .audit-entry-bottom { display: none; }
+.audit-entry-card.is-roles .audit-entry-main {
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+}
+.audit-entry-role-review .server-roles-review-card {
+  width: 280px;
+  max-height: min(640px, calc(100vh - 32px));
+}
 .audit-entry-top {
   display: flex;
   align-items: center;

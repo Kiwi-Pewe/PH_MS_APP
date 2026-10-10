@@ -826,27 +826,28 @@ function paintChangeValue(kind, value) {
   return text;
 }
 
-function paintServerRolesReview() {
-  const host = document.getElementById("server-roles-review");
+function paintRoleReviewCard(host, spec) {
   if (!host) return;
-  const dirty = dirtyServerRoles();
-  const orderDirty = serverRoleOrderDirty();
-  host.hidden = dirty.length === 0 && !orderDirty;
+  const roles = (spec && spec.roles) || [];
+  const orderChanged = !!(spec && spec.orderChanged);
   host.innerHTML = "";
-  if (!dirty.length && !orderDirty) return;
+  host.hidden = !orderChanged && roles.length === 0;
+  if (host.hidden) return;
 
   const card = document.createElement("div");
   card.className = "server-roles-review-card";
-
-  const title = document.createElement("div");
-  title.className = "server-settings-field-title";
-  title.textContent = "Unsaved changes";
-  card.appendChild(title);
+  if (spec.title) {
+    const title = document.createElement("div");
+    title.className = "server-settings-field-title";
+    title.textContent = spec.title;
+    card.appendChild(title);
+  }
 
   const body = document.createElement("div");
   body.className = "server-roles-review-body";
+  const openState = spec.openState || {};
 
-  if (orderDirty) {
+  if (orderChanged) {
     const row = document.createElement("div");
     row.className = "server-roles-review-row";
     const copy = document.createElement("div");
@@ -856,22 +857,24 @@ function paintServerRolesReview() {
     label.textContent = "Role order";
     copy.appendChild(label);
     row.appendChild(copy);
-    const revert = document.createElement("button");
-    revert.type = "button";
-    revert.className = "ghost-btn";
-    revert.textContent = "Revert";
-    revert.addEventListener("click", () => revertServerRoleOrder());
-    row.appendChild(revert);
+    if (spec.onRevertOrder) {
+      const revert = document.createElement("button");
+      revert.type = "button";
+      revert.className = "ghost-btn";
+      revert.textContent = "Revert";
+      revert.addEventListener("click", () => spec.onRevertOrder());
+      row.appendChild(revert);
+    }
     body.appendChild(row);
   }
 
-  dirty.forEach((role) => {
+  roles.forEach((role) => {
     const wrap = document.createElement("div");
     wrap.className = "server-roles-review-role";
     const header = document.createElement("button");
     header.type = "button";
     header.className = "server-roles-review-head";
-    const open = serverRolesReviewOpen[role.id] !== false;
+    const open = openState[role.id] !== false;
     header.classList.toggle("is-open", open);
     header.setAttribute("aria-expanded", open ? "true" : "false");
     const name = document.createElement("span");
@@ -884,21 +887,28 @@ function paintServerRolesReview() {
     header.appendChild(name);
     header.appendChild(caret);
     header.addEventListener("click", () => {
-      serverRolesReviewOpen[role.id] = !open;
-      paintServerRolesReview();
+      if (spec.onToggle) spec.onToggle(role.id, !open);
+      else {
+        const next = !header.classList.contains("is-open");
+        header.classList.toggle("is-open", next);
+        header.setAttribute("aria-expanded", next ? "true" : "false");
+        caret.textContent = next ? "▾" : "▸";
+        const list = wrap.querySelector(".server-roles-review-list");
+        if (list) list.hidden = !next;
+      }
     });
     wrap.appendChild(header);
     if (open) {
       const list = document.createElement("div");
       list.className = "server-roles-review-list";
-      roleChanges(role).forEach((change) => {
+      (role.changes || []).forEach((change) => {
         const row = document.createElement("div");
         row.className = "server-roles-review-row";
         const copy = document.createElement("div");
         copy.className = "server-roles-review-copy";
         const label = document.createElement("div");
         label.className = "server-roles-review-label";
-        label.textContent = change.label;
+        label.textContent = change.label || change.key || "";
         copy.appendChild(label);
         if (change.kind !== "created") {
           const diff = document.createElement("div");
@@ -911,12 +921,14 @@ function paintServerRolesReview() {
           copy.appendChild(diff);
         }
         row.appendChild(copy);
-        const revert = document.createElement("button");
-        revert.type = "button";
-        revert.className = "ghost-btn";
-        revert.textContent = "Revert";
-        revert.addEventListener("click", () => revertRoleChange(role, change));
-        row.appendChild(revert);
+        if (spec.onRevertChange) {
+          const revert = document.createElement("button");
+          revert.type = "button";
+          revert.className = "ghost-btn";
+          revert.textContent = "Revert";
+          revert.addEventListener("click", () => spec.onRevertChange(role, change));
+          row.appendChild(revert);
+        }
         list.appendChild(row);
       });
       wrap.appendChild(list);
@@ -925,32 +937,74 @@ function paintServerRolesReview() {
   });
   card.appendChild(body);
 
-  if (serverRolesSaveError) {
+  if (spec.error) {
     const err = document.createElement("p");
     err.className = "server-settings-help";
     err.style.color = "var(--danger)";
-    err.textContent = serverRolesSaveError;
+    err.textContent = spec.error;
     card.appendChild(err);
   }
 
-  const actions = document.createElement("div");
-  actions.className = "server-roles-review-actions";
-  const confirm = document.createElement("button");
-  confirm.type = "button";
-  confirm.className = "settings-row-btn";
-  confirm.textContent = "Confirm";
-  confirm.disabled = serverRolesSaving;
-  confirm.addEventListener("click", () => confirmServerRoles());
-  const cancel = document.createElement("button");
-  cancel.type = "button";
-  cancel.className = "ghost-btn";
-  cancel.textContent = "Cancel";
-  cancel.disabled = serverRolesSaving;
-  cancel.addEventListener("click", () => cancelServerRoles());
-  actions.appendChild(confirm);
-  actions.appendChild(cancel);
-  card.appendChild(actions);
+  if (spec.onConfirm || spec.onCancel || spec.onClose) {
+    const actions = document.createElement("div");
+    actions.className = "server-roles-review-actions";
+    if (spec.onConfirm) {
+      const confirm = document.createElement("button");
+      confirm.type = "button";
+      confirm.className = "settings-row-btn";
+      confirm.textContent = "Confirm";
+      confirm.disabled = !!spec.busy;
+      confirm.addEventListener("click", () => spec.onConfirm());
+      actions.appendChild(confirm);
+    }
+    if (spec.onCancel) {
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "ghost-btn";
+      cancel.textContent = "Cancel";
+      cancel.disabled = !!spec.busy;
+      cancel.addEventListener("click", () => spec.onCancel());
+      actions.appendChild(cancel);
+    }
+    if (spec.onClose) {
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "ghost-btn";
+      close.textContent = "Close";
+      close.addEventListener("click", () => spec.onClose());
+      actions.appendChild(close);
+    }
+    card.appendChild(actions);
+  }
   host.appendChild(card);
+}
+
+function paintServerRolesReview() {
+  const host = document.getElementById("server-roles-review");
+  if (!host) return;
+  const dirty = dirtyServerRoles();
+  paintRoleReviewCard(host, {
+    title: "Unsaved changes",
+    orderChanged: serverRoleOrderDirty(),
+    roles: dirty.map((role) => ({
+      id: role.id,
+      name: role.name,
+      color: role.color,
+      source: role,
+      changes: roleChanges(role),
+    })),
+    openState: serverRolesReviewOpen,
+    error: serverRolesSaveError,
+    busy: serverRolesSaving,
+    onToggle: (id, next) => {
+      serverRolesReviewOpen[id] = next;
+      paintServerRolesReview();
+    },
+    onRevertOrder: () => revertServerRoleOrder(),
+    onRevertChange: (role, change) => revertRoleChange(role.source, change),
+    onConfirm: () => confirmServerRoles(),
+    onCancel: () => cancelServerRoles(),
+  });
 }
 
 function addServerRoleLocal() {

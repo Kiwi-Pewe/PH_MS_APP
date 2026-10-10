@@ -3,7 +3,7 @@
 # under /invite/ANYTHING serves invite.html, which reads the code back
 # out of window.location.pathname itself (see invite.js).
 /invite/* /invite.html 200
-/profile/* /main/app.html 200
+/profile/* /main/app 200
 /community /main/app.html 200
 /announcements /main/app.html 200
 /messages /main/app.html 200

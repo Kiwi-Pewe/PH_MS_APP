@@ -7994,6 +7994,28 @@ a.profile-link-row:hover { color: var(--accent); }
   font-size: 13px;
 }
 .server-invites-col-roles { min-width: 120px; }
+.server-invites-col-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+.server-invites-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.server-invites-row-pause,
+.server-invites-row-revoke {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+.server-invites-row-pause:disabled,
+.server-invites-row-revoke:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.server-invites-row.is-paused td { opacity: 0.55; }
+.server-invites-row.is-paused .server-invites-col-actions { opacity: 1; }
 .server-invites-inviter {
   display: flex;
   align-items: center;
@@ -8028,7 +8050,8 @@ a.profile-link-row:hover { color: var(--accent); }
   text-overflow: ellipsis;
 }
 #server-invites-empty,
-#server-invites-status {
+#server-invites-status,
+#channel-settings-invites-status {
   margin-top: 12px;
 }
 

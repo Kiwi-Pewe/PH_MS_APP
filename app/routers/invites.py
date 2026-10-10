@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Server_roles, Server_role_members, Channel_messages, Parties, Party_members, Party_messages, Invite_model, Audit_log
-from app.schemas import Invite
+from app.schemas import Invite, Invite_staff
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user, get_optional_user
 from app.routers.realtime import active_connections, serialize_member, server_broadcast, party_broadcast
@@ -123,6 +123,31 @@ def is_invite_valid(invite: Invite_model, database=None):
     return is_invite_fresh(invite, limits["max_age"])
 
 
+def invite_paused(database, invite):
+    if not database or getattr(invite, "type", None) != "server" or not invite.server_id or not invite.code:
+        return False
+    row = database.query(Audit_log).filter(
+        Audit_log.server_id == invite.server_id,
+        Audit_log.action.in_(("pause_invite", "unpause_invite")),
+        Audit_log.detail.like('%"code": "' + invite.code + '"%'),
+    ).order_by(Audit_log.id.desc()).first()
+    if not row or not row.detail:
+        return False
+    try:
+        detail = json.loads(row.detail)
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(detail, dict) or detail.get("code") != invite.code:
+        return False
+    return row.action == "pause_invite"
+
+
+def invite_joinable(invite, database):
+    if not invite or not is_invite_valid(invite, database):
+        return False
+    return not invite_paused(database, invite)
+
+
 def invite_expires_at(invite, max_age=None):
     if max_age == 0:
         return None
@@ -191,6 +216,7 @@ def serialize_settings_invite(database, invite):
         "channel_id": invite.channel_id if channel else None,
         "channel_name": channel.name if channel else None,
         "roles": roles,
+        "paused": invite_paused(database, invite),
         "creator": None,
     }
     if creator:
@@ -215,6 +241,63 @@ def server_settings_invites(server_id: str, database: Session = Depends(get_db),
     return {"server_id": server_id, "invites": invites}
 
 
+def require_invite_code(code):
+    code = (code or "").strip().upper()
+    alphabet = "234679ACDEFGHJKLMNPQRTUVWXYZ"
+    if len(code) != 8 or any(ch not in alphabet for ch in code):
+        raise HTTPException(status_code=404, detail="Invite not found")
+    return code
+
+
+def can_staff_invite(database, server, user, invite):
+    if server.owner_id == user.id:
+        return True
+    perms = effective_perms_for_user(database, server, user.id)
+    if perms.get("update_server"):
+        return True
+    return invite.creator_id == user.id and bool(perms.get("invite_members"))
+
+
+def server_invite_for_staff(database, server_id, code, user):
+    server = require_server_member(database, server_id, user.id)
+    require_server_invites(database, server, user.id)
+    invite = database.query(Invite_model).filter(
+        Invite_model.code == code,
+        Invite_model.server_id == server_id,
+        Invite_model.type == "server",
+    ).first()
+    if not invite or not is_invite_valid(invite, database):
+        raise HTTPException(status_code=404, detail="Invite not found")
+    if not can_staff_invite(database, server, user, invite):
+        raise HTTPException(status_code=403, detail="You do not have permission to manage this invite.")
+    return server, invite
+
+
+@router.post("/pause_server_invite")
+def pause_server_invite(body: Invite_staff, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    code = require_invite_code(body.code)
+    server, invite = server_invite_for_staff(database, body.server_id, code, current_user)
+    paused = not invite_paused(database, invite)
+    write_audit_log(
+        database, server.id, current_user.id,
+        "pause_invite" if paused else "unpause_invite",
+        "invite", invite.id,
+        {"code": invite.code, "paused": paused},
+    )
+    database.commit()
+    return {"code": invite.code, "paused": paused}
+
+
+@router.post("/revoke_server_invite")
+def revoke_server_invite(body: Invite_staff, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    code = require_invite_code(body.code)
+    server, invite = server_invite_for_staff(database, body.server_id, code, current_user)
+    write_audit_log(database, server.id, current_user.id, "revoke_invite", "invite", invite.id, {"code": invite.code})
+    database.delete(invite)
+    database.commit()
+    return {"code": code, "revoked": True}
+
+
 async def check_invites():
     while True:
         await asyncio.sleep(1800)
@@ -231,7 +314,7 @@ async def check_invites():
 @router.post("/accept_invite")
 async def accept_invite(code: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     invite = database.query(Invite_model).filter(Invite_model.code == code).first()
-    if not invite or not is_invite_valid(invite, database):
+    if not invite_joinable(invite, database):
         raise HTTPException(status_code=404, detail= "Invite not found")
 
     if invite.type == "server":
@@ -471,7 +554,7 @@ def create_invite(type: Invite, database: Session = Depends(get_db), current_use
 @router.get("/invite/{code}")
 def get_invite_info(code: str, database: Session = Depends(get_db), current_user: UserInfo | None = Depends(get_optional_user)):
     invite = database.query(Invite_model).filter(Invite_model.code == code).first()
-    if not invite or not is_invite_valid(invite, database):
+    if not invite_joinable(invite, database):
         return {"valid": False}
     if invite.type == "server" and current_user and active_ban(database, invite.server_id, current_user.id):
         return {"valid": False}

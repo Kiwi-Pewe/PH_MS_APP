@@ -15,6 +15,9 @@ ACTION_LABELS = {
     "member_joined": "Member Joined",
     "member_left": "Member Left",
     "create_invite": "Invite Created",
+    "pause_invite": "Invite Paused",
+    "unpause_invite": "Invite Unpaused",
+    "revoke_invite": "Invite Revoked",
     "kick_member": "Member Kicked",
     "ban_member": "Member Banned",
     "timeout_member": "Member Timed Out",
@@ -50,7 +53,7 @@ def detail_summary(action, target_type, detail):
         if reason:
             bits.append(reason)
         return " — ".join(bits) if bits else (target_type or "")
-    if action == "create_invite":
+    if action in ("create_invite", "pause_invite", "unpause_invite", "revoke_invite"):
         code = d.get("code") or ""
         return f"Code {code}" if code else "Invite link"
     if action == "roles_modified":

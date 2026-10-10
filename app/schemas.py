@@ -328,6 +328,10 @@ class Invite(BaseModel):
     temporary: bool = False
     replace: bool = False
 
+class Invite_staff(BaseModel):
+    server_id: str
+    code: str
+
 class Server_moderation_in(BaseModel):
     server_id: str
     user_id: int

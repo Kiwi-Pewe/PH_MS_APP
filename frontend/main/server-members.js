@@ -467,10 +467,12 @@ function paintMemberPrune() {
   const confirm = document.getElementById("member-prune-confirm");
   if (!body) return;
   body.innerHTML = "";
+  const seenSection = document.createElement("div");
+  seenSection.className = "member-prune-section";
   const seenLabel = document.createElement("div");
   seenLabel.className = "member-prune-label";
   seenLabel.textContent = "Last Seen";
-  body.appendChild(seenLabel);
+  seenSection.appendChild(seenLabel);
   const options = document.createElement("div");
   options.className = "member-prune-options";
   [7, 30].forEach((days) => {
@@ -484,18 +486,21 @@ function paintMemberPrune() {
     });
     options.appendChild(btn);
   });
-  body.appendChild(options);
+  seenSection.appendChild(options);
+  body.appendChild(seenSection);
 
+  const roleSection = document.createElement("div");
+  roleSection.className = "member-prune-section";
   const roleLabel = document.createElement("div");
   roleLabel.className = "member-prune-label";
   roleLabel.textContent = "Also include members with these roles";
-  body.appendChild(roleLabel);
+  roleSection.appendChild(roleLabel);
   const catalog = serverRosterRoleCatalog();
   if (!catalog.length) {
     const empty = document.createElement("p");
     empty.className = "server-settings-help";
     empty.textContent = "No roles to include.";
-    body.appendChild(empty);
+    roleSection.appendChild(empty);
   } else {
     const list = document.createElement("div");
     list.className = "member-prune-roles";
@@ -524,8 +529,9 @@ function paintMemberPrune() {
       row.appendChild(toggle);
       list.appendChild(row);
     });
-    body.appendChild(list);
+    roleSection.appendChild(list);
   }
+  body.appendChild(roleSection);
 
   const count = pruneCandidateMembers().length;
   const copy = document.createElement("p");

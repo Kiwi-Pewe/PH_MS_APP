@@ -7624,7 +7624,7 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 12px 16px 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
 }
 #member-prune-footer {
   flex: 0 0 auto;
@@ -7636,6 +7636,13 @@ a.profile-link-row:hover { color: var(--accent); }
   flex-wrap: wrap;
 }
 #member-prune-error { margin: 0 auto 0 0; flex: 1 1 100%; }
+.member-prune-section { display: flex; flex-direction: column; gap: 8px; }
+.member-prune-section + .member-prune-section,
+.member-prune-section + .member-prune-copy {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
 .member-prune-label {
   font-size: 12px;
   font-weight: 700;
@@ -7724,7 +7731,7 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 12px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0;
   overflow: auto;
   max-height: min(640px, calc(100vh - 180px));
   scrollbar-width: thin;
@@ -7735,6 +7742,12 @@ a.profile-link-row:hover { color: var(--accent); }
 .member-mod-body::-webkit-scrollbar-corner { background: transparent; }
 .member-mod-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .member-mod-section { display: flex; flex-direction: column; gap: 6px; }
+.member-mod-section + .member-mod-section,
+.member-mod-section + .member-mod-actions {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
 .member-mod-section-title {
   font-size: 12px;
   font-weight: 700;

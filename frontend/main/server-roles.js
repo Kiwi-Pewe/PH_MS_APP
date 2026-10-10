@@ -266,6 +266,10 @@ function canCreateServerRole() {
   return !!(currentServerHighestRole && !currentServerHighestRole.is_members);
 }
 
+function canRemoveServerRole(role) {
+  return !!(role && !role.builtin && canEditServerRole(role));
+}
+
 function canEditServerRole(role) {
   if (!role) return false;
   if (currentServerOwnerId === myUserId) return true;
@@ -578,6 +582,16 @@ function paintServerRolesList() {
       serverRolesSelectedId = role.id;
       paintServerRolesPage();
     });
+    btn.addEventListener("contextmenu", (e) => {
+      if (!canRemoveServerRole(role) || typeof openContextMenu !== "function") return;
+      e.preventDefault();
+      e.stopPropagation();
+      serverRolesSelectedId = role.id;
+      paintServerRolesPage();
+      openContextMenu(e.clientX, e.clientY, null, [
+        { label: "Remove Role", danger: true, onSelect: () => openRemoveRoleConfirm(role) },
+      ]);
+    });
     host.appendChild(btn);
   });
 }
@@ -774,6 +788,18 @@ function paintServerRolesEditor() {
     });
     host.appendChild(block);
   });
+
+  if (canRemoveServerRole(role)) {
+    const removeField = document.createElement("div");
+    removeField.className = "server-roles-remove";
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "deny-btn";
+    removeBtn.textContent = "Remove Role";
+    removeBtn.addEventListener("click", () => openRemoveRoleConfirm(role));
+    removeField.appendChild(removeBtn);
+    host.appendChild(removeField);
+  }
 }
 
 function afterRoleChange(repaintEditor) {
@@ -910,7 +936,7 @@ function paintRoleReviewCard(host, spec) {
         label.className = "server-roles-review-label";
         label.textContent = change.label || change.key || "";
         copy.appendChild(label);
-        if (change.kind !== "created") {
+        if (change.kind !== "created" && change.kind !== "deleted") {
           const diff = document.createElement("div");
           diff.className = "server-roles-review-diff";
           diff.appendChild(paintChangeValue(change.kind, change.from));
@@ -1195,9 +1221,106 @@ async function showServerSettingsTab(tab) {
 
 resetServerRolesDraft();
 
+let removeRoleTarget = null;
+
+function closeRemoveRoleConfirm() {
+  const overlay = document.getElementById("remove-role-overlay");
+  if (overlay) overlay.style.display = "none";
+  removeRoleTarget = null;
+  const err = document.getElementById("remove-role-error");
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+}
+
+function openRemoveRoleConfirm(role) {
+  if (!canRemoveServerRole(role)) return;
+  const overlay = document.getElementById("remove-role-overlay");
+  const copy = document.getElementById("remove-role-copy");
+  const err = document.getElementById("remove-role-error");
+  const confirm = document.getElementById("remove-role-confirm");
+  if (!overlay || !copy) return;
+  removeRoleTarget = role;
+  const name = role.name || "New Role";
+  copy.textContent = isCreatedServerRole(role)
+    ? "Remove " + name + "?"
+    : "Remove " + name + "? Members who have this role will lose it.";
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  if (confirm) confirm.disabled = false;
+  overlay.style.display = "flex";
+}
+
+function dropServerRoleDraft(role) {
+  serverRolesDraft = serverRolesDraft.filter((row) => row.id !== role.id);
+  delete serverRolesOrigin[role.id];
+  serverRolesSaved = (serverRolesSaved || []).filter((row) => String(row.id) !== String(role.id));
+  if (serverRolesSelectedId === role.id) {
+    const members = serverRolesDraft.find((row) => row.builtin);
+    serverRolesSelectedId = members ? members.id : ((serverRolesDraft[0] && serverRolesDraft[0].id) || "");
+  }
+  paintServerRolesPage();
+}
+
+async function confirmRemoveRole() {
+  const role = removeRoleTarget;
+  if (!role || !currentServerId) return;
+  const confirm = document.getElementById("remove-role-confirm");
+  const err = document.getElementById("remove-role-error");
+  if (isCreatedServerRole(role)) {
+    dropServerRoleDraft(role);
+    closeRemoveRoleConfirm();
+    return;
+  }
+  if (confirm) confirm.disabled = true;
+  try {
+    const response = await fetch(`https://${serverAddress}/delete_server_role`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server_id: currentServerId, role_id: parseInt(role.id, 10) }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not remove that role.");
+    dropServerRoleDraft(role);
+    closeRemoveRoleConfirm();
+    if (typeof refreshServerMemberList === "function") refreshServerMemberList(currentServerId);
+    if (typeof refreshServerPerms === "function") refreshServerPerms();
+    if (typeof applyMentionRolesFromApi === "function") applyMentionRolesFromApi(data.roles || []);
+  } catch (e) {
+    if (err) {
+      err.hidden = false;
+      err.textContent = e.message || "Could not remove that role.";
+    }
+  } finally {
+    if (confirm) confirm.disabled = false;
+  }
+}
+
 document.getElementById("server-roles-add").addEventListener("click", () => {
   addServerRoleLocal();
 });
+
+const removeRoleCancel = document.getElementById("remove-role-cancel");
+const removeRoleConfirm = document.getElementById("remove-role-confirm");
+const removeRoleOverlay = document.getElementById("remove-role-overlay");
+if (removeRoleCancel) removeRoleCancel.addEventListener("click", closeRemoveRoleConfirm);
+if (removeRoleConfirm) removeRoleConfirm.addEventListener("click", confirmRemoveRole);
+if (removeRoleOverlay) {
+  removeRoleOverlay.addEventListener("click", (e) => {
+    if (e.target.id === "remove-role-overlay") closeRemoveRoleConfirm();
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const card = document.getElementById("remove-role-overlay");
+  if (!card || card.style.display !== "flex") return;
+  e.stopPropagation();
+  closeRemoveRoleConfirm();
+}, true);
 
 document.querySelectorAll("#server-settings-nav .server-settings-nav-item[data-tab]").forEach((btn) => {
   btn.addEventListener("click", () => {

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_roles, Server_role_members, Server_channels, Server_categories, Server_channel_role_perms, Channel_messages, Announcement_post, Forum_post, Forum_messages
-from app.schemas import Server_role_member_in, Server_roles_save, Channel_role_perms_save
+from app.schemas import Server_role_member_in, Server_roles_save, Server_role_delete, Channel_role_perms_save
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.deletion import write_audit_log
@@ -840,6 +840,44 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
             for item in saved
         ],
     }
+
+
+@router.post("/delete_server_role")
+async def delete_server_role(body: Server_role_delete, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "manage_roles", "You do not have permission to manage roles.")
+    role = database.query(Server_roles).filter(
+        Server_roles.id == body.role_id,
+        Server_roles.server_id == server.id,
+    ).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    if role.is_members:
+        raise HTTPException(status_code=400, detail="The Members role cannot be removed.")
+    is_owner = server.owner_id == current_user.id
+    if not can_manage_target_role(is_owner, actor_highest_role(database, server, current_user.id), role):
+        raise HTTPException(status_code=403, detail="You can only remove roles below yours.")
+    database.query(Server_role_members).filter(Server_role_members.role_id == role.id).delete(synchronize_session=False)
+    database.query(Server_channel_role_perms).filter(Server_channel_role_perms.role_id == role.id).delete(synchronize_session=False)
+    write_audit_log(database, server.id, current_user.id, "role_deleted", "role", role.id, {
+        "name": role.name,
+        "roles": [{
+            "id": role.id,
+            "name": role.name,
+            "color": role.color,
+            "changes": [{"key": "deleted", "kind": "deleted"}],
+        }],
+    })
+    database.delete(role)
+    database.commit()
+    payload_roles = list_server_roles(database, server.id)
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_roles_updated", "server_id": server.id, "roles": payload_roles},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "roles": payload_roles}
 
 
 @router.post("/set_server_role_member")

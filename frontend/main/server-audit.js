@@ -116,7 +116,7 @@ function formatAuditSpan(seconds) {
 }
 
 function auditEntryUsesRoleReview(row) {
-  if (!row || row.action !== "roles_modified") return false;
+  if (!row || (row.action !== "roles_modified" && row.action !== "role_deleted")) return false;
   const detail = row.detail || {};
   return !!(detail.order_changed || (Array.isArray(detail.roles) && detail.roles.length));
 }
@@ -124,6 +124,7 @@ function auditEntryUsesRoleReview(row) {
 function auditRoleChangeLabel(change) {
   if (!change) return "";
   if (change.key === "created" || change.kind === "created") return "Created";
+  if (change.key === "deleted" || change.kind === "deleted") return "Deleted";
   if (change.key === "name") return "Role name";
   if (change.key === "color") return "Role color";
   if (String(change.key || "").indexOf("perm:") === 0 && typeof permTitle === "function") {

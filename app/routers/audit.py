@@ -24,6 +24,7 @@ ACTION_LABELS = {
     "timeout_member": "Member Timed Out",
     "timeout_clear": "Timeout Cleared",
     "roles_modified": "Roles Updated",
+    "role_deleted": "Role Deleted",
     "role_member_updated": "Member Roles Updated",
     "delete_message": "Message Deleted",
     "delete_post": "Post Deleted",
@@ -66,6 +67,11 @@ def detail_summary(action, target_type, detail):
         if updated:
             parts.append(f"{len(updated)} updated")
         return ", ".join(parts) if parts else "Roles saved"
+    if action == "role_deleted":
+        roles = d.get("roles") or []
+        if roles and isinstance(roles[0], dict) and roles[0].get("name"):
+            return roles[0]["name"]
+        return d.get("name") or "Role"
     if action == "role_member_updated":
         role = d.get("role_name") or "role"
         user = d.get("username") or "member"

@@ -295,6 +295,10 @@ class Server_roles_save(BaseModel):
     server_id: str
     roles: list[Server_role_in] = []
 
+class Server_role_delete(BaseModel):
+    server_id: str
+    role_id: int
+
 class Channel_role_perms_save(BaseModel):
     channel_id: int
     role_id: int

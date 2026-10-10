@@ -7,7 +7,7 @@ from app.models import (
     Dm_server_pref, Doc_page, Forum_messages, Forum_post, Friend_request, Invite_model,
     Message, Message_mention, Party_members, Party_messages, Perma_ban, Profile_comment,
     Profile_comment_notice, Profile_comment_watch, Server_bans, Server_categories,
-    Server_channels, Server_emojis, Server_members, Server_notify_prefs, Server_role_members,
+    Server_channels, Server_emojis, Server_members, Server_notifications, Server_notify_prefs, Server_role_members,
     Server_roles, Servers, Site_ban, User_notes, UserInfo,
 )
 from app.r2 import delete_attachment, delete_r2_object
@@ -225,6 +225,7 @@ def wipe_owned_server(database, server):
         database.query(Server_role_members).filter(Server_role_members.role_id.in_(role_ids)).delete(synchronize_session=False)
     for row in roles:
         database.delete(row)
+    database.query(Server_notifications).filter(Server_notifications.server_id == server.id).delete(synchronize_session=False)
     database.query(Server_members).filter(Server_members.server_id == server.id).delete(synchronize_session=False)
     database.query(Server_bans).filter(Server_bans.server_id == server.id).delete(synchronize_session=False)
     database.query(Invite_model).filter(Invite_model.server_id == server.id).delete(synchronize_session=False)

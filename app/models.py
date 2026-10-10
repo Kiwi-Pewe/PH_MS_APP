@@ -158,6 +158,18 @@ class Server_members(Base):
     position = Column(Integer)
     timeout_until = Column(DateTime, nullable=True)
     timeout_reason = Column(String, nullable=True)
+    muted = Column(Boolean, default=False)
+    suppress_pings = Column(Boolean, default=False)
+
+class Server_notifications(Base):
+    __tablename__ = "server_notifications"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    muted = Column(Boolean, default=False)
+    suppress_pings = Column(Boolean, default=False)
+    __table_args__ = (UniqueConstraint("channel_id", "user_id", name="uq_server_channel_notify"),)
 
 class Server_bans(Base):
     __tablename__ = "server_bans"

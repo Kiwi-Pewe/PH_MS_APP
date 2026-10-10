@@ -894,7 +894,7 @@ function paintRoleReviewCard(host, spec) {
         header.setAttribute("aria-expanded", next ? "true" : "false");
         caret.textContent = next ? "▾" : "▸";
         const list = wrap.querySelector(".server-roles-review-list");
-        if (list) list.hidden = !next;
+        if (list) list.style.display = next ? "flex" : "none";
       }
     });
     wrap.appendChild(header);

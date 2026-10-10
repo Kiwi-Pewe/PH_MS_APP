@@ -7696,31 +7696,6 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 0 2px;
   cursor: pointer;
 }
-.member-prune-role-pick {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 160px;
-  overflow: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-.member-prune-role-pick::-webkit-scrollbar { width: 8px; }
-.member-prune-role-pick::-webkit-scrollbar-track,
-.member-prune-role-pick::-webkit-scrollbar-corner { background: transparent; }
-.member-prune-role-pick::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-.member-prune-role-pick button {
-  border: 0;
-  background: var(--panel-alt);
-  color: var(--text);
-  text-align: left;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  flex: 0 0 auto;
-}
 .member-prune-copy {
   margin: 0;
   font-size: 13px;

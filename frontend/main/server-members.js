@@ -395,7 +395,6 @@ const MOD_VIEW_NOTABLE = [
 
 let memberPruneDays = 7;
 let memberPruneRoles = new Set();
-let memberPruneRolePick = false;
 let memberPruneBusy = false;
 let memberModUserId = null;
 let memberModStats = null;
@@ -524,29 +523,20 @@ function paintMemberPrune() {
   add.setAttribute("aria-label", "Add role");
   const remaining = catalog.filter((role) => !memberPruneRoles.has(String(role.id)));
   add.disabled = !remaining.length;
-  add.addEventListener("click", () => {
-    if (!remaining.length) return;
-    memberPruneRolePick = !memberPruneRolePick;
-    paintMemberPrune();
+  add.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!remaining.length || typeof openContextMenu !== "function") return;
+    const rect = add.getBoundingClientRect();
+    openContextMenu(rect.left, rect.bottom + 4, null, remaining.map((role) => ({
+      label: role.name || "Role",
+      onSelect: () => {
+        memberPruneRoles.add(String(role.id));
+        paintMemberPrune();
+      }
+    })), 10);
   });
   picks.appendChild(add);
   roleSection.appendChild(picks);
-  if (memberPruneRolePick && remaining.length) {
-    const list = document.createElement("div");
-    list.className = "member-prune-role-pick";
-    remaining.forEach((role) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = role.name || "Role";
-      btn.addEventListener("click", () => {
-        memberPruneRoles.add(String(role.id));
-        memberPruneRolePick = false;
-        paintMemberPrune();
-      });
-      list.appendChild(btn);
-    });
-    roleSection.appendChild(list);
-  }
   body.appendChild(roleSection);
 
   const count = pruneCandidateMembers().length;
@@ -568,7 +558,6 @@ function openMemberPrune() {
   if (!overlay) return;
   memberPruneDays = 7;
   memberPruneRoles = new Set();
-  memberPruneRolePick = false;
   memberPruneBusy = false;
   const serverName = typeof currentServerSettingsName === "function" ? currentServerSettingsName() : "";
   if (title) title.textContent = serverName ? ("Prune Members — " + serverName) : "Prune Members";
@@ -958,6 +947,7 @@ function setServerRosterSort(key) {
   }
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    if (document.querySelector(".context-menu")) return;
     const moderation = document.getElementById("moderation-overlay");
     const bulkOverlay = document.getElementById("bulk-kick-overlay");
     if (moderation && moderation.style.display === "flex") return;

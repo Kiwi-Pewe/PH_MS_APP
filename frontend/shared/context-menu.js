@@ -17,11 +17,16 @@ let activeFlyoutAnchor = null;
 // reference: optional { avatarText, title, subtitle, timestamp }.
 // options: array of { label, danger, disabled, onSelect, detail, submenu }
 //   or { separator: true }. `submenu` opens a nested flyout (hover/click).
-function openContextMenu(x, y, reference, options) {
+function openContextMenu(x, y, reference, options, scrollRows) {
   closeContextMenu();
 
   const menu = document.createElement("div");
   menu.className = "context-menu";
+  const rows = Number(scrollRows);
+  if (rows > 0) {
+    menu.classList.add("context-menu-scroll");
+    menu.style.setProperty("--context-menu-rows", String(rows));
+  }
 
   if (reference) {
     menu.appendChild(buildReferenceArea(reference));

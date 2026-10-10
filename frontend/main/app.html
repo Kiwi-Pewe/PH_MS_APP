@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=301">
+<link rel="stylesheet" href="app.css?v=302">
 </head>
 <body>
 
@@ -1780,6 +1780,24 @@
     </div>
   </div>
 
+  <div id="unban-overlay" style="display:none;">
+    <div id="unban-modal" role="dialog" aria-modal="true" aria-labelledby="unban-title">
+      <div class="view-header">
+        <span id="unban-title">Unban</span>
+        <button type="button" class="icon-btn" id="unban-close" title="Close">&times;</button>
+      </div>
+      <div class="view-body">
+        <div class="server-modal-label">Reason</div>
+        <p id="unban-reason" class="moderation-copy"></p>
+      </div>
+      <div id="unban-footer">
+        <p id="unban-error" class="server-settings-help" hidden></p>
+        <button type="button" class="ghost-btn" id="unban-cancel">Cancel</button>
+        <button type="button" class="deny-btn" id="unban-confirm">Unban</button>
+      </div>
+    </div>
+  </div>
+
   <div id="bulk-kick-overlay" style="display:none;">
     <div id="bulk-kick-modal">
       <div class="view-header">
@@ -2060,7 +2078,7 @@
 <script src="parties.js?v=46"></script>
 <script src="invites.js?v=50"></script>
 <script src="server-invites.js?v=5"></script>
-<script src="server-bans.js?v=1"></script>
+<script src="server-bans.js?v=2"></script>
 <script src="server-privacy.js?v=2"></script>
 <script src="server-emojis.js?v=2"></script>
 <script src="server-integrations.js?v=1"></script>

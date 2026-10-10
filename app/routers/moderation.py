@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, or_
 from datetime import datetime, timedelta
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Server_role_members, Server_roles, Channel_messages, Server_bans, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Media_item, Audit_log
-from app.schemas import Server_moderation_in, Server_bulk_kick_in
+from app.schemas import Server_moderation_in, Server_bulk_kick_in, Server_unban_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.deletion import write_audit_log
@@ -195,6 +195,25 @@ async def ban_server_member(body: Server_moderation_in, database: Session = Depe
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
     return await remove_member(database, server, target, membership, current_user, "ban", clean_reason(body.reason), None, duration_seconds=None)
+
+
+@router.post("/unban_server_member")
+def unban_server_member(body: Server_unban_in, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_bans(database, server, current_user.id)
+    row = database.query(Server_bans).filter(
+        Server_bans.server_id == server.id,
+        Server_bans.user_id == body.user_id,
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Ban not found")
+    account = database.query(UserInfo).filter(UserInfo.id == body.user_id).first()
+    write_audit_log(database, server.id, current_user.id, "unban_member", "member", body.user_id, {
+        "username": account.username if account else "",
+    })
+    database.delete(row)
+    database.commit()
+    return {"ok": True, "user_id": body.user_id}
 
 
 @router.post("/timeout_server_member")

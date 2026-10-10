@@ -6,6 +6,7 @@
 let serverBansList = [];
 let serverBansLoadedFor = null;
 let serverBansQuery = "";
+let unbanDraft = null;
 
 function setServerBansStatus(text) {
   const status = document.getElementById("server-bans-status");
@@ -116,6 +117,7 @@ function paintServerBansList() {
     meta.appendChild(expires);
 
     card.appendChild(meta);
+    card.addEventListener("click", () => openUnbanModal(ban));
     host.appendChild(card);
 
     if (typeof paintUserFace === "function" && user.id) {
@@ -159,6 +161,59 @@ function runServerBansSearch() {
   paintServerBansList();
 }
 
+function closeUnbanModal() {
+  const overlay = document.getElementById("unban-overlay");
+  if (overlay) overlay.style.display = "none";
+  unbanDraft = null;
+}
+
+function openUnbanModal(ban) {
+  if (!ban || !currentServerId) return;
+  const overlay = document.getElementById("unban-overlay");
+  const title = document.getElementById("unban-title");
+  const reason = document.getElementById("unban-reason");
+  const err = document.getElementById("unban-error");
+  const confirm = document.getElementById("unban-confirm");
+  if (!overlay || !title || !reason) return;
+  const user = ban.user || {};
+  unbanDraft = { user_id: user.id || ban.user_id };
+  title.textContent = user.username || user.display_name || ("User " + (ban.user_id || ""));
+  reason.textContent = ban.reason ? ban.reason : "—";
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  if (confirm) confirm.disabled = false;
+  overlay.style.display = "flex";
+}
+
+async function confirmUnban() {
+  if (!unbanDraft || !currentServerId) return;
+  const confirm = document.getElementById("unban-confirm");
+  const err = document.getElementById("unban-error");
+  if (confirm) confirm.disabled = true;
+  try {
+    const response = await fetch(`https://${serverAddress}/unban_server_member`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server_id: currentServerId, user_id: unbanDraft.user_id }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not unban that user.");
+    closeUnbanModal();
+    serverBansLoadedFor = null;
+    await loadServerBansPage(true);
+  } catch (e) {
+    if (err) {
+      err.hidden = false;
+      err.textContent = e.message || "Could not unban that user.";
+    }
+  } finally {
+    if (confirm) confirm.disabled = false;
+  }
+}
+
 (function bindServerBansChrome() {
   const input = document.getElementById("server-bans-search");
   const btn = document.getElementById("server-bans-search-btn");
@@ -171,4 +226,23 @@ function runServerBansSearch() {
     });
   }
   if (btn) btn.addEventListener("click", runServerBansSearch);
+  const close = document.getElementById("unban-close");
+  const cancel = document.getElementById("unban-cancel");
+  const confirm = document.getElementById("unban-confirm");
+  const overlay = document.getElementById("unban-overlay");
+  if (close) close.addEventListener("click", closeUnbanModal);
+  if (cancel) cancel.addEventListener("click", closeUnbanModal);
+  if (confirm) confirm.addEventListener("click", confirmUnban);
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target.id === "unban-overlay") closeUnbanModal();
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const card = document.getElementById("unban-overlay");
+    if (!card || card.style.display !== "flex") return;
+    e.stopPropagation();
+    closeUnbanModal();
+  }, true);
 })();

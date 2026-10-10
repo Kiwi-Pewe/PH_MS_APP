@@ -20,6 +20,7 @@ ACTION_LABELS = {
     "revoke_invite": "Invite Revoked",
     "kick_member": "Member Kicked",
     "ban_member": "Member Banned",
+    "unban_member": "Member Unbanned",
     "timeout_member": "Member Timed Out",
     "timeout_clear": "Timeout Cleared",
     "roles_modified": "Roles Updated",
@@ -46,7 +47,7 @@ def parse_detail(raw):
 
 def detail_summary(action, target_type, detail):
     d = detail or {}
-    if action in ("kick_member", "ban_member", "timeout_member", "timeout_clear", "member_joined", "member_left"):
+    if action in ("kick_member", "ban_member", "unban_member", "timeout_member", "timeout_clear", "member_joined", "member_left"):
         name = d.get("username") or ""
         reason = (d.get("reason") or "").strip()
         bits = [name] if name else []

@@ -338,6 +338,10 @@ class Server_moderation_in(BaseModel):
     reason: str = ""
     seconds: int = 0
 
+class Server_unban_in(BaseModel):
+    server_id: str
+    user_id: int
+
 class Server_bulk_kick_in(BaseModel):
     server_id: str
     user_ids: list[int]

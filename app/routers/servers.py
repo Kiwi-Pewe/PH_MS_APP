@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions
 from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete
 from zoneinfo import available_timezones
 from app.database import get_db
@@ -639,6 +639,14 @@ def server_settings_members(server_id: str, database: Session = Depends(get_db),
     roles_by_user = {}
     for uid in user_ids:
         roles_by_user[uid] = assigned_roles_for_user(database, server_id, uid)
+    last_seen = {}
+    if user_ids:
+        seen_rows = database.query(
+            Active_Sessions.account_id,
+            func.max(Active_Sessions.last_active),
+        ).filter(Active_Sessions.account_id.in_(user_ids)).group_by(Active_Sessions.account_id).all()
+        for account_id, stamp in seen_rows:
+            last_seen[account_id] = iso_dt(stamp)
 
     members = []
     for row in memberships:
@@ -658,6 +666,7 @@ def server_settings_members(server_id: str, database: Session = Depends(get_db),
         payload["joined_at"] = iso_dt(row.joined_at) if getattr(row, "joined_at", None) else None
         payload["created_at"] = iso_dt(getattr(account, "created_at", None)) if getattr(account, "created_at", None) else None
         payload["roles"] = roles_by_user.get(account.id) or []
+        payload["last_active"] = last_seen.get(account.id)
         members.append(payload)
     return {"server_id": server_id, "members": members}
 

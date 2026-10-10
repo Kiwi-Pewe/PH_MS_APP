@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import and_, func, or_
 from datetime import datetime, timedelta
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Server_role_members, Server_roles, Channel_messages, Server_bans
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Server_role_members, Server_roles, Channel_messages, Server_bans, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Media_item, Audit_log
 from app.schemas import Server_moderation_in, Server_bulk_kick_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.deletion import write_audit_log
 from app.routers.realtime import notify_user, server_broadcast
-from app.routers.roles import can_moderate_target, effective_perms_for_user, require_server_member, require_server_perm
+from app.routers.roles import LIVE_ROLE_PERMS, can_moderate_target, effective_perms_for_user, require_server_member, require_server_perm, require_server_roster
 from app.routers.account import public_display_name
 from app.routers.profile import public_avatar
 from app.routers.feed import notify_feed_alert
@@ -358,3 +359,128 @@ def server_settings_bans(server_id: str, database: Session = Depends(get_db), cu
     lookup = {account.id: account for account in accounts}
     bans = [serialize_settings_ban(database, row, lookup) for row in live]
     return {"server_id": server_id, "bans": bans}
+
+
+def server_channel_ids(database, server_id):
+    return [
+        row[0]
+        for row in database.query(Server_channels.id)
+        .join(Server_categories, Server_channels.category_id == Server_categories.id)
+        .filter(Server_categories.server_id == server_id)
+        .all()
+    ]
+
+
+def count_text_links(query, columns):
+    clauses = []
+    for column in columns:
+        lowered = func.lower(column)
+        clauses.append(lowered.like("%http://%"))
+        clauses.append(lowered.like("%https://%"))
+    if not clauses:
+        return 0
+    return query.filter(or_(*clauses)).count()
+
+
+def count_attachments(query, column):
+    return query.filter(column.isnot(None), column != "").count()
+
+
+def member_activity_counts(database, server, user_id):
+    channel_ids = server_channel_ids(database, server.id)
+    messages = 0
+    media = 0
+    links = 0
+    if not channel_ids:
+        return messages, media, links
+
+    def chat_query():
+        return database.query(Channel_messages).filter(
+            Channel_messages.channel_id.in_(channel_ids),
+            Channel_messages.sender_id == user_id,
+        )
+
+    def post_query():
+        return database.query(Announcement_post).filter(
+            Announcement_post.channel_id.in_(channel_ids),
+            Announcement_post.sender_id == user_id,
+        )
+
+    def comment_query():
+        return database.query(Announcement_comment).join(
+            Announcement_post, Announcement_comment.post_id == Announcement_post.id
+        ).filter(
+            Announcement_post.channel_id.in_(channel_ids),
+            Announcement_comment.sender_id == user_id,
+        )
+
+    def topic_query():
+        return database.query(Forum_post).filter(
+            Forum_post.channel_id.in_(channel_ids),
+            Forum_post.author_id == user_id,
+        )
+
+    def reply_query():
+        return database.query(Forum_messages).join(
+            Forum_post, Forum_messages.post_id == Forum_post.id
+        ).filter(
+            Forum_post.channel_id.in_(channel_ids),
+            Forum_messages.author_id == user_id,
+        )
+
+    def gallery_query():
+        return database.query(Media_item).filter(
+            Media_item.channel_id.in_(channel_ids),
+            Media_item.sender_id == user_id,
+        )
+
+    messages += chat_query().count()
+    media += count_attachments(chat_query(), Channel_messages.attachment)
+    links += count_text_links(chat_query(), [Channel_messages.content])
+
+    messages += post_query().count()
+    media += count_attachments(post_query(), Announcement_post.attachment)
+    links += count_text_links(post_query(), [Announcement_post.title, Announcement_post.body])
+
+    messages += comment_query().count()
+    links += count_text_links(comment_query(), [Announcement_comment.content])
+
+    messages += topic_query().count()
+    media += count_attachments(topic_query(), Forum_post.attachment)
+    links += count_text_links(topic_query(), [Forum_post.title, Forum_post.body])
+
+    messages += reply_query().count()
+    media += count_attachments(reply_query(), Forum_messages.attachment)
+    links += count_text_links(reply_query(), [Forum_messages.content])
+
+    media += gallery_query().count()
+    links += count_text_links(gallery_query(), [Media_item.title, Media_item.description])
+    return messages, media, links
+
+
+@router.get("/server_member_mod/{server_id}/{user_id}")
+def server_member_mod(server_id: str, user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, server_id, current_user.id)
+    require_server_roster(database, server, current_user.id)
+    membership = database.query(Server_members).filter(
+        Server_members.server_id == server.id,
+        Server_members.user_id == user_id,
+    ).first()
+    if not membership:
+        raise HTTPException(status_code=404, detail="Server membership not found")
+    messages, media, links = member_activity_counts(database, server, user_id)
+    perms = effective_perms_for_user(database, server, user_id)
+    audit = database.query(Audit_log).filter(
+        Audit_log.server_id == server.id,
+        or_(
+            Audit_log.actor_id == user_id,
+            and_(Audit_log.target_type == "member", Audit_log.target_id == user_id),
+        ),
+    ).count()
+    return {
+        "messages": messages,
+        "links": links,
+        "media": media,
+        "audit": audit,
+        "permissions": [key for key in LIVE_ROLE_PERMS if perms.get(key)],
+    }

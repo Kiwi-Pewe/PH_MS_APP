@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=294">
+<link rel="stylesheet" href="app.css?v=295">
 </head>
 <body>
 
@@ -1029,7 +1029,7 @@
           <div class="server-members-toolbar-label">Recent Members</div>
           <input id="server-members-search" class="server-settings-input server-members-search" type="search" placeholder="Search by username or id" autocomplete="off" spellcheck="false">
           <button type="button" id="server-members-sort-btn" class="ghost-btn server-members-toolbar-btn" disabled title="Use column headers to sort">Sort</button>
-          <button type="button" id="server-members-prune-btn" class="ghost-btn server-members-toolbar-btn is-danger-text" disabled title="Coming later">Prune</button>
+          <button type="button" id="server-members-prune-btn" class="ghost-btn server-members-toolbar-btn is-danger-text">Prune</button>
           <button type="button" id="server-members-bulk-kick" class="deny-btn server-members-bulk-kick" hidden>Kick selected</button>
         </div>
 
@@ -1730,6 +1730,39 @@
     </div>
   </div>
 
+  <div id="member-prune-overlay" style="display:none;">
+    <div id="member-prune-modal" role="dialog" aria-modal="true" aria-labelledby="member-prune-title">
+      <div class="view-header">
+        <span id="member-prune-title">Prune Members</span>
+        <button type="button" class="icon-btn" id="member-prune-close" title="Close">&times;</button>
+      </div>
+      <div class="view-body" id="member-prune-body"></div>
+      <div id="member-prune-footer">
+        <p id="member-prune-error" class="server-settings-help" hidden></p>
+        <button type="button" class="ghost-btn" id="member-prune-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="member-prune-confirm">Prune</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="member-mod-overlay" style="display:none;">
+    <div id="member-mod-modal" role="dialog" aria-modal="true" aria-labelledby="member-mod-title">
+      <div class="member-mod-head">
+        <div class="avatar-dot member-mod-face" id="member-mod-face"></div>
+        <div class="member-mod-who">
+          <div id="member-mod-name"></div>
+          <div id="member-mod-user"></div>
+        </div>
+        <button type="button" class="icon-btn" id="member-mod-close" title="Close">&times;</button>
+      </div>
+      <div class="member-mod-titlebar">
+        <span id="member-mod-title">Mod View</span>
+        <span class="member-mod-esc">ESC</span>
+      </div>
+      <div id="member-mod-body" class="member-mod-body"></div>
+    </div>
+  </div>
+
   <div id="moderation-overlay" style="display:none;">
     <div id="moderation-modal">
       <div class="view-header">
@@ -1955,7 +1988,7 @@
 <script src="server-settings.js?v=37"></script>
 <script src="server-roles.js?v=27"></script>
 <script src="server-moderation.js?v=4"></script>
-<script src="server-members.js?v=2"></script>
+<script src="server-members.js?v=3"></script>
 <script src="settings-account.js?v=5"></script>
 <script src="settings-privacy.js?v=9"></script>
 <script src="feed-settings.js?v=3"></script>

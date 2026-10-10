@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=303">
+<link rel="stylesheet" href="app.css?v=304">
 </head>
 <body>
 
@@ -1144,7 +1144,6 @@
         <button type="button" id="server-emojis-upload" class="ghost-btn server-emojis-upload">Upload emoji</button>
         <input type="file" id="server-emojis-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
         <p class="server-settings-help">Names must only contain alphanumeric characters and underscores. Max 100 per server, 256 KB each.</p>
-        <p class="server-settings-help server-emojis-pack-note is-muted">Import an external emoji pack — coming later.</p>
         <div class="server-emojis-toolbar">
           <input id="server-emojis-search" class="server-settings-input server-emojis-search" type="search" placeholder="Search emojis" autocomplete="off" spellcheck="false">
           <div id="server-emojis-count" class="server-emojis-count">0 emojis</div>
@@ -1156,7 +1155,6 @@
                 <th class="server-emojis-col-name">Name</th>
                 <th class="server-emojis-col-by">Added by</th>
                 <th class="server-emojis-col-at">Added at</th>
-                <th class="server-emojis-col-actions"></th>
               </tr>
             </thead>
             <tbody id="server-emojis-body"></tbody>
@@ -1780,6 +1778,38 @@
     </div>
   </div>
 
+  <div id="emoji-edit-overlay" style="display:none;">
+    <div id="emoji-edit-modal" class="emoji-edit-card" role="dialog" aria-modal="true" aria-labelledby="emoji-edit-heading">
+      <div class="emoji-edit-top">
+        <img id="emoji-edit-preview" class="emoji-edit-preview" alt="">
+        <div class="emoji-edit-names">
+          <div id="emoji-edit-heading" class="emoji-edit-heading"></div>
+        </div>
+      </div>
+      <div class="emoji-edit-main">
+        <label class="emoji-edit-label" for="emoji-edit-name">Name</label>
+        <input id="emoji-edit-name" class="emoji-edit-name" type="text" maxlength="32" autocomplete="off" spellcheck="false">
+        <div class="emoji-edit-field">
+          <div class="emoji-edit-label">Added by</div>
+          <div class="emoji-edit-by">
+            <div id="emoji-edit-by-face" class="avatar-dot emoji-edit-by-avatar"></div>
+            <div id="emoji-edit-by-name" class="emoji-edit-by-name"></div>
+          </div>
+        </div>
+        <div class="emoji-edit-field">
+          <div class="emoji-edit-label">Added on</div>
+          <div id="emoji-edit-when" class="emoji-edit-value"></div>
+        </div>
+      </div>
+      <div class="emoji-edit-bottom">
+        <p id="emoji-edit-error" class="emoji-edit-error" hidden></p>
+        <button type="button" id="emoji-edit-delete">Delete</button>
+        <button type="button" id="emoji-edit-cancel">Cancel</button>
+        <button type="button" id="emoji-edit-save">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div id="unban-overlay" style="display:none;">
     <div id="unban-modal" class="unban-card" role="dialog" aria-modal="true" aria-labelledby="unban-display">
       <div class="unban-card-top">
@@ -2092,7 +2122,7 @@
 <script src="chat-compose.js?v=62"></script>
 <script src="typing.js?v=2"></script>
 <script src="emoji-data.js?v=1"></script>
-<script src="emoji-picker.js?v=55"></script>
+<script src="emoji-picker.js?v=56"></script>
 <script src="online-toast.js?v=1"></script>
 <script src="friends.js?v=48"></script>
 <script src="parties.js?v=46"></script>
@@ -2100,7 +2130,7 @@
 <script src="server-invites.js?v=5"></script>
 <script src="server-bans.js?v=3"></script>
 <script src="server-privacy.js?v=2"></script>
-<script src="server-emojis.js?v=2"></script>
+<script src="server-emojis.js?v=3"></script>
 <script src="server-integrations.js?v=1"></script>
 <script src="server-audit.js?v=1"></script>
 <script src="server-delete.js?v=1"></script>

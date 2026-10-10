@@ -55,6 +55,25 @@ function lookupCustomEmoji(id) {
   return customEmojiById[String(id)] || null;
 }
 
+function refreshCustomEmojiInMessages(row) {
+  if (!row || row.id == null) return;
+  rememberCustomEmoji(row);
+  const label = ":" + (row.name || "emoji") + ":";
+  document.querySelectorAll('.msg-custom-emoji[data-emoji-id="' + row.id + '"]').forEach((span) => {
+    span.title = label;
+    let img = span.querySelector("img");
+    if (!img) {
+      span.textContent = "";
+      img = document.createElement("img");
+      img.className = "msg-custom-emoji-img";
+      img.draggable = false;
+      span.appendChild(img);
+    }
+    img.alt = label;
+    if (row.image_url) img.src = row.image_url;
+  });
+}
+
 async function ensureCustomEmoji(id) {
   const cached = lookupCustomEmoji(id);
   if (cached && cached.image_url) return cached;
@@ -122,8 +141,8 @@ function appendCustomEmojiNode(el, name, id) {
   const span = document.createElement("span");
   span.className = "msg-custom-emoji";
   span.dataset.emojiId = String(id);
-  span.title = ":" + name + ":";
   const cached = lookupCustomEmoji(id);
+  span.title = ":" + ((cached && cached.name) || name) + ":";
   if (cached && cached.image_url) {
     const img = document.createElement("img");
     img.className = "msg-custom-emoji-img";

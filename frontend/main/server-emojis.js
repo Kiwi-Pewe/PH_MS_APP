@@ -13,6 +13,7 @@ let serverEmojisLoadedFor = null;
 let serverEmojisQuery = "";
 let serverEmojisBusy = false;
 let serverEmojisSlotCap = SERVER_EMOJI_SLOT_CAP;
+let emojiEditDraft = null;
 
 function canOpenServerEmojis() {
   return typeof canServerPerm === "function" && canServerPerm("manage_emoji");
@@ -150,14 +151,11 @@ function paintServerEmojisTable() {
     preview.className = "server-emojis-preview";
     preview.alt = "";
     preview.src = emoji.image_url || "";
-    const nameBtn = document.createElement("button");
-    nameBtn.type = "button";
-    nameBtn.className = "server-emojis-name-btn";
-    nameBtn.textContent = ":" + emoji.name + ":";
-    nameBtn.title = "Rename";
-    nameBtn.addEventListener("click", () => beginRenameServerEmoji(emoji, nameBtn));
+    const nameEl = document.createElement("span");
+    nameEl.className = "server-emojis-name";
+    nameEl.textContent = ":" + emoji.name + ":";
     nameWrap.appendChild(preview);
-    nameWrap.appendChild(nameBtn);
+    nameWrap.appendChild(nameEl);
     nameTd.appendChild(nameWrap);
     tr.appendChild(nameTd);
 
@@ -180,16 +178,7 @@ function paintServerEmojisTable() {
     atTd.className = "server-emojis-col-at";
     atTd.textContent = formatEmojiStamp(emoji.created_at);
     tr.appendChild(atTd);
-
-    const actTd = document.createElement("td");
-    actTd.className = "server-emojis-col-actions";
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "ghost-btn server-emojis-delete";
-    del.textContent = "Delete";
-    del.addEventListener("click", () => deleteServerEmoji(emoji));
-    actTd.appendChild(del);
-    tr.appendChild(actTd);
+    tr.addEventListener("click", () => openEmojiEdit(emoji));
 
     body.appendChild(tr);
     if (typeof paintUserFace === "function" && uploader.id) {
@@ -282,21 +271,71 @@ async function createServerEmojiFromFile(file) {
   }
 }
 
-function beginRenameServerEmoji(emoji, btn) {
-  if (!canOpenServerEmojis() || serverEmojisBusy || !btn) return;
-  const next = window.prompt("Emoji name", emoji.name || "");
-  if (next == null) return;
-  const cleaned = String(next).replace(/^:|:$/g, "").trim();
+function closeEmojiEdit() {
+  const overlay = document.getElementById("emoji-edit-overlay");
+  if (overlay) overlay.style.display = "none";
+  emojiEditDraft = null;
+}
+
+function setEmojiEditError(text) {
+  const err = document.getElementById("emoji-edit-error");
+  if (!err) return;
+  err.hidden = !text;
+  err.textContent = text || "";
+}
+
+function openEmojiEdit(emoji) {
+  if (!emoji || !currentServerId || !canOpenServerEmojis()) return;
+  const overlay = document.getElementById("emoji-edit-overlay");
+  const heading = document.getElementById("emoji-edit-heading");
+  const preview = document.getElementById("emoji-edit-preview");
+  const name = document.getElementById("emoji-edit-name");
+  const byName = document.getElementById("emoji-edit-by-name");
+  const when = document.getElementById("emoji-edit-when");
+  const face = document.getElementById("emoji-edit-by-face");
+  if (!overlay || !heading || !name) return;
+  const uploader = emoji.uploader || {};
+  emojiEditDraft = emoji;
+  heading.textContent = ":" + (emoji.name || "emoji") + ":";
+  if (preview) {
+    preview.src = emoji.image_url || "";
+    preview.alt = ":" + (emoji.name || "emoji") + ":";
+  }
+  name.value = emoji.name || "";
+  if (byName) byName.textContent = uploader.display_name || uploader.username || "Unknown";
+  if (when) when.textContent = formatEmojiStamp(emoji.created_at);
+  if (face) {
+    face.innerHTML = "";
+    if (uploader.id && typeof paintUserFace === "function") {
+      paintUserFace(face, uploader, { name: uploader.username, userId: uploader.id });
+    }
+  }
+  setEmojiEditError("");
+  overlay.style.display = "flex";
+  name.focus();
+  name.select();
+}
+
+async function saveEmojiEdit() {
+  if (!emojiEditDraft || serverEmojisBusy) return;
+  const input = document.getElementById("emoji-edit-name");
+  const cleaned = String(input ? input.value : "").replace(/^:|:$/g, "").trim();
   if (!SERVER_EMOJI_NAME_RE.test(cleaned)) {
-    setServerEmojisStatus("Names must be 2–32 characters: letters, numbers, and underscores only.");
+    setEmojiEditError("Names must be 2–32 characters: letters, numbers, and underscores only.");
     return;
   }
-  if (cleaned === emoji.name) return;
-  renameServerEmoji(emoji, cleaned);
+  if (cleaned === emojiEditDraft.name) {
+    closeEmojiEdit();
+    return;
+  }
+  setEmojiEditError("");
+  const emoji = emojiEditDraft;
+  const ok = await renameServerEmoji(emoji, cleaned);
+  if (ok) closeEmojiEdit();
 }
 
 async function renameServerEmoji(emoji, name) {
-  if (!currentServerId || !canOpenServerEmojis() || serverEmojisBusy) return;
+  if (!currentServerId || !canOpenServerEmojis() || serverEmojisBusy) return false;
   setServerEmojisStatus("");
   setServerEmojisBusy(true);
   try {
@@ -315,18 +354,26 @@ async function renameServerEmoji(emoji, name) {
     if (data.emoji) {
       const idx = serverEmojisList.findIndex((row) => row.id === emoji.id);
       if (idx >= 0) serverEmojisList[idx] = data.emoji;
+      if (typeof refreshCustomEmojiInMessages === "function") refreshCustomEmojiInMessages(data.emoji);
     }
     paintServerEmojisTable();
+    return true;
   } catch (e) {
-    setServerEmojisStatus(e.message || "Could not rename emoji.");
+    setEmojiEditError(e.message || "Could not rename emoji.");
+    return false;
   } finally {
     setServerEmojisBusy(false);
   }
 }
 
+async function deleteEmojiFromEdit() {
+  if (!emojiEditDraft) return;
+  const ok = await deleteServerEmoji(emojiEditDraft);
+  if (ok) closeEmojiEdit();
+}
+
 async function deleteServerEmoji(emoji) {
-  if (!currentServerId || !canOpenServerEmojis() || serverEmojisBusy) return;
-  if (!window.confirm("Delete :" + emoji.name + ":?")) return;
+  if (!currentServerId || !canOpenServerEmojis() || serverEmojisBusy || !emoji) return false;
   setServerEmojisStatus("");
   setServerEmojisBusy(true);
   try {
@@ -344,8 +391,10 @@ async function deleteServerEmoji(emoji) {
     serverEmojisList = serverEmojisList.filter((row) => row.id !== emoji.id);
     paintServerEmojisTable();
     if (typeof refreshEmojiPickerPacks === "function") refreshEmojiPickerPacks();
+    return true;
   } catch (e) {
-    setServerEmojisStatus(e.message || "Could not delete emoji.");
+    setEmojiEditError(e.message || "Could not delete emoji.");
+    return false;
   } finally {
     setServerEmojisBusy(false);
   }
@@ -373,4 +422,32 @@ async function deleteServerEmoji(emoji) {
       paintServerEmojisTable();
     });
   }
+  const cancel = document.getElementById("emoji-edit-cancel");
+  const save = document.getElementById("emoji-edit-save");
+  const remove = document.getElementById("emoji-edit-delete");
+  const overlay = document.getElementById("emoji-edit-overlay");
+  const name = document.getElementById("emoji-edit-name");
+  if (cancel) cancel.addEventListener("click", closeEmojiEdit);
+  if (save) save.addEventListener("click", saveEmojiEdit);
+  if (remove) remove.addEventListener("click", deleteEmojiFromEdit);
+  if (name) {
+    name.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveEmojiEdit();
+      }
+    });
+  }
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target.id === "emoji-edit-overlay") closeEmojiEdit();
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const card = document.getElementById("emoji-edit-overlay");
+    if (!card || card.style.display !== "flex") return;
+    e.stopPropagation();
+    closeEmojiEdit();
+  }, true);
 })();

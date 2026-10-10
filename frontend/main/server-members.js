@@ -395,6 +395,7 @@ const MOD_VIEW_NOTABLE = [
 
 let memberPruneDays = 7;
 let memberPruneRoles = new Set();
+let memberPruneRolePick = false;
 let memberPruneBusy = false;
 let memberModUserId = null;
 let memberModStats = null;
@@ -496,38 +497,53 @@ function paintMemberPrune() {
   roleLabel.textContent = "Also include members with these roles";
   roleSection.appendChild(roleLabel);
   const catalog = serverRosterRoleCatalog();
-  if (!catalog.length) {
-    const empty = document.createElement("p");
-    empty.className = "server-settings-help";
-    empty.textContent = "No roles to include.";
-    roleSection.appendChild(empty);
-  } else {
+  const picks = document.createElement("div");
+  picks.className = "member-prune-picks";
+  catalog.filter((role) => memberPruneRoles.has(String(role.id))).forEach((role) => {
+    const pick = document.createElement("span");
+    pick.className = "member-prune-pick";
+    pick.appendChild(buildServerRosterRolePill(role));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "member-prune-remove";
+    remove.textContent = "\u00d7";
+    remove.title = "Remove";
+    remove.setAttribute("aria-label", "Remove " + (role.name || "role"));
+    remove.addEventListener("click", () => {
+      memberPruneRoles.delete(String(role.id));
+      paintMemberPrune();
+    });
+    pick.appendChild(remove);
+    picks.appendChild(pick);
+  });
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "member-mod-add";
+  add.textContent = "+";
+  add.title = "Add role";
+  add.setAttribute("aria-label", "Add role");
+  const remaining = catalog.filter((role) => !memberPruneRoles.has(String(role.id)));
+  add.disabled = !remaining.length;
+  add.addEventListener("click", () => {
+    if (!remaining.length) return;
+    memberPruneRolePick = !memberPruneRolePick;
+    paintMemberPrune();
+  });
+  picks.appendChild(add);
+  roleSection.appendChild(picks);
+  if (memberPruneRolePick && remaining.length) {
     const list = document.createElement("div");
-    list.className = "member-prune-roles";
-    catalog.forEach((role) => {
-      const row = document.createElement("label");
-      row.className = "member-prune-role";
-      const name = document.createElement("span");
-      name.textContent = role.name || "Role";
-      const toggle = document.createElement("span");
-      toggle.className = "toggle-switch";
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.checked = memberPruneRoles.has(String(role.id));
-      input.addEventListener("change", () => {
-        const id = String(role.id);
-        if (input.checked) memberPruneRoles.add(id);
-        else memberPruneRoles.delete(id);
+    list.className = "member-prune-role-pick";
+    remaining.forEach((role) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = role.name || "Role";
+      btn.addEventListener("click", () => {
+        memberPruneRoles.add(String(role.id));
+        memberPruneRolePick = false;
         paintMemberPrune();
       });
-      const track = document.createElement("span");
-      track.className = "toggle-track";
-      track.innerHTML = "<span class=\"toggle-thumb\"></span>";
-      toggle.appendChild(input);
-      toggle.appendChild(track);
-      row.appendChild(name);
-      row.appendChild(toggle);
-      list.appendChild(row);
+      list.appendChild(btn);
     });
     roleSection.appendChild(list);
   }
@@ -552,6 +568,7 @@ function openMemberPrune() {
   if (!overlay) return;
   memberPruneDays = 7;
   memberPruneRoles = new Set();
+  memberPruneRolePick = false;
   memberPruneBusy = false;
   const serverName = typeof currentServerSettingsName === "function" ? currentServerSettingsName() : "";
   if (title) title.textContent = serverName ? ("Prune Members — " + serverName) : "Prune Members";

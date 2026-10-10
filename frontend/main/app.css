@@ -8677,7 +8677,13 @@ a.profile-link-row:hover { color: var(--accent); }
 
 
 
-.server-audit-page { max-width: 960px; }
+.server-audit-page {
+  width: 100%;
+  max-width: 960px;
+  min-height: calc(100vh - 52px);
+  box-sizing: border-box;
+  padding: 28px 36px 64px;
+}
 .server-audit-toolbar {
   display: flex;
   align-items: center;

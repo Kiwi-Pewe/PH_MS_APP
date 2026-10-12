@@ -846,7 +846,7 @@ function paintGradientPaletteRow(role, locked) {
   });
   row.appendChild(palettes);
   const addWrap = document.createElement("span");
-  addWrap.className = "server-role-color-hit server-role-gradient-add";
+  addWrap.className = "server-role-gradient-add";
   const addBtn = document.createElement("button");
   addBtn.type = "button";
   addBtn.className = "server-role-swatch-custom";
@@ -854,24 +854,17 @@ function paintGradientPaletteRow(role, locked) {
   const paletteFull = extraGradientPaletteCount() >= GRADIENT_PALETTE_LIMIT;
   addBtn.title = paletteFull ? "Maximum of 10 palettes" : "Add color";
   addBtn.disabled = !!locked || paletteFull;
-  addWrap.appendChild(addBtn);
   if (!locked && !paletteFull) {
-    bindRoleColorInput(addWrap, "#99aab5", "#99aab5", (value, commit) => {
-      if (!commit) return;
-      if (extraGradientPaletteCount() >= GRADIENT_PALETTE_LIMIT) return;
-      const hex = normOptionalRoleColor(value) || "#99aab5";
-      const second = hex === "#ffffff" ? "#000000" : "#ffffff";
-      const key = gradientPaletteKey(hex, second);
-      if (!customGradientPalettes.some((pair) => gradientPaletteKey(pair[0], pair[1]) === key)) {
-        customGradientPalettes.push([hex, second]);
-      }
-      hiddenGradientPalettes.delete(key);
-      role.color = hex;
-      role.color2 = second;
+    addBtn.addEventListener("click", () => {
+      hiddenGradientPalettes.delete(gradientPaletteKey("#000000", "#ffffff"));
+      role.color = "#000000";
+      role.color2 = "#ffffff";
       role.colorMode = "gradient";
+      role.gradientAngle = 90;
       afterRoleChange(true);
     });
   }
+  addWrap.appendChild(addBtn);
   row.appendChild(addWrap);
   wrap.appendChild(row);
   const actions = document.createElement("div");

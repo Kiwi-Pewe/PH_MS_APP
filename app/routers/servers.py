@@ -169,6 +169,7 @@ def create_server(server_name: Server_create, database: Session = Depends(get_db
         server_id = test_id,
         user_id = current_user.id,
         position = 100 if highest_position == None else highest_position + 100,
+        notify_level = "all",
     )
     database.add(new_member)
 

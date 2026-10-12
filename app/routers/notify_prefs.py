@@ -52,7 +52,7 @@ def adopt_legacy_prefs(database, member):
 
 def serialize_server_prefs(member, server):
     stored = clean_notify_level(member.notify_level) if member else None
-    level = stored or server_default_notifications(server)
+    level = stored or "all"
     return {
         "server_id": server.id,
         "muted": bool(member.muted) if member else False,

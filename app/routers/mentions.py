@@ -492,10 +492,7 @@ def inherited_server_level(member, server):
     stored = clean_personal_level(getattr(member, "notify_level", None) if member else None)
     if stored:
         return stored
-    kind = getattr(server, "default_notifications", None) if server else None
-    if kind in ("all", "mentions"):
-        return kind
-    return "mentions"
+    return "all"
 
 
 def notify_gate(database, server, channel_id, user_id):

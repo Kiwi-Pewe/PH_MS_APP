@@ -335,6 +335,7 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
             server_id = invite.server_id,
             user_id = current_user.id,
             position = 100 if highest_position == None else highest_position + 100,
+            notify_level = "all",
         )
         database.add(new_member)
 

@@ -160,6 +160,7 @@ class Server_members(Base):
     timeout_reason = Column(String, nullable=True)
     muted = Column(Boolean, default=False)
     suppress_pings = Column(Boolean, default=False)
+    notify_level = Column(String, nullable=True)
 
 class Server_notifications(Base):
     __tablename__ = "server_notifications"
@@ -169,6 +170,7 @@ class Server_notifications(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     muted = Column(Boolean, default=False)
     suppress_pings = Column(Boolean, default=False)
+    notify_level = Column(String, nullable=True)
     __table_args__ = (UniqueConstraint("channel_id", "user_id", name="uq_server_channel_notify"),)
 
 class Server_bans(Base):

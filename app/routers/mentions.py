@@ -10,7 +10,7 @@ from app.models import (
     Server_roles, Server_role_members, Channel_messages, Channel_last_viewed,
     Message_mention, Party_members, Announcement_post, Announcement_comment,
     Forum_post, Forum_messages, List_item, List_thread_message, Media_item,
-    Media_comment, Doc_entry, Calendar_event, Calendar_event_comment,
+    Media_comment, Doc_entry, Calendar_event, Calendar_event_comment, Server_notifications,
 )
 from app.database import get_db
 from app.auth import get_current_user
@@ -478,6 +478,61 @@ def stamp_channel_view(database, channel_id, user_id):
     else:
         database.add(Channel_last_viewed(channel_id= channel_id, user_id= user_id, last_viewed_at= now))
 
+NOTIFY_RANK = {"nothing": 0, "mentions": 1, "all": 2}
+
+
+def clean_personal_level(value):
+    kind = (value or "").strip().lower()
+    if kind in NOTIFY_RANK:
+        return kind
+    return None
+
+
+def inherited_server_level(member, server):
+    stored = clean_personal_level(getattr(member, "notify_level", None) if member else None)
+    if stored:
+        return stored
+    kind = getattr(server, "default_notifications", None) if server else None
+    if kind in ("all", "mentions"):
+        return kind
+    return "mentions"
+
+
+def notify_gate(database, server, channel_id, user_id):
+    member = None
+    if server:
+        member = database.query(Server_members).filter(
+            Server_members.server_id == server.id,
+            Server_members.user_id == user_id,
+        ).first()
+    row = database.query(Server_notifications).filter(
+        Server_notifications.channel_id == channel_id,
+        Server_notifications.user_id == user_id,
+    ).first()
+    server_level = inherited_server_level(member, server)
+    channel_level = clean_personal_level(row.notify_level) if row else None
+    level = server_level
+    if channel_level is not None and NOTIFY_RANK[channel_level] < NOTIFY_RANK[server_level]:
+        level = channel_level
+    muted = bool(member and member.muted) or bool(row and row.muted)
+    if muted and level == "all":
+        level = "mentions"
+    suppress = bool(member and member.suppress_pings) or bool(row and row.suppress_pings)
+    return level, suppress
+
+
+def shape_channel_notice(unread, mention_count, level, suppress):
+    mentions = 0 if suppress or level == "nothing" else int(mention_count or 0)
+    if level == "all":
+        show = bool(unread)
+    elif level == "mentions":
+        show = mentions > 0
+    else:
+        show = False
+        mentions = 0
+    return {"unread": show, "mention_count": mentions}
+
+
 def channel_notice(database, channel_id, user_id):
     viewed = database.query(Channel_last_viewed).filter(
         Channel_last_viewed.channel_id == channel_id,
@@ -495,7 +550,13 @@ def channel_notice(database, channel_id, user_id):
         Message_mention.created_at > since
     ).scalar() or 0
 
-    return {"unread": bool(unread), "mention_count": int(mention_count)}
+    server = None
+    if channel:
+        category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+        if category:
+            server = database.query(Servers).filter(Servers.id == category.server_id).first()
+    level, suppress = notify_gate(database, server, channel_id, user_id)
+    return shape_channel_notice(unread, mention_count, level, suppress)
 
 def visible_channel_ids(database, server_id, user_id):
     server = database.query(Servers).filter(Servers.id == server_id).first()

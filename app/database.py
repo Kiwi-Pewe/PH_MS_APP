@@ -475,6 +475,8 @@ def ensure_moderation_columns():
         ("server_members", "timeout_reason", "VARCHAR"),
         ("server_members", "muted", "BOOLEAN DEFAULT 0"),
         ("server_members", "suppress_pings", "BOOLEAN DEFAULT 0"),
+        ("server_members", "notify_level", "VARCHAR"),
+        ("server_notifications", "notify_level", "VARCHAR"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:

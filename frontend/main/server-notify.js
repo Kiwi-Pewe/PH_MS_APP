@@ -1,9 +1,5 @@
-// ==================================================================
-// server-notify.js - Personal per-server notification prefs (Mute +
-// Notification Settings flyout on server context menus).
-// ==================================================================
-
 const serverNotifyPrefsById = {};
+const channelNotifyByServer = {};
 
 const NOTIFY_LEVEL_LABELS = {
   all: "All Messages",
@@ -11,24 +7,71 @@ const NOTIFY_LEVEL_LABELS = {
   nothing: "Nothing"
 };
 
+const NOTIFY_RANK = { nothing: 0, mentions: 1, all: 2 };
+
 function notifyLevelLabel(level) {
   return NOTIFY_LEVEL_LABELS[level] || NOTIFY_LEVEL_LABELS.mentions;
+}
+
+function cleanNotifyLevel(level) {
+  return level === "all" || level === "mentions" || level === "nothing" ? level : "";
 }
 
 function cachedServerNotifyPrefs(serverId) {
   return serverNotifyPrefsById[String(serverId)] || null;
 }
 
+function channelNotifyReady(serverId) {
+  return Object.prototype.hasOwnProperty.call(channelNotifyByServer, String(serverId));
+}
+
+function cachedChannelNotifyPrefs(serverId, channelId) {
+  const map = channelNotifyByServer[String(serverId)];
+  if (!map) return null;
+  return map[String(channelId)] || null;
+}
+
 function rememberServerNotifyPrefs(data) {
   if (!data || !data.server_id) return null;
+  const level = cleanNotifyLevel(data.notify_level) || "mentions";
   const prefs = {
     server_id: data.server_id,
     muted: !!data.muted,
-    notify_level: data.notify_level === "all" || data.notify_level === "nothing" ? data.notify_level : "mentions",
-    notify_level_label: data.notify_level_label || notifyLevelLabel(data.notify_level),
-    suppress_everyone: !!data.suppress_everyone
+    suppress_pings: !!data.suppress_pings,
+    notify_level: level,
+    notify_level_label: data.notify_level_label || notifyLevelLabel(level)
   };
   serverNotifyPrefsById[String(prefs.server_id)] = prefs;
+  return prefs;
+}
+
+function rememberChannelNotifyList(serverId, rows) {
+  const map = {};
+  (rows || []).forEach((row) => {
+    if (!row || row.channel_id == null) return;
+    map[String(row.channel_id)] = {
+      server_id: row.server_id || serverId,
+      channel_id: row.channel_id,
+      muted: !!row.muted,
+      suppress_pings: !!row.suppress_pings,
+      notify_level: cleanNotifyLevel(row.notify_level)
+    };
+  });
+  channelNotifyByServer[String(serverId)] = map;
+}
+
+function rememberChannelNotifyPrefs(serverId, data) {
+  if (!data || data.channel_id == null) return null;
+  const key = String(serverId);
+  if (!channelNotifyByServer[key]) channelNotifyByServer[key] = {};
+  const prefs = {
+    server_id: data.server_id || serverId,
+    channel_id: data.channel_id,
+    muted: !!data.muted,
+    suppress_pings: !!data.suppress_pings,
+    notify_level: cleanNotifyLevel(data.notify_level)
+  };
+  channelNotifyByServer[key][String(data.channel_id)] = prefs;
   return prefs;
 }
 
@@ -46,11 +89,70 @@ async function loadServerNotifyPrefs(serverId) {
     return cachedServerNotifyPrefs(serverId) || {
       server_id: serverId,
       muted: false,
+      suppress_pings: false,
       notify_level: "mentions",
-      notify_level_label: notifyLevelLabel("mentions"),
-      suppress_everyone: false
+      notify_level_label: notifyLevelLabel("mentions")
     };
   }
+}
+
+async function loadChannelNotifyPrefs(serverId) {
+  if (!serverId) return [];
+  try {
+    const response = await fetch(
+      `https://${serverAddress}/channel_notify_prefs/${encodeURIComponent(serverId)}`,
+      { credentials: "include" }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not load notification settings.");
+    rememberChannelNotifyList(serverId, data.channels || []);
+    return data.channels || [];
+  } catch (e) {
+    if (!channelNotifyReady(serverId)) rememberChannelNotifyList(serverId, []);
+    return [];
+  }
+}
+
+async function refreshNotifyNotices(serverId) {
+  if (!serverId || typeof serverAddress === "undefined" || !serverAddress) return;
+  const openHere = typeof currentServerId !== "undefined" && String(currentServerId) === String(serverId) && typeof currentServerData !== "undefined" && currentServerData;
+  if (openHere) {
+    try {
+      const response = await fetch(`https://${serverAddress}/get_server_contents/${encodeURIComponent(serverId)}`, { credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        const byId = {};
+        (data.categories || []).forEach((category) => {
+          (category.channels || []).forEach((channel) => {
+            byId[String(channel.id)] = channel;
+          });
+        });
+        (currentServerData.categories || []).forEach((category) => {
+          (category.channels || []).forEach((channel) => {
+            const next = byId[String(channel.id)];
+            if (!next) return;
+            channel.unread = !!next.unread;
+            channel.mention_count = next.mention_count || 0;
+          });
+        });
+        if (typeof recountServerNotices === "function") recountServerNotices(serverId);
+      }
+    } catch (e) {}
+  } else {
+    try {
+      const response = await fetch(`https://${serverAddress}/get_servers`, { credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && typeof serverList !== "undefined") {
+        const next = (data.servers || []).find((row) => row && String(row.id) === String(serverId));
+        const current = (serverList || []).find((row) => row && String(row.id) === String(serverId));
+        if (current && next) {
+          current.unread = !!next.unread;
+          current.mention_count = next.mention_count || 0;
+        }
+      }
+    } catch (e) {}
+  }
+  if (typeof paintServerNotices === "function") paintServerNotices();
 }
 
 async function saveServerNotifyPrefs(serverId, patch) {
@@ -62,7 +164,23 @@ async function saveServerNotifyPrefs(serverId, patch) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save notification settings.");
-  return rememberServerNotifyPrefs(data);
+  const prefs = rememberServerNotifyPrefs(data);
+  refreshNotifyNotices(serverId).catch(() => {});
+  return prefs;
+}
+
+async function saveChannelNotifyPrefs(serverId, channelId, patch) {
+  const response = await fetch(`https://${serverAddress}/update_channel_notify_prefs`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(Object.assign({ channel_id: channelId }, patch || {}))
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save notification settings.");
+  const prefs = rememberChannelNotifyPrefs(serverId, data);
+  refreshNotifyNotices(serverId).catch(() => {});
+  return prefs;
 }
 
 function serverIsNotifyMuted(serverId) {
@@ -70,41 +188,47 @@ function serverIsNotifyMuted(serverId) {
   return !!(prefs && prefs.muted);
 }
 
+function notifyDecision(serverId, channelId, mentioned) {
+  const server = cachedServerNotifyPrefs(serverId);
+  const channel = channelNotifyReady(serverId) ? cachedChannelNotifyPrefs(serverId, channelId) : null;
+  let level = cleanNotifyLevel(server && server.notify_level) || "mentions";
+  const channelLevel = channel ? cleanNotifyLevel(channel.notify_level) : "";
+  if (channelLevel && NOTIFY_RANK[channelLevel] < NOTIFY_RANK[level]) level = channelLevel;
+  const muted = !!(server && server.muted) || !!(channel && channel.muted);
+  const suppress = !!(server && server.suppress_pings) || !!(channel && channel.suppress_pings);
+  if (muted && level === "all") level = "mentions";
+  if (mentioned) {
+    if (suppress || level === "nothing") return { unread: false, mention: false };
+    return { unread: true, mention: true };
+  }
+  if (level === "all") return { unread: true, mention: false };
+  return { unread: false, mention: false };
+}
+
+function buildNotifyLevelRows(level, onPick, loudest) {
+  const cap = cleanNotifyLevel(loudest) || "all";
+  return ["all", "mentions", "nothing"].map((kind) => ({
+    type: "radio",
+    label: NOTIFY_LEVEL_LABELS[kind],
+    checked: level === kind,
+    disabled: NOTIFY_RANK[kind] > NOTIFY_RANK[cap],
+    onSelect: () => {
+      onPick(kind).catch(() => {});
+    }
+  }));
+}
+
 function buildServerNotifySubmenu(serverId, prefs) {
-  const level = (prefs && prefs.notify_level) || "mentions";
-  const suppress = !!(prefs && prefs.suppress_everyone);
-  return [
-    {
-      type: "radio",
-      label: "All Messages",
-      checked: level === "all",
-      onSelect: () => {
-        saveServerNotifyPrefs(serverId, { notify_level: "all" }).catch(() => {});
-      }
-    },
-    {
-      type: "radio",
-      label: "Only @mentions",
-      checked: level === "mentions",
-      onSelect: () => {
-        saveServerNotifyPrefs(serverId, { notify_level: "mentions" }).catch(() => {});
-      }
-    },
-    {
-      type: "radio",
-      label: "Nothing",
-      checked: level === "nothing",
-      onSelect: () => {
-        saveServerNotifyPrefs(serverId, { notify_level: "nothing" }).catch(() => {});
-      }
-    },
+  const level = cleanNotifyLevel(prefs && prefs.notify_level) || "mentions";
+  const suppress = !!(prefs && prefs.suppress_pings);
+  return buildNotifyLevelRows(level, (kind) => saveServerNotifyPrefs(serverId, { notify_level: kind }), "all").concat([
     { separator: true },
     {
       type: "check",
-      label: "Suppress @everyone and @here",
+      label: "Suppress Pings",
       checked: suppress,
       onSelect: (row) => {
-        saveServerNotifyPrefs(serverId, { suppress_everyone: !!row.checked }).catch(() => {});
+        saveServerNotifyPrefs(serverId, { suppress_pings: !!row.checked }).catch(() => {});
       }
     },
     {
@@ -132,5 +256,50 @@ function buildServerNotifySubmenu(serverId, prefs) {
       checked: true,
       disabled: true
     }
-  ];
+  ]);
+}
+
+function buildChannelNotifySubmenu(serverId, channelId, channelPrefs, serverPrefs) {
+  const serverLevel = cleanNotifyLevel(serverPrefs && serverPrefs.notify_level) || "mentions";
+  const ownLevel = channelPrefs ? cleanNotifyLevel(channelPrefs.notify_level) : "";
+  const level = ownLevel || serverLevel;
+  const serverSuppress = !!(serverPrefs && serverPrefs.suppress_pings);
+  const suppress = serverSuppress || !!(channelPrefs && channelPrefs.suppress_pings);
+  return buildNotifyLevelRows(level, (kind) => saveChannelNotifyPrefs(serverId, channelId, { notify_level: kind }), serverLevel).concat([
+    { separator: true },
+    {
+      type: "check",
+      label: "Suppress Pings",
+      checked: suppress,
+      disabled: serverSuppress,
+      onSelect: (row) => {
+        saveChannelNotifyPrefs(serverId, channelId, { suppress_pings: !!row.checked }).catch(() => {});
+      }
+    },
+    {
+      type: "check",
+      label: "Suppress All Role @mentions",
+      checked: false,
+      disabled: true
+    },
+    {
+      type: "check",
+      label: "Suppress Highlights",
+      checked: false,
+      disabled: true
+    },
+    {
+      type: "check",
+      label: "Mute New Events",
+      checked: false,
+      disabled: true
+    },
+    { separator: true },
+    {
+      type: "check",
+      label: "Mobile Push Notifications",
+      checked: true,
+      disabled: true
+    }
+  ]);
 }

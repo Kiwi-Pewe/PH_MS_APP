@@ -349,19 +349,19 @@ function noteIncomingChannelMessage(channelId, serverId, mentioned, isOpen) {
     stampChannelView(channelId);
     return;
   }
-  // Personal mute: skip unread/mention bumps while muted (toasts later).
-  if (sid && typeof serverIsNotifyMuted === "function" && serverIsNotifyMuted(sid)) {
-    return;
-  }
+  const decision = typeof notifyDecision === "function"
+    ? notifyDecision(sid, channelId, mentioned)
+    : { unread: true, mention: !!mentioned };
+  if (!decision.unread && !decision.mention) return;
   const channel = (sid === currentServerId) ? findServerChannel(channelId) : null;
   if (channel) {
-    channel.unread = true;
-    if (mentioned) channel.mention_count = (channel.mention_count || 0) + 1;
+    if (decision.unread) channel.unread = true;
+    if (decision.mention) channel.mention_count = (channel.mention_count || 0) + 1;
   }
   const server = serverEntry(sid);
   if (server) {
-    server.unread = true;
-    if (mentioned) server.mention_count = (server.mention_count || 0) + 1;
+    if (decision.unread) server.unread = true;
+    if (decision.mention) server.mention_count = (server.mention_count || 0) + 1;
   }
   paintServerNotices();
 }

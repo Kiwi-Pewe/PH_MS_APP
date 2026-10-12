@@ -259,6 +259,13 @@ class Server_notify_prefs_update(BaseModel):
     muted: bool | None = None
     notify_level: str | None = None
     suppress_everyone: bool | None = None
+    suppress_pings: bool | None = None
+
+class Channel_notify_prefs_update(BaseModel):
+    channel_id: int
+    muted: bool | None = None
+    notify_level: str | None = None
+    suppress_pings: bool | None = None
 
 class Server_delete(BaseModel):
     server_id: str

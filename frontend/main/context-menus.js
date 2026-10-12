@@ -597,19 +597,50 @@ function showChannelContextMenu(e, channel) {
   e.stopPropagation();
   const x = e.clientX;
   const y = e.clientY;
+  const serverId = typeof currentServerId !== "undefined" ? currentServerId : "";
   const canLayout = typeof canManageChannels === "function" ? canManageChannels() : currentServerOwnerId === myUserId;
-  const options = canLayout ? [
-    { label: "Edit Channel", onSelect: () => { if (typeof openChannelSettingsForChannel === "function") openChannelSettingsForChannel(channel); } },
-    { label: "Delete Channel", danger: true, onSelect: () => openDeleteConfirm("channel", channel) }
-  ] : [];
   const typeLabel = typeof channelTypeSidebarLabel === "function"
     ? channelTypeSidebarLabel(channel.channel_type)
     : (channel.channel_type === "voice" ? "Voice Channel" : "Text Channel");
-  openContextMenu(x, y, {
+  const reference = {
     avatarText: typeof channelTypeIcon === "function" ? channelTypeIcon(channel.channel_type) : (channel.channel_type === "voice" ? "\u{1F50A}" : "#"),
     title: channel.name,
     subtitle: channel.is_private ? `Private ${typeLabel}` : typeLabel
-  }, options);
+  };
+  const open = () => {
+    const channelPrefs = typeof cachedChannelNotifyPrefs === "function" ? cachedChannelNotifyPrefs(serverId, channel.id) : null;
+    const serverPrefs = typeof cachedServerNotifyPrefs === "function" ? cachedServerNotifyPrefs(serverId) : null;
+    const muted = !!(channelPrefs && channelPrefs.muted);
+    const options = [
+      {
+        label: muted ? "Unmute Channel" : "Mute Channel",
+        onSelect: () => {
+          if (typeof saveChannelNotifyPrefs === "function") {
+            saveChannelNotifyPrefs(serverId, channel.id, { muted: !muted }).catch(() => {});
+          }
+        }
+      },
+      {
+        label: "Notification Settings",
+        submenu: typeof buildChannelNotifySubmenu === "function"
+          ? buildChannelNotifySubmenu(serverId, channel.id, channelPrefs, serverPrefs)
+          : []
+      }
+    ];
+    if (canLayout) {
+      options.push(
+        { separator: true },
+        { label: "Edit Channel", onSelect: () => { if (typeof openChannelSettingsForChannel === "function") openChannelSettingsForChannel(channel); } },
+        { label: "Delete Channel", danger: true, onSelect: () => openDeleteConfirm("channel", channel) }
+      );
+    }
+    openContextMenu(x, y, reference, options);
+  };
+  const pending = [];
+  if (typeof loadServerNotifyPrefs === "function") pending.push(loadServerNotifyPrefs(serverId));
+  if (typeof loadChannelNotifyPrefs === "function") pending.push(loadChannelNotifyPrefs(serverId));
+  if (pending.length) Promise.all(pending).then(open).catch(open);
+  else open();
 }
 
 async function deleteCategoryFromContextMenu(category) {

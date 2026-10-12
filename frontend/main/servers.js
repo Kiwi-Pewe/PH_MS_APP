@@ -47,6 +47,11 @@ async function loadServers() {
         if (server && server.id) loadServerNotifyPrefs(server.id).catch(() => {});
       });
     }
+    if (typeof loadChannelNotifyPrefs === "function") {
+      serverList.forEach((server) => {
+        if (server && server.id) loadChannelNotifyPrefs(server.id).catch(() => {});
+      });
+    }
   } catch (e) { /* leave last render in place */ }
 }
 
@@ -249,6 +254,8 @@ async function openServer(serverId, iconEl, channelId) {
   if (typeof paintServerSettingsAccess === "function") paintServerSettingsAccess();
   if (typeof paintServerTimeoutLock === "function") paintServerTimeoutLock();
   currentServerData = data;
+  if (typeof loadServerNotifyPrefs === "function") loadServerNotifyPrefs(serverId).catch(() => {});
+  if (typeof loadChannelNotifyPrefs === "function") loadChannelNotifyPrefs(serverId).catch(() => {});
 
   document.getElementById("dm-sidebar-view").style.display = "none";
   document.getElementById("server-sidebar-view").style.display = "flex";

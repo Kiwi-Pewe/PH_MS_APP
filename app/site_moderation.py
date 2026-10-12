@@ -259,6 +259,7 @@ def remove_user_memberships(database, user_id):
     database.query(Channel_last_viewed).filter(Channel_last_viewed.user_id == user_id).delete(synchronize_session=False)
     database.query(Message_mention).filter(Message_mention.user_id == user_id).delete(synchronize_session=False)
     database.query(Server_notify_prefs).filter(Server_notify_prefs.user_id == user_id).delete(synchronize_session=False)
+    database.query(Server_notifications).filter(Server_notifications.user_id == user_id).delete(synchronize_session=False)
     database.query(Profile_comment_watch).filter(or_(Profile_comment_watch.owner_id == user_id, Profile_comment_watch.user_id == user_id)).delete(synchronize_session=False)
     database.query(Profile_comment_notice).filter(or_(Profile_comment_notice.user_id == user_id, Profile_comment_notice.owner_id == user_id)).delete(synchronize_session=False)
     database.query(Profile_comment).filter(or_(Profile_comment.owner_id == user_id, Profile_comment.sender_id == user_id)).delete(synchronize_session=False)

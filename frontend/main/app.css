@@ -7134,11 +7134,37 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 0;
 }
 .server-role-swatch-custom:hover { border-color: var(--text); color: var(--text); }
+.server-role-swatch-custom:disabled {
+  opacity: 0.35;
+  cursor: default;
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+.server-role-swatch-custom:disabled:hover {
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+.server-role-color-hit {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.server-role-color-hit > input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
 .server-role-gradient-row {
   display: flex;
   align-items: center;
   gap: 14px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .server-role-gradient-stops {
   display: flex;
@@ -7173,7 +7199,12 @@ a.profile-link-row:hover { color: var(--accent); }
   outline: 2px solid var(--bg);
   outline-offset: -4px;
 }
-.server-role-gradient-palettes { margin: 0; flex: 1 1 auto; }
+.server-role-gradient-palettes {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.server-role-gradient-add { align-self: center; }
 .server-role-gradient-actions {
   display: flex;
   align-items: center;

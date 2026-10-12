@@ -23,8 +23,12 @@ const SERVER_GRADIENT_PALETTES = [
 ];
 
 let hiddenGradientPalettes = new Set();
+let customGradientPalettes = [];
+let suppressRoleColor = false;
+let roleListPass = 0;
 let gradientStopIndex = 0;
 let gradientDeleteKey = "";
+const GRADIENT_PALETTE_LIMIT = 10;
 
 const SERVER_ROLE_PERMS = [
   {
@@ -462,6 +466,7 @@ function moveServerRoleBefore(roleId, beforeId) {
 
 function applyServerRolesFromApi(rows) {
   const list = Array.isArray(rows) ? rows : [];
+  customGradientPalettes = [];
   serverRolesSaved = list;
   serverRolesDraft = list.map((row) => {
     const perms = emptyServerRolePerms();
@@ -593,8 +598,11 @@ function livePermIds() {
 function paintServerRolesList() {
   const host = document.getElementById("server-roles-list");
   if (!host) return;
+  const pass = ++roleListPass;
+  const roles = serverRolesDraft.slice();
   host.innerHTML = "";
-  serverRolesDraft.forEach((role) => {
+  roles.forEach((role) => {
+    if (pass !== roleListPass) return;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "server-role-item"
@@ -627,6 +635,7 @@ function paintServerRolesList() {
         { label: "Remove Role", danger: true, onSelect: () => openRemoveRoleConfirm(role) },
       ]);
     });
+    if (pass !== roleListPass) return;
     host.appendChild(btn);
   });
 }
@@ -660,7 +669,25 @@ function rolesUsingPalette(key) {
   return serverRolesDraft.filter((role) => gradientPaletteKey(role.color, role.color2) === key);
 }
 
-function visibleGradientPalettes() {
+function gradientPresetKeys() {
+  return new Set(SERVER_GRADIENT_PALETTES.map((pair) => gradientPaletteKey(pair[0], pair[1])));
+}
+
+function extraGradientPaletteCount() {
+  const preset = gradientPresetKeys();
+  const seen = new Set();
+  const add = (a, b) => {
+    const key = gradientPaletteKey(a, b);
+    if (!key || preset.has(key) || seen.has(key)) return;
+    if (hiddenGradientPalettes.has(key) && !rolesUsingPalette(key).length) return;
+    seen.add(key);
+  };
+  serverRolesDraft.forEach((row) => add(row.color, row.color2));
+  customGradientPalettes.forEach((pair) => add(pair[0], pair[1]));
+  return seen.size;
+}
+
+function visibleGradientPalettes(role) {
   const seen = new Set();
   const list = [];
   const add = (a, b) => {
@@ -670,9 +697,28 @@ function visibleGradientPalettes() {
     seen.add(key);
     list.push(key.split("|"));
   };
+  if (role) add(role.color, role.color2);
+  serverRolesDraft.forEach((row) => add(row.color, row.color2));
+  customGradientPalettes.forEach((pair) => add(pair[0], pair[1]));
   SERVER_GRADIENT_PALETTES.forEach((pair) => add(pair[0], pair[1]));
-  serverRolesDraft.forEach((role) => add(role.color, role.color2));
   return list;
+}
+
+function validRoleHex(value, fallback) {
+  return /^#[0-9a-fA-F]{6}$/.test(value || "") ? value : fallback;
+}
+
+function bindRoleColorInput(wrap, value, fallback, onPick) {
+  const native = document.createElement("input");
+  native.type = "color";
+  native.value = validRoleHex(value, fallback);
+  const apply = (commit) => {
+    if (suppressRoleColor || !native.isConnected) return;
+    onPick(native.value, commit);
+  };
+  native.addEventListener("input", () => apply(false));
+  native.addEventListener("change", () => apply(true));
+  wrap.appendChild(native);
 }
 
 function paintRoleNameColor(el, role) {
@@ -715,27 +761,29 @@ function paintRoleColorPicker(role, locked, key) {
     }
     swatches.appendChild(dot);
   });
+  const customWrap = document.createElement("span");
+  customWrap.className = "server-role-color-hit";
   const custom = document.createElement("button");
   custom.type = "button";
+  custom.tabIndex = -1;
   const inPalette = SERVER_ROLE_SWATCHES.some((hex) => hex.toLowerCase() === current);
   custom.className = "server-role-swatch-custom" + (!inPalette && current ? " is-on" : "");
   custom.textContent = "+";
   custom.title = "Custom color";
   if (!inPalette && current) custom.style.background = role[key];
-  const native = document.createElement("input");
-  native.type = "color";
-  native.value = role[key] || "#99aab5";
-  native.hidden = true;
-  if (!locked) custom.addEventListener("click", () => native.click());
-  else custom.disabled = true;
-  native.addEventListener("input", () => {
-    role[key] = native.value;
-    custom.className = "server-role-swatch-custom is-on";
-    custom.style.background = role[key];
-    afterRoleChange(false);
-  });
-  swatches.appendChild(custom);
-  swatches.appendChild(native);
+  customWrap.appendChild(custom);
+  if (!locked) {
+    bindRoleColorInput(customWrap, role[key], "#99aab5", (value, commit) => {
+      role[key] = value;
+      custom.className = "server-role-swatch-custom is-on";
+      custom.style.background = value;
+      custom.style.color = "transparent";
+      afterRoleChange(commit);
+    });
+  } else {
+    custom.disabled = true;
+  }
+  swatches.appendChild(customWrap);
   return swatches;
 }
 
@@ -753,29 +801,25 @@ function paintGradientPaletteRow(role, locked) {
       plus.textContent = "+";
       stops.appendChild(plus);
     }
+    const bubbleWrap = document.createElement("span");
+    bubbleWrap.className = "server-role-color-hit";
     const bubble = document.createElement("button");
     bubble.type = "button";
+    bubble.tabIndex = -1;
     bubble.className = "server-role-gradient-stop";
-    bubble.style.background = role[key] || (index === 0 ? "#000000" : "#ffffff");
+    const fallback = index === 0 ? "#000000" : "#ffffff";
+    bubble.style.background = role[key] || fallback;
     bubble.title = index === 0 ? "First color" : "Second color";
     bubble.disabled = !!locked;
-    const native = document.createElement("input");
-    native.type = "color";
-    native.hidden = true;
-    native.value = /^#[0-9a-fA-F]{6}$/.test(role[key] || "") ? role[key] : (index === 0 ? "#000000" : "#ffffff");
-    bubble.addEventListener("click", () => {
-      if (!locked) native.click();
-    });
-    native.addEventListener("input", () => {
-      role[key] = native.value;
-      bubble.style.background = native.value;
-      afterRoleChange(false);
-    });
-    native.addEventListener("change", () => {
-      afterRoleChange(true);
-    });
-    stops.appendChild(bubble);
-    stops.appendChild(native);
+    bubbleWrap.appendChild(bubble);
+    if (!locked) {
+      bindRoleColorInput(bubbleWrap, role[key], fallback, (value, commit) => {
+        role[key] = value;
+        bubble.style.background = value;
+        afterRoleChange(commit);
+      });
+    }
+    stops.appendChild(bubbleWrap);
   });
   row.appendChild(stops);
   const divider = document.createElement("span");
@@ -784,7 +828,8 @@ function paintGradientPaletteRow(role, locked) {
   const palettes = document.createElement("div");
   palettes.className = "server-roles-swatches server-role-gradient-palettes";
   const currentKey = gradientPaletteKey(role.color, role.color2);
-  visibleGradientPalettes().forEach((pair) => {
+  const pairs = visibleGradientPalettes(role);
+  pairs.forEach((pair) => {
     const key = pair[0] + "|" + pair[1];
     const dot = document.createElement("button");
     dot.type = "button";
@@ -800,6 +845,34 @@ function paintGradientPaletteRow(role, locked) {
     palettes.appendChild(dot);
   });
   row.appendChild(palettes);
+  const addWrap = document.createElement("span");
+  addWrap.className = "server-role-color-hit server-role-gradient-add";
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "server-role-swatch-custom";
+  addBtn.textContent = "+";
+  const paletteFull = extraGradientPaletteCount() >= GRADIENT_PALETTE_LIMIT;
+  addBtn.title = paletteFull ? "Maximum of 10 palettes" : "Add color";
+  addBtn.disabled = !!locked || paletteFull;
+  addWrap.appendChild(addBtn);
+  if (!locked && !paletteFull) {
+    bindRoleColorInput(addWrap, "#99aab5", "#99aab5", (value, commit) => {
+      if (!commit) return;
+      if (extraGradientPaletteCount() >= GRADIENT_PALETTE_LIMIT) return;
+      const hex = normOptionalRoleColor(value) || "#99aab5";
+      const second = hex === "#ffffff" ? "#000000" : "#ffffff";
+      const key = gradientPaletteKey(hex, second);
+      if (!customGradientPalettes.some((pair) => gradientPaletteKey(pair[0], pair[1]) === key)) {
+        customGradientPalettes.push([hex, second]);
+      }
+      hiddenGradientPalettes.delete(key);
+      role.color = hex;
+      role.color2 = second;
+      role.colorMode = "gradient";
+      afterRoleChange(true);
+    });
+  }
+  row.appendChild(addWrap);
   wrap.appendChild(row);
   const actions = document.createElement("div");
   actions.className = "server-role-gradient-actions";
@@ -836,7 +909,7 @@ function openGradientPaletteDelete(role) {
   const users = rolesUsingPalette(key);
   if (!users.length) {
     hiddenGradientPalettes.add(key);
-    paintServerRolesEditor();
+    paintServerRolesPage();
     return;
   }
   gradientDeleteKey = key;
@@ -863,6 +936,7 @@ function openGradientPaletteDelete(role) {
 function confirmGradientPaletteDelete() {
   const key = gradientDeleteKey;
   if (!key) return;
+  suppressRoleColor = true;
   rolesUsingPalette(key).forEach((role) => {
     role.colorMode = "solid";
     role.color2 = "";
@@ -876,12 +950,12 @@ function confirmGradientPaletteDelete() {
 function paintServerRolesEditor() {
   const host = document.getElementById("server-roles-editor");
   if (!host) return;
+  suppressRoleColor = true;
+  host.querySelectorAll("input[type='color']").forEach((node) => node.remove());
   const role = selectedServerRole();
-  if (!role) {
-    host.innerHTML = "";
-    return;
-  }
   host.innerHTML = "";
+  suppressRoleColor = false;
+  if (!role) return;
   const locked = !canEditServerRole(role);
 
   if (locked) {
@@ -1046,8 +1120,8 @@ function afterRoleChange(repaintEditor) {
 function paintServerRolesPage() {
   const addBtn = document.getElementById("server-roles-add");
   if (addBtn) addBtn.disabled = !canCreateServerRole();
-  paintServerRolesList();
   paintServerRolesEditor();
+  paintServerRolesList();
   paintServerRolesReview();
 }
 
@@ -1504,10 +1578,13 @@ function openRemoveRoleConfirm(role) {
 }
 
 function dropServerRoleDraft(role) {
-  serverRolesDraft = serverRolesDraft.filter((row) => row.id !== role.id);
+  suppressRoleColor = true;
+  const removedId = String(role.id);
+  serverRolesDraft = serverRolesDraft.filter((row) => String(row.id) !== removedId);
   delete serverRolesOrigin[role.id];
-  serverRolesSaved = (serverRolesSaved || []).filter((row) => String(row.id) !== String(role.id));
-  if (serverRolesSelectedId === role.id) {
+  delete serverRolesOrigin[removedId];
+  serverRolesSaved = (serverRolesSaved || []).filter((row) => String(row.id) !== removedId);
+  if (String(serverRolesSelectedId) === removedId) {
     const members = serverRolesDraft.find((row) => row.builtin);
     serverRolesSelectedId = members ? members.id : ((serverRolesDraft[0] && serverRolesDraft[0].id) || "");
   }

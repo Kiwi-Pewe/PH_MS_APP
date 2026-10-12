@@ -682,7 +682,9 @@ function paintRoleNameColor(el, role) {
   el.style.webkitBackgroundClip = "";
   el.style.backgroundClip = "";
   el.style.webkitTextFillColor = "";
+  el.classList.remove("has-text-gradient");
   if (role && role.colorMode === "gradient" && role.color && role.color2) {
+    el.classList.add("has-text-gradient");
     el.style.backgroundImage = roleGradientCss(role.color, role.color2, role.gradientAngle);
     el.style.webkitBackgroundClip = "text";
     el.style.backgroundClip = "text";
@@ -745,19 +747,40 @@ function paintGradientPaletteRow(role, locked) {
   const stops = document.createElement("div");
   stops.className = "server-role-gradient-stops";
   ["color", "color2"].forEach((key, index) => {
+    if (index === 1) {
+      const plus = document.createElement("span");
+      plus.className = "server-role-gradient-plus";
+      plus.textContent = "+";
+      stops.appendChild(plus);
+    }
     const bubble = document.createElement("button");
     bubble.type = "button";
-    bubble.className = "server-role-gradient-stop" + (gradientStopIndex === index ? " is-on" : "");
+    bubble.className = "server-role-gradient-stop";
     bubble.style.background = role[key] || (index === 0 ? "#000000" : "#ffffff");
     bubble.title = index === 0 ? "First color" : "Second color";
     bubble.disabled = !!locked;
+    const native = document.createElement("input");
+    native.type = "color";
+    native.hidden = true;
+    native.value = /^#[0-9a-fA-F]{6}$/.test(role[key] || "") ? role[key] : (index === 0 ? "#000000" : "#ffffff");
     bubble.addEventListener("click", () => {
-      gradientStopIndex = index;
-      paintServerRolesEditor();
+      if (!locked) native.click();
+    });
+    native.addEventListener("input", () => {
+      role[key] = native.value;
+      bubble.style.background = native.value;
+      afterRoleChange(false);
+    });
+    native.addEventListener("change", () => {
+      afterRoleChange(true);
     });
     stops.appendChild(bubble);
+    stops.appendChild(native);
   });
   row.appendChild(stops);
+  const divider = document.createElement("span");
+  divider.className = "server-role-gradient-divider";
+  row.appendChild(divider);
   const palettes = document.createElement("div");
   palettes.className = "server-roles-swatches server-role-gradient-palettes";
   const currentKey = gradientPaletteKey(role.color, role.color2);
@@ -776,26 +799,6 @@ function paintGradientPaletteRow(role, locked) {
     });
     palettes.appendChild(dot);
   });
-  const custom = document.createElement("button");
-  custom.type = "button";
-  custom.className = "server-role-swatch-custom";
-  custom.textContent = "+";
-  custom.title = "Custom color";
-  custom.disabled = !!locked;
-  const native = document.createElement("input");
-  native.type = "color";
-  native.hidden = true;
-  const activeKey = gradientStopIndex === 1 ? "color2" : "color";
-  native.value = role[activeKey] || "#000000";
-  custom.addEventListener("click", () => native.click());
-  native.addEventListener("input", () => {
-    role[activeKey] = native.value;
-    const bubbles = stops.querySelectorAll(".server-role-gradient-stop");
-    if (bubbles[gradientStopIndex]) bubbles[gradientStopIndex].style.background = native.value;
-    afterRoleChange(false);
-  });
-  palettes.appendChild(custom);
-  palettes.appendChild(native);
   row.appendChild(palettes);
   wrap.appendChild(row);
   const actions = document.createElement("div");

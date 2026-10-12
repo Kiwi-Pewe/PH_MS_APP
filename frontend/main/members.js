@@ -399,6 +399,7 @@ function applyServerNameColor(el, userId, fallbackRole) {
   el.style.webkitBackgroundClip = "";
   el.style.backgroundClip = "";
   el.style.webkitTextFillColor = "";
+  el.classList.remove("has-text-gradient");
   const pref = nameColorPref();
   if (pref === "off") return;
   const role = nameRoleForUser(userId, fallbackRole);
@@ -425,6 +426,7 @@ function applyServerNameColor(el, userId, fallbackRole) {
     return;
   }
   if (color2) {
+    el.classList.add("has-text-gradient");
     el.style.backgroundImage = typeof roleGradientCss === "function"
       ? roleGradientCss(color, color2, role.gradient_angle)
       : "linear-gradient(90deg, " + color + ", " + color2 + ")";

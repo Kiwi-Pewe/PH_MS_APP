@@ -6978,6 +6978,16 @@ a.profile-link-row:hover { color: var(--accent); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.has-text-gradient {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+.server-role-item-name.has-text-gradient {
+  flex: 0 1 auto;
+}
 .server-role-dirty {
   flex: 0 0 8px;
   width: 8px;
@@ -7135,6 +7145,20 @@ a.profile-link-row:hover { color: var(--accent); }
   align-items: center;
   gap: 10px;
   flex: 0 0 auto;
+}
+.server-role-gradient-plus {
+  color: var(--text-dim);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
+}
+.server-role-gradient-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 28px;
+  background: var(--border);
+  flex: 0 0 1px;
 }
 .server-role-gradient-stop {
   width: 42px;

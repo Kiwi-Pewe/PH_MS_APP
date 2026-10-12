@@ -7124,6 +7124,43 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 0;
 }
 .server-role-swatch-custom:hover { border-color: var(--text); color: var(--text); }
+.server-role-gradient-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.server-role-gradient-stops {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.server-role-gradient-stop {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  box-sizing: border-box;
+}
+.server-role-gradient-stop.is-on {
+  border-color: var(--text);
+  outline: 2px solid var(--bg);
+  outline-offset: -4px;
+}
+.server-role-gradient-palettes { margin: 0; flex: 1 1 auto; }
+.server-role-gradient-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.gradient-palette-footer { justify-content: space-between; }
+#gradient-palette-title {
+  font-size: 18px;
+  font-weight: 700;
+}
 .server-role-swatch-custom.is-on {
   border-style: solid;
   border-color: var(--text);
@@ -8886,6 +8923,7 @@ a.profile-link-row:hover { color: var(--accent); }
 #delete-server-overlay,
 #delete-account-overlay,
 #transfer-server-overlay,
+#gradient-palette-overlay,
 #nickname-overlay {
   position: fixed;
   inset: 0;
@@ -8898,6 +8936,7 @@ a.profile-link-row:hover { color: var(--accent); }
 #delete-server-overlay[hidden],
 #delete-account-overlay[hidden],
 #transfer-server-overlay[hidden],
+#gradient-palette-overlay[hidden],
 #nickname-overlay[hidden] { display: none; }
 #nickname-title {
   font-size: 18px;

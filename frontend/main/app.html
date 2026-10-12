@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=310">
+<link rel="stylesheet" href="app.css?v=311">
 </head>
 <body>
 
@@ -1895,6 +1895,23 @@
     </div>
   </div>
 
+  <div id="gradient-palette-overlay" hidden>
+    <div class="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="gradient-palette-title">
+      <div class="delete-server-header">
+        <span id="gradient-palette-title">Delete Palette</span>
+        <button type="button" class="icon-btn" id="gradient-palette-close" title="Close">&times;</button>
+      </div>
+      <div class="delete-server-body">
+        <p id="gradient-palette-copy" class="delete-server-copy"></p>
+        <p id="gradient-palette-names" class="delete-server-copy" hidden></p>
+      </div>
+      <div class="delete-server-footer gradient-palette-footer">
+        <button type="button" class="ghost-btn" id="gradient-palette-cancel">Cancel</button>
+        <button type="button" class="deny-btn" id="gradient-palette-confirm">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <div id="nickname-overlay" hidden>
     <div id="nickname-modal" class="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="nickname-title">
       <div class="delete-server-header">
@@ -2158,8 +2175,8 @@
 <script src="app-shell.js?v=68"></script>
 <script src="feed.js?v=16"></script>
 <script src="settings.js?v=20"></script>
-<script src="server-settings.js?v=38"></script>
-<script src="server-roles.js?v=31"></script>
+<script src="server-settings.js?v=39"></script>
+<script src="server-roles.js?v=32"></script>
 <script src="server-moderation.js?v=4"></script>
 <script src="server-members.js?v=8"></script>
 <script src="settings-account.js?v=5"></script>
@@ -2202,7 +2219,7 @@
 <script src="server-privacy.js?v=2"></script>
 <script src="server-emojis.js?v=3"></script>
 <script src="server-integrations.js?v=1"></script>
-<script src="server-audit.js?v=6"></script>
+<script src="server-audit.js?v=7"></script>
 <script src="server-delete.js?v=2"></script>
 <script src="account-delete.js?v=1"></script>
 <script src="server-notify.js?v=3"></script>
@@ -2216,7 +2233,7 @@
 <script src="channel-settings.js?v=23"></script>
 <script src="pins.js?v=3"></script>
 <script src="search.js?v=4"></script>
-<script src="members.js?v=17"></script>
+<script src="members.js?v=18"></script>
 <script src="mini-profile.js?v=11"></script>
 <script src="server-modals.js?v=48"></script>
 <script src="announcements.js?v=64"></script>

@@ -305,6 +305,7 @@ class Server_role_in(BaseModel):
     name: str = ""
     color: str = ""
     color_2: str = ""
+    gradient_angle: int = 90
     position: int = 0
     mentionable: bool = False
     hoist: bool = False

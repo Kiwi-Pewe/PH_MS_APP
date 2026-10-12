@@ -1253,6 +1253,8 @@ document.getElementById("server-settings-notify").addEventListener("click", (e) 
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
+  const palette = document.getElementById("gradient-palette-overlay");
+  if (palette && !palette.hidden) return;
   if (!isServerSettingsOpen) return;
   if (typeof activeMenuEl !== "undefined" && activeMenuEl) return;
   closeServerSettingsChrome();

@@ -145,11 +145,37 @@ def clean_role_color(value):
     return DEFAULT_ROLE_COLOR
 
 
-def clean_optional_role_color(value):
+def split_role_gradient(value):
     text = (value or "").strip()
+    angle = 90
+    if "@" in text:
+        text, _, raw_angle = text.partition("@")
+        try:
+            parsed = int(raw_angle)
+        except ValueError:
+            parsed = 90
+        if parsed in (0, 90, 180, 270):
+            angle = parsed
     if ROLE_COLOR_RE.fullmatch(text):
-        return text.lower()
-    return ""
+        return text.lower(), angle
+    return "", 90
+
+
+def clean_optional_role_color(value):
+    return split_role_gradient(value)[0]
+
+
+def pack_role_gradient(color, angle):
+    hex_color = clean_optional_role_color(color)
+    if not hex_color:
+        return None
+    try:
+        turn = int(angle)
+    except (TypeError, ValueError):
+        turn = 90
+    if turn not in (0, 180, 270):
+        return hex_color
+    return hex_color + "@" + str(turn)
 
 
 def clean_role_name(value, fallback="New Role"):
@@ -229,11 +255,13 @@ def parse_role_perms(row):
 
 
 def serialize_role(row):
+    second, angle = split_role_gradient(getattr(row, "color_2", None))
     return {
         "id": row.id,
         "name": row.name or "",
         "color": clean_role_color(getattr(row, "color", None)),
-        "color_2": clean_optional_role_color(getattr(row, "color_2", None)),
+        "color_2": second,
+        "gradient_angle": angle if second else 90,
         "position": int(row.position or 0),
         "mentionable": bool(row.mentionable),
         "hoist": bool(row.hoist),
@@ -289,11 +317,13 @@ def seed_server_roles(database, server_id):
 
 
 def serialize_hoist_role(row):
+    second, angle = split_role_gradient(getattr(row, "color_2", None))
     return {
         "id": row.id,
         "name": row.name or "Role",
         "color": clean_role_color(getattr(row, "color", None)),
-        "color_2": clean_optional_role_color(getattr(row, "color_2", None)),
+        "color_2": second,
+        "gradient_angle": angle if second else 90,
         "position": int(row.position or 0),
     }
 
@@ -726,12 +756,21 @@ def role_audit_changes(before, row, perms):
             "from": clean_role_color(before["color"]),
             "to": clean_role_color(row.color),
         })
-    if clean_optional_role_color(getattr(row, "color_2", None)) != clean_optional_role_color(before.get("color_2")):
+    before_hex, before_angle = split_role_gradient(before.get("color_2"))
+    now_hex, now_angle = split_role_gradient(getattr(row, "color_2", None))
+    if now_hex != before_hex:
         changes.append({
             "key": "color2",
             "kind": "color",
-            "from": clean_optional_role_color(before.get("color_2")),
-            "to": clean_optional_role_color(getattr(row, "color_2", None)),
+            "from": before_hex,
+            "to": now_hex,
+        })
+    if before_hex and now_hex and before_angle != now_angle:
+        changes.append({
+            "key": "gradientAngle",
+            "kind": "text",
+            "from": str(before_angle) + "°",
+            "to": str(now_angle) + "°",
         })
     flags = (
         ("mentionable", "mentionable", bool(row.mentionable)),
@@ -803,7 +842,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
                 row.name = name
                 row.position = role_position_for_actor(is_owner, actor_highest, item.position)
             row.color = color
-            row.color_2 = color_2 or None
+            row.color_2 = pack_role_gradient(color_2, getattr(item, "gradient_angle", 90))
             row.mentionable = mentionable
             row.hoist = hoist
             row.name_color = name_color
@@ -835,7 +874,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
                 server_id=server.id,
                 name=name,
                 color=color,
-                color_2=color_2 or None,
+                color_2=pack_role_gradient(color_2, getattr(item, "gradient_angle", 90)),
                 position=create_position,
                 mentionable=mentionable,
                 hoist=hoist,

@@ -419,13 +419,15 @@ function applyServerNameColor(el, userId, fallbackRole) {
   if (pref === "next") {
     const dot = document.createElement("span");
     dot.className = "name-color-dot";
-    dot.style.background = color2 ? "linear-gradient(90deg, " + color + ", " + color2 + ")" : color;
+    dot.style.background = color2 ? (typeof roleGradientCss === "function" ? roleGradientCss(color, color2, role.gradient_angle) : "linear-gradient(90deg, " + color + ", " + color2 + ")") : color;
     el.insertBefore(dot, el.firstChild);
     el.classList.add("has-name-color-dot");
     return;
   }
   if (color2) {
-    el.style.backgroundImage = "linear-gradient(90deg, " + color + ", " + color2 + ")";
+    el.style.backgroundImage = typeof roleGradientCss === "function"
+      ? roleGradientCss(color, color2, role.gradient_angle)
+      : "linear-gradient(90deg, " + color + ", " + color2 + ")";
     el.style.webkitBackgroundClip = "text";
     el.style.backgroundClip = "text";
     el.style.color = "transparent";

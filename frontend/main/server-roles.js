@@ -9,6 +9,23 @@ const SERVER_ROLE_SWATCHES = [
   "#9b59b6", "#3498db", "#1abc9c", "#e67e22", "#95a5a6"
 ];
 
+const SERVER_GRADIENT_PALETTES = [
+  ["#000000", "#ffffff"],
+  ["#f04747", "#faa61a"],
+  ["#faa61a", "#43b581"],
+  ["#43b581", "#3498db"],
+  ["#3498db", "#9b59b6"],
+  ["#9b59b6", "#e91e63"],
+  ["#e91e63", "#f04747"],
+  ["#1abc9c", "#3498db"],
+  ["#e67e22", "#f04747"],
+  ["#99aab5", "#ffffff"]
+];
+
+let hiddenGradientPalettes = new Set();
+let gradientStopIndex = 0;
+let gradientDeleteKey = "";
+
 const SERVER_ROLE_PERMS = [
   {
     title: "General permissions",
@@ -238,6 +255,7 @@ function cloneServerRole(role) {
     position: role.position,
     color: role.color || "#99aab5",
     color2: role.color2 || "",
+    gradientAngle: gradientPaintAngle(role.gradientAngle),
     colorMode: role.colorMode || "solid",
     selfAssign: !!role.selfAssign,
     mentionable: !!role.mentionable,
@@ -331,6 +349,11 @@ function roleChanges(role) {
   }
   if (normOptionalRoleColor(role.color2) !== normOptionalRoleColor(origin.color2)) {
     changes.push({ key: "color2", kind: "color", label: "Gradient color", from: origin.color2 || "", to: role.color2 || "" });
+  }
+  const roleAngle = role.color2 ? gradientPaintAngle(role.gradientAngle) : 90;
+  const originAngle = origin.color2 ? gradientPaintAngle(origin.gradientAngle) : 90;
+  if (roleAngle !== originAngle) {
+    changes.push({ key: "gradientAngle", kind: "text", label: "Gradient direction", from: originAngle + "°", to: roleAngle + "°" });
   }
   ["selfAssign", "mentionable", "hoist", "nameColor"].forEach((field) => {
     if (!!role[field] !== !!origin[field]) {
@@ -451,6 +474,7 @@ function applyServerRolesFromApi(rows) {
       position: row.position,
       color: normRoleColor(row.color),
       color2: normOptionalRoleColor(row.color_2),
+      gradientAngle: row.color_2 ? gradientPaintAngle(row.gradient_angle) : 90,
       colorMode: row.color_2 ? "gradient" : "solid",
       selfAssign: !!row.self_assignable,
       mentionable: !!row.mentionable,
@@ -614,6 +638,43 @@ function roleColorCaption(text) {
   return cap;
 }
 
+function gradientPaintAngle(angle) {
+  const turn = Number(angle);
+  if (turn === 0 || turn === 90 || turn === 180 || turn === 270) return turn;
+  return 90;
+}
+
+function roleGradientCss(color, color2, angle) {
+  return "linear-gradient(" + gradientPaintAngle(angle) + "deg, " + color + ", " + color2 + ")";
+}
+
+function gradientPaletteKey(a, b) {
+  const left = normOptionalRoleColor(a);
+  const right = normOptionalRoleColor(b);
+  if (!left || !right) return "";
+  return left + "|" + right;
+}
+
+function rolesUsingPalette(key) {
+  if (!key) return [];
+  return serverRolesDraft.filter((role) => gradientPaletteKey(role.color, role.color2) === key);
+}
+
+function visibleGradientPalettes() {
+  const seen = new Set();
+  const list = [];
+  const add = (a, b) => {
+    const key = gradientPaletteKey(a, b);
+    if (!key || seen.has(key)) return;
+    if (hiddenGradientPalettes.has(key) && !rolesUsingPalette(key).length) return;
+    seen.add(key);
+    list.push(key.split("|"));
+  };
+  SERVER_GRADIENT_PALETTES.forEach((pair) => add(pair[0], pair[1]));
+  serverRolesDraft.forEach((role) => add(role.color, role.color2));
+  return list;
+}
+
 function paintRoleNameColor(el, role) {
   if (!el) return;
   el.style.color = "";
@@ -622,7 +683,7 @@ function paintRoleNameColor(el, role) {
   el.style.backgroundClip = "";
   el.style.webkitTextFillColor = "";
   if (role && role.colorMode === "gradient" && role.color && role.color2) {
-    el.style.backgroundImage = "linear-gradient(90deg, " + role.color + ", " + role.color2 + ")";
+    el.style.backgroundImage = roleGradientCss(role.color, role.color2, role.gradientAngle);
     el.style.webkitBackgroundClip = "text";
     el.style.backgroundClip = "text";
     el.style.color = "transparent";
@@ -674,6 +735,139 @@ function paintRoleColorPicker(role, locked, key) {
   swatches.appendChild(custom);
   swatches.appendChild(native);
   return swatches;
+}
+
+function paintGradientPaletteRow(role, locked) {
+  const wrap = document.createElement("div");
+  wrap.className = "server-role-gradient";
+  const row = document.createElement("div");
+  row.className = "server-role-gradient-row";
+  const stops = document.createElement("div");
+  stops.className = "server-role-gradient-stops";
+  ["color", "color2"].forEach((key, index) => {
+    const bubble = document.createElement("button");
+    bubble.type = "button";
+    bubble.className = "server-role-gradient-stop" + (gradientStopIndex === index ? " is-on" : "");
+    bubble.style.background = role[key] || (index === 0 ? "#000000" : "#ffffff");
+    bubble.title = index === 0 ? "First color" : "Second color";
+    bubble.disabled = !!locked;
+    bubble.addEventListener("click", () => {
+      gradientStopIndex = index;
+      paintServerRolesEditor();
+    });
+    stops.appendChild(bubble);
+  });
+  row.appendChild(stops);
+  const palettes = document.createElement("div");
+  palettes.className = "server-roles-swatches server-role-gradient-palettes";
+  const currentKey = gradientPaletteKey(role.color, role.color2);
+  visibleGradientPalettes().forEach((pair) => {
+    const key = pair[0] + "|" + pair[1];
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "server-role-swatch" + (key === currentKey ? " is-on" : "");
+    dot.style.background = roleGradientCss(pair[0], pair[1], 90);
+    dot.title = pair[0] + " " + pair[1];
+    dot.disabled = !!locked;
+    dot.addEventListener("click", () => {
+      role.color = pair[0];
+      role.color2 = pair[1];
+      afterRoleChange(true);
+    });
+    palettes.appendChild(dot);
+  });
+  const custom = document.createElement("button");
+  custom.type = "button";
+  custom.className = "server-role-swatch-custom";
+  custom.textContent = "+";
+  custom.title = "Custom color";
+  custom.disabled = !!locked;
+  const native = document.createElement("input");
+  native.type = "color";
+  native.hidden = true;
+  const activeKey = gradientStopIndex === 1 ? "color2" : "color";
+  native.value = role[activeKey] || "#000000";
+  custom.addEventListener("click", () => native.click());
+  native.addEventListener("input", () => {
+    role[activeKey] = native.value;
+    const bubbles = stops.querySelectorAll(".server-role-gradient-stop");
+    if (bubbles[gradientStopIndex]) bubbles[gradientStopIndex].style.background = native.value;
+    afterRoleChange(false);
+  });
+  palettes.appendChild(custom);
+  palettes.appendChild(native);
+  row.appendChild(palettes);
+  wrap.appendChild(row);
+  const actions = document.createElement("div");
+  actions.className = "server-role-gradient-actions";
+  const rotate = document.createElement("button");
+  rotate.type = "button";
+  rotate.className = "ghost-btn";
+  rotate.textContent = "Rotate";
+  rotate.disabled = !!locked;
+  rotate.addEventListener("click", () => {
+    role.gradientAngle = (gradientPaintAngle(role.gradientAngle) + 90) % 360;
+    afterRoleChange(true);
+  });
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "ghost-btn";
+  remove.textContent = "Delete";
+  remove.disabled = !!locked;
+  remove.addEventListener("click", () => openGradientPaletteDelete(role));
+  actions.appendChild(rotate);
+  actions.appendChild(remove);
+  wrap.appendChild(actions);
+  return wrap;
+}
+
+function closeGradientPaletteDelete() {
+  const overlay = document.getElementById("gradient-palette-overlay");
+  if (overlay) overlay.hidden = true;
+  gradientDeleteKey = "";
+}
+
+function openGradientPaletteDelete(role) {
+  const key = gradientPaletteKey(role && role.color, role && role.color2);
+  if (!key) return;
+  const users = rolesUsingPalette(key);
+  if (!users.length) {
+    hiddenGradientPalettes.add(key);
+    paintServerRolesEditor();
+    return;
+  }
+  gradientDeleteKey = key;
+  const copy = document.getElementById("gradient-palette-copy");
+  const names = document.getElementById("gradient-palette-names");
+  const count = users.length === 1 ? "1 role" : users.length + " roles";
+  if (copy) copy.textContent = "This palette is used by " + count + ".";
+  if (names) {
+    if (users.length > 1) {
+      const shown = users.slice(0, 3).map((row) => row.name || "Role");
+      let text = shown.join(", ");
+      if (users.length > 3) text += " +" + (users.length - 3) + " More";
+      names.hidden = false;
+      names.textContent = text;
+    } else {
+      names.hidden = true;
+      names.textContent = "";
+    }
+  }
+  const overlay = document.getElementById("gradient-palette-overlay");
+  if (overlay) overlay.hidden = false;
+}
+
+function confirmGradientPaletteDelete() {
+  const key = gradientDeleteKey;
+  if (!key) return;
+  rolesUsingPalette(key).forEach((role) => {
+    role.colorMode = "solid";
+    role.color2 = "";
+    role.gradientAngle = 90;
+  });
+  hiddenGradientPalettes.add(key);
+  closeGradientPaletteDelete();
+  afterRoleChange(true);
 }
 
 function paintServerRolesEditor() {
@@ -732,6 +926,7 @@ function paintServerRolesEditor() {
   solidBtn.addEventListener("click", () => {
     role.colorMode = "solid";
     role.color2 = "";
+    role.gradientAngle = 90;
     afterRoleChange(true);
   });
   const gradBtn = document.createElement("button");
@@ -740,7 +935,12 @@ function paintServerRolesEditor() {
   gradBtn.className = role.colorMode === "gradient" ? "is-on" : "";
   gradBtn.addEventListener("click", () => {
     role.colorMode = "gradient";
-    if (!role.color2) role.color2 = "#3498db";
+    if (!role.color2) {
+      role.color = "#000000";
+      role.color2 = "#ffffff";
+      role.gradientAngle = 90;
+    }
+    gradientStopIndex = 0;
     afterRoleChange(true);
   });
   seg.appendChild(solidBtn);
@@ -748,10 +948,7 @@ function paintServerRolesEditor() {
   colorField.appendChild(seg);
 
   if (role.colorMode === "gradient") {
-    colorField.appendChild(roleColorCaption("First color"));
-    colorField.appendChild(paintRoleColorPicker(role, locked, "color"));
-    colorField.appendChild(roleColorCaption("Second color"));
-    colorField.appendChild(paintRoleColorPicker(role, locked, "color2"));
+    colorField.appendChild(paintGradientPaletteRow(role, locked));
   } else {
     colorField.appendChild(paintRoleColorPicker(role, locked, "color"));
   }
@@ -869,6 +1066,8 @@ function revertRoleChange(role, change) {
   else if (change.key === "color2") {
     role.color2 = origin.color2 || "";
     role.colorMode = role.color2 ? "gradient" : "solid";
+  } else if (change.key === "gradientAngle") {
+    role.gradientAngle = origin.gradientAngle;
   }
   else if (change.key === "mentionable" || change.key === "hoist" || change.key === "nameColor") role[change.key] = origin[change.key];
   else if (change.key.indexOf("perm:") === 0) {
@@ -1162,6 +1361,7 @@ async function confirmServerRoles() {
           name: role.name,
           color: role.color,
           color_2: role.colorMode === "gradient" ? (role.color2 || "") : "",
+          gradient_angle: role.colorMode === "gradient" ? gradientPaintAngle(role.gradientAngle) : 90,
           position: (serverRoleOrderDirty() || role.created) ? positionForServerRole(role) : Number(role.position || 0),
           mentionable: !!role.mentionable,
           hoist: !!role.hoist,
@@ -1362,11 +1562,30 @@ if (removeRoleOverlay) {
 }
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
+  const palette = document.getElementById("gradient-palette-overlay");
+  if (palette && !palette.hidden) {
+    e.stopPropagation();
+    closeGradientPaletteDelete();
+    return;
+  }
   const card = document.getElementById("remove-role-overlay");
   if (!card || card.style.display !== "flex") return;
   e.stopPropagation();
   closeRemoveRoleConfirm();
 }, true);
+
+const gradientPaletteCancel = document.getElementById("gradient-palette-cancel");
+const gradientPaletteConfirm = document.getElementById("gradient-palette-confirm");
+const gradientPaletteClose = document.getElementById("gradient-palette-close");
+const gradientPaletteOverlay = document.getElementById("gradient-palette-overlay");
+if (gradientPaletteCancel) gradientPaletteCancel.addEventListener("click", closeGradientPaletteDelete);
+if (gradientPaletteClose) gradientPaletteClose.addEventListener("click", closeGradientPaletteDelete);
+if (gradientPaletteConfirm) gradientPaletteConfirm.addEventListener("click", confirmGradientPaletteDelete);
+if (gradientPaletteOverlay) {
+  gradientPaletteOverlay.addEventListener("click", (e) => {
+    if (e.target.id === "gradient-palette-overlay") closeGradientPaletteDelete();
+  });
+}
 
 document.querySelectorAll("#server-settings-nav .server-settings-nav-item[data-tab]").forEach((btn) => {
   btn.addEventListener("click", () => {

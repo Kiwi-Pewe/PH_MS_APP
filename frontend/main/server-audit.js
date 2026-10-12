@@ -132,6 +132,7 @@ function auditRoleChangeLabel(change) {
   if (change.key === "name") return "Role name";
   if (change.key === "color") return "Role color";
   if (change.key === "color2") return "Gradient color";
+  if (change.key === "gradientAngle") return "Gradient direction";
   if (String(change.key || "").indexOf("perm:") === 0 && typeof permTitle === "function") {
     return permTitle(String(change.key).slice(5));
   }

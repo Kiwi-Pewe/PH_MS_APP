@@ -25,6 +25,7 @@ let channelSettingsPermLive = [
   "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
 ];
 let channelSettingsPermLoading = false;
+let channelSettingsPermSyncing = false;
 let channelSettingsPermSaving = {};
 
 const CHANNEL_SETTINGS_GENERAL_IDS = [
@@ -534,15 +535,62 @@ function channelSettingsLivePermIds() {
   return ids;
 }
 
+function categoryRolePermMap(role) {
+  const next = {};
+  channelSettingsPermLive.forEach((id) => {
+    if (role && role.perms && Object.prototype.hasOwnProperty.call(role.perms, id)) next[id] = !!role.perms[id];
+    else if (Object.prototype.hasOwnProperty.call(CHANNEL_SETTINGS_LIVE_DEFAULTS, id)) next[id] = !!CHANNEL_SETTINGS_LIVE_DEFAULTS[id];
+    else next[id] = false;
+  });
+  return next;
+}
+
 function paintChannelSettingsPermActions() {
   const enable = document.getElementById("channel-settings-perms-enable-all");
   const clear = document.getElementById("channel-settings-perms-clear-all");
+  const sync = document.getElementById("channel-settings-perms-sync");
   const ready = channelSettingsKind === "channel"
     && !!channelSettingsTarget
     && !channelSettingsPermLoading
+    && !channelSettingsPermSyncing
     && /^\d+$/.test(String(channelSettingsPermRoleId));
   if (enable) enable.disabled = !ready;
   if (clear) clear.disabled = !ready;
+  if (sync) {
+    sync.hidden = channelSettingsKind === "category";
+    sync.disabled = !ready
+      || channelSettingsTarget.category_id == null
+      || (typeof canManageChannels === "function" && !canManageChannels());
+  }
+}
+
+async function syncChannelWithCategory() {
+  if (channelSettingsKind !== "channel" || !channelSettingsTarget || channelSettingsPermSyncing) return;
+  if (channelSettingsTarget.category_id == null) return;
+  if (typeof canManageChannels === "function" && !canManageChannels()) return;
+  const roles = channelSettingsRoleChoices().filter((role) => /^\d+$/.test(String(role.id)));
+  if (!roles.length) {
+    setChannelSettingsNameStatus("Load roles before syncing permissions.");
+    return;
+  }
+  channelSettingsPermSyncing = true;
+  paintChannelSettingsPermActions();
+  try {
+    for (let i = 0; i < roles.length; i += 1) {
+      await postChannelSettings("/save_channel_role_perms", {
+        channel_id: channelSettingsTarget.id,
+        role_id: Number(roles[i].id),
+        permissions: categoryRolePermMap(roles[i]),
+      });
+    }
+    await loadChannelSettingsRolePerms();
+    if (typeof refreshServerContentsSoft === "function") await refreshServerContentsSoft();
+  } catch (err) {
+    setChannelSettingsNameStatus(err.message || "Could not sync with the category.");
+  } finally {
+    channelSettingsPermSyncing = false;
+    paintChannelSettingsPermActions();
+  }
 }
 
 async function saveChannelSettingsPermBulk(on) {
@@ -1584,6 +1632,8 @@ const permsEnableAll = document.getElementById("channel-settings-perms-enable-al
 if (permsEnableAll) permsEnableAll.addEventListener("click", () => saveChannelSettingsPermBulk(true));
 const permsClearAll = document.getElementById("channel-settings-perms-clear-all");
 if (permsClearAll) permsClearAll.addEventListener("click", () => saveChannelSettingsPermBulk(false));
+const permsSync = document.getElementById("channel-settings-perms-sync");
+if (permsSync) permsSync.addEventListener("click", () => syncChannelWithCategory());
 
 document.getElementById("channel-settings-delete").addEventListener("click", () => {
   if (!channelSettingsTarget) return;

@@ -7,4 +7,4 @@
 /community /main/app.html 200
 /announcements /main/app.html 200
 /messages /main/app.html 200
-/server/* /main/app.html 200
+/server/* /main/app 200

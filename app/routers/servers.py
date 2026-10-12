@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
 from zoneinfo import available_timezones
 from app.database import get_db
 from app.auth import get_current_user
@@ -18,9 +18,11 @@ from app.routers.roles import (
     channel_type_visible,
     effective_perms_for_user,
     effective_perms_for_user_in_channel,
+    can_moderate_target,
     highest_roles_by_user,
     hoist_roles_by_user,
     name_color_roles_by_user,
+    nicknames_for_users,
     require_channel_perm,
     require_channel_slowmode,
     normalize_slowmode,
@@ -308,9 +310,69 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "permissions": permissions,
         "highest_role": actor_highest_role(database, server, current_user.id),
         "timeout_until": iso_dt(timeout_until_for(in_server)),
+        "last_channel_id": getattr(in_server, "last_channel_id", None),
         **server_privacy_fields(server),
         **server_banner_fields(server)
     }
+
+
+@router.post("/remember_server_channel")
+def remember_server_channel(body: Server_channel_memory, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    membership = database.query(Server_members).filter(
+        Server_members.server_id == body.server_id,
+        Server_members.user_id == current_user.id,
+    ).first()
+    if not membership:
+        raise HTTPException(status_code=404, detail="Server membership not found")
+    channel = database.query(Server_channels).filter(Server_channels.id == body.channel_id).first()
+    if not channel or channel.channel_type == "voice":
+        return {"ok": True}
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    if not category or category.server_id != body.server_id:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if getattr(membership, "last_channel_id", None) != channel.id:
+        membership.last_channel_id = channel.id
+        database.commit()
+    return {"ok": True, "channel_id": channel.id}
+
+
+@router.post("/update_server_nickname")
+async def update_server_nickname(body: Server_nickname_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    target = database.query(Server_members).filter(
+        Server_members.server_id == server.id,
+        Server_members.user_id == body.user_id,
+    ).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Server membership not found")
+    if body.user_id == current_user.id:
+        require_server_perm(database, server, current_user.id, "change_nickname", "You do not have permission to change your nickname.")
+    else:
+        require_server_perm(database, server, current_user.id, "manage_nicknames", "You do not have permission to manage nicknames.")
+        if not can_moderate_target(database, server, current_user.id, body.user_id):
+            raise HTTPException(status_code=403, detail="You can only change nicknames for members below you.")
+    nick = (body.nickname or "").strip()
+    if len(nick) > 32:
+        nick = nick[:32]
+    previous = (getattr(target, "nickname", None) or "").strip()
+    if nick == previous:
+        return {"ok": True, "user_id": body.user_id, "nickname": nick}
+    target.nickname = nick or None
+    account = database.query(UserInfo).filter(UserInfo.id == body.user_id).first()
+    write_audit_log(database, server.id, current_user.id, "update_nickname", "member", body.user_id, {
+        "name": account.username if account else "",
+        "field": "Nickname",
+        "from": previous,
+        "to": nick,
+    })
+    database.commit()
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_nickname_updated", "server_id": server.id, "user_id": body.user_id, "nickname": nick},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "user_id": body.user_id, "nickname": nick}
 
 
 @router.post("/update_server_icon")
@@ -338,6 +400,10 @@ async def update_server_icon(body: Server_icon_update, database: Session = Depen
     else:
         server.icon_key = None
 
+    if (old_key or None) != (getattr(server, "icon_key", None) or None):
+        write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+            "name": "Icon", "field": "Icon", "to": "Removed" if not server.icon_key else "Updated",
+        })
     database.commit()
     if old_key and old_key != getattr(server, "icon_key", None):
         delete_r2_object(old_key)
@@ -360,6 +426,7 @@ async def update_server_banner(body: Server_banner_update, database: Session = D
     color = clean_banner_hex(body.color)
     key = (body.key or "").strip() or None
     old_key = getattr(server, "banner_key", None)
+    old_color = getattr(server, "banner_color", None)
     if color:
         server.banner_color = color
         server.banner_key = None
@@ -383,6 +450,10 @@ async def update_server_banner(body: Server_banner_update, database: Session = D
         server.banner_key = None
         server.banner_color = None
 
+    if (old_key or None) != (getattr(server, "banner_key", None) or None) or (old_color or None) != (getattr(server, "banner_color", None) or None):
+        write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+            "name": "Banner", "field": "Banner", "to": "Removed" if not server.banner_key and not server.banner_color else "Updated",
+        })
     database.commit()
     if old_key and old_key != getattr(server, "banner_key", None):
         delete_r2_object(old_key)
@@ -408,7 +479,12 @@ async def update_server_name(body: Server_name_update, database: Session = Depen
     if len(name) > SERVER_NAME_MAX:
         raise HTTPException(status_code=400, detail="Server name is too long.")
 
+    previous = server.name or ""
     server.name = name
+    if previous != name:
+        write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+            "name": server.name, "field": "Name", "from": previous, "to": name,
+        })
     database.commit()
     await server_broadcast(
         server_id=server.id,
@@ -430,7 +506,12 @@ async def update_server_about(body: Server_about_update, database: Session = Dep
     if len(about) > 2000:
         raise HTTPException(status_code=400, detail="About text is too long.")
 
+    previous = server.about or ""
     server.about = about
+    if previous != about:
+        write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+            "name": "About", "field": "About", "from": previous[:200], "to": about[:200],
+        })
     database.commit()
     await server_broadcast(
         server_id=server.id,
@@ -447,8 +528,13 @@ async def update_server_url(body: Server_url_update, database: Session = Depends
     require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
     slug = clean_server_slug(body.slug)
+    previous = server_url_slug(server)
     if not slug:
         server.url_slug = None
+        if previous:
+            write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+                "name": "URL", "field": "URL", "from": previous, "to": "",
+            })
         database.commit()
         await server_broadcast(
             server_id=server.id,
@@ -471,6 +557,10 @@ async def update_server_url(body: Server_url_update, database: Session = Depends
         raise HTTPException(status_code=409, detail="That URL is already taken.")
 
     server.url_slug = slug
+    if previous.lower() != slug.lower():
+        write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+            "name": "URL", "field": "URL", "from": previous, "to": slug,
+        })
     database.commit()
     await server_broadcast(
         server_id=server.id,
@@ -504,6 +594,7 @@ async def update_server_type(body: Server_type_update, database: Session = Depen
     require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
     kind = (body.server_type or "").strip().lower()
+    previous = getattr(server, "server_type", None) or ""
     if not kind:
         server.server_type = None
     elif kind not in SERVER_TYPES:
@@ -511,6 +602,11 @@ async def update_server_type(body: Server_type_update, database: Session = Depen
     else:
         server.server_type = kind
 
+    saved_type = getattr(server, "server_type", None) or ""
+    if previous != saved_type:
+        write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+            "name": "Type", "field": "Type", "from": previous, "to": saved_type,
+        })
     database.commit()
     saved = getattr(server, "server_type", None) or ""
     await server_broadcast(
@@ -531,7 +627,13 @@ async def update_server_timezone(body: Server_timezone_update, database: Session
     if zone is None:
         raise HTTPException(status_code=400, detail="That is not a timezone.")
 
+    previous = getattr(server, "timezone", None) or ""
     server.timezone = zone or None
+    saved_zone = getattr(server, "timezone", None) or ""
+    if previous != saved_zone:
+        write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+            "name": "Timezone", "field": "Timezone", "from": previous, "to": saved_zone,
+        })
     database.commit()
     saved = getattr(server, "timezone", None) or ""
     await server_broadcast(
@@ -552,7 +654,12 @@ async def update_server_notifications(body: Server_notifications_update, databas
     if kind is None:
         raise HTTPException(status_code=400, detail="Pick All Messages or Only @mentions.")
 
+    previous = server_default_notifications(server)
     server.default_notifications = kind
+    if previous != kind:
+        write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+            "name": "Default notifications", "field": "Default notifications", "from": previous, "to": kind,
+        })
     database.commit()
     await server_broadcast(
         server_id=server.id,
@@ -572,8 +679,17 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
     if mode is None:
         raise HTTPException(status_code=400, detail="Pick Private, Default, or Open entry.")
     discoverable = bool(body.discoverable) and mode != "private"
+    previous = server_privacy_fields(server)
     server.privacy_mode = mode
     server.discoverable = discoverable
+    if previous.get("privacy_mode") != mode or bool(previous.get("discoverable")) != discoverable:
+        write_audit_log(database, server.id, current_user.id, "update_privacy", "server", 0, {
+            "name": "Privacy",
+            "field": "Privacy",
+            "from": previous.get("privacy_mode") or "",
+            "to": mode,
+            "discoverable": discoverable,
+        })
     database.commit()
     fields = server_privacy_fields(server)
     await server_broadcast(
@@ -619,6 +735,7 @@ def get_server_members(server_id: str, database: Session = Depends(get_db), curr
                 highest_map.get(account.id),
                 iso_dt(timeout_until_for(row)),
                 getattr(row, "timeout_reason", None) if timeout_until_for(row) else None,
+                getattr(row, "nickname", None),
             ))
     return {"server_id": server_id, "members": members}
 
@@ -662,6 +779,7 @@ def server_settings_members(server_id: str, database: Session = Depends(get_db),
             highest_map.get(account.id),
             iso_dt(timeout_until_for(row)),
             getattr(row, "timeout_reason", None) if timeout_until_for(row) else None,
+            getattr(row, "nickname", None),
         )
         payload["display_name"] = public_display_name(account)
         payload["joined_at"] = iso_dt(row.joined_at) if getattr(row, "joined_at", None) else None
@@ -761,8 +879,9 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
     reaction_map = reactions_for_messages(database, "channel", [message.id for message in channel_history], current_user.id)
     mention_meta = decorate_history(database, "channel", channel_history, current_user.id)
     reply_map = reply_map_for(database, Channel_messages, channel_history)
-    from app.routers.roles import name_color_roles_by_user
+    from app.routers.roles import name_color_roles_by_user, nicknames_for_users
     name_map = name_color_roles_by_user(database, server.id, sender_ids)
+    nick_map = nicknames_for_users(database, server.id, sender_ids)
 
     message_history = []
     for index, message in enumerate(channel_history):
@@ -770,6 +889,7 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
             "id": message.id,
             "sender_id": message.sender_id,
             "username": "" if message.sender_id == None else username_lookup.get(message.sender_id, ""),
+            "nickname": nick_map.get(message.sender_id, ""),
             "content": message.content,
             "attachment": attachment_public(message.attachment),
             "timestamp": str(message.timestamp),
@@ -803,6 +923,10 @@ async def create_category(category_info: Category_create, database: Session = De
         is_private = category_info.is_private
     )
     database.add(new_category)
+    database.flush()
+    write_audit_log(database, server.id, current_user.id, "create_category", "category", new_category.id, {
+        "name": new_category.name,
+    })
     database.commit()
     database.refresh(new_category)
     payload = {
@@ -831,6 +955,11 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
         is_private = channel_info.is_private
     )
     database.add(new_channel)
+    database.flush()
+    write_audit_log(database, server.id, current_user.id, "create_channel", "channel", new_channel.id, {
+        "name": new_channel.name,
+        "channel_type": new_channel.channel_type,
+    })
     database.commit()
     database.refresh(new_channel)
     payload = {
@@ -1101,27 +1230,47 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
     require_channel_perm(database, server, current_user.id, channel.id, "manage_channels", "You do not have permission to manage this channel.")
     if body.name is None and body.is_private is None and body.topic is None and body.slowmode is None and body.user_limit is None:
         raise HTTPException(status_code=400, detail="Nothing to update")
+    changes = []
     if body.name is not None:
         name = (body.name or "").strip()
         if not name:
             raise HTTPException(status_code=400, detail="Channel name is required")
         if len(name) > 100:
             name = name[:100]
-        channel.name = name
+        if name != (channel.name or ""):
+            changes.append({"key": "name", "from": channel.name or "", "to": name})
+            channel.name = name
     if body.is_private is not None:
-        channel.is_private = bool(body.is_private)
+        private = bool(body.is_private)
+        if private != bool(channel.is_private):
+            changes.append({"key": "private", "from": "Yes" if channel.is_private else "No", "to": "Yes" if private else "No"})
+            channel.is_private = private
     if body.topic is not None:
         topic = (body.topic or "").strip()
         if len(topic) > 1024:
             topic = topic[:1024]
-        channel.topic = topic or None
+        next_topic = topic or None
+        if (channel.topic or None) != next_topic:
+            changes.append({"key": "topic", "from": channel.topic or "", "to": topic})
+            channel.topic = next_topic
     if body.slowmode is not None:
-        channel.slowmode = normalize_slowmode(body.slowmode)
+        slowmode = normalize_slowmode(body.slowmode)
+        if int(getattr(channel, "slowmode", 0) or 0) != int(slowmode or 0):
+            changes.append({"key": "slowmode", "from": str(int(getattr(channel, "slowmode", 0) or 0)), "to": str(int(slowmode or 0))})
+            channel.slowmode = slowmode
     if body.user_limit is not None:
         if channel.channel_type != "voice":
             raise HTTPException(status_code=400, detail="Only a voice channel has a user limit.")
         from app.routers.voice import normalize_voice_limit
-        channel.user_limit = normalize_voice_limit(body.user_limit)
+        limit = normalize_voice_limit(body.user_limit)
+        if int(getattr(channel, "user_limit", 10) or 10) != int(limit or 0):
+            changes.append({"key": "user limit", "from": str(int(getattr(channel, "user_limit", 10) or 10)), "to": str(int(limit or 0))})
+            channel.user_limit = limit
+    if changes:
+        write_audit_log(database, server.id, current_user.id, "update_channel", "channel", channel.id, {
+            "name": channel.name,
+            "changes": changes,
+        })
     database.commit()
     database.refresh(channel)
     payload = {
@@ -1151,15 +1300,26 @@ async def update_category(body: Category_update, database: Session = Depends(get
     require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
     if body.name is None and body.is_private is None:
         raise HTTPException(status_code=400, detail="Nothing to update")
+    changes = []
     if body.name is not None:
         name = (body.name or "").strip()
         if not name:
             raise HTTPException(status_code=400, detail="Category name is required")
         if len(name) > 100:
             name = name[:100]
-        category.name = name
+        if name != (category.name or ""):
+            changes.append({"key": "name", "from": category.name or "", "to": name})
+            category.name = name
     if body.is_private is not None:
-        category.is_private = bool(body.is_private)
+        private = bool(body.is_private)
+        if private != bool(category.is_private):
+            changes.append({"key": "private", "from": "Yes" if category.is_private else "No", "to": "Yes" if private else "No"})
+            category.is_private = private
+    if changes:
+        write_audit_log(database, server.id, current_user.id, "update_category", "category", category.id, {
+            "name": category.name,
+            "changes": changes,
+        })
     database.commit()
     database.refresh(category)
     payload = {
@@ -1268,6 +1428,39 @@ async def leave_server(server_id: str, database: Session = Depends(get_db), curr
         "user_id": current_user.id
     }, database= database, exclude_user_id= current_user.id)
     return {"server_id": server_id}
+
+
+@router.post("/transfer_server_owner")
+async def transfer_server_owner(body: Server_transfer, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = database.query(Servers).filter(Servers.id == body.server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the server owner can transfer this server.")
+    if body.user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You already own this server.")
+    member = database.query(Server_members).filter(
+        Server_members.server_id == server.id,
+        Server_members.user_id == body.user_id,
+    ).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="That person is not in this server.")
+    target = database.query(UserInfo).filter(UserInfo.id == body.user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="That person is not in this server.")
+    server.owner_id = target.id
+    write_audit_log(database, server.id, current_user.id, "transfer_owner", "member", target.id, {
+        "username": target.username,
+        "from_username": current_user.username,
+    })
+    database.commit()
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_owner_updated", "server_id": server.id, "owner_id": target.id},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "server_id": server.id, "owner_id": target.id}
 
 
 @router.post("/delete_server")

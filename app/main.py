@@ -257,6 +257,11 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 reply_to = live_reply_to(database, Channel_messages, new_server_msg.reply_to_id)
                 from app.routers.roles import name_color_role_for_user
                 name_role = name_color_role_for_user(database, server.id, current_user.id)
+                sender_nick = ""
+                for row in all_members:
+                    if row.user_id == current_user.id:
+                        sender_nick = (getattr(row, "nickname", None) or "").strip()
+                        break
                 for member in all_members:
                     if member.user_id != current_user.id:
                         await safe_send_json(active_connections.get(member.user_id), {
@@ -266,6 +271,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "channel_id": channel.id,
                             "sender_id": current_user.id,
                             "username": current_user.username,
+                            "nickname": sender_nick,
                             "content": new_server_msg.content,
                             "attachment": attachment_public(new_server_msg.attachment),
                             "timestamp": str(new_server_msg.timestamp),
@@ -306,6 +312,11 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 roles_map = mention_role_map(database, new_forum_msg.get("content") or "")
                 from app.routers.roles import name_color_role_for_user
                 name_role = name_color_role_for_user(database, server.id, current_user.id)
+                sender_nick = ""
+                for row in all_members:
+                    if row.user_id == current_user.id:
+                        sender_nick = (getattr(row, "nickname", None) or "").strip()
+                        break
                 for member in all_members:
                     if member.user_id != current_user.id:
                         await safe_send_json(active_connections.get(member.user_id), {
@@ -316,6 +327,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "id": new_forum_msg["id"],
                             "sender_id": current_user.id,
                             "username": current_user.username,
+                            "nickname": sender_nick,
                             "content": new_forum_msg.get("content") or "",
                             "attachment": new_forum_msg.get("attachment"),
                             "timestamp": new_forum_msg["timestamp"],

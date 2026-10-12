@@ -1184,8 +1184,11 @@ function applyChannelSettingsForumSettings(settings) {
     guidelines: (settings && settings.guidelines) || "",
     require_tags: !!(settings && settings.require_tags),
     default_reaction: (settings && settings.default_reaction) || "",
+    layout: settings && settings.layout === "gallery" ? "gallery" : "list",
     tags: Array.isArray(settings && settings.tags) ? settings.tags.slice() : [],
   };
+  const layout = document.getElementById("channel-settings-forum-layout");
+  if (layout) layout.value = channelSettingsForumSettings.layout;
   syncChannelSettingsForumGuidelines(channelSettingsForumSettings.guidelines);
   paintChannelSettingsForumTags();
   paintChannelSettingsForumRequireTags();
@@ -1520,6 +1523,13 @@ if (forumGuidelinesInput) {
     if (!actions) return;
     actions.hidden = forumGuidelinesInput.value.trim() === channelSettingsSavedGuidelines;
     setChannelSettingsForumGuidelinesStatus("");
+  });
+}
+const forumLayoutSelect = document.getElementById("channel-settings-forum-layout");
+if (forumLayoutSelect) {
+  forumLayoutSelect.addEventListener("change", () => {
+    const value = forumLayoutSelect.value === "gallery" ? "gallery" : "list";
+    saveChannelSettingsForumSettings({ layout: value });
   });
 }
 const forumGuidelinesConfirm = document.getElementById("channel-settings-forum-guidelines-confirm");

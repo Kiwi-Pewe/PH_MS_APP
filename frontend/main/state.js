@@ -94,7 +94,7 @@ let announcementIsLoadingMore = false;
 // which is also the only thing that re-sorts the list (see below).
 let currentForumPosts = [];
 let forumHasMore = true;
-let forumChannelSettings = { guidelines: "", require_tags: false, default_reaction: "", tags: [] };
+let forumChannelSettings = { guidelines: "", require_tags: false, default_reaction: "", layout: "list", tags: [] };
 let forumSearchQuery = "";
 let forumFilterTagId = null;
 let forumComposerTagIds = [];

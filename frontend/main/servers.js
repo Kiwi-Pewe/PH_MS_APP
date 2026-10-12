@@ -272,10 +272,11 @@ async function openServer(serverId, iconEl, channelId) {
   if (typeof loadMemberList === "function") loadMemberList("server", serverId);
   if (typeof loadMentionRoles === "function") loadMentionRoles(serverId);
 
+  const preferredId = channelId || data.last_channel_id;
   let landing = null;
-  if (channelId && data.categories) {
+  if (preferredId && data.categories) {
     for (const category of data.categories) {
-      landing = (category.channels || []).find((row) => Number(row.id) === Number(channelId) && channelVisibleInSidebar(row)) || null;
+      landing = (category.channels || []).find((row) => Number(row.id) === Number(preferredId) && channelVisibleInSidebar(row)) || null;
       if (landing) break;
     }
   }
@@ -458,6 +459,16 @@ function renderServerSidebar(data) {
   if (typeof paintVoiceRails === "function") paintVoiceRails();
 }
 
+function rememberServerChannel(serverId, channelId) {
+  if (!serverId || !channelId) return;
+  fetch(`https://${serverAddress}/remember_server_channel`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ server_id: serverId, channel_id: channelId })
+  }).catch(() => {});
+}
+
 async function selectChannel(channel, rowEl) {
   if (channel && channel.channel_type === "voice" && voiceJoinedChannelId !== channel.id) {
     const stageWasOpen = voiceStageChannelId != null;
@@ -511,6 +522,7 @@ async function selectChannel(channel, rowEl) {
 
   currentChannelId = channel.id;
   currentChannelType = channel.channel_type;
+  if (channel.channel_type !== "voice" && currentServerId) rememberServerChannel(currentServerId, channel.id);
   currentChannelName = channel.name;
   if (typeof markChannelReadLocal === "function") markChannelReadLocal(channel.id);
   if (typeof stampChannelView === "function") stampChannelView(channel.id);
@@ -688,6 +700,7 @@ async function selectChannel(channel, rowEl) {
         isMine: msg.sender_id === myUserId,
         senderId: msg.sender_id,
         username: msg.username,
+        nickname: msg.nickname || "",
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
         time: new Date(msg.timestamp),

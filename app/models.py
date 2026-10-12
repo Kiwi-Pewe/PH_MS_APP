@@ -161,6 +161,8 @@ class Server_members(Base):
     muted = Column(Boolean, default=False)
     suppress_pings = Column(Boolean, default=False)
     notify_level = Column(String, nullable=True)
+    nickname = Column(String, nullable=True)
+    last_channel_id = Column(Integer, nullable=True)
 
 class Server_notifications(Base):
     __tablename__ = "server_notifications"
@@ -190,6 +192,7 @@ class Server_roles(Base):
     server_id = Column(String(10), ForeignKey("servers.id"))
     name = Column(String)
     color = Column(String)
+    color_2 = Column(String, nullable=True)
     position = Column(Integer)
     mentionable = Column(Boolean, default=False)
     hoist = Column(Boolean, default=False)
@@ -262,6 +265,7 @@ class Server_channels(Base):
     forum_guidelines = Column(String, nullable=True)
     forum_require_tags = Column(Boolean, default=False)
     forum_default_reaction = Column(String, nullable=True)
+    forum_layout = Column(String, nullable=True)
     announce_public = Column(Boolean, default=False)
     blog_enabled = Column(Boolean, default=False)
 

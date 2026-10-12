@@ -151,5 +151,113 @@ function applyServerDeleted(serverId) {
       e.preventDefault();
       closeDeleteServerSubmenu();
     }
+    const transfer = document.getElementById("transfer-server-overlay");
+    if (transfer && !transfer.hidden) {
+      e.preventDefault();
+      closeTransferServerSubmenu();
+    }
   });
+})();
+
+function closeTransferServerSubmenu() {
+  const overlay = document.getElementById("transfer-server-overlay");
+  if (overlay) overlay.hidden = true;
+  const err = document.getElementById("transfer-server-error");
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  const confirm = document.getElementById("transfer-server-confirm");
+  const cancel = document.getElementById("transfer-server-cancel");
+  if (confirm) confirm.disabled = false;
+  if (cancel) cancel.disabled = false;
+}
+
+function setTransferServerError(text) {
+  const err = document.getElementById("transfer-server-error");
+  if (!err) return;
+  err.hidden = !text;
+  err.textContent = text || "";
+}
+
+async function openTransferServerSubmenu() {
+  if (!currentServerId || currentServerOwnerId !== myUserId) return;
+  const overlay = document.getElementById("transfer-server-overlay");
+  const select = document.getElementById("transfer-server-member");
+  if (!overlay || !select) return;
+  setTransferServerError("");
+  select.replaceChildren();
+  overlay.hidden = false;
+  try {
+    const response = await fetch(`https://${serverAddress}/get_server_members/${encodeURIComponent(currentServerId)}`, { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not load members.");
+    const members = (data.members || []).filter((member) => member && Number(member.id) !== Number(myUserId));
+    members.sort((a, b) => String(a.username || "").localeCompare(String(b.username || "")));
+    if (!members.length) {
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "No other members";
+      select.appendChild(empty);
+      return;
+    }
+    members.forEach((member) => {
+      const option = document.createElement("option");
+      option.value = String(member.id);
+      const display = member.display_name && member.display_name !== member.username
+        ? member.display_name + " (@" + member.username + ")"
+        : (member.username || "Member");
+      option.textContent = display;
+      select.appendChild(option);
+    });
+  } catch (err) {
+    setTransferServerError(err.message || "Could not load members.");
+  }
+}
+
+async function confirmTransferServerSubmenu() {
+  const select = document.getElementById("transfer-server-member");
+  const userId = select ? Number(select.value) : 0;
+  if (!currentServerId || !userId) {
+    setTransferServerError("Pick a member.");
+    return;
+  }
+  const confirm = document.getElementById("transfer-server-confirm");
+  const cancel = document.getElementById("transfer-server-cancel");
+  if (confirm) confirm.disabled = true;
+  if (cancel) cancel.disabled = true;
+  setTransferServerError("");
+  try {
+    const response = await fetch(`https://${serverAddress}/transfer_server_owner`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server_id: currentServerId, user_id: userId })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not transfer ownership.");
+    if (typeof applyServerOwner === "function") applyServerOwner(currentServerId, data.owner_id);
+    closeTransferServerSubmenu();
+  } catch (err) {
+    setTransferServerError(err.message || "Could not transfer ownership.");
+    if (confirm) confirm.disabled = false;
+    if (cancel) cancel.disabled = false;
+  }
+}
+
+(function bindTransferServerChrome() {
+  const btn = document.getElementById("server-settings-transfer");
+  if (btn) btn.addEventListener("click", () => { openTransferServerSubmenu(); });
+  const close = document.getElementById("transfer-server-close");
+  const cancel = document.getElementById("transfer-server-cancel");
+  const confirm = document.getElementById("transfer-server-confirm");
+  if (close) close.addEventListener("click", closeTransferServerSubmenu);
+  if (cancel) cancel.addEventListener("click", closeTransferServerSubmenu);
+  if (confirm) confirm.addEventListener("click", confirmTransferServerSubmenu);
+  const overlay = document.getElementById("transfer-server-overlay");
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target.id === "transfer-server-overlay") closeTransferServerSubmenu();
+    });
+  }
 })();

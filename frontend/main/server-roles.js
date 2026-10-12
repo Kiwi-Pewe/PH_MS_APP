@@ -135,8 +135,8 @@ const SERVER_ROLE_PERMS = [
     title: "Customization permissions",
     rows: [
       { id: "manage_emoji", title: "Manage emoji", desc: "Allows the creation and management of server emoji." },
-      { id: "change_nickname", title: "Change Nickname", desc: "Members with this permission can change their own nickname.", later: "User Server profile" },
-      { id: "manage_nicknames", title: "Manage Nicknames", desc: "Members with this permission can change the nicknames of other members.", later: "User Server profile" }
+      { id: "change_nickname", title: "Change Nickname", desc: "Members with this permission can change their own nickname." },
+      { id: "manage_nicknames", title: "Manage Nicknames", desc: "Members with this permission can change the nicknames of other members." }
     ]
   },
   {
@@ -224,7 +224,7 @@ function emptyServerRolePerms() {
 
 function defaultMembersPerms() {
   const perms = emptyServerRolePerms();
-  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "pin_messages", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_wallpaper", "view_docs", "see_media", "hear_voice", "talk_voice", "voice_messages"].forEach((id) => {
+  ["invite_members", "mention_everyone", "read_messages", "send_messages", "upload_chat_media", "pin_messages", "view_announcements", "read_forums", "create_topics", "create_topic_replies", "view_wallpaper", "view_docs", "see_media", "hear_voice", "talk_voice", "voice_messages", "change_nickname"].forEach((id) => {
     perms[id] = true;
   });
   return perms;
@@ -237,6 +237,7 @@ function cloneServerRole(role) {
     builtin: !!role.builtin,
     position: role.position,
     color: role.color || "#99aab5",
+    color2: role.color2 || "",
     colorMode: role.colorMode || "solid",
     selfAssign: !!role.selfAssign,
     mentionable: !!role.mentionable,
@@ -289,6 +290,11 @@ function normRoleColor(value) {
   return /^#[0-9a-f]{6}$/.test(text) ? text : "#99aab5";
 }
 
+function normOptionalRoleColor(value) {
+  const text = (value || "").trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(text) ? text : "";
+}
+
 function isCreatedServerRole(role) {
   return !!(role && (role.created || String(role.id).indexOf("draft-") === 0));
 }
@@ -322,6 +328,9 @@ function roleChanges(role) {
   }
   if (normRoleColor(role.color) !== normRoleColor(origin.color)) {
     changes.push({ key: "color", kind: "color", label: "Role color", from: origin.color, to: role.color });
+  }
+  if (normOptionalRoleColor(role.color2) !== normOptionalRoleColor(origin.color2)) {
+    changes.push({ key: "color2", kind: "color", label: "Gradient color", from: origin.color2 || "", to: role.color2 || "" });
   }
   ["selfAssign", "mentionable", "hoist", "nameColor"].forEach((field) => {
     if (!!role[field] !== !!origin[field]) {
@@ -441,7 +450,8 @@ function applyServerRolesFromApi(rows) {
       builtin: !!row.is_members,
       position: row.position,
       color: normRoleColor(row.color),
-      colorMode: "solid",
+      color2: normOptionalRoleColor(row.color_2),
+      colorMode: row.color_2 ? "gradient" : "solid",
       selfAssign: !!row.self_assignable,
       mentionable: !!row.mentionable,
       hoist: !!row.hoist,
@@ -475,6 +485,7 @@ function resetServerRolesDraft() {
     builtin: true,
     position: 10000,
     color: "#99aab5",
+    color2: "",
     colorMode: "solid",
     selfAssign: false,
     mentionable: false,
@@ -570,7 +581,7 @@ function paintServerRolesList() {
     const name = document.createElement("span");
     name.className = "server-role-item-name";
     name.textContent = role.name || "New Role";
-    name.style.color = role.color || "";
+    paintRoleNameColor(name, role);
     btn.appendChild(name);
     if (isDirtyServerRole(role)) {
       const dot = document.createElement("span");
@@ -594,6 +605,75 @@ function paintServerRolesList() {
     });
     host.appendChild(btn);
   });
+}
+
+function roleColorCaption(text) {
+  const cap = document.createElement("div");
+  cap.className = "server-settings-help";
+  cap.textContent = text;
+  return cap;
+}
+
+function paintRoleNameColor(el, role) {
+  if (!el) return;
+  el.style.color = "";
+  el.style.backgroundImage = "";
+  el.style.webkitBackgroundClip = "";
+  el.style.backgroundClip = "";
+  el.style.webkitTextFillColor = "";
+  if (role && role.colorMode === "gradient" && role.color && role.color2) {
+    el.style.backgroundImage = "linear-gradient(90deg, " + role.color + ", " + role.color2 + ")";
+    el.style.webkitBackgroundClip = "text";
+    el.style.backgroundClip = "text";
+    el.style.color = "transparent";
+    el.style.webkitTextFillColor = "transparent";
+    return;
+  }
+  el.style.color = (role && role.color) || "";
+}
+
+function paintRoleColorPicker(role, locked, key) {
+  const swatches = document.createElement("div");
+  swatches.className = "server-roles-swatches";
+  const current = (role[key] || "").toLowerCase();
+  SERVER_ROLE_SWATCHES.forEach((hex) => {
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "server-role-swatch" + (current === hex.toLowerCase() ? " is-on" : "");
+    dot.style.background = hex;
+    dot.title = hex;
+    if (!locked) {
+      dot.addEventListener("click", () => {
+        role[key] = hex;
+        afterRoleChange(true);
+      });
+    } else {
+      dot.disabled = true;
+    }
+    swatches.appendChild(dot);
+  });
+  const custom = document.createElement("button");
+  custom.type = "button";
+  const inPalette = SERVER_ROLE_SWATCHES.some((hex) => hex.toLowerCase() === current);
+  custom.className = "server-role-swatch-custom" + (!inPalette && current ? " is-on" : "");
+  custom.textContent = "+";
+  custom.title = "Custom color";
+  if (!inPalette && current) custom.style.background = role[key];
+  const native = document.createElement("input");
+  native.type = "color";
+  native.value = role[key] || "#99aab5";
+  native.hidden = true;
+  if (!locked) custom.addEventListener("click", () => native.click());
+  else custom.disabled = true;
+  native.addEventListener("input", () => {
+    role[key] = native.value;
+    custom.className = "server-role-swatch-custom is-on";
+    custom.style.background = role[key];
+    afterRoleChange(false);
+  });
+  swatches.appendChild(custom);
+  swatches.appendChild(native);
+  return swatches;
 }
 
 function paintServerRolesEditor() {
@@ -651,7 +731,8 @@ function paintServerRolesEditor() {
   solidBtn.className = role.colorMode !== "gradient" ? "is-on" : "";
   solidBtn.addEventListener("click", () => {
     role.colorMode = "solid";
-    paintServerRolesEditor();
+    role.color2 = "";
+    afterRoleChange(true);
   });
   const gradBtn = document.createElement("button");
   gradBtn.type = "button";
@@ -659,66 +740,20 @@ function paintServerRolesEditor() {
   gradBtn.className = role.colorMode === "gradient" ? "is-on" : "";
   gradBtn.addEventListener("click", () => {
     role.colorMode = "gradient";
-    paintServerRolesEditor();
+    if (!role.color2) role.color2 = "#3498db";
+    afterRoleChange(true);
   });
   seg.appendChild(solidBtn);
   seg.appendChild(gradBtn);
   colorField.appendChild(seg);
 
   if (role.colorMode === "gradient") {
-    const swatches = document.createElement("div");
-    swatches.className = "server-roles-swatches";
-    swatches.style.opacity = "0.55";
-    swatches.style.pointerEvents = "none";
-    ["#43b581", "#3498db"].forEach((hex) => {
-      const dot = document.createElement("span");
-      dot.className = "server-role-swatch";
-      dot.style.background = hex;
-      swatches.appendChild(dot);
-    });
-    colorField.appendChild(swatches);
-    colorField.appendChild(roleLaterNote("Gradient role colors"));
+    colorField.appendChild(roleColorCaption("First color"));
+    colorField.appendChild(paintRoleColorPicker(role, locked, "color"));
+    colorField.appendChild(roleColorCaption("Second color"));
+    colorField.appendChild(paintRoleColorPicker(role, locked, "color2"));
   } else {
-    const swatches = document.createElement("div");
-    swatches.className = "server-roles-swatches";
-    SERVER_ROLE_SWATCHES.forEach((hex) => {
-      const dot = document.createElement("button");
-      dot.type = "button";
-      dot.className = "server-role-swatch" + ((role.color || "").toLowerCase() === hex.toLowerCase() ? " is-on" : "");
-      dot.style.background = hex;
-      dot.title = hex;
-      if (!locked) {
-        dot.addEventListener("click", () => {
-          role.color = hex;
-          afterRoleChange(true);
-        });
-      } else {
-        dot.disabled = true;
-      }
-      swatches.appendChild(dot);
-    });
-    const custom = document.createElement("button");
-    custom.type = "button";
-    const inPalette = SERVER_ROLE_SWATCHES.some((hex) => hex.toLowerCase() === (role.color || "").toLowerCase());
-    custom.className = "server-role-swatch-custom" + (!inPalette && role.color ? " is-on" : "");
-    custom.textContent = "+";
-    custom.title = "Custom color";
-    if (!inPalette && role.color) custom.style.background = role.color;
-    const native = document.createElement("input");
-    native.type = "color";
-    native.value = role.color || "#99aab5";
-    native.hidden = true;
-    if (!locked) custom.addEventListener("click", () => native.click());
-    else custom.disabled = true;
-    native.addEventListener("input", () => {
-      role.color = native.value;
-      custom.className = "server-role-swatch-custom is-on";
-      custom.style.background = role.color;
-      afterRoleChange(false);
-    });
-    swatches.appendChild(custom);
-    swatches.appendChild(native);
-    colorField.appendChild(swatches);
+    colorField.appendChild(paintRoleColorPicker(role, locked, "color"));
   }
   host.appendChild(colorField);
 
@@ -831,6 +866,10 @@ function revertRoleChange(role, change) {
   if (!origin) return;
   if (change.key === "name") role.name = origin.name;
   else if (change.key === "color") role.color = origin.color;
+  else if (change.key === "color2") {
+    role.color2 = origin.color2 || "";
+    role.colorMode = role.color2 ? "gradient" : "solid";
+  }
   else if (change.key === "mentionable" || change.key === "hoist" || change.key === "nameColor") role[change.key] = origin[change.key];
   else if (change.key.indexOf("perm:") === 0) {
     const id = change.key.slice(5);
@@ -841,6 +880,11 @@ function revertRoleChange(role, change) {
 
 function paintChangeValue(kind, value) {
   if (kind === "color") {
+    if (!value) {
+      const blank = document.createElement("span");
+      blank.textContent = "None";
+      return blank;
+    }
     const swatch = document.createElement("span");
     swatch.className = "server-role-change-swatch";
     swatch.style.background = normRoleColor(value);
@@ -1042,6 +1086,7 @@ function addServerRoleLocal() {
     name: "New Role",
     builtin: false,
     color: SERVER_ROLE_SWATCHES[serverRolesDraft.length % SERVER_ROLE_SWATCHES.length],
+    color2: "",
     colorMode: "solid",
     selfAssign: false,
     mentionable: false,
@@ -1116,6 +1161,7 @@ async function confirmServerRoles() {
           client_id: role.id,
           name: role.name,
           color: role.color,
+          color_2: role.colorMode === "gradient" ? (role.color2 || "") : "",
           position: (serverRoleOrderDirty() || role.created) ? positionForServerRole(role) : Number(role.position || 0),
           mentionable: !!role.mentionable,
           hoist: !!role.hoist,

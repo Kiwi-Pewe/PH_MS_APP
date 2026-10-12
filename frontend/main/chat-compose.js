@@ -276,6 +276,7 @@ async function sendChannelMessage() {
     senderId: myUserId,
     isMine: true,
     username: myUsername || "You",
+    nickname: typeof myServerNickname === "function" ? myServerNickname() : "",
     content: storedContent,
     attachment,
     time: new Date(),

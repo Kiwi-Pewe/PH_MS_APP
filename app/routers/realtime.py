@@ -27,7 +27,7 @@ def viewer_is_watching_channel(user_id, channel_id):
 def presence_status(user_id):
     return "online" if user_id in active_connections else "offline"
 
-def serialize_member(user, is_owner, hoist_role=None, name_role=None, highest_role=None, timeout_until=None, timeout_reason=None):
+def serialize_member(user, is_owner, hoist_role=None, name_role=None, highest_role=None, timeout_until=None, timeout_reason=None, nickname=None):
     payload = {
         "id": user.id,
         "username": user.username,
@@ -47,6 +47,9 @@ def serialize_member(user, is_owner, hoist_role=None, name_role=None, highest_ro
     from app.routers.profile import public_avatar, clip_text, STATUS_MAX
     payload["avatar"] = public_avatar(user)
     payload["status_line"] = clip_text(getattr(user, "profile_status", None), STATUS_MAX).strip()
+    nick = (nickname or "").strip()
+    if nick:
+        payload["nickname"] = nick
     return payload
 
 

@@ -12,6 +12,7 @@ from app.r2 import EMOJI_KEY_RE, delete_r2_object, public_url_for
 from app.routers.roles import require_server_member, require_server_perm
 from app.routers.account import public_display_name
 from app.routers.profile import public_avatar
+from app.routers.deletion import write_audit_log
 
 router = APIRouter()
 
@@ -185,6 +186,8 @@ def create_server_emoji(body: Server_emoji_create, database: Session = Depends(g
         uploader_id=current_user.id,
     )
     database.add(row)
+    database.flush()
+    write_audit_log(database, server.id, current_user.id, "create_emoji", "emoji", row.id, {"name": row.name})
     database.commit()
     database.refresh(row)
     return {"ok": True, "emoji": serialize_emoji(database, row), "slot_cap": SERVER_EMOJI_SLOT_CAP}
@@ -214,7 +217,12 @@ def rename_server_emoji(body: Server_emoji_rename, database: Session = Depends(g
     if clash:
         raise HTTPException(status_code=400, detail="That name is already used on this server.")
 
+    previous = row.name
     row.name = name
+    if previous != name:
+        write_audit_log(database, server.id, current_user.id, "rename_emoji", "emoji", row.id, {
+            "name": name, "from": previous, "to": name,
+        })
     database.commit()
     database.refresh(row)
     return {"ok": True, "emoji": serialize_emoji(database, row)}
@@ -233,6 +241,7 @@ def delete_server_emoji(body: Server_emoji_delete, database: Session = Depends(g
         raise HTTPException(status_code=404, detail="Emoji not found.")
 
     key = row.image_key
+    write_audit_log(database, server.id, current_user.id, "delete_emoji", "emoji", row.id, {"name": row.name})
     database.delete(row)
     database.commit()
     delete_r2_object(key)

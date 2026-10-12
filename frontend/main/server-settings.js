@@ -72,6 +72,24 @@ function canDeleteServer() {
   return !!(currentServerId && currentServerOwnerId === myUserId);
 }
 
+function applyServerOwner(serverId, ownerId) {
+  const next = Number(ownerId);
+  if (typeof serverList !== "undefined") {
+    const meta = (serverList || []).find((row) => row && String(row.id) === String(serverId));
+    if (meta) meta.owner_id = next;
+  }
+  if (typeof serverRosterMembers !== "undefined" && Array.isArray(serverRosterMembers)) {
+    serverRosterMembers.forEach((member) => {
+      member.is_owner = Number(member.id) === next;
+    });
+    if (typeof paintServerMembersTable === "function") paintServerMembersTable();
+  }
+  if (typeof currentServerId !== "undefined" && String(currentServerId) === String(serverId)) {
+    currentServerOwnerId = next;
+    if (typeof paintServerSettingsAccess === "function") paintServerSettingsAccess();
+  }
+}
+
 function canOpenServerSettings() {
   return canUpdateServer()
     || canManageRoles()
@@ -223,6 +241,7 @@ function paintServerSettingsAccess() {
   const integrationsBtn = document.querySelector('#server-settings-nav [data-tab="integrations"]');
   const auditBtn = document.querySelector('#server-settings-nav [data-tab="audit"]');
   const deleteBtn = document.getElementById("server-settings-delete");
+  const transferBtn = document.getElementById("server-settings-transfer");
   const allowRoles = canManageRoles();
   const allowMembers = canOpenServerMembers();
   const allowInvites = canOpenServerInvites();
@@ -267,6 +286,10 @@ function paintServerSettingsAccess() {
   if (deleteBtn) {
     deleteBtn.hidden = !allowDelete;
     deleteBtn.disabled = !allowDelete;
+  }
+  if (transferBtn) {
+    transferBtn.hidden = !allowDelete;
+    transferBtn.disabled = !allowDelete;
   }
   if (typeof isServerSettingsOpen === "undefined" || !isServerSettingsOpen) return;
   const roles = document.getElementById("server-settings-roles");

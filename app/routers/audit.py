@@ -31,6 +31,17 @@ ACTION_LABELS = {
     "delete_comment": "Comment Deleted",
     "delete_channel": "Channel Deleted",
     "delete_category": "Category Deleted",
+    "create_channel": "Channel Created",
+    "create_category": "Category Created",
+    "update_channel": "Channel Updated",
+    "update_category": "Category Updated",
+    "update_server": "Server Updated",
+    "update_privacy": "Privacy Updated",
+    "create_emoji": "Emoji Created",
+    "rename_emoji": "Emoji Updated",
+    "delete_emoji": "Emoji Deleted",
+    "transfer_owner": "Ownership Transferred",
+    "update_nickname": "Nickname Updated",
 }
 
 
@@ -84,8 +95,13 @@ def detail_summary(action, target_type, detail):
             content = content[:77] + "..."
         bits = [b for b in (author, content) if b]
         return " — ".join(bits) if bits else (target_type or "Deleted")
-    if action in ("delete_channel", "delete_category"):
+    if action in ("delete_channel", "delete_category", "create_channel", "create_category", "update_channel", "update_category", "create_emoji", "rename_emoji", "delete_emoji"):
         return d.get("name") or target_type or ""
+    if action in ("update_server", "update_privacy"):
+        return d.get("field") or d.get("name") or "Server"
+    if action == "transfer_owner":
+        user = d.get("username") or "member"
+        return f"Transferred to {user}"
     # Fallback: short JSON-ish without dumping secrets.
     name = d.get("username") or d.get("name") or d.get("title") or ""
     return name or (target_type or "")

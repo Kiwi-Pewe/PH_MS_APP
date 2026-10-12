@@ -18,7 +18,7 @@ function serverMembersPageOpen() {
 }
 
 function serverRosterDisplayName(member) {
-  return (member && (member.display_name || member.username)) || "";
+  return (member && (member.nickname || member.display_name || member.username)) || "";
 }
 
 function serverRosterTsMs(value) {
@@ -100,7 +100,7 @@ function filteredServerRoster() {
     if (serverRosterSortKey === "name") cmp = byName(a, b);
     else if (serverRosterSortKey === "joined") cmp = serverRosterTsMs(a.joined_at) - serverRosterTsMs(b.joined_at);
     else if (serverRosterSortKey === "account") cmp = serverRosterTsMs(a.created_at) - serverRosterTsMs(b.created_at);
-    else if (serverRosterSortKey === "method") cmp = 0;
+    else if (serverRosterSortKey === "method") cmp = rosterJoinMethod(a).localeCompare(rosterJoinMethod(b));
     else if (serverRosterSortKey === "roles") {
       cmp = primaryName(a).localeCompare(primaryName(b), undefined, { sensitivity: "base" });
     }
@@ -208,6 +208,10 @@ function buildServerRosterActions(member) {
   return wrap;
 }
 
+function rosterJoinMethod(member) {
+  return member && member.is_owner ? "Owner" : "Invite";
+}
+
 function paintServerMembersTable() {
   const body = document.getElementById("server-members-body");
   const empty = document.getElementById("server-members-empty");
@@ -285,7 +289,7 @@ function paintServerMembersTable() {
 
     const methodTd = document.createElement("td");
     methodTd.className = "server-members-col-method";
-    methodTd.textContent = "Unknown";
+    methodTd.textContent = rosterJoinMethod(member);
     tr.appendChild(methodTd);
 
     const rolesTd = document.createElement("td");
@@ -777,7 +781,7 @@ function paintServerMemberModView() {
   account.appendChild(verify);
   account.appendChild(memberModStatRow("Joined Oneira", formatRosterStamp(member.created_at)));
   account.appendChild(memberModStatRow("Server Join Date", formatRosterStamp(member.joined_at)));
-  account.appendChild(memberModStatRow("Join Method", member.is_owner ? "Owner" : "Unknown"));
+  account.appendChild(memberModStatRow("Join Method", rosterJoinMethod(member)));
   if (typeof memberTimeoutActive === "function" && memberTimeoutActive(member)) {
     const timeout = memberModStatRow(
       "Timed out",

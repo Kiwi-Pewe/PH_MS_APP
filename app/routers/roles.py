@@ -33,6 +33,7 @@ LIVE_ROLE_PERMS = (
     "view_schedules", "create_schedule", "delete_schedule",
     "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
     "manage_emoji",
+    "change_nickname", "manage_nicknames",
 )
 
 MEMBERS_DEFAULT_PERMS = (
@@ -47,6 +48,7 @@ MEMBERS_DEFAULT_PERMS = (
     "view_events",
     "view_schedules", "create_schedule",
     "view_list", "create_list", "complete_list",
+    "change_nickname",
 )
 
 LIVE_CHANNEL_OVERRIDE_PERMS = (
@@ -143,6 +145,13 @@ def clean_role_color(value):
     return DEFAULT_ROLE_COLOR
 
 
+def clean_optional_role_color(value):
+    text = (value or "").strip()
+    if ROLE_COLOR_RE.fullmatch(text):
+        return text.lower()
+    return ""
+
+
 def clean_role_name(value, fallback="New Role"):
     name = (value or "").strip()
     if not name:
@@ -214,6 +223,8 @@ def parse_role_perms(row):
         perms["talk_voice"] = bool(getattr(row, "is_members", False))
     if "voice_messages" not in data:
         perms["voice_messages"] = bool(getattr(row, "is_members", False))
+    if isinstance(data, dict) and "change_nickname" not in data:
+        perms["change_nickname"] = bool(getattr(row, "is_members", False))
     return perms
 
 
@@ -222,6 +233,7 @@ def serialize_role(row):
         "id": row.id,
         "name": row.name or "",
         "color": clean_role_color(getattr(row, "color", None)),
+        "color_2": clean_optional_role_color(getattr(row, "color_2", None)),
         "position": int(row.position or 0),
         "mentionable": bool(row.mentionable),
         "hoist": bool(row.hoist),
@@ -281,6 +293,7 @@ def serialize_hoist_role(row):
         "id": row.id,
         "name": row.name or "Role",
         "color": clean_role_color(getattr(row, "color", None)),
+        "color_2": clean_optional_role_color(getattr(row, "color_2", None)),
         "position": int(row.position or 0),
     }
 
@@ -337,6 +350,21 @@ def name_color_roles_by_user(database, server_id, user_ids=None):
 
 def name_color_role_for_user(database, server_id, user_id):
     return name_color_roles_by_user(database, server_id, [user_id]).get(user_id)
+
+
+def nicknames_for_users(database, server_id, user_ids):
+    if not user_ids:
+        return {}
+    rows = database.query(Server_members).filter(
+        Server_members.server_id == server_id,
+        Server_members.user_id.in_(list(user_ids)),
+    ).all()
+    out = {}
+    for row in rows:
+        nick = (getattr(row, "nickname", None) or "").strip()
+        if nick:
+            out[row.user_id] = nick
+    return out
 
 
 def assigned_roles_for_user(database, server_id, user_id):
@@ -698,6 +726,13 @@ def role_audit_changes(before, row, perms):
             "from": clean_role_color(before["color"]),
             "to": clean_role_color(row.color),
         })
+    if clean_optional_role_color(getattr(row, "color_2", None)) != clean_optional_role_color(before.get("color_2")):
+        changes.append({
+            "key": "color2",
+            "kind": "color",
+            "from": clean_optional_role_color(before.get("color_2")),
+            "to": clean_optional_role_color(getattr(row, "color_2", None)),
+        })
     flags = (
         ("mentionable", "mentionable", bool(row.mentionable)),
         ("hoist", "hoist", bool(row.hoist)),
@@ -737,6 +772,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
     for item in body.roles or []:
         name = clean_role_name(item.name)
         color = clean_role_color(item.color)
+        color_2 = clean_optional_role_color(getattr(item, "color_2", ""))
         perms = clean_role_perms(item.permissions)
         mentionable = bool(item.mentionable)
         hoist = bool(item.hoist)
@@ -752,6 +788,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
             before = {
                 "name": row.name or "",
                 "color": row.color,
+                "color_2": getattr(row, "color_2", None),
                 "position": int(row.position or 0),
                 "mentionable": bool(row.mentionable),
                 "hoist": bool(row.hoist),
@@ -766,6 +803,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
                 row.name = name
                 row.position = role_position_for_actor(is_owner, actor_highest, item.position)
             row.color = color
+            row.color_2 = color_2 or None
             row.mentionable = mentionable
             row.hoist = hoist
             row.name_color = name_color
@@ -797,6 +835,7 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
                 server_id=server.id,
                 name=name,
                 color=color,
+                color_2=color_2 or None,
                 position=create_position,
                 mentionable=mentionable,
                 hoist=hoist,

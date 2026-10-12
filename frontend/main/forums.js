@@ -30,11 +30,19 @@ function applyForumChannelSettings(settings) {
     guidelines: (settings && settings.guidelines) || "",
     require_tags: !!(settings && settings.require_tags),
     default_reaction: (settings && settings.default_reaction) || "",
+    layout: settings && settings.layout === "gallery" ? "gallery" : "list",
     tags: Array.isArray(settings && settings.tags) ? settings.tags.slice() : [],
   };
+  paintForumLayout();
   paintForumFilterBar();
   paintForumComposerTags();
   paintForumGuidelinesBox();
+}
+
+function paintForumLayout() {
+  const host = document.getElementById("forum-posts");
+  if (!host) return;
+  host.classList.toggle("is-gallery", forumChannelSettings.layout === "gallery");
 }
 
 function paintForumGuidelinesBox() {
@@ -265,6 +273,7 @@ async function submitCreateForumPost() {
     last_activity: post.last_activity,
     author_id: myUserId,
     author_username: myUsername,
+    author_nickname: typeof myServerNickname === "function" ? myServerNickname() : "",
     edited: false,
     sticky: false,
     locked: false,
@@ -607,6 +616,7 @@ async function openForumPost(post) {
         isMine: msg.author_id === myUserId,
         senderId: msg.author_id,
         username: msg.username,
+        nickname: msg.nickname || "",
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
         time: parseUtcTimestamp(msg.timestamp),
@@ -984,7 +994,7 @@ function fillForumPostContent(card, post) {
   line.className = "forum-post-line";
   const author = document.createElement("span");
   author.className = "forum-post-author";
-  author.textContent = `${post.author_username || "Unknown"}:`;
+  author.textContent = (post.author_nickname || post.author_username || "Unknown") + ":";
   if (typeof applyServerNameColor === "function") applyServerNameColor(author, post.author_id, post.name_role || post.nameRole);
   const body = document.createElement("span");
   body.className = "forum-post-body";

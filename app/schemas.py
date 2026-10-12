@@ -271,6 +271,19 @@ class Server_delete(BaseModel):
     server_id: str
     confirm_name: str = ""
 
+class Server_channel_memory(BaseModel):
+    server_id: str
+    channel_id: int
+
+class Server_nickname_update(BaseModel):
+    server_id: str
+    user_id: int
+    nickname: str = ""
+
+class Server_transfer(BaseModel):
+    server_id: str
+    user_id: int
+
 class Server_emoji_create(BaseModel):
     server_id: str
     name: str = ""
@@ -291,6 +304,7 @@ class Server_role_in(BaseModel):
     client_id: str = ""
     name: str = ""
     color: str = ""
+    color_2: str = ""
     position: int = 0
     mentionable: bool = False
     hoist: bool = False
@@ -461,6 +475,7 @@ class Forum_settings_save(BaseModel):
     guidelines: str | None = None
     require_tags: bool | None = None
     default_reaction: str | None = None
+    layout: str | None = None
 
 class Forum_tag_create(BaseModel):
     channel_id: int

@@ -236,6 +236,7 @@ function connectSocket() {
           senderId: data.sender_id,
           isMine: false,
           username: data.username,
+          nickname: data.nickname || "",
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? new Date(data.timestamp) : new Date(),
@@ -269,6 +270,7 @@ function connectSocket() {
           senderId: data.sender_id,
           isMine: false,
           username: data.username,
+          nickname: data.nickname || "",
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
           time: data.timestamp ? parseUtcTimestamp(data.timestamp) : new Date(),
@@ -401,6 +403,14 @@ function connectSocket() {
 
     if (data.type === "server_name_updated") {
       if (typeof applyServerName === "function") applyServerName(data.server_id, data.name || "");
+    }
+
+    if (data.type === "server_owner_updated") {
+      if (typeof applyServerOwner === "function") applyServerOwner(data.server_id, data.owner_id);
+    }
+
+    if (data.type === "server_nickname_updated") {
+      if (typeof applyServerNickname === "function") applyServerNickname(data.server_id, data.user_id, data.nickname || "");
     }
 
     if (data.type === "server_about_updated") {

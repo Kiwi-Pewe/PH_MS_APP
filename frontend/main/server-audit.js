@@ -4,6 +4,7 @@
 
 let serverAuditEntries = [];
 let serverAuditQuery = "";
+let serverAuditAction = "";
 
 function setServerAuditStatus(text) {
   const el = document.getElementById("server-audit-status");
@@ -25,9 +26,12 @@ function paintServerAuditList() {
   if (!body) return;
   body.innerHTML = "";
   const q = (serverAuditQuery || "").trim().toLowerCase();
+  const actionRows = serverAuditAction
+    ? serverAuditEntries.filter((row) => row.action === serverAuditAction)
+    : serverAuditEntries;
   const rows = !q
-    ? serverAuditEntries
-    : serverAuditEntries.filter((row) => {
+    ? actionRows
+    : actionRows.filter((row) => {
       const hay = [
         row.actor_username,
         row.action_label,
@@ -127,6 +131,7 @@ function auditRoleChangeLabel(change) {
   if (change.key === "deleted" || change.kind === "deleted") return "Deleted";
   if (change.key === "name") return "Role name";
   if (change.key === "color") return "Role color";
+  if (change.key === "color2") return "Gradient color";
   if (String(change.key || "").indexOf("perm:") === 0 && typeof permTitle === "function") {
     return permTitle(String(change.key).slice(5));
   }
@@ -190,8 +195,22 @@ function auditEntryFields(row) {
     push("Author", detail.author_username);
     push("Content", detail.content || detail.title);
   }
-  if (action === "delete_channel" || action === "delete_category") push("Name", detail.name);
-  if (action === "delete_channel" && detail.channel_type) push("Type", detail.channel_type);
+  if (action === "delete_channel" || action === "delete_category" || action === "create_channel" || action === "create_category" || action === "create_emoji" || action === "delete_emoji") push("Name", detail.name);
+  if ((action === "delete_channel" || action === "create_channel") && detail.channel_type) push("Type", detail.channel_type);
+  if (action === "rename_emoji" || action === "update_server" || action === "update_privacy" || action === "update_nickname") {
+    if (detail.field) push("Field", detail.field);
+    if (detail.from) push("From", detail.from);
+    if (detail.to) push("To", detail.to);
+  }
+  if (action === "transfer_owner") {
+    push("From", detail.from_username);
+    push("To", detail.username);
+  }
+  (detail.changes || []).forEach((change) => {
+    const from = change.from != null && change.from !== "" ? String(change.from) : "";
+    const to = change.to != null && change.to !== "" ? String(change.to) : "";
+    push(change.key || "Change", from && to ? from + " → " + to : (to || from));
+  });
   if (!fields.length && row.summary) push("Details", row.summary);
   return fields;
 }
@@ -266,12 +285,56 @@ async function loadServerAuditPage() {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not load audit log.");
     serverAuditEntries = data.entries || [];
+    if (serverAuditAction && !serverAuditEntries.some((row) => row.action === serverAuditAction)) serverAuditAction = "";
+    paintServerAuditFilterButton();
     paintServerAuditList();
   } catch (e) {
     serverAuditEntries = [];
     paintServerAuditList();
     setServerAuditStatus(e.message || "Could not load audit log.");
   }
+}
+
+function paintServerAuditFilterButton() {
+  const btn = document.getElementById("server-audit-filter-btn");
+  if (!btn) return;
+  if (!serverAuditAction) {
+    btn.textContent = "Filter";
+    return;
+  }
+  const match = serverAuditEntries.find((row) => row.action === serverAuditAction);
+  btn.textContent = match && match.action_label ? match.action_label : "Filter";
+}
+
+function openServerAuditFilter(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  const btn = document.getElementById("server-audit-filter-btn");
+  const rect = btn ? btn.getBoundingClientRect() : { left: 0, bottom: 0 };
+  const seen = {};
+  const options = [{
+    label: "All actions",
+    onSelect: () => {
+      serverAuditAction = "";
+      paintServerAuditFilterButton();
+      paintServerAuditList();
+    }
+  }];
+  serverAuditEntries.forEach((row) => {
+    if (!row || !row.action || seen[row.action]) return;
+    seen[row.action] = true;
+    options.push({
+      label: row.action_label || row.action,
+      onSelect: () => {
+        serverAuditAction = row.action;
+        paintServerAuditFilterButton();
+        paintServerAuditList();
+      }
+    });
+  });
+  if (typeof openContextMenu === "function") openContextMenu(rect.left, rect.bottom, null, options);
 }
 
 function runServerAuditSearch() {
@@ -292,6 +355,8 @@ function runServerAuditSearch() {
     });
   }
   if (btn) btn.addEventListener("click", runServerAuditSearch);
+  const filterBtn = document.getElementById("server-audit-filter-btn");
+  if (filterBtn) filterBtn.addEventListener("click", openServerAuditFilter);
   const close = document.getElementById("audit-entry-close");
   const overlay = document.getElementById("audit-entry-overlay");
   if (close) close.addEventListener("click", closeAuditEntry);

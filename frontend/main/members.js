@@ -95,7 +95,7 @@ function renderMemberList() {
     else offline.push(member);
   });
 
-  const byName = (a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" });
+  const byName = (a, b) => memberVisibleName(a).localeCompare(memberVisibleName(b), undefined, { sensitivity: "base" });
   online.sort(byName);
   offline.sort(byName);
 
@@ -232,7 +232,7 @@ function insertMemberRowSorted(row, member, meta) {
   while (cursor && !cursor.classList.contains("member-group-header")) {
     if (cursor !== row) {
       const other = memberList.find((item) => String(item.id) === String(cursor.dataset.memberId));
-      if (other && member.username.localeCompare(other.username, undefined, { sensitivity: "base" }) < 0) break;
+      if (other && memberVisibleName(member).localeCompare(memberVisibleName(other), undefined, { sensitivity: "base" }) < 0) break;
     }
     cursor = cursor.nextSibling;
   }
@@ -336,7 +336,7 @@ function buildMemberRow(member) {
 
   const name = document.createElement("span");
   name.className = "member-name";
-  name.textContent = member.username;
+  name.textContent = memberVisibleName(member);
   if (memberListScope === "server" && typeof applyServerNameColor === "function") {
     applyServerNameColor(name, member.id, member.name_role);
   }
@@ -395,12 +395,17 @@ function applyServerNameColor(el, userId, fallbackRole) {
   if (existing) existing.remove();
   el.classList.remove("has-name-color-dot");
   el.style.color = "";
+  el.style.backgroundImage = "";
+  el.style.webkitBackgroundClip = "";
+  el.style.backgroundClip = "";
+  el.style.webkitTextFillColor = "";
   const pref = nameColorPref();
   if (pref === "off") return;
   const role = nameRoleForUser(userId, fallbackRole);
   const colorRaw = role && role.color;
   if (!colorRaw) return;
   let color = colorRaw;
+  let color2 = role.color_2 || "";
   if (
     typeof accessibilityPrefs !== "undefined"
     && accessibilityPrefs
@@ -409,13 +414,22 @@ function applyServerNameColor(el, userId, fallbackRole) {
     && typeof themeSaturationAmount === "function"
   ) {
     color = desaturateHex(colorRaw, themeSaturationAmount());
+    if (color2) color2 = desaturateHex(color2, themeSaturationAmount());
   }
   if (pref === "next") {
     const dot = document.createElement("span");
     dot.className = "name-color-dot";
-    dot.style.background = color;
+    dot.style.background = color2 ? "linear-gradient(90deg, " + color + ", " + color2 + ")" : color;
     el.insertBefore(dot, el.firstChild);
     el.classList.add("has-name-color-dot");
+    return;
+  }
+  if (color2) {
+    el.style.backgroundImage = "linear-gradient(90deg, " + color + ", " + color2 + ")";
+    el.style.webkitBackgroundClip = "text";
+    el.style.backgroundClip = "text";
+    el.style.color = "transparent";
+    el.style.webkitTextFillColor = "transparent";
     return;
   }
   el.style.color = color;
@@ -454,6 +468,158 @@ function applyMemberJoined(scope, scopeId, member) {
   memberList.push(member);
   placeMemberRow(member);
 }
+
+function memberVisibleName(member) {
+  if (!member) return "";
+  if (typeof memberListScope !== "undefined" && memberListScope === "server" && member.nickname) return member.nickname;
+  return member.username || "";
+}
+
+function myServerNickname() {
+  if (typeof memberList === "undefined" || memberListScope !== "server") return "";
+  const me = memberList.find((row) => row.id === myUserId);
+  return (me && me.nickname) || "";
+}
+
+function applyServerNickname(serverId, userId, nickname) {
+  const nick = (nickname || "").trim();
+  if (typeof memberList !== "undefined" && memberListScope === "server" && String(memberListScopeId) === String(serverId)) {
+    const member = memberList.find((row) => row.id === userId);
+    if (member) {
+      if (nick) member.nickname = nick;
+      else delete member.nickname;
+      placeMemberRow(member);
+    }
+  }
+  if (typeof serverRosterMembers !== "undefined" && String(serverRosterLoadedFor) === String(serverId)) {
+    const row = serverRosterMembers.find((member) => member.id === userId);
+    if (row) {
+      if (nick) row.nickname = nick;
+      else delete row.nickname;
+      if (typeof paintServerMembersTable === "function") paintServerMembersTable();
+    }
+  }
+  let touched = false;
+  if (typeof currentChannelMessages !== "undefined" && String(currentServerId) === String(serverId)) {
+    currentChannelMessages.forEach((msg) => {
+      if (msg && msg.senderId === userId) {
+        msg.nickname = nick;
+        touched = true;
+      }
+    });
+  }
+  if (touched && typeof renderChannelMessages === "function") renderChannelMessages();
+}
+
+function closeNicknameSubmenu() {
+  const overlay = document.getElementById("nickname-overlay");
+  if (overlay) overlay.hidden = true;
+  const err = document.getElementById("nickname-error");
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  const confirm = document.getElementById("nickname-confirm");
+  const cancel = document.getElementById("nickname-cancel");
+  if (confirm) confirm.disabled = false;
+  if (cancel) cancel.disabled = false;
+}
+
+function canChangeNickname(member) {
+  if (!member || typeof memberListScope === "undefined" || memberListScope !== "server" || !currentServerId) return false;
+  if (member.id === myUserId) return typeof canServerPerm === "function" && canServerPerm("change_nickname");
+  return typeof canActOnMember === "function" && canActOnMember(member, "manage_nicknames");
+}
+
+function openNicknameSubmenu(member) {
+  if (!member || !currentServerId) return;
+  const overlay = document.getElementById("nickname-overlay");
+  const input = document.getElementById("nickname-input");
+  if (!overlay || !input) return;
+  overlay.dataset.userId = String(member.id);
+  input.value = member.nickname || "";
+  const err = document.getElementById("nickname-error");
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  overlay.hidden = false;
+  input.focus();
+}
+
+async function confirmNicknameSubmenu() {
+  const overlay = document.getElementById("nickname-overlay");
+  const input = document.getElementById("nickname-input");
+  const userId = overlay ? Number(overlay.dataset.userId) : 0;
+  if (!currentServerId || !userId) return;
+  const confirm = document.getElementById("nickname-confirm");
+  const cancel = document.getElementById("nickname-cancel");
+  if (confirm) confirm.disabled = true;
+  if (cancel) cancel.disabled = true;
+  const err = document.getElementById("nickname-error");
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  try {
+    const response = await fetch(`https://${serverAddress}/update_server_nickname`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        server_id: currentServerId,
+        user_id: userId,
+        nickname: input ? input.value : ""
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not change that nickname.");
+    applyServerNickname(currentServerId, userId, data.nickname || "");
+    closeNicknameSubmenu();
+  } catch (error) {
+    if (err) {
+      err.hidden = false;
+      err.textContent = error.message || "Could not change that nickname.";
+    }
+    if (confirm) confirm.disabled = false;
+    if (cancel) cancel.disabled = false;
+  }
+}
+
+function bindNicknameChrome() {
+  const close = document.getElementById("nickname-close");
+  const cancel = document.getElementById("nickname-cancel");
+  const confirm = document.getElementById("nickname-confirm");
+  if (close) close.addEventListener("click", closeNicknameSubmenu);
+  if (cancel) cancel.addEventListener("click", closeNicknameSubmenu);
+  if (confirm) confirm.addEventListener("click", confirmNicknameSubmenu);
+  const overlay = document.getElementById("nickname-overlay");
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target.id === "nickname-overlay") closeNicknameSubmenu();
+    });
+  }
+  const input = document.getElementById("nickname-input");
+  if (input) {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        confirmNicknameSubmenu();
+      }
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const card = document.getElementById("nickname-overlay");
+    if (card && !card.hidden) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeNicknameSubmenu();
+    }
+  });
+}
+
+bindNicknameChrome();
 
 function applyMemberLeft(scope, scopeId, userId) {
   if (scope === "server" && typeof removeServerRosterMember === "function") {

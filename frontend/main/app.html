@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=308">
+<link rel="stylesheet" href="app.css?v=310">
 </head>
 <body>
 
@@ -867,6 +867,7 @@
         <button type="button" class="server-settings-nav-item" data-tab="integrations">Integrations</button>
         <button type="button" class="server-settings-nav-item" data-tab="audit">Audit Log</button>
       </nav>
+      <button type="button" id="server-settings-transfer" class="server-settings-nav-item" hidden>Transfer Ownership</button>
       <button type="button" id="server-settings-delete" class="server-settings-nav-item is-danger" hidden>Delete Server</button>
     </aside>
     <section id="server-settings-main">
@@ -1207,7 +1208,7 @@
         <div class="server-audit-toolbar">
           <input id="server-audit-search" class="server-settings-input server-audit-search" type="search" placeholder="Search audit log" autocomplete="off" spellcheck="false">
           <button type="button" id="server-audit-search-btn" class="pill-btn">Search</button>
-          <button type="button" id="server-audit-filter-btn" class="ghost-btn" disabled>Filter</button>
+          <button type="button" id="server-audit-filter-btn" class="ghost-btn">Filter</button>
         </div>
         <div class="server-audit-table-wrap">
           <table class="server-audit-table">
@@ -1340,7 +1341,7 @@
         </div>
         <div class="server-settings-field is-channel-only is-forums-only" id="channel-settings-forum-layout-field" hidden>
           <label class="server-settings-field-title" for="channel-settings-forum-layout">Default Layout</label>
-          <select id="channel-settings-forum-layout" class="settings-select server-settings-select" disabled>
+          <select id="channel-settings-forum-layout" class="settings-select server-settings-select">
             <option value="list" selected>List View</option>
             <option value="gallery">Gallery View</option>
           </select>
@@ -1894,6 +1895,44 @@
     </div>
   </div>
 
+  <div id="nickname-overlay" hidden>
+    <div id="nickname-modal" class="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="nickname-title">
+      <div class="delete-server-header">
+        <span id="nickname-title">Change Nickname</span>
+        <button type="button" class="icon-btn" id="nickname-close" title="Close">&times;</button>
+      </div>
+      <div class="delete-server-body">
+        <p class="delete-server-copy">This name is shown in this server. Leave it blank to use the account name.</p>
+        <label class="delete-server-label" for="nickname-input">Nickname</label>
+        <input type="text" id="nickname-input" class="delete-server-input" maxlength="32" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="delete-server-footer">
+        <p id="nickname-error" class="server-settings-help" hidden></p>
+        <button type="button" class="ghost-btn" id="nickname-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="nickname-confirm">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="transfer-server-overlay" hidden>
+    <div id="transfer-server-modal" class="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="transfer-server-title">
+      <div class="delete-server-header">
+        <span id="transfer-server-title" class="delete-danger-title">Transfer Ownership</span>
+        <button type="button" class="icon-btn" id="transfer-server-close" title="Close">&times;</button>
+      </div>
+      <div class="delete-server-body">
+        <p id="transfer-server-copy" class="delete-server-copy">The new owner will control this server, including Delete Server. You stay a member.</p>
+        <label class="delete-server-label" for="transfer-server-member">New owner</label>
+        <select id="transfer-server-member" class="delete-server-input"></select>
+      </div>
+      <div class="delete-server-footer">
+        <p id="transfer-server-error" class="server-settings-help" hidden></p>
+        <button type="button" class="ghost-btn" id="transfer-server-cancel">Cancel</button>
+        <button type="button" class="deny-btn" id="transfer-server-confirm">Transfer Ownership</button>
+      </div>
+    </div>
+  </div>
+
   <div id="delete-server-overlay" hidden>
     <div id="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="delete-server-title">
       <div class="delete-server-header">
@@ -2063,7 +2102,7 @@
 <div id="mention-picker" hidden>
   <div id="mention-picker-list"></div>
 </div>
-<script src="state.js?v=72"></script>
+<script src="state.js?v=73"></script>
 <script src="appearance.js?v=5"></script>
 <script src="accessibility.js?v=11"></script>
 <script src="language-time.js?v=1"></script>
@@ -2115,14 +2154,14 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=124"></script>
+<script src="boot.js?v=126"></script>
 <script src="app-shell.js?v=68"></script>
 <script src="feed.js?v=16"></script>
 <script src="settings.js?v=20"></script>
-<script src="server-settings.js?v=37"></script>
-<script src="server-roles.js?v=30"></script>
+<script src="server-settings.js?v=38"></script>
+<script src="server-roles.js?v=31"></script>
 <script src="server-moderation.js?v=4"></script>
-<script src="server-members.js?v=6"></script>
+<script src="server-members.js?v=8"></script>
 <script src="settings-account.js?v=5"></script>
 <script src="settings-privacy.js?v=9"></script>
 <script src="feed-settings.js?v=3"></script>
@@ -2146,11 +2185,11 @@
 <script src="profile.js?v=19"></script>
 <script src="profile-identity.js?v=8"></script>
 <script src="profile-edit.js?v=87"></script>
-<script src="context-menus.js?v=92"></script>
+<script src="context-menus.js?v=93"></script>
 <script src="conversations.js?v=64"></script>
-<script src="chat-render.js?v=68"></script>
+<script src="chat-render.js?v=69"></script>
 <script src="chat-history.js?v=51"></script>
-<script src="chat-compose.js?v=62"></script>
+<script src="chat-compose.js?v=63"></script>
 <script src="typing.js?v=2"></script>
 <script src="emoji-data.js?v=1"></script>
 <script src="emoji-picker.js?v=56"></script>
@@ -2163,26 +2202,26 @@
 <script src="server-privacy.js?v=2"></script>
 <script src="server-emojis.js?v=3"></script>
 <script src="server-integrations.js?v=1"></script>
-<script src="server-audit.js?v=4"></script>
-<script src="server-delete.js?v=1"></script>
+<script src="server-audit.js?v=6"></script>
+<script src="server-delete.js?v=2"></script>
 <script src="account-delete.js?v=1"></script>
 <script src="server-notify.js?v=3"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=14"></script>
-<script src="servers.js?v=117"></script>
+<script src="servers.js?v=118"></script>
 <script src="voice.js?v=16"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=4"></script>
 <script src="server-dnd.js?v=2"></script>
-<script src="channel-settings.js?v=22"></script>
+<script src="channel-settings.js?v=23"></script>
 <script src="pins.js?v=3"></script>
 <script src="search.js?v=4"></script>
-<script src="members.js?v=16"></script>
+<script src="members.js?v=17"></script>
 <script src="mini-profile.js?v=11"></script>
 <script src="server-modals.js?v=48"></script>
 <script src="announcements.js?v=64"></script>
 <script src="comments.js?v=55"></script>
-<script src="forums.js?v=67"></script>
+<script src="forums.js?v=68"></script>
 <script src="lists.js?v=4"></script>
 <script src="calendar.js?v=7"></script>
 <script src="calendar-event.js?v=7"></script>

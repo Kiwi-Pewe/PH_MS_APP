@@ -484,7 +484,7 @@ function startNewCluster(wrap, msg) {
   header.className = "cluster-header";
   const name = document.createElement("span");
   name.className = "cluster-name";
-  name.textContent = msg.username;
+  name.textContent = msg.nickname || msg.username;
   if ((msg.chatKind === "channel" || msg.chatKind === "forum") && typeof applyServerNameColor === "function") {
     applyServerNameColor(name, msg.senderId, msg.nameRole);
   }

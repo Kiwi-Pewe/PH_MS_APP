@@ -9,7 +9,7 @@ from app.r2 import attachment_public, delete_attachment, delete_r2_object, norma
 from app.routers.mentions import apply_server_text_mentions, decorate_ids, mention_user_map, mention_role_map, mentioned_user_ids, clear_mentions, accepted_reply_parent, reply_map_for, reply_to_payload
 from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
-from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, require_channel_perm, require_channel_slowmode
+from app.routers.roles import effective_perms_for_user_in_channel, name_color_role_for_user, name_color_roles_by_user, nicknames_for_users, require_channel_perm, require_channel_slowmode
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages, toggle_reaction_row
 from app.routers.pins import clear_pins
@@ -96,6 +96,7 @@ def forum_channel_settings_payload(channel, database):
         "guidelines": getattr(channel, "forum_guidelines", None) or "",
         "require_tags": bool(getattr(channel, "forum_require_tags", False)),
         "default_reaction": getattr(channel, "forum_default_reaction", None) or "",
+        "layout": "gallery" if getattr(channel, "forum_layout", None) == "gallery" else "list",
         "tags": list_forum_tags(database, channel.id),
     }
 
@@ -211,6 +212,7 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
     reaction_map = reactions_for_messages(database, "forum_post", [post.id for post in post_list], current_user.id)
     mention_meta = decorate_ids(database, "forum_post", [post.id for post in post_list], [post.body for post in post_list], current_user.id)
     name_map = name_color_roles_by_user(database, server.id, author_ids)
+    nick_map = nicknames_for_users(database, server.id, author_ids)
 
     picked_posts = []
     for index, post in enumerate(post_list):
@@ -218,6 +220,7 @@ async def get_forum_post(channel_id: int, database: Session = Depends(get_db), c
             "id": post.id,
             "author_id": post.author_id,
             "author_username": username_lookup.get(post.author_id, ""),
+            "author_nickname": nick_map.get(post.author_id, ""),
             "avatar": faces.get(post.author_id),
             "name_role": name_map.get(post.author_id),
             "title": post.title,
@@ -467,6 +470,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
     reaction_map = reactions_for_messages(database, "forum", [message.id for message in message_list], current_user.id)
     reply_map = reply_map_for(database, Forum_messages, message_list, author_attr= "author_id")
     name_map = name_color_roles_by_user(database, server.id, author_ids)
+    nick_map = nicknames_for_users(database, server.id, author_ids)
 
     forum_messages = []
     for index, message in enumerate(message_list):
@@ -475,6 +479,7 @@ def get_forum_messages(post_id: int, database: Session = Depends(get_db), curren
             "post_id": message.post_id,
             "author_id": message.author_id,
             "username": username_lookup.get(message.author_id, ""),
+            "nickname": nick_map.get(message.author_id, ""),
             "avatar": faces.get(message.author_id),
             "name_role": name_map.get(message.author_id),
             "content": message.content,
@@ -581,18 +586,39 @@ def get_forum_settings(channel_id: int, database: Session = Depends(get_db), cur
 async def save_forum_settings(body: Forum_settings_save, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     channel, category, server, is_member = load_forum_channel_context(database, body.channel_id, current_user)
     require_channel_perm(database, server, current_user.id, channel.id, "manage_channels", "You do not have permission to manage this channel.")
+    changes = []
     if body.guidelines is not None:
         text = (body.guidelines or "").strip()
         if len(text) > 4096:
             text = text[:4096]
-        channel.forum_guidelines = text or None
+        next_text = text or None
+        if (getattr(channel, "forum_guidelines", None) or None) != next_text:
+            changes.append({"key": "guidelines", "from": (channel.forum_guidelines or "")[:200], "to": text[:200]})
+            channel.forum_guidelines = next_text
     if body.require_tags is not None:
-        channel.forum_require_tags = bool(body.require_tags)
+        required = bool(body.require_tags)
+        if bool(channel.forum_require_tags) != required:
+            changes.append({"key": "require tags", "from": "Yes" if channel.forum_require_tags else "No", "to": "Yes" if required else "No"})
+            channel.forum_require_tags = required
     if body.default_reaction is not None:
         emoji = (body.default_reaction or "").strip()
         if len(emoji) > 16:
             raise HTTPException(status_code=400, detail="Invalid reaction")
-        channel.forum_default_reaction = emoji or None
+        next_emoji = emoji or None
+        if (channel.forum_default_reaction or None) != next_emoji:
+            changes.append({"key": "default reaction", "from": channel.forum_default_reaction or "", "to": emoji})
+            channel.forum_default_reaction = next_emoji
+    if body.layout is not None:
+        layout = "gallery" if (body.layout or "").strip() == "gallery" else "list"
+        previous = "gallery" if getattr(channel, "forum_layout", None) == "gallery" else "list"
+        if previous != layout:
+            changes.append({"key": "layout", "from": previous, "to": layout})
+            channel.forum_layout = layout
+    if changes:
+        write_audit_log(database, server.id, current_user.id, "update_channel", "channel", channel.id, {
+            "name": channel.name,
+            "changes": changes,
+        })
     database.commit()
     payload = {
         "type": "forum_settings_updated",

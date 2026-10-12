@@ -300,11 +300,16 @@ async function showMemberContextMenu(e, member) {
     ? member.status.charAt(0).toUpperCase() + member.status.slice(1)
     : "Offline");
 
+  const nicknameRow = typeof canChangeNickname === "function" && canChangeNickname(member)
+    ? { label: "Change Nickname", onSelect: () => openNicknameSubmenu(member) }
+    : null;
   const options = isSelf ? [
     { label: "Profile", onSelect: () => openUserProfile(member.id) },
+    nicknameRow,
     { label: "Mention", onSelect: () => insertMentionToken(member.username) }
   ] : [
     { label: "Profile", onSelect: () => openUserProfile(member.id) },
+    nicknameRow,
     { label: "Mention", onSelect: () => insertMentionToken(member.username) },
     { label: "Message", onSelect: () => messageMemberFromList(member.id, member.username) },
     !relation.blocked && (relation.friend
@@ -322,7 +327,7 @@ async function showMemberContextMenu(e, member) {
 
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(member.username),
-    title: member.username,
+    title: typeof memberVisibleName === "function" ? memberVisibleName(member) : member.username,
     subtitle: statusLabel,
     userId: member.id,
     avatar: member.avatar

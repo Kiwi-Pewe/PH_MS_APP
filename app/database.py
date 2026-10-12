@@ -314,6 +314,7 @@ def ensure_channel_columns():
         ("server_channels", "user_limit", "INTEGER DEFAULT 10"),
         ("server_channels", "announce_public", "BOOLEAN DEFAULT 0"),
         ("server_channels", "blog_enabled", "BOOLEAN DEFAULT 0"),
+        ("server_channels", "forum_layout", "VARCHAR"),
         ("announcements", "is_public", "BOOLEAN DEFAULT 0"),
         ("announcements", "followed_from_id", "INTEGER"),
         ("announcements", "comments_open", "BOOLEAN DEFAULT 1"),
@@ -397,6 +398,11 @@ def ensure_role_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE server_roles ADD COLUMN color_2 VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_doc_columns():
@@ -476,6 +482,8 @@ def ensure_moderation_columns():
         ("server_members", "muted", "BOOLEAN DEFAULT 0"),
         ("server_members", "suppress_pings", "BOOLEAN DEFAULT 0"),
         ("server_members", "notify_level", "VARCHAR"),
+        ("server_members", "nickname", "VARCHAR"),
+        ("server_members", "last_channel_id", "INTEGER"),
         ("server_notifications", "notify_level", "VARCHAR"),
     )
     with engine.connect() as conn:

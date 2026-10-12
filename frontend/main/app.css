@@ -2480,6 +2480,21 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
   padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px;
 }
+#forum-posts.is-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  align-content: start;
+}
+#forum-posts.is-gallery .forum-post {
+  flex-direction: column;
+  align-items: stretch;
+}
+#forum-posts.is-gallery .forum-post-thumb {
+  flex: 0 0 auto;
+  width: 100%;
+  height: 140px;
+  order: -1;
+}
 
 .forum-filter-bar {
   flex: 0 0 auto;
@@ -8869,7 +8884,9 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 
 #delete-server-overlay,
-#delete-account-overlay {
+#delete-account-overlay,
+#transfer-server-overlay,
+#nickname-overlay {
   position: fixed;
   inset: 0;
   z-index: 1200;
@@ -8879,7 +8896,13 @@ a.profile-link-row:hover { color: var(--accent); }
   background: rgba(0, 0, 0, 0.55);
 }
 #delete-server-overlay[hidden],
-#delete-account-overlay[hidden] { display: none; }
+#delete-account-overlay[hidden],
+#transfer-server-overlay[hidden],
+#nickname-overlay[hidden] { display: none; }
+#nickname-title {
+  font-size: 18px;
+  font-weight: 700;
+}
 #delete-server-modal,
 #delete-account-modal,
 .delete-server-modal {
@@ -8943,7 +8966,8 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 8px 16px 16px;
 }
 #delete-server-error,
-#delete-account-error {
+#delete-account-error,
+#transfer-server-error {
   margin: 0 auto 0 0;
   flex: 1 1 100%;
   color: var(--danger);

@@ -519,6 +519,24 @@ async function refreshEmojiPickerPacks() {
   filterEmojiPicker(document.getElementById("emoji-picker-search").value || "");
 }
 
+function paintEmojiAddButton() {
+  const btn = document.querySelector("#emoji-picker .emoji-add-btn");
+  if (!btn) return;
+  const allowed = !!currentServerId && typeof canOpenServerEmojis === "function" && canOpenServerEmojis();
+  btn.disabled = !allowed;
+  btn.classList.toggle("disabled", !allowed);
+  btn.title = allowed ? "Add emoji" : "You do not have permission to add emoji here.";
+}
+
+function openEmojiSettingsFromPicker() {
+  const btn = document.querySelector("#emoji-picker .emoji-add-btn");
+  if (!btn || btn.disabled) return;
+  closeEmojiPicker();
+  if (typeof openServerSettings !== "function") return;
+  openServerSettings();
+  if (typeof showServerSettingsTab === "function") showServerSettingsTab("emojis");
+}
+
 function openEmojiPicker(btn, input, clientX, clientY) {
   if (input.disabled) return;
   if (document.documentElement.classList.contains("legacy-chat-input")) return;
@@ -537,6 +555,7 @@ function openEmojiPicker(btn, input, clientX, clientY) {
     y = rect.top;
   }
   placeEmojiPickerAt(x, y);
+  paintEmojiAddButton();
   document.getElementById("emoji-picker-search").value = "";
   document.getElementById("emoji-picker-footer").textContent = "";
   emojiSearchSaved = "";
@@ -565,6 +584,7 @@ function openEmojiPickerForReaction(x, y, msg) {
   emojiPickerTarget = null;
   emojiReactionTarget = msg;
   placeEmojiPickerAt(x, y);
+  paintEmojiAddButton();
   document.getElementById("emoji-picker-search").value = "";
   document.getElementById("emoji-picker-footer").textContent = "";
   emojiSearchSaved = "";
@@ -623,6 +643,9 @@ document.getElementById("announcement-body-input").addEventListener("input", () 
 document.getElementById("forum-body-input").addEventListener("input", () => {
   applyEmojiShortcodesToInput(document.getElementById("forum-body-input"));
 });
+
+const emojiAddBtn = document.querySelector("#emoji-picker .emoji-add-btn");
+if (emojiAddBtn) emojiAddBtn.addEventListener("click", openEmojiSettingsFromPicker);
 
 buildEmojiPickerBody();
 highlightEmojiRail("frequent");

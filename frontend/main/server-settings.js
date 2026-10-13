@@ -94,12 +94,8 @@ function canOpenServerSettings() {
   return canUpdateServer()
     || canManageRoles()
     || canOpenServerMembers()
-    || canOpenServerInvites()
     || canOpenServerBans()
-    || canOpenServerPrivacy()
-    || canOpenServerEmojis()
-    || canOpenServerIntegrations()
-    || canOpenServerAudit();
+    || canOpenServerEmojis();
 }
 
 function defaultServerSettingsTab() {
@@ -108,11 +104,8 @@ function defaultServerSettingsTab() {
   if (canOpenServerMembers()) return "members";
   if (canOpenServerInvites()) return "invites";
   if (canOpenServerBans()) return "bans";
-  if (canOpenServerPrivacy()) return "privacy";
   if (canOpenServerEmojis()) return "emojis";
-  if (canOpenServerIntegrations()) return "integrations";
-  if (canOpenServerAudit()) return "audit";
-  return "overview";
+  return "roles";
 }
 
 function canInviteMembers() {
@@ -232,6 +225,7 @@ async function refreshServerPerms() {
 }
 
 function paintServerSettingsAccess() {
+  const overviewBtn = document.querySelector('#server-settings-nav [data-tab="overview"]');
   const rolesBtn = document.querySelector('#server-settings-nav [data-tab="roles"]');
   const membersBtn = document.querySelector('#server-settings-nav [data-tab="members"]');
   const invitesBtn = document.querySelector('#server-settings-nav [data-tab="invites"]');
@@ -242,6 +236,7 @@ function paintServerSettingsAccess() {
   const auditBtn = document.querySelector('#server-settings-nav [data-tab="audit"]');
   const deleteBtn = document.getElementById("server-settings-delete");
   const transferBtn = document.getElementById("server-settings-transfer");
+  const allowOverview = canUpdateServer();
   const allowRoles = canManageRoles();
   const allowMembers = canOpenServerMembers();
   const allowInvites = canOpenServerInvites();
@@ -251,6 +246,10 @@ function paintServerSettingsAccess() {
   const allowIntegrations = canOpenServerIntegrations();
   const allowAudit = canOpenServerAudit();
   const allowDelete = canDeleteServer();
+  if (overviewBtn) {
+    overviewBtn.disabled = !allowOverview;
+    overviewBtn.classList.toggle("is-later", !allowOverview);
+  }
   if (rolesBtn) {
     rolesBtn.disabled = !allowRoles;
     rolesBtn.classList.toggle("is-later", !allowRoles);
@@ -292,6 +291,7 @@ function paintServerSettingsAccess() {
     transferBtn.disabled = !allowDelete;
   }
   if (typeof isServerSettingsOpen === "undefined" || !isServerSettingsOpen) return;
+  const overview = document.getElementById("server-settings-overview");
   const roles = document.getElementById("server-settings-roles");
   const members = document.getElementById("server-settings-members");
   const invites = document.getElementById("server-settings-invites");
@@ -300,7 +300,9 @@ function paintServerSettingsAccess() {
   const emojis = document.getElementById("server-settings-emojis");
   const integrations = document.getElementById("server-settings-integrations");
   const audit = document.getElementById("server-settings-audit");
-  if (!allowRoles && roles && !roles.hidden) {
+  if (!allowOverview && overview && !overview.hidden) {
+    if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
+  } else if (!allowRoles && roles && !roles.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowMembers && members && !members.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());

@@ -1,6 +1,7 @@
 // ==================================================================
 // server-invites.js - Server Settings → Invites table (Discord-like).
-// Create invite link reuses Invite People submenu. Pause is placeholder.
+// Create invite link reuses Invite People submenu. Pause uses the same
+// per-link request for every valid invite, or every invite from one person.
 // ==================================================================
 
 let serverInvitesList = [];
@@ -72,6 +73,29 @@ function paintServerInvitesTable() {
     labels.appendChild(name);
     inviter.appendChild(labels);
     inviterTd.appendChild(inviter);
+    if (creator.id && inviteStaffAllowed(invite) && typeof openContextMenu === "function") {
+      inviter.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const mine = serverInvitesList.filter((row) => {
+          const id = row.creator && row.creator.id;
+          return id != null && String(id) === String(creator.id) && inviteStaffAllowed(row);
+        });
+        const unpaused = mine.filter((row) => !row.paused);
+        openContextMenu(event.clientX, event.clientY, null, [
+          {
+            label: "Pause this user's invites",
+            disabled: !unpaused.length,
+            onSelect: () => staffInviteMany("pause_server_invite", unpaused)
+          },
+          {
+            label: "Revoke this user's invites",
+            danger: true,
+            onSelect: () => staffInviteMany("revoke_server_invite", mine)
+          }
+        ]);
+      });
+    }
     tr.appendChild(inviterTd);
 
     const codeTd = document.createElement("td");
@@ -113,6 +137,7 @@ async function loadServerInvitesPage(force) {
   }
   if (!force && serverInvitesLoadedFor === currentServerId) {
     paintServerInvitesTable();
+    paintInvitePauseAll();
     return;
   }
   setServerInvitesStatus("");
@@ -133,10 +158,12 @@ async function loadServerInvitesPage(force) {
       }
     });
     paintServerInvitesTable();
+    paintInvitePauseAll();
   } catch (e) {
     setServerInvitesStatus(e.message || "Could not load invites.");
     serverInvitesList = [];
     paintServerInvitesTable();
+    paintInvitePauseAll();
   } finally {
     serverInvitesBusy = false;
   }
@@ -258,27 +285,76 @@ function appendInviteStaff(tr, invite) {
   tr.appendChild(td);
 }
 
+function inviteStillValid(invite) {
+  if (!invite || invite.paused) return false;
+  if (Number(invite.max_age) === 0 || !invite.expires_at) return true;
+  return formatInviteExpires(invite.expires_at) !== "Expired";
+}
+
+function pausableInvites() {
+  return serverInvitesList.filter((invite) => inviteStillValid(invite) && inviteStaffAllowed(invite));
+}
+
+function paintInvitePauseAll() {
+  const pause = document.getElementById("server-invites-pause");
+  if (!pause) return;
+  const ready = !inviteStaffBusy && pausableInvites().length > 0;
+  pause.disabled = !ready;
+  pause.title = ready ? "Pause every valid invite" : "No valid invites to pause";
+}
+
+async function postInviteStaff(path, code) {
+  const response = await fetch(`https://${serverAddress}/${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ server_id: currentServerId, code: code }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not update that invite.");
+  return data;
+}
+
+async function reloadInviteTables() {
+  serverInvitesLoadedFor = null;
+  if (serverInvitesPageOpen()) await loadServerInvitesPage(true);
+  const channelPage = document.getElementById("channel-settings-invites");
+  if (channelPage && !channelPage.hidden) await loadChannelInvitesPage();
+}
+
 async function staffInvite(path, invite) {
   if (inviteStaffBusy || !currentServerId || !invite || !invite.code) return;
   inviteStaffBusy = true;
+  paintInvitePauseAll();
   try {
-    const response = await fetch(`https://${serverAddress}/${path}`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ server_id: currentServerId, code: invite.code }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not update that invite.");
+    await postInviteStaff(path, invite.code);
     setInviteStaffStatus("");
-    serverInvitesLoadedFor = null;
-    if (serverInvitesPageOpen()) await loadServerInvitesPage(true);
-    const channelPage = document.getElementById("channel-settings-invites");
-    if (channelPage && !channelPage.hidden) await loadChannelInvitesPage();
+    await reloadInviteTables();
   } catch (e) {
     setInviteStaffStatus(e.message || "Could not update that invite.");
   } finally {
     inviteStaffBusy = false;
+    paintInvitePauseAll();
+  }
+}
+
+async function staffInviteMany(path, invites) {
+  const list = (invites || []).filter((invite) => invite && invite.code && inviteStaffAllowed(invite));
+  if (inviteStaffBusy || !currentServerId || !list.length) return;
+  inviteStaffBusy = true;
+  paintInvitePauseAll();
+  try {
+    for (let i = 0; i < list.length; i += 1) {
+      await postInviteStaff(path, list[i].code);
+    }
+    setInviteStaffStatus("");
+    await reloadInviteTables();
+  } catch (e) {
+    setInviteStaffStatus(e.message || "Could not update those invites.");
+    await reloadInviteTables();
+  } finally {
+    inviteStaffBusy = false;
+    paintInvitePauseAll();
   }
 }
 
@@ -303,6 +379,8 @@ function openServerInvitesCreate() {
 (function bindServerInvitesChrome() {
   const create = document.getElementById("server-invites-create");
   if (create) create.addEventListener("click", openServerInvitesCreate);
+  const pauseAll = document.getElementById("server-invites-pause");
+  if (pauseAll) pauseAll.addEventListener("click", () => staffInviteMany("pause_server_invite", pausableInvites()));
   const channelCreate = document.getElementById("channel-settings-invites-create");
   if (channelCreate) channelCreate.addEventListener("click", openChannelInvitesCreate);
 })();

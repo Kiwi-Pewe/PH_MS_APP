@@ -547,6 +547,15 @@ function showServerHeaderMenu(e) {
     if (typeof canInviteMembers === "function" ? canInviteMembers() : true) {
       options.push({ label: "Invite to Server", onSelect: () => openInviteModal("server", serverId, name) });
     }
+    if (typeof canServerPerm === "function" && canServerPerm("change_nickname") && typeof openNicknameSubmenu === "function") {
+      options.push({
+        label: "Edit Per-server Profile",
+        onSelect: () => openNicknameSubmenu({
+          id: myUserId,
+          nickname: typeof myServerNickname === "function" ? myServerNickname() : ""
+        })
+      });
+    }
     if (typeof canOpenServerSettings === "function" ? canOpenServerSettings() : isOwner) {
       options.push({ label: "Server Settings", onSelect: () => openServerSettings() });
     }

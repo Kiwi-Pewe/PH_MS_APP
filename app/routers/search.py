@@ -6,7 +6,7 @@ import re
 from app.models import (
     UserInfo, Message, Party_messages, Party_members, Channel_messages,
     Servers, Server_members, Server_categories, Server_channels,
-    Announcement_post, Announcement_comment, Forum_post, Forum_messages,
+    Announcement_post, Announcement_comment, Forum_post, Forum_messages, Media_item,
     Message_pin, Message_mention,
 )
 from app.schemas import Search_messages
@@ -85,7 +85,7 @@ def row_matches_has(content, attachment, has_list):
     return True
 
 
-SEARCH_CHANNEL_TYPES = ("text", "announcements", "forums")
+SEARCH_CHANNEL_TYPES = ("text", "announcements", "forums", "media")
 SEARCH_SCAN_LIMIT = 800
 
 
@@ -144,7 +144,7 @@ def mention_message_ids(database, kind, user_id, channel_ids=None, party_id=None
     return {row[0] for row in q.all()}
 
 
-def search_hit(kind, row_id, channel_id, sender_id, content, attachment, stamp, edited=False, title="", body="", post_id=None):
+def search_hit(kind, row_id, channel_id, sender_id, content, attachment, stamp, edited=False, title="", body="", post_id=None, media_kind="", media_url=""):
     return {
         "kind": kind,
         "id": row_id,
@@ -157,6 +157,8 @@ def search_hit(kind, row_id, channel_id, sender_id, content, attachment, stamp, 
         "title": title or "",
         "body": body or "",
         "post_id": post_id,
+        "media_kind": media_kind or "",
+        "media_url": media_url or "",
     }
 
 
@@ -367,7 +369,31 @@ def serialize_search_hit(hit, username, avatar, channel_name):
         "title": hit["title"],
         "body": hit["body"],
         "post_id": hit["post_id"],
+        "media_kind": hit.get("media_kind") or "",
+        "media_url": hit.get("media_url") or "",
     }
+
+
+def collect_media_hits(database, body, content, channel_ids):
+    if not channel_ids:
+        return []
+    query = database.query(Media_item).filter(Media_item.channel_id.in_(channel_ids))
+    query = query.filter(Media_item.sender_id.isnot(None))
+    query = apply_common_filters(
+        database, query, Media_item.id, Media_item.sender_id, Media_item.created_at,
+        body, [Media_item.title, Media_item.description, Media_item.url], content, channel_ids, "media",
+    )
+    if query is None:
+        return []
+    rows = query.order_by(Media_item.created_at.desc(), Media_item.id.desc()).limit(SEARCH_SCAN_LIMIT).all()
+    return [
+        search_hit(
+            "media", row.id, row.channel_id, row.sender_id, "",
+            None, row.created_at, False, post_id=row.id,
+            media_kind=row.kind or "image", media_url=row.url or "",
+        )
+        for row in rows
+    ]
 
 
 def search_server(database, current_user, body, page, content, has_list):
@@ -393,12 +419,14 @@ def search_server(database, current_user, body, page, content, has_list):
     text_ids = [channel.id for channel in channels if channel.channel_type == "text"]
     announce_ids = [channel.id for channel in channels if channel.channel_type == "announcements"]
     forum_ids = [channel.id for channel in channels if channel.channel_type == "forums"]
+    media_ids = [channel.id for channel in channels if channel.channel_type == "media"]
     hits = []
     hits.extend(collect_text_hits(database, body, content, text_ids))
     hits.extend(collect_announcement_hits(database, body, content, announce_ids))
     hits.extend(collect_comment_hits(database, body, content, announce_ids))
     hits.extend(collect_forum_post_hits(database, body, content, forum_ids))
     hits.extend(collect_forum_reply_hits(database, body, content, forum_ids))
+    hits.extend(collect_media_hits(database, body, content, media_ids))
     hits = [hit for hit in hits if row_matches_has(hit["content"], hit["attachment"], has_list)]
     hits.sort(key=lambda hit: (hit["stamp"] or datetime.min, hit["id"] or 0), reverse=True)
     total = len(hits)

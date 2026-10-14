@@ -2834,6 +2834,7 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   max-width: 100%;
 }
 .search-result-message .cluster-header .cluster-time { font-size: 11px; flex: 0 0 auto; }
+.search-result-message .cluster-bubble:empty { display: none; }
 .search-result-message .cluster-bubble {
   max-width: 100%;
   width: fit-content;
@@ -2871,6 +2872,20 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 .search-result-message .msg-media video {
   max-width: 100%;
   height: auto;
+}
+.search-result-media {
+  margin-top: 6px;
+  max-width: 100%;
+}
+.search-result-media img,
+.search-result-media video {
+  display: block;
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--bg);
+  pointer-events: none;
 }
 .member-rail-search {
   flex: 0 0 auto;

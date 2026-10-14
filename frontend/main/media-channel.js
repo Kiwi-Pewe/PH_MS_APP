@@ -9,6 +9,7 @@ let mediaFormHeight = 0;
 let mediaFormBusy = false;
 let mediaFormSource = "file";
 let mediaCommentState = {};
+let mediaListFilter = "";
 
 function canCreateMedia() {
   return typeof channelPerm === "function" && channelPerm("create_media");
@@ -27,7 +28,7 @@ function canDeleteMediaItem(item) {
 }
 
 function hideMediaChannelChrome() {
-  ["media-channel-back", "media-channel-add"].forEach((id) => {
+  ["media-channel-back", "media-channel-add", "media-channel-filter"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });
@@ -151,12 +152,22 @@ function paintMediaChannelList() {
   if (grid) grid.hidden = false;
   showMediaButton("media-channel-add", canCreateMedia());
   showMediaButton("media-channel-back", false);
+  showMediaButton("media-channel-filter", true);
+  paintMediaFilterButton();
   if (!grid) return;
   grid.replaceChildren();
+  const items = filteredMediaItems();
   if (!currentMediaItems.length) {
     const empty = document.createElement("div");
     empty.className = "media-channel-empty";
     empty.textContent = "No media yet.";
+    grid.appendChild(empty);
+    return;
+  }
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "media-channel-empty";
+    empty.textContent = "No media of that type.";
     grid.appendChild(empty);
     return;
   }
@@ -170,7 +181,7 @@ function paintMediaChannelList() {
     heights.push(0);
     grid.appendChild(col);
   }
-  currentMediaItems.forEach((item) => {
+  items.forEach((item) => {
     let index = 0;
     for (let i = 1; i < count; i += 1) {
       if (heights[i] < heights[index]) index = i;
@@ -286,6 +297,7 @@ function openMediaItem(item) {
   }
   fillMediaStage(item);
   showMediaButton("media-channel-add", false);
+  showMediaButton("media-channel-filter", false);
   showMediaButton("media-channel-back", true);
   if (switching) paintMediaThread(item);
   pinMediaReadout();
@@ -746,8 +758,45 @@ async function loadMediaItems(channelId) {
   if (mediaItemId == null) paintMediaChannelList();
 }
 
+function filteredMediaItems() {
+  if (!mediaListFilter) return currentMediaItems.slice();
+  return currentMediaItems.filter((item) => (item.kind || "image") === mediaListFilter);
+}
+
+function paintMediaFilterButton() {
+  const btn = document.getElementById("media-channel-filter");
+  if (!btn) return;
+  const labels = { image: "Images", video: "Videos", link: "YouTube" };
+  btn.textContent = labels[mediaListFilter] || "Filter";
+}
+
+function setMediaFilter(kind) {
+  mediaListFilter = kind || "";
+  paintMediaChannelList();
+}
+
+function openMediaFilterMenu(event) {
+  const btn = event.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const choices = [
+    { id: "", label: "All" },
+    { id: "image", label: "Images" },
+    { id: "video", label: "Videos" },
+    { id: "link", label: "YouTube" },
+  ];
+  if (typeof openContextMenu !== "function") return;
+  openContextMenu(rect.left, rect.bottom + 4, null, choices.map((choice) => ({
+    type: "radio",
+    label: choice.label,
+    checked: mediaListFilter === choice.id,
+    onSelect: () => setMediaFilter(choice.id),
+  })));
+}
+
 const mediaChannelAdd = document.getElementById("media-channel-add");
 if (mediaChannelAdd) mediaChannelAdd.addEventListener("click", () => openMediaForm(null));
+const mediaChannelFilter = document.getElementById("media-channel-filter");
+if (mediaChannelFilter) mediaChannelFilter.addEventListener("click", openMediaFilterMenu);
 const mediaChannelBack = document.getElementById("media-channel-back");
 if (mediaChannelBack) mediaChannelBack.addEventListener("click", showMediaChannelList);
 const mediaFormDone = document.getElementById("media-channel-form-done");

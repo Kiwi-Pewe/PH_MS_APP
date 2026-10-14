@@ -819,15 +819,49 @@ function buildSearchResultRow(row) {
   }
   const wrap = document.createElement("div");
   wrap.className = "search-result-message";
+  if ((row.message_kind || row.chat_kind) === "media") msg.content = "";
   if (typeof startNewCluster === "function") startNewCluster(wrap, msg);
   else {
     const fallback = document.createElement("div");
     fallback.textContent = (msg.username || "") + ": " + (msg.content || "");
     wrap.appendChild(fallback);
   }
+  if ((row.message_kind || row.chat_kind) === "media") {
+    const slot = wrap.querySelector(".cluster-body") || wrap;
+    slot.appendChild(buildSearchMedia(row));
+  }
   card.appendChild(wrap);
   card.addEventListener("click", () => jumpToSearchResult(row));
   return card;
+}
+
+function searchYoutubeId(url) {
+  const match = String(url || "").match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return match ? match[1] : "";
+}
+
+function buildSearchMedia(row) {
+  const frame = document.createElement("div");
+  frame.className = "search-result-media";
+  const kind = row.media_kind || "image";
+  const url = row.media_url || "";
+  if (kind === "video" && url) {
+    const video = document.createElement("video");
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+    frame.appendChild(video);
+    return frame;
+  }
+  const thumb = kind === "link" ? (searchYoutubeId(url) ? "https://i.ytimg.com/vi/" + searchYoutubeId(url) + "/hqdefault.jpg" : "") : url;
+  if (thumb) {
+    const img = document.createElement("img");
+    img.src = thumb;
+    img.alt = "";
+    frame.appendChild(img);
+  }
+  return frame;
 }
 
 function flashSearchTarget(el) {
@@ -897,6 +931,12 @@ async function jumpToSearchResult(row) {
       await jumpLoadAroundAnnouncement(postId);
     }
     await revealSearchComment(postId, messageId);
+    return;
+  }
+  if (kind === "media") {
+    await openSearchChannel(row);
+    const item = (typeof currentMediaItems !== "undefined" ? currentMediaItems : []).find((entry) => Number(entry.id) === Number(messageId));
+    if (item && typeof openMediaItem === "function") openMediaItem(item);
     return;
   }
   if (kind === "forum_post" || kind === "forum") {

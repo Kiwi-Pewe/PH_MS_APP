@@ -169,6 +169,19 @@ async function saveServerNotifyPrefs(serverId, patch) {
   return prefs;
 }
 
+function categoryNotifyChannels(category) {
+  return (category && Array.isArray(category.channels)) ? category.channels.filter((channel) => channel && channel.id != null) : [];
+}
+
+async function saveCategoryNotifyPrefs(serverId, category, patch) {
+  const channels = categoryNotifyChannels(category);
+  let last = null;
+  for (let i = 0; i < channels.length; i += 1) {
+    last = await saveChannelNotifyPrefs(serverId, channels[i].id, patch);
+  }
+  return last;
+}
+
 async function saveChannelNotifyPrefs(serverId, channelId, patch) {
   const response = await fetch(`https://${serverAddress}/update_channel_notify_prefs`, {
     method: "POST",
@@ -229,6 +242,65 @@ function buildServerNotifySubmenu(serverId, prefs) {
       checked: suppress,
       onSelect: (row) => {
         saveServerNotifyPrefs(serverId, { suppress_pings: !!row.checked }).catch(() => {});
+      }
+    },
+    {
+      type: "check",
+      label: "Suppress All Role @mentions",
+      checked: false,
+      disabled: true
+    },
+    {
+      type: "check",
+      label: "Suppress Highlights",
+      checked: false,
+      disabled: true
+    },
+    {
+      type: "check",
+      label: "Mute New Events",
+      checked: false,
+      disabled: true
+    },
+    { separator: true },
+    {
+      type: "check",
+      label: "Mobile Push Notifications",
+      checked: true,
+      disabled: true
+    }
+  ]);
+}
+
+function categorySharedNotify(serverId, category, serverPrefs) {
+  const serverLevel = cleanNotifyLevel(serverPrefs && serverPrefs.notify_level) || "all";
+  const serverSuppress = !!(serverPrefs && serverPrefs.suppress_pings);
+  const channels = categoryNotifyChannels(category);
+  if (!channels.length) return { serverLevel, level: serverLevel, suppress: serverSuppress, serverSuppress };
+  const levels = channels.map((channel) => {
+    const prefs = cachedChannelNotifyPrefs(serverId, channel.id);
+    return (prefs && cleanNotifyLevel(prefs.notify_level)) || serverLevel;
+  });
+  const suppressed = channels.map((channel) => {
+    const prefs = cachedChannelNotifyPrefs(serverId, channel.id);
+    return serverSuppress || !!(prefs && prefs.suppress_pings);
+  });
+  const level = levels.every((row) => row === levels[0]) ? levels[0] : "";
+  const suppress = suppressed.every(Boolean);
+  return { serverLevel, level, suppress, serverSuppress };
+}
+
+function buildCategoryNotifySubmenu(serverId, category, serverPrefs) {
+  const shared = categorySharedNotify(serverId, category, serverPrefs);
+  return buildNotifyLevelRows(shared.level, (kind) => saveCategoryNotifyPrefs(serverId, category, { notify_level: kind }), shared.serverLevel).concat([
+    { separator: true },
+    {
+      type: "check",
+      label: "Suppress Pings",
+      checked: shared.suppress,
+      disabled: shared.serverSuppress,
+      onSelect: (row) => {
+        saveCategoryNotifyPrefs(serverId, category, { suppress_pings: !!row.checked }).catch(() => {});
       }
     },
     {

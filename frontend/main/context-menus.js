@@ -594,16 +594,45 @@ function showCategoryContextMenu(e, category) {
   e.stopPropagation();
   const x = e.clientX;
   const y = e.clientY;
+  const serverId = typeof currentServerId !== "undefined" ? currentServerId : "";
   const canLayout = typeof canManageChannels === "function" ? canManageChannels() : currentServerOwnerId === myUserId;
-  const options = canLayout ? [
-    { label: "Edit Category", onSelect: () => { if (typeof openCategorySettings === "function") openCategorySettings(category); } },
-    { label: "Delete Category", danger: true, onSelect: () => openDeleteConfirm("category", category) }
-  ] : [];
-  openContextMenu(x, y, {
+  const reference = {
     avatarText: "\u{1F4C1}",
     title: category.name,
     subtitle: category.is_private ? "Private Category" : "Category"
-  }, options);
+  };
+  const open = () => {
+    const serverPrefs = typeof cachedServerNotifyPrefs === "function" ? cachedServerNotifyPrefs(serverId) : null;
+    const options = [
+      {
+        label: "Mute Category",
+        onSelect: () => {
+          if (typeof saveCategoryNotifyPrefs === "function") {
+            saveCategoryNotifyPrefs(serverId, category, { muted: true }).catch(() => {});
+          }
+        }
+      },
+      {
+        label: "Notification Settings",
+        submenu: typeof buildCategoryNotifySubmenu === "function"
+          ? buildCategoryNotifySubmenu(serverId, category, serverPrefs)
+          : []
+      }
+    ];
+    if (canLayout) {
+      options.push(
+        { separator: true },
+        { label: "Edit Category", onSelect: () => { if (typeof openCategorySettings === "function") openCategorySettings(category); } },
+        { label: "Delete Category", danger: true, onSelect: () => openDeleteConfirm("category", category) }
+      );
+    }
+    openContextMenu(x, y, reference, options);
+  };
+  const pending = [];
+  if (typeof loadServerNotifyPrefs === "function") pending.push(loadServerNotifyPrefs(serverId));
+  if (typeof loadChannelNotifyPrefs === "function") pending.push(loadChannelNotifyPrefs(serverId));
+  if (pending.length) Promise.all(pending).then(open).catch(open);
+  else open();
 }
 
 function showChannelContextMenu(e, channel) {

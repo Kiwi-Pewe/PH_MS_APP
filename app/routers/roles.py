@@ -102,6 +102,57 @@ LIVE_CHANNEL_OVERRIDE_PERMS = (
     "reorder_list",
 )
 
+CHANNEL_PERM_LABELS = {
+    "manage_channels": "Manage Channel",
+    "mention_everyone": "Mention @everyone and @here",
+    "bypass_slowmode": "Slowmode exception",
+    "read_messages": "Read messages",
+    "send_messages": "Send messages",
+    "upload_chat_media": "Upload media",
+    "manage_messages": "Manage messages",
+    "pin_messages": "Pin messages",
+    "view_announcements": "View announcements",
+    "create_announcements": "Create and remove announcements",
+    "manage_announcements": "Manage announcements",
+    "read_forums": "Read forums",
+    "create_topics": "Create forum topics",
+    "create_topic_replies": "Create topic replies",
+    "manage_topics": "Manage topics",
+    "sticky_topics": "Sticky topics",
+    "lock_topics": "Lock topics",
+    "view_wallpaper": "View wallpaper",
+    "create_wallpaper": "Create wallpaper",
+    "manage_wallpaper": "Manage wallpaper",
+    "remove_wallpaper": "Remove wallpaper",
+    "view_docs": "View docs",
+    "create_docs": "Create docs",
+    "manage_docs": "Manage docs",
+    "remove_docs": "Remove docs",
+    "see_media": "See media",
+    "create_media": "Create media",
+    "manage_media": "Manage media",
+    "remove_media": "Remove media",
+    "hear_voice": "Hear voice",
+    "talk_voice": "Add voice",
+    "mute_members": "Mute members",
+    "deafen_members": "Deafen members",
+    "voice_messages": "Send messages",
+    "view_events": "View events",
+    "create_events": "Create events",
+    "manage_events": "Manage events",
+    "remove_events": "Remove events",
+    "edit_rsvps": "Edit RSVPs",
+    "view_schedules": "View schedules",
+    "create_schedule": "Create schedule",
+    "delete_schedule": "Delete schedule",
+    "view_list": "View list items",
+    "create_list": "Create list items",
+    "manage_list": "Manage list item messages",
+    "remove_list": "Remove list items",
+    "complete_list": "Complete list items",
+    "reorder_list": "Reorder list items",
+}
+
 CHANNEL_OVERRIDE_DEFAULTS = {
     "mention_everyone": True,
     "read_messages": True,
@@ -1116,6 +1167,23 @@ async def save_channel_role_perms(body: Channel_role_perms_save, database: Sessi
         database, channel.id, serialize_role(role)
     )
     perms = clean_channel_override_perms(body.permissions, fallback=fallback)
+    changes = []
+    for key in LIVE_CHANNEL_OVERRIDE_PERMS:
+        before = bool(fallback.get(key))
+        after = bool(perms.get(key))
+        if before == after:
+            continue
+        changes.append({
+            "key": CHANNEL_PERM_LABELS.get(key, key),
+            "from": "Yes" if before else "No",
+            "to": "Yes" if after else "No",
+        })
+    if changes:
+        write_audit_log(database, server.id, current_user.id, "update_channel_perms", "channel", channel.id, {
+            "name": channel.name or "",
+            "role_name": role.name or "Role",
+            "changes": changes,
+        })
     if existing:
         existing.permissions = json.dumps(perms)
     else:

@@ -42,6 +42,14 @@ ACTION_LABELS = {
     "delete_emoji": "Emoji Deleted",
     "transfer_owner": "Ownership Transferred",
     "update_nickname": "Nickname Updated",
+    "update_channel_perms": "Channel Permissions Updated",
+    "delete_media": "Media Deleted",
+    "delete_doc": "Document Deleted",
+    "delete_list_item": "List Item Deleted",
+    "create_forum_tag": "Forum Tag Created",
+    "update_forum_tag": "Forum Tag Updated",
+    "delete_forum_tag": "Forum Tag Deleted",
+    "delete_schedule": "Availability Removed",
 }
 
 
@@ -95,6 +103,17 @@ def detail_summary(action, target_type, detail):
             content = content[:77] + "..."
         bits = [b for b in (author, content) if b]
         return " — ".join(bits) if bits else (target_type or "Deleted")
+    if action == "update_channel_perms":
+        role = d.get("role_name") or "Role"
+        channel = d.get("name") or "channel"
+        return f"{role} in {channel}"
+    if action in ("delete_media", "delete_doc", "delete_list_item"):
+        return d.get("title") or d.get("name") or target_type or ""
+    if action in ("create_forum_tag", "update_forum_tag", "delete_forum_tag"):
+        return d.get("name") or "Tag"
+    if action == "delete_schedule":
+        user = d.get("username") or "member"
+        return f"Removed for {user}"
     if action in ("delete_channel", "delete_category", "create_channel", "create_category", "update_channel", "update_category", "create_emoji", "rename_emoji", "delete_emoji"):
         return d.get("name") or target_type or ""
     if action in ("update_server", "update_privacy"):

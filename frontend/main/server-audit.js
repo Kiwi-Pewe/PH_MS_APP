@@ -198,6 +198,24 @@ function auditEntryFields(row) {
   }
   if (action === "delete_channel" || action === "delete_category" || action === "create_channel" || action === "create_category" || action === "create_emoji" || action === "delete_emoji") push("Name", detail.name);
   if ((action === "delete_channel" || action === "create_channel") && detail.channel_type) push("Type", detail.channel_type);
+  if (action === "update_channel_perms") {
+    push("Channel", detail.name);
+    push("Role", detail.role_name);
+  }
+  if (action === "delete_media" || action === "delete_doc" || action === "delete_list_item") {
+    push("Title", detail.title);
+    push("Author", detail.author_username);
+    push("Channel", detail.name);
+  }
+  if (action === "create_forum_tag" || action === "update_forum_tag" || action === "delete_forum_tag") {
+    push("Tag", detail.name);
+    push("Channel", detail.channel);
+    if (action === "create_forum_tag") push("Emoji", detail.emoji);
+  }
+  if (action === "delete_schedule") {
+    push("Member", detail.username);
+    push("Channel", detail.name);
+  }
   if (action === "rename_emoji" || action === "update_server" || action === "update_privacy" || action === "update_nickname") {
     if (detail.field) push("Field", detail.field);
     if (detail.from) push("From", detail.from);

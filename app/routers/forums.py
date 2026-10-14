@@ -652,6 +652,12 @@ async def create_forum_tag(body: Forum_tag_create, database: Session = Depends(g
         position=(highest or 0) + 100,
     )
     database.add(row)
+    database.flush()
+    write_audit_log(database, server.id, current_user.id, "create_forum_tag", "forum_tag", row.id, {
+        "name": row.name,
+        "emoji": row.emoji or "",
+        "channel": channel.name or "",
+    })
     database.commit()
     database.refresh(row)
     settings = forum_channel_settings_payload(channel, database)
@@ -666,18 +672,30 @@ async def update_forum_tag(body: Forum_tag_update, database: Session = Depends(g
         raise HTTPException(status_code=404, detail="Tag not found")
     channel, category, server, is_member = load_forum_channel_context(database, row.channel_id, current_user)
     require_channel_perm(database, server, current_user.id, channel.id, "manage_channels", "You do not have permission to manage this channel.")
+    changes = []
     if body.name is not None:
         name = (body.name or "").strip()
         if not name:
             raise HTTPException(status_code=400, detail="Tag name required")
         if len(name) > 40:
             name = name[:40]
-        row.name = name
+        if name != (row.name or ""):
+            changes.append({"key": "Name", "from": row.name or "", "to": name})
+            row.name = name
     if body.emoji is not None:
         emoji = (body.emoji or "").strip()
         if len(emoji) > 16:
             emoji = emoji[:16]
-        row.emoji = emoji or None
+        next_emoji = emoji or ""
+        if next_emoji != (row.emoji or ""):
+            changes.append({"key": "Emoji", "from": row.emoji or "", "to": next_emoji})
+            row.emoji = next_emoji or None
+    if changes:
+        write_audit_log(database, server.id, current_user.id, "update_forum_tag", "forum_tag", row.id, {
+            "name": row.name or "",
+            "channel": channel.name or "",
+            "changes": changes,
+        })
     database.commit()
     settings = forum_channel_settings_payload(channel, database)
     await server_broadcast(server_id=server.id, payload={"type": "forum_settings_updated", "channel_id": channel.id, "settings": settings}, database=database, exclude_user_id=current_user.id)
@@ -692,6 +710,10 @@ async def delete_forum_tag(body: Forum_tag_delete, database: Session = Depends(g
     channel, category, server, is_member = load_forum_channel_context(database, row.channel_id, current_user)
     require_channel_perm(database, server, current_user.id, channel.id, "manage_channels", "You do not have permission to manage this channel.")
     tag_id = row.id
+    write_audit_log(database, server.id, current_user.id, "delete_forum_tag", "forum_tag", row.id, {
+        "name": row.name or "",
+        "channel": channel.name or "",
+    })
     database.delete(row)
     posts = database.query(Forum_post).filter(Forum_post.channel_id == channel.id, Forum_post.tags.like(f"%,{tag_id},%")).all()
     for post in posts:

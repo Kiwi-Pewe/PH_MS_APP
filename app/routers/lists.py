@@ -8,6 +8,7 @@ from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
 from app.routers.roles import require_channel_perm, effective_perms_for_user_in_channel, channel_type_visible
 from app.routers.mentions import note_channel_unread
+from app.routers.deletion import write_audit_log
 
 router = APIRouter()
 
@@ -237,6 +238,11 @@ async def delete_list_item(body: List_item_delete, database: Session = Depends(g
     channel, server = load_list_channel(database, item.channel_id, current_user.id)
     if not list_item_author(item, current_user.id):
         require_list_perm(database, server, current_user.id, channel.id, "remove_list", "You do not have permission to remove this item.")
+    write_audit_log(database, server.id, current_user.id, "delete_list_item", "list_item", item.id, {
+        "title": item.title or "List item",
+        "author_username": username_for(database, item.sender_id),
+        "name": channel.name or "",
+    })
     item_id = item.id
     channel_id = channel.id
     database.query(List_thread_message).filter(List_thread_message.item_id == item.id).delete(synchronize_session=False)

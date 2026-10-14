@@ -216,6 +216,11 @@ async def delete_media_item(body: Media_item_delete, database: Session = Depends
     channel_id = item.channel_id
     _channel, server = load_media_channel(database, channel_id, current_user.id)
     require_media_delete(database, server, current_user.id, item)
+    write_audit_log(database, server.id, current_user.id, "delete_media", "media_item", item.id, {
+        "title": item.title or "Untitled media",
+        "author_username": username_for(database, item.sender_id),
+        "name": _channel.name or "",
+    })
     item_id = item.id
     comments = database.query(Media_comment).filter(Media_comment.item_id == item.id).all()
     for comment in comments:

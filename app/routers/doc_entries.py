@@ -8,6 +8,7 @@ from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
 from app.routers.roles import highest_role_for_user, effective_perms_for_user_in_channel, require_channel_perm
 from app.routers.mentions import note_channel_unread
+from app.routers.deletion import write_audit_log
 
 router = APIRouter()
 
@@ -161,6 +162,11 @@ async def delete_doc_entry(body: Doc_entry_delete, database: Session = Depends(g
     channel_id = entry.channel_id
     _channel, server = load_docs_channel(database, channel_id, current_user.id)
     require_doc_delete(database, server, current_user.id, entry)
+    write_audit_log(database, server.id, current_user.id, "delete_doc", "doc", entry.id, {
+        "title": entry.title or "Untitled document",
+        "author_username": username_for(database, entry.sender_id),
+        "name": _channel.name or "",
+    })
     doc_id = entry.id
     database.delete(entry)
     database.commit()

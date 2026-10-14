@@ -8,6 +8,7 @@ from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
 from app.routers.roles import name_color_roles_by_user, highest_roles_by_user, require_channel_perm, effective_perms_for_user_in_channel
 from app.routers.profile import avatar_lookup
+from app.routers.deletion import write_audit_log
 
 router = APIRouter()
 
@@ -158,6 +159,11 @@ async def delete_schedule_block(body: Schedule_block_delete, database: Session =
     channel, server = load_schedule_channel(database, block.channel_id, current_user.id)
     if block.user_id != current_user.id:
         require_channel_perm(database, server, current_user.id, channel.id, "delete_schedule", "You do not have permission to remove that availability.")
+        account = database.query(UserInfo).filter(UserInfo.id == block.user_id).first()
+        write_audit_log(database, server.id, current_user.id, "delete_schedule", "schedule_block", block.id, {
+            "username": (account.username if account and account.username else "") or "Someone",
+            "name": channel.name or "",
+        })
     block_id = block.id
     channel_id = channel.id
     database.delete(block)

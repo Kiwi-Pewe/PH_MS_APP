@@ -220,10 +220,15 @@ function scheduleBlockElement(block, day, column) {
   const mine = Number(block.user_id) === Number(myUserId);
   const canDelete = mine || (typeof channelPerm === "function" && channelPerm("delete_schedule"));
   if (mine) {
+    cap.classList.add("is-handle");
     foot.classList.add("is-handle");
+    cap.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+      beginScheduleResize(event, block, wrap, "start");
+    });
     foot.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
-      beginScheduleResize(event, block, wrap);
+      beginScheduleResize(event, block, wrap, "end");
     });
   }
   if (canDelete) {
@@ -335,7 +340,7 @@ function schedulePaintLength(wrap, column, startMin, endMin) {
 
 function schedulePointerDown(event) {
   if (event.button !== 0) return;
-  if (event.target.closest(".schedule-face, .schedule-remove, .schedule-cap-foot.is-handle")) return;
+  if (event.target.closest(".schedule-face, .schedule-remove, .schedule-cap.is-handle")) return;
   const column = event.target.closest(".schedule-day");
   if (!column) return;
   closeScheduleCard();
@@ -383,7 +388,7 @@ function schedulePointerDown(event) {
   board.addEventListener("pointerup", up);
 }
 
-function beginScheduleResize(event, block, wrap) {
+function beginScheduleResize(event, block, wrap, edge) {
   if (event.button !== 0) return;
   const column = wrap.closest(".schedule-day");
   const sheet = document.getElementById("schedule-sheet");
@@ -394,6 +399,7 @@ function beginScheduleResize(event, block, wrap) {
   const minutes = scheduleBlockMinutes(block, day);
   scheduleDrag = {
     mode: "resize",
+    edge: edge === "start" ? "start" : "end",
     pointer: event.pointerId,
     column,
     wrap,
@@ -406,6 +412,13 @@ function beginScheduleResize(event, block, wrap) {
   const move = (ev) => {
     if (!scheduleDrag || scheduleDrag.mode !== "resize" || scheduleDrag.pointer !== ev.pointerId) return;
     let next = scheduleColumnMinutes(ev, column);
+    if (scheduleDrag.edge === "start") {
+      if (next > scheduleDrag.endMin - 30) next = scheduleDrag.endMin - 30;
+      if (next < 0) next = 0;
+      scheduleDrag.startMin = next;
+      schedulePaintLength(wrap, column, next, scheduleDrag.endMin);
+      return;
+    }
     if (next < scheduleDrag.startMin + 30) next = scheduleDrag.startMin + 30;
     scheduleDrag.endMin = next;
     schedulePaintLength(wrap, column, scheduleDrag.startMin, next);
@@ -416,8 +429,15 @@ function beginScheduleResize(event, block, wrap) {
     sheet.removeEventListener("pointerup", up);
     const drag = scheduleDrag;
     scheduleDrag = null;
+    const start = scheduleAtMinutes(drag.day, drag.startMin);
+    const end = scheduleAtMinutes(drag.day, drag.endMin);
+    if (drag.edge === "start") {
+      if (drag.startMin === minutes.start) return;
+      updateScheduleBlock(drag.block.id, end, start);
+      return;
+    }
     if (drag.endMin === minutes.end) return;
-    updateScheduleBlock(drag.block.id, scheduleAtMinutes(drag.day, drag.endMin));
+    updateScheduleBlock(drag.block.id, end);
   };
   sheet.addEventListener("pointermove", move);
   sheet.addEventListener("pointerup", up);
@@ -537,15 +557,17 @@ async function createScheduleBlock(start, end, ratio) {
   if (data.block) applyScheduleBlock(data.block);
 }
 
-async function updateScheduleBlock(blockId, end) {
+async function updateScheduleBlock(blockId, end, start) {
+  const body = {
+    block_id: blockId,
+    ends_at: end.toISOString(),
+  };
+  if (start) body.starts_at = start.toISOString();
   const response = await fetch(`https://${serverAddress}/update_schedule_block`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({
-      block_id: blockId,
-      ends_at: end.toISOString(),
-    }),
+    body: JSON.stringify(body),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {

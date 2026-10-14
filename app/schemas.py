@@ -602,6 +602,7 @@ class Schedule_block_delete(BaseModel):
 class Schedule_block_update(BaseModel):
     block_id: int
     ends_at: str
+    starts_at: str = ""
 
 class Calendar_event_create(BaseModel):
     channel_id: int

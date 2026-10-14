@@ -467,7 +467,16 @@ async def edit_calendar_event(body: Calendar_event_edit, database: Session = Dep
     if not can_see_event(event, current_user.id, event_rsvps(database, event.id)):
         raise HTTPException(status_code=404, detail="Event not found")
     require_event_edit(database, server, current_user.id, event)
+    old_start = aware(event.starts_at)
     apply_fields(database, server, event, body)
+    new_start = aware(event.starts_at)
+    if old_start and new_start and stamp(old_start) != stamp(new_start):
+        delta = new_start - old_start
+        for row in event_rsvps(database, event.id):
+            when = aware(row.occurrence_at)
+            if not when:
+                continue
+            row.occurrence_at = (when + delta).replace(second=0, microsecond=0)
     database.commit()
     added = sync_invites(database, server, event, body.invite_ids, event.sender_id)
     database.commit()

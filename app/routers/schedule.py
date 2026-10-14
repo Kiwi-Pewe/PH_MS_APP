@@ -135,10 +135,13 @@ async def update_schedule_block(body: Schedule_block_update, database: Session =
     starts = block.starts_at
     if starts.tzinfo is None:
         starts = starts.replace(tzinfo=timezone.utc)
+    if (body.starts_at or "").strip():
+        starts = parse_when(body.starts_at, "Start")
     if ends <= starts:
         raise HTTPException(status_code=400, detail="End is required.")
     if ends - starts > timedelta(hours=24):
         raise HTTPException(status_code=400, detail="Availability can cover one day.")
+    block.starts_at = starts
     block.ends_at = ends
     database.commit()
     database.refresh(block)

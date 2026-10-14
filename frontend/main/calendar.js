@@ -186,9 +186,18 @@ function calendarHex(color) {
   return "#" + Number(color || CALENDAR_COLORS[0]).toString(16).padStart(6, "0");
 }
 
+function calendarMovedWhen(previous, fresh, item) {
+  const shown = (item && (item.occurs_at || item.starts_at)) || fresh.starts_at;
+  if (!previous || !previous.starts_at || calendarSameMinute(previous.starts_at, fresh.starts_at)) return shown;
+  const delta = calendarDate(fresh.starts_at).getTime() - calendarDate(previous.starts_at).getTime();
+  if (!delta) return shown;
+  return new Date(calendarDate(shown).getTime() + delta).toISOString();
+}
+
 function applyCalendarEvent(event) {
   if (!event || Number(event.channel_id) !== Number(currentChannelId)) return;
   const index = currentCalendarEvents.findIndex((row) => Number(row.id) === Number(event.id));
+  const previous = index === -1 ? null : currentCalendarEvents[index];
   if (index === -1) currentCalendarEvents.push(event);
   else currentCalendarEvents[index] = event;
   currentCalendarEvents.sort((a, b) => calendarDate(a.starts_at) - calendarDate(b.starts_at));
@@ -199,7 +208,7 @@ function applyCalendarEvent(event) {
   }
   if (calendarInfoItem && Number(calendarInfoItem.id) === Number(event.id)) {
     const fresh = currentCalendarEvents.find((row) => Number(row.id) === Number(event.id));
-    if (fresh) openCalendarInfo(Object.assign({}, fresh, { occurs_at: calendarInfoItem.occurs_at || fresh.starts_at }));
+    if (fresh) openCalendarInfo(Object.assign({}, fresh, { occurs_at: calendarMovedWhen(previous, fresh, calendarInfoItem) }));
   }
 }
 
@@ -677,6 +686,7 @@ async function saveCalendarEvent() {
   }
   if (currentChannelType === "events" && Number(currentChannelId) === Number(channelId)) applyCalendarEvent(data);
   if (typeof refreshEventRows === "function") refreshEventRows();
+  if (typeof paintOpenEventPage === "function") paintOpenEventPage(data);
   closeCalendarEvent();
 }
 

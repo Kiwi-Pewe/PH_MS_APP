@@ -32,8 +32,7 @@ function hideMemberList() {
   memberListScopeId = null;
   memberList = [];
   memberRailQuery = "";
-  const memberSearch = document.getElementById("member-rail-input");
-  if (memberSearch) memberSearch.value = "";
+  memberRailUserId = null;
   document.getElementById("main-grid").classList.remove("has-member-list");
   document.getElementById("user-list").style.display = "none";
   const memberBody = document.getElementById("member-list-body");
@@ -88,13 +87,20 @@ function refreshServerMemberList(serverId) {
 }
 
 let memberRailQuery = "";
+let memberRailUserId = null;
+
+function memberSearchQuery() {
+  let query = memberRailQuery.trim().toLowerCase();
+  if (query.charAt(0) === "@") query = query.slice(1).trim();
+  return query;
+}
 
 function memberMatchesRailSearch(member) {
-  const query = memberRailQuery.trim().toLowerCase();
+  const query = memberSearchQuery();
   if (!query) return true;
-  const fields = [member.username, member.display_name, member.nickname];
-  if (typeof memberVisibleName === "function") fields.push(memberVisibleName(member));
-  return fields.some((value) => String(value || "").toLowerCase().indexOf(query) !== -1);
+  return [member.nickname, member.display_name, member.username].some((value) => {
+    return String(value || "").trim().toLowerCase().indexOf(query) === 0;
+  });
 }
 
 function memberCanSeeCurrentChannel(member) {
@@ -111,18 +117,58 @@ function memberCanSeeCurrentChannel(member) {
 }
 
 function visibleMemberList() {
-  return memberList.filter((member) => memberCanSeeCurrentChannel(member) && memberMatchesRailSearch(member));
+  return memberList.filter((member) => {
+    if (!memberCanSeeCurrentChannel(member)) return false;
+    if (memberRailUserId != null) return String(member.id) === String(memberRailUserId);
+    return memberMatchesRailSearch(member);
+  });
+}
+
+function setMemberRailQuery(value) {
+  memberRailUserId = null;
+  memberRailQuery = value || "";
+  if (memberSearchQuery()) {
+    const hits = memberList.filter((member) => memberCanSeeCurrentChannel(member) && memberMatchesRailSearch(member));
+    if (!hits.length) memberRailQuery = "";
+  }
+  if (memberListScope) renderMemberList();
+}
+
+function setMemberRailUser(userId) {
+  memberRailUserId = userId;
+  memberRailQuery = "";
+  if (memberListScope) renderMemberList();
+}
+
+function clearMemberRailQuery() {
+  memberRailUserId = null;
+  memberRailQuery = "";
+  if (memberListScope) renderMemberList();
 }
 
 function renderMemberList() {
   const body = document.getElementById("member-list-body");
   body.innerHTML = "";
   const shown = visibleMemberList();
-  if (!shown.length && memberRailQuery.trim()) {
+  if (!shown.length && memberSearchQuery()) {
     const empty = document.createElement("div");
     empty.className = "member-rail-empty";
     empty.textContent = "No members found";
     body.appendChild(empty);
+    return;
+  }
+
+  if (memberSearchQuery()) {
+    shown.sort((a, b) => memberVisibleName(a).localeCompare(memberVisibleName(b), undefined, { sensitivity: "base" }));
+    shown.forEach((member) => {
+      const row = buildMemberRow(member);
+      row.dataset.memberGroup = "search";
+      body.appendChild(row);
+      const face = row.querySelector(".avatar-dot");
+      if (face && typeof paintUserFace === "function") {
+        paintUserFace(face, member, { name: member.username, userId: member.id });
+      }
+    });
     return;
   }
 
@@ -345,7 +391,12 @@ function paintMemberStatusLine(row, member) {
   const text = row.querySelector(".member-text");
   if (!text) return;
   let sub = text.querySelector(".member-status-line");
-  const line = String((member && member.status_line) || "").trim();
+  const query = memberSearchQuery();
+  const username = String((member && member.username) || "");
+  const visible = typeof memberVisibleName === "function" ? memberVisibleName(member) : username;
+  const line = query && username && username.toLowerCase() !== String(visible).toLowerCase()
+    ? username
+    : String((member && member.status_line) || "").trim();
   if (!line) {
     if (sub) sub.remove();
     return;
@@ -662,14 +713,6 @@ function bindNicknameChrome() {
 }
 
 bindNicknameChrome();
-
-const memberRailInput = document.getElementById("member-rail-input");
-if (memberRailInput) {
-  memberRailInput.addEventListener("input", () => {
-    memberRailQuery = memberRailInput.value || "";
-    if (memberListScope) renderMemberList();
-  });
-}
 
 function applyMemberLeft(scope, scopeId, userId) {
   if (scope === "server" && typeof removeServerRosterMember === "function") {

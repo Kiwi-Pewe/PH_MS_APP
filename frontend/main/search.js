@@ -190,17 +190,29 @@ function closeSearchDropdown() {
   }
 }
 
-function openSearchDropdown() {
-  closeSearchDropdown();
-  const input = activeSearchInput();
-  if (!input) return;
-  const shell = input.closest(".chat-search-shell") || input.parentElement;
-  if (!shell) return;
-  loadSearchHistory();
-  const menu = document.createElement("div");
-  menu.className = "search-dropdown";
-  menu.addEventListener("mousedown", (e) => e.preventDefault());
+function searchMemberLabel(member) {
+  if (typeof memberVisibleName === "function") return memberVisibleName(member) || member.username || "User";
+  return member.nickname || member.display_name || member.username || "User";
+}
 
+function searchMemberMatches(query) {
+  if (!query || typeof memberList === "undefined" || !Array.isArray(memberList)) return [];
+  const previous = memberRailQuery;
+  memberRailQuery = query;
+  const hits = memberList.filter((member) => {
+    const visible = typeof memberCanSeeCurrentChannel !== "function" || memberCanSeeCurrentChannel(member);
+    return visible && typeof memberMatchesRailSearch === "function" && memberMatchesRailSearch(member);
+  });
+  memberRailQuery = previous;
+  return hits.slice(0, 5);
+}
+
+function syncMemberRailToSearch(value) {
+  if (typeof memberListScope === "undefined" || memberListScope !== "server") return;
+  if (typeof setMemberRailQuery === "function") setMemberRailQuery(value || "");
+}
+
+function appendSearchFilterRows(menu) {
   const filtersTitle = document.createElement("div");
   filtersTitle.className = "search-dropdown-heading";
   filtersTitle.textContent = "Filters";
@@ -268,7 +280,107 @@ function openSearchDropdown() {
       menu.appendChild(btn);
     });
   }
+}
 
+function openSearchDropdown() {
+  closeSearchDropdown();
+  const input = activeSearchInput();
+  if (!input) return;
+  const shell = input.closest(".chat-search-shell") || input.parentElement;
+  if (!shell) return;
+  loadSearchHistory();
+  const menu = document.createElement("div");
+  menu.className = "search-dropdown";
+  menu.addEventListener("mousedown", (e) => e.preventDefault());
+  const query = (input.value || "").trim();
+  const members = query ? searchMemberMatches(query) : [];
+  if (query && members.length) {
+    appendSearchMemberSuggestions(menu, query, members);
+  } else {
+    appendSearchFilterRows(menu);
+  }
+  shell.appendChild(menu);
+  searchDropdownEl = menu;
+}
+
+function appendSearchMemberSuggestions(menu, query, members) {
+  const searchRow = document.createElement("button");
+  searchRow.type = "button";
+  searchRow.className = "search-dropdown-item";
+  const searchTitle = document.createElement("div");
+  searchTitle.className = "search-dropdown-item-title";
+  searchTitle.textContent = "Search for " + query;
+  searchRow.appendChild(searchTitle);
+  searchRow.addEventListener("click", () => {
+    closeSearchDropdown();
+    runSearch(1);
+  });
+  menu.appendChild(searchRow);
+
+  const filters = document.createElement("button");
+  filters.type = "button";
+  filters.className = "search-dropdown-item";
+  const filtersTitle = document.createElement("div");
+  filtersTitle.className = "search-dropdown-item-title";
+  filtersTitle.textContent = "Add search filters";
+  filters.appendChild(filtersTitle);
+  filters.addEventListener("click", () => {
+    closeSearchDropdown();
+    openSearchFilterDropdown();
+  });
+  menu.appendChild(filters);
+
+  const fromHead = document.createElement("div");
+  fromHead.className = "search-dropdown-heading";
+  fromHead.textContent = "From User";
+  menu.appendChild(fromHead);
+  members.forEach((member) => menu.appendChild(searchMemberSuggestion(member, "from")));
+
+  const mentionHead = document.createElement("div");
+  mentionHead.className = "search-dropdown-heading";
+  mentionHead.textContent = "Mentions User";
+  menu.appendChild(mentionHead);
+  members.forEach((member) => menu.appendChild(searchMemberSuggestion(member, "mentions")));
+}
+
+function searchMemberSuggestion(member, kind) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "search-dropdown-item";
+  const title = document.createElement("div");
+  title.className = "search-dropdown-item-title";
+  title.textContent = searchMemberLabel(member);
+  const detail = document.createElement("div");
+  detail.className = "search-dropdown-item-detail";
+  const username = member.username || "";
+  detail.textContent = (kind === "mentions" ? "mentions: " : "from: ") + username;
+  btn.appendChild(title);
+  btn.appendChild(detail);
+  btn.addEventListener("click", () => {
+    if (kind === "mentions") {
+      searchFilters.mentions_user_id = member.id;
+      searchFilters.mentions_name = username;
+    } else {
+      searchFilters.author_id = member.id;
+      searchFilters.author_name = username;
+    }
+    paintSearchChips();
+    if (typeof setMemberRailUser === "function") setMemberRailUser(member.id);
+    closeSearchDropdown();
+  });
+  return btn;
+}
+
+function openSearchFilterDropdown() {
+  closeSearchDropdown();
+  const input = activeSearchInput();
+  if (!input) return;
+  const shell = input.closest(".chat-search-shell") || input.parentElement;
+  if (!shell) return;
+  const menu = document.createElement("div");
+  menu.className = "search-dropdown";
+  menu.addEventListener("mousedown", (e) => e.preventDefault());
+  appendSearchFilterRows(menu);
   shell.appendChild(menu);
   searchDropdownEl = menu;
 }
@@ -507,11 +619,9 @@ function showSearchResultsMode(on) {
   searchResultsOpen = !!on;
   const panel = document.getElementById("search-results-panel");
   const members = document.getElementById("member-list-body");
-  const memberSearch = document.getElementById("member-rail-search");
   const grid = document.getElementById("main-grid");
   if (panel) panel.hidden = !on;
   if (members) members.hidden = !!on;
-  if (memberSearch) memberSearch.hidden = !!on;
   if (grid) grid.classList.toggle("has-search-results", !!on);
 }
 
@@ -535,6 +645,7 @@ function clearSearchAndClose() {
   const railInput = document.getElementById("rail-search-input");
   if (chatInput) chatInput.value = "";
   if (railInput) railInput.value = "";
+  if (typeof clearMemberRailQuery === "function") clearMemberRailQuery();
   resetSearchFilters();
   paintSearchChips();
   closeSearchDropdown();
@@ -814,9 +925,12 @@ function bindSearchInput(input) {
   input.addEventListener("focus", () => openSearchDropdown());
   input.addEventListener("input", () => {
     syncSearchInputValues(input);
+    syncMemberRailToSearch(input.value);
     if (!input.value.trim()) {
       closeSearchDropdown();
       closeSearchResults();
+    } else {
+      openSearchDropdown();
     }
   });
   input.addEventListener("keydown", (e) => {

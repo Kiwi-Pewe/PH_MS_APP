@@ -4146,16 +4146,21 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .schedule-cap-top { top: -4px; }
 .schedule-cap-foot { bottom: -4px; }
 .schedule-cap.is-handle {
-  pointer-events: auto; cursor: ns-resize; z-index: 8;
+  pointer-events: auto; cursor: ns-resize;
   width: 12px; height: 12px; margin-left: -6px;
 }
-.schedule-cap-top.is-handle { top: -6px; }
-.schedule-cap-foot.is-handle { bottom: -6px; }
+.schedule-cap-top.is-handle { top: -22px; z-index: 4; }
+.schedule-cap-top.is-handle::before {
+  content: "";
+  position: absolute;
+  left: -8px; right: -8px; top: -8px; bottom: 0;
+}
+.schedule-cap-foot.is-handle { bottom: -6px; z-index: 8; }
 .schedule-own {
   position: absolute; left: -16px; top: -16px; width: 54px; height: 36px;
-  z-index: 6; pointer-events: auto;
+  z-index: 7; pointer-events: none;
 }
-.schedule-own .schedule-face { left: 2px; top: 2px; transform: none; }
+.schedule-own .schedule-face { left: 2px; top: 2px; transform: none; pointer-events: auto; }
 .schedule-remove {
   display: none; position: absolute; right: 0; top: 4px; pointer-events: auto; z-index: 7;
   width: 18px; height: 18px; border-radius: 50%; background: var(--panel);

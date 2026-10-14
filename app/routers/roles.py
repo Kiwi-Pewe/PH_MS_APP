@@ -415,6 +415,35 @@ def highest_role_for_user(database, server_id, user_id):
     return min(roles, key=lambda role: (int(role.get("position") or 0), int(role.get("id") or 0)))
 
 
+def role_ids_by_user(database, server_id, user_ids=None):
+    rows = (
+        database.query(Server_role_members.user_id, Server_roles.id)
+        .join(Server_roles, Server_roles.id == Server_role_members.role_id)
+        .filter(Server_roles.server_id == server_id)
+    )
+    if user_ids is not None:
+        rows = rows.filter(Server_role_members.user_id.in_(list(user_ids)))
+    found = {}
+    for user_id, role_id in rows.all():
+        found.setdefault(user_id, []).append(int(role_id))
+    return found
+
+
+def channel_role_visibility(database, server_id, channel):
+    roles = database.query(Server_roles).filter(Server_roles.server_id == server_id).all()
+    overrides = channel_overrides_by_role(database, channel.id)
+    visible = {}
+    for role in roles:
+        server_perms = parse_role_perms(role)
+        override = overrides.get(role.id)
+        perms = {
+            key: role_perm_in_channel(server_perms, override, key)
+            for key in LIVE_CHANNEL_OVERRIDE_PERMS
+        }
+        visible[str(role.id)] = channel_type_visible(perms, channel.channel_type)
+    return visible
+
+
 def highest_roles_by_user(database, server_id, user_ids=None):
     rows = (
         database.query(Server_roles, Server_role_members.user_id)
@@ -643,6 +672,8 @@ def channel_type_visible(permissions, channel_type):
         return bool(permissions.get("see_media"))
     if channel_type == "events":
         return bool(permissions.get("view_events"))
+    if channel_type == "scheduling":
+        return bool(permissions.get("view_schedules"))
     if channel_type == "lists":
         return bool(permissions.get("view_list"))
     if channel_type == "voice":

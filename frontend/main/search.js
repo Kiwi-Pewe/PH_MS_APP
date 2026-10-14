@@ -507,9 +507,11 @@ function showSearchResultsMode(on) {
   searchResultsOpen = !!on;
   const panel = document.getElementById("search-results-panel");
   const members = document.getElementById("member-list-body");
+  const memberSearch = document.getElementById("member-rail-search");
   const grid = document.getElementById("main-grid");
   if (panel) panel.hidden = !on;
   if (members) members.hidden = !!on;
+  if (memberSearch) memberSearch.hidden = !!on;
   if (grid) grid.classList.toggle("has-search-results", !!on);
 }
 

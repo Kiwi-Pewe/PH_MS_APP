@@ -27,13 +27,18 @@ def viewer_is_watching_channel(user_id, channel_id):
 def presence_status(user_id):
     return "online" if user_id in active_connections else "offline"
 
-def serialize_member(user, is_owner, hoist_role=None, name_role=None, highest_role=None, timeout_until=None, timeout_reason=None, nickname=None):
+def serialize_member(user, is_owner, hoist_role=None, name_role=None, highest_role=None, timeout_until=None, timeout_reason=None, nickname=None, role_ids=None, display_name=None):
     payload = {
         "id": user.id,
         "username": user.username,
         "status": presence_status(user.id),
         "is_owner": bool(is_owner),
     }
+    shown = (display_name if display_name is not None else getattr(user, "display_name", None) or "").strip()
+    if shown:
+        payload["display_name"] = shown
+    if role_ids is not None:
+        payload["role_ids"] = [int(role_id) for role_id in role_ids]
     if hoist_role:
         payload["hoist_role"] = hoist_role
     if name_role:

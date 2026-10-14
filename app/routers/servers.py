@@ -20,6 +20,8 @@ from app.routers.roles import (
     effective_perms_for_user_in_channel,
     can_moderate_target,
     highest_roles_by_user,
+    role_ids_by_user,
+    channel_role_visibility,
     hoist_roles_by_user,
     name_color_roles_by_user,
     nicknames_for_users,
@@ -293,6 +295,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         "can_read": bool(channel_perms.get("read_messages")),
                         "can_send": bool(channel_perms.get("send_messages")),
                         "permissions": live_flags,
+                        "role_visible": channel_role_visibility(database, server.id, channel),
                     })
 
             server_info.append({"id": category.id, "name": category.name, "position": category.position, "is_private": category.is_private, "channels": channel_info})
@@ -722,6 +725,7 @@ def get_server_members(server_id: str, database: Session = Depends(get_db), curr
     hoist_map = hoist_roles_by_user(database, server_id, user_ids)
     name_map = name_color_roles_by_user(database, server_id, user_ids)
     highest_map = highest_roles_by_user(database, server_id, user_ids)
+    role_id_map = role_ids_by_user(database, server_id, user_ids)
 
     members = []
     for row in memberships:
@@ -736,6 +740,8 @@ def get_server_members(server_id: str, database: Session = Depends(get_db), curr
                 iso_dt(timeout_until_for(row)),
                 getattr(row, "timeout_reason", None) if timeout_until_for(row) else None,
                 getattr(row, "nickname", None),
+                role_ids=role_id_map.get(account.id, []),
+                display_name=getattr(account, "display_name", None),
             ))
     return {"server_id": server_id, "members": members}
 

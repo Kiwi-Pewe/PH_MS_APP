@@ -305,6 +305,7 @@ async function refreshServerContentsSoft() {
     if (typeof afterServerStructureChange === "function") afterServerStructureChange();
     else renderServerSidebar(data);
     if (typeof paintChatAccess === "function") paintChatAccess();
+    if (typeof renderMemberList === "function" && typeof memberListScope !== "undefined" && memberListScope === "server") renderMemberList();
     return data;
   } catch (e) {
     return null;
@@ -522,6 +523,7 @@ async function selectChannel(channel, rowEl) {
 
   currentChannelId = channel.id;
   currentChannelType = channel.channel_type;
+  if (typeof renderMemberList === "function" && typeof memberListScope !== "undefined" && memberListScope === "server") renderMemberList();
   if (channel.channel_type !== "voice" && currentServerId) rememberServerChannel(currentServerId, channel.id);
   currentChannelName = channel.name;
   if (typeof markChannelReadLocal === "function") markChannelReadLocal(channel.id);

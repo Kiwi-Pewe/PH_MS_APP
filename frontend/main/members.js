@@ -31,6 +31,9 @@ function hideMemberList() {
   memberListScope = null;
   memberListScopeId = null;
   memberList = [];
+  memberRailQuery = "";
+  const memberSearch = document.getElementById("member-rail-input");
+  if (memberSearch) memberSearch.value = "";
   document.getElementById("main-grid").classList.remove("has-member-list");
   document.getElementById("user-list").style.display = "none";
   const memberBody = document.getElementById("member-list-body");
@@ -84,13 +87,48 @@ function refreshServerMemberList(serverId) {
   loadMemberList("server", serverId);
 }
 
+let memberRailQuery = "";
+
+function memberMatchesRailSearch(member) {
+  const query = memberRailQuery.trim().toLowerCase();
+  if (!query) return true;
+  const fields = [member.username, member.display_name, member.nickname];
+  if (typeof memberVisibleName === "function") fields.push(memberVisibleName(member));
+  return fields.some((value) => String(value || "").toLowerCase().indexOf(query) !== -1);
+}
+
+function memberCanSeeCurrentChannel(member) {
+  if (memberListScope !== "server" || !member) return true;
+  const channel = typeof findCurrentServerChannel === "function" ? findCurrentServerChannel() : null;
+  if (!channel) return true;
+  if (channel.is_private) return !!(member.is_owner || String(member.id) === String(currentServerOwnerId));
+  if (member.is_owner || String(member.id) === String(currentServerOwnerId)) return true;
+  const visible = channel.role_visible;
+  if (!visible || typeof visible !== "object") return true;
+  const ids = member.role_ids;
+  if (!Array.isArray(ids)) return true;
+  return ids.some((id) => !!visible[String(id)]);
+}
+
+function visibleMemberList() {
+  return memberList.filter((member) => memberCanSeeCurrentChannel(member) && memberMatchesRailSearch(member));
+}
+
 function renderMemberList() {
   const body = document.getElementById("member-list-body");
   body.innerHTML = "";
+  const shown = visibleMemberList();
+  if (!shown.length && memberRailQuery.trim()) {
+    const empty = document.createElement("div");
+    empty.className = "member-rail-empty";
+    empty.textContent = "No members found";
+    body.appendChild(empty);
+    return;
+  }
 
   const online = [];
   const offline = [];
-  memberList.forEach(member => {
+  shown.forEach(member => {
     if (memberAppearsOnline(member.status)) online.push(member);
     else offline.push(member);
   });
@@ -624,6 +662,14 @@ function bindNicknameChrome() {
 }
 
 bindNicknameChrome();
+
+const memberRailInput = document.getElementById("member-rail-input");
+if (memberRailInput) {
+  memberRailInput.addEventListener("input", () => {
+    memberRailQuery = memberRailInput.value || "";
+    if (memberListScope) renderMemberList();
+  });
+}
 
 function applyMemberLeft(scope, scopeId, userId) {
   if (scope === "server" && typeof removeServerRosterMember === "function") {

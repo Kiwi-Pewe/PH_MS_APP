@@ -148,6 +148,7 @@ class Servers(Base):
     default_notifications = Column(String)
     privacy_mode = Column(String)
     discoverable = Column(Boolean, default=False)
+    explicit = Column(Boolean, default=False)
 
 class Server_members(Base):
     __tablename__ = "server_members"
@@ -268,6 +269,7 @@ class Server_channels(Base):
     forum_layout = Column(String, nullable=True)
     announce_public = Column(Boolean, default=False)
     blog_enabled = Column(Boolean, default=False)
+    explicit = Column(Boolean, default=False)
 
 class Channel_messages(Base):
     __tablename__ = "channel_messages"

@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=318">
+<link rel="stylesheet" href="app.css?v=319">
 </head>
 <body>
 
@@ -262,6 +262,19 @@
             <button type="button" class="ghost-btn" id="media-channel-filter" style="display:none;">Filter</button>
             <button type="button" class="calendar-add-btn" id="media-channel-add" style="display:none;" title="Add media">+</button>
             <button type="button" class="icon-btn chat-pins-btn" id="channel-pins-btn" title="Pinned messages">Pins</button>
+          </div>
+        </div>
+        <div id="explicit-channel-gate" class="explicit-channel-gate" hidden>
+          <div class="explicit-channel-gate-card">
+            <div class="explicit-channel-mark" id="explicit-channel-mark">#</div>
+            <div class="explicit-channel-name" id="explicit-channel-name"></div>
+            <div class="explicit-channel-topic" id="explicit-channel-topic" hidden></div>
+            <div class="explicit-channel-rule"></div>
+            <p class="explicit-channel-ask">Do you wish to see the contents of this explicit channel?</p>
+            <div class="explicit-channel-actions">
+              <button type="button" class="explicit-channel-back" id="explicit-channel-back">Go Back</button>
+              <button type="button" class="pill-btn explicit-channel-continue" id="explicit-channel-continue">Continue</button>
+            </div>
           </div>
         </div>
         <div id="forum-thread-opener" class="forum-thread-opener" hidden></div>
@@ -1137,6 +1150,18 @@
             </label>
           </div>
         </div>
+        <div class="server-settings-field">
+          <div class="server-privacy-discover-row">
+            <div class="server-privacy-discover-copy">
+              <div class="server-settings-field-title">Explicit</div>
+              <p class="server-settings-help">This server is marked explicit. People looking for a server can see that mark.</p>
+            </div>
+            <label id="server-privacy-explicit-switch" class="toggle-switch">
+              <input type="checkbox" id="server-privacy-explicit">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+        </div>
         <p id="server-privacy-status" class="server-settings-help" hidden></p>
       </div>
 
@@ -1310,6 +1335,10 @@
         <div class="server-settings-field">
           <div class="server-settings-field-title">Private</div>
           <div id="channel-settings-private-host"></div>
+        </div>
+        <div class="server-settings-field is-channel-only" id="channel-settings-explicit-field">
+          <div class="server-settings-field-title">Explicit</div>
+          <div id="channel-settings-explicit-host"></div>
         </div>
         <div class="server-settings-field is-channel-only is-forums-only" id="channel-settings-forum-guidelines-field" hidden>
           <label class="server-settings-field-title" for="channel-settings-forum-guidelines">Post Guidelines</label>
@@ -2172,7 +2201,7 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=126"></script>
+<script src="boot.js?v=127"></script>
 <script src="app-shell.js?v=68"></script>
 <script src="feed.js?v=16"></script>
 <script src="settings.js?v=20"></script>
@@ -2217,7 +2246,7 @@
 <script src="invites.js?v=50"></script>
 <script src="server-invites.js?v=6"></script>
 <script src="server-bans.js?v=3"></script>
-<script src="server-privacy.js?v=2"></script>
+<script src="server-privacy.js?v=3"></script>
 <script src="server-emojis.js?v=3"></script>
 <script src="server-integrations.js?v=1"></script>
 <script src="server-audit.js?v=8"></script>
@@ -2226,12 +2255,13 @@
 <script src="server-notify.js?v=4"></script>
 <script src="embeds.js?v=46"></script>
 <script src="mentions.js?v=14"></script>
-<script src="servers.js?v=119"></script>
+<script src="explicit-channel.js?v=1"></script>
+<script src="servers.js?v=120"></script>
 <script src="voice.js?v=16"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=4"></script>
 <script src="server-dnd.js?v=2"></script>
-<script src="channel-settings.js?v=24"></script>
+<script src="channel-settings.js?v=26"></script>
 <script src="pins.js?v=3"></script>
 <script src="search.js?v=8"></script>
 <script src="members.js?v=22"></script>

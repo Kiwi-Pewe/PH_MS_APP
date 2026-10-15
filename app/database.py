@@ -302,6 +302,11 @@ def ensure_server_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN explicit BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_channel_columns():
@@ -315,6 +320,7 @@ def ensure_channel_columns():
         ("server_channels", "announce_public", "BOOLEAN DEFAULT 0"),
         ("server_channels", "blog_enabled", "BOOLEAN DEFAULT 0"),
         ("server_channels", "forum_layout", "VARCHAR"),
+        ("server_channels", "explicit", "BOOLEAN DEFAULT 0"),
         ("announcements", "is_public", "BOOLEAN DEFAULT 0"),
         ("announcements", "followed_from_id", "INTEGER"),
         ("announcements", "comments_open", "BOOLEAN DEFAULT 1"),

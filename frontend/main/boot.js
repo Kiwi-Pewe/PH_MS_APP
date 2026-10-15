@@ -439,7 +439,8 @@ function connectSocket() {
       if (typeof applyServerPrivacy === "function") {
         applyServerPrivacy(data.server_id, {
           privacy_mode: data.privacy_mode || "private",
-          discoverable: !!data.discoverable
+          discoverable: !!data.discoverable,
+          explicit: !!data.explicit
         });
       }
       if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen

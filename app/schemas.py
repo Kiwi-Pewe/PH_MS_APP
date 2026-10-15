@@ -253,6 +253,7 @@ class Server_privacy_update(BaseModel):
     server_id: str
     privacy_mode: str = "private"
     discoverable: bool = False
+    explicit: bool = False
 
 class Server_notify_prefs_update(BaseModel):
     server_id: str
@@ -405,6 +406,7 @@ class Channel_update(BaseModel):
     topic: str | None = None
     slowmode: int | None = None
     user_limit: int | None = None
+    explicit: bool | None = None
 
 class Category_update(BaseModel):
     category_id: int

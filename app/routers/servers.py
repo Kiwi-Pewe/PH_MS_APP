@@ -119,7 +119,8 @@ def server_privacy_fields(server):
     discoverable = bool(getattr(server, "discoverable", False)) if server else False
     if mode == "private":
         discoverable = False
-    return {"privacy_mode": mode, "discoverable": discoverable}
+    explicit = bool(getattr(server, "explicit", False)) if server else False
+    return {"privacy_mode": mode, "discoverable": discoverable, "explicit": explicit}
 
 
 router = APIRouter()
@@ -290,6 +291,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
                         "user_limit": int(getattr(channel, "user_limit", 10) or 10),
                         "announce_public": bool(getattr(channel, "announce_public", False)),
                         "blog_enabled": bool(getattr(channel, "blog_enabled", False)),
+                        "explicit": bool(getattr(channel, "explicit", False)),
                         "unread": notice["unread"],
                         "mention_count": notice["mention_count"],
                         "can_read": bool(channel_perms.get("read_messages")),
@@ -682,9 +684,11 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
     if mode is None:
         raise HTTPException(status_code=400, detail="Pick Private, Default, or Open entry.")
     discoverable = bool(body.discoverable) and mode != "private"
+    explicit = bool(body.explicit)
     previous = server_privacy_fields(server)
     server.privacy_mode = mode
     server.discoverable = discoverable
+    server.explicit = explicit
     if previous.get("privacy_mode") != mode or bool(previous.get("discoverable")) != discoverable:
         write_audit_log(database, server.id, current_user.id, "update_privacy", "server", 0, {
             "name": "Privacy",
@@ -692,6 +696,13 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
             "from": previous.get("privacy_mode") or "",
             "to": mode,
             "discoverable": discoverable,
+        })
+    if bool(previous.get("explicit")) != explicit:
+        write_audit_log(database, server.id, current_user.id, "update_privacy", "server", 0, {
+            "name": "Explicit",
+            "field": "Explicit",
+            "from": "Yes" if previous.get("explicit") else "No",
+            "to": "Yes" if explicit else "No",
         })
     database.commit()
     fields = server_privacy_fields(server)
@@ -971,7 +982,7 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
     payload = {
         "type": "channel_created",
         "server_id": server.id,
-        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "topic": "", "slowmode": 0, "user_limit": int(getattr(new_channel, "user_limit", 10) or 10), "category_id": new_channel.category_id}
+        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "topic": "", "slowmode": 0, "user_limit": int(getattr(new_channel, "user_limit", 10) or 10), "explicit": False, "category_id": new_channel.category_id}
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return "success"
@@ -1234,7 +1245,7 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Category not found")
     server = require_server_member(database, category.server_id, current_user.id)
     require_channel_perm(database, server, current_user.id, channel.id, "manage_channels", "You do not have permission to manage this channel.")
-    if body.name is None and body.is_private is None and body.topic is None and body.slowmode is None and body.user_limit is None:
+    if body.name is None and body.is_private is None and body.topic is None and body.slowmode is None and body.user_limit is None and body.explicit is None:
         raise HTTPException(status_code=400, detail="Nothing to update")
     changes = []
     if body.name is not None:
@@ -1272,6 +1283,11 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
         if int(getattr(channel, "user_limit", 10) or 10) != int(limit or 0):
             changes.append({"key": "user limit", "from": str(int(getattr(channel, "user_limit", 10) or 10)), "to": str(int(limit or 0))})
             channel.user_limit = limit
+    if body.explicit is not None:
+        explicit = bool(body.explicit)
+        if bool(getattr(channel, "explicit", False)) != explicit:
+            changes.append({"key": "explicit", "from": "Yes" if getattr(channel, "explicit", False) else "No", "to": "Yes" if explicit else "No"})
+            channel.explicit = explicit
     if changes:
         write_audit_log(database, server.id, current_user.id, "update_channel", "channel", channel.id, {
             "name": channel.name,
@@ -1291,6 +1307,7 @@ async def update_channel(body: Channel_update, database: Session = Depends(get_d
             "topic": getattr(channel, "topic", None) or "",
             "slowmode": int(getattr(channel, "slowmode", 0) or 0),
             "user_limit": int(getattr(channel, "user_limit", 10) or 10),
+            "explicit": bool(getattr(channel, "explicit", False)),
             "category_id": channel.category_id,
         },
     }

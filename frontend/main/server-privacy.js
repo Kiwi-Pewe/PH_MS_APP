@@ -12,7 +12,7 @@ function savedServerPrivacy() {
   if (SERVER_PRIVACY_MODES.indexOf(mode) < 0) mode = "private";
   let discoverable = !!data.discoverable;
   if (mode === "private") discoverable = false;
-  return { privacy_mode: mode, discoverable: discoverable };
+  return { privacy_mode: mode, discoverable: discoverable, explicit: !!data.explicit };
 }
 
 function applyServerPrivacy(serverId, fields) {
@@ -20,6 +20,7 @@ function applyServerPrivacy(serverId, fields) {
   if (typeof currentServerData !== "undefined" && currentServerData && String(currentServerId) === String(serverId)) {
     currentServerData.privacy_mode = fields.privacy_mode || "private";
     currentServerData.discoverable = !!fields.discoverable && fields.privacy_mode !== "private";
+    if (fields.explicit != null) currentServerData.explicit = !!fields.explicit;
     if (typeof paintServerPublicListing === "function") paintServerPublicListing();
   }
 }
@@ -47,6 +48,13 @@ function paintServerPrivacyPage() {
     toggle.disabled = privateMode || !canOpenServerPrivacy();
   }
   if (wrap) wrap.classList.toggle("is-disabled", privateMode || !canOpenServerPrivacy());
+  const explicitToggle = document.getElementById("server-privacy-explicit");
+  const explicitWrap = document.getElementById("server-privacy-explicit-switch");
+  if (explicitToggle) {
+    explicitToggle.checked = saved.explicit;
+    explicitToggle.disabled = !canOpenServerPrivacy();
+  }
+  if (explicitWrap) explicitWrap.classList.toggle("is-disabled", !canOpenServerPrivacy());
   const modeList = document.getElementById("server-privacy-mode");
   if (modeList) modeList.classList.toggle("is-disabled", !canOpenServerPrivacy());
 }
@@ -56,13 +64,14 @@ async function loadServerPrivacyPage() {
   paintServerPrivacyPage();
 }
 
-async function saveServerPrivacy(nextMode, nextDiscoverable) {
+async function saveServerPrivacy(nextMode, nextDiscoverable, nextExplicit) {
   if (!currentServerId || !canOpenServerPrivacy()) return;
   const previous = savedServerPrivacy();
   const mode = SERVER_PRIVACY_MODES.indexOf(nextMode) >= 0 ? nextMode : previous.privacy_mode;
   let discoverable = !!nextDiscoverable;
   if (mode === "private") discoverable = false;
-  applyServerPrivacy(currentServerId, { privacy_mode: mode, discoverable: discoverable });
+  const explicit = nextExplicit == null ? previous.explicit : !!nextExplicit;
+  applyServerPrivacy(currentServerId, { privacy_mode: mode, discoverable: discoverable, explicit: explicit });
   paintServerPrivacyPage();
   setServerPrivacyStatus("");
   try {
@@ -73,7 +82,8 @@ async function saveServerPrivacy(nextMode, nextDiscoverable) {
       body: JSON.stringify({
         server_id: currentServerId,
         privacy_mode: mode,
-        discoverable: discoverable
+        discoverable: discoverable,
+        explicit: explicit
       })
     });
     const data = await response.json().catch(() => ({}));
@@ -96,7 +106,7 @@ async function saveServerPrivacy(nextMode, nextDiscoverable) {
       if (!canOpenServerPrivacy()) return;
       const mode = btn.getAttribute("data-privacy");
       const saved = savedServerPrivacy();
-      saveServerPrivacy(mode, mode === "private" ? false : saved.discoverable);
+      saveServerPrivacy(mode, mode === "private" ? false : saved.discoverable, saved.explicit);
     });
   }
   const toggle = document.getElementById("server-privacy-discoverable");
@@ -111,7 +121,18 @@ async function saveServerPrivacy(nextMode, nextDiscoverable) {
         paintServerPrivacyPage();
         return;
       }
-      saveServerPrivacy(saved.privacy_mode, toggle.checked);
+      saveServerPrivacy(saved.privacy_mode, toggle.checked, saved.explicit);
+    });
+  }
+  const explicitToggle = document.getElementById("server-privacy-explicit");
+  if (explicitToggle) {
+    explicitToggle.addEventListener("change", () => {
+      if (!canOpenServerPrivacy()) {
+        paintServerPrivacyPage();
+        return;
+      }
+      const saved = savedServerPrivacy();
+      saveServerPrivacy(saved.privacy_mode, saved.discoverable, explicitToggle.checked);
     });
   }
 })();

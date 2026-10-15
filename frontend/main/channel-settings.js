@@ -3,6 +3,7 @@ let channelSettingsTarget = null;
 let channelSettingsSavedName = "";
 let channelSettingsSavedTopic = "";
 let channelSettingsSavedPrivate = false;
+let channelSettingsSavedExplicit = false;
 let channelSettingsSavedSlowmode = 0;
 let channelSettingsSavedUserLimit = 10;
 let channelSettingsForumSettings = { guidelines: "", require_tags: false, default_reaction: "", tags: [] };
@@ -1035,6 +1036,45 @@ function paintChannelSettingsPrivate() {
   ));
 }
 
+function paintChannelSettingsExplicit() {
+  const host = document.getElementById("channel-settings-explicit-host");
+  if (!host) return;
+  host.replaceChildren();
+  if (channelSettingsKind !== "channel") return;
+  if (typeof settingsOpt !== "function" || typeof settingsToggle !== "function") return;
+  const toggle = settingsToggle(!!channelSettingsSavedExplicit, false, async (on) => {
+    const previous = channelSettingsSavedExplicit;
+    channelSettingsSavedExplicit = !!on;
+    try {
+      await saveChannelSettingsExplicit(!!on);
+    } catch (err) {
+      channelSettingsSavedExplicit = previous;
+      paintChannelSettingsExplicit();
+      setChannelSettingsNameStatus(err.message || "Could not save.");
+    }
+  });
+  host.appendChild(settingsOpt(
+    "Explicit channel",
+    "People confirm before this channel opens. It stays marked in the channel list.",
+    toggle
+  ));
+}
+
+async function saveChannelSettingsExplicit(explicit) {
+  if (!channelSettingsTarget || channelSettingsKind !== "channel") return;
+  const data = await postChannelSettings("/update_channel", {
+    channel_id: channelSettingsTarget.id,
+    explicit: explicit,
+  });
+  applyChannelUpdated(data.channel || {
+    id: channelSettingsTarget.id,
+    explicit: explicit,
+    name: channelSettingsTarget.name,
+    category_id: channelSettingsTarget.category_id,
+    channel_type: channelSettingsTarget.channel_type,
+  });
+}
+
 async function saveChannelSettingsPrivate(isPrivate) {
   if (!channelSettingsTarget) return;
   if (channelSettingsKind === "category") {
@@ -1403,17 +1443,29 @@ function applyChannelUpdated(channel) {
     if (channel.topic != null) live.topic = channel.topic || "";
     if (channel.slowmode != null) live.slowmode = Number(channel.slowmode) || 0;
     if (channel.user_limit != null) live.user_limit = Number(channel.user_limit) || 10;
+    if (channel.explicit != null) {
+      live.explicit = !!channel.explicit;
+      if (Number(currentChannelId) === Number(channel.id) && live.explicit && typeof explicitChannelNeedsGate === "function" && explicitChannelNeedsGate(live)) {
+        selectChannel(live);
+      }
+      if (Number(currentChannelId) === Number(channel.id) && !live.explicit && typeof hideExplicitChannelGate === "function") {
+        const gate = document.getElementById("explicit-channel-gate");
+        if (gate && !gate.hidden) selectChannel(live);
+      }
+    }
   }
   if (channelSettingsKind === "channel" && channelSettingsTarget && Number(channelSettingsTarget.id) === Number(channel.id)) {
     channelSettingsTarget = live || Object.assign({}, channelSettingsTarget, channel);
     channelSettingsSavedName = channelSettingsTarget.name || "";
     channelSettingsSavedPrivate = !!channelSettingsTarget.is_private;
+    channelSettingsSavedExplicit = !!channelSettingsTarget.explicit;
     channelSettingsSavedTopic = channelSettingsTarget.topic || "";
     paintChannelSettingsShell();
     syncChannelSettingsName(channelSettingsSavedName);
     syncChannelSettingsTopic(channelSettingsSavedTopic);
     syncChannelSettingsSlowmode(channelSettingsTarget.slowmode || 0);
     syncChannelSettingsUserLimit(channelSettingsTarget.user_limit || 10);
+    paintChannelSettingsExplicit();
   }
   if (currentChannelId && Number(currentChannelId) === Number(channel.id)) {
     currentChannelName = channel.name || currentChannelName;
@@ -1464,10 +1516,12 @@ function openChannelSettings(kind, target) {
   showChannelSettingsTab("overview");
   syncChannelSettingsName(target.name || "");
   channelSettingsSavedPrivate = !!target.is_private;
+  channelSettingsSavedExplicit = !!target.explicit;
   const membersRole = channelSettingsRoleChoices().find((row) => row.builtin) || channelSettingsRoleChoices()[0];
   channelSettingsPermRoleId = membersRole ? membersRole.id : "members";
   channelSettingsPermDisplay = {};
   paintChannelSettingsPrivate();
+  paintChannelSettingsExplicit();
   paintChannelSettingsPermissions();
   if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
   syncChannelSettingsTopic(channelSettingsKind === "channel" ? (target.topic || "") : "");

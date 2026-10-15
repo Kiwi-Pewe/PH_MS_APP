@@ -471,7 +471,9 @@ function rememberServerChannel(serverId, channelId) {
 }
 
 async function selectChannel(channel, rowEl) {
-  if (channel && channel.channel_type === "voice" && voiceJoinedChannelId !== channel.id) {
+  const explicitReturnId = currentChannelId;
+  const explicitBlocked = typeof explicitChannelNeedsGate === "function" && explicitChannelNeedsGate(channel);
+  if (!explicitBlocked && channel && channel.channel_type === "voice" && voiceJoinedChannelId !== channel.id) {
     const stageWasOpen = voiceStageChannelId != null;
     const joined = typeof joinVoiceChannel === "function" ? await joinVoiceChannel(channel) : false;
     if (!joined) return;
@@ -524,10 +526,10 @@ async function selectChannel(channel, rowEl) {
   currentChannelId = channel.id;
   currentChannelType = channel.channel_type;
   if (typeof renderMemberList === "function" && typeof memberListScope !== "undefined" && memberListScope === "server") renderMemberList();
-  if (channel.channel_type !== "voice" && currentServerId) rememberServerChannel(currentServerId, channel.id);
+  if (!explicitBlocked && channel.channel_type !== "voice" && currentServerId) rememberServerChannel(currentServerId, channel.id);
   currentChannelName = channel.name;
-  if (typeof markChannelReadLocal === "function") markChannelReadLocal(channel.id);
-  if (typeof stampChannelView === "function") stampChannelView(channel.id);
+  if (!explicitBlocked && typeof markChannelReadLocal === "function") markChannelReadLocal(channel.id);
+  if (!explicitBlocked && typeof stampChannelView === "function") stampChannelView(channel.id);
 
   document.querySelectorAll(".channel-row").forEach(r => r.classList.remove("active"));
   const activeRow = document.querySelector(`.channel-row[data-channel-id="${channel.id}"]`);
@@ -591,6 +593,14 @@ async function selectChannel(channel, rowEl) {
   if (overview) overview.style.display = "none";
   const overviewRow = document.getElementById("server-section-overview");
   if (overviewRow) overviewRow.classList.remove("active");
+
+  if (explicitBlocked) {
+    channelBody.style.display = "none";
+    channelComposer.style.display = "none";
+    if (typeof showExplicitChannelGate === "function") showExplicitChannelGate(channel, explicitReturnId);
+    return;
+  }
+  if (typeof hideExplicitChannelGate === "function") hideExplicitChannelGate();
 
   if (isAnnouncement) {
     channelBody.style.display = "none";
@@ -753,6 +763,7 @@ function showNoChannelSelected() {
   currentChannelId = null;
   currentChannelType = null;
   currentChannelName = null;
+  if (typeof hideExplicitChannelGate === "function") hideExplicitChannelGate();
   currentChannelMessages = [];
 
   switchMainView("channel");

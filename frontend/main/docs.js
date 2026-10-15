@@ -70,7 +70,103 @@ function updateDocsChrome() {
 
   saveBtn.style.display = (onDoc && docsMode === "edit" && docsDirty) ? "inline-flex" : "none";
   if (removeBtn) removeBtn.style.display = (onDoc && docsMode === "view" && docsMayRemove()) ? "inline-flex" : "none";
-  toolbar.style.display = (onDoc && docsMode === "edit") ? "flex" : "none";
+  if (onDoc) {
+    if (docsMode === "edit") mountDocsToolbar(document.getElementById("docs-view"), "wallpaper");
+    else toolbar.style.display = "none";
+  } else if (toolbar.dataset.host !== "docs") {
+    toolbar.style.display = "none";
+  }
+}
+
+function mountDocsToolbar(host, mode) {
+  const toolbar = document.getElementById("docs-toolbar");
+  if (!toolbar || !host) return;
+  if (toolbar.parentElement !== host) {
+    if (mode === "wallpaper") host.insertBefore(toolbar, host.firstChild);
+    else host.appendChild(toolbar);
+  }
+  toolbar.dataset.host = mode;
+  toolbar.style.display = "flex";
+  closeDocsColorPops();
+}
+
+function unmountDocsToolbar(mode) {
+  const toolbar = document.getElementById("docs-toolbar");
+  if (!toolbar || toolbar.dataset.host !== mode) return;
+  toolbar.dataset.host = "";
+  toolbar.style.display = "none";
+  closeDocsColorPops();
+}
+
+function docsToolbarPick(kind, value) {
+  if (currentChannelType === "doc") {
+    if (kind === "size") applyDocFontSize(value);
+    else if (kind === "color") applyDocCommand("foreColor", value);
+    else if (kind === "highlight") applyDocCommand("hiliteColor", value);
+    else if (kind === "align") applyDocCommand(value === "center" ? "justifyCenter" : value === "right" ? "justifyRight" : "justifyLeft");
+    return;
+  }
+  if (currentChannelType === "docs" && typeof docChannelApplyFormat === "function") docChannelApplyFormat(kind, value);
+}
+
+function closeDocsColorPops() {
+  document.querySelectorAll(".docs-color-pop").forEach((pop) => { pop.hidden = true; });
+}
+
+function buildDocsColorPicker(ctlId, popId, barId, fallback, kind) {
+  const ctl = document.getElementById(ctlId);
+  const pop = document.getElementById(popId);
+  const bar = document.getElementById(barId);
+  const btn = ctl ? ctl.querySelector(".docs-color-btn") : null;
+  if (!ctl || !pop || !bar || !btn) return;
+  let current = fallback;
+  bar.style.background = current;
+  const swatches = document.createElement("div");
+  swatches.className = "server-roles-swatches";
+  const dots = [];
+  const choose = (hex) => {
+    current = hex;
+    bar.style.background = hex;
+    dots.forEach((dot) => dot.classList.toggle("is-on", dot.dataset.hex === hex));
+    closeDocsColorPops();
+    docsToolbarPick(kind, hex);
+  };
+  SERVER_ROLE_SWATCHES.forEach((hex) => {
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "server-role-swatch";
+    dot.dataset.hex = hex;
+    dot.style.background = hex;
+    dot.title = hex;
+    dot.addEventListener("click", () => choose(hex));
+    dots.push(dot);
+    swatches.appendChild(dot);
+  });
+  const customWrap = document.createElement("span");
+  customWrap.className = "server-role-color-hit";
+  const custom = document.createElement("button");
+  custom.type = "button";
+  custom.tabIndex = -1;
+  custom.className = "server-role-swatch-custom";
+  custom.textContent = "+";
+  custom.title = "Custom color";
+  customWrap.appendChild(custom);
+  bindRoleColorInput(customWrap, current, fallback, (value, commit) => {
+    if (!commit) return;
+    custom.classList.add("is-on");
+    custom.style.background = value;
+    custom.style.color = "transparent";
+    choose(value);
+  });
+  swatches.appendChild(customWrap);
+  pop.appendChild(swatches);
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = pop.hidden;
+    closeDocsColorPops();
+    pop.hidden = !open;
+  });
+  pop.addEventListener("click", (e) => e.stopPropagation());
 }
 
 function setDocsPageEditable(on) {
@@ -81,7 +177,7 @@ function setDocsPageEditable(on) {
 
 function hideDocsChrome() {
   document.getElementById("docs-view").style.display = "none";
-  document.getElementById("docs-toolbar").style.display = "none";
+  unmountDocsToolbar("wallpaper");
   document.getElementById("docs-save-btn").style.display = "none";
   document.getElementById("docs-mode-btn").style.display = "none";
   const removeBtn = document.getElementById("docs-remove-btn");
@@ -316,13 +412,16 @@ document.getElementById("docs-remove-btn").addEventListener("click", removeDoc);
 
 document.getElementById("docs-style-select").addEventListener("change", (e) => applyDocStyle(e.target.value));
 document.getElementById("docs-font-select").addEventListener("change", (e) => applyDocCommand("fontName", e.target.value));
-document.getElementById("docs-size-select").addEventListener("change", (e) => applyDocFontSize(e.target.value));
-document.getElementById("docs-bold-btn").addEventListener("click", () => applyDocCommand("bold"));
-document.getElementById("docs-italic-btn").addEventListener("click", () => applyDocCommand("italic"));
-document.getElementById("docs-underline-btn").addEventListener("click", () => applyDocCommand("underline"));
-document.getElementById("docs-align-left-btn").addEventListener("click", () => applyDocCommand("justifyLeft"));
-document.getElementById("docs-align-center-btn").addEventListener("click", () => applyDocCommand("justifyCenter"));
-document.getElementById("docs-align-right-btn").addEventListener("click", () => applyDocCommand("justifyRight"));
+document.getElementById("docs-size-select").addEventListener("change", (e) => docsToolbarPick("size", e.target.value));
+document.getElementById("docs-align-left-btn").addEventListener("click", () => docsToolbarPick("align", "left"));
+document.getElementById("docs-align-center-btn").addEventListener("click", () => docsToolbarPick("align", "center"));
+document.getElementById("docs-align-right-btn").addEventListener("click", () => docsToolbarPick("align", "right"));
+document.getElementById("docs-toolbar").addEventListener("mousedown", (e) => {
+  if (e.target.closest("button")) e.preventDefault();
+});
+buildDocsColorPicker("docs-color-ctl", "docs-color-pop", "docs-color-bar", "#f04747", "color");
+buildDocsColorPicker("docs-highlight-ctl", "docs-highlight-pop", "docs-highlight-bar", "#faa61a", "highlight");
+document.addEventListener("click", closeDocsColorPops);
 
 docsPage().addEventListener("input", markDocsDirty);
 docsPage().addEventListener("paste", (e) => {

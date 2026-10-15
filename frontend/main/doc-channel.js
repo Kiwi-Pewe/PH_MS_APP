@@ -57,11 +57,19 @@ function setDocPageFromEntry(entry) {
   docTitleAlign = docPageChoice(entry && entry.title_align, ["left", "center", "right"], "left");
 }
 
-function fitDocTitle() {
-  const input = document.getElementById("doc-channel-title");
-  if (!input) return;
+function fitDocField(input) {
+  if (!input || input.hidden) return;
   input.style.height = "auto";
   input.style.height = input.scrollHeight + "px";
+  if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
+}
+
+function fitDocTitle() {
+  fitDocField(document.getElementById("doc-channel-title"));
+}
+
+function fitDocBody() {
+  fitDocField(document.getElementById("doc-channel-body"));
 }
 
 function setDocComposerHidden(input, hidden) {
@@ -69,6 +77,8 @@ function setDocComposerHidden(input, hidden) {
   input.hidden = hidden;
   const field = input.closest(".composer-field");
   if (field) field.hidden = hidden;
+  const editor = input.closest(".doc-body-editor");
+  if (editor) editor.hidden = hidden;
 }
 
 function syncDocCommentCompose() {
@@ -76,27 +86,35 @@ function syncDocCommentCompose() {
   const input = document.getElementById("doc-comment-input");
   const ready = !!docEntryId;
   if (send) send.disabled = !ready;
-  if (input) input.placeholder = ready ? "Leave a comment" : "Save the document before commenting";
+  if (input) {
+    input.disabled = !ready;
+    input.placeholder = ready ? "Add a comment..." : "Save the document before commenting";
+  }
+}
+
+function showDocChannelToolbar(on) {
+  const section = document.getElementById("doc-channel-toolbar");
+  const host = document.getElementById("doc-channel-toolbar-host");
+  if (section) section.hidden = !on;
+  if (on && host && typeof mountDocsToolbar === "function") mountDocsToolbar(host, "docs");
+  else if (typeof unmountDocsToolbar === "function") unmountDocsToolbar("docs");
 }
 
 function paintDocPageSettings() {
   const page = document.getElementById("doc-channel-page");
   if (page) {
     page.dataset.align = docPageAlign;
-    page.dataset.scale = docPageScale;
     page.dataset.titleAlign = docTitleAlign;
   }
-  const toolbar = document.getElementById("doc-channel-toolbar");
-  if (!toolbar) return;
-  toolbar.querySelectorAll("[data-doc-align]").forEach((button) => {
-    button.classList.toggle("is-on", button.getAttribute("data-doc-align") === docPageAlign);
-  });
-  toolbar.querySelectorAll("[data-doc-scale]").forEach((button) => {
-    button.classList.toggle("is-on", button.getAttribute("data-doc-scale") === docPageScale);
+  [["docs-align-left-btn", "left"], ["docs-align-center-btn", "center"], ["docs-align-right-btn", "right"]].forEach(([id, value]) => {
+    const button = document.getElementById(id);
+    if (button && currentChannelType === "docs") button.classList.toggle("is-on", docPageAlign === value);
+    else if (button) button.classList.remove("is-on");
   });
 }
 
 function hideDocChannelChrome() {
+  showDocChannelToolbar(false);
   ["doc-channel-back", "doc-channel-edit", "doc-channel-menu", "doc-channel-add", "doc-channel-save"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
@@ -275,7 +293,6 @@ function openDocEntry(entry) {
   const titleInput = document.getElementById("doc-channel-title");
   const bodyRead = document.getElementById("doc-channel-body-read");
   const bodyInput = document.getElementById("doc-channel-body");
-  const toolbar = document.getElementById("doc-channel-toolbar");
   if (grid) grid.hidden = true;
   if (page) page.hidden = false;
   if (titleRead) {
@@ -285,7 +302,7 @@ function openDocEntry(entry) {
     else titleRead.textContent = entry ? (entry.title || "Untitled document") : "Untitled document";
   }
   setDocComposerHidden(titleInput, true);
-  if (toolbar) toolbar.hidden = true;
+  showDocChannelToolbar(false);
   if (bodyRead) {
     bodyRead.hidden = false;
     bodyRead.replaceChildren();
@@ -316,14 +333,13 @@ function openDocEntryEditor(entry) {
   const titleInput = document.getElementById("doc-channel-title");
   const bodyRead = document.getElementById("doc-channel-body-read");
   const bodyInput = document.getElementById("doc-channel-body");
-  const toolbar = document.getElementById("doc-channel-toolbar");
   const author = document.getElementById("doc-channel-author");
   if (grid) grid.hidden = true;
   if (page) page.hidden = false;
   if (titleRead) titleRead.hidden = true;
   if (titleInput) titleInput.value = entry ? (entry.title || "") : "";
   setDocComposerHidden(titleInput, false);
-  if (toolbar) toolbar.hidden = false;
+  showDocChannelToolbar(true);
   if (bodyRead) bodyRead.hidden = true;
   if (bodyInput) bodyInput.value = entry ? (entry.body || "") : "";
   setDocComposerHidden(bodyInput, false);
@@ -342,9 +358,8 @@ function openDocEntryEditor(entry) {
   if (titleMenu) titleMenu.hidden = false;
   syncDocChannelMenu(entry);
   fitDocTitle();
+  fitDocBody();
   if (titleInput) titleInput.focus();
-  if (typeof refreshComposerMentions === "function") refreshComposerMentions(titleInput);
-  if (typeof refreshComposerMentions === "function") refreshComposerMentions(bodyInput);
   syncDocCommentCompose();
   loadDocComments(true);
 }
@@ -555,11 +570,13 @@ async function loadDocComments(reset) {
   const list = document.getElementById("doc-comment-list");
   const more = document.getElementById("doc-comment-more");
   if (!list || !docEntryId || docCommentLoading) return;
+  const count = document.getElementById("doc-comment-count");
   if (reset) {
     docCommentBefore = new Date().toISOString();
     docCommentAfterId = 0;
     docCommentHasMore = false;
     list.replaceChildren();
+    if (count) count.textContent = "0";
   }
   docCommentLoading = true;
   const response = await fetch(`https://${serverAddress}/get_doc_comments/${docEntryId}?limit=20&after_id=${docCommentAfterId}&before=${encodeURIComponent(docCommentBefore)}`, { credentials: "include" });
@@ -573,6 +590,7 @@ async function loadDocComments(reset) {
   });
   docCommentHasMore = !!data.has_more;
   if (more) more.hidden = !docCommentHasMore;
+  if (count && reset) count.textContent = String(data.total || 0);
 }
 
 async function sendDocComment() {
@@ -590,54 +608,28 @@ async function sendDocComment() {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) return;
   input.value = "";
+  if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   const row = paintDocComment(data);
   if (list && row) list.appendChild(row);
+  const count = document.getElementById("doc-comment-count");
+  if (count && row) count.textContent = String(Number(count.textContent || 0) + 1);
 }
 
-const docChannelToolbar = document.getElementById("doc-channel-toolbar");
-if (docChannelToolbar) {
-  docChannelToolbar.addEventListener("click", (event) => {
-    const button = event.target.closest("button");
-    if (!button || docEntryMode !== "edit") return;
-    const area = document.getElementById("doc-channel-body");
-    const history = button.getAttribute("data-doc-history");
-    const align = button.getAttribute("data-doc-align");
-    const scale = button.getAttribute("data-doc-scale");
-    const color = button.getAttribute("data-doc-color");
-    const highlight = button.getAttribute("data-doc-highlight");
-    if (history && area) {
-      area.focus();
-      document.execCommand(history);
-      if (typeof refreshComposerMentions === "function") refreshComposerMentions(area);
-      return;
-    }
-    if (align) docPageAlign = align;
-    if (scale) docPageScale = scale;
-    if (color) docWrap("{{c:" + color + "}}", "{{/c}}");
-    if (highlight) docWrap("{{h:" + highlight + "}}", "{{/h}}");
+function docChannelApplyFormat(kind, value) {
+  if (docEntryMode !== "edit") return;
+  if (kind === "size") docWrap("{{s:" + value + "}}", "{{/s}}");
+  else if (kind === "color") docWrap("{{c:" + value + "}}", "{{/c}}");
+  else if (kind === "highlight") docWrap("{{h:" + value + "}}", "{{/h}}");
+  else if (kind === "align") {
+    docPageAlign = value;
     paintDocPageSettings();
-  });
+  }
 }
-const docInsertLink = document.getElementById("doc-insert-link");
-if (docInsertLink) {
-  docInsertLink.addEventListener("click", () => {
-    const area = document.getElementById("doc-channel-body");
-    if (!area || docEntryMode !== "edit") return;
-    const start = area.selectionStart;
-    const end = area.selectionEnd;
-    const selected = area.value.slice(start, end) || "link";
-    const insert = "[" + selected + "](https://)";
-    area.value = area.value.slice(0, start) + insert + area.value.slice(end);
-    const urlStart = start + selected.length + 3;
-    area.focus();
-    area.setSelectionRange(urlStart, urlStart + 8);
-    if (typeof refreshComposerMentions === "function") refreshComposerMentions(area);
-  });
-}
-const docInsertImage = document.getElementById("doc-insert-image");
+
+const docBodyPlusBtn = document.getElementById("doc-body-plus-btn");
 const docImageFile = document.getElementById("doc-image-file");
-if (docInsertImage && docImageFile) {
-  docInsertImage.addEventListener("click", () => docImageFile.click());
+if (docBodyPlusBtn && docImageFile) {
+  docBodyPlusBtn.addEventListener("click", () => docImageFile.click());
   docImageFile.addEventListener("change", async () => {
     const file = docImageFile.files && docImageFile.files[0];
     docImageFile.value = "";
@@ -667,6 +659,19 @@ const docCommentMore = document.getElementById("doc-comment-more");
 if (docCommentMore) docCommentMore.addEventListener("click", () => loadDocComments(false));
 const docCommentSend = document.getElementById("doc-comment-send");
 if (docCommentSend) docCommentSend.addEventListener("click", sendDocComment);
+const docCommentInput = document.getElementById("doc-comment-input");
+if (docCommentInput) {
+  docCommentInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendDocComment(); });
+  docCommentInput.addEventListener("contextmenu", (e) => e.stopPropagation());
+  if (typeof bindMentionComposer === "function") bindMentionComposer(docCommentInput);
+}
+const docBodyEmojiBtn = document.getElementById("doc-body-emoji-btn");
+if (docBodyEmojiBtn) {
+  docBodyEmojiBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof openEmojiPicker === "function") openEmojiPicker(docBodyEmojiBtn, document.getElementById("doc-channel-body"), e.clientX, e.clientY);
+  });
+}
 const docChannelView = document.getElementById("doc-channel-view");
 if (docChannelView) {
   docChannelView.addEventListener("scroll", () => {
@@ -676,9 +681,23 @@ if (docChannelView) {
 }
 const docChannelBody = document.getElementById("doc-channel-body");
 if (docChannelBody && typeof bindMentionComposer === "function") bindMentionComposer(docChannelBody);
+if (docChannelBody) {
+  docChannelBody.addEventListener("input", () => {
+    if (typeof applyEmojiShortcodesToInput === "function") applyEmojiShortcodesToInput(docChannelBody);
+    fitDocBody();
+  });
+}
 const docChannelTitle = document.getElementById("doc-channel-title");
 if (docChannelTitle && typeof bindMentionComposer === "function") bindMentionComposer(docChannelTitle);
-if (docChannelTitle) docChannelTitle.addEventListener("input", fitDocTitle);
+if (docChannelTitle) {
+  docChannelTitle.addEventListener("input", () => {
+    if (typeof applyEmojiShortcodesToInput === "function") applyEmojiShortcodesToInput(docChannelTitle);
+    fitDocTitle();
+  });
+  docChannelTitle.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") e.preventDefault();
+  });
+}
 const docChannelMenu = document.getElementById("doc-channel-menu");
 if (docChannelMenu) {
   docChannelMenu.addEventListener("click", (event) => {

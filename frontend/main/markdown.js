@@ -69,6 +69,12 @@ function mdParseInline(text, offset) {
       i += 2;
       continue;
     }
+    const emoji = text.slice(i).match(/^<:([a-zA-Z0-9_]{2,32}):(\d+)>/);
+    if (emoji) {
+      nodes.push({ type: "emoji", start: offset + i, end: offset + i + emoji[0].length, name: emoji[1], id: emoji[2], raw: emoji[0] });
+      i += emoji[0].length;
+      continue;
+    }
     const mention = text.slice(i).match(/^<@((?:everyone|here|&\d+|\d+))>/);
     if (mention) {
       nodes.push({ type: "mention", start: offset + i, end: offset + i + mention[0].length, id: mention[1], raw: mention[0] });
@@ -109,16 +115,17 @@ function mdParseInline(text, offset) {
       i += image[0].length;
       continue;
     }
-    const paint = text.slice(i).match(/^\{\{(c|h):(#[0-9A-Fa-f]{6})\}\}/);
+    const paint = text.slice(i).match(/^\{\{(c|h|s):(#[0-9A-Fa-f]{6}|\d{1,2})\}\}/);
     if (paint) {
       const closer = "{{/" + paint[1] + "}}";
       const closeAt = text.indexOf(closer, i + paint[0].length);
       if (closeAt !== -1) {
         nodes.push({
-          type: paint[1] === "c" ? "color" : "highlight",
+          type: paint[1] === "c" ? "color" : paint[1] === "h" ? "highlight" : "size",
           start: offset + i,
           end: offset + closeAt + closer.length,
-          hex: paint[2],
+          inner: offset + i + paint[0].length,
+          value: paint[2],
           text: text.slice(i + paint[0].length, closeAt)
         });
         i = closeAt + closer.length;
@@ -252,12 +259,18 @@ function mdRenderNode(el, node, source, caret, options) {
     el.appendChild(img);
     return;
   }
-  if (node.type === "color" || node.type === "highlight") {
+  if (node.type === "emoji") {
+    if (!options.composer && typeof appendCustomEmojiNode === "function") appendCustomEmojiNode(el, node.name, node.id);
+    else mdLeaf(el, node.raw, options, node.start);
+    return;
+  }
+  if (node.type === "color" || node.type === "highlight" || node.type === "size") {
     const span = document.createElement("span");
-    span.className = node.type === "color" ? "md-color" : "md-highlight";
-    if (node.type === "color") span.style.color = node.hex;
-    else span.style.background = node.hex;
-    mdRender(span, mdParseInline(node.text, node.start), source, null, options);
+    span.className = "md-" + node.type;
+    if (node.type === "color") span.style.color = node.value;
+    else if (node.type === "highlight") span.style.background = node.value;
+    else span.style.fontSize = Math.max(6, Math.min(72, Number(node.value) || 11)) + "pt";
+    mdRender(span, mdParseInline(node.text, node.inner), source, null, options);
     el.appendChild(span);
     return;
   }

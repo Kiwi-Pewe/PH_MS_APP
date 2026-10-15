@@ -2267,9 +2267,10 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   cursor: text;
 }
 .composer-highlight .md-explicit { cursor: inherit; }
-.md-image { max-width: 100%; display: block; margin: 8px 0; border-radius: 6px; }
+.md-image { max-width: 100%; display: block; margin: 8px auto; border-radius: 6px; }
 .composer-highlight .md-image { display: inline-block; height: 1.2em; width: auto; margin: 0; vertical-align: middle; }
 .md-highlight { border-radius: 2px; padding: 0 1px; }
+.composer-highlight .md-size { font-size: inherit; }
 #composer textarea, #channel-composer textarea, .edit-composer textarea {
   flex: 1; width: 100%; min-width: 0; box-sizing: border-box;
   background: transparent; border: none; color: var(--text); font-size: 14px;
@@ -4111,26 +4112,58 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   color: var(--text); cursor: pointer;
 }
 .doc-channel-author-role { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
-.doc-channel-title-input, .doc-channel-title-read {
-  display: block; width: 100%; margin: 0 0 16px; background: transparent; border: 0;
-  color: var(--text); font-size: 28px; font-weight: 700; line-height: 1.25;
+.doc-channel-title-input, .doc-channel-title-read,
+.doc-sheet-title .composer-highlight {
+  display: block; width: 100%; margin: 0; padding: 0; background: transparent; border: 0;
+  color: var(--text); font-size: 28px; font-weight: 700; line-height: 1.25; font-family: inherit;
 }
+.doc-sheet-title .composer-highlight,
+.doc-body-editor .composer-highlight { position: absolute; width: auto; overflow: hidden; scrollbar-gutter: auto; }
+.doc-title-row { margin-bottom: 8px; }
 .doc-channel-title-input { outline: none; resize: none; overflow: hidden; min-height: 0; }
 .doc-channel-title-input::placeholder { color: var(--text-dim); font-weight: 600; }
-.doc-channel-toolbar { display: block; margin-bottom: 0; }
-.doc-channel-toolbar .doc-page-group { display: inline-flex; margin: 0 10px 8px 0; }
-.doc-channel-toolbar button {
-  background: transparent; border: 1px solid var(--border); color: var(--text);
-  border-radius: 6px; padding: 4px 8px; font-size: 13px;
+.doc-channel-toolbar { display: block; }
+#doc-channel-toolbar-host #docs-toolbar { padding: 0; border: 0; background: transparent; }
+#docs-toolbar[data-host="docs"] #docs-style-select,
+#docs-toolbar[data-host="docs"] #docs-font-select { display: none; }
+#docs-toolbar .docs-fmt-btn { display: inline-flex; align-items: center; justify-content: center; }
+#docs-toolbar .docs-fmt-btn.is-on { background: var(--rail); border-color: var(--text-dim); }
+.docs-color-ctl { position: relative; display: inline-flex; }
+.docs-color-btn { flex-direction: column; gap: 1px; padding: 0; }
+.docs-color-glyph { font-size: 13px; font-weight: 700; line-height: 1; }
+.docs-color-bar { display: block; width: 16px; height: 3px; border-radius: 1px; background: var(--text); }
+.docs-color-pop {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 40;
+  width: 232px; padding: 10px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
-.doc-channel-toolbar .doc-swatch { width: 18px; height: 18px; padding: 0; }
-.doc-channel-toolbar button:hover,
-.doc-channel-toolbar button.is-on { background: var(--panel-alt); }
-.doc-page-group { display: flex; align-items: center; gap: 4px; }
-.doc-page-label { font-size: 12px; color: var(--text-dim); margin-right: 4px; }
+.docs-color-pop[hidden] { display: none; }
+.docs-color-pop .server-roles-swatches { margin: 0; }
 .doc-channel-page .composer-field { width: 100%; }
-.doc-channel-page .composer-highlight { padding: 10px 12px; border-radius: 8px; }
-.doc-channel-body { width: 100%; min-height: 16em; margin-top: 0; }
+.doc-body-editor { border: 1px solid var(--border); border-radius: 8px; background: var(--rail); }
+.doc-body-editor:focus-within { border-color: var(--accent-submenu); }
+.doc-body-editor[hidden] { display: none; }
+.doc-body-editor .composer-field { display: block; overflow: visible; }
+.doc-body-editor .composer-highlight,
+.doc-channel-body {
+  box-sizing: border-box; padding: 10px 12px; font-size: 16px; line-height: 1.65;
+  font-family: inherit; overflow: hidden; border-radius: 8px 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.doc-channel-body {
+  display: block; width: 100%; min-height: calc(1.65em * 3 + 20px); margin: 0;
+  background: transparent; border: 0; outline: none; resize: none; color: transparent; caret-color: transparent;
+}
+.doc-channel-body::placeholder { color: var(--text-dim); }
+.doc-body-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--border); padding: 4px 6px;
+}
+.doc-body-footer .composer-icon-btn {
+  background: transparent; color: var(--text-dim); font-size: 18px;
+  width: 32px; height: 32px; padding: 0; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.doc-body-footer .composer-icon-btn:hover { color: var(--text); background: var(--panel-alt); }
 .doc-channel-body-read { white-space: pre-wrap; font-size: 16px; line-height: 1.65; color: var(--text); }
 .doc-channel-page[data-align="center"] .doc-sheet-body .doc-channel-body-read,
 .doc-channel-page[data-align="center"] .doc-sheet-body .composer-highlight,
@@ -4144,17 +4177,9 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .doc-channel-page[data-title-align="right"] .doc-sheet-title .doc-channel-title-read,
 .doc-channel-page[data-title-align="right"] .doc-sheet-title .composer-highlight,
 .doc-channel-page[data-title-align="right"] .doc-channel-title-input { text-align: right; }
-.doc-channel-page[data-scale="small"] .doc-sheet-body .doc-channel-body-read,
-.doc-channel-page[data-scale="small"] .doc-sheet-body .composer-highlight,
-.doc-channel-page[data-scale="small"] .doc-channel-body { font-size: 14px; }
-.doc-channel-page[data-scale="large"] .doc-sheet-body .doc-channel-body-read,
-.doc-channel-page[data-scale="large"] .doc-sheet-body .composer-highlight,
-.doc-channel-page[data-scale="large"] .doc-channel-body { font-size: 20px; }
-.doc-comment { padding: 10px 0; }
-.doc-comment-name { font-size: 14px; font-weight: 700; }
-.doc-comment-text { font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
-.doc-comment-compose { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 12px; }
-.doc-comment-compose textarea { width: 100%; }
+.doc-comment-head { font-size: 13px; font-weight: 700; color: var(--text-dim); margin-bottom: 6px; }
+.doc-sheet-comments .announce-comment { padding: 6px 0; }
+.doc-sheet-comments .doc-comment-compose { margin-top: 12px; }
 #doc-comment-more[hidden] { display: none; }
 .doc-channel-title-input[hidden],
 .doc-channel-title-read[hidden],

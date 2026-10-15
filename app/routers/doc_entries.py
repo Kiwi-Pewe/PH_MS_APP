@@ -211,10 +211,12 @@ def get_doc_comments(doc_id: int, before: str = "", after_id: int = 0, limit: in
         raise HTTPException(status_code=404, detail="Document not found")
     load_docs_channel(database, entry.channel_id, current_user.id)
     cap = 20 if limit < 1 or limit > 20 else limit
-    query = database.query(Doc_comment).filter(Doc_comment.doc_id == entry.id, Doc_comment.id > after_id)
+    seen = database.query(Doc_comment).filter(Doc_comment.doc_id == entry.id)
     opened = comment_time(before)
     if opened:
-        query = query.filter(Doc_comment.created_at <= opened.replace(tzinfo=None))
+        seen = seen.filter(Doc_comment.created_at <= opened.replace(tzinfo=None))
+    total = seen.count()
+    query = seen.filter(Doc_comment.id > after_id)
     rows = query.order_by(Doc_comment.id.asc()).limit(cap + 1).all()
     more = len(rows) > cap
     rows = rows[:cap]
@@ -228,7 +230,7 @@ def get_doc_comments(doc_id: int, before: str = "", after_id: int = 0, limit: in
             "content": row.content or "",
             "created_at": stamp(row.created_at),
         })
-    return {"comments": comments, "has_more": more}
+    return {"comments": comments, "has_more": more, "total": total}
 
 
 @router.post("/create_doc_comment")

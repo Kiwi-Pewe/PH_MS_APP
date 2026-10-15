@@ -426,13 +426,17 @@ def ensure_doc_columns():
         for column, coltype in (
             ("text_align", "VARCHAR"),
             ("text_scale", "VARCHAR"),
-            ("line_gap", "VARCHAR"),
         ):
             try:
                 conn.execute(text(f"ALTER TABLE doc_entries ADD COLUMN {column} {coltype}"))
                 conn.commit()
             except Exception:
                 conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE doc_entries DROP COLUMN line_gap"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_forum_columns():

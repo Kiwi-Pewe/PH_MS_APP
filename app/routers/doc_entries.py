@@ -104,7 +104,6 @@ def serialize_entry(database, entry, server_id, roles):
         "updated_at": stamp(entry.updated_at or entry.created_at),
         "text_align": clean_choice(getattr(entry, "text_align", None), ("left", "center", "right"), "left"),
         "text_scale": clean_choice(getattr(entry, "text_scale", None), ("small", "normal", "large"), "normal"),
-        "line_gap": clean_choice(getattr(entry, "line_gap", None), ("tight", "normal", "loose"), "normal"),
     }
 
 
@@ -139,7 +138,6 @@ async def create_doc_entry(body: Doc_entry_create, database: Session = Depends(g
         updated_at=now,
         text_align=clean_choice(body.text_align, ("left", "center", "right"), "left"),
         text_scale=clean_choice(body.text_scale, ("small", "normal", "large"), "normal"),
-        line_gap=clean_choice(body.line_gap, ("tight", "normal", "loose"), "normal"),
     )
     database.add(entry)
     note_channel_unread(database, server.id, channel.id, current_user.id)
@@ -161,7 +159,6 @@ async def edit_doc_entry(body: Doc_entry_edit, database: Session = Depends(get_d
     entry.body = clean_body(body.body)
     entry.text_align = clean_choice(body.text_align, ("left", "center", "right"), "left")
     entry.text_scale = clean_choice(body.text_scale, ("small", "normal", "large"), "normal")
-    entry.line_gap = clean_choice(body.line_gap, ("tight", "normal", "loose"), "normal")
     entry.updated_at = datetime.now(timezone.utc)
     database.commit()
     database.refresh(entry)

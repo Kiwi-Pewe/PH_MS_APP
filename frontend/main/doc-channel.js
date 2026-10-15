@@ -4,7 +4,6 @@ let docEntryId = null;
 let docEntrySnapshot = "";
 let docPageAlign = "left";
 let docPageScale = "normal";
-let docPageGap = "normal";
 
 function docEntryStamp(value) {
   if (!value) return null;
@@ -39,7 +38,7 @@ function docEntryPreview(body) {
 function docEntryDraft() {
   const title = document.getElementById("doc-channel-title");
   const body = document.getElementById("doc-channel-body");
-  return (title ? title.value : "") + "\n" + (body ? body.value : "") + "\n" + docPageAlign + "\n" + docPageScale + "\n" + docPageGap;
+  return (title ? title.value : "") + "\n" + (body ? body.value : "") + "\n" + docPageAlign + "\n" + docPageScale;
 }
 
 function docPageChoice(value, allowed, fallback) {
@@ -50,7 +49,6 @@ function docPageChoice(value, allowed, fallback) {
 function setDocPageFromEntry(entry) {
   docPageAlign = docPageChoice(entry && entry.text_align, ["left", "center", "right"], "left");
   docPageScale = docPageChoice(entry && entry.text_scale, ["small", "normal", "large"], "normal");
-  docPageGap = docPageChoice(entry && entry.line_gap, ["tight", "normal", "loose"], "normal");
 }
 
 function paintDocPageSettings() {
@@ -58,7 +56,6 @@ function paintDocPageSettings() {
   if (page) {
     page.dataset.align = docPageAlign;
     page.dataset.scale = docPageScale;
-    page.dataset.gap = docPageGap;
   }
   const toolbar = document.getElementById("doc-channel-toolbar");
   if (!toolbar) return;
@@ -67,9 +64,6 @@ function paintDocPageSettings() {
   });
   toolbar.querySelectorAll("[data-doc-scale]").forEach((button) => {
     button.classList.toggle("is-on", button.getAttribute("data-doc-scale") === docPageScale);
-  });
-  toolbar.querySelectorAll("[data-doc-gap]").forEach((button) => {
-    button.classList.toggle("is-on", button.getAttribute("data-doc-gap") === docPageGap);
   });
 }
 
@@ -370,7 +364,6 @@ async function saveDocEntry() {
     body: body ? body.value : "",
     text_align: docPageAlign,
     text_scale: docPageScale,
-    line_gap: docPageGap,
   };
   const path = docEntryId ? "edit_doc_entry" : "create_doc_entry";
   const payload = docEntryId ? Object.assign({ doc_id: docEntryId }, fields) : Object.assign({ channel_id: currentChannelId }, fields);
@@ -442,10 +435,8 @@ if (docChannelToolbar) {
     if (!button || docEntryMode !== "edit") return;
     const align = button.getAttribute("data-doc-align");
     const scale = button.getAttribute("data-doc-scale");
-    const gap = button.getAttribute("data-doc-gap");
     if (align) docPageAlign = align;
     if (scale) docPageScale = scale;
-    if (gap) docPageGap = gap;
     paintDocPageSettings();
   });
 }

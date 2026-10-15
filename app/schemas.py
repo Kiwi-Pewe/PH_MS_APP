@@ -564,7 +564,6 @@ class Doc_entry_create(BaseModel):
     body: str = ""
     text_align: str = "left"
     text_scale: str = "normal"
-    line_gap: str = "normal"
 
 class Doc_entry_edit(BaseModel):
     doc_id: int
@@ -572,7 +571,6 @@ class Doc_entry_edit(BaseModel):
     body: str = ""
     text_align: str = "left"
     text_scale: str = "normal"
-    line_gap: str = "normal"
 
 class Doc_entry_delete(BaseModel):
     doc_id: int

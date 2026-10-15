@@ -4133,12 +4133,6 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .doc-channel-page[data-scale="large"] .doc-channel-body-read,
 .doc-channel-page[data-scale="large"] .composer-highlight,
 .doc-channel-page[data-scale="large"] .doc-channel-body { font-size: 20px; }
-.doc-channel-page[data-gap="tight"] .doc-channel-body-read,
-.doc-channel-page[data-gap="tight"] .composer-highlight,
-.doc-channel-page[data-gap="tight"] .doc-channel-body { line-height: 1.35; }
-.doc-channel-page[data-gap="loose"] .doc-channel-body-read,
-.doc-channel-page[data-gap="loose"] .composer-highlight,
-.doc-channel-page[data-gap="loose"] .doc-channel-body { line-height: 2; }
 .doc-channel-title-input[hidden],
 .doc-channel-title-read[hidden],
 .doc-channel-toolbar[hidden],

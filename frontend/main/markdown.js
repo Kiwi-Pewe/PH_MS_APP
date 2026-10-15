@@ -103,6 +103,28 @@ function mdParseInline(text, offset) {
         continue;
       }
     }
+    const image = text.slice(i).match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/);
+    if (image) {
+      nodes.push({ type: "image", start: offset + i, end: offset + i + image[0].length, text: image[1], url: image[2] });
+      i += image[0].length;
+      continue;
+    }
+    const paint = text.slice(i).match(/^\{\{(c|h):(#[0-9A-Fa-f]{6})\}\}/);
+    if (paint) {
+      const closer = "{{/" + paint[1] + "}}";
+      const closeAt = text.indexOf(closer, i + paint[0].length);
+      if (closeAt !== -1) {
+        nodes.push({
+          type: paint[1] === "c" ? "color" : "highlight",
+          start: offset + i,
+          end: offset + closeAt + closer.length,
+          hex: paint[2],
+          text: text.slice(i + paint[0].length, closeAt)
+        });
+        i = closeAt + closer.length;
+        continue;
+      }
+    }
     const link = text.slice(i).match(/^\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/);
     if (link) {
       nodes.push({ type: "link", start: offset + i, end: offset + i + link[0].length, text: link[1], url: link[2] });
@@ -116,7 +138,7 @@ function mdParseInline(text, offset) {
       continue;
     }
     let j = i + 1;
-    while (j < text.length && text[j] !== "\\" && text[j] !== "`" && text[j] !== "*" && text[j] !== "_" && text[j] !== "~" && text[j] !== "[" && text[j] !== "<" && !text.startsWith("||", j)) j += 1;
+    while (j < text.length && text[j] !== "\\" && text[j] !== "`" && text[j] !== "*" && text[j] !== "_" && text[j] !== "~" && text[j] !== "[" && text[j] !== "<" && text[j] !== "!" && text[j] !== "{" && !text.startsWith("||", j)) j += 1;
     nodes.push({ type: "text", start: offset + i, end: offset + j, text: text.slice(i, j) });
     i = j;
   }
@@ -220,6 +242,23 @@ function mdRenderNode(el, node, source, caret, options) {
   if (node.type === "channel") {
     if (!options.composer && typeof buildChannelMentionChip === "function") el.appendChild(buildChannelMentionChip(node.id));
     else mdLeaf(el, node.raw, options, node.start);
+    return;
+  }
+  if (node.type === "image") {
+    const img = document.createElement("img");
+    img.className = "md-image";
+    img.alt = node.text || "";
+    img.src = node.url;
+    el.appendChild(img);
+    return;
+  }
+  if (node.type === "color" || node.type === "highlight") {
+    const span = document.createElement("span");
+    span.className = node.type === "color" ? "md-color" : "md-highlight";
+    if (node.type === "color") span.style.color = node.hex;
+    else span.style.background = node.hex;
+    mdRender(span, mdParseInline(node.text, node.start), source, null, options);
+    el.appendChild(span);
     return;
   }
   if (node.type === "link") {

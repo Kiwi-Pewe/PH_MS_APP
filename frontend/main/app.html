@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=325">
+<link rel="stylesheet" href="app.css?v=326">
 </head>
 <body>
 
@@ -534,25 +534,69 @@
         <div id="doc-channel-view" style="display:none;">
           <div id="doc-channel-grid" class="doc-channel-grid"></div>
           <div id="doc-channel-page" class="doc-channel-page" hidden>
-            <div id="doc-channel-author" class="doc-channel-author"></div>
-            <input type="text" id="doc-channel-title" class="doc-channel-title-input" maxlength="200" placeholder="Untitled document" autocomplete="off">
-            <h2 id="doc-channel-title-read" class="doc-channel-title-read" hidden></h2>
-            <div id="doc-channel-toolbar" class="doc-channel-toolbar">
-              <div class="doc-page-group">
-                <span class="doc-page-label">Align</span>
-                <button type="button" data-doc-align="left">Left</button>
-                <button type="button" data-doc-align="center">Center</button>
-                <button type="button" data-doc-align="right">Right</button>
-              </div>
-              <div class="doc-page-group">
-                <span class="doc-page-label">Text size</span>
-                <button type="button" data-doc-scale="small">Small</button>
-                <button type="button" data-doc-scale="normal">Normal</button>
-                <button type="button" data-doc-scale="large">Large</button>
-              </div>
+            <div class="doc-sheet">
+              <section id="doc-sheet-title" class="doc-sheet-title">
+                <div id="doc-channel-author" class="doc-channel-author"></div>
+                <div class="doc-title-row">
+                  <textarea id="doc-channel-title" class="doc-channel-title-input" rows="1" maxlength="200" placeholder="Untitled document"></textarea>
+                  <h2 id="doc-channel-title-read" class="doc-channel-title-read" hidden></h2>
+                  <button type="button" id="doc-title-menu" class="icon-btn" hidden title="Title options">&#8942;</button>
+                </div>
+              </section>
+              <section id="doc-channel-toolbar" class="doc-channel-toolbar" hidden>
+                <div class="doc-sheet-rule"></div>
+                <div class="doc-page-group">
+                  <button type="button" data-doc-history="undo">Undo</button>
+                  <button type="button" data-doc-history="redo">Redo</button>
+                </div>
+                <div class="doc-page-group">
+                  <span class="doc-page-label">Text size</span>
+                  <button type="button" data-doc-scale="small">Small</button>
+                  <button type="button" data-doc-scale="normal">Normal</button>
+                  <button type="button" data-doc-scale="large">Large</button>
+                </div>
+                <div class="doc-page-group">
+                  <span class="doc-page-label">Color</span>
+                  <button type="button" class="doc-swatch" data-doc-color="#e8e8e8" style="background:#e8e8e8" title="Text color"></button>
+                  <button type="button" class="doc-swatch" data-doc-color="#f23f43" style="background:#f23f43" title="Text color"></button>
+                  <button type="button" class="doc-swatch" data-doc-color="#f0b232" style="background:#f0b232" title="Text color"></button>
+                  <button type="button" class="doc-swatch" data-doc-color="#23a559" style="background:#23a559" title="Text color"></button>
+                  <button type="button" class="doc-swatch" data-doc-color="#5865f2" style="background:#5865f2" title="Text color"></button>
+                </div>
+                <div class="doc-page-group">
+                  <span class="doc-page-label">Highlight</span>
+                  <button type="button" class="doc-swatch" data-doc-highlight="#f5e6a8" style="background:#f5e6a8" title="Highlight"></button>
+                  <button type="button" class="doc-swatch" data-doc-highlight="#f7c1c1" style="background:#f7c1c1" title="Highlight"></button>
+                  <button type="button" class="doc-swatch" data-doc-highlight="#c9e8d2" style="background:#c9e8d2" title="Highlight"></button>
+                  <button type="button" class="doc-swatch" data-doc-highlight="#c9d7f8" style="background:#c9d7f8" title="Highlight"></button>
+                </div>
+                <div class="doc-page-group">
+                  <span class="doc-page-label">Align</span>
+                  <button type="button" data-doc-align="left">Left</button>
+                  <button type="button" data-doc-align="center">Center</button>
+                  <button type="button" data-doc-align="right">Right</button>
+                </div>
+                <div class="doc-page-group">
+                  <button type="button" id="doc-insert-image">Image</button>
+                  <button type="button" id="doc-insert-link">Link</button>
+                  <input type="file" id="doc-image-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+                </div>
+              </section>
+              <section id="doc-sheet-body" class="doc-sheet-body">
+                <div class="doc-sheet-rule"></div>
+                <textarea id="doc-channel-body" class="list-note-field doc-channel-body" rows="12" maxlength="50000" placeholder="Write here"></textarea>
+                <div id="doc-channel-body-read" class="doc-channel-body-read" hidden></div>
+              </section>
+              <section id="doc-sheet-comments" class="doc-sheet-comments">
+                <div class="doc-sheet-rule"></div>
+                <div id="doc-comment-list"></div>
+                <button type="button" id="doc-comment-more" class="ghost-btn" hidden>Load more</button>
+                <div class="doc-comment-compose">
+                  <textarea id="doc-comment-input" class="list-note-field" rows="3" maxlength="2000" placeholder="Leave a comment"></textarea>
+                  <button type="button" id="doc-comment-send" class="pill-btn">Comment</button>
+                </div>
+              </section>
             </div>
-            <textarea id="doc-channel-body" class="list-note-field doc-channel-body" rows="12" maxlength="20000" placeholder="Write here"></textarea>
-            <div id="doc-channel-body-read" class="doc-channel-body-read" hidden></div>
           </div>
         </div>
         <div id="media-channel-view" style="display:none;">
@@ -2258,9 +2302,9 @@
 <script src="server-delete.js?v=2"></script>
 <script src="account-delete.js?v=1"></script>
 <script src="server-notify.js?v=4"></script>
-<script src="markdown.js?v=2"></script>
+<script src="markdown.js?v=3"></script>
 <script src="embeds.js?v=47"></script>
-<script src="mentions.js?v=17"></script>
+<script src="mentions.js?v=18"></script>
 <script src="explicit-channel.js?v=1"></script>
 <script src="servers.js?v=120"></script>
 <script src="voice.js?v=16"></script>
@@ -2280,7 +2324,7 @@
 <script src="calendar.js?v=8"></script>
 <script src="calendar-event.js?v=8"></script>
 <script src="schedule.js?v=10"></script>
-<script src="doc-channel.js?v=9"></script>
+<script src="doc-channel.js?v=10"></script>
 <script src="media-channel.js?v=5"></script>
 <script src="docs.js?v=47"></script>
 <script src="feedback.js?v=4"></script>

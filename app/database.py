@@ -426,6 +426,7 @@ def ensure_doc_columns():
         for column, coltype in (
             ("text_align", "VARCHAR"),
             ("text_scale", "VARCHAR"),
+            ("title_align", "VARCHAR"),
         ):
             try:
                 conn.execute(text(f"ALTER TABLE doc_entries ADD COLUMN {column} {coltype}"))

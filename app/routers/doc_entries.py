@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Doc_entry
-from app.schemas import Doc_entry_create, Doc_entry_edit, Doc_entry_delete
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Doc_entry, Doc_comment
+from app.schemas import Doc_entry_create, Doc_entry_edit, Doc_entry_delete, Doc_comment_create
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import server_broadcast
@@ -51,8 +51,8 @@ def clean_title(value):
 
 def clean_body(value):
     body = value or ""
-    if len(body) > 20000:
-        body = body[:20000]
+    if len(body) > 50000:
+        body = body[:50000]
     return body
 
 
@@ -104,6 +104,7 @@ def serialize_entry(database, entry, server_id, roles):
         "updated_at": stamp(entry.updated_at or entry.created_at),
         "text_align": clean_choice(getattr(entry, "text_align", None), ("left", "center", "right"), "left"),
         "text_scale": clean_choice(getattr(entry, "text_scale", None), ("small", "normal", "large"), "normal"),
+        "title_align": clean_choice(getattr(entry, "title_align", None), ("left", "center", "right"), "left"),
     }
 
 
@@ -138,6 +139,7 @@ async def create_doc_entry(body: Doc_entry_create, database: Session = Depends(g
         updated_at=now,
         text_align=clean_choice(body.text_align, ("left", "center", "right"), "left"),
         text_scale=clean_choice(body.text_scale, ("small", "normal", "large"), "normal"),
+        title_align=clean_choice(body.title_align, ("left", "center", "right"), "left"),
     )
     database.add(entry)
     note_channel_unread(database, server.id, channel.id, current_user.id)
@@ -159,6 +161,7 @@ async def edit_doc_entry(body: Doc_entry_edit, database: Session = Depends(get_d
     entry.body = clean_body(body.body)
     entry.text_align = clean_choice(body.text_align, ("left", "center", "right"), "left")
     entry.text_scale = clean_choice(body.text_scale, ("small", "normal", "large"), "normal")
+    entry.title_align = clean_choice(body.title_align, ("left", "center", "right"), "left")
     entry.updated_at = datetime.now(timezone.utc)
     database.commit()
     database.refresh(entry)
@@ -181,7 +184,74 @@ async def delete_doc_entry(body: Doc_entry_delete, database: Session = Depends(g
         "name": _channel.name or "",
     })
     doc_id = entry.id
+    database.query(Doc_comment).filter(Doc_comment.doc_id == entry.id).delete(synchronize_session=False)
     database.delete(entry)
     database.commit()
     await server_broadcast(server_id=server.id, payload={"type": "doc_entry_deleted", "server_id": server.id, "channel_id": channel_id, "doc_id": doc_id}, database=database, exclude_user_id=current_user.id)
     return {"doc_id": doc_id, "channel_id": channel_id}
+
+
+def comment_time(value):
+    text = (value or "").strip().replace("Z", "+00:00")
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+@router.get("/get_doc_comments/{doc_id}")
+def get_doc_comments(doc_id: int, before: str = "", after_id: int = 0, limit: int = 20, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    entry = database.query(Doc_entry).filter(Doc_entry.id == doc_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Document not found")
+    load_docs_channel(database, entry.channel_id, current_user.id)
+    cap = 20 if limit < 1 or limit > 20 else limit
+    query = database.query(Doc_comment).filter(Doc_comment.doc_id == entry.id, Doc_comment.id > after_id)
+    opened = comment_time(before)
+    if opened:
+        query = query.filter(Doc_comment.created_at <= opened.replace(tzinfo=None))
+    rows = query.order_by(Doc_comment.id.asc()).limit(cap + 1).all()
+    more = len(rows) > cap
+    rows = rows[:cap]
+    comments = []
+    for row in rows:
+        comments.append({
+            "id": row.id,
+            "doc_id": row.doc_id,
+            "sender_id": row.sender_id,
+            "username": username_for(database, row.sender_id),
+            "content": row.content or "",
+            "created_at": stamp(row.created_at),
+        })
+    return {"comments": comments, "has_more": more}
+
+
+@router.post("/create_doc_comment")
+def create_doc_comment(body: Doc_comment_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    entry = database.query(Doc_entry).filter(Doc_entry.id == body.doc_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Document not found")
+    _channel, server = load_docs_channel(database, entry.channel_id, current_user.id)
+    content = (body.content or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Write a comment first.")
+    if len(content) > 2000:
+        content = content[:2000]
+    row = Doc_comment(doc_id=entry.id, sender_id=current_user.id, content=content)
+    database.add(row)
+    note_channel_unread(database, server.id, entry.channel_id, current_user.id)
+    database.commit()
+    database.refresh(row)
+    return {
+        "id": row.id,
+        "doc_id": row.doc_id,
+        "sender_id": row.sender_id,
+        "username": username_for(database, current_user.id),
+        "content": row.content or "",
+        "created_at": stamp(row.created_at),
+    }

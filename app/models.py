@@ -397,6 +397,16 @@ class Doc_entry(Base):
     updated_at = Column(DateTime, nullable=True)
     text_align = Column(String, nullable=True)
     text_scale = Column(String, nullable=True)
+    title_align = Column(String, nullable=True)
+
+
+class Doc_comment(Base):
+    __tablename__ = "doc_comments"
+    id = Column(Integer, primary_key=True)
+    doc_id = Column(Integer, ForeignKey("doc_entries.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
 
 
 class Media_item(Base):

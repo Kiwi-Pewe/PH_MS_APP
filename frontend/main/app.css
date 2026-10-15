@@ -2183,6 +2183,7 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   display: flex;
   overflow: hidden;
 }
+.composer-field[hidden] { display: none; }
 .composer-highlight {
   position: absolute;
   left: 0; right: 0; top: 0; bottom: 0;
@@ -2266,6 +2267,9 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   cursor: text;
 }
 .composer-highlight .md-explicit { cursor: inherit; }
+.md-image { max-width: 100%; display: block; margin: 8px 0; border-radius: 6px; }
+.composer-highlight .md-image { display: inline-block; height: 1.2em; width: auto; margin: 0; vertical-align: middle; }
+.md-highlight { border-radius: 2px; padding: 0 1px; }
 #composer textarea, #channel-composer textarea, .edit-composer textarea {
   flex: 1; width: 100%; min-width: 0; box-sizing: border-box;
   background: transparent; border: none; color: var(--text); font-size: 14px;
@@ -4090,7 +4094,14 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .doc-channel-card-when { font-size: 12px; color: var(--text-dim); }
 #doc-channel-grid[hidden],
 #doc-channel-page[hidden] { display: none; }
-.doc-channel-page { padding: 24px 48px 48px 64px; max-width: 860px; }
+.doc-channel-page { padding: 24px 32px 48px; }
+.doc-sheet { max-width: 720px; margin: 0 auto; }
+.doc-sheet-rule { height: 1px; background: var(--border); margin: 16px 0; }
+.doc-title-row { display: flex; align-items: flex-start; gap: 8px; }
+.doc-title-row .composer-field,
+.doc-title-row .doc-channel-title-read { flex: 1; min-width: 0; }
+#doc-title-menu { margin-top: 6px; }
+#doc-title-menu[hidden] { display: none; }
 .doc-channel-author { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .doc-channel-author-face {
   width: 40px; height: 40px; font-size: 16px; padding: 0; cursor: pointer;
@@ -4104,13 +4115,15 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   display: block; width: 100%; margin: 0 0 16px; background: transparent; border: 0;
   color: var(--text); font-size: 28px; font-weight: 700; line-height: 1.25;
 }
-.doc-channel-title-input { outline: none; }
+.doc-channel-title-input { outline: none; resize: none; overflow: hidden; min-height: 0; }
 .doc-channel-title-input::placeholder { color: var(--text-dim); font-weight: 600; }
-.doc-channel-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.doc-channel-toolbar { display: block; margin-bottom: 0; }
+.doc-channel-toolbar .doc-page-group { display: inline-flex; margin: 0 10px 8px 0; }
 .doc-channel-toolbar button {
   background: transparent; border: 1px solid var(--border); color: var(--text);
   border-radius: 6px; padding: 4px 8px; font-size: 13px;
 }
+.doc-channel-toolbar .doc-swatch { width: 18px; height: 18px; padding: 0; }
 .doc-channel-toolbar button:hover,
 .doc-channel-toolbar button.is-on { background: var(--panel-alt); }
 .doc-page-group { display: flex; align-items: center; gap: 4px; }
@@ -4119,20 +4132,30 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .doc-channel-page .composer-highlight { padding: 10px 12px; border-radius: 8px; }
 .doc-channel-body { width: 100%; min-height: 16em; margin-top: 0; }
 .doc-channel-body-read { white-space: pre-wrap; font-size: 16px; line-height: 1.65; color: var(--text); }
-.doc-channel-page[data-align="center"] .doc-channel-body-read,
-.doc-channel-page[data-align="center"] .doc-channel-title-read,
-.doc-channel-page[data-align="center"] .composer-highlight,
+.doc-channel-page[data-align="center"] .doc-sheet-body .doc-channel-body-read,
+.doc-channel-page[data-align="center"] .doc-sheet-body .composer-highlight,
 .doc-channel-page[data-align="center"] .doc-channel-body { text-align: center; }
-.doc-channel-page[data-align="right"] .doc-channel-body-read,
-.doc-channel-page[data-align="right"] .doc-channel-title-read,
-.doc-channel-page[data-align="right"] .composer-highlight,
+.doc-channel-page[data-align="right"] .doc-sheet-body .doc-channel-body-read,
+.doc-channel-page[data-align="right"] .doc-sheet-body .composer-highlight,
 .doc-channel-page[data-align="right"] .doc-channel-body { text-align: right; }
-.doc-channel-page[data-scale="small"] .doc-channel-body-read,
-.doc-channel-page[data-scale="small"] .composer-highlight,
+.doc-channel-page[data-title-align="center"] .doc-sheet-title .doc-channel-title-read,
+.doc-channel-page[data-title-align="center"] .doc-sheet-title .composer-highlight,
+.doc-channel-page[data-title-align="center"] .doc-channel-title-input { text-align: center; }
+.doc-channel-page[data-title-align="right"] .doc-sheet-title .doc-channel-title-read,
+.doc-channel-page[data-title-align="right"] .doc-sheet-title .composer-highlight,
+.doc-channel-page[data-title-align="right"] .doc-channel-title-input { text-align: right; }
+.doc-channel-page[data-scale="small"] .doc-sheet-body .doc-channel-body-read,
+.doc-channel-page[data-scale="small"] .doc-sheet-body .composer-highlight,
 .doc-channel-page[data-scale="small"] .doc-channel-body { font-size: 14px; }
-.doc-channel-page[data-scale="large"] .doc-channel-body-read,
-.doc-channel-page[data-scale="large"] .composer-highlight,
+.doc-channel-page[data-scale="large"] .doc-sheet-body .doc-channel-body-read,
+.doc-channel-page[data-scale="large"] .doc-sheet-body .composer-highlight,
 .doc-channel-page[data-scale="large"] .doc-channel-body { font-size: 20px; }
+.doc-comment { padding: 10px 0; }
+.doc-comment-name { font-size: 14px; font-weight: 700; }
+.doc-comment-text { font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
+.doc-comment-compose { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 12px; }
+.doc-comment-compose textarea { width: 100%; }
+#doc-comment-more[hidden] { display: none; }
 .doc-channel-title-input[hidden],
 .doc-channel-title-read[hidden],
 .doc-channel-toolbar[hidden],

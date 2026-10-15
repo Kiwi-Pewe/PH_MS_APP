@@ -4108,9 +4108,10 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .doc-channel-title-input::placeholder { color: var(--text-dim); font-weight: 600; }
 .doc-channel-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .doc-channel-toolbar button {
-  background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  background: transparent; border: 1px solid var(--border); color: var(--text);
   border-radius: 6px; padding: 4px 8px; font-size: 13px;
 }
+.doc-channel-toolbar button:hover { background: var(--panel-alt); }
 .doc-channel-body { width: 100%; min-height: 16em; }
 .doc-channel-body-read { white-space: pre-wrap; font-size: 16px; line-height: 1.65; color: var(--text); }
 .doc-channel-title-input[hidden],

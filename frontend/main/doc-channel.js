@@ -27,9 +27,40 @@ function docEntryAgo(value) {
 }
 
 function docEntryPreview(body) {
-  const text = String(body || "").replace(/\s+/g, " ").trim();
+  const text = String(body || "").replace(/[*_~`|]/g, "").replace(/\s+/g, " ").trim();
   if (text.length <= 140) return text;
   return text.slice(0, 137) + "...";
+}
+
+function docApplyFormat(kind) {
+  const area = document.getElementById("doc-channel-body");
+  if (!area || docEntryMode !== "edit") return;
+  const start = area.selectionStart;
+  const end = area.selectionEnd;
+  const value = area.value;
+  const selected = value.slice(start, end);
+  let next = value;
+  let cursor = end;
+  if (kind === "list" || kind === "quote") {
+    const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+    const chunk = value.slice(lineStart, end || start);
+    const prefix = kind === "list" ? "- " : "> ";
+    const formatted = chunk.split("\n").map((line) => prefix + line).join("\n");
+    next = value.slice(0, lineStart) + formatted + value.slice(end);
+    cursor = lineStart + formatted.length;
+  } else if (kind === "code" && selected.indexOf("\n") !== -1) {
+    const wrapped = "```\n" + selected + "\n```";
+    next = value.slice(0, start) + wrapped + value.slice(end);
+    cursor = start + wrapped.length;
+  } else {
+    const pair = kind === "bold" ? ["**", "**"] : kind === "italic" ? ["*", "*"] : kind === "under" ? ["__", "__"] : kind === "strike" ? ["~~", "~~"] : ["`", "`"];
+    const wrapped = pair[0] + selected + pair[1];
+    next = value.slice(0, start) + wrapped + value.slice(end);
+    cursor = start + wrapped.length;
+  }
+  area.value = next;
+  area.focus();
+  area.setSelectionRange(cursor, cursor);
 }
 
 function docEntryDraft() {
@@ -228,7 +259,9 @@ function openDocEntry(entry) {
   if (toolbar) toolbar.hidden = true;
   if (bodyRead) {
     bodyRead.hidden = false;
-    bodyRead.textContent = entry ? (entry.body || "") : "";
+    bodyRead.replaceChildren();
+    if (typeof mdAppend === "function") mdAppend(bodyRead, entry ? (entry.body || "") : "");
+    else bodyRead.textContent = entry ? (entry.body || "") : "";
   }
   if (bodyInput) bodyInput.hidden = true;
   paintDocChannelAuthor(entry);
@@ -391,6 +424,28 @@ if (docChannelEdit) {
 }
 const docChannelSave = document.getElementById("doc-channel-save");
 if (docChannelSave) docChannelSave.addEventListener("click", saveDocEntry);
+const docChannelToolbar = document.getElementById("doc-channel-toolbar");
+if (docChannelToolbar) {
+  docChannelToolbar.addEventListener("mousedown", (event) => {
+    if (event.target.closest("button")) event.preventDefault();
+  });
+  docChannelToolbar.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    docApplyFormat(button.getAttribute("data-doc-format"));
+  });
+}
+const docChannelBody = document.getElementById("doc-channel-body");
+if (docChannelBody) {
+  docChannelBody.addEventListener("keydown", (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    const key = event.key.toLowerCase();
+    const kind = key === "b" ? "bold" : key === "i" ? "italic" : key === "u" ? "under" : "";
+    if (!kind) return;
+    event.preventDefault();
+    docApplyFormat(kind);
+  });
+}
 const docChannelMenu = document.getElementById("doc-channel-menu");
 if (docChannelMenu) {
   docChannelMenu.addEventListener("click", (event) => {

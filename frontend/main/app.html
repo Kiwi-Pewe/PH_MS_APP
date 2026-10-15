@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=322">
+<link rel="stylesheet" href="app.css?v=323">
 </head>
 <body>
 
@@ -537,14 +537,14 @@
             <div id="doc-channel-author" class="doc-channel-author"></div>
             <input type="text" id="doc-channel-title" class="doc-channel-title-input" maxlength="200" placeholder="Untitled document" autocomplete="off">
             <h2 id="doc-channel-title-read" class="doc-channel-title-read" hidden></h2>
-            <div id="doc-channel-toolbar" class="doc-channel-toolbar calendar-later">
-              <button type="button" disabled>B</button>
-              <button type="button" disabled><em>I</em></button>
-              <button type="button" disabled><u>U</u></button>
-              <button type="button" disabled><s>S</s></button>
-              <button type="button" disabled>List</button>
-              <button type="button" disabled>Quote</button>
-              <button type="button" disabled>Code</button>
+            <div id="doc-channel-toolbar" class="doc-channel-toolbar">
+              <button type="button" data-doc-format="bold">B</button>
+              <button type="button" data-doc-format="italic"><em>I</em></button>
+              <button type="button" data-doc-format="under"><u>U</u></button>
+              <button type="button" data-doc-format="strike"><s>S</s></button>
+              <button type="button" data-doc-format="list">List</button>
+              <button type="button" data-doc-format="quote">Quote</button>
+              <button type="button" data-doc-format="code">Code</button>
             </div>
             <textarea id="doc-channel-body" class="list-note-field doc-channel-body" rows="12" maxlength="20000" placeholder="Write here"></textarea>
             <div id="doc-channel-body-read" class="doc-channel-body-read" hidden></div>
@@ -2275,7 +2275,7 @@
 <script src="calendar.js?v=8"></script>
 <script src="calendar-event.js?v=8"></script>
 <script src="schedule.js?v=10"></script>
-<script src="doc-channel.js?v=6"></script>
+<script src="doc-channel.js?v=7"></script>
 <script src="media-channel.js?v=5"></script>
 <script src="docs.js?v=47"></script>
 <script src="feedback.js?v=4"></script>

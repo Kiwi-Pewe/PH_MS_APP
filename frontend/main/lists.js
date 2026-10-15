@@ -212,7 +212,8 @@ function buildListThread(item) {
     name.textContent = message.username || "Someone";
     const text = document.createElement("span");
     text.className = "list-thread-text";
-    text.textContent = message.content || "";
+    if (typeof fillMentionText === "function") fillMentionText(text, message.content || "");
+    else text.textContent = message.content || "";
     line.appendChild(name);
     line.appendChild(text);
     panel.appendChild(line);

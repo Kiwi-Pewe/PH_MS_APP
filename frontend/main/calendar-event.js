@@ -456,7 +456,8 @@ function paintEventComments(comments) {
     top.appendChild(ago);
     const text = document.createElement("div");
     text.className = "event-page-comment-text";
-    text.textContent = comment.content || "";
+    if (typeof fillMentionText === "function") fillMentionText(text, comment.content || "");
+    else text.textContent = comment.content || "";
     body.appendChild(top);
     body.appendChild(text);
     row.appendChild(body);

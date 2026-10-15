@@ -178,6 +178,10 @@ function mentionedFromPayload(text, mentionUsers, mentionedFlag, mentionedIds) {
 }
 
 function appendMentionAwareText(el, text, msg, options) {
+  if (typeof mdAppend === "function") {
+    mdAppend(el, text || "", Object.assign({ msg: msg || {} }, options || {}));
+    return;
+  }
   const source = text || "";
   const lookup = (msg && msg.mentionUsers) || {};
   const roles = (msg && msg.mentionRoles) || {};
@@ -573,6 +577,13 @@ function validComposerMentionNames(allowRoles) {
 function renderComposerHighlight(el, text, allowRoles) {
   if (!el) return;
   el.innerHTML = "";
+  const field = el.parentElement;
+  const input = field ? field.querySelector("textarea") : null;
+  const caret = input ? { start: input.selectionStart, end: input.selectionEnd } : null;
+  if (typeof mdPaintComposer === "function") {
+    mdPaintComposer(el, text || "", caret, allowRoles);
+    return;
+  }
   if (!text) return;
   const names = validComposerMentionNames(allowRoles);
   if (!names.length) {
@@ -940,6 +951,13 @@ bindMentionComposer(document.getElementById("composer-input"));
 bindMentionComposer(document.getElementById("channel-composer-input"));
 bindMentionComposer(document.getElementById("announcement-body-input"));
 bindMentionComposer(document.getElementById("forum-body-input"));
+bindMentionComposer(document.getElementById("voice-chat-input"));
+bindMentionComposer(document.getElementById("event-page-input"));
+document.addEventListener("selectionchange", () => {
+  const active = document.activeElement;
+  if (!active || active.tagName !== "TEXTAREA" || !active.dataset || !active.dataset.mentionBound) return;
+  refreshComposerMentions(active);
+});
 document.addEventListener("click", (e) => {
   const picker = document.getElementById("mention-picker");
   if (!picker || picker.hidden) return;

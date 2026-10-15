@@ -27,9 +27,10 @@ function parseHttpUrl(raw) {
 function extractEmbedUrls(text) {
   const found = [];
   const seen = {};
+  const source = (text || "").replace(/<(https?:\/\/[^>\s]+)>/g, " ");
   const re = /https?:\/\/[^\s<>"']+/gi;
   let match;
-  while ((match = re.exec(text || ""))) {
+  while ((match = re.exec(source))) {
     const url = trimUrlTrail(match[0]);
     if (!url || seen[url] || isInviteUrl(url) || !parseHttpUrl(url)) continue;
     seen[url] = true;
@@ -64,7 +65,7 @@ function hideEmbedUrl(url) {
   localStorage.setItem(EMBED_HIDDEN_KEY, JSON.stringify(Array.from(hidden)));
 }
 
-function renderMessageText(el, text) {
+function appendAutoLinks(el, text) {
   const re = /https?:\/\/[^\s<>"']+/gi;
   let last = 0;
   let match;
@@ -86,6 +87,14 @@ function renderMessageText(el, text) {
     }
   }
   if (last < (text || "").length) el.appendChild(document.createTextNode(text.slice(last)));
+}
+
+function renderMessageText(el, text) {
+  if (typeof mdAppend === "function") {
+    mdAppend(el, text || "");
+    return;
+  }
+  appendAutoLinks(el, text || "");
 }
 
 function fillDefaultEmbedLayout(card, data) {

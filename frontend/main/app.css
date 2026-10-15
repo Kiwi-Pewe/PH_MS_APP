@@ -2203,6 +2203,40 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   border-radius: 3px;
   font-weight: 600;
 }
+.md-bold { font-weight: 700; }
+.md-italic { font-style: italic; }
+.md-under { text-decoration: underline; }
+.md-strike { text-decoration: line-through; }
+.md-h1, .md-h2, .md-h3, .md-sub, .md-quote, .md-list, .md-codeblock { display: block; }
+.md-h1 { font-size: 1.45em; font-weight: 800; line-height: 1.25; }
+.md-h2 { font-size: 1.25em; font-weight: 800; line-height: 1.25; }
+.md-h3 { font-size: 1.1em; font-weight: 700; line-height: 1.3; }
+.md-sub { font-size: 0.8em; color: var(--text-dim); }
+.md-quote {
+  border-left: 3px solid var(--border);
+  padding-left: 8px;
+  color: var(--text);
+}
+.md-code, .md-codeblock {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--panel-alt);
+  border-radius: 4px;
+}
+.md-code { padding: 0 4px; }
+.md-codeblock { margin: 4px 0; padding: 8px; white-space: pre-wrap; }
+.md-explicit {
+  background: rgba(255, 255, 255, 0.12);
+  color: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.md-explicit:hover { color: rgba(255, 255, 255, 0.45); }
+.md-explicit.is-open {
+  color: inherit;
+  background: transparent;
+  cursor: text;
+}
+.composer-highlight .md-explicit { cursor: inherit; }
 #composer textarea, #channel-composer textarea, .edit-composer textarea {
   flex: 1; width: 100%; min-width: 0; box-sizing: border-box;
   background: transparent; border: none; color: var(--text); font-size: 14px;

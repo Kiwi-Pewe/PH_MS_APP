@@ -2273,9 +2273,18 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   scrollbar-gutter: stable;
   line-height: 1.4; max-height: calc(1.4em * 5); /* caps growth at 5 lines, then scrolls */
 }
+.composer-caret {
+  display: inline-block;
+  width: 1px;
+  height: 1.05em;
+  margin: 0 -0.5px 0 0;
+  background: var(--text);
+  vertical-align: text-bottom;
+  pointer-events: none;
+}
 .composer-field textarea {
   color: transparent;
-  caret-color: var(--text);
+  caret-color: transparent;
   position: relative;
   z-index: 1;
 }
@@ -2283,6 +2292,12 @@ html.legacy-chat-input #mention-picker { display: none !important; }
 #channel-composer .composer-field textarea,
 .edit-composer .composer-field textarea {
   color: transparent;
+  caret-color: transparent;
+}
+html.legacy-chat-input .composer-field textarea,
+html.legacy-chat-input #composer .composer-field textarea,
+html.legacy-chat-input #channel-composer .composer-field textarea,
+html.legacy-chat-input .edit-composer .composer-field textarea {
   caret-color: var(--text);
 }
 .composer-field textarea::placeholder { color: var(--text-dim); }
@@ -2586,7 +2601,7 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 }
 .announce-comment-composer .composer-field .announce-comment-input {
   color: transparent;
-  caret-color: var(--text);
+  caret-color: transparent;
 }
 .announce-comment-input:focus { outline: none; }
 .announce-comment-input::placeholder { color: var(--text-dim); }
@@ -3797,7 +3812,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .announce-composer-editing-body .composer-field textarea {
   color: transparent;
-  caret-color: var(--text);
+  caret-color: transparent;
 }
 /* Shared by Announcements and Forums. Same capped auto-grow as chat:
    CSS owns the 3-to-5-line ceiling, JS only measures. resize:none so

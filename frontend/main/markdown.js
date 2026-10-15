@@ -156,7 +156,15 @@ function mdAppend(el, text, options) {
 
 function mdPaintComposer(el, text, caret, allowRoles) {
   el.replaceChildren();
-  mdRender(el, mdParse(text || ""), text || "", mdCaret(caret), { composer: true, allowRoles: allowRoles !== false });
+  const collapsed = !caret || caret.start === caret.end;
+  const options = {
+    composer: true,
+    allowRoles: allowRoles !== false,
+    caretIndex: collapsed && caret ? caret.start : null,
+    caretPlaced: false
+  };
+  mdRender(el, mdParse(text || ""), text || "", mdCaret(caret), options);
+  if (options.caretIndex != null && !options.caretPlaced) mdDropCaret(el, options);
 }
 
 function mdRender(el, nodes, source, caret, options) {
@@ -165,6 +173,7 @@ function mdRender(el, nodes, source, caret, options) {
 
 function mdRenderNode(el, node, source, caret, options) {
   if (node.type === "break") {
+    mdWrite(el, "", node.start, options);
     el.appendChild(document.createTextNode("\n"));
     return;
   }
@@ -173,7 +182,7 @@ function mdRenderNode(el, node, source, caret, options) {
     return;
   }
   if (mdHit(node, caret)) {
-    mdLeaf(el, source.slice(node.start, node.end), options);
+    mdLeaf(el, source.slice(node.start, node.end), options, node.start);
     return;
   }
   if (node.type === "quoteall") {
@@ -198,19 +207,19 @@ function mdRenderNode(el, node, source, caret, options) {
     return;
   }
   if (node.type === "text") {
-    mdLeaf(el, node.text, options);
+    mdLeaf(el, node.text, options, node.start);
     return;
   }
   if (node.type === "mention") {
     if (!options.composer && typeof buildMentionChip === "function") {
       const msg = options.msg || {};
       el.appendChild(buildMentionChip(node.id, msg.mentionUsers || {}, msg, msg.mentionRoles || {}));
-    } else mdLeaf(el, node.raw, options);
+    } else mdLeaf(el, node.raw, options, node.start);
     return;
   }
   if (node.type === "channel") {
     if (!options.composer && typeof buildChannelMentionChip === "function") el.appendChild(buildChannelMentionChip(node.id));
-    else mdLeaf(el, node.raw, options);
+    else mdLeaf(el, node.raw, options, node.start);
     return;
   }
   if (node.type === "link") {
@@ -255,11 +264,32 @@ function mdRenderNode(el, node, source, caret, options) {
   el.appendChild(box);
 }
 
-function mdLeaf(el, text, options) {
+function mdDropCaret(el, options) {
+  if (!options || options.caretPlaced) return;
+  const mark = document.createElement("span");
+  mark.className = "composer-caret";
+  el.appendChild(mark);
+  options.caretPlaced = true;
+}
+
+function mdWrite(el, text, absStart, options) {
+  const caretAt = options && Number.isInteger(options.caretIndex) ? options.caretIndex : null;
   const source = text || "";
-  if (!source) return;
+  if (caretAt != null && options && !options.caretPlaced && caretAt >= absStart && caretAt <= absStart + source.length) {
+    const cut = caretAt - absStart;
+    if (cut > 0) el.appendChild(document.createTextNode(source.slice(0, cut)));
+    mdDropCaret(el, options);
+    if (cut < source.length) el.appendChild(document.createTextNode(source.slice(cut)));
+    return;
+  }
+  if (source) el.appendChild(document.createTextNode(source));
+}
+
+function mdLeaf(el, text, options, absStart) {
+  const source = text || "";
+  if (!source && !(options && Number.isInteger(options.caretIndex))) return;
   if (options && options.composer) {
-    mdComposerLeaf(el, source, options);
+    mdComposerLeaf(el, source, options, absStart || 0);
     return;
   }
   if (typeof CUSTOM_EMOJI_TOKEN_RE !== "undefined" && typeof appendCustomEmojiNode === "function") {
@@ -280,22 +310,29 @@ function mdLeaf(el, text, options) {
   else el.appendChild(document.createTextNode(source));
 }
 
-function mdComposerLeaf(el, text, options) {
+function mdComposerLeaf(el, text, options, absStart) {
+  const base = absStart || 0;
   const names = typeof validComposerMentionNames === "function" ? validComposerMentionNames(!!(options && options.allowRoles)) : [];
   if (!names.length) {
-    el.appendChild(document.createTextNode(text));
+    mdWrite(el, text, base, options);
     return;
   }
   const pattern = new RegExp("@(?:" + names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")\\b", "gi");
   let last = 0;
   let match;
   while ((match = pattern.exec(text))) {
-    if (match.index > last) el.appendChild(document.createTextNode(text.slice(last, match.index)));
+    if (match.index > last) mdWrite(el, text.slice(last, match.index), base + last, options);
     const chip = document.createElement("span");
     chip.className = "composer-mention";
     chip.textContent = match[0];
+    const caretAt = options && Number.isInteger(options.caretIndex) ? options.caretIndex : null;
+    const chipStart = base + match.index;
+    if (caretAt != null && !options.caretPlaced && caretAt >= chipStart && caretAt <= chipStart + match[0].length) {
+      mdDropCaret(el, options);
+    }
     el.appendChild(chip);
     last = match.index + match[0].length;
   }
-  if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+  if (last < text.length) mdWrite(el, text.slice(last), base + last, options);
+  else mdWrite(el, "", base + last, options);
 }

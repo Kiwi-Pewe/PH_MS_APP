@@ -487,7 +487,7 @@ function composerAllowsMentions(input) {
     return currentChannelType !== "voice" && currentChannelType !== "doc";
   }
   if (input.id === "composer-input") return openChatType === "party";
-  if (input.id === "announcement-body-input" || input.id === "forum-body-input") return true;
+  if (input.id === "announcement-body-input" || input.id === "forum-body-input" || input.id === "doc-channel-body") return true;
   if (input.id === "announce-edit-body-input" || input.id === "forum-edit-body-input") return true;
   if (input.classList && input.classList.contains("announce-comment-input")) return true;
   return false;

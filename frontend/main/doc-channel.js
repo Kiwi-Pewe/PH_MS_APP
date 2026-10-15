@@ -2,6 +2,9 @@ let currentDocEntries = [];
 let docEntryMode = "list";
 let docEntryId = null;
 let docEntrySnapshot = "";
+let docPageAlign = "left";
+let docPageScale = "normal";
+let docPageGap = "normal";
 
 function docEntryStamp(value) {
   if (!value) return null;
@@ -32,41 +35,42 @@ function docEntryPreview(body) {
   return text.slice(0, 137) + "...";
 }
 
-function docApplyFormat(kind) {
-  const area = document.getElementById("doc-channel-body");
-  if (!area || docEntryMode !== "edit") return;
-  const start = area.selectionStart;
-  const end = area.selectionEnd;
-  const value = area.value;
-  const selected = value.slice(start, end);
-  let next = value;
-  let cursor = end;
-  if (kind === "list" || kind === "quote") {
-    const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
-    const chunk = value.slice(lineStart, end || start);
-    const prefix = kind === "list" ? "- " : "> ";
-    const formatted = chunk.split("\n").map((line) => prefix + line).join("\n");
-    next = value.slice(0, lineStart) + formatted + value.slice(end);
-    cursor = lineStart + formatted.length;
-  } else if (kind === "code" && selected.indexOf("\n") !== -1) {
-    const wrapped = "```\n" + selected + "\n```";
-    next = value.slice(0, start) + wrapped + value.slice(end);
-    cursor = start + wrapped.length;
-  } else {
-    const pair = kind === "bold" ? ["**", "**"] : kind === "italic" ? ["*", "*"] : kind === "under" ? ["__", "__"] : kind === "strike" ? ["~~", "~~"] : ["`", "`"];
-    const wrapped = pair[0] + selected + pair[1];
-    next = value.slice(0, start) + wrapped + value.slice(end);
-    cursor = start + wrapped.length;
-  }
-  area.value = next;
-  area.focus();
-  area.setSelectionRange(cursor, cursor);
-}
 
 function docEntryDraft() {
   const title = document.getElementById("doc-channel-title");
   const body = document.getElementById("doc-channel-body");
-  return (title ? title.value : "") + "\n" + (body ? body.value : "");
+  return (title ? title.value : "") + "\n" + (body ? body.value : "") + "\n" + docPageAlign + "\n" + docPageScale + "\n" + docPageGap;
+}
+
+function docPageChoice(value, allowed, fallback) {
+  const text = String(value || "").toLowerCase();
+  return allowed.indexOf(text) === -1 ? fallback : text;
+}
+
+function setDocPageFromEntry(entry) {
+  docPageAlign = docPageChoice(entry && entry.text_align, ["left", "center", "right"], "left");
+  docPageScale = docPageChoice(entry && entry.text_scale, ["small", "normal", "large"], "normal");
+  docPageGap = docPageChoice(entry && entry.line_gap, ["tight", "normal", "loose"], "normal");
+}
+
+function paintDocPageSettings() {
+  const page = document.getElementById("doc-channel-page");
+  if (page) {
+    page.dataset.align = docPageAlign;
+    page.dataset.scale = docPageScale;
+    page.dataset.gap = docPageGap;
+  }
+  const toolbar = document.getElementById("doc-channel-toolbar");
+  if (!toolbar) return;
+  toolbar.querySelectorAll("[data-doc-align]").forEach((button) => {
+    button.classList.toggle("is-on", button.getAttribute("data-doc-align") === docPageAlign);
+  });
+  toolbar.querySelectorAll("[data-doc-scale]").forEach((button) => {
+    button.classList.toggle("is-on", button.getAttribute("data-doc-scale") === docPageScale);
+  });
+  toolbar.querySelectorAll("[data-doc-gap]").forEach((button) => {
+    button.classList.toggle("is-on", button.getAttribute("data-doc-gap") === docPageGap);
+  });
 }
 
 function hideDocChannelChrome() {
@@ -264,6 +268,8 @@ function openDocEntry(entry) {
     else bodyRead.textContent = entry ? (entry.body || "") : "";
   }
   if (bodyInput) bodyInput.hidden = true;
+  setDocPageFromEntry(entry);
+  paintDocPageSettings();
   paintDocChannelAuthor(entry);
   showDocChannelButton("doc-channel-add", false);
   showDocChannelButton("doc-channel-back", true);
@@ -300,6 +306,8 @@ function openDocEntryEditor(entry) {
     author.hidden = true;
     author.replaceChildren();
   }
+  setDocPageFromEntry(entry);
+  paintDocPageSettings();
   docEntrySnapshot = docEntryDraft();
   showDocChannelButton("doc-channel-add", false);
   showDocChannelButton("doc-channel-back", true);
@@ -360,6 +368,9 @@ async function saveDocEntry() {
   const fields = {
     title: title ? title.value : "",
     body: body ? body.value : "",
+    text_align: docPageAlign,
+    text_scale: docPageScale,
+    line_gap: docPageGap,
   };
   const path = docEntryId ? "edit_doc_entry" : "create_doc_entry";
   const payload = docEntryId ? Object.assign({ doc_id: docEntryId }, fields) : Object.assign({ channel_id: currentChannelId }, fields);
@@ -426,26 +437,20 @@ const docChannelSave = document.getElementById("doc-channel-save");
 if (docChannelSave) docChannelSave.addEventListener("click", saveDocEntry);
 const docChannelToolbar = document.getElementById("doc-channel-toolbar");
 if (docChannelToolbar) {
-  docChannelToolbar.addEventListener("mousedown", (event) => {
-    if (event.target.closest("button")) event.preventDefault();
-  });
   docChannelToolbar.addEventListener("click", (event) => {
     const button = event.target.closest("button");
-    if (!button) return;
-    docApplyFormat(button.getAttribute("data-doc-format"));
+    if (!button || docEntryMode !== "edit") return;
+    const align = button.getAttribute("data-doc-align");
+    const scale = button.getAttribute("data-doc-scale");
+    const gap = button.getAttribute("data-doc-gap");
+    if (align) docPageAlign = align;
+    if (scale) docPageScale = scale;
+    if (gap) docPageGap = gap;
+    paintDocPageSettings();
   });
 }
 const docChannelBody = document.getElementById("doc-channel-body");
-if (docChannelBody) {
-  docChannelBody.addEventListener("keydown", (event) => {
-    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-    const key = event.key.toLowerCase();
-    const kind = key === "b" ? "bold" : key === "i" ? "italic" : key === "u" ? "under" : "";
-    if (!kind) return;
-    event.preventDefault();
-    docApplyFormat(kind);
-  });
-}
+if (docChannelBody && typeof bindMentionComposer === "function") bindMentionComposer(docChannelBody);
 const docChannelMenu = document.getElementById("doc-channel-menu");
 if (docChannelMenu) {
   docChannelMenu.addEventListener("click", (event) => {

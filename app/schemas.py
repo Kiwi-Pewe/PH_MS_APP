@@ -562,11 +562,17 @@ class Doc_entry_create(BaseModel):
     channel_id: int
     title: str = ""
     body: str = ""
+    text_align: str = "left"
+    text_scale: str = "normal"
+    line_gap: str = "normal"
 
 class Doc_entry_edit(BaseModel):
     doc_id: int
     title: str = ""
     body: str = ""
+    text_align: str = "left"
+    text_scale: str = "normal"
+    line_gap: str = "normal"
 
 class Doc_entry_delete(BaseModel):
     doc_id: int

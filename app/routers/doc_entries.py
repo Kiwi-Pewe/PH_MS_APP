@@ -56,6 +56,13 @@ def clean_body(value):
     return body
 
 
+def clean_choice(value, allowed, fallback):
+    text = (value or "").strip().lower()
+    if text in allowed:
+        return text
+    return fallback
+
+
 def username_for(database, user_id):
     account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
     if account and account.username:
@@ -95,6 +102,9 @@ def serialize_entry(database, entry, server_id, roles):
         "sender_role": role_name_for(database, server_id, entry.sender_id, roles),
         "created_at": stamp(entry.created_at),
         "updated_at": stamp(entry.updated_at or entry.created_at),
+        "text_align": clean_choice(getattr(entry, "text_align", None), ("left", "center", "right"), "left"),
+        "text_scale": clean_choice(getattr(entry, "text_scale", None), ("small", "normal", "large"), "normal"),
+        "line_gap": clean_choice(getattr(entry, "line_gap", None), ("tight", "normal", "loose"), "normal"),
     }
 
 
@@ -127,6 +137,9 @@ async def create_doc_entry(body: Doc_entry_create, database: Session = Depends(g
         body=clean_body(body.body),
         sender_id=current_user.id,
         updated_at=now,
+        text_align=clean_choice(body.text_align, ("left", "center", "right"), "left"),
+        text_scale=clean_choice(body.text_scale, ("small", "normal", "large"), "normal"),
+        line_gap=clean_choice(body.line_gap, ("tight", "normal", "loose"), "normal"),
     )
     database.add(entry)
     note_channel_unread(database, server.id, channel.id, current_user.id)
@@ -146,6 +159,9 @@ async def edit_doc_entry(body: Doc_entry_edit, database: Session = Depends(get_d
     require_doc_edit(database, server, current_user.id, entry)
     entry.title = clean_title(body.title)
     entry.body = clean_body(body.body)
+    entry.text_align = clean_choice(body.text_align, ("left", "center", "right"), "left")
+    entry.text_scale = clean_choice(body.text_scale, ("small", "normal", "large"), "normal")
+    entry.line_gap = clean_choice(body.line_gap, ("tight", "normal", "loose"), "normal")
     entry.updated_at = datetime.now(timezone.utc)
     database.commit()
     database.refresh(entry)

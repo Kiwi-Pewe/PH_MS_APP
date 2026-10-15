@@ -395,6 +395,9 @@ class Doc_entry(Base):
     sender_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, nullable=True)
+    text_align = Column(String, nullable=True)
+    text_scale = Column(String, nullable=True)
+    line_gap = Column(String, nullable=True)
 
 
 class Media_item(Base):

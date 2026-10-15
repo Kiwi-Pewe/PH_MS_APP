@@ -631,12 +631,12 @@ function ensureComposerHighlight(input) {
 function refreshComposerMentions(input) {
   if (!input) return;
   const highlight = composerHighlightFor(input);
-  if (highlight) {
-    if (composerAllowsMentions(input)) renderComposerHighlight(highlight, input.value, composerUsesRoleMentions(input));
-    else {
-      highlight.innerHTML = "";
-      highlight.appendChild(document.createTextNode(input.value || ""));
-    }
+  if (highlight && !document.documentElement.classList.contains("legacy-chat-input")) {
+    renderComposerHighlight(highlight, input.value, composerAllowsMentions(input) && composerUsesRoleMentions(input));
+    highlight.scrollTop = input.scrollTop;
+    highlight.scrollLeft = input.scrollLeft;
+  } else if (highlight && composerAllowsMentions(input)) {
+    renderComposerHighlight(highlight, input.value, composerUsesRoleMentions(input));
     highlight.scrollTop = input.scrollTop;
     highlight.scrollLeft = input.scrollLeft;
   }

@@ -2186,6 +2186,7 @@ html.legacy-chat-input #mention-picker { display: none !important; }
 .composer-highlight {
   position: absolute;
   left: 0; right: 0; top: 0; bottom: 0;
+  box-sizing: border-box;
   padding: 8px 6px;
   font-size: 14px;
   font-family: inherit;
@@ -2193,10 +2194,32 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-wrap: break-word;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-gutter: stable;
   pointer-events: none;
   color: var(--text);
 }
+.composer-highlight::-webkit-scrollbar { width: 14px; height: 14px; }
+.composer-highlight::-webkit-scrollbar-thumb { background: transparent; }
+.composer-highlight .md-h1,
+.composer-highlight .md-h2,
+.composer-highlight .md-h3,
+.composer-highlight .md-sub,
+.composer-highlight .md-quote,
+.composer-highlight .md-list,
+.composer-highlight .md-codeblock {
+  display: inline;
+  font-size: inherit;
+  line-height: inherit;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.composer-highlight .md-h1,
+.composer-highlight .md-h2,
+.composer-highlight .md-h3 { font-weight: 800; }
+.composer-highlight .md-sub { color: var(--text-dim); }
 .composer-mention {
   background: rgba(88, 101, 242, 0.35);
   color: #dee0fc;
@@ -2224,14 +2247,20 @@ html.legacy-chat-input #mention-picker { display: none !important; }
 }
 .md-code { padding: 0 4px; }
 .md-codeblock { margin: 4px 0; padding: 8px; white-space: pre-wrap; }
-.md-explicit {
-  background: rgba(255, 255, 255, 0.12);
+.md-explicit,
+.md-explicit * {
+  background: #2b2d31;
   color: transparent;
-  border-radius: 4px;
-  cursor: pointer;
+  border-radius: 3px;
 }
-.md-explicit:hover { color: rgba(255, 255, 255, 0.45); }
-.md-explicit.is-open {
+.md-explicit { cursor: pointer; }
+.md-explicit:hover,
+.md-explicit:hover * {
+  background: #6d6f78;
+  color: transparent;
+}
+.md-explicit.is-open,
+.md-explicit.is-open * {
   color: inherit;
   background: transparent;
   cursor: text;
@@ -2241,6 +2270,7 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   flex: 1; width: 100%; min-width: 0; box-sizing: border-box;
   background: transparent; border: none; color: var(--text); font-size: 14px;
   font-family: inherit; padding: 8px 6px; resize: none; overflow-y: auto;
+  scrollbar-gutter: stable;
   line-height: 1.4; max-height: calc(1.4em * 5); /* caps growth at 5 lines, then scrolls */
 }
 .composer-field textarea {

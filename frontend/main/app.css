@@ -9604,8 +9604,17 @@ a.profile-link-row:hover { color: var(--accent); }
 .voice-user-icon svg,
 .voice-user-tool svg,
 .footer-voice-btn svg { width: 20px; height: 20px; display: block; }
-.voice-user-icon:hover,
-.footer-voice-btn:hover { color: var(--text); background: var(--rail); }
+.voice-user-icon:hover { color: var(--text); background: var(--rail); }
+.footer-voice-btn:hover { background: var(--rail); }
+.footer-voice-btn.is-open { color: #23a559; }
+.footer-voice-btn.is-off { color: var(--text-dim); }
+.footer-voice-btn.is-held,
+.footer-voice-btn.is-held.is-off { color: #ed4245; }
+.footer-voice-btn.is-speaking {
+  box-shadow: 0 0 0 2px #f0b232;
+}
+#footer-mute:disabled,
+#footer-deafen:disabled { opacity: 1; cursor: default; }
 .voice-user-tools { display: flex; align-items: stretch; gap: 8px; }
 .voice-user-tool {
   position: relative;
@@ -9631,7 +9640,6 @@ a.profile-link-row:hover { color: var(--accent); }
 #chat-call-share.is-live { color: var(--accent); }
 #voice-user-screen.is-live { border-color: var(--accent); }
 .voice-user-tool.is-off,
-.footer-voice-btn.is-off,
 .voice-ctrl.is-off,
 .call-tool.is-off { color: #ed4245; }
 .voice-user-tool.is-off { border-color: #ed4245; }

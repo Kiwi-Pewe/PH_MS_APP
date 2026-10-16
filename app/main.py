@@ -360,7 +360,6 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 set_viewer_focus(current_user.id, focused)
             elif data["type"] == "status_line":
                 database.refresh(current_user)
-                from app.routers.profile import clip_text, STATUS_MAX
                 await notify_status_line(
                     database,
                     current_user.id,

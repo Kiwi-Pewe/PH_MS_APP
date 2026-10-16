@@ -9,6 +9,7 @@ let voiceMuted = false;
 let voiceDeafened = false;
 let voiceServerMuted = false;
 let voiceServerDeafened = false;
+let voiceHoldMuted = false;
 let voiceHoldDeafened = false;
 let voiceCameraOn = false;
 let voiceCanTalk = true;
@@ -93,6 +94,12 @@ function syncVoiceSeat(data) {
   voiceJoinedServerId = null;
   voiceJoinedChannelName = "";
   voiceJoinedServerName = "";
+  if (voiceHoldMuted) voiceMuted = false;
+  if (voiceHoldDeafened) voiceDeafened = false;
+  voiceHoldMuted = false;
+  voiceHoldDeafened = false;
+  voiceServerMuted = false;
+  voiceServerDeafened = false;
   if (voiceStageChannelId) closeVoiceStage();
   paintVoiceDock();
 }
@@ -179,6 +186,12 @@ async function leaveVoiceChannel() {
   voiceJoinedChannelName = "";
   voiceJoinedServerName = "";
   voiceCanTalk = true;
+  if (voiceHoldMuted) voiceMuted = false;
+  if (voiceHoldDeafened) voiceDeafened = false;
+  voiceHoldMuted = false;
+  voiceHoldDeafened = false;
+  voiceServerMuted = false;
+  voiceServerDeafened = false;
   paintVoiceDock();
   try {
     await fetch(`https://${serverAddress}/voice_leave`, { method: "POST", credentials: "include" });
@@ -236,10 +249,20 @@ function myVoicePerson() {
 
 function syncServerVoiceHold() {
   const me = myVoicePerson();
-  voiceServerMuted = !!(me && me.server_muted);
+  const wasServerMuted = voiceServerMuted;
   const wasServerDeaf = voiceServerDeafened;
+  voiceServerMuted = !!(me && me.server_muted);
   voiceServerDeafened = !!(me && me.server_deafened);
-  if (voiceServerMuted || voiceServerDeafened) voiceMuted = true;
+  const held = voiceServerMuted || voiceServerDeafened;
+  const wasHeld = wasServerMuted || wasServerDeaf;
+  if (held && !wasHeld && !voiceMuted) voiceHoldMuted = true;
+  if (held) voiceMuted = true;
+  else if (wasHeld && voiceHoldMuted) {
+    voiceMuted = false;
+    voiceHoldMuted = false;
+  } else if (!held) {
+    voiceHoldMuted = false;
+  }
   if (voiceServerDeafened) {
     voiceDeafened = true;
     voiceHoldDeafened = true;
@@ -253,14 +276,26 @@ function syncServerVoiceHold() {
 function paintVoiceInputs() {
   const held = voiceServerMuted || voiceServerDeafened;
   const muteOn = voiceMuted || voiceDeafened || !voiceCanTalk || held;
+  const live = !!(voiceJoinedChannelId || voiceLocalStream);
   document.querySelectorAll("#footer-mute, #voice-ctrl-mute, #chat-call-mute").forEach((button) => {
     button.disabled = !voiceCanTalk || held;
     button.classList.toggle("is-off", muteOn);
+    button.classList.toggle("is-held", held);
+    button.classList.toggle("is-open", live && !muteOn);
+    button.classList.toggle("is-speaking", live && !muteOn && voiceSpeaking);
+    const label = held ? "Server Muted" : (muteOn ? "Unmute" : "Mute");
+    button.title = label;
+    button.setAttribute("aria-label", label);
   });
   const deafen = document.getElementById("footer-deafen");
   if (deafen) {
     deafen.disabled = voiceServerDeafened;
     deafen.classList.toggle("is-off", voiceDeafened);
+    deafen.classList.toggle("is-held", voiceServerDeafened);
+    deafen.classList.toggle("is-open", live && !voiceDeafened);
+    const label = voiceServerDeafened ? "Server Deafened" : (voiceDeafened ? "Undeafen" : "Deafen");
+    deafen.title = label;
+    deafen.setAttribute("aria-label", label);
   }
   document.querySelectorAll("#voice-user-camera, #voice-ctrl-camera, #chat-call-camera").forEach((button) => {
     button.classList.toggle("is-off", !voiceCameraOn);
@@ -773,6 +808,7 @@ function applyVoiceSendState() {
   if (!open && voiceSpeaking) {
     voiceSpeaking = false;
     sendVoiceSpeaking(false);
+    markVoiceSpeaking(myUserId, false);
   }
 }
 
@@ -842,6 +878,11 @@ function markVoiceSpeaking(userId, speaking) {
   const people = voiceMeshPeople();
   const person = people.find((row) => Number(row.user_id) === Number(userId));
   if (person) person.speaking = !!speaking;
+  if (Number(userId) === Number(myUserId)) {
+    document.querySelectorAll("#footer-mute, #voice-ctrl-mute, #chat-call-mute").forEach((button) => {
+      button.classList.toggle("is-speaking", !!speaking);
+    });
+  }
   document.querySelectorAll(".call-face").forEach((face) => {
     if (Number(face.dataset.userId) !== Number(userId)) return;
     const audible = !!speaking && !face.classList.contains("is-ringing");

@@ -4077,21 +4077,30 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   overflow: hidden;
 }
 .doc-channel-card:hover { border-color: var(--text-dim); }
-.doc-channel-card-copy { background: var(--panel-alt); padding: 12px 12px 14px; }
 .doc-channel-card-title {
-  font-size: 15px; font-weight: 700;
+  font-size: 15px; font-weight: 700; text-align: left;
+  background: var(--panel-alt); padding: 10px 12px; border-bottom: 1px solid var(--border);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.doc-channel-card-title .md-h1, .doc-channel-card-title .md-h2, .doc-channel-card-title .md-h3,
+.doc-channel-card-title .md-size { font-size: inherit; display: inline; }
 .doc-channel-card-preview {
-  color: var(--text-dim); font-size: 13px; line-height: 1.4; margin-top: 8px;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  color: var(--text); font-size: 13px; line-height: 1.45; padding: 10px 12px 12px;
+  background: var(--rail); white-space: pre-wrap; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+  max-height: calc(1.45em * 5 + 22px);
 }
+.doc-channel-card-preview .md-size { font-size: inherit; }
+.doc-channel-card-preview .md-image { display: none; }
+.doc-channel-card-preview .md-codeblock { margin: 0; padding: 0 4px; }
 .doc-channel-card-foot {
   display: flex; align-items: center; gap: 8px; margin-top: 0;
-  background: var(--panel); padding: 10px 12px;
+  background: var(--panel); padding: 10px 12px; border-top: 1px solid var(--border);
 }
+.doc-channel-card-foot > div:nth-child(2) { flex: 1; min-width: 0; }
 .doc-channel-card .avatar-dot { width: 28px; height: 28px; font-size: 12px; }
 .doc-channel-card-name { font-size: 13px; font-weight: 700; }
+.doc-channel-card-comments { font-size: 12px; color: var(--text-dim); white-space: nowrap; align-self: flex-end; }
 .doc-channel-card-when { font-size: 12px; color: var(--text-dim); }
 #doc-channel-grid[hidden],
 #doc-channel-page[hidden] { display: none; }

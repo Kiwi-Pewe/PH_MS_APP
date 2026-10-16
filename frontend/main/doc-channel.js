@@ -33,12 +33,16 @@ function docEntryAgo(value) {
   return "Updated " + days + (days === 1 ? " day ago" : " days ago");
 }
 
-function docEntryPreview(body) {
-  const text = String(body || "").replace(/[*_~`|]/g, "").replace(/\s+/g, " ").trim();
-  if (text.length <= 140) return text;
-  return text.slice(0, 137) + "...";
+function paintDocEntryPreview(host, body) {
+  const text = String(body || "").trim();
+  if (!text) {
+    host.textContent = "Empty document";
+    return;
+  }
+  const lines = text.split("\n").slice(0, 6).join("\n");
+  if (typeof mdAppend === "function") mdAppend(host, lines.slice(0, 1200));
+  else host.textContent = lines;
 }
-
 
 function docEntryDraft() {
   const title = document.getElementById("doc-channel-title");
@@ -206,16 +210,13 @@ function paintDocChannelList() {
     const card = document.createElement("button");
     card.type = "button";
     card.className = "doc-channel-card";
-    const copy = document.createElement("div");
-    copy.className = "doc-channel-card-copy";
     const title = document.createElement("div");
     title.className = "doc-channel-card-title";
-    title.textContent = entry.title || "Untitled document";
+    if (typeof mdAppend === "function") mdAppend(title, entry.title || "Untitled document");
+    else title.textContent = entry.title || "Untitled document";
     const preview = document.createElement("div");
     preview.className = "doc-channel-card-preview";
-    preview.textContent = docEntryPreview(entry.body) || "Empty document";
-    copy.appendChild(title);
-    copy.appendChild(preview);
+    paintDocEntryPreview(preview, entry.body);
     const foot = document.createElement("div");
     foot.className = "doc-channel-card-foot";
     const face = document.createElement("span");
@@ -234,9 +235,14 @@ function paintDocChannelList() {
     when.textContent = docEntryAgo(entry.updated_at || entry.created_at);
     meta.appendChild(name);
     meta.appendChild(when);
+    const comments = document.createElement("div");
+    comments.className = "doc-channel-card-comments";
+    comments.textContent = "Comments: " + Number(entry.comment_count || 0);
     foot.appendChild(face);
     foot.appendChild(meta);
-    card.appendChild(copy);
+    foot.appendChild(comments);
+    card.appendChild(title);
+    card.appendChild(preview);
     card.appendChild(foot);
     card.addEventListener("click", () => openDocEntry(entry));
     card.addEventListener("contextmenu", (event) => openDocEntryMenu(event, entry, true));
@@ -613,6 +619,8 @@ async function sendDocComment() {
   if (list && row) list.appendChild(row);
   const count = document.getElementById("doc-comment-count");
   if (count && row) count.textContent = String(Number(count.textContent || 0) + 1);
+  const entry = currentDocEntries.find((item) => Number(item.id) === Number(docEntryId));
+  if (entry && row) entry.comment_count = Number(entry.comment_count || 0) + 1;
 }
 
 function docChannelApplyFormat(kind, value) {

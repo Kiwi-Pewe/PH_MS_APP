@@ -105,6 +105,7 @@ def serialize_entry(database, entry, server_id, roles):
         "text_align": clean_choice(getattr(entry, "text_align", None), ("left", "center", "right"), "left"),
         "text_scale": clean_choice(getattr(entry, "text_scale", None), ("small", "normal", "large"), "normal"),
         "title_align": clean_choice(getattr(entry, "title_align", None), ("left", "center", "right"), "left"),
+        "comment_count": database.query(Doc_comment).filter(Doc_comment.doc_id == entry.id).count(),
     }
 
 

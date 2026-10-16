@@ -4,7 +4,7 @@
 # user so unread counts are a simple filter.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from app.models import (
     UserInfo, Servers, Server_members, Server_categories, Server_channels,
     Server_roles, Server_role_members, Channel_messages, Channel_last_viewed,
@@ -125,23 +125,26 @@ def tokenize_mentions(content, members, roles=None, allow_everyone=True):
     return out, pinged
 
 def expand_pinged(pinged, member_ids, online_ids, role_users=None):
-    targets = set()
+    targets = {}
     member_set = set(member_ids)
     role_users = role_users or {}
     if "everyone" in pinged:
-        targets.update(member_ids)
+        for user_id in member_ids:
+            targets[user_id] = "everyone"
     if "here" in pinged:
-        targets.update(oid for oid in online_ids if oid in member_set)
+        for user_id in online_ids:
+            if user_id in member_set:
+                targets[user_id] = "everyone"
     for item in pinged:
         if item == "everyone" or item == "here":
             continue
         if isinstance(item, str) and item.startswith(ROLE_PING_PREFIX):
             role_id = int(item.split(":", 1)[1])
             for user_id in role_users.get(role_id, []):
-                if user_id in member_set:
-                    targets.add(user_id)
+                if user_id in member_set and targets.get(user_id) != "user":
+                    targets[user_id] = "role"
             continue
-        targets.add(item)
+        targets[item] = "user"
     return targets
 
 def token_user_ids(content):
@@ -225,6 +228,13 @@ def mentioned_user_ids(database, kind, message_id):
     ).all()
     return [row.user_id for row in rows]
 
+def mentioned_sources(database, kind, message_id):
+    rows = database.query(Message_mention).filter(
+        Message_mention.kind == kind,
+        Message_mention.message_id == message_id
+    ).all()
+    return {row.user_id: (row.source or "user") for row in rows}
+
 def decorate_ids(database, kind, ids, texts, user_id):
     pinged = mentioned_map(database, kind, ids, user_id)
     maps = mention_user_maps(database, texts)
@@ -265,21 +275,23 @@ def clear_mentions(database, kind, message_id):
 def clear_channel_mentions(database, channel_id):
     database.query(Message_mention).filter(Message_mention.channel_id == channel_id).delete()
 
-def write_mentions(database, kind, message_id, user_ids, server_id=None, channel_id=None, party_id=None):
+def write_mentions(database, kind, message_id, targets, server_id=None, channel_id=None, party_id=None):
     clear_mentions(database, kind, message_id)
-    for user_id in user_ids:
+    sources = targets if isinstance(targets, dict) else {user_id: "user" for user_id in targets}
+    for user_id, source in sources.items():
         database.add(Message_mention(
             kind = kind,
             message_id = message_id,
             server_id = server_id,
             channel_id = channel_id,
             party_id = party_id,
-            user_id = user_id
+            user_id = user_id,
+            source = source
         ))
 
 def add_reply_ping(targets, author_id, sender_id):
     if author_id and author_id != sender_id:
-        targets.add(author_id)
+        targets[author_id] = "user"
     return targets
 
 def accepted_reply_parent(parent, author_attr="sender_id"):
@@ -514,12 +526,23 @@ def notify_gate(database, server, channel_id, user_id):
     muted = bool(member and member.muted) or bool(row and row.muted)
     if muted and level == "all":
         level = "mentions"
-    suppress = bool(member and member.suppress_pings) or bool(row and row.suppress_pings)
-    return level, suppress
+    blocked = set()
+    if bool(member and member.suppress_pings) or bool(row and row.suppress_pings):
+        blocked.add("everyone")
+    if bool(member and getattr(member, "suppress_roles", False)) or bool(row and getattr(row, "suppress_roles", False)):
+        blocked.add("role")
+    return level, blocked
 
 
-def shape_channel_notice(unread, mention_count, level, suppress):
-    mentions = 0 if suppress or level == "nothing" else int(mention_count or 0)
+def mention_allowed(database, server, channel_id, user_id, source):
+    level, blocked = notify_gate(database, server, channel_id, user_id)
+    if level == "nothing":
+        return False
+    return (source or "user") not in blocked
+
+
+def shape_channel_notice(unread, mention_count, level):
+    mentions = 0 if level == "nothing" else int(mention_count or 0)
     if level == "all":
         show = bool(unread)
     elif level == "mentions":
@@ -541,19 +564,22 @@ def channel_notice(database, channel_id, user_id):
     channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
     unread = channel_has_unseen(database, channel, user_id, since) if channel else False
 
-    mention_count = database.query(func.count(Message_mention.id)).filter(
-        Message_mention.channel_id == channel_id,
-        Message_mention.user_id == user_id,
-        Message_mention.created_at > since
-    ).scalar() or 0
-
     server = None
     if channel:
         category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
         if category:
             server = database.query(Servers).filter(Servers.id == category.server_id).first()
-    level, suppress = notify_gate(database, server, channel_id, user_id)
-    return shape_channel_notice(unread, mention_count, level, suppress)
+    level, blocked = notify_gate(database, server, channel_id, user_id)
+
+    counted = database.query(func.count(Message_mention.id)).filter(
+        Message_mention.channel_id == channel_id,
+        Message_mention.user_id == user_id,
+        Message_mention.created_at > since
+    )
+    if blocked:
+        counted = counted.filter(or_(Message_mention.source.is_(None), Message_mention.source.notin_(list(blocked))))
+    mention_count = counted.scalar() or 0
+    return shape_channel_notice(unread, mention_count, level)
 
 def visible_channel_ids(database, server_id, user_id):
     server = database.query(Servers).filter(Servers.id == server_id).first()

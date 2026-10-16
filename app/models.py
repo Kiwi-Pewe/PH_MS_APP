@@ -161,6 +161,8 @@ class Server_members(Base):
     timeout_reason = Column(String, nullable=True)
     muted = Column(Boolean, default=False)
     suppress_pings = Column(Boolean, default=False)
+    suppress_roles = Column(Boolean, default=False)
+    mute_events = Column(Boolean, default=False)
     notify_level = Column(String, nullable=True)
     nickname = Column(String, nullable=True)
     last_channel_id = Column(Integer, nullable=True)
@@ -173,6 +175,8 @@ class Server_notifications(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     muted = Column(Boolean, default=False)
     suppress_pings = Column(Boolean, default=False)
+    suppress_roles = Column(Boolean, default=False)
+    mute_events = Column(Boolean, default=False)
     notify_level = Column(String, nullable=True)
     __table_args__ = (UniqueConstraint("channel_id", "user_id", name="uq_server_channel_notify"),)
 
@@ -662,6 +666,7 @@ class Message_mention(Base):
     channel_id = Column(Integer, nullable= True)
     party_id = Column(Integer, nullable= True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    source = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 class Server_emojis(Base):

@@ -57,6 +57,8 @@ def serialize_server_prefs(member, server):
         "server_id": server.id,
         "muted": bool(member.muted) if member else False,
         "suppress_pings": bool(member.suppress_pings) if member else False,
+        "suppress_roles": bool(getattr(member, "suppress_roles", False)) if member else False,
+        "mute_events": bool(getattr(member, "mute_events", False)) if member else False,
         "notify_level": level,
         "notify_level_label": NOTIFY_LEVEL_LABELS.get(level, level),
         "server_default_level": server_default_notifications(server),
@@ -70,6 +72,8 @@ def serialize_channel_prefs(row):
         "channel_id": row.channel_id,
         "muted": bool(row.muted),
         "suppress_pings": bool(row.suppress_pings),
+        "suppress_roles": bool(getattr(row, "suppress_roles", False)),
+        "mute_events": bool(getattr(row, "mute_events", False)),
         "notify_level": level or "",
         "notify_level_label": NOTIFY_LEVEL_LABELS.get(level, "") if level else "",
     }
@@ -112,6 +116,10 @@ def update_server_notify_prefs(body: Server_notify_prefs_update, database: Sessi
         member.suppress_pings = bool(body.suppress_pings)
     elif body.suppress_everyone is not None:
         member.suppress_pings = bool(body.suppress_everyone)
+    if body.suppress_roles is not None:
+        member.suppress_roles = bool(body.suppress_roles)
+    if body.mute_events is not None:
+        member.mute_events = bool(body.mute_events)
     database.commit()
     database.refresh(member)
     return {"ok": True, **serialize_server_prefs(member, server)}
@@ -141,6 +149,8 @@ def update_channel_notify_prefs(body: Channel_notify_prefs_update, database: Ses
             user_id=current_user.id,
             muted=False,
             suppress_pings=False,
+            suppress_roles=False,
+            mute_events=False,
             notify_level=None,
         )
         database.add(row)
@@ -153,6 +163,10 @@ def update_channel_notify_prefs(body: Channel_notify_prefs_update, database: Ses
         row.notify_level = level
     if body.suppress_pings is not None:
         row.suppress_pings = bool(body.suppress_pings)
+    if body.suppress_roles is not None:
+        row.suppress_roles = bool(body.suppress_roles)
+    if body.mute_events is not None:
+        row.mute_events = bool(body.mute_events)
     database.commit()
     database.refresh(row)
     return {"ok": True, **serialize_channel_prefs(row)}

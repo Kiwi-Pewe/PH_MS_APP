@@ -505,7 +505,12 @@ def ensure_moderation_columns():
         ("server_members", "notify_level", "VARCHAR"),
         ("server_members", "nickname", "VARCHAR"),
         ("server_members", "last_channel_id", "INTEGER"),
+        ("server_members", "suppress_roles", "BOOLEAN DEFAULT 0"),
+        ("server_members", "mute_events", "BOOLEAN DEFAULT 0"),
         ("server_notifications", "notify_level", "VARCHAR"),
+        ("server_notifications", "suppress_roles", "BOOLEAN DEFAULT 0"),
+        ("server_notifications", "mute_events", "BOOLEAN DEFAULT 0"),
+        ("message_mentions", "source", "VARCHAR"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:

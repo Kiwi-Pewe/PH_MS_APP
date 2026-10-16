@@ -38,6 +38,8 @@ function rememberServerNotifyPrefs(data) {
     server_id: data.server_id,
     muted: !!data.muted,
     suppress_pings: !!data.suppress_pings,
+    suppress_roles: !!data.suppress_roles,
+    mute_events: !!data.mute_events,
     notify_level: level,
     notify_level_label: data.notify_level_label || notifyLevelLabel(level)
   };
@@ -54,6 +56,8 @@ function rememberChannelNotifyList(serverId, rows) {
       channel_id: row.channel_id,
       muted: !!row.muted,
       suppress_pings: !!row.suppress_pings,
+      suppress_roles: !!row.suppress_roles,
+      mute_events: !!row.mute_events,
       notify_level: cleanNotifyLevel(row.notify_level)
     };
   });
@@ -69,6 +73,8 @@ function rememberChannelNotifyPrefs(serverId, data) {
     channel_id: data.channel_id,
     muted: !!data.muted,
     suppress_pings: !!data.suppress_pings,
+    suppress_roles: !!data.suppress_roles,
+    mute_events: !!data.mute_events,
     notify_level: cleanNotifyLevel(data.notify_level)
   };
   channelNotifyByServer[key][String(data.channel_id)] = prefs;
@@ -208,10 +214,9 @@ function notifyDecision(serverId, channelId, mentioned) {
   const channelLevel = channel ? cleanNotifyLevel(channel.notify_level) : "";
   if (channelLevel && NOTIFY_RANK[channelLevel] < NOTIFY_RANK[level]) level = channelLevel;
   const muted = !!(server && server.muted) || !!(channel && channel.muted);
-  const suppress = !!(server && server.suppress_pings) || !!(channel && channel.suppress_pings);
   if (muted && level === "all") level = "mentions";
   if (mentioned) {
-    if (suppress || level === "nothing") return { unread: false, mention: false };
+    if (level === "nothing") return { unread: false, mention: false };
     return { unread: true, mention: true };
   }
   if (level === "all") return { unread: true, mention: false };
@@ -238,7 +243,7 @@ function buildServerNotifySubmenu(serverId, prefs) {
     { separator: true },
     {
       type: "check",
-      label: "Suppress Pings",
+      label: "Suppress @everyone and @here",
       checked: suppress,
       onSelect: (row) => {
         saveServerNotifyPrefs(serverId, { suppress_pings: !!row.checked }).catch(() => {});
@@ -247,70 +252,13 @@ function buildServerNotifySubmenu(serverId, prefs) {
     {
       type: "check",
       label: "Suppress All Role @mentions",
-      checked: false,
-      disabled: true
-    },
-    {
-      type: "check",
-      label: "Suppress Highlights",
-      checked: false,
-      disabled: true
-    },
-    {
-      type: "check",
-      label: "Mute New Events",
-      checked: false,
-      disabled: true
-    },
-    { separator: true },
-    {
-      type: "check",
-      label: "Mobile Push Notifications",
-      checked: true,
-      disabled: true
-    }
-  ]);
-}
-
-function categorySharedNotify(serverId, category, serverPrefs) {
-  const serverLevel = cleanNotifyLevel(serverPrefs && serverPrefs.notify_level) || "all";
-  const serverSuppress = !!(serverPrefs && serverPrefs.suppress_pings);
-  const channels = categoryNotifyChannels(category);
-  if (!channels.length) return { serverLevel, level: serverLevel, suppress: serverSuppress, serverSuppress };
-  const levels = channels.map((channel) => {
-    const prefs = cachedChannelNotifyPrefs(serverId, channel.id);
-    return (prefs && cleanNotifyLevel(prefs.notify_level)) || serverLevel;
-  });
-  const suppressed = channels.map((channel) => {
-    const prefs = cachedChannelNotifyPrefs(serverId, channel.id);
-    return serverSuppress || !!(prefs && prefs.suppress_pings);
-  });
-  const level = levels.every((row) => row === levels[0]) ? levels[0] : "";
-  const suppress = suppressed.every(Boolean);
-  return { serverLevel, level, suppress, serverSuppress };
-}
-
-function buildCategoryNotifySubmenu(serverId, category, serverPrefs) {
-  const shared = categorySharedNotify(serverId, category, serverPrefs);
-  return buildNotifyLevelRows(shared.level, (kind) => saveCategoryNotifyPrefs(serverId, category, { notify_level: kind }), shared.serverLevel).concat([
-    { separator: true },
-    {
-      type: "check",
-      label: "Suppress Pings",
-      checked: shared.suppress,
-      disabled: shared.serverSuppress,
+      checked: !!(prefs && prefs.suppress_roles),
       onSelect: (row) => {
-        saveCategoryNotifyPrefs(serverId, category, { suppress_pings: !!row.checked }).catch(() => {});
+        saveServerNotifyPrefs(serverId, { suppress_roles: !!row.checked }).catch(() => {});
       }
     },
     {
       type: "check",
-      label: "Suppress All Role @mentions",
-      checked: false,
-      disabled: true
-    },
-    {
-      type: "check",
       label: "Suppress Highlights",
       checked: false,
       disabled: true
@@ -318,8 +266,10 @@ function buildCategoryNotifySubmenu(serverId, category, serverPrefs) {
     {
       type: "check",
       label: "Mute New Events",
-      checked: false,
-      disabled: true
+      checked: !!(prefs && prefs.mute_events),
+      onSelect: (row) => {
+        saveServerNotifyPrefs(serverId, { mute_events: !!row.checked }).catch(() => {});
+      }
     },
     { separator: true },
     {
@@ -329,49 +279,87 @@ function buildCategoryNotifySubmenu(serverId, category, serverPrefs) {
       disabled: true
     }
   ]);
+}
+
+const NOTIFY_FLAG_ROWS = [
+  ["suppress_pings", "Suppress @everyone and @here"],
+  ["suppress_roles", "Suppress All Role @mentions"],
+  ["mute_events", "Mute New Events"]
+];
+
+function notifyFlagRows(serverPrefs, flagState, onSave) {
+  const rows = [];
+  NOTIFY_FLAG_ROWS.forEach(([key, label]) => {
+    const serverOn = !!(serverPrefs && serverPrefs[key]);
+    rows.push({
+      type: "check",
+      label,
+      checked: serverOn || !!flagState[key],
+      disabled: serverOn,
+      onSelect: (row) => {
+        const patch = {};
+        patch[key] = !!row.checked;
+        onSave(patch).catch(() => {});
+      }
+    });
+    if (key === "suppress_roles") {
+      rows.push({ type: "check", label: "Suppress Highlights", checked: false, disabled: true });
+    }
+  });
+  return rows;
+}
+
+function categorySharedNotify(serverId, category, serverPrefs) {
+  const serverLevel = cleanNotifyLevel(serverPrefs && serverPrefs.notify_level) || "all";
+  const channels = categoryNotifyChannels(category);
+  const flags = {};
+  NOTIFY_FLAG_ROWS.forEach(([key]) => {
+    flags[key] = channels.length > 0 && channels.every((channel) => {
+      const prefs = cachedChannelNotifyPrefs(serverId, channel.id);
+      return !!(prefs && prefs[key]);
+    });
+  });
+  if (!channels.length) return { serverLevel, level: serverLevel, flags };
+  const levels = channels.map((channel) => {
+    const prefs = cachedChannelNotifyPrefs(serverId, channel.id);
+    return (prefs && cleanNotifyLevel(prefs.notify_level)) || serverLevel;
+  });
+  const level = levels.every((row) => row === levels[0]) ? levels[0] : "";
+  return { serverLevel, level, flags };
+}
+
+function buildCategoryNotifySubmenu(serverId, category, serverPrefs) {
+  const shared = categorySharedNotify(serverId, category, serverPrefs);
+  return buildNotifyLevelRows(shared.level, (kind) => saveCategoryNotifyPrefs(serverId, category, { notify_level: kind }), shared.serverLevel).concat(
+    [{ separator: true }],
+    notifyFlagRows(serverPrefs, shared.flags, (patch) => saveCategoryNotifyPrefs(serverId, category, patch)),
+    [
+      { separator: true },
+      {
+        type: "check",
+        label: "Mobile Push Notifications",
+        checked: true,
+        disabled: true
+      }
+    ]
+  );
 }
 
 function buildChannelNotifySubmenu(serverId, channelId, channelPrefs, serverPrefs) {
   const serverLevel = cleanNotifyLevel(serverPrefs && serverPrefs.notify_level) || "all";
   const ownLevel = channelPrefs ? cleanNotifyLevel(channelPrefs.notify_level) : "";
   const level = ownLevel || serverLevel;
-  const serverSuppress = !!(serverPrefs && serverPrefs.suppress_pings);
-  const suppress = serverSuppress || !!(channelPrefs && channelPrefs.suppress_pings);
-  return buildNotifyLevelRows(level, (kind) => saveChannelNotifyPrefs(serverId, channelId, { notify_level: kind }), serverLevel).concat([
-    { separator: true },
-    {
-      type: "check",
-      label: "Suppress Pings",
-      checked: suppress,
-      disabled: serverSuppress,
-      onSelect: (row) => {
-        saveChannelNotifyPrefs(serverId, channelId, { suppress_pings: !!row.checked }).catch(() => {});
+  return buildNotifyLevelRows(level, (kind) => saveChannelNotifyPrefs(serverId, channelId, { notify_level: kind }), serverLevel).concat(
+    [{ separator: true }],
+    notifyFlagRows(serverPrefs, channelPrefs || {}, (patch) => saveChannelNotifyPrefs(serverId, channelId, patch)),
+    [
+      { separator: true },
+      {
+        type: "check",
+        label: "Mobile Push Notifications",
+        checked: true,
+        disabled: true
       }
-    },
-    {
-      type: "check",
-      label: "Suppress All Role @mentions",
-      checked: false,
-      disabled: true
-    },
-    {
-      type: "check",
-      label: "Suppress Highlights",
-      checked: false,
-      disabled: true
-    },
-    {
-      type: "check",
-      label: "Mute New Events",
-      checked: false,
-      disabled: true
-    },
-    { separator: true },
-    {
-      type: "check",
-      label: "Mobile Push Notifications",
-      checked: true,
-      disabled: true
-    }
-  ]);
+    ]
+  );
 }

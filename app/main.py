@@ -20,7 +20,7 @@ from app.routers.voice import drop_voice_user, fanout_voice, notify_watchers, re
 from app.routers.invites import check_invites, release_temporary_members
 from app.routers.connections import check_steam_playing
 from app.routers.admin import sweep_completed_feedback
-from app.routers.mentions import mentioned_user_ids, mention_user_map, mention_role_map, live_reply_to
+from app.routers.mentions import mentioned_user_ids, mentioned_sources, mention_allowed, mention_user_map, mention_role_map, live_reply_to
 from app.routers.deletion import sweep_pending_deletes
 from app.routers.typing import relay_typing
 from app.routers.profile import STATUS_MAX, clip_text, public_avatar, public_display_name
@@ -251,7 +251,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 server = database.query(Servers).filter(Servers.id == category.server_id).first()
 
                 all_members = database.query(Server_members).filter(Server_members.server_id == server.id).all()
-                pinged_ids = mentioned_user_ids(database, "channel", new_server_msg.id)
+                pinged_ids = mentioned_sources(database, "channel", new_server_msg.id)
                 users_map = mention_user_map(database, new_server_msg.content)
                 roles_map = mention_role_map(database, new_server_msg.content)
                 reply_to = live_reply_to(database, Channel_messages, new_server_msg.reply_to_id)
@@ -275,7 +275,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "content": new_server_msg.content,
                             "attachment": attachment_public(new_server_msg.attachment),
                             "timestamp": str(new_server_msg.timestamp),
-                            "mentioned": member.user_id in pinged_ids,
+                            "mentioned": member.user_id in pinged_ids and mention_allowed(database, server, channel.id, member.user_id, pinged_ids.get(member.user_id)),
                             "mention_users": users_map,
                             "mention_roles": roles_map,
                             "reply_to": reply_to,
@@ -307,7 +307,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                 server = database.query(Servers).filter(Servers.id == category.server_id).first()
 
                 all_members = database.query(Server_members).filter(Server_members.server_id == server.id).all()
-                pinged_ids = mentioned_user_ids(database, "forum", new_forum_msg["id"])
+                pinged_ids = mentioned_sources(database, "forum", new_forum_msg["id"])
                 users_map = mention_user_map(database, new_forum_msg.get("content") or "")
                 roles_map = mention_role_map(database, new_forum_msg.get("content") or "")
                 from app.routers.roles import name_color_role_for_user
@@ -331,7 +331,7 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "content": new_forum_msg.get("content") or "",
                             "attachment": new_forum_msg.get("attachment"),
                             "timestamp": new_forum_msg["timestamp"],
-                            "mentioned": member.user_id in pinged_ids,
+                            "mentioned": member.user_id in pinged_ids and mention_allowed(database, server, channel.id, member.user_id, pinged_ids.get(member.user_id)),
                             "mention_users": users_map,
                             "mention_roles": roles_map,
                             "reply_to": new_forum_msg.get("reply_to"),

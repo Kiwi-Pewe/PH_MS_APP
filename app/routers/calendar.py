@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     UserInfo, Servers, Server_members, Server_categories, Server_channels,
     Server_roles, Server_role_members, Calendar_event, Calendar_event_rsvp,
-    Calendar_event_comment, Schedule_block,
+    Calendar_event_comment, Schedule_block, Server_notifications,
 )
 from app.schemas import (
     Calendar_event_create, Calendar_event_edit, Calendar_event_delete, Calendar_event_rsvp_set,
@@ -405,6 +405,44 @@ async def notify_event_invites(database, server, event, user_ids, actor_id):
         )
 
 
+async def notify_event_created(database, server, event, actor_id, skip_ids):
+    from app.routers.feed import notify_feed_alert
+    from app.routers.mentions import notify_gate
+    context = json.dumps({
+        "event_id": event.id,
+        "channel_id": event.channel_id,
+        "name": event.name or "Event",
+    })
+    skip = set(skip_ids or [])
+    skip.add(actor_id)
+    members = database.query(Server_members).filter(Server_members.server_id == server.id).all()
+    rows = database.query(Server_notifications).filter(
+        Server_notifications.channel_id == event.channel_id,
+        Server_notifications.user_id.in_([m.user_id for m in members] or [-1]),
+    ).all()
+    channel_rows = {row.user_id: row for row in rows}
+    for member in members:
+        if member.user_id in skip:
+            continue
+        if bool(getattr(member, "mute_events", False)):
+            continue
+        row = channel_rows.get(member.user_id)
+        if row and bool(getattr(row, "mute_events", False)):
+            continue
+        level, _blocked = notify_gate(database, server, event.channel_id, member.user_id)
+        if level == "nothing":
+            continue
+        await notify_feed_alert(
+            database,
+            receiver_id=member.user_id,
+            alert_type="event_created",
+            sender_id=actor_id,
+            alert_family="activity",
+            server_id=server.id,
+            context=context,
+        )
+
+
 def broadcast_event(database, server, event):
     rows = event_rsvps(database, event.id)
     payload = serialize_event(database, event, rows, {})
@@ -454,6 +492,7 @@ async def create_calendar_event(body: Calendar_event_create, database: Session =
     database.refresh(event)
     payload = broadcast_event(database, server, event)
     await notify_event_invites(database, server, event, added, current_user.id)
+    await notify_event_created(database, server, event, current_user.id, added)
     await server_broadcast(server_id=server.id, payload={"type": "calendar_event_created", "server_id": server.id, "event": payload}, database=database, exclude_user_id=current_user.id)
     return payload
 

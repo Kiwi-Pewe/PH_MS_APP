@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions
+from sqlalchemy import func, or_
+from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow
 from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
 from zoneinfo import available_timezones
 from app.database import get_db
@@ -1185,8 +1185,10 @@ def purge_channel_contents(database, channel):
         clear_reactions(database, "announcement", post.id)
         clear_pins(database, "announcement", post.id)
         clear_mentions(database, "announcement", post.id)
-        delete_attachment(post.attachment)
+        if not getattr(post, "followed_from_id", None):
+            delete_attachment(post.attachment)
         database.delete(post)
+    database.query(Channel_follow).filter(or_(Channel_follow.source_channel_id == channel.id, Channel_follow.dest_channel_id == channel.id)).delete(synchronize_session=False)
 
     forum_posts = database.query(Forum_post).filter(Forum_post.channel_id == channel.id).all()
     for post in forum_posts:

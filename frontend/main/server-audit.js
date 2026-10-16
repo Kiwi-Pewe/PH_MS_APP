@@ -216,6 +216,17 @@ function auditEntryFields(row) {
     push("Member", detail.username);
     push("Channel", detail.name);
   }
+  if (action === "follow_channel" || action === "unfollow_channel" || action === "move_channel_follow") {
+    push("Source", (detail.source_server || "Server") + " / #" + (detail.source_channel || "announcements"));
+    if (action === "move_channel_follow") {
+      push("From", "#" + (detail.from || ""));
+      push("To", "#" + (detail.to || ""));
+    } else push("Channel", detail.name);
+  }
+  if (action === "publish_announcement") {
+    push("Title", detail.title);
+    push("Channel", detail.name);
+  }
   if (action === "rename_emoji" || action === "update_server" || action === "update_privacy" || action === "update_nickname") {
     if (detail.field) push("Field", detail.field);
     if (detail.from) push("From", detail.from);

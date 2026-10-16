@@ -6,8 +6,8 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
-from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Server_roles, Announcement_post, Announcement_comment, Channel_follow
-from app.schemas import Announcements, Comment_create, Comment_edit, Announcement_highlight, Edit_announcement, Announcement_channel_settings, Channel_follow_body
+from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Server_roles, Announcement_post, Announcement_comment
+from app.schemas import Announcements, Comment_create, Comment_edit, Announcement_highlight, Edit_announcement, Announcement_channel_settings
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
@@ -139,8 +139,16 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
         "post": {"id": new_post.id, "channel_id": new_post.channel_id,"title": new_post.title, "body": new_post.body, "attachment": public_attachment, "created_at": str(new_post.created_at), "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user), "reactions": [], "edited": False, "is_public": bool(new_post.is_public), "comments_open": comments_are_open(new_post), "highlighted": False, "sender_role": ((highest_roles_by_user(database, server.id, [current_user.id]).get(current_user.id) or {}).get("name") or ""), "mention_users": users_map, "mention_roles": roles_map, "mentioned_ids": pinged_ids, "name_role": name_color_role_for_user(database, server.id, current_user.id)}
         }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
-    await fan_out_followed_announcement(database, new_post, current_user)
-    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "edited": False, "is_public": bool(new_post.is_public), "comments_open": comments_are_open(new_post), "highlighted": False, "sender_role": payload["post"]["sender_role"], "mention_users": users_map, "mention_roles": roles_map}
+    published_at = None
+    publish_error = ""
+    if announcement.publish:
+        from app.routers.channel_follows import publish_post
+        try:
+            await publish_post(database, new_post, channel_found, server, current_user)
+            published_at = str(new_post.published_at)
+        except HTTPException as error:
+            publish_error = str(error.detail)
+    return {"channel_type": channel_found.channel_type, "name": channel_found.name, "id": new_post.id, "title": new_post.title, "body": new_post.body, "attachment": public_attachment, "edited": False, "is_public": bool(new_post.is_public), "comments_open": comments_are_open(new_post), "highlighted": False, "sender_role": payload["post"]["sender_role"], "mention_users": users_map, "mention_roles": roles_map, "published_at": published_at, "publish_error": publish_error}
 
 @router.get("/get_announcement/{channel_id}")
 def get_announcement_posts(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id = None, around_id: int = None, q: str = None):
@@ -179,10 +187,15 @@ def get_announcement_posts(channel_id: int, database: Session = Depends(get_db),
     mention_meta = decorate_ids(database, "announcement", [post.id for post in post_history], [post.body for post in post_history], current_user.id)
     name_map = name_color_roles_by_user(database, server.id, sender_ids)
     role_map = highest_roles_by_user(database, server.id, sender_ids)
+    from app.routers.channel_follows import source_info_for_posts
+    source_info = source_info_for_posts(database, post_history)
 
     recent_post = []
     for index, post in enumerate(post_history):
         recent_post.append({
+            "published_at": str(post.published_at) if getattr(post, "published_at", None) else "",
+            "followed": bool(getattr(post, "followed_from_id", None)),
+            "followed_from": source_info.get(post.id),
             "id": post.id,
             "sender_id": post.sender_id,
             "username": username_lookup[post.sender_id],
@@ -435,7 +448,9 @@ async def delete_post(post_id: int,database: Session = Depends(get_db), current_
     clear_reactions(database, "announcement", post_id)
     clear_pins(database, "announcement", post_id)
     clear_mentions(database, "announcement", post_id)
-    delete_attachment(post_exist.attachment)
+    was_copy = bool(getattr(post_exist, "followed_from_id", None))
+    if not was_copy:
+        delete_attachment(post_exist.attachment)
     database.delete(post_exist)
     database.commit()
     payload = {
@@ -445,6 +460,9 @@ async def delete_post(post_id: int,database: Session = Depends(get_db), current_
     }
 
     await server_broadcast(server_id = server.id, payload=payload, database=database, exclude_user_id=current_user.id)
+    if not was_copy:
+        from app.routers.channel_follows import sync_followed_delete
+        await sync_followed_delete(database, post_id)
     return {"post_id": post_id}
 
 @router.post("/edit_announcement")
@@ -459,6 +477,8 @@ async def edit_announcement(edit: Edit_announcement, database: Session = Depends
     is_member = database.query(Server_members).filter(Server_members.user_id == current_user.id, Server_members.server_id == server.id).first()
     if not is_member:
         raise HTTPException(status_code=404, detail="User is not a member")
+    if getattr(post, "followed_from_id", None):
+        raise HTTPException(status_code=403, detail="Followed posts are edited in the server they came from.")
     if current_user.id != post.sender_id:
         raise HTTPException(status_code=403, detail="Not authorized to edit post")
     if not can_edit_own_announcement(database, server, current_user.id, channel.id):
@@ -503,6 +523,9 @@ async def edit_announcement(edit: Edit_announcement, database: Session = Depends
         "mention_roles": roles_map
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
+    if getattr(post, "published_at", None):
+        from app.routers.channel_follows import sync_followed_edit
+        await sync_followed_edit(database, post)
     return {"id": post.id, "title": post.title, "body": post.body, "attachment": public_attachment, "edited": bool(post.edited), "unchanged": False, "comments_open": comments_are_open(post), "mention_users": users_map, "mention_roles": roles_map}
 
 
@@ -604,96 +627,6 @@ def load_joined_announcement(database, channel_id, user_id, perm=None):
     return channel, server
 
 
-def visible_follow_sources(database, user):
-    from app.routers.roles import channel_type_visible
-    found = []
-    memberships = database.query(Server_members).filter(Server_members.user_id == user.id).all()
-    for member in memberships:
-        server = database.query(Servers).filter(Servers.id == member.server_id).first()
-        if not server:
-            continue
-        is_owner = server.owner_id == user.id
-        categories = database.query(Server_categories).filter(Server_categories.server_id == server.id).all()
-        for category in categories:
-            if category.is_private and not is_owner:
-                continue
-            channels = database.query(Server_channels).filter(
-                Server_channels.category_id == category.id,
-                Server_channels.channel_type == "announcements",
-            ).all()
-            for channel in channels:
-                if channel.is_private and not is_owner:
-                    continue
-                perms = effective_perms_for_user_in_channel(database, server, user.id, channel.id)
-                if not channel_type_visible(perms, "announcements"):
-                    continue
-                found.append({
-                    "channel_id": channel.id,
-                    "channel_name": channel.name or "announcements",
-                    "server_name": server.name or "Server",
-                })
-    found.sort(key=lambda row: ((row["server_name"] or "").lower(), (row["channel_name"] or "").lower(), row["channel_id"]))
-    return found
-
-
-async def fan_out_followed_announcement(database, source_post, author):
-    follows = database.query(Channel_follow).filter(Channel_follow.source_channel_id == source_post.channel_id).all()
-    copies = []
-    for follow in follows:
-        dest = database.query(Server_channels).filter(Server_channels.id == follow.dest_channel_id).first()
-        if not dest or dest.channel_type != "announcements":
-            continue
-        category = database.query(Server_categories).filter(Server_categories.id == dest.category_id).first()
-        dest_server = database.query(Servers).filter(Servers.id == category.server_id).first() if category else None
-        if not dest_server:
-            continue
-        copy = Announcement_post(
-            channel_id=dest.id,
-            title=source_post.title,
-            body=source_post.body,
-            sender_id=source_post.sender_id,
-            attachment=source_post.attachment,
-            followed_from_id=source_post.id,
-            is_public=False,
-            comments_open=comments_are_open(source_post),
-        )
-        database.add(copy)
-        copies.append((copy, dest, dest_server))
-    if not copies:
-        return
-    database.commit()
-    users_map = mention_user_map(database, source_post.body)
-    roles_map = mention_role_map(database, source_post.body)
-    public_attachment = post_attachments_public(source_post.attachment)
-    for copy, dest, dest_server in copies:
-        database.refresh(copy)
-        await server_broadcast(server_id=dest_server.id, payload={
-            "type": "announcement_created",
-            "server_id": dest_server.id,
-            "post": {
-                "id": copy.id,
-                "channel_id": dest.id,
-                "title": copy.title,
-                "body": copy.body,
-                "attachment": public_attachment,
-                "created_at": str(copy.created_at),
-                "sender_id": author.id,
-                "username": author.username,
-                "avatar": public_avatar(author),
-                "reactions": [],
-                "edited": False,
-                "is_public": False,
-                "comments_open": comments_are_open(copy),
-                "highlighted": False,
-                "followed": True,
-                "mention_users": users_map,
-                "mention_roles": roles_map,
-                "mentioned_ids": [],
-                "name_role": None,
-            },
-        }, database=database)
-
-
 def public_plain(database, text):
     def repl(match):
         token = match.group(1)
@@ -732,63 +665,6 @@ def save_announcement_channel_settings(body: Announcement_channel_settings, data
     channel.blog_enabled = blog_enabled
     database.commit()
     return {"channel_id": channel.id, "announce_public": bool(channel.announce_public), "blog_enabled": bool(channel.blog_enabled)}
-
-
-@router.get("/channel_follows/{channel_id}")
-def list_channel_follows(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    dest, _server = load_joined_announcement(database, channel_id, current_user.id, "manage_channels")
-    follows = database.query(Channel_follow).filter(Channel_follow.dest_channel_id == dest.id).all()
-    listed = []
-    followed_ids = set()
-    for follow in follows:
-        source = database.query(Server_channels).filter(Server_channels.id == follow.source_channel_id).first()
-        if not source:
-            continue
-        category = database.query(Server_categories).filter(Server_categories.id == source.category_id).first()
-        source_server = database.query(Servers).filter(Servers.id == category.server_id).first() if category else None
-        followed_ids.add(source.id)
-        listed.append({
-            "source_channel_id": source.id,
-            "channel_name": source.name or "announcements",
-            "server_name": source_server.name if source_server and source_server.name else "Server",
-        })
-    sources = [
-        row for row in visible_follow_sources(database, current_user)
-        if row["channel_id"] != dest.id and row["channel_id"] not in followed_ids
-    ]
-    return {"follows": listed, "sources": sources}
-
-
-@router.post("/channel_follows")
-def add_channel_follow(body: Channel_follow_body, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    if body.dest_channel_id == body.source_channel_id:
-        raise HTTPException(status_code=400, detail="A channel cannot follow itself.")
-    dest, _dest_server = load_joined_announcement(database, body.dest_channel_id, current_user.id, "manage_channels")
-    source, source_server = load_joined_announcement(database, body.source_channel_id, current_user.id)
-    database.add(Channel_follow(source_channel_id=source.id, dest_channel_id=dest.id, created_by=current_user.id))
-    try:
-        database.commit()
-    except IntegrityError:
-        database.rollback()
-        raise HTTPException(status_code=400, detail="This channel is already following that one.")
-    return {
-        "source_channel_id": source.id,
-        "channel_name": source.name or "announcements",
-        "server_name": source_server.name or "Server",
-    }
-
-
-@router.post("/channel_follows/remove")
-def remove_channel_follow(body: Channel_follow_body, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    dest, _server = load_joined_announcement(database, body.dest_channel_id, current_user.id, "manage_channels")
-    row = database.query(Channel_follow).filter(
-        Channel_follow.dest_channel_id == dest.id,
-        Channel_follow.source_channel_id == body.source_channel_id,
-    ).first()
-    if row:
-        database.delete(row)
-        database.commit()
-    return {"ok": True}
 
 
 @router.get("/blog/{post_id}", response_class=HTMLResponse)

@@ -3931,6 +3931,16 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .channel-follow-add { display: flex; gap: 8px; margin-top: 12px; }
 .channel-follow-add select { flex: 1; min-width: 0; }
+.channel-follow-label { min-width: 0; font-size: 14px; }
+.channel-follow-dest { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.channel-follow-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.announce-follower-count { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+#announce-follow-btn[hidden], #announce-follower-count[hidden], .announce-notice[hidden] { display: none; }
+#announce-follow-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.announce-notice { margin: 6px 0 0; }
+.announce-published-tag { font-style: normal; color: var(--accent); opacity: 1; }
+.announce-followed-face img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+#follow-channel-modal select { width: 100%; margin-bottom: 10px; }
 #lists-view {
   flex: 1; min-height: 0; display: none; flex-direction: column;
 }
@@ -9238,6 +9248,7 @@ a.profile-link-row:hover { color: var(--accent); }
 #delete-server-overlay,
 #delete-account-overlay,
 #transfer-server-overlay,
+#follow-channel-overlay,
 #gradient-palette-overlay,
 #nickname-overlay {
   position: fixed;
@@ -9251,6 +9262,7 @@ a.profile-link-row:hover { color: var(--accent); }
 #delete-server-overlay[hidden],
 #delete-account-overlay[hidden],
 #transfer-server-overlay[hidden],
+#follow-channel-overlay[hidden],
 #gradient-palette-overlay[hidden],
 #nickname-overlay[hidden] { display: none; }
 #nickname-title {

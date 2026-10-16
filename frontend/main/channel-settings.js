@@ -866,18 +866,7 @@ async function paintChannelFollows() {
     const follows = data.follows || [];
     if (!follows.length) host.appendChild(idle);
     follows.forEach((row) => {
-      const line = document.createElement("div");
-      line.className = "channel-follow-row";
-      const label = document.createElement("div");
-      label.textContent = (row.server_name || "Server") + " / #" + (row.channel_name || "announcements");
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "ghost-btn";
-      remove.textContent = "Unfollow";
-      remove.addEventListener("click", () => removeChannelFollow(row.source_channel_id));
-      line.appendChild(label);
-      line.appendChild(remove);
-      host.appendChild(line);
+      if (typeof buildFollowRow === "function") host.appendChild(buildFollowRow(row, null, paintChannelFollows));
     });
     const sources = data.sources || [];
     if (sources.length) {
@@ -907,7 +896,7 @@ async function paintChannelFollows() {
 
 async function addChannelFollow(sourceId) {
   if (!channelSettingsTarget || !sourceId) return;
-  const response = await fetch(`https://${serverAddress}/channel_follows`, {
+  const response = await fetch(`https://${serverAddress}/follow_channel`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -915,20 +904,13 @@ async function addChannelFollow(sourceId) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    window.alert((typeof data.detail === "string" && data.detail) || "Could not follow that channel.");
+    const host = document.getElementById("channel-settings-follows");
+    const note = document.createElement("p");
+    note.className = "server-settings-help";
+    note.textContent = (typeof data.detail === "string" && data.detail) || "Could not follow that channel.";
+    if (host) host.appendChild(note);
     return;
   }
-  paintChannelFollows();
-}
-
-async function removeChannelFollow(sourceId) {
-  if (!channelSettingsTarget || !sourceId) return;
-  await fetch(`https://${serverAddress}/channel_follows/remove`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ dest_channel_id: channelSettingsTarget.id, source_channel_id: sourceId }),
-  });
   paintChannelFollows();
 }
 

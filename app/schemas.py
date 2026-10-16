@@ -426,6 +426,13 @@ class Channel_follow_body(BaseModel):
     dest_channel_id: int
     source_channel_id: int
 
+class Channel_follow_move(BaseModel):
+    follow_id: int
+    dest_channel_id: int = 0
+
+class Announcement_publish(BaseModel):
+    post_id: int
+
 class Voice_join(BaseModel):
     channel_id: int
 
@@ -447,6 +454,7 @@ class Announcements(BaseModel):
     attachment: Attachment_in | None = None
     notify_all: bool = False
     comments_open: bool = True
+    publish: bool = False
 
 class Comment_create(BaseModel):
     post_id: int

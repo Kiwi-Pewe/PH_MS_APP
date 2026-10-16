@@ -311,6 +311,7 @@ class Announcement_post(Base):
     edited = Column(Boolean, default= False)
     is_public = Column(Boolean, default=False)
     followed_from_id = Column(Integer, nullable=True)
+    published_at = Column(DateTime, nullable=True)
     comments_open = Column(Boolean, default=True)
     highlighted = Column(Boolean, default=False)
     highlighted_at = Column(DateTime, nullable=True)

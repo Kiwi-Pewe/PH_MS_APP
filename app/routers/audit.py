@@ -50,6 +50,10 @@ ACTION_LABELS = {
     "update_forum_tag": "Forum Tag Updated",
     "delete_forum_tag": "Forum Tag Deleted",
     "delete_schedule": "Availability Removed",
+    "follow_channel": "Channel Followed",
+    "unfollow_channel": "Channel Unfollowed",
+    "move_channel_follow": "Follow Moved",
+    "publish_announcement": "Announcement Published",
 }
 
 
@@ -114,6 +118,11 @@ def detail_summary(action, target_type, detail):
     if action == "delete_schedule":
         user = d.get("username") or "member"
         return f"Removed for {user}"
+    if action in ("follow_channel", "unfollow_channel", "move_channel_follow"):
+        source = f"{d.get('source_server') or 'Server'} / #{d.get('source_channel') or 'announcements'}"
+        return f"{source} → #{d.get('name') or 'announcements'}"
+    if action == "publish_announcement":
+        return d.get("title") or "Announcement"
     if action in ("delete_channel", "delete_category", "create_channel", "create_category", "update_channel", "update_category", "create_emoji", "rename_emoji", "delete_emoji"):
         return d.get("name") or target_type or ""
     if action in ("update_server", "update_privacy"):

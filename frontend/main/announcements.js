@@ -123,7 +123,10 @@ function showAnnounceComposerEditing() {
   if (notify) notify.checked = false;
   const commentsOpen = document.getElementById("announce-comments-open-input");
   if (commentsOpen) commentsOpen.checked = true;
+  const publish = document.getElementById("announce-publish-input");
+  if (publish) publish.checked = false;
   paintAnnounceNotifyAll();
+  if (typeof paintAnnounceFollowChrome === "function") paintAnnounceFollowChrome();
   if (typeof clearPostMedia === "function") clearPostMedia("announce");
   document.getElementById("announce-composer-default").style.display = "none";
   document.getElementById("announce-composer-editing").style.display = "flex";
@@ -164,11 +167,13 @@ async function submitCreateAnnouncement() {
   const notifyAll = !!(notifyInput && notifyInput.checked);
   const commentsInput = document.getElementById("announce-comments-open-input");
   const commentsOpen = !commentsInput || commentsInput.checked;
+  const publishInput = document.getElementById("announce-publish-input");
+  const publish = !!(publishInput && publishInput.checked);
   const response = await fetch(`https://${serverAddress}/post_announcement`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ channel_id: currentChannelId, title, body, attachments, notify_all: notifyAll, comments_open: commentsOpen })
+      body: JSON.stringify({ channel_id: currentChannelId, title, body, attachments, notify_all: notifyAll, comments_open: commentsOpen, publish })
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
@@ -190,10 +195,11 @@ async function submitCreateAnnouncement() {
     id: post.id, title: post.title, body: post.body, attachment: post.attachment,
     created_at: new Date().toISOString(), username: myUsername, sender_id: myUserId, reactions: [], edited: false,
     is_public: !!post.is_public, comments_open: post.comments_open !== false, highlighted: false,
-    sender_role: post.sender_role || ""
+    sender_role: post.sender_role || "", published_at: post.published_at || ""
   };
   if (typeof applyMentionFields === "function") applyMentionFields(cardPost, post);
   appendNewAnnouncementPost(cardPost);
+  if (post.publish_error && typeof showAnnounceNotice === "function") showAnnounceNotice(post.publish_error);
 }
 
 // Pure builder, shared by a fresh post / the broadcast handler / the
@@ -223,7 +229,8 @@ function buildAnnouncementPostCard(post) {
   role.className = "announce-post-role";
   role.textContent = post.sender_role || "";
   meta.appendChild(name);
-  if (post.sender_role) meta.appendChild(role);
+  if (post.sender_role || post.followed) meta.appendChild(role);
+  if (post.followed && typeof paintFollowedByline === "function") paintFollowedByline(post, avatar, name, role);
   const menuBtn = document.createElement("button");
   menuBtn.className = "announce-post-menu-btn";
   menuBtn.title = "More";
@@ -455,6 +462,7 @@ async function loadAnnouncementPosts(channelId) {
   announcementIsLoadingMore = false;
   const container = document.getElementById("announcements-posts");
   container.innerHTML = "";
+  if (typeof loadAnnounceFollowInfo === "function" && !announcementSearchActive()) loadAnnounceFollowInfo(channelId);
   try {
     const response = await fetch(`https://${serverAddress}/get_announcement/${channelId}${announcementSearchParams()}`, { credentials: "include" });
     if (!response.ok) return;
@@ -567,7 +575,8 @@ function showPostContextMenu(e, post) {
     subtitle: truncateForContextMenu(post.title)
   }, [
     { label: "Add Reaction", onSelect: () => openReactionPicker(announceReactionTarget(post), e.clientX, e.clientY) },
-    canEditAnnouncement(post) && { label: "Edit Post", onSelect: () => startAnnouncementEdit(post) },
+    !post.followed && canEditAnnouncement(post) && { label: "Edit Post", onSelect: () => startAnnouncementEdit(post) },
+    typeof announceCanPublish === "function" && announceCanPublish(post) && { label: "Publish", onSelect: () => publishAnnouncementPost(post) },
     canHighlightAnnouncement(post) && {
       label: post.highlighted ? "Remove highlight" : "Highlight",
       onSelect: () => toggleAnnouncementHighlight(post),
@@ -647,7 +656,16 @@ function fillAnnouncePostContent(card, post) {
     tag.textContent = "edited";
     titleRow.appendChild(tag);
   }
+  if (post.published_at && typeof buildPublishedTag === "function") titleRow.appendChild(buildPublishedTag());
   wrap.appendChild(titleRow);
+  if (post.followed && typeof followedPostCanJump === "function" && followedPostCanJump(post)) {
+    const jump = document.createElement("button");
+    jump.type = "button";
+    jump.className = "announce-public-link";
+    jump.textContent = "Jump to original";
+    jump.addEventListener("click", () => jumpToFollowedSource(post));
+    wrap.appendChild(jump);
+  }
   if (post.is_public) {
     const link = document.createElement("button");
     link.type = "button";
@@ -852,9 +870,13 @@ function applyAnnouncementEdit(data) {
   post.attachment = data.attachment;
   post.edited = !!data.edited;
   if (data.comments_open != null) post.comments_open = !!data.comments_open;
+  if (data.source_deleted && post.followed_from) post.followed_from.source_deleted = true;
   if (typeof applyMentionFields === "function") applyMentionFields(post, data);
   const card = document.querySelector(`.announce-post[data-post-id="${post.id}"]`);
   if (card) {
+    if (data.source_deleted && typeof paintFollowedByline === "function") {
+      paintFollowedByline(post, null, null, card.querySelector(".announce-post-role"));
+    }
     fillAnnouncePostContent(card, post);
     const composer = card.querySelector(".announce-comment-composer");
     if (composer) composer.hidden = post.comments_open === false;

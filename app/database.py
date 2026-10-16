@@ -323,6 +323,7 @@ def ensure_channel_columns():
         ("server_channels", "explicit", "BOOLEAN DEFAULT 0"),
         ("announcements", "is_public", "BOOLEAN DEFAULT 0"),
         ("announcements", "followed_from_id", "INTEGER"),
+        ("announcements", "published_at", "DATETIME"),
         ("announcements", "comments_open", "BOOLEAN DEFAULT 1"),
         ("announcements", "highlighted", "BOOLEAN DEFAULT 0"),
         ("announcements", "highlighted_at", "DATETIME"),

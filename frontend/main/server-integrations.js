@@ -8,7 +8,7 @@
 function paintServerIntegrationsPage() {
   const page = document.getElementById("server-settings-integrations");
   if (!page || page.hidden) return;
-  // Lists stay empty until each integration ships. Empty copy is in HTML.
+  if (typeof paintServerFollows === "function") paintServerFollows();
 }
 
 async function loadServerIntegrationsPage() {

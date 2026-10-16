@@ -741,6 +741,10 @@ function connectSocket() {
       applyAnnouncementEdit(data);
     }
 
+    if (data.type === "announcement_published" && typeof markAnnouncementPublished === "function") {
+      if (currentChannelId === data.channel_id) markAnnouncementPublished(data.post_id, data.published_at);
+    }
+
     if (data.type === "doc_locked") handleDocLocked(data);
     if (data.type === "doc_unlocked") handleDocUnlocked(data);
     if (data.type === "doc_updated") handleDocUpdated(data);

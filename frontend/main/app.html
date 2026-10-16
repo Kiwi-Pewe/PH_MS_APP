@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=330">
+<link rel="stylesheet" href="app.css?v=332">
 </head>
 <body>
 
@@ -361,8 +361,11 @@
             <div id="announce-slowmode-indicator" class="slowmode-indicator is-inline" hidden></div>
             <div id="announce-composer-default" class="announce-composer-default">
               <input type="search" id="announcement-search-input" class="search-box announce-composer-search" placeholder="Search" autocomplete="off" spellcheck="false">
+              <span id="announce-follower-count" class="announce-follower-count" hidden></span>
+              <button type="button" class="ghost-btn" id="announce-follow-btn" hidden>Follow</button>
               <button class="pill-btn" id="announce-new-post-btn">New Post</button>
             </div>
+            <p id="announce-notice" class="server-settings-help announce-notice" hidden></p>
             <div id="announce-composer-editing" class="announce-composer-editing" style="display:none;">
               <div class="announce-composer-editing-main">
                 <div class="announce-composer-editing-fields">
@@ -405,6 +408,13 @@
                     <span>Notify all members</span>
                     <label class="toggle-switch">
                       <input type="checkbox" id="announce-notify-all-input">
+                      <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    </label>
+                  </div>
+                  <div class="announce-notify-all" id="announce-publish" hidden>
+                    <span>Publish</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="announce-publish-input">
                       <span class="toggle-track"><span class="toggle-thumb"></span></span>
                     </label>
                   </div>
@@ -1269,6 +1279,13 @@
           <div id="server-integrations-youtube-list" class="server-integrations-list"></div>
           <p id="server-integrations-youtube-empty" class="server-settings-help">No YouTube channel linked.</p>
         </section>
+        <section class="server-integrations-section" aria-labelledby="server-integrations-follows-title">
+          <div class="server-integrations-section-head">
+            <h3 id="server-integrations-follows-title" class="server-integrations-section-title">Channel Following</h3>
+          </div>
+          <div id="server-integrations-follows-list" class="server-integrations-list"></div>
+          <p id="server-integrations-follows-empty" class="server-settings-help">No announcement channels are being followed into this server.</p>
+        </section>
       </div>
 
       <div id="server-settings-audit" class="server-audit-page" hidden>
@@ -1473,7 +1490,7 @@
       </div>
       <div id="channel-settings-integrations" class="server-settings-page is-channel-only" hidden>
         <h2 class="server-settings-page-title">Integrations</h2>
-        <p class="server-settings-help">Apps and webhooks that post into this channel. Layout only until webhooks ship.</p>
+        <p class="server-settings-help">Followed announcement channels land here. Webhooks stay a later pass.</p>
         <section class="server-integrations-section">
           <div class="server-integrations-section-head">
             <h3 class="server-integrations-section-title">Webhooks</h3>
@@ -2003,6 +2020,27 @@
     </div>
   </div>
 
+  <div id="follow-channel-overlay" hidden>
+    <div id="follow-channel-modal" class="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="follow-channel-title">
+      <div class="delete-server-header">
+        <span id="follow-channel-title">Follow Channel</span>
+        <button type="button" class="icon-btn" id="follow-channel-close" title="Close">&times;</button>
+      </div>
+      <div class="delete-server-body">
+        <p class="delete-server-copy" id="follow-channel-copy">Published posts from this channel will appear in the channel you pick.</p>
+        <label class="delete-server-label" for="follow-channel-server">Server</label>
+        <select id="follow-channel-server" class="settings-select server-settings-select"></select>
+        <label class="delete-server-label" for="follow-channel-dest">Channel</label>
+        <select id="follow-channel-dest" class="settings-select server-settings-select"></select>
+      </div>
+      <div class="delete-server-footer">
+        <p id="follow-channel-error" class="server-settings-help" hidden></p>
+        <button type="button" class="ghost-btn" id="follow-channel-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="follow-channel-confirm">Follow</button>
+      </div>
+    </div>
+  </div>
+
   <div id="transfer-server-overlay" hidden>
     <div id="transfer-server-modal" class="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="transfer-server-title">
       <div class="delete-server-header">
@@ -2243,7 +2281,7 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=127"></script>
+<script src="boot.js?v=128"></script>
 <script src="app-shell.js?v=68"></script>
 <script src="feed.js?v=17"></script>
 <script src="settings.js?v=20"></script>
@@ -2310,7 +2348,8 @@
 <script src="members.js?v=22"></script>
 <script src="mini-profile.js?v=11"></script>
 <script src="server-modals.js?v=48"></script>
-<script src="announcements.js?v=64"></script>
+<script src="announcements.js?v=65"></script>
+<script src="channel-follows.js?v=2"></script>
 <script src="comments.js?v=55"></script>
 <script src="forums.js?v=68"></script>
 <script src="lists.js?v=5"></script>

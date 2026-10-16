@@ -330,7 +330,11 @@ async def voice_ice(current_user: UserInfo = Depends(get_current_user)):
 @router.post("/voice_join")
 async def join_voice(body: Voice_join, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     from app.routers.roles import effective_perms_for_user_in_channel, require_channel_perm
+    from app.routers.moderation import require_not_timed_out
     channel, server = load_voice_channel(database, body.channel_id, current_user.id)
+    membership = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
+    if membership:
+        require_not_timed_out(membership, "You are timed out.")
     require_channel_perm(database, server, current_user.id, channel.id, "hear_voice", "You do not have permission to join this voice channel.")
     can_talk = bool(effective_perms_for_user_in_channel(database, server, current_user.id, channel.id).get("talk_voice"))
     existing = (voice_rooms.get(server.id) or {}).get(channel.id) or []
@@ -353,27 +357,92 @@ async def join_voice(body: Voice_join, database: Session = Depends(get_db), curr
     return payload
 
 
+def voice_member_name(database, user_id):
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    return account.username if account and account.username else "member"
+
+
+def require_voice_move_perm(database, server, user_id, channel_id):
+    from app.routers.roles import effective_perms_for_user_in_channel
+    perms = effective_perms_for_user_in_channel(database, server, user_id, channel_id)
+    if not perms.get("move_voice"):
+        raise HTTPException(status_code=403, detail="You do not have permission to move members.")
+    return perms
+
+
 @router.post("/voice_moderate")
 async def voice_moderate(body: Voice_moderate, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     from app.routers.roles import can_moderate_target, effective_perms_for_user, effective_perms_for_user_in_channel, require_server_member
+    from app.routers.deletion import write_audit_log
     server = require_server_member(database, body.server_id, current_user.id)
     require_server_member(database, body.server_id, body.user_id)
     if not can_moderate_target(database, server, current_user.id, body.user_id):
         raise HTTPException(status_code=403, detail="You can only change members below your highest role.")
     seat_server, seat_channel, _people = voice_seat(body.user_id)
-    if seat_server == server.id and seat_channel is not None and not is_call_server(seat_server):
+    seated = seat_server == server.id and seat_channel is not None and not is_call_server(seat_server)
+    if seated:
         perms = effective_perms_for_user_in_channel(database, server, current_user.id, seat_channel)
     else:
         perms = effective_perms_for_user(database, server, current_user.id)
+    username = voice_member_name(database, body.user_id)
+    if body.disconnect or body.dest_channel_id:
+        if not seated:
+            raise HTTPException(status_code=400, detail="That member is not in a voice channel.")
+        require_voice_move_perm(database, server, current_user.id, seat_channel)
+        source = database.query(Server_channels).filter(Server_channels.id == seat_channel).first()
+        source_name = source.name if source and source.name else "Voice"
+        if body.disconnect:
+            write_audit_log(database, server.id, current_user.id, "voice_disconnect", "member", body.user_id, {
+                "username": username,
+                "name": source_name,
+            })
+            database.commit()
+            await release_voice_seat(database, body.user_id)
+            return {"ok": True, "disconnected": True}
+        dest, dest_server = load_voice_channel(database, body.dest_channel_id, current_user.id)
+        if dest_server.id != server.id:
+            raise HTTPException(status_code=400, detail="Move a member within the same server.")
+        if dest.id == seat_channel:
+            return {"ok": True, "channel_id": dest.id}
+        require_voice_move_perm(database, server, current_user.id, dest.id)
+        dest_people = (voice_rooms.get(server.id) or {}).get(dest.id) or []
+        others = [person for person in dest_people if person["user_id"] != body.user_id]
+        if len(others) >= channel_voice_cap(dest):
+            raise HTTPException(status_code=400, detail="That voice channel is full.")
+        rooms = voice_rooms.setdefault(server.id, {})
+        source_people = rooms.get(seat_channel) or []
+        person = next((row for row in source_people if row["user_id"] == body.user_id), None)
+        if not person:
+            raise HTTPException(status_code=400, detail="That member is not in a voice channel.")
+        rooms[seat_channel] = [row for row in source_people if row["user_id"] != body.user_id]
+        dest_list = rooms.setdefault(dest.id, [])
+        dest_list.append(person)
+        stamp_voice_moderation(server.id, person)
+        write_audit_log(database, server.id, current_user.id, "voice_move", "member", body.user_id, {
+            "username": username,
+            "from": source_name,
+            "to": dest.name or "Voice",
+        })
+        database.commit()
+        await fanout_voice(database, server.id)
+        return {"ok": True, "channel_id": dest.id}
     state = dict(moderation_for(server.id, body.user_id))
     if body.muted is not None:
         if not perms.get("mute_members"):
             raise HTTPException(status_code=403, detail="You do not have permission to mute members.")
         state["muted"] = bool(body.muted)
+        write_audit_log(database, server.id, current_user.id, "voice_unmute" if not state["muted"] else "voice_mute", "member", body.user_id, {
+            "username": username,
+        })
     if body.deafened is not None:
         if not perms.get("deafen_members"):
             raise HTTPException(status_code=403, detail="You do not have permission to deafen members.")
         state["deafened"] = bool(body.deafened)
+        if state["deafened"]:
+            state["muted"] = True
+        write_audit_log(database, server.id, current_user.id, "voice_undeafen" if not state["deafened"] else "voice_deafen", "member", body.user_id, {
+            "username": username,
+        })
     key = moderation_key(server.id, body.user_id)
     if state["muted"] or state["deafened"]:
         voice_moderation[key] = state
@@ -383,6 +452,7 @@ async def voice_moderate(body: Voice_moderate, database: Session = Depends(get_d
         for person in people:
             if person["user_id"] == body.user_id:
                 stamp_voice_moderation(server.id, person)
+    database.commit()
     await fanout_voice(database, server.id)
     return {"ok": True, "muted": bool(state["muted"]), "deafened": bool(state["deafened"])}
 

@@ -32,6 +32,10 @@ function markServerDndTarget(el, mode) {
   } else if (serverDndKind === "role") {
     const row = document.querySelector(`.server-role-item[data-role-id="${String(serverDndId)}"]`);
     if (row) row.classList.add("dnd-dragging");
+  } else if (serverDndKind === "voice-user") {
+    document.querySelectorAll(`.voice-rail-user[data-user-id="${String(serverDndId)}"], .voice-tile[data-user-id="${String(serverDndId)}"]`).forEach((row) => {
+      row.classList.add("dnd-dragging");
+    });
   }
   if (mode === "before") el.classList.add("dnd-drop-before");
   else if (mode === "after") el.classList.add("dnd-drop-after");
@@ -293,6 +297,46 @@ async function commitChannelDrop(drop) {
   } catch (err) {
     if (currentServerId && typeof openServer === "function") openServer(currentServerId);
   }
+}
+
+function bindVoiceUserDrag(line, person) {
+  if (!line || !person || Number(person.user_id) === Number(myUserId)) return;
+  if (typeof canModerateVoicePerson !== "function" || !canModerateVoicePerson(person, "move_voice")) return;
+  line.draggable = true;
+  line.addEventListener("dragstart", (e) => {
+    e.stopPropagation();
+    serverDndKind = "voice-user";
+    serverDndId = person.user_id;
+    serverDndMoved = true;
+    line.classList.add("dnd-dragging");
+    try { e.dataTransfer.setData("text/plain", String(person.user_id)); } catch (err) {}
+    e.dataTransfer.effectAllowed = "move";
+  });
+  line.addEventListener("dragend", () => endServerDnd());
+}
+
+function bindVoiceMemberDrop(el, channelId) {
+  if (!el || channelId == null || channelId === "") return;
+  el.addEventListener("dragover", (e) => {
+    if (serverDndKind !== "voice-user" || serverDndId == null) return;
+    const here = typeof voiceChannelIdFor === "function" ? voiceChannelIdFor(serverDndId) : null;
+    if (Number(here) === Number(channelId)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    serverDndDrop = { kind: "voice-user", channelId };
+    markServerDndTarget(el, "into");
+  });
+  el.addEventListener("drop", async (e) => {
+    if (serverDndKind !== "voice-user" || serverDndId == null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const userId = Number(serverDndId);
+    const destId = Number((serverDndDrop && serverDndDrop.kind === "voice-user" && serverDndDrop.channelId) || channelId);
+    endServerDnd();
+    serverDndMoved = true;
+    if (typeof postVoiceModerate === "function") postVoiceModerate(userId, { dest_channel_id: destId });
+  });
 }
 
 document.addEventListener("dragover", (e) => {

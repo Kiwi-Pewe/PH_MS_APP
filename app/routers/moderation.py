@@ -135,6 +135,8 @@ async def remove_member(database, server, target_user, membership, actor, action
         ),
     })
     database.commit()
+    from app.routers.voice import release_voice_seat
+    await release_voice_seat(database, target_user.id)
     await notify_feed_alert(
         database,
         receiver_id=target_user.id,
@@ -262,6 +264,9 @@ async def timeout_server_member(body: Server_moderation_in, database: Session = 
     }
     await server_broadcast(server_id=server.id, payload=payload, database=database, exclude_user_id=current_user.id)
     await notify_user(target.id, payload)
+    if body.seconds:
+        from app.routers.voice import release_voice_seat
+        await release_voice_seat(database, target.id)
     return {"ok": True, **payload}
 
 

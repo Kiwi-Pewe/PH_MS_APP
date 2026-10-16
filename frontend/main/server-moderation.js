@@ -70,10 +70,16 @@ function applyMemberTimeout(serverId, userId, until, reason) {
   if (String(currentServerId) === String(serverId) && userId === myUserId) {
     currentServerTimeoutUntil = until || null;
     paintServerTimeoutLock();
+    if (until && typeof leaveVoiceChannel === "function" && String(voiceJoinedServerId || "") === String(serverId)) {
+      leaveVoiceChannel();
+    }
   }
 }
 
 async function applyRemovedFromServer(data) {
+  if (data && String(voiceJoinedServerId || "") === String(data.server_id) && typeof leaveVoiceChannel === "function") {
+    leaveVoiceChannel();
+  }
   if (data && data.server_id === currentServerId && typeof goHome === "function") {
     await goHome();
   }

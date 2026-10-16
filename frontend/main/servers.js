@@ -398,6 +398,7 @@ function renderServerSidebar(data) {
       row.className = "channel-row";
       row.dataset.channelId = channel.id;
       row.dataset.categoryId = category.id;
+      row.dataset.channelType = channel.channel_type || "";
       row.dataset.dndKind = "channel";
 
       const icon = document.createElement("span");
@@ -431,6 +432,7 @@ function renderServerSidebar(data) {
       });
       row.addEventListener("contextmenu", (e) => showChannelContextMenu(e, channel));
       if (canLayout && typeof bindChannelDrag === "function") bindChannelDrag(row, channel);
+      if (channel.channel_type === "voice" && typeof bindVoiceMemberDrop === "function") bindVoiceMemberDrop(row, channel.id);
       channelsEl.appendChild(row);
     });
 

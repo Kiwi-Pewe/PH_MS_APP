@@ -649,7 +649,9 @@
 .category-block.dnd-dragging,
 .channel-row.dnd-dragging,
 .server-role-item.dnd-dragging,
-.profile-page-item.dnd-dragging { opacity: 0.45; }
+.profile-page-item.dnd-dragging,
+.voice-rail-user.dnd-dragging,
+.voice-tile.dnd-dragging { opacity: 0.45; }
 .server-icon-wrap.dnd-drop-before::before,
 .category-block.dnd-drop-before::before,
 .channel-row.dnd-drop-before::before,
@@ -684,7 +686,8 @@
 .category-block,
 .channel-row { position: relative; }
 .category-header.dnd-drop-into,
-.category-channels.dnd-drop-into {
+.category-channels.dnd-drop-into,
+.channel-row.dnd-drop-into {
   outline: 1px dashed var(--accent);
   outline-offset: -2px;
   border-radius: 6px;
@@ -9871,6 +9874,9 @@ a.profile-link-row:hover { color: var(--accent); }
   cursor: pointer;
 }
 .voice-rail-user:hover { background: var(--panel-alt); }
+.voice-rail-user[draggable="true"] { cursor: grab; }
+.voice-rail-user[draggable="true"]:active { cursor: grabbing; }
+.voice-rail.dnd-drop-into { outline: 1px dashed var(--accent, var(--text-dim)); }
 .voice-rail-face {
   position: relative;
   width: 24px;
@@ -10048,6 +10054,8 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 24px;
   overflow: auto;
 }
+.voice-tile[draggable="true"] { cursor: grab; }
+.voice-tile[draggable="true"]:active { cursor: grabbing; }
 .voice-tile {
   flex: 0 0 auto;
   width: 320px;

@@ -20,7 +20,7 @@ let channelSettingsPermLive = [
   "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
   "view_docs", "create_docs", "manage_docs",   "remove_docs",
   "see_media", "create_media", "manage_media", "remove_media",
-  "hear_voice", "talk_voice", "mute_members", "deafen_members", "voice_messages",
+  "hear_voice", "talk_voice", "mute_members", "deafen_members", "move_voice", "voice_messages",
   "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
   "view_schedules", "create_schedule", "delete_schedule",
   "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
@@ -214,7 +214,7 @@ const CHANNEL_SETTINGS_PERM_COPY = {
   },
   move_voice: {
     title: "Move members",
-    desc: "Allows moving members in this voice channel.",
+    desc: "Allows moving members to other voice channels and disconnecting them.",
   },
   broadcast_voice: {
     title: "Broadcast",

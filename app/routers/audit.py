@@ -54,6 +54,12 @@ ACTION_LABELS = {
     "unfollow_channel": "Channel Unfollowed",
     "move_channel_follow": "Follow Moved",
     "publish_announcement": "Announcement Published",
+    "voice_mute": "Member Server Muted",
+    "voice_unmute": "Member Server Unmuted",
+    "voice_deafen": "Member Server Deafened",
+    "voice_undeafen": "Member Server Undeafened",
+    "voice_disconnect": "Member Disconnected",
+    "voice_move": "Member Moved",
 }
 
 
@@ -71,7 +77,7 @@ def parse_detail(raw):
 
 def detail_summary(action, target_type, detail):
     d = detail or {}
-    if action in ("kick_member", "ban_member", "unban_member", "timeout_member", "timeout_clear", "member_joined", "member_left"):
+    if action in ("kick_member", "ban_member", "unban_member", "timeout_member", "timeout_clear", "member_joined", "member_left", "voice_mute", "voice_unmute", "voice_deafen", "voice_undeafen"):
         name = d.get("username") or ""
         reason = (d.get("reason") or "").strip()
         bits = [name] if name else []
@@ -123,6 +129,13 @@ def detail_summary(action, target_type, detail):
         return f"{source} → #{d.get('name') or 'announcements'}"
     if action == "publish_announcement":
         return d.get("title") or "Announcement"
+    if action == "voice_disconnect":
+        name = d.get("username") or "member"
+        channel = d.get("name") or "Voice"
+        return f"{name} from {channel}"
+    if action == "voice_move":
+        name = d.get("username") or "member"
+        return f"{name}: {d.get('from') or 'Voice'} → {d.get('to') or 'Voice'}"
     if action in ("delete_channel", "delete_category", "create_channel", "create_category", "update_channel", "update_category", "create_emoji", "rename_emoji", "delete_emoji"):
         return d.get("name") or target_type or ""
     if action in ("update_server", "update_privacy"):

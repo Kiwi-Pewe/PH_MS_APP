@@ -68,8 +68,22 @@ function syncVoiceSeat(data) {
   });
   if (voiceJoinedServerId && String(data.server_id) !== String(voiceJoinedServerId)) return;
   if (found) {
+    const moved = Number(voiceJoinedChannelId) !== Number(found);
     voiceJoinedChannelId = found;
     voiceJoinedServerId = data.server_id;
+    const channel = voiceChannelById(found);
+    if (channel) voiceJoinedChannelName = channel.name || "Voice";
+    if (channel && channel.permissions && Object.prototype.hasOwnProperty.call(channel.permissions, "talk_voice")) {
+      voiceCanTalk = !!channel.permissions.talk_voice;
+    } else if (typeof canServerPerm === "function") {
+      voiceCanTalk = !!canServerPerm("talk_voice");
+    }
+    if (currentServerOwnerId === myUserId) voiceCanTalk = true;
+    if (!voiceCanTalk) voiceMuted = true;
+    if (moved && voiceStageChannelId) {
+      voiceStageChannelId = found;
+      paintVoiceStage();
+    }
     paintVoiceDock();
     return;
   }
@@ -99,6 +113,10 @@ async function loadVoiceRoster(serverId) {
 }
 
 async function joinVoiceChannel(channel) {
+  if (typeof isServerTimedOut === "function" && isServerTimedOut()) {
+    window.alert("You are timed out.");
+    return false;
+  }
   const response = await fetch(`https://${serverAddress}/voice_join`, {
     method: "POST",
     credentials: "include",
@@ -297,6 +315,7 @@ function paintVoiceRails() {
     people.forEach((person) => {
       const line = document.createElement("button");
       line.type = "button";
+      line.dataset.userId = String(person.user_id);
       line.className = "voice-rail-user" + (person.server_muted || person.server_deafened ? " is-server-muted" : "");
       const face = document.createElement("span");
       face.className = "voice-rail-face";
@@ -327,11 +346,15 @@ function paintVoiceRails() {
       }
       line.addEventListener("click", (event) => {
         event.stopPropagation();
+        if (typeof serverDndConsumeClick === "function" && serverDndConsumeClick()) return;
         if (typeof openMiniProfile === "function") openMiniProfile(person.user_id, line);
       });
       line.addEventListener("contextmenu", (event) => openVoiceModerationMenu(event, person));
+      if (typeof bindVoiceUserDrag === "function") bindVoiceUserDrag(line, person);
       rail.appendChild(line);
     });
+    rail.dataset.channelId = row.dataset.channelId || "";
+    if (typeof bindVoiceMemberDrop === "function") bindVoiceMemberDrop(rail, row.dataset.channelId);
     row.after(rail);
   });
 }
@@ -446,6 +469,7 @@ function paintVoiceTile(person) {
   mountVoiceFace(face, person, !!person.speaking, 96);
   tile.appendChild(face);
   tile.addEventListener("contextmenu", (event) => openVoiceModerationMenu(event, person));
+  if (typeof bindVoiceUserDrag === "function") bindVoiceUserDrag(tile, person);
   return tile;
 }
 
@@ -482,6 +506,26 @@ function canModerateVoicePerson(person, perm) {
   return typeof roleIsBelow === "function" && roleIsBelow(theirs, currentServerHighestRole);
 }
 
+function voiceMoveChannelOptions(excludeId, onPick) {
+  const options = [];
+  ((currentServerData && currentServerData.categories) || []).forEach((category) => {
+    (category.channels || []).forEach((channel) => {
+      if (channel.channel_type !== "voice") return;
+      if (Number(channel.id) === Number(excludeId)) return;
+      const flags = channel.permissions;
+      const allowed = flags && Object.prototype.hasOwnProperty.call(flags, "move_voice")
+        ? !!flags.move_voice
+        : (typeof canServerPerm === "function" && canServerPerm("move_voice"));
+      if (!allowed && currentServerOwnerId !== myUserId) return;
+      options.push({
+        label: channel.name || "Voice",
+        onSelect: () => onPick(channel.id)
+      });
+    });
+  });
+  return options;
+}
+
 function openVoiceModerationMenu(event, person) {
   event.preventDefault();
   event.stopPropagation();
@@ -498,6 +542,19 @@ function openVoiceModerationMenu(event, person) {
       label: person.server_deafened ? "Undeafen" : "Server Deafen",
       onSelect: () => postVoiceModerate(person.user_id, { deafened: !person.server_deafened })
     });
+  }
+  if (canModerateVoicePerson(person, "move_voice")) {
+    options.push({
+      label: "Disconnect",
+      danger: true,
+      onSelect: () => postVoiceModerate(person.user_id, { disconnect: true })
+    });
+    const dests = voiceMoveChannelOptions(voiceChannelIdFor(person.user_id), (channelId) => {
+      postVoiceModerate(person.user_id, { dest_channel_id: channelId });
+    });
+    options.push(dests.length
+      ? { label: "Move To", submenu: dests }
+      : { label: "Move To", disabled: true });
   }
   if (!options.length) return;
   openContextMenu(event.clientX, event.clientY, null, options);

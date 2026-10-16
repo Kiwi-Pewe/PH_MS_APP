@@ -171,6 +171,12 @@ function auditEntryFields(row) {
     timeout_member: true,
     timeout_clear: true,
     role_member_updated: true,
+    voice_mute: true,
+    voice_unmute: true,
+    voice_deafen: true,
+    voice_undeafen: true,
+    voice_disconnect: true,
+    voice_move: true,
   };
   if (memberActions[action]) push("Member", detail.username);
   if (action === "role_member_updated") {
@@ -226,6 +232,11 @@ function auditEntryFields(row) {
   if (action === "publish_announcement") {
     push("Title", detail.title);
     push("Channel", detail.name);
+  }
+  if (action === "voice_disconnect") push("Channel", detail.name);
+  if (action === "voice_move") {
+    push("From", detail.from);
+    push("To", detail.to);
   }
   if (action === "rename_emoji" || action === "update_server" || action === "update_privacy" || action === "update_nickname") {
     if (detail.field) push("Field", detail.field);

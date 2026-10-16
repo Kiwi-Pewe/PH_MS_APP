@@ -441,6 +441,8 @@ class Voice_moderate(BaseModel):
     user_id: int
     muted: bool | None = None
     deafened: bool | None = None
+    disconnect: bool = False
+    dest_channel_id: int | None = None
 
 class Voice_call(BaseModel):
     kind: str

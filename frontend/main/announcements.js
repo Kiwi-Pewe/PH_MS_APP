@@ -240,18 +240,19 @@ function buildAnnouncementPostCard(post) {
   top.appendChild(meta);
   top.appendChild(menuBtn);
 
-  const content = document.createElement("div");
-  content.className = "announce-post-content";
-
+  const headline = document.createElement("div");
+  headline.className = "announce-post-headline";
   const date = document.createElement("div");
   date.className = "announce-post-date";
   date.textContent = formatClusterTime(parseUtcTimestamp(post.created_at));
+  const head = document.createElement("div");
+  head.className = "announce-post-head";
+  head.appendChild(top);
+  head.appendChild(headline);
+  head.appendChild(date);
 
-  const dividerTop = document.createElement("div");
-  dividerTop.className = "announce-divider";
-  const dividerMid = document.createElement("div");
-  dividerMid.className = "announce-divider";
-
+  const content = document.createElement("div");
+  content.className = "announce-post-content";
   const reactionsRow = document.createElement("div");
   reactionsRow.className = "announce-reactions-row";
   const reactions = document.createElement("div");
@@ -322,15 +323,18 @@ function buildAnnouncementPostCard(post) {
   commentInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitComment(post.id, commentInput); });
   if (typeof bindMentionComposer === "function") bindMentionComposer(commentInput);
 
-  card.appendChild(top);
-  card.appendChild(content);
+  const mid = document.createElement("div");
+  mid.className = "announce-post-mid";
+  mid.appendChild(content);
+  mid.appendChild(reactionsRow);
+  const foot = document.createElement("div");
+  foot.className = "announce-post-foot";
+  foot.appendChild(commentsRow);
+  foot.appendChild(commentsSection);
+  card.appendChild(head);
+  card.appendChild(mid);
   fillAnnouncePostContent(card, post);
-  card.appendChild(date);
-  card.appendChild(dividerTop);
-  card.appendChild(reactionsRow);
-  card.appendChild(dividerMid);
-  card.appendChild(commentsRow);
-  card.appendChild(commentsSection);
+  card.appendChild(foot);
   // Whole-card right-click, not just the 3-dot button - individual
   // comment rows call stopPropagation in their own contextmenu handler,
   // so right-clicking a comment inside this post opens the comment's
@@ -634,15 +638,20 @@ function removePostFromView(postId) {
 }
 
 function fillAnnouncePostContent(card, post) {
+  const headline = card.querySelector(".announce-post-headline");
   let wrap = card.querySelector(".announce-post-content");
   if (!wrap) {
     wrap = document.createElement("div");
     wrap.className = "announce-post-content";
-    const date = card.querySelector(".announce-post-date");
-    card.insertBefore(wrap, date || card.firstChild);
+    const mid = card.querySelector(".announce-post-mid");
+    if (mid) mid.insertBefore(wrap, mid.firstChild);
+    else card.insertBefore(wrap, card.firstChild);
   }
   wrap.classList.remove("announce-post-editing");
+  if (headline) headline.hidden = false;
   wrap.replaceChildren();
+  if (headline) headline.replaceChildren();
+  const titleHost = headline || wrap;
 
   const titleRow = document.createElement("div");
   titleRow.className = "announce-post-title-row";
@@ -657,14 +666,14 @@ function fillAnnouncePostContent(card, post) {
     titleRow.appendChild(tag);
   }
   if (post.published_at && typeof buildPublishedTag === "function") titleRow.appendChild(buildPublishedTag());
-  wrap.appendChild(titleRow);
+  titleHost.appendChild(titleRow);
   if (post.followed && typeof followedPostCanJump === "function" && followedPostCanJump(post)) {
     const jump = document.createElement("button");
     jump.type = "button";
     jump.className = "announce-public-link";
     jump.textContent = "Jump to original";
     jump.addEventListener("click", () => jumpToFollowedSource(post));
-    wrap.appendChild(jump);
+    titleHost.appendChild(jump);
   }
   if (post.is_public) {
     const link = document.createElement("button");
@@ -675,7 +684,7 @@ function fillAnnouncePostContent(card, post) {
       const url = `https://${serverAddress}/blog/${post.id}`;
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url);
     });
-    wrap.appendChild(link);
+    titleHost.appendChild(link);
   }
 
   if (post.body) {
@@ -739,6 +748,8 @@ function startAnnouncementEdit(post) {
 function fillAnnouncePostEditor(card, post) {
   const wrap = card.querySelector(".announce-post-content");
   if (!wrap) return;
+  const headline = card.querySelector(".announce-post-headline");
+  if (headline) headline.hidden = true;
   wrap.classList.add("announce-post-editing");
   wrap.replaceChildren();
 

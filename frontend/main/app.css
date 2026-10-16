@@ -2496,6 +2496,29 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   background: var(--panel-alt); border: 1px solid var(--border); border-radius: 16px;
   padding: 16px; display: flex; flex-direction: column;
 }
+#announcements-posts .announce-post {
+  padding: 0;
+  overflow: hidden;
+  gap: 0;
+}
+#announcements-posts .announce-post-head,
+#announcements-posts .announce-post-mid,
+#announcements-posts .announce-post-foot {
+  padding: 14px 16px;
+}
+#announcements-posts .announce-post-head { background: var(--panel-alt); }
+#announcements-posts .announce-post-mid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--rail);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+#announcements-posts .announce-post-foot { background: var(--panel); }
+#announcements-posts .announce-post-top { margin-bottom: 10px; }
+#announcements-posts .announce-post-date { margin-top: 8px; }
+#announcements-posts .announce-comments-section { margin-top: 10px; }
 
 .announce-post-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .announce-post-meta { flex: 1 1 auto; min-width: 0; }

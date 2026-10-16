@@ -685,6 +685,7 @@ function connectSocket() {
           data.comment.reactions = applyReactionMe(data.comment.reactions || []);
           state.comments.push(data.comment);
           els.listEl.appendChild(buildCommentElement(data.comment));
+          if (typeof syncAnnounceCommentsEmpty === "function") syncAnnounceCommentsEmpty(data.post_id);
         }
       }
     }

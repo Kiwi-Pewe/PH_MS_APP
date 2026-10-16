@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=339">
+<link rel="stylesheet" href="app.css?v=340">
 </head>
 <body>
 
@@ -2029,8 +2029,12 @@
       </div>
       <div class="announce-comments-snippet" id="announce-comments-snippet"></div>
       <div class="announce-comments-thread">
-        <div class="announce-comments-list" id="announce-comments-list"></div>
+        <div class="announce-comments-pane">
+          <div class="announce-comments-list" id="announce-comments-list"></div>
+          <div class="announce-end-marker" id="announce-comments-empty">There's no comments yet.</div>
+        </div>
         <button type="button" class="announce-comments-loadmore-btn" id="announce-comments-more">Load more comments</button>
+        <div class="announce-divider" id="announce-comments-divider"></div>
         <div class="announce-comment-composer" id="announce-comments-composer">
           <input type="text" class="announce-comment-input" id="announce-comments-input" placeholder="Add a comment..." autocomplete="off">
           <button type="button" class="announce-comment-send-btn" id="announce-comments-send">Post</button>
@@ -2300,7 +2304,7 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=129"></script>
+<script src="boot.js?v=130"></script>
 <script src="app-shell.js?v=68"></script>
 <script src="feed.js?v=17"></script>
 <script src="settings.js?v=20"></script>
@@ -2369,7 +2373,7 @@
 <script src="server-modals.js?v=48"></script>
 <script src="announcements.js?v=68"></script>
 <script src="channel-follows.js?v=2"></script>
-<script src="comments.js?v=56"></script>
+<script src="comments.js?v=57"></script>
 <script src="forums.js?v=68"></script>
 <script src="lists.js?v=5"></script>
 <script src="calendar.js?v=8"></script>

@@ -303,6 +303,7 @@ function removeCommentFromThread(postId, commentId, authoritativeCount) {
     : (post ? Math.max(0, (post.comment_count || 0) - 1) : null);
   if (post && newCount !== null) post.comment_count = newCount;
   if (els && els.btnEl && newCount !== null) els.btnEl.textContent = `${newCount} comments`;
+  syncAnnounceCommentsEmpty(postId);
 }
 
 // Fetch happens once, on first expand - state.comments.length check
@@ -390,6 +391,13 @@ function ensureAnnounceCommentsOverlay() {
   return overlay;
 }
 
+function syncAnnounceCommentsEmpty(postId) {
+  const empty = document.getElementById("announce-comments-empty");
+  if (!empty) return;
+  const state = commentThreadState[postId];
+  empty.hidden = !!(state && state.comments && state.comments.length);
+}
+
 async function openAnnounceComments(postId) {
   const post = (typeof currentAnnouncementPosts !== "undefined" ? currentAnnouncementPosts : []).find((row) => Number(row.id) === Number(postId));
   if (!post) return;
@@ -432,8 +440,10 @@ async function openAnnounceComments(postId) {
     if (list) list.appendChild(buildCommentElement(comment));
   });
   if (more) more.style.display = (state.comments.length && state.hasMore) ? "block" : "none";
+  syncAnnounceCommentsEmpty(postId);
   overlay.hidden = false;
   if (state.comments.length === 0 && state.hasMore) await fetchComments(postId, 25);
+  syncAnnounceCommentsEmpty(postId);
   if (input && !input.disabled) input.focus();
 }
 
@@ -469,6 +479,7 @@ async function fetchComments(postId, limit) {
     if (incoming.length < limit) state.hasMore = false;
     if (els.listEl) incoming.forEach(c => els.listEl.appendChild(buildCommentElement(c)));
     if (els.loadMoreBtn) els.loadMoreBtn.style.display = state.hasMore ? "block" : "none";
+    syncAnnounceCommentsEmpty(postId);
   } catch (e) { /* leave state as-is on failure */ }
 }
 
@@ -507,4 +518,5 @@ async function submitComment(postId, inputEl) {
     if (els.listEl) els.listEl.appendChild(buildCommentElement(comment));
     if (els.btnEl) els.btnEl.textContent = `${result.comment_count} comments`;
   }
+  syncAnnounceCommentsEmpty(postId);
 }

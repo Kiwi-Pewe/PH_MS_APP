@@ -2217,15 +2217,24 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   border: 0;
   background: transparent;
 }
+.composer-highlight .md-bold,
 .composer-highlight .md-h1,
 .composer-highlight .md-h2,
-.composer-highlight .md-h3 { font-weight: 800; }
+.composer-highlight .md-h3 {
+  font-weight: inherit;
+  text-shadow: 0 0 0.7px currentColor, 0 0 0.7px currentColor;
+}
 .composer-highlight .md-sub { color: var(--text-dim); }
+.composer-highlight .md-code { font-family: inherit; padding: 0; }
+.composer-highlight .md-highlight { padding: 0; }
+.composer-highlight .md-explicit,
+.composer-highlight .md-explicit * { background: rgba(255, 255, 255, 0.08); color: inherit; }
+.composer-highlight .md-explicit .md-mark { background: transparent; }
+.md-mark { color: var(--text-dim); opacity: 0.75; text-shadow: none; }
 .composer-mention {
   background: rgba(88, 101, 242, 0.35);
   color: #dee0fc;
   border-radius: 3px;
-  font-weight: 600;
 }
 .md-bold { font-weight: 700; }
 .md-italic { font-style: italic; }
@@ -2278,18 +2287,9 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   scrollbar-gutter: stable;
   line-height: 1.4; max-height: calc(1.4em * 5); /* caps growth at 5 lines, then scrolls */
 }
-.composer-caret {
-  display: inline-block;
-  width: 1px;
-  height: 1.05em;
-  margin: 0 -0.5px 0 0;
-  background: var(--text);
-  vertical-align: text-bottom;
-  pointer-events: none;
-}
 .composer-field textarea {
   color: transparent;
-  caret-color: transparent;
+  caret-color: var(--text);
   position: relative;
   z-index: 1;
 }
@@ -2297,7 +2297,7 @@ html.legacy-chat-input #mention-picker { display: none !important; }
 #channel-composer .composer-field textarea,
 .edit-composer .composer-field textarea {
   color: transparent;
-  caret-color: transparent;
+  caret-color: var(--text);
 }
 html.legacy-chat-input .composer-field textarea,
 html.legacy-chat-input #composer .composer-field textarea,
@@ -2606,7 +2606,7 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 }
 .announce-comment-composer .composer-field .announce-comment-input {
   color: transparent;
-  caret-color: transparent;
+  caret-color: var(--text);
 }
 .announce-comment-input:focus { outline: none; }
 .announce-comment-input::placeholder { color: var(--text-dim); }
@@ -3817,7 +3817,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .announce-composer-editing-body .composer-field textarea {
   color: transparent;
-  caret-color: transparent;
+  caret-color: var(--text);
 }
 /* Shared by Announcements and Forums. Same capped auto-grow as chat:
    CSS owns the 3-to-5-line ceiling, JS only measures. resize:none so
@@ -4123,7 +4123,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .doc-channel-title-input { outline: none; resize: none; overflow: hidden; min-height: 0; }
 .doc-channel-title-input::placeholder { color: var(--text-dim); font-weight: 600; }
 .doc-channel-toolbar { display: block; }
-#doc-channel-toolbar-host #docs-toolbar { padding: 0; border: 0; background: transparent; }
+#doc-channel-toolbar-host #docs-toolbar { padding: 0; border: 0; background: transparent; justify-content: center; }
 #docs-toolbar[data-host="docs"] #docs-style-select,
 #docs-toolbar[data-host="docs"] #docs-font-select { display: none; }
 #docs-toolbar .docs-fmt-btn { display: inline-flex; align-items: center; justify-content: center; }
@@ -4151,7 +4151,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .doc-channel-body {
   display: block; width: 100%; min-height: calc(1.65em * 3 + 20px); margin: 0;
-  background: transparent; border: 0; outline: none; resize: none; color: transparent; caret-color: transparent;
+  background: transparent; border: 0; outline: none; resize: none; color: transparent; caret-color: var(--text);
 }
 .doc-channel-body::placeholder { color: var(--text-dim); }
 .doc-body-footer {

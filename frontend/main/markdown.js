@@ -1,48 +1,37 @@
-function mdCaret(caret) {
-  if (!caret) return null;
-  if (typeof caret === "number") return { start: caret, end: caret };
-  return caret;
-}
-
-function mdHit(node, caret) {
-  const span = mdCaret(caret);
-  if (!span || !node) return false;
-  return span.end >= node.start && span.start <= node.end;
-}
-
 function mdParse(text) {
-  return mdParseBlocks(text || "", 0);
+  return mdParseBlocks(text || "");
 }
 
-function mdParseBlocks(text, offset) {
+function mdParseBlocks(text) {
   const nodes = [];
   let i = 0;
   while (i < text.length) {
     if (text.startsWith("```", i)) {
       const close = text.indexOf("```", i + 3);
       const end = close === -1 ? text.length : close + 3;
-      let body = text.slice(i + 3, close === -1 ? text.length : close);
+      const raw = text.slice(i + 3, close === -1 ? text.length : close);
+      let body = raw;
       if (body.startsWith("\n")) body = body.slice(1);
       else {
         const nl = body.indexOf("\n");
         if (nl !== -1 && /^[A-Za-z0-9_+-]+$/.test(body.slice(0, nl))) body = body.slice(nl + 1);
       }
-      nodes.push({ type: "codeblock", start: offset + i, end: offset + end, text: body });
+      nodes.push({ type: "codeblock", text: body, raw, closed: close !== -1 });
       i = end;
       continue;
     }
     if (text.startsWith(">>>", i) && (i === 0 || text[i - 1] === "\n")) {
-      nodes.push({ type: "quoteall", start: offset + i, end: offset + text.length, text: text.slice(i + 3).replace(/^ /, "") });
+      const spaced = text[i + 3] === " ";
+      nodes.push({ type: "quoteall", mark: spaced ? ">>> " : ">>>", text: text.slice(i + (spaced ? 4 : 3)) });
       break;
     }
     const lineEnd = text.indexOf("\n", i);
     const stop = lineEnd === -1 ? text.length : lineEnd;
     const line = text.slice(i, stop);
     const block = mdLineBlock(line);
-    if (block) nodes.push(Object.assign({ start: offset + i, end: offset + stop }, block));
-    else nodes.push({ type: "para", start: offset + i, end: offset + stop, text: line });
+    nodes.push(block || { type: "para", text: line });
     if (lineEnd === -1) break;
-    nodes.push({ type: "break", start: offset + stop, end: offset + stop + 1 });
+    nodes.push({ type: "break" });
     i = stop + 1;
   }
   return nodes;
@@ -50,53 +39,85 @@ function mdParseBlocks(text, offset) {
 
 function mdLineBlock(line) {
   const head = line.match(/^(#{1,3}) (.*)$/);
-  if (head) return { type: "head", level: head[1].length, text: head[2] };
-  if (line.startsWith("-# ")) return { type: "sub", text: line.slice(3) };
-  if (line.startsWith("> ")) return { type: "quote", text: line.slice(2) };
+  if (head) return { type: "head", level: head[1].length, mark: head[1] + " ", text: head[2] };
+  if (line.startsWith("-# ")) return { type: "sub", mark: "-# ", text: line.slice(3) };
+  if (line.startsWith("> ")) return { type: "quote", mark: "> ", text: line.slice(2) };
   const list = line.match(/^( *)([-*]|\d+\.) (.*)$/);
   if (list && list[1].length % 2 === 0) {
-    return { type: "list", indent: list[1].length / 2, marker: list[2], text: list[3] };
+    return { type: "list", indent: list[1].length / 2, marker: list[2], mark: list[1] + list[2] + " ", text: list[3] };
   }
   return null;
 }
 
-function mdParseInline(text, offset) {
+const MD_ADVANCED = {
+  c: { type: "color", param: /^#[0-9A-Fa-f]{6}$/ },
+  h: { type: "highlight", param: /^#[0-9A-Fa-f]{6}$/ },
+  s: { type: "size", param: /^\d{1,2}$/ }
+};
+
+function mdTakeAdvanced(text, i) {
+  const head = text.slice(i).match(/^\$([A-Za-z])([^\s()]*)\(/);
+  if (!head) return null;
+  const spec = MD_ADVANCED[head[1].toLowerCase()];
+  if (!spec || !spec.param.test(head[2])) return null;
+  const from = i + head[0].length;
+  let depth = 1;
+  let j = from;
+  while (j < text.length) {
+    const ch = text[j];
+    if (ch === "\\") { j += 2; continue; }
+    if (ch === "\n") return null;
+    if (ch === "(") depth += 1;
+    else if (ch === ")") {
+      depth -= 1;
+      if (depth === 0) break;
+    }
+    j += 1;
+  }
+  if (depth !== 0) return null;
+  return {
+    next: j + 1,
+    node: { type: spec.type, value: head[2], open: head[0], close: ")", text: text.slice(from, j) }
+  };
+}
+
+function mdParseInline(text) {
   const nodes = [];
   let i = 0;
   while (i < text.length) {
     if (text[i] === "\\" && i + 1 < text.length) {
-      nodes.push({ type: "text", start: offset + i, end: offset + i + 2, text: text[i + 1] });
+      nodes.push({ type: "escape", mark: "\\", text: text[i + 1] });
       i += 2;
       continue;
     }
     const emoji = text.slice(i).match(/^<:([a-zA-Z0-9_]{2,32}):(\d+)>/);
     if (emoji) {
-      nodes.push({ type: "emoji", start: offset + i, end: offset + i + emoji[0].length, name: emoji[1], id: emoji[2], raw: emoji[0] });
+      nodes.push({ type: "emoji", name: emoji[1], id: emoji[2], raw: emoji[0] });
       i += emoji[0].length;
       continue;
     }
     const mention = text.slice(i).match(/^<@((?:everyone|here|&\d+|\d+))>/);
     if (mention) {
-      nodes.push({ type: "mention", start: offset + i, end: offset + i + mention[0].length, id: mention[1], raw: mention[0] });
+      nodes.push({ type: "mention", id: mention[1], raw: mention[0] });
       i += mention[0].length;
       continue;
     }
     const channel = text.slice(i).match(/^<#(\d+)>/);
     if (channel) {
-      nodes.push({ type: "channel", start: offset + i, end: offset + i + channel[0].length, id: channel[1], raw: channel[0] });
+      nodes.push({ type: "channel", id: channel[1], raw: channel[0] });
       i += channel[0].length;
       continue;
     }
     const bare = text.slice(i).match(/^<(https?:\/\/[^>\s]+)>/);
     if (bare) {
-      nodes.push({ type: "link", start: offset + i, end: offset + i + bare[0].length, text: bare[1], url: bare[1] });
+      nodes.push({ type: "link", open: "<", close: ">", text: bare[1], url: bare[1] });
       i += bare[0].length;
       continue;
     }
     if (text[i] === "`") {
       const close = text.indexOf("`", i + 1);
       if (close > i + 1 && !text.slice(i + 1, close).includes("\n")) {
-        nodes.push({ type: "code", start: offset + i, end: offset + close + 1, text: text.slice(i + 1, close) });
+        nodes.push({ type: "code", mark: "`", text: text.slice(i + 1, close) });
         i = close + 1;
         continue;
       }
@@ -104,55 +125,46 @@ function mdParseInline(text, offset) {
     if (text.startsWith("||", i)) {
       const close = text.indexOf("||", i + 2);
       if (close !== -1) {
-        nodes.push({ type: "explicit", start: offset + i, end: offset + close + 2, text: text.slice(i + 2, close) });
+        nodes.push({ type: "explicit", mark: "||", text: text.slice(i + 2, close) });
         i = close + 2;
         continue;
       }
     }
     const image = text.slice(i).match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/);
     if (image) {
-      nodes.push({ type: "image", start: offset + i, end: offset + i + image[0].length, text: image[1], url: image[2] });
+      nodes.push({ type: "image", text: image[1], url: image[2], raw: image[0] });
       i += image[0].length;
       continue;
     }
-    const paint = text.slice(i).match(/^\{\{(c|h|s):(#[0-9A-Fa-f]{6}|\d{1,2})\}\}/);
-    if (paint) {
-      const closer = "{{/" + paint[1] + "}}";
-      const closeAt = text.indexOf(closer, i + paint[0].length);
-      if (closeAt !== -1) {
-        nodes.push({
-          type: paint[1] === "c" ? "color" : paint[1] === "h" ? "highlight" : "size",
-          start: offset + i,
-          end: offset + closeAt + closer.length,
-          inner: offset + i + paint[0].length,
-          value: paint[2],
-          text: text.slice(i + paint[0].length, closeAt)
-        });
-        i = closeAt + closer.length;
+    if (text[i] === "$") {
+      const advanced = mdTakeAdvanced(text, i);
+      if (advanced) {
+        nodes.push(advanced.node);
+        i = advanced.next;
         continue;
       }
     }
     const link = text.slice(i).match(/^\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/);
     if (link) {
-      nodes.push({ type: "link", start: offset + i, end: offset + i + link[0].length, text: link[1], url: link[2] });
+      nodes.push({ type: "link", open: "[", close: "](" + link[2] + ")", text: link[1], url: link[2] });
       i += link[0].length;
       continue;
     }
-    const wrapped = mdTakeWrap(text, i, offset);
+    const wrapped = mdTakeWrap(text, i);
     if (wrapped) {
       nodes.push(wrapped.node);
       i = wrapped.next;
       continue;
     }
     let j = i + 1;
-    while (j < text.length && text[j] !== "\\" && text[j] !== "`" && text[j] !== "*" && text[j] !== "_" && text[j] !== "~" && text[j] !== "[" && text[j] !== "<" && text[j] !== "!" && text[j] !== "{" && !text.startsWith("||", j)) j += 1;
-    nodes.push({ type: "text", start: offset + i, end: offset + j, text: text.slice(i, j) });
+    while (j < text.length && !"\\`*_~[<!$".includes(text[j]) && !text.startsWith("||", j)) j += 1;
+    nodes.push({ type: "text", text: text.slice(i, j) });
     i = j;
   }
   return nodes;
 }
 
-function mdTakeWrap(text, i, offset) {
+function mdTakeWrap(text, i) {
   const kinds = [
     ["***", "bolditalic"],
     ["**", "bold"],
@@ -173,95 +185,115 @@ function mdTakeWrap(text, i, offset) {
     if (mark === "_" && /[\w]/.test(text[close + mark.length] || "")) continue;
     return {
       next: close + mark.length,
-      node: { type: kinds[k][1], start: offset + i, end: offset + close + mark.length, text: inner }
+      node: { type: kinds[k][1], mark, text: inner }
     };
   }
   return null;
 }
 
 function mdAppend(el, text, options) {
-  mdRender(el, mdParse(text || ""), text || "", null, options || {});
+  mdRender(el, mdParse(text || ""), options || {});
 }
 
-function mdPaintComposer(el, text, caret, allowRoles) {
+function mdPaintComposer(el, text, allowRoles) {
   el.replaceChildren();
-  const collapsed = !caret || caret.start === caret.end;
-  const options = {
-    composer: true,
-    allowRoles: allowRoles !== false,
-    caretIndex: collapsed && caret ? caret.start : null,
-    caretPlaced: false
-  };
-  mdRender(el, mdParse(text || ""), text || "", mdCaret(caret), options);
-  if (options.caretIndex != null && !options.caretPlaced) mdDropCaret(el, options);
+  mdRender(el, mdParse(text || ""), { composer: true, allowRoles: allowRoles !== false });
 }
 
-function mdRender(el, nodes, source, caret, options) {
-  nodes.forEach((node) => mdRenderNode(el, node, source, caret, options));
+function mdRender(el, nodes, options) {
+  nodes.forEach((node) => mdRenderNode(el, node, options));
 }
 
-function mdRenderNode(el, node, source, caret, options) {
+function mdMark(el, text, options) {
+  if (!options.composer || !text) return;
+  const span = document.createElement("span");
+  span.className = "md-mark";
+  span.textContent = text;
+  el.appendChild(span);
+}
+
+function mdBox(el, node, className, options, tag) {
+  const box = document.createElement(tag || "span");
+  box.className = className;
+  mdMark(box, node.mark, options);
+  mdRender(box, mdParseInline(node.text), options);
+  el.appendChild(box);
+  return box;
+}
+
+function mdRenderNode(el, node, options) {
   if (node.type === "break") {
-    mdWrite(el, "", node.start, options);
     el.appendChild(document.createTextNode("\n"));
     return;
   }
   if (node.type === "para") {
-    mdRender(el, mdParseInline(node.text, node.start), source, caret, options);
+    mdRender(el, mdParseInline(node.text), options);
     return;
   }
-  if (mdHit(node, caret)) {
-    mdLeaf(el, source.slice(node.start, node.end), options, node.start);
+  if (node.type === "text") {
+    mdLeaf(el, node.text, options);
+    return;
+  }
+  if (node.type === "escape") {
+    mdMark(el, node.mark, options);
+    el.appendChild(document.createTextNode(node.text));
     return;
   }
   if (node.type === "quoteall") {
-    const quote = document.createElement("div");
+    const quote = document.createElement(options.composer ? "span" : "div");
     quote.className = "md-quote";
-    mdRender(quote, mdParseBlocks(node.text, node.start), source, null, options);
+    mdMark(quote, node.mark, options);
+    mdRender(quote, mdParseBlocks(node.text), options);
     el.appendChild(quote);
     return;
   }
   if (node.type === "codeblock") {
-    const pre = document.createElement("pre");
+    const pre = document.createElement(options.composer ? "span" : "pre");
     pre.className = "md-codeblock";
-    pre.textContent = node.text || "";
+    if (options.composer) {
+      mdMark(pre, "```", options);
+      pre.appendChild(document.createTextNode(node.raw || ""));
+      if (node.closed) mdMark(pre, "```", options);
+    } else pre.textContent = node.text || "";
     el.appendChild(pre);
     return;
   }
   if (node.type === "code") {
     const code = document.createElement("code");
     code.className = "md-code";
-    code.textContent = node.text || "";
+    mdMark(code, node.mark, options);
+    code.appendChild(document.createTextNode(node.text || ""));
+    mdMark(code, node.mark, options);
     el.appendChild(code);
-    return;
-  }
-  if (node.type === "text") {
-    mdLeaf(el, node.text, options, node.start);
     return;
   }
   if (node.type === "mention") {
     if (!options.composer && typeof buildMentionChip === "function") {
       const msg = options.msg || {};
       el.appendChild(buildMentionChip(node.id, msg.mentionUsers || {}, msg, msg.mentionRoles || {}));
-    } else mdLeaf(el, node.raw, options, node.start);
+    } else mdLeaf(el, node.raw, options);
     return;
   }
   if (node.type === "channel") {
     if (!options.composer && typeof buildChannelMentionChip === "function") el.appendChild(buildChannelMentionChip(node.id));
-    else mdLeaf(el, node.raw, options, node.start);
+    else mdLeaf(el, node.raw, options);
+    return;
+  }
+  if (node.type === "emoji") {
+    if (!options.composer && typeof appendCustomEmojiNode === "function") appendCustomEmojiNode(el, node.name, node.id);
+    else mdLeaf(el, node.raw, options);
     return;
   }
   if (node.type === "image") {
+    if (options.composer) {
+      mdMark(el, node.raw, options);
+      return;
+    }
     const img = document.createElement("img");
     img.className = "md-image";
     img.alt = node.text || "";
     img.src = node.url;
     el.appendChild(img);
-    return;
-  }
-  if (node.type === "emoji") {
-    if (!options.composer && typeof appendCustomEmojiNode === "function") appendCustomEmojiNode(el, node.name, node.id);
-    else mdLeaf(el, node.raw, options, node.start);
     return;
   }
   if (node.type === "color" || node.type === "highlight" || node.type === "size") {
@@ -270,11 +302,22 @@ function mdRenderNode(el, node, source, caret, options) {
     if (node.type === "color") span.style.color = node.value;
     else if (node.type === "highlight") span.style.background = node.value;
     else span.style.fontSize = Math.max(6, Math.min(72, Number(node.value) || 11)) + "pt";
-    mdRender(span, mdParseInline(node.text, node.inner), source, null, options);
+    mdMark(span, node.open, options);
+    mdRender(span, mdParseInline(node.text), options);
+    mdMark(span, node.close, options);
     el.appendChild(span);
     return;
   }
   if (node.type === "link") {
+    if (options.composer) {
+      mdMark(el, node.open, options);
+      const text = document.createElement("span");
+      text.className = "msg-link";
+      text.textContent = node.text || node.url;
+      el.appendChild(text);
+      mdMark(el, node.close, options);
+      return;
+    }
     const link = document.createElement("a");
     link.className = "msg-link";
     link.href = node.url;
@@ -287,7 +330,9 @@ function mdRenderNode(el, node, source, caret, options) {
   if (node.type === "explicit") {
     const span = document.createElement("span");
     span.className = "md-explicit";
-    mdRender(span, mdParseInline(node.text, node.start + 2), source, null, options);
+    mdMark(span, node.mark, options);
+    mdRender(span, mdParseInline(node.text), options);
+    mdMark(span, node.mark, options);
     if (!options.composer) {
       span.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -297,51 +342,50 @@ function mdRenderNode(el, node, source, caret, options) {
     el.appendChild(span);
     return;
   }
-  const box = document.createElement(node.type === "code" ? "code" : "span");
-  if (node.type === "bold") box.className = "md-bold";
-  else if (node.type === "italic") box.className = "md-italic";
-  else if (node.type === "bolditalic") box.className = "md-bold md-italic";
-  else if (node.type === "under") box.className = "md-under";
-  else if (node.type === "strike") box.className = "md-strike";
-  else if (node.type === "head") {
-    box.className = "md-h" + node.level;
-  } else if (node.type === "sub") box.className = "md-sub";
-  else if (node.type === "quote" || node.type === "quoteall") box.className = "md-quote";
-  else if (node.type === "list") {
-    box.className = "md-list";
-    if (node.indent) box.style.marginLeft = (node.indent * 16) + "px";
-    box.appendChild(document.createTextNode((/^\d+\.$/.test(node.marker) ? node.marker : "•") + " "));
+  if (node.type === "head") {
+    mdBox(el, node, "md-h" + node.level, options);
+    return;
   }
-  if (node.text != null && node.type !== "text") mdRender(box, mdParseInline(node.text, node.start), source, null, options);
+  if (node.type === "sub") {
+    mdBox(el, node, "md-sub", options);
+    return;
+  }
+  if (node.type === "quote") {
+    mdBox(el, node, "md-quote", options);
+    return;
+  }
+  if (node.type === "list") {
+    const box = document.createElement("span");
+    box.className = "md-list";
+    if (options.composer) mdMark(box, node.mark, options);
+    else {
+      if (node.indent) box.style.marginLeft = (node.indent * 16) + "px";
+      box.appendChild(document.createTextNode((/^\d+\.$/.test(node.marker) ? node.marker : "•") + " "));
+    }
+    mdRender(box, mdParseInline(node.text), options);
+    el.appendChild(box);
+    return;
+  }
+  const classes = {
+    bold: "md-bold",
+    italic: "md-italic",
+    bolditalic: "md-bold md-italic",
+    under: "md-under",
+    strike: "md-strike"
+  };
+  const box = document.createElement("span");
+  box.className = classes[node.type] || "";
+  mdMark(box, node.mark, options);
+  mdRender(box, mdParseInline(node.text), options);
+  mdMark(box, node.mark, options);
   el.appendChild(box);
 }
 
-function mdDropCaret(el, options) {
-  if (!options || options.caretPlaced) return;
-  const mark = document.createElement("span");
-  mark.className = "composer-caret";
-  el.appendChild(mark);
-  options.caretPlaced = true;
-}
-
-function mdWrite(el, text, absStart, options) {
-  const caretAt = options && Number.isInteger(options.caretIndex) ? options.caretIndex : null;
+function mdLeaf(el, text, options) {
   const source = text || "";
-  if (caretAt != null && options && !options.caretPlaced && caretAt >= absStart && caretAt <= absStart + source.length) {
-    const cut = caretAt - absStart;
-    if (cut > 0) el.appendChild(document.createTextNode(source.slice(0, cut)));
-    mdDropCaret(el, options);
-    if (cut < source.length) el.appendChild(document.createTextNode(source.slice(cut)));
-    return;
-  }
-  if (source) el.appendChild(document.createTextNode(source));
-}
-
-function mdLeaf(el, text, options, absStart) {
-  const source = text || "";
-  if (!source && !(options && Number.isInteger(options.caretIndex))) return;
+  if (!source) return;
   if (options && options.composer) {
-    mdComposerLeaf(el, source, options, absStart || 0);
+    mdComposerLeaf(el, source, options);
     return;
   }
   if (typeof CUSTOM_EMOJI_TOKEN_RE !== "undefined" && typeof appendCustomEmojiNode === "function") {
@@ -362,29 +406,22 @@ function mdLeaf(el, text, options, absStart) {
   else el.appendChild(document.createTextNode(source));
 }
 
-function mdComposerLeaf(el, text, options, absStart) {
-  const base = absStart || 0;
+function mdComposerLeaf(el, text, options) {
   const names = typeof validComposerMentionNames === "function" ? validComposerMentionNames(!!(options && options.allowRoles)) : [];
   if (!names.length) {
-    mdWrite(el, text, base, options);
+    el.appendChild(document.createTextNode(text));
     return;
   }
   const pattern = new RegExp("@(?:" + names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")\\b", "gi");
   let last = 0;
   let match;
   while ((match = pattern.exec(text))) {
-    if (match.index > last) mdWrite(el, text.slice(last, match.index), base + last, options);
+    if (match.index > last) el.appendChild(document.createTextNode(text.slice(last, match.index)));
     const chip = document.createElement("span");
     chip.className = "composer-mention";
     chip.textContent = match[0];
-    const caretAt = options && Number.isInteger(options.caretIndex) ? options.caretIndex : null;
-    const chipStart = base + match.index;
-    if (caretAt != null && !options.caretPlaced && caretAt >= chipStart && caretAt <= chipStart + match[0].length) {
-      mdDropCaret(el, options);
-    }
     el.appendChild(chip);
     last = match.index + match[0].length;
   }
-  if (last < text.length) mdWrite(el, text.slice(last), base + last, options);
-  else mdWrite(el, "", base + last, options);
+  if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
 }

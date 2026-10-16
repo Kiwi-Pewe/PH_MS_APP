@@ -491,7 +491,7 @@ function docInsert(text) {
   const cursor = start + text.length;
   area.focus();
   area.setSelectionRange(cursor, cursor);
-  if (typeof refreshComposerMentions === "function") refreshComposerMentions(area);
+  fitDocBody();
 }
 
 function docWrap(open, close) {
@@ -502,10 +502,10 @@ function docWrap(open, close) {
   const selected = area.value.slice(start, end);
   const wrapped = open + selected + close;
   area.value = area.value.slice(0, start) + wrapped + area.value.slice(end);
-  const cursor = start + open.length + selected.length;
+  const cursor = start + open.length + selected.length + (selected ? close.length : 0);
   area.focus();
   area.setSelectionRange(cursor, cursor);
-  if (typeof refreshComposerMentions === "function") refreshComposerMentions(area);
+  fitDocBody();
 }
 
 async function docUploadImage(file) {
@@ -617,9 +617,9 @@ async function sendDocComment() {
 
 function docChannelApplyFormat(kind, value) {
   if (docEntryMode !== "edit") return;
-  if (kind === "size") docWrap("{{s:" + value + "}}", "{{/s}}");
-  else if (kind === "color") docWrap("{{c:" + value + "}}", "{{/c}}");
-  else if (kind === "highlight") docWrap("{{h:" + value + "}}", "{{/h}}");
+  if (kind === "size") docWrap("$S" + value + "(", ")");
+  else if (kind === "color") docWrap("$C" + String(value).toUpperCase() + "(", ")");
+  else if (kind === "highlight") docWrap("$H" + String(value).toUpperCase() + "(", ")");
   else if (kind === "align") {
     docPageAlign = value;
     paintDocPageSettings();

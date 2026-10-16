@@ -751,9 +751,10 @@
 #footer-profile-btn:hover { background: var(--rail); }
 #account-footer .avatar-dot { position: relative; }
 #account-footer .status-dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--online); border: 2px solid var(--panel-alt); right: -2px; bottom: -2px; z-index: 1; }
-#account-footer .who { font-size: 13px; font-weight: 600; }
-#account-footer .status-label { font-size: 11px; color: var(--text-dim); }
-#account-footer .spacer { flex: 1; }
+#footer-profile-btn > div:last-child { min-width: 0; overflow: hidden; }
+#account-footer .who { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#account-footer .status-label { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#account-footer .footer-voice-tools { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; margin-left: auto; }
 #account-footer button { background: transparent; color: var(--text-dim); font-size: 11px; padding: 4px 8px; border-radius: 4px; }
 #account-footer button:hover { color: var(--text); background: var(--rail); }
 
@@ -9605,16 +9606,19 @@ a.profile-link-row:hover { color: var(--accent); }
 .voice-user-tool svg,
 .footer-voice-btn svg { width: 20px; height: 20px; display: block; }
 .voice-user-icon:hover { color: var(--text); background: var(--rail); }
-.footer-voice-btn:hover { background: var(--rail); }
-.footer-voice-btn.is-open { color: #23a559; }
-.footer-voice-btn.is-off { color: var(--text-dim); }
-.footer-voice-btn.is-held,
-.footer-voice-btn.is-held.is-off { color: #ed4245; }
-.footer-voice-btn.is-speaking {
-  box-shadow: 0 0 0 2px #f0b232;
+#account-footer .footer-voice-btn:hover { background: var(--rail); }
+#account-footer .footer-voice-btn.is-open,
+#account-footer .footer-voice-btn.is-open:hover { color: #23a559; }
+#account-footer .footer-voice-btn.is-off,
+#account-footer .footer-voice-btn.is-off:hover { color: var(--text-dim); }
+#account-footer .footer-voice-btn.is-held,
+#account-footer .footer-voice-btn.is-held:hover,
+#account-footer .footer-voice-btn.is-held.is-off { color: #ed4245; }
+#account-footer #footer-mute.is-speaking svg {
+  filter: drop-shadow(0 0 0.6px #f0b232) drop-shadow(0 0 1.2px #f0b232);
 }
-#footer-mute:disabled,
-#footer-deafen:disabled { opacity: 1; cursor: default; }
+#account-footer #footer-mute:disabled,
+#account-footer #footer-deafen:disabled { opacity: 1; cursor: default; }
 .voice-user-tools { display: flex; align-items: stretch; gap: 8px; }
 .voice-user-tool {
   position: relative;

@@ -283,7 +283,10 @@ function buildAnnouncementPostCard(post) {
 
   const mid = document.createElement("div");
   mid.className = "announce-post-mid";
+  const divider = document.createElement("div");
+  divider.className = "announce-divider";
   mid.appendChild(content);
+  mid.appendChild(divider);
   mid.appendChild(reactionsRow);
   const foot = document.createElement("div");
   foot.className = "announce-post-foot";

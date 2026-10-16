@@ -2528,10 +2528,11 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 }
 #announcements-posts .announce-post-date { margin-top: 6px; }
 #announcements-posts .announce-post-content {
-  min-height: calc(1.5em * 5);
+  min-height: calc(1.5em * 3);
   font-size: 14px;
   line-height: 1.5;
 }
+#announcements-posts .announce-post-mid .announce-divider { margin: 0; }
 #announcements-posts .announce-post-foot .announce-comments-row { min-height: 24px; }
 
 .announce-post-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }

@@ -2204,6 +2204,10 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   pointer-events: none;
   color: var(--text);
 }
+.composer-highlight {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
 .composer-highlight::-webkit-scrollbar { width: 14px; height: 14px; }
 .composer-highlight::-webkit-scrollbar-thumb { background: transparent; }
 .composer-highlight .md-h1,

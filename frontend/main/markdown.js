@@ -301,7 +301,7 @@ function mdRenderNode(el, node, options) {
     span.className = "md-" + node.type;
     if (node.type === "color") span.style.color = node.value;
     else if (node.type === "highlight") span.style.background = node.value;
-    else span.style.fontSize = Math.max(6, Math.min(72, Number(node.value) || 11)) + "pt";
+    else span.style.fontSize = Math.max(8, Math.min(24, Number(node.value) || 11)) + "pt";
     mdMark(span, node.open, options);
     mdRender(span, mdParseInline(node.text), options);
     mdMark(span, node.close, options);

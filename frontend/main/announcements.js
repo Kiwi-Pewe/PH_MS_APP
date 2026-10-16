@@ -275,53 +275,11 @@ function buildAnnouncementPostCard(post) {
   commentsBtn.className = "announce-comments-btn";
   commentsBtn.textContent = `${post.comment_count || 0} comments`;
   commentsRow.appendChild(commentsBtn);
-
-  // Thread built once per card, toggled not re-fetched (state lives in
-  // commentThreadState). Registered in commentThreadElements so a live
-  // broadcast can find/update this card even while collapsed.
-  const commentsSection = document.createElement("div");
-  commentsSection.className = "announce-comments-section";
-  commentsSection.style.display = "none";
-  const commentsList = document.createElement("div");
-  commentsList.className = "announce-comments-list";
-  const loadMoreBtn = document.createElement("button");
-  loadMoreBtn.className = "announce-comments-loadmore-btn";
-  // No batch-size number stated - avoids implying a broken promise if
-  // fewer than expected come back.
-  loadMoreBtn.textContent = "Load more comments";
-  loadMoreBtn.style.display = "none";
-  const commentComposer = document.createElement("div");
-  commentComposer.className = "announce-comment-composer";
-  const commentInput = document.createElement("input");
-  commentInput.type = "text";
-  commentInput.className = "announce-comment-input";
-  commentInput.placeholder = (typeof isServerTimedOut === "function" && isServerTimedOut())
-    ? "You do not have permission to send messages in this channel."
-    : "Add a comment...";
-  if (typeof isServerTimedOut === "function" && isServerTimedOut()) commentInput.disabled = true;
-  const commentSendBtn = document.createElement("button");
-  commentSendBtn.className = "announce-comment-send-btn";
-  commentSendBtn.textContent = "Post";
-  commentComposer.appendChild(commentInput);
-  commentComposer.appendChild(commentSendBtn);
-  if (post.comments_open === false) commentComposer.hidden = true;
-  // Stops the post's own right-click handler (attached to the whole
-  // card below) from swallowing native browser paste/spellcheck on this
-  // input - preventDefault is NOT called here, so the browser's own
-  // menu still opens normally.
-  commentInput.addEventListener("contextmenu", (e) => e.stopPropagation());
-  // Composer sits first, above loaded comments - visible even on a
-  // post with zero comments yet.
-  commentsSection.appendChild(commentComposer);
-  commentsSection.appendChild(commentsList);
-  commentsSection.appendChild(loadMoreBtn);
-
-  commentThreadElements[post.id] = { btnEl: commentsBtn, listEl: commentsList, loadMoreBtn, sectionEl: commentsSection };
-  commentsBtn.addEventListener("click", () => toggleCommentThread(post.id));
-  loadMoreBtn.addEventListener("click", () => loadMoreComments(post.id));
-  commentSendBtn.addEventListener("click", () => submitComment(post.id, commentInput));
-  commentInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitComment(post.id, commentInput); });
-  if (typeof bindMentionComposer === "function") bindMentionComposer(commentInput);
+  commentThreadElements[post.id] = { btnEl: commentsBtn };
+  commentsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof toggleCommentThread === "function") toggleCommentThread(post.id);
+  });
 
   const mid = document.createElement("div");
   mid.className = "announce-post-mid";
@@ -330,7 +288,6 @@ function buildAnnouncementPostCard(post) {
   const foot = document.createElement("div");
   foot.className = "announce-post-foot";
   foot.appendChild(commentsRow);
-  foot.appendChild(commentsSection);
   card.appendChild(head);
   card.appendChild(mid);
   fillAnnouncePostContent(card, post);
@@ -431,6 +388,7 @@ function updateAnnouncementEndMarker() {
 // Initial fetch on opening an Announcements channel. Ascending
 // (oldest-first) order, same convention as get_channel_history.
 function clearAnnouncementCommentBooks() {
+  if (typeof closeAnnounceComments === "function") closeAnnounceComments();
   Object.keys(commentThreadState).forEach((key) => delete commentThreadState[key]);
   Object.keys(commentThreadElements).forEach((key) => delete commentThreadElements[key]);
 }

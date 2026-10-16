@@ -242,7 +242,7 @@ function patchCommentReactions(commentId, reactions) {
     if (!comment) return;
     comment.reactions = painted;
     const els = commentThreadElements[postId];
-    const row = els && els.listEl.querySelector(`[data-comment-id="${commentId}"]`);
+    const row = els && els.listEl && els.listEl.querySelector(`[data-comment-id="${commentId}"]`);
     const host = row && row.querySelector(".announce-comment-reactions");
     if (host) fillCommentReactions(host, comment);
   });
@@ -292,7 +292,7 @@ function removeCommentFromThread(postId, commentId, authoritativeCount) {
     state.comments = state.comments.filter(c => c.id !== commentId);
   }
   const els = commentThreadElements[postId];
-  if (els) {
+  if (els && els.listEl) {
     const rowEl = els.listEl.querySelector(`[data-comment-id="${commentId}"]`);
     if (rowEl) rowEl.remove();
   }
@@ -302,30 +302,148 @@ function removeCommentFromThread(postId, commentId, authoritativeCount) {
     ? authoritativeCount
     : (post ? Math.max(0, (post.comment_count || 0) - 1) : null);
   if (post && newCount !== null) post.comment_count = newCount;
-  if (els && newCount !== null) els.btnEl.textContent = `${newCount} comments`;
+  if (els && els.btnEl && newCount !== null) els.btnEl.textContent = `${newCount} comments`;
 }
 
 // Fetch happens once, on first expand - state.comments.length check
 // below means re-expanding doesn't re-request the same first page.
-async function toggleCommentThread(postId) {
-  const els = commentThreadElements[postId];
-  if (!els) return;
+let announceCommentsBound = false;
+let currentAnnounceCommentsPostId = null;
+
+function closeAnnounceComments() {
+  const overlay = document.getElementById("announce-comments-overlay");
+  if (overlay) overlay.hidden = true;
+  if (currentAnnounceCommentsPostId != null) {
+    const prev = commentThreadState[currentAnnounceCommentsPostId];
+    if (prev) prev.expanded = false;
+    const prevEls = commentThreadElements[currentAnnounceCommentsPostId];
+    if (prevEls) {
+      prevEls.listEl = null;
+      prevEls.loadMoreBtn = null;
+    }
+  }
+  currentAnnounceCommentsPostId = null;
+}
+
+function paintAnnounceCommentsSnippet(post) {
+  const host = document.getElementById("announce-comments-snippet");
+  if (!host || !post) return;
+  host.replaceChildren();
+  const top = document.createElement("div");
+  top.className = "announce-comments-snippet-top";
+  const avatar = document.createElement("div");
+  avatar.className = "cluster-avatar";
+  if (typeof paintUserFace === "function") paintUserFace(avatar, post, { name: post.username, userId: post.sender_id });
+  else avatar.textContent = (post.username || "?").charAt(0).toUpperCase();
+  const meta = document.createElement("div");
+  meta.className = "announce-comments-snippet-meta";
+  const name = document.createElement("div");
+  name.className = "announce-post-name";
+  name.textContent = post.username || "Unknown";
+  if (typeof applyServerNameColor === "function") applyServerNameColor(name, post.sender_id, post.name_role || post.nameRole);
+  const title = document.createElement("div");
+  title.className = "announce-comments-snippet-title";
+  title.textContent = post.title || "";
+  meta.appendChild(name);
+  meta.appendChild(title);
+  top.appendChild(avatar);
+  top.appendChild(meta);
+  host.appendChild(top);
+  if (post.body) {
+    const body = document.createElement("div");
+    body.className = "announce-comments-snippet-body";
+    if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers, post.mentionRoles, { rich: true });
+    else body.textContent = post.body;
+    host.appendChild(body);
+  }
+}
+
+function ensureAnnounceCommentsOverlay() {
+  const overlay = document.getElementById("announce-comments-overlay");
+  if (!overlay || announceCommentsBound) return overlay;
+  announceCommentsBound = true;
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeAnnounceComments();
+  });
+  const close = document.getElementById("announce-comments-close");
+  if (close) close.addEventListener("click", () => closeAnnounceComments());
+  const send = document.getElementById("announce-comments-send");
+  const input = document.getElementById("announce-comments-input");
+  if (send) send.addEventListener("click", () => {
+    if (currentAnnounceCommentsPostId) submitComment(currentAnnounceCommentsPostId, input);
+  });
+  if (input) {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submitComment(currentAnnounceCommentsPostId, input);
+    });
+    input.addEventListener("contextmenu", (e) => e.stopPropagation());
+    if (typeof bindMentionComposer === "function") bindMentionComposer(input);
+  }
+  const more = document.getElementById("announce-comments-more");
+  if (more) more.addEventListener("click", () => {
+    if (currentAnnounceCommentsPostId) loadMoreComments(currentAnnounceCommentsPostId);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || overlay.hidden || editingCommentId) return;
+    closeAnnounceComments();
+  });
+  return overlay;
+}
+
+async function openAnnounceComments(postId) {
+  const post = (typeof currentAnnouncementPosts !== "undefined" ? currentAnnouncementPosts : []).find((row) => Number(row.id) === Number(postId));
+  if (!post) return;
+  const overlay = ensureAnnounceCommentsOverlay();
+  if (!overlay) return;
+  if (currentAnnounceCommentsPostId != null && Number(currentAnnounceCommentsPostId) !== Number(postId)) {
+    const prev = commentThreadState[currentAnnounceCommentsPostId];
+    if (prev) prev.expanded = false;
+    const prevEls = commentThreadElements[currentAnnounceCommentsPostId];
+    if (prevEls) {
+      prevEls.listEl = null;
+      prevEls.loadMoreBtn = null;
+    }
+  }
+  currentAnnounceCommentsPostId = postId;
+  paintAnnounceCommentsSnippet(post);
+  const list = document.getElementById("announce-comments-list");
+  const more = document.getElementById("announce-comments-more");
+  const input = document.getElementById("announce-comments-input");
+  const composer = document.getElementById("announce-comments-composer");
+  if (list) list.replaceChildren();
+  if (composer) composer.hidden = post.comments_open === false;
+  if (input) {
+    input.value = "";
+    input.disabled = typeof isServerTimedOut === "function" && isServerTimedOut();
+    input.placeholder = input.disabled
+      ? "You do not have permission to send messages in this channel."
+      : "Add a comment...";
+  }
+  const els = commentThreadElements[postId] || (commentThreadElements[postId] = {});
+  els.listEl = list;
+  els.loadMoreBtn = more;
   let state = commentThreadState[postId];
   if (!state) {
     state = { expanded: false, comments: [], hasMore: true };
     commentThreadState[postId] = state;
   }
+  state.expanded = true;
+  (state.comments || []).forEach((comment) => {
+    if (list) list.appendChild(buildCommentElement(comment));
+  });
+  if (more) more.style.display = (state.comments.length && state.hasMore) ? "block" : "none";
+  overlay.hidden = false;
+  if (state.comments.length === 0 && state.hasMore) await fetchComments(postId, 25);
+  if (input && !input.disabled) input.focus();
+}
 
-  if (state.expanded) {
-    state.expanded = false;
-    els.sectionEl.style.display = "none";
+async function toggleCommentThread(postId) {
+  const overlay = document.getElementById("announce-comments-overlay");
+  if (overlay && !overlay.hidden && Number(currentAnnounceCommentsPostId) === Number(postId)) {
+    closeAnnounceComments();
     return;
   }
-  state.expanded = true;
-  els.sectionEl.style.display = "flex";
-  if (state.comments.length === 0 && state.hasMore) {
-    await fetchComments(postId, 3);
-  }
+  await openAnnounceComments(postId);
 }
 
 // Shared by the initial 3-comment load and each "load more" click -
@@ -333,7 +451,7 @@ async function toggleCommentThread(postId) {
 async function fetchComments(postId, limit) {
   const state = commentThreadState[postId];
   const els = commentThreadElements[postId];
-  if (!state || !els) return;
+  if (!state || !els || !els.listEl) return;
   const lastId = state.comments.length > 0 ? state.comments[state.comments.length - 1].id : null;
   let url = `https://${serverAddress}/get_post_comment/${postId}?limit=${limit}`;
   if (lastId) url += `&after_id=${lastId}`;
@@ -349,13 +467,13 @@ async function fetchComments(postId, limit) {
     });
     state.comments = state.comments.concat(incoming);
     if (incoming.length < limit) state.hasMore = false;
-    incoming.forEach(c => els.listEl.appendChild(buildCommentElement(c)));
-    els.loadMoreBtn.style.display = state.hasMore ? "block" : "none";
+    if (els.listEl) incoming.forEach(c => els.listEl.appendChild(buildCommentElement(c)));
+    if (els.loadMoreBtn) els.loadMoreBtn.style.display = state.hasMore ? "block" : "none";
   } catch (e) { /* leave state as-is on failure */ }
 }
 
 function loadMoreComments(postId) {
-  fetchComments(postId, 5);
+  fetchComments(postId, 25);
 }
 
 async function submitComment(postId, inputEl) {
@@ -386,7 +504,7 @@ async function submitComment(postId, inputEl) {
   state.comments.push(comment);
   const els = commentThreadElements[postId];
   if (els) {
-    els.listEl.appendChild(buildCommentElement(comment));
-    els.btnEl.textContent = `${result.comment_count} comments`;
+    if (els.listEl) els.listEl.appendChild(buildCommentElement(comment));
+    if (els.btnEl) els.btnEl.textContent = `${result.comment_count} comments`;
   }
 }

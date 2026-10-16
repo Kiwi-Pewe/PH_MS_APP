@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=337">
+<link rel="stylesheet" href="app.css?v=338">
 </head>
 <body>
 
@@ -2021,6 +2021,24 @@
     </div>
   </div>
 
+  <div id="announce-comments-overlay" hidden>
+    <div id="announce-comments-modal" role="dialog" aria-modal="true" aria-labelledby="announce-comments-title">
+      <div class="announce-comments-modal-head">
+        <span id="announce-comments-title">Comments</span>
+        <button type="button" class="icon-btn" id="announce-comments-close" title="Close">&times;</button>
+      </div>
+      <div class="announce-comments-snippet" id="announce-comments-snippet"></div>
+      <div class="announce-comments-thread">
+        <div class="announce-comments-list" id="announce-comments-list"></div>
+        <button type="button" class="announce-comments-loadmore-btn" id="announce-comments-more">Load more comments</button>
+        <div class="announce-comment-composer" id="announce-comments-composer">
+          <input type="text" class="announce-comment-input" id="announce-comments-input" placeholder="Add a comment..." autocomplete="off">
+          <button type="button" class="announce-comment-send-btn" id="announce-comments-send">Post</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="follow-channel-overlay" hidden>
     <div id="follow-channel-modal" class="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="follow-channel-title">
       <div class="delete-server-header">
@@ -2282,7 +2300,7 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=128"></script>
+<script src="boot.js?v=129"></script>
 <script src="app-shell.js?v=68"></script>
 <script src="feed.js?v=17"></script>
 <script src="settings.js?v=20"></script>
@@ -2349,9 +2367,9 @@
 <script src="members.js?v=22"></script>
 <script src="mini-profile.js?v=11"></script>
 <script src="server-modals.js?v=48"></script>
-<script src="announcements.js?v=66"></script>
+<script src="announcements.js?v=67"></script>
 <script src="channel-follows.js?v=2"></script>
-<script src="comments.js?v=55"></script>
+<script src="comments.js?v=56"></script>
 <script src="forums.js?v=68"></script>
 <script src="lists.js?v=5"></script>
 <script src="calendar.js?v=8"></script>

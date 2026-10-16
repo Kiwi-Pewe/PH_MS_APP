@@ -680,8 +680,8 @@ function connectSocket() {
       const els = commentThreadElements[data.post_id];
       const state = commentThreadState[data.post_id];
       if (els) {
-        els.btnEl.textContent = `${data.comment.comment_count} comments`;
-        if (state && state.expanded) {
+        if (els.btnEl) els.btnEl.textContent = `${data.comment.comment_count} comments`;
+        if (state && state.expanded && els.listEl) {
           data.comment.reactions = applyReactionMe(data.comment.reactions || []);
           state.comments.push(data.comment);
           els.listEl.appendChild(buildCommentElement(data.comment));

@@ -4151,6 +4151,8 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 .server-overview-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .server-overview-col .server-overview-frame { flex: 1 1 auto; }
+#overview-frame-timezone { flex: 0 0 auto; }
+#overview-frame-about { flex: 1 1 auto; }
 .server-overview-frame {
   background: var(--panel-alt);
   border: 1px solid var(--border);
@@ -4207,14 +4209,14 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .server-overview-stat.is-offline .server-overview-stat-value { color: var(--offline); }
 .server-overview-timezone-body {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; min-height: 140px; gap: 6px;
+  text-align: center; min-height: 72px; gap: 4px; padding: 4px 0;
 }
-.server-overview-timezone { font-size: 14px; font-weight: 600; color: var(--text-dim); }
-.server-overview-timezone-clock { font-size: 42px; font-weight: 700; line-height: 1.1; color: var(--text); }
-.server-overview-timezone-date { font-size: 13px; color: var(--text-dim); }
+.server-overview-timezone { font-size: 13px; font-weight: 600; color: var(--text-dim); }
+.server-overview-timezone-clock { font-size: 28px; font-weight: 700; line-height: 1.1; color: var(--text); }
+.server-overview-timezone-date { font-size: 12px; color: var(--text-dim); }
 .server-overview-about {
   font-size: 16px; line-height: 1.55; word-break: break-word;
-  max-height: 220px; overflow: auto;
+  max-height: 360px; overflow: auto;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
 .server-overview-about::-webkit-scrollbar { width: 8px; }
@@ -7385,11 +7387,27 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .server-settings-input:disabled { opacity: 0.7; cursor: default; }
 .server-settings-textarea {
-  min-height: 96px;
+  min-height: 120px;
   resize: none;
-  overflow: hidden;
+  overflow: auto;
   field-sizing: content;
+  white-space: pre-wrap;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.server-settings-textarea::-webkit-scrollbar { width: 8px; }
+.server-settings-textarea::-webkit-scrollbar-track { background: transparent; }
+.server-settings-textarea::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.server-settings-option { margin-top: 16px; }
+.server-settings-option-name {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.server-settings-option .server-settings-help { font-size: 12px; }
+.server-settings-option + .server-privacy-discover-row { margin-top: 16px; }
 .server-settings-avatar-row {
   display: flex;
   align-items: center;
@@ -9096,7 +9114,8 @@ a.profile-link-row:hover { color: var(--accent); }
   border-radius: 8px;
   background: var(--panel-alt);
 }
-.server-privacy-discover-copy .server-settings-field-title { margin-bottom: 4px; }
+.server-privacy-discover-copy .server-settings-field-title,
+.server-privacy-discover-copy .server-settings-option-name { margin-bottom: 4px; }
 .server-privacy-discover-copy .server-settings-help { margin: 0; }
 #server-privacy-status { margin-top: 12px; }
 

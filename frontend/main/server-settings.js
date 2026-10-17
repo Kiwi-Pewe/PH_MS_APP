@@ -682,7 +682,7 @@ function autosizeServerSettingsAbout() {
   const area = document.getElementById("server-settings-about");
   if (!area) return;
   area.style.height = "auto";
-  area.style.height = Math.max(area.scrollHeight, 96) + "px";
+  area.style.height = Math.max(area.scrollHeight, 120) + "px";
 }
 
 function paintServerSettingsAboutActions() {
@@ -867,6 +867,8 @@ function syncServerSettingsType(kind) {
   setServerSettingsTypeStatus("");
 }
 
+let serverSettingsTimezoneSyncing = false;
+
 function fillServerSettingsTimezones() {
   const select = document.getElementById("server-settings-timezone");
   if (!select || select.dataset.filled === "1") return;
@@ -887,7 +889,8 @@ function fillServerSettingsTimezones() {
     if (!groups[region]) groups[region] = [];
     groups[region].push({ zone, name });
   });
-  select.innerHTML = "";
+  serverSettingsTimezoneSyncing = true;
+  select.replaceChildren();
   const blank = document.createElement("option");
   blank.value = "";
   blank.textContent = "Select…";
@@ -904,6 +907,7 @@ function fillServerSettingsTimezones() {
     select.appendChild(group);
   });
   select.dataset.filled = "1";
+  serverSettingsTimezoneSyncing = false;
 }
 
 function savedServerSettingsTimezone() {
@@ -925,6 +929,7 @@ function syncServerSettingsTimezone(zone) {
   const select = document.getElementById("server-settings-timezone");
   if (!select) return;
   const next = zone || "";
+  serverSettingsTimezoneSyncing = true;
   if (next && !Array.from(select.options).some((option) => option.value === next)) {
     const extra = document.createElement("option");
     extra.value = next;
@@ -932,7 +937,16 @@ function syncServerSettingsTimezone(zone) {
     select.appendChild(extra);
   }
   select.value = next;
+  serverSettingsTimezoneSyncing = false;
   setServerSettingsTimezoneStatus("");
+}
+
+function serverSettingsApiError(data, fallback) {
+  if (data && typeof data.detail === "string") return data.detail;
+  if (data && Array.isArray(data.detail) && data.detail[0]) {
+    return data.detail[0].msg || data.detail[0].detail || fallback;
+  }
+  return fallback;
 }
 
 async function saveServerSettingsTimezone(zone) {
@@ -947,10 +961,10 @@ async function saveServerSettingsTimezone(zone) {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ server_id: currentServerId, timezone: next })
+      body: JSON.stringify({ server_id: String(currentServerId), timezone: next })
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save the timezone.");
+    if (!response.ok) throw new Error(serverSettingsApiError(data, "Could not save the timezone."));
     if (typeof applyServerTimezone === "function") applyServerTimezone(currentServerId, data.timezone || next);
   } catch (err) {
     setServerSettingsTimezoneStatus(err.message || "Could not save the timezone.");
@@ -1056,10 +1070,20 @@ async function saveServerSettingsType(kind) {
 }
 
 function paintServerPublicListing() {
-  const line = document.getElementById("server-settings-discoverable-line");
-  if (!line) return;
-  const on = !!(currentServerData && currentServerData.discoverable);
-  line.textContent = on ? "Discoverable" : "Not discoverable";
+  const saved = typeof savedServerPrivacy === "function"
+    ? savedServerPrivacy()
+    : {
+      privacy_mode: (currentServerData && currentServerData.privacy_mode) || "private",
+      discoverable: !!(currentServerData && currentServerData.discoverable)
+    };
+  const privateMode = saved.privacy_mode === "private";
+  const toggle = document.getElementById("server-settings-discoverable");
+  const wrap = document.getElementById("server-settings-discover-switch");
+  if (toggle) {
+    toggle.checked = !privateMode && !!saved.discoverable;
+    toggle.disabled = privateMode || !canUpdateServer();
+  }
+  if (wrap) wrap.classList.toggle("is-disabled", privateMode || !canUpdateServer());
 }
 
 function openServerSettings() {
@@ -1243,7 +1267,21 @@ document.getElementById("server-settings-type").addEventListener("change", (e) =
 });
 
 document.getElementById("server-settings-timezone").addEventListener("change", (e) => {
+  if (serverSettingsTimezoneSyncing) return;
   saveServerSettingsTimezone(e.target.value);
+});
+
+document.getElementById("server-settings-discoverable").addEventListener("change", (e) => {
+  if (!canUpdateServer() || typeof saveServerPrivacy !== "function") {
+    paintServerPublicListing();
+    return;
+  }
+  const saved = typeof savedServerPrivacy === "function" ? savedServerPrivacy() : { privacy_mode: "private", explicit: false };
+  if (saved.privacy_mode === "private") {
+    paintServerPublicListing();
+    return;
+  }
+  saveServerPrivacy(saved.privacy_mode, e.target.checked, saved.explicit);
 });
 
 document.getElementById("server-settings-notify").addEventListener("click", (e) => {

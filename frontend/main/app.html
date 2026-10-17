@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=346">
+<link rel="stylesheet" href="app.css?v=347">
 </head>
 <body>
 
@@ -1002,7 +1002,7 @@
         <div class="server-settings-field">
           <label class="server-settings-field-title" for="server-settings-about">About</label>
           <p class="server-settings-help">Your server description will be seen by everyone.</p>
-          <textarea id="server-settings-about" class="server-settings-input server-settings-textarea" rows="3" maxlength="2000" placeholder="Tell people what this server is."></textarea>
+          <textarea id="server-settings-about" class="server-settings-input server-settings-textarea" rows="5" maxlength="2000" placeholder="Tell people what this server is."></textarea>
           <div id="server-settings-about-actions" class="server-settings-name-actions" hidden>
             <button type="button" id="server-settings-about-confirm" class="settings-row-btn">Confirm</button>
             <button type="button" id="server-settings-about-cancel" class="ghost-btn">Cancel</button>
@@ -1025,35 +1025,45 @@
         </div>
 
         <div class="server-settings-field">
-          <label class="server-settings-field-title" for="server-settings-type">Server type</label>
-          <p class="server-settings-help">This category is how people browse to this server.</p>
-          <select id="server-settings-type" class="settings-select server-settings-select">
-            <option value="">Select…</option>
-            <option value="community">Community</option>
-            <option value="team">Team</option>
-            <option value="organization">Organization</option>
-            <option value="clan">Clan</option>
-            <option value="guild">Guild</option>
-            <option value="friends">Friends</option>
-            <option value="streaming">Streaming</option>
-            <option value="other">Other</option>
-          </select>
-          <p id="server-settings-type-status" class="server-settings-help" hidden></p>
-        </div>
-
-        <div class="server-settings-field">
           <div class="server-settings-field-title">Public listing</div>
-          <p class="server-settings-help">People outside this server can see the name, the description, and the type. Discoverable is set on Privacy.</p>
-          <p id="server-settings-discoverable-line" class="server-settings-help"></p>
-        </div>
+          <p class="server-settings-help">People outside this server can see the name, the description, and the type.</p>
 
-        <div class="server-settings-field">
-          <label class="server-settings-field-title" for="server-settings-timezone">Timezone</label>
-          <p class="server-settings-help">People can browse servers in this area.</p>
-          <select id="server-settings-timezone" class="settings-select server-settings-select">
-            <option value="">Select…</option>
-          </select>
-          <p id="server-settings-timezone-status" class="server-settings-help" hidden></p>
+          <div class="server-settings-option">
+            <label class="server-settings-option-name" for="server-settings-type">Server type</label>
+            <p class="server-settings-help">This category is how people browse to this server.</p>
+            <select id="server-settings-type" class="settings-select server-settings-select">
+              <option value="">Select…</option>
+              <option value="community">Community</option>
+              <option value="team">Team</option>
+              <option value="organization">Organization</option>
+              <option value="clan">Clan</option>
+              <option value="guild">Guild</option>
+              <option value="friends">Friends</option>
+              <option value="streaming">Streaming</option>
+              <option value="other">Other</option>
+            </select>
+            <p id="server-settings-type-status" class="server-settings-help" hidden></p>
+          </div>
+
+          <div class="server-settings-option">
+            <label class="server-settings-option-name" for="server-settings-timezone">Timezone</label>
+            <p class="server-settings-help">People can browse servers in this area.</p>
+            <select id="server-settings-timezone" class="settings-select server-settings-select">
+              <option value="">Select…</option>
+            </select>
+            <p id="server-settings-timezone-status" class="server-settings-help" hidden></p>
+          </div>
+
+          <div class="server-privacy-discover-row">
+            <div class="server-privacy-discover-copy">
+              <div class="server-settings-option-name">Discoverable</div>
+              <p class="server-settings-help">List this server in Communities. Off while the server is Private.</p>
+            </div>
+            <label id="server-settings-discover-switch" class="toggle-switch">
+              <input type="checkbox" id="server-settings-discoverable">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
         </div>
 
         <div class="server-settings-field">
@@ -2320,7 +2330,7 @@
 <script src="app-shell.js?v=68"></script>
 <script src="feed.js?v=17"></script>
 <script src="settings.js?v=20"></script>
-<script src="server-settings.js?v=40"></script>
+<script src="server-settings.js?v=41"></script>
 <script src="server-roles.js?v=37"></script>
 <script src="server-moderation.js?v=6"></script>
 <script src="server-members.js?v=8"></script>

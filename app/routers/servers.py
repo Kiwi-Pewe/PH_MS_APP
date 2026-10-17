@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Server_channel_role_perms, Server_category_role_perms, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow
 from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
-from zoneinfo import available_timezones
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
@@ -88,9 +88,13 @@ def clean_server_timezone(value):
     zone = (value or "").strip()
     if not zone:
         return ""
-    if zone not in SERVER_TIMEZONES:
+    if zone in SERVER_TIMEZONES:
+        return zone
+    try:
+        ZoneInfo(zone)
+        return zone
+    except (ZoneInfoNotFoundError, Exception):
         return None
-    return zone
 
 
 def clean_server_notifications(value):

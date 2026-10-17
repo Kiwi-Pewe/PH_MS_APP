@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
-from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow
+from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Server_channel_role_perms, Server_category_role_perms, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow
 from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
 from zoneinfo import available_timezones
 from app.database import get_db
@@ -1167,6 +1167,7 @@ def purge_channel_contents(database, channel):
         clear_mentions(database, "channel", message.id)
         delete_attachment(message.attachment)
         database.delete(message)
+    database.query(Server_channel_role_perms).filter(Server_channel_role_perms.channel_id == channel.id).delete(synchronize_session=False)
     database.query(Channel_last_viewed).filter(Channel_last_viewed.channel_id == channel.id).delete()
     database.query(Server_notifications).filter(Server_notifications.channel_id == channel.id).delete(synchronize_session=False)
     database.query(Message_pin).filter(
@@ -1406,6 +1407,7 @@ async def delete_category(category_id: int, database: Session = Depends(get_db),
     })
     for channel in channels:
         purge_channel_contents(database, channel)
+    database.query(Server_category_role_perms).filter(Server_category_role_perms.category_id == category.id).delete(synchronize_session=False)
     database.delete(category)
     database.commit()
     payload = {

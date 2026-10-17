@@ -208,6 +208,10 @@ function auditEntryFields(row) {
     push("Channel", detail.name);
     push("Role", detail.role_name);
   }
+  if (action === "update_category_perms") {
+    push("Category", detail.name);
+    push("Role", detail.role_name);
+  }
   if (action === "delete_media" || action === "delete_doc" || action === "delete_list_item") {
     push("Title", detail.title);
     push("Author", detail.author_username);

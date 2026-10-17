@@ -222,6 +222,14 @@ class Server_channel_role_perms(Base):
     permissions = Column(String)
     __table_args__ = (UniqueConstraint("channel_id", "role_id", name="uq_channel_role_perms"),)
 
+class Server_category_role_perms(Base):
+    __tablename__ = "server_category_role_perms"
+    id = Column(Integer, primary_key=True)
+    category_id = Column(Integer, ForeignKey("server_categories.id"))
+    role_id = Column(Integer, ForeignKey("server_roles.id"))
+    permissions = Column(String)
+    __table_args__ = (UniqueConstraint("category_id", "role_id", name="uq_category_role_perms"),)
+
 class User_notes(Base):
     __tablename__ = "user_notes"
     id = Column(Integer, primary_key=True)

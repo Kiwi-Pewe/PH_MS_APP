@@ -410,6 +410,18 @@ def ensure_role_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS server_category_role_perms ("
+                "id INTEGER PRIMARY KEY, "
+                "category_id INTEGER, "
+                "role_id INTEGER, "
+                "permissions VARCHAR, "
+                "CONSTRAINT uq_category_role_perms UNIQUE (category_id, role_id))"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_doc_columns():

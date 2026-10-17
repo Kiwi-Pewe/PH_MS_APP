@@ -478,6 +478,22 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "category_role_perms_updated") {
+      if (data.server_id === currentServerId && typeof refreshServerContentsSoft === "function") {
+        refreshServerContentsSoft();
+      }
+      if (typeof isChannelSettingsOpen !== "undefined" && isChannelSettingsOpen
+        && channelSettingsTarget
+        && typeof loadChannelSettingsRolePerms === "function") {
+        if (channelSettingsKind === "category" && Number(channelSettingsTarget.id) === Number(data.category_id)) {
+          loadChannelSettingsRolePerms();
+        }
+        if (channelSettingsKind === "channel" && Number(channelSettingsTarget.category_id) === Number(data.category_id)) {
+          loadChannelSettingsRolePerms();
+        }
+      }
+    }
+
     if (data.type === "server_member_roles_updated") {
       if (typeof applyMemberRolesUpdated === "function") {
         applyMemberRolesUpdated(data.server_id, data.user_id, data.hoist_role || null, data.name_role || null);

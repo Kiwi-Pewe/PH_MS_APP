@@ -432,7 +432,8 @@ function channelSettingsPermValue(roleId, permId) {
 }
 
 function channelSettingsPermIsLive(permId) {
-  return channelSettingsKind === "channel" && channelSettingsPermLive.indexOf(permId) !== -1;
+  return (channelSettingsKind === "channel" || channelSettingsKind === "category")
+    && channelSettingsPermLive.indexOf(permId) !== -1;
 }
 
 function paintChannelSettingsPermRoles() {
@@ -550,7 +551,7 @@ function paintChannelSettingsPermActions() {
   const enable = document.getElementById("channel-settings-perms-enable-all");
   const clear = document.getElementById("channel-settings-perms-clear-all");
   const sync = document.getElementById("channel-settings-perms-sync");
-  const ready = channelSettingsKind === "channel"
+  const ready = (channelSettingsKind === "channel" || channelSettingsKind === "category")
     && !!channelSettingsTarget
     && !channelSettingsPermLoading
     && !channelSettingsPermSyncing
@@ -577,11 +578,21 @@ async function syncChannelWithCategory() {
   channelSettingsPermSyncing = true;
   paintChannelSettingsPermActions();
   try {
+    let display = {};
+    const catId = channelSettingsTarget.category_id;
+    if (catId != null) {
+      const response = await fetch(`https://${serverAddress}/get_category_role_perms/${catId}`, { credentials: "include" });
+      if (response.ok) {
+        const data = await response.json();
+        display = data.display || {};
+      }
+    }
     for (let i = 0; i < roles.length; i += 1) {
+      const roleId = String(roles[i].id);
       await postChannelSettings("/save_channel_role_perms", {
         channel_id: channelSettingsTarget.id,
         role_id: Number(roles[i].id),
-        permissions: categoryRolePermMap(roles[i]),
+        permissions: display[roleId] || categoryRolePermMap(roles[i]),
       });
     }
     await loadChannelSettingsRolePerms();
@@ -595,7 +606,7 @@ async function syncChannelWithCategory() {
 }
 
 async function saveChannelSettingsPermBulk(on) {
-  if (channelSettingsKind !== "channel" || !channelSettingsTarget) return;
+  if ((channelSettingsKind !== "channel" && channelSettingsKind !== "category") || !channelSettingsTarget) return;
   const roleId = channelSettingsPermRoleId;
   if (String(roleId) === "members" || !/^\d+$/.test(String(roleId))) {
     setChannelSettingsNameStatus("Load roles before editing permissions.");
@@ -614,11 +625,12 @@ async function saveChannelSettingsPermBulk(on) {
   ids.forEach((id) => { channelSettingsPermSaving[key + ":" + id] = true; });
   paintChannelSettingsPermBody();
   try {
-    const data = await postChannelSettings("/save_channel_role_perms", {
-      channel_id: channelSettingsTarget.id,
-      role_id: Number(roleId),
-      permissions: next,
-    });
+    const data = await postChannelSettings(
+      channelSettingsKind === "category" ? "/save_category_role_perms" : "/save_channel_role_perms",
+      channelSettingsKind === "category"
+        ? { category_id: channelSettingsTarget.id, role_id: Number(roleId), permissions: next }
+        : { channel_id: channelSettingsTarget.id, role_id: Number(roleId), permissions: next }
+    );
     channelSettingsPermDisplay[key] = data.display || data.permissions || next;
     if (typeof refreshServerContentsSoft === "function") await refreshServerContentsSoft();
   } catch (err) {
@@ -631,7 +643,7 @@ async function saveChannelSettingsPermBulk(on) {
 }
 
 async function loadChannelSettingsRolePerms() {
-  if (channelSettingsKind !== "channel" || !channelSettingsTarget) {
+  if ((channelSettingsKind !== "channel" && channelSettingsKind !== "category") || !channelSettingsTarget) {
     channelSettingsPermDisplay = {};
     return;
   }
@@ -641,8 +653,11 @@ async function loadChannelSettingsRolePerms() {
     if (typeof loadServerRoles === "function" && serverRolesLoadedFor !== currentServerId) {
       await loadServerRoles();
     }
+    const path = channelSettingsKind === "category"
+      ? `/get_category_role_perms/${channelSettingsTarget.id}`
+      : `/get_channel_role_perms/${channelSettingsTarget.id}`;
     const response = await fetch(
-      `https://${serverAddress}/get_channel_role_perms/${channelSettingsTarget.id}`,
+      `https://${serverAddress}${path}`,
       { credentials: "include" }
     );
     if (!response.ok) throw new Error("Could not load channel permissions.");
@@ -665,7 +680,7 @@ async function loadChannelSettingsRolePerms() {
 }
 
 async function saveChannelSettingsRolePerm(roleId, permId, on) {
-  if (channelSettingsKind !== "channel" || !channelSettingsTarget) return;
+  if ((channelSettingsKind !== "channel" && channelSettingsKind !== "category") || !channelSettingsTarget) return;
   if (String(roleId) === "members" || !/^\d+$/.test(String(roleId))) {
     setChannelSettingsNameStatus("Load roles before editing permissions.");
     return;
@@ -684,11 +699,12 @@ async function saveChannelSettingsRolePerm(roleId, permId, on) {
   channelSettingsPermSaving[saveKey] = true;
   paintChannelSettingsPermBody();
   try {
-    const data = await postChannelSettings("/save_channel_role_perms", {
-      channel_id: channelSettingsTarget.id,
-      role_id: Number(roleId),
-      permissions: next,
-    });
+    const data = await postChannelSettings(
+      channelSettingsKind === "category" ? "/save_category_role_perms" : "/save_channel_role_perms",
+      channelSettingsKind === "category"
+        ? { category_id: channelSettingsTarget.id, role_id: Number(roleId), permissions: next }
+        : { channel_id: channelSettingsTarget.id, role_id: Number(roleId), permissions: next }
+    );
     channelSettingsPermDisplay[key] = data.display || data.permissions || next;
     if (typeof refreshServerContentsSoft === "function") {
       await refreshServerContentsSoft();
@@ -758,7 +774,7 @@ function showChannelSettingsTab(tab) {
   });
   if (tab === "permissions") {
     paintChannelSettingsPermissions();
-    if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
+    loadChannelSettingsRolePerms();
   }
   if (tab === "integrations") paintChannelFollows();
   if (tab === "invites" && typeof loadChannelInvitesPage === "function") loadChannelInvitesPage();
@@ -1505,7 +1521,7 @@ function openChannelSettings(kind, target) {
   paintChannelSettingsPrivate();
   paintChannelSettingsExplicit();
   paintChannelSettingsPermissions();
-  if (channelSettingsKind === "channel") loadChannelSettingsRolePerms();
+  loadChannelSettingsRolePerms();
   syncChannelSettingsTopic(channelSettingsKind === "channel" ? (target.topic || "") : "");
   syncChannelSettingsSlowmode(channelSettingsKind === "channel" ? (target.slowmode || 0) : 0);
   syncChannelSettingsUserLimit(channelSettingsKind === "channel" ? (target.user_limit || 10) : 10);

@@ -331,6 +331,11 @@ class Channel_role_perms_save(BaseModel):
     role_id: int
     permissions: dict[str, bool] = {}
 
+class Category_role_perms_save(BaseModel):
+    category_id: int
+    role_id: int
+    permissions: dict[str, bool] = {}
+
 class Mini_profile_note_in(BaseModel):
     user_id: int
     text: str = ""

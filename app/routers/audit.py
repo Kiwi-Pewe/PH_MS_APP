@@ -43,6 +43,7 @@ ACTION_LABELS = {
     "transfer_owner": "Ownership Transferred",
     "update_nickname": "Nickname Updated",
     "update_channel_perms": "Channel Permissions Updated",
+    "update_category_perms": "Category Permissions Updated",
     "delete_media": "Media Deleted",
     "delete_doc": "Document Deleted",
     "delete_list_item": "List Item Deleted",
@@ -113,7 +114,7 @@ def detail_summary(action, target_type, detail):
             content = content[:77] + "..."
         bits = [b for b in (author, content) if b]
         return " — ".join(bits) if bits else (target_type or "Deleted")
-    if action == "update_channel_perms":
+    if action == "update_channel_perms" or action == "update_category_perms":
         role = d.get("role_name") or "Role"
         channel = d.get("name") or "channel"
         return f"{role} in {channel}"

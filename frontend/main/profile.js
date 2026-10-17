@@ -93,6 +93,7 @@ function applyProfilePayload(data) {
   profileLimited = !!data.limited;
   profileFriends = data.friends || [];
   profileSavedLayout = data.layout || { pages: [], grid_cols: PROFILE_COLS };
+  if (typeof stampClockNamedTimezones === "function") stampClockNamedTimezones(profileSavedLayout);
   if (profileIsOwn) profileSavedLayout = ensureMiniProfilePage(profileSavedLayout);
   profileDraft = cloneProfileLayout(profileSavedLayout);
   profileDirty = false;
@@ -426,6 +427,7 @@ async function saveProfileLayout() {
   if (saveBtn) saveBtn.disabled = true;
   try {
     stampOwnLocalTimeTimezone(profileDraft);
+    if (typeof stampClockNamedTimezones === "function") stampClockNamedTimezones(profileDraft);
     if (typeof flushIdentityUploads === "function") await flushIdentityUploads(profileDraft);
     const response = await profileApi("/profile_layout", {
       method: "POST",

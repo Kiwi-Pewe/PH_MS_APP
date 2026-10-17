@@ -981,7 +981,7 @@ function serverTimezoneLabel(zone) {
 
 function fillServerSettingsTimezones() {
   const select = document.getElementById("server-settings-timezone");
-  if (!select || select.dataset.filled === "1") return;
+  if (!select) return;
   serverSettingsTimezoneSyncing = true;
   select.replaceChildren();
   const blank = document.createElement("option");
@@ -1002,7 +1002,6 @@ function fillServerSettingsTimezones() {
     option.textContent = row[2];
     groupEl.appendChild(option);
   });
-  select.dataset.filled = "1";
   serverSettingsTimezoneSyncing = false;
 }
 

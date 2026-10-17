@@ -127,64 +127,81 @@ const PROFILE_LINK_PLATFORMS = [
   "Patreon", "Bluesky", "Crunchyroll", "eBay", "Other"
 ];
 
-const PROFILE_CLOCK_CITIES = [
-  { group: "UTC", items: [{ zone: "UTC", city: "UTC" }] },
-  {
-    group: "Americas",
-    items: [
-      { zone: "Pacific/Honolulu", city: "Honolulu" },
-      { zone: "America/Anchorage", city: "Anchorage" },
-      { zone: "America/Los_Angeles", city: "Los Angeles" },
-      { zone: "America/Denver", city: "Denver" },
-      { zone: "America/Chicago", city: "Chicago" },
-      { zone: "America/New_York", city: "New York" },
-      { zone: "America/Mexico_City", city: "Mexico City" },
-      { zone: "America/Sao_Paulo", city: "São Paulo" },
-      { zone: "America/Argentina/Buenos_Aires", city: "Buenos Aires" }
-    ]
-  },
-  {
-    group: "Europe & Africa",
-    items: [
-      { zone: "Europe/London", city: "London" },
-      { zone: "Europe/Paris", city: "Paris" },
-      { zone: "Europe/Athens", city: "Athens" },
-      { zone: "Europe/Moscow", city: "Moscow" },
-      { zone: "Africa/Lagos", city: "Lagos" },
-      { zone: "Africa/Cairo", city: "Cairo" },
-      { zone: "Africa/Johannesburg", city: "Johannesburg" }
-    ]
-  },
-  {
-    group: "Asia & Pacific",
-    items: [
-      { zone: "Asia/Dubai", city: "Dubai" },
-      { zone: "Asia/Kolkata", city: "Mumbai" },
-      { zone: "Asia/Bangkok", city: "Bangkok" },
-      { zone: "Asia/Singapore", city: "Singapore" },
-      { zone: "Asia/Hong_Kong", city: "Hong Kong" },
-      { zone: "Asia/Shanghai", city: "Shanghai" },
-      { zone: "Asia/Seoul", city: "Seoul" },
-      { zone: "Asia/Tokyo", city: "Tokyo" },
-      { zone: "Australia/Sydney", city: "Sydney" },
-      { zone: "Pacific/Auckland", city: "Auckland" }
-    ]
+function profileNamedTimezoneRows() {
+  if (typeof SERVER_TIMEZONE_OPTIONS !== "undefined" && SERVER_TIMEZONE_OPTIONS.length) {
+    return SERVER_TIMEZONE_OPTIONS;
   }
-];
-
-function profileClockCityList() {
-  const rows = [];
-  PROFILE_CLOCK_CITIES.forEach(group => {
-    group.items.forEach(item => rows.push(item));
-  });
-  return rows;
+  return [["UTC", "UTC", "UTC"]];
 }
 
-function profileClockCityName(zone) {
-  const id = String(zone || "").trim();
-  const hit = profileClockCityList().find(item => item.zone === id);
-  if (hit) return hit.city;
-  return id.replace(/_/g, " ");
+function profileZoneOffsetMinutes(zone, at) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(at);
+    const map = {};
+    parts.forEach((part) => { map[part.type] = part.value; });
+    const asUtc = Date.UTC(
+      Number(map.year),
+      Number(map.month) - 1,
+      Number(map.day),
+      Number(map.hour),
+      Number(map.minute),
+      Number(map.second)
+    );
+    return (asUtc - at.getTime()) / 60000;
+  } catch (e) {
+    return null;
+  }
+}
+
+function profileClosestNamedTimezone(zone) {
+  const want = String(zone || "").trim();
+  const rows = profileNamedTimezoneRows();
+  if (!want) return "UTC";
+  if (typeof serverTimezoneMatch === "function") {
+    const match = serverTimezoneMatch(want);
+    if (match) return match.value;
+  }
+  const direct = rows.find((row) => row[1] === want);
+  if (direct) return direct[1];
+  const samples = [new Date("2026-01-15T12:00:00Z"), new Date("2026-07-15T12:00:00Z")];
+  const source = samples.map((at) => profileZoneOffsetMinutes(want, at));
+  if (source.some((value) => value == null)) return "UTC";
+  let best = "UTC";
+  let bestScore = Infinity;
+  const sourceRegion = want.split("/")[0];
+  rows.forEach((row) => {
+    const id = row[1];
+    const offsets = samples.map((at) => profileZoneOffsetMinutes(id, at));
+    if (offsets.some((value) => value == null)) return;
+    let score = 0;
+    for (let i = 0; i < source.length; i++) score += Math.abs(source[i] - offsets[i]);
+    const sameRegion = id.split("/")[0] === sourceRegion;
+    const bestRegion = best.split("/")[0] === sourceRegion;
+    if (score < bestScore || (score === bestScore && sameRegion && !bestRegion)) {
+      bestScore = score;
+      best = id;
+    }
+  });
+  return best;
+}
+
+function profileNamedTimezone(zone) {
+  return profileClosestNamedTimezone(zone);
+}
+
+function profileClockZoneName(zone) {
+  const mapped = profileNamedTimezone(zone);
+  if (typeof serverTimezoneLabel === "function") return serverTimezoneLabel(mapped);
+  return String(mapped || "").replace(/_/g, " ");
 }
 
 function profileTileBounds(type, tile) {
@@ -669,7 +686,7 @@ function defaultProfileTileProps(type, existing) {
     const format = prev.time_format === "24" || prev.time_format === "system" ? prev.time_format : "12";
     return Object.assign({}, chrome, {
       mode,
-      timezone: prev.timezone || "UTC",
+      timezone: profileNamedTimezone(prev.timezone || profileTimezoneGuess() || "UTC"),
       time_format: format,
       show_date: !!prev.show_date,
       show_zone: !!prev.show_zone,
@@ -1434,6 +1451,23 @@ function stampOwnLocalTimeTimezone(layout) {
   });
 }
 
+function stampClockNamedTimezones(layout) {
+  if (!layout) return;
+  (layout.pages || []).forEach((page) => {
+    (page.tiles || []).forEach((tile) => {
+      if (tile.type === "countdown") tile.type = "clock";
+      if (tile.type !== "clock") return;
+      const props = Object.assign({}, tile.props || {});
+      if ((props.mode || "world") !== "world") {
+        tile.props = props;
+        return;
+      }
+      props.timezone = profileNamedTimezone(props.timezone || "UTC");
+      tile.props = props;
+    });
+  });
+}
+
 let profileLocalTimeClock = 0;
 
 function profilePad2(n) {
@@ -1782,7 +1816,7 @@ function paintProfileClock(tile, el) {
       if (props.show_zone) {
         const zoneEl = document.createElement("div");
         zoneEl.className = "profile-clock-zone";
-        zoneEl.textContent = profileClockCityName(zone);
+        zoneEl.textContent = profileClockZoneName(zone);
         body.appendChild(zoneEl);
       }
     } else {

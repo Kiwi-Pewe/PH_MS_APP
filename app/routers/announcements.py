@@ -267,6 +267,7 @@ def server_overview(server_id: str, database: Session = Depends(get_db), current
             "username": names.get(row.sender_id, ""),
             "avatar": faces.get(row.sender_id),
             "created_at": str(row.created_at) if row.created_at else None,
+            "comment_count": int(getattr(row, "comment_count", 0) or 0),
         })
     return {"server_name": server.name, "posts": posts}
 

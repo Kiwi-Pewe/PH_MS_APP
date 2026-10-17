@@ -429,6 +429,17 @@ def clean_timezone(value):
     return zone
 
 
+def map_named_timezone(value):
+    zone = clean_timezone(value)
+    if not zone:
+        return ""
+    from app.routers.servers import SERVER_TIMEZONE_ALIASES, SERVER_TIMEZONES
+    mapped = SERVER_TIMEZONE_ALIASES.get(zone, zone)
+    if mapped in SERVER_TIMEZONES:
+        return mapped
+    return zone
+
+
 def clean_iso_dt(value):
     text = clip_text(value, 40).strip()
     if not text or not ISO_DT.match(text):
@@ -451,7 +462,7 @@ def normalize_clock_props(data):
         year_style = "full"
     out = normalize_text_chrome(data, 18, True)
     out["mode"] = mode
-    out["timezone"] = clean_timezone(data.get("timezone")) or ("UTC" if mode == "world" else "")
+    out["timezone"] = map_named_timezone(data.get("timezone")) or ("UTC" if mode == "world" else "")
     out["time_format"] = time_format
     out["show_date"] = bool(data.get("show_date"))
     out["show_zone"] = bool(data.get("show_zone"))

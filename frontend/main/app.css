@@ -4167,6 +4167,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   padding: 12px 16px;
   background: var(--panel-alt);
 }
+.server-overview-frame-head.is-centered { text-align: center; }
 .server-overview-frame-title {
   font-size: 16px;
   font-weight: 700;
@@ -4214,17 +4215,28 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .server-overview-timezone { font-size: 13px; font-weight: 600; color: var(--text-dim); }
 .server-overview-timezone-clock { font-size: 28px; font-weight: 700; line-height: 1.1; color: var(--text); }
 .server-overview-timezone-date { font-size: 12px; color: var(--text-dim); }
+.server-overview-about-body {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
 .server-overview-about {
   font-size: 16px; line-height: 1.55; word-break: break-word;
-  max-height: 360px; overflow: auto;
+  max-height: 360px; overflow: auto; width: 100%; text-align: center;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
+.server-overview-about p, .server-overview-about li { text-align: center; }
 .server-overview-about::-webkit-scrollbar { width: 8px; }
 .server-overview-about::-webkit-scrollbar-track { background: transparent; }
 .server-overview-about::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .server-overview-post-body { cursor: pointer; }
 .server-overview-post-body .announce-post-top { margin-bottom: 8px; }
 .server-overview-post-body .announce-post-title { margin-bottom: 6px; }
+.server-overview-post-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  cursor: pointer;
+}
+.server-overview-post-when, .server-overview-post-comments { font-size: 13px; color: var(--text-dim); }
 .server-overview-post-snippet {
   display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
   max-height: calc(1.5em * 4);

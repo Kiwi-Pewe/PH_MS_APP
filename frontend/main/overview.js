@@ -18,12 +18,12 @@ function overviewEmptyLine(text) {
   return line;
 }
 
-function overviewFillFrame(id, title, body, foot) {
+function overviewFillFrame(id, title, body, foot, centered) {
   const frame = document.getElementById(id);
   if (!frame) return;
   frame.replaceChildren();
   const head = document.createElement("div");
-  head.className = "server-overview-frame-head";
+  head.className = "server-overview-frame-head" + (centered ? " is-centered" : "");
   const heading = document.createElement("div");
   heading.className = "server-overview-frame-title";
   heading.textContent = title;
@@ -303,11 +303,12 @@ function overviewPaintTimezone() {
     body.appendChild(time);
     body.appendChild(date);
   }
-  overviewFillFrame("overview-frame-timezone", "Timezone", body);
+  overviewFillFrame("overview-frame-timezone", "Timezone", body, null, true);
 }
 
 function overviewPaintAbout() {
   const body = document.createElement("div");
+  body.classList.add("server-overview-about-body");
   const about = (currentServerData && currentServerData.about) || "";
   if (!String(about).trim()) {
     body.appendChild(overviewEmptyLine("No description."));
@@ -318,7 +319,7 @@ function overviewPaintAbout() {
     else text.textContent = about;
     body.appendChild(text);
   }
-  overviewFillFrame("overview-frame-about", "Description", body);
+  overviewFillFrame("overview-frame-about", "Description", body, null, true);
 }
 
 function overviewPaintPost(posts) {
@@ -326,7 +327,7 @@ function overviewPaintPost(posts) {
   const post = (posts || [])[0];
   if (!post) {
     body.appendChild(overviewEmptyLine("No posts yet."));
-    overviewFillFrame("overview-frame-post", "Latest Post", body);
+    overviewFillFrame("overview-frame-post", "Latest Post", body, null, true);
     return;
   }
   body.classList.add("server-overview-post-body");
@@ -359,21 +360,29 @@ function overviewPaintPost(posts) {
     if (typeof fillMentionText === "function") fillMentionText(snippet, post.body, post.mentionUsers, post.mentionRoles, { rich: true });
     else snippet.textContent = post.body;
   }
-  const date = document.createElement("div");
-  date.className = "announce-post-date";
-  if (post.created_at && typeof formatClusterTime === "function") {
-    const parsed = typeof parseUtcTimestamp === "function" ? parseUtcTimestamp(post.created_at) : new Date(post.created_at);
-    date.textContent = formatClusterTime(parsed);
-  }
   body.appendChild(top);
   body.appendChild(title);
   if (post.body) body.appendChild(snippet);
-  if (date.textContent) body.appendChild(date);
-  body.addEventListener("click", (e) => {
+  const foot = document.createElement("div");
+  foot.classList.add("server-overview-post-foot");
+  const when = document.createElement("span");
+  when.className = "server-overview-post-when";
+  if (post.created_at && typeof formatClusterTime === "function") {
+    const parsed = typeof parseUtcTimestamp === "function" ? parseUtcTimestamp(post.created_at) : new Date(post.created_at);
+    when.textContent = formatClusterTime(parsed);
+  }
+  const comments = document.createElement("span");
+  comments.className = "server-overview-post-comments";
+  comments.textContent = `${Number(post.comment_count) || 0} comments`;
+  foot.appendChild(when);
+  foot.appendChild(comments);
+  const openPost = (e) => {
     if (e.target.closest(".is-mini-profile-target")) return;
     openOverviewAnnouncement(post);
-  });
-  overviewFillFrame("overview-frame-post", "Latest Post", body);
+  };
+  body.addEventListener("click", openPost);
+  foot.addEventListener("click", openPost);
+  overviewFillFrame("overview-frame-post", "Latest Post", body, foot, true);
 }
 
 function overviewEventRow(item) {

@@ -1798,7 +1798,7 @@ function paintProfileClock(tile, el) {
   face.className = "profile-clock-live";
   face.dataset.mode = mode;
   if (mode === "world") {
-    const zone = String(props.timezone || "").trim();
+    const zone = profileNamedTimezone(String(props.timezone || "").trim());
     if (profileTimezoneValid(zone)) {
       face.dataset.zone = zone;
       face.dataset.format = props.time_format === "24" || props.time_format === "system" ? props.time_format : "12";

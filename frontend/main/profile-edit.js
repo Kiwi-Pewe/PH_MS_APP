@@ -2470,7 +2470,7 @@ function fillClockOptions(box, draft, onChange, hintEl) {
         : (draft.timezone || "UTC");
       const zone = profileTimezoneField(draft.timezone);
       draft.timezone = zone.value;
-      profileOptHint(zone.label, "Named timezones, not a city list.", hintEl);
+      profileOptHint(zone.label, "Pick the zone this clock should show.", hintEl);
       zone.select.addEventListener("change", () => {
         draft.timezone = zone.select.value;
         onChange();
@@ -2525,7 +2525,7 @@ function fillClockOptions(box, draft, onChange, hintEl) {
       extras.appendChild(dateExtras);
 
       const zoneRow = settingsOpt(
-        "Timezone",
+        "Zone name",
         "",
         settingsToggle(draft.show_zone, false, (on) => {
           draft.show_zone = on;

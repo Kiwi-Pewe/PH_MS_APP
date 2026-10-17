@@ -566,10 +566,7 @@ function voiceMoveChannelOptions(excludeId, onPick) {
   return options;
 }
 
-function openVoiceModerationMenu(event, person) {
-  event.preventDefault();
-  event.stopPropagation();
-  if (!person || typeof openContextMenu !== "function") return;
+function voiceModerationOptions(person) {
   const options = [];
   if (canModerateVoicePerson(person, "mute_members")) {
     options.push({
@@ -596,8 +593,34 @@ function openVoiceModerationMenu(event, person) {
       ? { label: "Move To", submenu: dests }
       : { label: "Move To", disabled: true });
   }
-  if (!options.length) return;
-  openContextMenu(event.clientX, event.clientY, null, options);
+  return options;
+}
+
+async function openVoiceModerationMenu(event, person) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (!person || typeof openContextMenu !== "function") return;
+  const member = typeof memberFromVoicePerson === "function"
+    ? memberFromVoicePerson(person)
+    : { id: person.user_id, username: person.username, avatar: person.avatar };
+  const options = typeof memberContextOptions === "function"
+    ? await memberContextOptions(member)
+    : [];
+  const voiceRows = voiceModerationOptions(person);
+  if (voiceRows.length) {
+    if (options.filter(Boolean).length) options.push({ separator: true });
+    options.push(...voiceRows);
+  }
+  if (!options.filter(Boolean).length) return;
+  const reference = typeof memberContextReference === "function"
+    ? memberContextReference(member)
+    : {
+      avatarText: (person.username || "?").slice(0, 1).toUpperCase(),
+      title: person.username || "",
+      userId: person.user_id,
+      avatar: person.avatar
+    };
+  openContextMenu(event.clientX, event.clientY, reference, options);
 }
 
 async function postVoiceModerate(userId, change) {

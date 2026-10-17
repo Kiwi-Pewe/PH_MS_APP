@@ -77,7 +77,7 @@ function renderServerList() {
       if (typeof serverDndConsumeClick === "function" && serverDndConsumeClick()) return;
       openServer(server.id, icon);
     });
-    icon.addEventListener("contextmenu", (e) => showServerContextMenu(e, server.id, server.name, server.owner_id));
+    icon.addEventListener("contextmenu", (e) => showServerContextMenu(e, server));
 
     const badge = document.createElement("span");
     badge.className = "icon-badge";
@@ -254,13 +254,16 @@ async function openServer(serverId, iconEl, channelId) {
   if (typeof paintServerSettingsAccess === "function") paintServerSettingsAccess();
   if (typeof paintServerTimeoutLock === "function") paintServerTimeoutLock();
   currentServerData = data;
+  const listed = (typeof serverList !== "undefined" ? serverList : []).find((row) => row && String(row.id) === String(serverId));
+  if (listed && data.icon_url) listed.icon_url = data.icon_url;
+  if (listed && !data.icon_url && listed.icon_url) currentServerData.icon_url = listed.icon_url;
   if (typeof loadServerNotifyPrefs === "function") loadServerNotifyPrefs(serverId).catch(() => {});
   if (typeof loadChannelNotifyPrefs === "function") loadChannelNotifyPrefs(serverId).catch(() => {});
 
   document.getElementById("dm-sidebar-view").style.display = "none";
   document.getElementById("server-sidebar-view").style.display = "flex";
 
-  const serverMeta = serverList.find(s => s.id === serverId);
+  const serverMeta = listed || serverList.find((s) => s && String(s.id) === String(serverId));
   document.getElementById("server-sidebar-name").textContent = serverMeta ? serverMeta.name : "";
   paintServerSidebarBanner({
     banner_url: data.banner_url || (serverMeta && serverMeta.banner_url) || "",

@@ -106,6 +106,10 @@ function buildReferenceArea(reference) {
     img.className = "context-menu-avatar-img";
     img.src = reference.image;
     img.alt = "";
+    img.addEventListener("error", () => {
+      img.remove();
+      avatar.textContent = reference.avatarText || "?";
+    });
     avatar.appendChild(img);
   } else if (typeof paintUserFace === "function" && (reference.avatar || reference.userId)) {
     paintUserFace(avatar, { avatar: reference.avatar, id: reference.userId, username: reference.title }, { name: reference.title || reference.avatarText, userId: reference.userId });

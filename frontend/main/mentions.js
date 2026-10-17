@@ -386,6 +386,17 @@ function stampPartyView(partyId) {
   }).catch(() => {});
 }
 
+function markChannelReadFromMenu(channelId) {
+  if (typeof markChannelReadLocal === "function") markChannelReadLocal(channelId);
+  if (typeof stampChannelView === "function") stampChannelView(channelId);
+}
+
+function markCategoryRead(category) {
+  ((category && category.channels) || []).forEach((channel) => {
+    if (channel && channel.id != null) markChannelReadFromMenu(channel.id);
+  });
+}
+
 async function markServerRead(serverId) {
   try {
     const response = await fetch(`https://${serverAddress}/mark_server_read/${serverId}`, {

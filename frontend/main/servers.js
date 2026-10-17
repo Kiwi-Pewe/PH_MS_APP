@@ -276,18 +276,23 @@ async function openServer(serverId, iconEl, channelId) {
   if (typeof loadMentionRoles === "function") loadMentionRoles(serverId);
 
   const preferredId = channelId || data.last_channel_id;
-  let landing = null;
-  if (preferredId && data.categories) {
-    for (const category of data.categories) {
-      landing = (category.channels || []).find((row) => Number(row.id) === Number(preferredId) && channelVisibleInSidebar(row)) || null;
-      if (landing) break;
-    }
-  }
-  const firstChannel = landing || firstVisibleSidebarChannel();
-  if (firstChannel) {
-    await selectChannel(firstChannel);
+  if (!preferredId) {
+    if (typeof openServerOverview === "function") await openServerOverview();
+    else showNoChannelSelected();
   } else {
-    showNoChannelSelected();
+    let landing = null;
+    if (data.categories) {
+      for (const category of data.categories) {
+        landing = (category.channels || []).find((row) => Number(row.id) === Number(preferredId) && channelVisibleInSidebar(row)) || null;
+        if (landing) break;
+      }
+    }
+    const firstChannel = landing || firstVisibleSidebarChannel();
+    if (firstChannel) {
+      await selectChannel(firstChannel);
+    } else {
+      showNoChannelSelected();
+    }
   }
   if (typeof syncAppAddress === "function") syncAppAddress();
 }
@@ -933,88 +938,10 @@ function applyChannelsReordered(channels) {
   renderServerSidebar(currentServerData);
 }
 
-const serverSectionOverview = document.getElementById("server-section-overview");
-if (serverSectionOverview) {
-  serverSectionOverview.addEventListener("click", () => openServerOverview());
-}
-
 function hideChannelSurfaces() {
   ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "event-page", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });
   if (typeof openEventId !== "undefined" && openEventId) openEventId = null;
-}
-
-async function openServerOverview() {
-  if (!currentServerId) return;
-  document.querySelectorAll(".channel-row.active").forEach((row) => row.classList.remove("active"));
-  hideChannelSurfaces();
-  const overview = document.getElementById("server-overview");
-  const row = document.getElementById("server-section-overview");
-  if (row) row.classList.add("active");
-  if (overview) overview.style.display = "flex";
-  const title = document.getElementById("server-overview-title");
-  if (title) title.textContent = (currentServerData && currentServerData.name) || "Overview";
-  const list = document.getElementById("server-overview-list");
-  if (!list) return;
-  list.replaceChildren();
-  const loading = document.createElement("div");
-  loading.className = "server-overview-empty";
-  loading.textContent = "Loading announcements…";
-  list.appendChild(loading);
-  try {
-    const response = await fetch(`https://${serverAddress}/server_overview/${currentServerId}`, { credentials: "include" });
-    if (!response.ok) {
-      loading.textContent = "Could not load announcements.";
-      return;
-    }
-    const data = await response.json();
-    list.replaceChildren();
-    const posts = data.posts || [];
-    if (!posts.length) {
-      const empty = document.createElement("div");
-      empty.className = "server-overview-empty";
-      empty.textContent = "No announcements yet.";
-      list.appendChild(empty);
-      return;
-    }
-    posts.forEach((post) => list.appendChild(buildOverviewAnnouncement(post)));
-  } catch (e) {
-    loading.textContent = "Could not load announcements.";
-  }
-}
-
-function buildOverviewAnnouncement(post) {
-  const card = document.createElement("button");
-  card.type = "button";
-  card.className = "server-overview-card";
-  const where = document.createElement("div");
-  where.className = "server-overview-channel";
-  where.textContent = "#" + (post.channel_name || "announcements");
-  const title = document.createElement("div");
-  title.className = "server-overview-card-title";
-  title.textContent = post.title || "Announcement";
-  const meta = document.createElement("div");
-  meta.className = "server-overview-card-meta";
-  meta.textContent = post.username || "";
-  card.appendChild(where);
-  card.appendChild(title);
-  card.appendChild(meta);
-  card.addEventListener("click", () => openOverviewAnnouncement(post));
-  return card;
-}
-
-async function openOverviewAnnouncement(post) {
-  if (!post || !currentServerData) return;
-  let target = null;
-  (currentServerData.categories || []).forEach((category) => {
-    (category.channels || []).forEach((channel) => {
-      if (Number(channel.id) === Number(post.channel_id)) target = channel;
-    });
-  });
-  if (target && typeof selectChannel === "function") await selectChannel(target);
-  if (typeof jumpLoadAroundAnnouncement === "function") await jumpLoadAroundAnnouncement(post.id);
-  const el = document.querySelector(`.announce-post[data-post-id="${CSS.escape(String(post.id))}"]`);
-  if (el) el.scrollIntoView({ block: "center" });
 }

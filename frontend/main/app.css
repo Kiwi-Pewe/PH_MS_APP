@@ -348,7 +348,7 @@
   font-weight: 500;
   text-align: left;
 }
-.server-section-row:hover { background: var(--panel-alt); color: var(--text); }
+.server-section-row:hover, .server-section-row.active { background: var(--panel-alt); color: var(--text); }
 .server-section-icon {
   flex: 0 0 auto;
   width: 18px;
@@ -4129,21 +4129,81 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 #server-overview {
   flex: 1; min-height: 0; display: none; flex-direction: column;
-  padding: 20px 24px; overflow: auto;
+  padding: 16px 20px; overflow: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
-.server-overview-title { margin: 0; font-size: 22px; }
-.server-overview-sub { margin: 6px 0 16px; color: var(--text-dim); font-size: 14px; }
-.server-overview-empty { color: var(--text-dim); padding: 12px 0; }
+#server-overview::-webkit-scrollbar { width: 8px; }
+#server-overview::-webkit-scrollbar-track { background: transparent; }
+#server-overview::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.server-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.server-overview-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.server-overview-frame {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  min-height: 88px;
+}
+.server-overview-frame-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+}
+.server-overview-frame-body { min-width: 0; }
+.server-overview-placeholder { color: var(--text-dim); font-size: 13px; padding: 4px 0; }
+.server-overview-person {
+  display: flex; align-items: center; gap: 10px; padding: 6px 0;
+}
+.server-overview-person-text { min-width: 0; flex: 1; }
+.server-overview-person-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.server-overview-person-role { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.server-overview-stat {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 6px 0; font-size: 14px;
+}
+.server-overview-stat-value { font-weight: 700; }
+.server-overview-timezone { font-size: 15px; font-weight: 600; }
+.server-overview-timezone-clock { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+.server-overview-about {
+  font-size: 14px; line-height: 1.5; word-break: break-word;
+  max-height: 220px; overflow: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.server-overview-about::-webkit-scrollbar { width: 8px; }
+.server-overview-about::-webkit-scrollbar-track { background: transparent; }
+.server-overview-about::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .server-overview-card {
   display: block; width: 100%; text-align: left;
   background: var(--panel, var(--rail)); color: var(--text);
   border: 1px solid var(--border); border-radius: 8px;
-  padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
+  padding: 12px 14px; cursor: pointer;
 }
 .server-overview-card:hover { border-color: var(--accent, var(--text-dim)); }
 .server-overview-channel { color: var(--text-dim); font-size: 12px; }
 .server-overview-card-title { font-size: 16px; margin-top: 4px; }
 .server-overview-card-meta { color: var(--text-dim); font-size: 13px; margin-top: 4px; }
+.server-overview-card-body {
+  color: var(--text-dim); font-size: 13px; margin-top: 8px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.server-overview-event {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%;
+  text-align: left; background: transparent; border: 0; color: inherit;
+  padding: 8px 0; cursor: pointer;
+}
+.server-overview-event + .server-overview-event { border-top: 1px solid var(--border); }
+.server-overview-event-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; margin-top: 5px; background: var(--accent); }
+.server-overview-event-text { min-width: 0; flex: 1; }
+.server-overview-event-name { font-size: 14px; font-weight: 600; }
+.server-overview-event-when { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 .announce-public-link {
   background: none; border: 0; padding: 0; margin: 4px 0 0;
   color: var(--text-dim); font-size: 13px; cursor: pointer;

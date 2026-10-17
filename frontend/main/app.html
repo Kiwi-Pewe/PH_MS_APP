@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=343">
+<link rel="stylesheet" href="app.css?v=344">
 </head>
 <body>
 
@@ -713,11 +713,21 @@
         </div>
 
         <div id="server-overview" style="display:none;">
-          <div class="server-overview-head">
-            <h2 class="server-overview-title" id="server-overview-title">Overview</h2>
-            <p class="server-overview-sub">Announcements from this server.</p>
+          <div class="server-overview-grid">
+            <div class="server-overview-col">
+              <section class="server-overview-frame" id="overview-frame-staff"></section>
+              <section class="server-overview-frame" id="overview-frame-members"></section>
+            </div>
+            <div class="server-overview-col">
+              <section class="server-overview-frame" id="overview-frame-timezone"></section>
+              <section class="server-overview-frame" id="overview-frame-about"></section>
+              <section class="server-overview-frame" id="overview-frame-post"></section>
+            </div>
+            <div class="server-overview-col">
+              <section class="server-overview-frame" id="overview-frame-now"></section>
+              <section class="server-overview-frame" id="overview-frame-soon"></section>
+            </div>
           </div>
-          <div id="server-overview-list"></div>
         </div>
 
         <!-- Forums channel type. Same sibling-panel pattern as
@@ -2360,7 +2370,7 @@
 <script src="embeds.js?v=47"></script>
 <script src="mentions.js?v=20"></script>
 <script src="explicit-channel.js?v=1"></script>
-<script src="servers.js?v=124"></script>
+<script src="servers.js?v=125"></script>
 <script src="voice.js?v=22"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=4"></script>
@@ -2378,6 +2388,7 @@
 <script src="lists.js?v=5"></script>
 <script src="calendar.js?v=8"></script>
 <script src="calendar-event.js?v=8"></script>
+<script src="overview.js?v=1"></script>
 <script src="schedule.js?v=10"></script>
 <script src="doc-channel.js?v=13"></script>
 <script src="media-channel.js?v=5"></script>

@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Server_channel_role_perms, Server_category_role_perms, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow
 from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
@@ -81,20 +80,111 @@ def server_url_slug(server):
     return (getattr(server, "url_slug", None) or "") if server else ""
 
 
-SERVER_TIMEZONES = available_timezones()
+SERVER_TIMEZONES = {
+    "America/New_York",
+    "America/Chicago",
+    "America/Denver",
+    "America/Phoenix",
+    "America/Los_Angeles",
+    "America/Anchorage",
+    "America/Adak",
+    "Pacific/Honolulu",
+    "America/Halifax",
+    "America/St_Johns",
+    "Pacific/Pago_Pago",
+    "Pacific/Guam",
+    "America/Mexico_City",
+    "America/Sao_Paulo",
+    "America/Argentina/Buenos_Aires",
+    "America/Santiago",
+    "Europe/London",
+    "Europe/Paris",
+    "Europe/Bucharest",
+    "Europe/Moscow",
+    "Africa/Lagos",
+    "Africa/Cairo",
+    "Africa/Nairobi",
+    "Africa/Johannesburg",
+    "Asia/Jerusalem",
+    "Asia/Dubai",
+    "Asia/Tehran",
+    "Asia/Kolkata",
+    "Asia/Shanghai",
+    "Asia/Tokyo",
+    "Asia/Seoul",
+    "Asia/Bangkok",
+    "Asia/Jakarta",
+    "Australia/Perth",
+    "Australia/Adelaide",
+    "Australia/Sydney",
+    "Pacific/Auckland",
+    "Pacific/Fiji",
+    "UTC",
+}
+SERVER_TIMEZONE_ALIASES = {
+    "US/Eastern": "America/New_York",
+    "America/Detroit": "America/New_York",
+    "America/Kentucky/Louisville": "America/New_York",
+    "America/Indiana/Indianapolis": "America/New_York",
+    "America/Toronto": "America/New_York",
+    "America/Montreal": "America/New_York",
+    "US/Central": "America/Chicago",
+    "America/Winnipeg": "America/Chicago",
+    "America/Indiana/Knox": "America/Chicago",
+    "US/Mountain": "America/Denver",
+    "America/Boise": "America/Denver",
+    "America/Edmonton": "America/Denver",
+    "US/Arizona": "America/Phoenix",
+    "US/Pacific": "America/Los_Angeles",
+    "America/Vancouver": "America/Los_Angeles",
+    "US/Alaska": "America/Anchorage",
+    "America/Juneau": "America/Anchorage",
+    "America/Sitka": "America/Anchorage",
+    "America/Nome": "America/Anchorage",
+    "US/Aleutian": "America/Adak",
+    "America/Atka": "America/Adak",
+    "US/Hawaii": "Pacific/Honolulu",
+    "Pacific/Johnston": "Pacific/Honolulu",
+    "Canada/Atlantic": "America/Halifax",
+    "America/Glace_Bay": "America/Halifax",
+    "America/Moncton": "America/Halifax",
+    "America/Puerto_Rico": "America/Halifax",
+    "Canada/Newfoundland": "America/St_Johns",
+    "Pacific/Samoa": "Pacific/Pago_Pago",
+    "Pacific/Saipan": "Pacific/Guam",
+    "Europe/Dublin": "Europe/London",
+    "Europe/Lisbon": "Europe/London",
+    "GB": "Europe/London",
+    "Europe/Berlin": "Europe/Paris",
+    "Europe/Rome": "Europe/Paris",
+    "Europe/Madrid": "Europe/Paris",
+    "Europe/Amsterdam": "Europe/Paris",
+    "Europe/Helsinki": "Europe/Bucharest",
+    "Europe/Athens": "Europe/Bucharest",
+    "Europe/Kyiv": "Europe/Bucharest",
+    "Africa/Casablanca": "Africa/Lagos",
+    "Asia/Calcutta": "Asia/Kolkata",
+    "Asia/Hong_Kong": "Asia/Shanghai",
+    "Asia/Singapore": "Asia/Shanghai",
+    "Australia/Melbourne": "Australia/Sydney",
+    "Australia/Brisbane": "Australia/Sydney",
+}
 
 
 def clean_server_timezone(value):
-    zone = (value or "").strip()
+    zone = (value or "").strip().replace(" ", "_")
     if not zone:
         return ""
+    if len(zone) > 64:
+        return None
+    if not all(ch.isalnum() or ch in "_+-/" for ch in zone):
+        return None
+    zone = SERVER_TIMEZONE_ALIASES.get(zone, zone)
     if zone in SERVER_TIMEZONES:
         return zone
-    try:
-        ZoneInfo(zone)
+    if zone == "UTC" or "/" in zone:
         return zone
-    except (ZoneInfoNotFoundError, Exception):
-        return None
+    return None
 
 
 def clean_server_notifications(value):

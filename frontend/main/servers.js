@@ -472,29 +472,20 @@ function rememberServerChannel(serverId, channelId) {
   }).catch(() => {});
 }
 
-async function selectChannel(channel, rowEl, opts) {
-  const openVoiceText = !!(opts && opts.openVoiceText);
+async function selectChannel(channel, rowEl) {
   const explicitReturnId = currentChannelId;
   const explicitBlocked = typeof explicitChannelNeedsGate === "function" && explicitChannelNeedsGate(channel);
-  if (!explicitBlocked && channel && channel.channel_type === "voice") {
-    if (!openVoiceText) {
-      if (voiceJoinedChannelId !== channel.id) {
-        const stageWasOpen = voiceStageChannelId != null;
-        const joined = typeof joinVoiceChannel === "function" ? await joinVoiceChannel(channel) : false;
-        if (!joined) return;
-        if (stageWasOpen) {
-          if (typeof closeVoiceStage === "function") closeVoiceStage();
-          const next = firstVisibleSidebarChannel();
-          if (next) await selectChannel(next);
-          else showNoChannelSelected();
-        }
-      }
-      return;
+  if (!explicitBlocked && channel && channel.channel_type === "voice" && voiceJoinedChannelId !== channel.id) {
+    const stageWasOpen = voiceStageChannelId != null;
+    const joined = typeof joinVoiceChannel === "function" ? await joinVoiceChannel(channel) : false;
+    if (!joined) return;
+    if (stageWasOpen) {
+      if (typeof closeVoiceStage === "function") closeVoiceStage();
+      const next = firstVisibleSidebarChannel();
+      if (next) await selectChannel(next);
+      else showNoChannelSelected();
     }
-    if (voiceJoinedChannelId !== channel.id) {
-      const joined = typeof joinVoiceChannel === "function" ? await joinVoiceChannel(channel) : false;
-      if (!joined) return;
-    }
+    return;
   }
   if (channel && channel.channel_type !== "voice" && typeof closeVoiceStage === "function") closeVoiceStage();
   if (typeof hideMentionPicker === "function") hideMentionPicker();

@@ -5,6 +5,7 @@ let voiceJoinedServerId = null;
 let voiceJoinedChannelName = "";
 let voiceJoinedServerName = "";
 let voiceStageChannelId = null;
+let voiceTextOpen = false;
 let voiceMuted = false;
 let voiceDeafened = false;
 let voiceServerMuted = false;
@@ -322,7 +323,11 @@ function closeVoiceStage() {
   const grid = document.getElementById("main-grid");
   const wasOpen = !!(grid && grid.classList.contains("voice-stage-open"));
   voiceStageChannelId = null;
-  if (grid) grid.classList.remove("voice-stage-open");
+  voiceTextOpen = false;
+  if (grid) {
+    grid.classList.remove("voice-stage-open");
+    grid.classList.remove("voice-chat-open");
+  }
   if (wasOpen) {
     const users = document.getElementById("user-list");
     if (users && grid.classList.contains("has-member-list")) users.style.display = "flex";
@@ -636,36 +641,53 @@ function paintVoiceStage() {
   if (showing) board.appendChild(row);
 }
 
+function applyVoiceTextLayout() {
+  const grid = document.getElementById("main-grid");
+  const users = document.getElementById("user-list");
+  const on = !!(voiceTextOpen && voiceStageChannelId != null);
+  if (grid) grid.classList.toggle("voice-chat-open", on);
+  if (users) {
+    if (on) users.style.display = "none";
+    else if (grid && grid.classList.contains("has-member-list")) users.style.display = "flex";
+  }
+  paintVoiceChannelChat();
+}
+
 async function openVoiceTextChannel(channel) {
   if (!channel || channel.channel_type !== "voice") return;
-  if (typeof selectChannel === "function") await selectChannel(channel, null, { openVoiceText: true });
+  if (Number(voiceJoinedChannelId) !== Number(channel.id)) return;
+  const onStage = Number(voiceStageChannelId) === Number(channel.id);
+  if (!onStage) {
+    voiceTextOpen = true;
+    if (typeof selectChannel === "function") await selectChannel(channel);
+    applyVoiceTextLayout();
+    return;
+  }
+  voiceTextOpen = !voiceTextOpen;
+  applyVoiceTextLayout();
 }
 
 function openVoiceStage(channel) {
   voiceStageChannelId = channel.id;
   const grid = document.getElementById("main-grid");
   if (grid) grid.classList.add("voice-stage-open");
-  const users = document.getElementById("user-list");
-  if (users) users.style.display = "none";
   const body = document.getElementById("channel-body");
   const composer = document.getElementById("channel-composer");
   const view = document.getElementById("voice-view");
   if (body) body.style.display = "none";
   if (composer) composer.style.display = "none";
   if (view) view.style.display = "flex";
-  const chat = document.getElementById("voice-chat");
-  if (chat) chat.hidden = false;
   const pins = document.getElementById("channel-pins-btn");
   if (pins) pins.style.display = "none";
   paintVoiceStage();
-  if (typeof paintVoiceChannelChat === "function") paintVoiceChannelChat();
+  applyVoiceTextLayout();
 }
 
 function paintVoiceChannelChat(opts) {
   const panel = document.getElementById("voice-chat");
   const wrap = document.getElementById("voice-chat-messages");
   if (!panel || !wrap) return;
-  const open = voiceStageChannelId != null && currentChannelType === "voice" && Number(voiceStageChannelId) === Number(currentChannelId);
+  const open = !!(voiceTextOpen && voiceStageChannelId != null && currentChannelType === "voice" && Number(voiceStageChannelId) === Number(currentChannelId));
   panel.hidden = !open;
   if (!open) return;
   wrap.replaceChildren();

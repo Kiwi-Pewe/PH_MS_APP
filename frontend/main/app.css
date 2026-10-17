@@ -10363,8 +10363,8 @@ button.voice-more-row:hover:not(:disabled) { background: #2b2d31; }
 button.voice-more-row:disabled,
 .voice-more-row.is-check { opacity: 0.55; cursor: default; }
 .voice-more-mark { color: #5865f2; font-weight: 700; }
-#main-grid.voice-stage-open.has-member-list,
-#main-grid.voice-stage-open.has-member-list.has-search-results {
+#main-grid.voice-stage-open.voice-chat-open.has-member-list,
+#main-grid.voice-stage-open.voice-chat-open.has-member-list.has-search-results {
   grid-template-columns: 72px 240px minmax(0, 1fr);
 }
 #chat-call-banner[hidden] { display: none !important; }

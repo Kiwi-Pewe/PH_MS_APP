@@ -654,7 +654,21 @@ function showChannelContextMenu(e, channel) {
     const channelPrefs = typeof cachedChannelNotifyPrefs === "function" ? cachedChannelNotifyPrefs(serverId, channel.id) : null;
     const serverPrefs = typeof cachedServerNotifyPrefs === "function" ? cachedServerNotifyPrefs(serverId) : null;
     const muted = !!(channelPrefs && channelPrefs.muted);
-    const options = [
+    const inThisVoice = channel.channel_type === "voice"
+      && typeof voiceJoinedChannelId !== "undefined"
+      && Number(voiceJoinedChannelId) === Number(channel.id);
+    const options = [];
+    if (channel.channel_type === "voice") {
+      options.push({
+        label: "Voice Text Channel",
+        disabled: !inThisVoice,
+        onSelect: () => {
+          if (typeof openVoiceTextChannel === "function") openVoiceTextChannel(channel);
+        }
+      });
+      options.push({ separator: true });
+    }
+    options.push(
       {
         label: muted ? "Unmute Channel" : "Mute Channel",
         onSelect: () => {
@@ -669,7 +683,7 @@ function showChannelContextMenu(e, channel) {
           ? buildChannelNotifySubmenu(serverId, channel.id, channelPrefs, serverPrefs)
           : []
       }
-    ];
+    );
     if (canLayout) {
       options.push(
         { separator: true },

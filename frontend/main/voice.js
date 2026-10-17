@@ -636,6 +636,11 @@ function paintVoiceStage() {
   if (showing) board.appendChild(row);
 }
 
+async function openVoiceTextChannel(channel) {
+  if (!channel || channel.channel_type !== "voice") return;
+  if (typeof selectChannel === "function") await selectChannel(channel, null, { openVoiceText: true });
+}
+
 function openVoiceStage(channel) {
   voiceStageChannelId = channel.id;
   const grid = document.getElementById("main-grid");

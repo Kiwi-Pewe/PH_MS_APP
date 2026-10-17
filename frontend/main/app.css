@@ -4135,29 +4135,58 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 #server-overview::-webkit-scrollbar { width: 8px; }
 #server-overview::-webkit-scrollbar-track { background: transparent; }
 #server-overview::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.server-overview-stack {
+  width: 100%;
+  margin-top: auto;
+  margin-bottom: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 .server-overview-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.56fr) minmax(0, 0.72fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 .server-overview-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.server-overview-col .server-overview-frame { flex: 1 1 0; }
 .server-overview-frame {
   background: var(--panel-alt);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 16px;
-  min-height: 88px;
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.server-overview-frame-head {
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  background: var(--panel-alt);
 }
 .server-overview-frame-title {
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  margin: 0 0 10px;
+  color: var(--text);
+  margin: 0;
 }
-.server-overview-frame-body { min-width: 0; }
+.server-overview-frame-body {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 12px 16px;
+  background: var(--rail);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+.server-overview-frame-foot {
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
 .server-overview-placeholder { color: var(--text-dim); font-size: 13px; padding: 4px 0; }
 .server-overview-person {
   display: flex; align-items: center; gap: 10px; padding: 6px 0;
@@ -4165,39 +4194,55 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .server-overview-person-text { min-width: 0; flex: 1; }
 .server-overview-person-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .server-overview-person-role { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.server-overview-more { color: var(--text-dim); font-size: 12px; padding-top: 8px; }
 .server-overview-stat {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 6px 0; font-size: 14px;
+  display: flex; align-items: baseline; justify-content: flex-start; gap: 8px;
+  padding: 6px 0; font-size: 14px; font-weight: 600;
 }
 .server-overview-stat-value { font-weight: 700; }
-.server-overview-timezone { font-size: 15px; font-weight: 600; }
-.server-overview-timezone-clock { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+.server-overview-stat.is-total,
+.server-overview-stat.is-total .server-overview-stat-value { color: var(--text-dim); }
+.server-overview-stat.is-online,
+.server-overview-stat.is-online .server-overview-stat-value { color: var(--online); }
+.server-overview-stat.is-offline,
+.server-overview-stat.is-offline .server-overview-stat-value { color: var(--offline); }
+.server-overview-timezone-body {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; min-height: 140px; gap: 6px;
+}
+.server-overview-timezone { font-size: 14px; font-weight: 600; color: var(--text-dim); }
+.server-overview-timezone-clock { font-size: 42px; font-weight: 700; line-height: 1.1; color: var(--text); }
+.server-overview-timezone-date { font-size: 13px; color: var(--text-dim); }
 .server-overview-about {
-  font-size: 14px; line-height: 1.5; word-break: break-word;
+  font-size: 16px; line-height: 1.55; word-break: break-word;
   max-height: 220px; overflow: auto;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
 .server-overview-about::-webkit-scrollbar { width: 8px; }
 .server-overview-about::-webkit-scrollbar-track { background: transparent; }
 .server-overview-about::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-.server-overview-card {
-  display: block; width: 100%; text-align: left;
-  background: var(--panel, var(--rail)); color: var(--text);
-  border: 1px solid var(--border); border-radius: 8px;
-  padding: 12px 14px; cursor: pointer;
+.server-overview-post-body { cursor: pointer; }
+.server-overview-post-body .announce-post-top { margin-bottom: 8px; }
+.server-overview-post-body .announce-post-title { margin-bottom: 6px; }
+.server-overview-post-snippet {
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+  max-height: calc(1.5em * 4);
 }
-.server-overview-card:hover { border-color: var(--accent, var(--text-dim)); }
-.server-overview-channel { color: var(--text-dim); font-size: 12px; }
-.server-overview-card-title { font-size: 16px; margin-top: 4px; }
-.server-overview-card-meta { color: var(--text-dim); font-size: 13px; margin-top: 4px; }
-.server-overview-card-body {
-  color: var(--text-dim); font-size: 13px; margin-top: 8px; line-height: 1.4;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+.server-overview-now-body { cursor: pointer; }
+.server-overview-now-title { font-size: 16px; font-weight: 700; }
+.server-overview-now-meta { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+.server-overview-now-desc {
+  font-size: 13px; line-height: 1.45; margin-top: 10px;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
 }
+.server-overview-timer-foot { text-align: center; }
+.server-overview-timer { font-size: 28px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.server-overview-timer-caption { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+.server-overview-soon-body { display: flex; flex-direction: column; }
 .server-overview-event {
   display: flex; align-items: flex-start; gap: 10px; width: 100%;
   text-align: left; background: transparent; border: 0; color: inherit;
-  padding: 8px 0; cursor: pointer;
+  padding: 10px 0; cursor: pointer;
 }
 .server-overview-event + .server-overview-event { border-top: 1px solid var(--border); }
 .server-overview-event-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; margin-top: 5px; background: var(--accent); }

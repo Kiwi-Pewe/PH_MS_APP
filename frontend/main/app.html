@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=344">
+<link rel="stylesheet" href="app.css?v=345">
 </head>
 <body>
 
@@ -713,19 +713,21 @@
         </div>
 
         <div id="server-overview" style="display:none;">
-          <div class="server-overview-grid">
-            <div class="server-overview-col">
-              <section class="server-overview-frame" id="overview-frame-staff"></section>
-              <section class="server-overview-frame" id="overview-frame-members"></section>
-            </div>
-            <div class="server-overview-col">
-              <section class="server-overview-frame" id="overview-frame-timezone"></section>
-              <section class="server-overview-frame" id="overview-frame-about"></section>
-              <section class="server-overview-frame" id="overview-frame-post"></section>
-            </div>
-            <div class="server-overview-col">
-              <section class="server-overview-frame" id="overview-frame-now"></section>
-              <section class="server-overview-frame" id="overview-frame-soon"></section>
+          <div class="server-overview-stack">
+            <section class="server-overview-frame" id="overview-frame-post"></section>
+            <div class="server-overview-grid">
+              <div class="server-overview-col">
+                <section class="server-overview-frame" id="overview-frame-staff"></section>
+                <section class="server-overview-frame" id="overview-frame-members"></section>
+              </div>
+              <div class="server-overview-col">
+                <section class="server-overview-frame" id="overview-frame-timezone"></section>
+                <section class="server-overview-frame" id="overview-frame-about"></section>
+              </div>
+              <div class="server-overview-col">
+                <section class="server-overview-frame" id="overview-frame-now"></section>
+                <section class="server-overview-frame" id="overview-frame-soon"></section>
+              </div>
             </div>
           </div>
         </div>
@@ -2388,7 +2390,7 @@
 <script src="lists.js?v=5"></script>
 <script src="calendar.js?v=8"></script>
 <script src="calendar-event.js?v=8"></script>
-<script src="overview.js?v=1"></script>
+<script src="overview.js?v=2"></script>
 <script src="schedule.js?v=10"></script>
 <script src="doc-channel.js?v=13"></script>
 <script src="media-channel.js?v=5"></script>

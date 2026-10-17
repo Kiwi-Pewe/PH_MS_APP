@@ -4150,7 +4150,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   align-items: stretch;
 }
 .server-overview-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.server-overview-col .server-overview-frame { flex: 1 1 0; }
+.server-overview-col .server-overview-frame { flex: 1 1 auto; }
 .server-overview-frame {
   background: var(--panel-alt);
   border: 1px solid var(--border);
@@ -4159,7 +4159,6 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 .server-overview-frame-head {
   flex: 0 0 auto;

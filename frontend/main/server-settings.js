@@ -868,6 +868,7 @@ function syncServerSettingsType(kind) {
 }
 
 let serverSettingsTimezoneSyncing = false;
+let serverSettingsTimezoneSaving = false;
 
 const SERVER_TIMEZONE_OPTIONS = [
   ["US & Canada", "America/New_York", "Eastern"],
@@ -1047,18 +1048,26 @@ function serverSettingsApiError(data, fallback) {
 }
 
 async function saveServerSettingsTimezone(zone) {
-  if (!currentServerId || !canUpdateServer()) return;
+  if (serverSettingsTimezoneSyncing || serverSettingsTimezoneSaving) return;
+  if (!currentServerId) return;
+  if (!canUpdateServer()) {
+    setServerSettingsTimezoneStatus("You do not have permission to update this server.");
+    syncServerSettingsTimezone(savedServerSettingsTimezone());
+    return;
+  }
   const next = (zone || "").trim();
-  if (next === savedServerSettingsTimezone()) return;
-  const select = document.getElementById("server-settings-timezone");
-  if (select) select.disabled = true;
+  const saved = savedServerSettingsTimezone();
+  const savedMatch = serverTimezoneMatch(saved);
+  const savedCanonical = (savedMatch && savedMatch.value) || saved;
+  if (next === savedCanonical) return;
+  serverSettingsTimezoneSaving = true;
   setServerSettingsTimezoneStatus("");
   try {
     const response = await fetch(`https://${serverAddress}/update_server_timezone`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ server_id: String(currentServerId), timezone: next })
+      body: JSON.stringify({ server_id: currentServerId, timezone: next })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(serverSettingsApiError(data, "Could not save the timezone."));
@@ -1067,7 +1076,7 @@ async function saveServerSettingsTimezone(zone) {
     setServerSettingsTimezoneStatus(err.message || "Could not save the timezone.");
     syncServerSettingsTimezone(savedServerSettingsTimezone());
   } finally {
-    if (select) select.disabled = false;
+    serverSettingsTimezoneSaving = false;
   }
 }
 
@@ -1364,7 +1373,7 @@ document.getElementById("server-settings-type").addEventListener("change", (e) =
 });
 
 document.getElementById("server-settings-timezone").addEventListener("change", (e) => {
-  if (serverSettingsTimezoneSyncing) return;
+  if (serverSettingsTimezoneSyncing || serverSettingsTimezoneSaving) return;
   saveServerSettingsTimezone(e.target.value);
 });
 

@@ -164,12 +164,16 @@ function applyServerAbout(serverId, about) {
 
 function applyServerTimezone(serverId, zone) {
   const next = zone || "";
-  const meta = serverList.find(s => s.id === serverId);
+  const meta = serverList.find(s => s && String(s.id) === String(serverId));
   if (meta) meta.timezone = next;
-  if (currentServerData && currentServerId === serverId) {
+  if (currentServerData && String(currentServerId) === String(serverId)) {
     currentServerData.timezone = next;
   }
   if (typeof syncServerSettingsTimezone === "function") syncServerSettingsTimezone(next);
+  const overview = document.getElementById("server-overview");
+  if (overview && overview.style.display !== "none" && typeof overviewPaintTimezone === "function") {
+    overviewPaintTimezone();
+  }
   if (currentChannelType === "events" && typeof renderCalendar === "function") renderCalendar();
 }
 

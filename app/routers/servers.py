@@ -637,14 +637,13 @@ async def update_server_timezone(body: Server_timezone_update, database: Session
         raise HTTPException(status_code=400, detail="That is not a timezone.")
 
     previous = getattr(server, "timezone", None) or ""
-    server.timezone = zone or None
-    saved_zone = getattr(server, "timezone", None) or ""
-    if previous != saved_zone:
+    saved = zone or ""
+    server.timezone = saved or None
+    if previous != saved:
         write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
-            "name": "Timezone", "field": "Timezone", "from": previous, "to": saved_zone,
+            "name": "Timezone", "field": "Timezone", "from": previous, "to": saved,
         })
     database.commit()
-    saved = getattr(server, "timezone", None) or ""
     await server_broadcast(
         server_id=server.id,
         payload={"type": "server_timezone_updated", "server_id": server.id, "timezone": saved},

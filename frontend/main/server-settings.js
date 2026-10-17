@@ -869,42 +869,137 @@ function syncServerSettingsType(kind) {
 
 let serverSettingsTimezoneSyncing = false;
 
+const SERVER_TIMEZONE_OPTIONS = [
+  ["US & Canada", "America/New_York", "Eastern"],
+  ["US & Canada", "America/Chicago", "Central"],
+  ["US & Canada", "America/Denver", "Mountain"],
+  ["US & Canada", "America/Phoenix", "Arizona"],
+  ["US & Canada", "America/Los_Angeles", "Pacific"],
+  ["US & Canada", "America/Anchorage", "Alaska"],
+  ["US & Canada", "America/Adak", "Aleutian"],
+  ["US & Canada", "Pacific/Honolulu", "Hawaii"],
+  ["US & Canada", "America/Halifax", "Atlantic"],
+  ["US & Canada", "America/St_Johns", "Newfoundland"],
+  ["US & Canada", "Pacific/Pago_Pago", "Samoa"],
+  ["US & Canada", "Pacific/Guam", "Chamorro"],
+  ["Americas", "America/Mexico_City", "Mexico"],
+  ["Americas", "America/Sao_Paulo", "Brazil"],
+  ["Americas", "America/Argentina/Buenos_Aires", "Argentina"],
+  ["Americas", "America/Santiago", "Chile"],
+  ["Europe", "Europe/London", "Western Europe"],
+  ["Europe", "Europe/Paris", "Central Europe"],
+  ["Europe", "Europe/Bucharest", "Eastern Europe"],
+  ["Europe", "Europe/Moscow", "Moscow"],
+  ["Africa", "Africa/Lagos", "West Africa"],
+  ["Africa", "Africa/Cairo", "Central Africa"],
+  ["Africa", "Africa/Nairobi", "East Africa"],
+  ["Africa", "Africa/Johannesburg", "South Africa"],
+  ["Middle East", "Asia/Jerusalem", "Israel"],
+  ["Middle East", "Asia/Dubai", "Gulf"],
+  ["Middle East", "Asia/Tehran", "Iran"],
+  ["Asia", "Asia/Kolkata", "India"],
+  ["Asia", "Asia/Shanghai", "China"],
+  ["Asia", "Asia/Tokyo", "Japan"],
+  ["Asia", "Asia/Seoul", "Korea"],
+  ["Asia", "Asia/Bangkok", "Indochina"],
+  ["Asia", "Asia/Jakarta", "Western Indonesia"],
+  ["Australia & Pacific", "Australia/Perth", "Australia Western"],
+  ["Australia & Pacific", "Australia/Adelaide", "Australia Central"],
+  ["Australia & Pacific", "Australia/Sydney", "Australia Eastern"],
+  ["Australia & Pacific", "Pacific/Auckland", "New Zealand"],
+  ["Australia & Pacific", "Pacific/Fiji", "Fiji"],
+  ["UTC", "UTC", "UTC"],
+];
+
+const SERVER_TIMEZONE_ALIASES = {
+  "US/Eastern": "America/New_York",
+  "America/Detroit": "America/New_York",
+  "America/Kentucky/Louisville": "America/New_York",
+  "America/Indiana/Indianapolis": "America/New_York",
+  "America/Toronto": "America/New_York",
+  "America/Montreal": "America/New_York",
+  "US/Central": "America/Chicago",
+  "America/Winnipeg": "America/Chicago",
+  "America/Indiana/Knox": "America/Chicago",
+  "US/Mountain": "America/Denver",
+  "America/Boise": "America/Denver",
+  "America/Edmonton": "America/Denver",
+  "US/Arizona": "America/Phoenix",
+  "US/Pacific": "America/Los_Angeles",
+  "America/Vancouver": "America/Los_Angeles",
+  "US/Alaska": "America/Anchorage",
+  "America/Juneau": "America/Anchorage",
+  "America/Sitka": "America/Anchorage",
+  "America/Nome": "America/Anchorage",
+  "US/Aleutian": "America/Adak",
+  "America/Atka": "America/Adak",
+  "US/Hawaii": "Pacific/Honolulu",
+  "Pacific/Johnston": "Pacific/Honolulu",
+  "Canada/Atlantic": "America/Halifax",
+  "America/Glace_Bay": "America/Halifax",
+  "America/Moncton": "America/Halifax",
+  "America/Puerto_Rico": "America/Halifax",
+  "Canada/Newfoundland": "America/St_Johns",
+  "Pacific/Samoa": "Pacific/Pago_Pago",
+  "Pacific/Saipan": "Pacific/Guam",
+  "Europe/Dublin": "Europe/London",
+  "Europe/Lisbon": "Europe/London",
+  "GB": "Europe/London",
+  "Europe/Berlin": "Europe/Paris",
+  "Europe/Rome": "Europe/Paris",
+  "Europe/Madrid": "Europe/Paris",
+  "Europe/Amsterdam": "Europe/Paris",
+  "Europe/Helsinki": "Europe/Bucharest",
+  "Europe/Athens": "Europe/Bucharest",
+  "Europe/Kyiv": "Europe/Bucharest",
+  "Africa/Casablanca": "Africa/Lagos",
+  "Asia/Calcutta": "Asia/Kolkata",
+  "Asia/Hong_Kong": "Asia/Shanghai",
+  "Asia/Singapore": "Asia/Shanghai",
+  "Australia/Melbourne": "Australia/Sydney",
+  "Australia/Brisbane": "Australia/Sydney",
+};
+
+function serverTimezoneMatch(zone) {
+  const want = String(zone || "");
+  if (!want) return null;
+  const direct = SERVER_TIMEZONE_OPTIONS.find((row) => row[1] === want);
+  if (direct) return { group: direct[0], value: direct[1], label: direct[2] };
+  const aliased = SERVER_TIMEZONE_ALIASES[want];
+  if (!aliased) return null;
+  const row = SERVER_TIMEZONE_OPTIONS.find((entry) => entry[1] === aliased);
+  if (!row) return null;
+  return { group: row[0], value: row[1], label: row[2] };
+}
+
+function serverTimezoneLabel(zone) {
+  const match = serverTimezoneMatch(zone);
+  if (match) return match.label;
+  return String(zone || "").replace(/_/g, " ");
+}
+
 function fillServerSettingsTimezones() {
   const select = document.getElementById("server-settings-timezone");
   if (!select || select.dataset.filled === "1") return;
-  let zones = [];
-  try {
-    if (typeof Intl.supportedValuesOf === "function") zones = Intl.supportedValuesOf("timeZone") || [];
-  } catch (e) {
-    zones = [];
-  }
-  if (!zones.length) {
-    zones = ["UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London", "Europe/Paris", "Asia/Tokyo"];
-  }
-  const groups = {};
-  zones.forEach((zone) => {
-    const cut = zone.indexOf("/");
-    const region = cut === -1 ? "Other" : zone.slice(0, cut);
-    const name = (cut === -1 ? zone : zone.slice(cut + 1)).replace(/_/g, " ");
-    if (!groups[region]) groups[region] = [];
-    groups[region].push({ zone, name });
-  });
   serverSettingsTimezoneSyncing = true;
   select.replaceChildren();
   const blank = document.createElement("option");
   blank.value = "";
   blank.textContent = "Select…";
   select.appendChild(blank);
-  Object.keys(groups).sort().forEach((region) => {
-    const group = document.createElement("optgroup");
-    group.label = region;
-    groups[region].sort((a, b) => a.name.localeCompare(b.name)).forEach((item) => {
-      const option = document.createElement("option");
-      option.value = item.zone;
-      option.textContent = item.name;
-      group.appendChild(option);
-    });
-    select.appendChild(group);
+  let currentGroup = null;
+  let groupEl = null;
+  SERVER_TIMEZONE_OPTIONS.forEach((row) => {
+    if (!groupEl || currentGroup !== row[0]) {
+      currentGroup = row[0];
+      groupEl = document.createElement("optgroup");
+      groupEl.label = currentGroup;
+      select.appendChild(groupEl);
+    }
+    const option = document.createElement("option");
+    option.value = row[1];
+    option.textContent = row[2];
+    groupEl.appendChild(option);
   });
   select.dataset.filled = "1";
   serverSettingsTimezoneSyncing = false;
@@ -929,14 +1024,16 @@ function syncServerSettingsTimezone(zone) {
   const select = document.getElementById("server-settings-timezone");
   if (!select) return;
   const next = zone || "";
+  const match = serverTimezoneMatch(next);
+  const shown = (match && match.value) || next;
   serverSettingsTimezoneSyncing = true;
-  if (next && !Array.from(select.options).some((option) => option.value === next)) {
+  if (shown && !Array.from(select.options).some((option) => option.value === shown)) {
     const extra = document.createElement("option");
-    extra.value = next;
-    extra.textContent = next.replace(/_/g, " ");
+    extra.value = shown;
+    extra.textContent = serverTimezoneLabel(shown);
     select.appendChild(extra);
   }
-  select.value = next;
+  select.value = shown;
   serverSettingsTimezoneSyncing = false;
   setServerSettingsTimezoneStatus("");
 }

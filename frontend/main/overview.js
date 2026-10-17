@@ -62,6 +62,7 @@ function overviewMemberIsStaff(member, roles) {
 
 function overviewTimezoneLabel(zone) {
   if (!zone) return "";
+  if (typeof serverTimezoneLabel === "function") return serverTimezoneLabel(zone);
   return String(zone).replace(/_/g, " ");
 }
 

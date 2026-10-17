@@ -39,6 +39,27 @@ function showMessageContextMenu(e, msg) {
   ]);
 }
 
+function showAttachMarkdownContextMenu(e, info) {
+  e.preventDefault();
+  e.stopPropagation();
+  const marked = !!(info && info.marked);
+  const kind = (info && info.kind) === "video" ? "Video" : "Image";
+  const reference = {
+    avatarText: kind.charAt(0),
+    title: (info && info.name) || "file",
+    subtitle: kind
+  };
+  if (info && info.image) reference.image = info.image;
+  openContextMenu(e.clientX, e.clientY, reference, [
+    {
+      label: marked ? "Remove Explicit" : "Mark as Explicit",
+      onSelect: () => {
+        if (info && typeof info.onToggle === "function") info.onToggle();
+      }
+    }
+  ]);
+}
+
 function canPinMessage(msg) {
   if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;

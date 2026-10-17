@@ -52,7 +52,8 @@ function addPostMediaFiles(kind, fileList) {
     }
     slot.files.push({
       file,
-      previewUrl: URL.createObjectURL(file)
+      previewUrl: URL.createObjectURL(file),
+      explicit: false
     });
   }
   paintPostComposerStrip(kind);
@@ -72,6 +73,21 @@ function postMediaItemMime(item) {
   return ((item.existing && item.existing.mime) || "").toLowerCase();
 }
 
+function postMediaItemExplicit(item) {
+  return !!(item && (item.explicit || (item.existing && item.existing.explicit)));
+}
+
+function postMediaItemKind(item) {
+  const mime = postMediaItemMime(item);
+  if (mime.startsWith("video/") || (item.existing && item.existing.kind === "video")) return "video";
+  return "image";
+}
+
+function postMediaItemName(item) {
+  if (item.file && item.file.name) return item.file.name;
+  return (item.existing && item.existing.name) || "file";
+}
+
 function paintPostComposerStrip(kind) {
   const host = POST_MEDIA_HOSTS[kind];
   const addBtn = host && document.getElementById(host.addId);
@@ -81,7 +97,8 @@ function paintPostComposerStrip(kind) {
   const items = postMediaPending[kind].files;
   items.forEach((item, index) => {
     const thumb = document.createElement("div");
-    thumb.className = "announce-composer-image-btn announce-composer-image-thumb has-file";
+    const explicit = postMediaItemExplicit(item);
+    thumb.className = "announce-composer-image-btn announce-composer-image-thumb has-file" + (explicit ? " is-explicit" : "");
     const mime = postMediaItemMime(item);
     if (mime.startsWith("video/")) {
       const vid = document.createElement("video");
@@ -95,6 +112,12 @@ function paintPostComposerStrip(kind) {
       img.alt = "";
       thumb.appendChild(img);
     }
+    if (explicit) {
+      const label = document.createElement("span");
+      label.className = "md-explicit-media-label";
+      label.textContent = "Explicit";
+      thumb.appendChild(label);
+    }
     const clearBtn = document.createElement("button");
     clearBtn.type = "button";
     clearBtn.className = "announce-composer-image-clear";
@@ -105,6 +128,19 @@ function paintPostComposerStrip(kind) {
       removePostMediaAt(kind, index);
     });
     thumb.appendChild(clearBtn);
+    if (typeof bindAttachMarkdownMenu === "function") {
+      bindAttachMarkdownMenu(thumb, () => ({
+        name: postMediaItemName(item),
+        kind: postMediaItemKind(item),
+        marked: postMediaItemExplicit(item),
+        image: item.previewUrl
+      }), () => {
+        const next = !postMediaItemExplicit(item);
+        item.explicit = next;
+        if (item.existing) item.existing.explicit = next;
+        paintPostComposerStrip(kind);
+      });
+    }
     strip.insertBefore(thumb, addBtn);
   });
   strip.classList.toggle("has-files", items.length > 0);
@@ -195,10 +231,13 @@ async function uploadPendingPostFiles(items) {
         key: item.existing.key,
         mime: item.existing.mime,
         size: item.existing.size,
-        name: item.existing.name || ""
+        name: item.existing.name || "",
+        explicit: postMediaItemExplicit(item)
       });
     } else {
-      uploaded.push(await uploadPendingPostFile(item.file));
+      const payload = await uploadPendingPostFile(item.file);
+      payload.explicit = !!item.explicit;
+      uploaded.push(payload);
     }
   }
   return uploaded;
@@ -206,18 +245,20 @@ async function uploadPendingPostFiles(items) {
 
 function appendPostMediaItem(host, data) {
   const mime = (data.mime || "").toLowerCase();
+  let mediaEl;
   if (mime.startsWith("video/") || data.kind === "video") {
     const vid = document.createElement("video");
     vid.src = data.url;
     vid.controls = true;
     vid.preload = "metadata";
-    host.appendChild(vid);
+    mediaEl = vid;
   } else {
     const img = document.createElement("img");
     img.src = data.url;
     img.alt = data.name || "";
-    host.appendChild(img);
+    mediaEl = img;
   }
+  host.appendChild(typeof wrapExplicitMedia === "function" ? wrapExplicitMedia(mediaEl, data) : mediaEl);
 }
 
 function buildPostMedia(attachment, extraClass) {
@@ -237,18 +278,20 @@ function buildForumThumb(attachment) {
   const thumb = document.createElement("div");
   thumb.className = "forum-post-thumb";
   const mime = (data.mime || "").toLowerCase();
+  let mediaEl;
   if (mime.startsWith("video/") || data.kind === "video") {
     const vid = document.createElement("video");
     vid.src = data.url;
     vid.muted = true;
     vid.preload = "metadata";
-    thumb.appendChild(vid);
+    mediaEl = vid;
   } else {
     const img = document.createElement("img");
     img.src = data.url;
     img.alt = "";
-    thumb.appendChild(img);
+    mediaEl = img;
   }
+  thumb.appendChild(typeof wrapExplicitMedia === "function" ? wrapExplicitMedia(mediaEl, data) : mediaEl);
   if (items.length > 1) {
     const more = document.createElement("div");
     more.className = "forum-post-thumb-more";

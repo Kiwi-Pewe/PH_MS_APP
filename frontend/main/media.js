@@ -23,6 +23,84 @@ function parseAttachment(raw) {
   try { return JSON.parse(raw); } catch (e) { return null; }
 }
 
+function pendingAttachExplicit(att) {
+  if (!att) return false;
+  if (att.mode === "existing") return !!(att.attachment && att.attachment.explicit);
+  return !!att.explicit;
+}
+
+function setPendingAttachExplicit(att, value) {
+  if (!att) return;
+  if (att.mode === "existing") {
+    if (!att.attachment) att.attachment = {};
+    att.attachment.explicit = !!value;
+    return;
+  }
+  att.explicit = !!value;
+}
+
+function paintChipFace(chip, src, kind, name, explicit) {
+  const face = document.createElement("div");
+  face.className = "attach-chip-face" + (explicit ? " is-explicit" : "");
+  if (kind === "video") {
+    const vid = document.createElement("video");
+    vid.src = src;
+    vid.muted = true;
+    face.appendChild(vid);
+  } else if (src) {
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = name || "";
+    face.appendChild(img);
+  }
+  if (explicit) {
+    const label = document.createElement("span");
+    label.className = "md-explicit-media-label";
+    label.textContent = "Explicit";
+    face.appendChild(label);
+  }
+  chip.appendChild(face);
+}
+
+function bindAttachMarkdownMenu(el, getState, onToggle) {
+  el.addEventListener("contextmenu", (e) => {
+    if (e.target.closest(".attach-chip-remove, .announce-composer-image-clear")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const state = typeof getState === "function" ? (getState() || {}) : {};
+    if (typeof showAttachMarkdownContextMenu === "function") {
+      showAttachMarkdownContextMenu(e, {
+        name: state.name || "file",
+        kind: state.kind || "image",
+        marked: !!state.marked,
+        image: state.image || "",
+        onToggle
+      });
+    }
+  });
+}
+
+function wrapExplicitMedia(mediaEl, att) {
+  if (!att || !att.explicit) return mediaEl;
+  const cover = document.createElement("div");
+  cover.className = "md-explicit-media";
+  const label = document.createElement("span");
+  label.className = "md-explicit-media-label";
+  label.textContent = "Explicit";
+  cover.appendChild(mediaEl);
+  cover.appendChild(label);
+  const video = mediaEl.tagName === "VIDEO" ? mediaEl : null;
+  const hadControls = !!(video && video.controls);
+  if (video && hadControls) video.controls = false;
+  cover.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const open = cover.classList.toggle("is-open");
+    if (video && hadControls) video.controls = open;
+  });
+  return cover;
+}
+
 function fileMime(file) {
   if (file && file.type && MEDIA_MIME[file.type]) return file.type === "image/jpg" ? "image/jpeg" : file.type;
   const name = ((file && file.name) || "").toLowerCase();
@@ -67,7 +145,8 @@ function setPendingFile(file) {
     file,
     mime,
     kind: MEDIA_MIME[mime] || "image",
-    previewUrl: URL.createObjectURL(file)
+    previewUrl: URL.createObjectURL(file),
+    explicit: false
   };
   renderAttachPreviews();
 }
@@ -96,7 +175,8 @@ function setEditFile(file) {
     file,
     mime,
     kind: MEDIA_MIME[mime] || "image",
-    previewUrl: URL.createObjectURL(file)
+    previewUrl: URL.createObjectURL(file),
+    explicit: false
   };
   fillEditAttachPreview(document.getElementById("edit-composer-attach-preview"));
 }
@@ -116,17 +196,7 @@ function fillEditAttachPreview(host) {
   const name = editAttach.mode === "existing"
     ? ((editAttach.attachment && editAttach.attachment.name) || "file")
     : (editAttach.file.name || "file");
-  if (kind === "video") {
-    const vid = document.createElement("video");
-    vid.src = src;
-    vid.muted = true;
-    chip.appendChild(vid);
-  } else if (src) {
-    const img = document.createElement("img");
-    img.src = src;
-    img.alt = name;
-    chip.appendChild(img);
-  }
+  paintChipFace(chip, src, kind, name, pendingAttachExplicit(editAttach));
   const meta = document.createElement("div");
   meta.className = "attach-chip-meta";
   const nameEl = document.createElement("div");
@@ -143,6 +213,15 @@ function fillEditAttachPreview(host) {
     clearEditAttach();
   };
   chip.appendChild(close);
+  bindAttachMarkdownMenu(chip, () => ({
+    name,
+    kind,
+    marked: pendingAttachExplicit(editAttach),
+    image: src
+  }), () => {
+    setPendingAttachExplicit(editAttach, !pendingAttachExplicit(editAttach));
+    fillEditAttachPreview(document.getElementById("edit-composer-attach-preview"));
+  });
   host.appendChild(chip);
 }
 
@@ -154,7 +233,8 @@ async function uploadEditIfNeeded() {
       key: att.key,
       mime: att.mime,
       size: att.size,
-      name: att.name || ""
+      name: att.name || "",
+      explicit: !!att.explicit
     };
   }
   let intentRes;
@@ -191,7 +271,8 @@ async function uploadEditIfNeeded() {
     size: editAttach.file.size,
     name: editAttach.file.name || "",
     url: intent.public_url,
-    kind: intent.kind
+    kind: intent.kind,
+    explicit: !!editAttach.explicit
   };
 }
 
@@ -210,22 +291,13 @@ function fillAttachPreview(host) {
   host.hidden = false;
   const chip = document.createElement("div");
   chip.className = "attach-chip";
-  if (pendingAttach.kind === "video") {
-    const vid = document.createElement("video");
-    vid.src = pendingAttach.previewUrl;
-    vid.muted = true;
-    chip.appendChild(vid);
-  } else {
-    const img = document.createElement("img");
-    img.src = pendingAttach.previewUrl;
-    img.alt = pendingAttach.file.name || "attachment";
-    chip.appendChild(img);
-  }
+  const nameText = pendingAttach.file.name || "file";
+  paintChipFace(chip, pendingAttach.previewUrl, pendingAttach.kind, nameText, !!pendingAttach.explicit);
   const meta = document.createElement("div");
   meta.className = "attach-chip-meta";
   const name = document.createElement("div");
   name.className = "attach-chip-name";
-  name.textContent = pendingAttach.file.name || "file";
+  name.textContent = nameText;
   const size = document.createElement("div");
   size.className = "attach-chip-size";
   size.textContent = pendingAttach.busy ? "Uploading\u2026" : formatFileSize(pendingAttach.file.size);
@@ -240,6 +312,16 @@ function fillAttachPreview(host) {
   close.onclick = () => { if (!pendingAttach || pendingAttach.busy) return; clearPendingAttach(); };
   chip.appendChild(meta);
   chip.appendChild(close);
+  bindAttachMarkdownMenu(chip, () => ({
+    name: pendingAttach.file.name || "file",
+    kind: pendingAttach.kind,
+    marked: !!pendingAttach.explicit,
+    image: pendingAttach.previewUrl
+  }), () => {
+    if (!pendingAttach) return;
+    pendingAttach.explicit = !pendingAttach.explicit;
+    renderAttachPreviews();
+  });
   host.appendChild(chip);
 }
 
@@ -288,7 +370,8 @@ async function uploadPendingIfNeeded() {
       size: pendingAttach.file.size,
       name: pendingAttach.file.name || "",
       url: intent.public_url,
-      kind: intent.kind
+      kind: intent.kind,
+      explicit: !!pendingAttach.explicit
     };
   } finally {
     if (pendingAttach) pendingAttach.busy = false;
@@ -307,13 +390,19 @@ function attachMediaIfNeeded(bubble, msg) {
     vid.src = att.url;
     vid.controls = true;
     vid.preload = "metadata";
-    wrap.appendChild(vid);
+    wrap.appendChild(wrapExplicitMedia(vid, att));
   } else {
     const img = document.createElement("img");
     img.src = att.url;
     img.alt = att.name || "image";
-    img.addEventListener("click", () => window.open(att.url, "_blank", "noopener"));
-    wrap.appendChild(img);
+    img.addEventListener("click", (e) => {
+      if (img.closest(".md-explicit-media") && !img.closest(".md-explicit-media.is-open")) {
+        e.preventDefault();
+        return;
+      }
+      window.open(att.url, "_blank", "noopener");
+    });
+    wrap.appendChild(wrapExplicitMedia(img, att));
   }
   wrap.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));
   bubble.appendChild(wrap);

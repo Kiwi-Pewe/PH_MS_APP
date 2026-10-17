@@ -367,8 +367,14 @@ async function confirmMessageEdit(msg) {
   const originalKey = originalAtt && originalAtt.key ? originalAtt.key : null;
   const nextKey = attachmentKey(editAttach);
   const sameFile = nextKey === originalKey && !(editAttach && editAttach.mode === "new");
+  const originalExplicit = !!(originalAtt && originalAtt.explicit);
+  const nextExplicit = editAttach
+    ? (editAttach.mode === "existing"
+      ? !!(editAttach.attachment && editAttach.attachment.explicit)
+      : !!editAttach.explicit)
+    : false;
 
-  if (content === originalContent && sameFile) {
+  if (content === originalContent && sameFile && originalExplicit === nextExplicit) {
     cancelMessageEdit();
     return;
   }

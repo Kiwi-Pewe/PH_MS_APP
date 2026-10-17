@@ -253,6 +253,7 @@ def store_attachment(att, user=None):
         "mime": mime,
         "size": att.size,
         "name": name,
+        "explicit": bool(getattr(att, "explicit", False)),
     })
 
 

@@ -144,6 +144,7 @@ class Attachment_in(BaseModel):
     mime: str
     size: int
     name: str = ""
+    explicit: bool = False
 
 class Feedback_status(BaseModel):
     status: str

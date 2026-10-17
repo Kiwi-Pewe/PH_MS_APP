@@ -674,13 +674,13 @@ function seedAnnounceEditMedia(post) {
 
 function announceEditAttachmentKeys() {
   return postMediaPending.announceEdit.files.map((item) => (
-    item.existing ? item.existing.key : "__new__"
+    (item.existing ? item.existing.key : "__new__") + ((item.explicit || (item.existing && item.existing.explicit)) ? ":x" : "")
   )).join("|");
 }
 
 function originalPostAttachmentKeys(post) {
   const items = typeof parsePostAttachments === "function" ? parsePostAttachments(post.attachment) : [];
-  return items.map((att) => att.key).join("|");
+  return items.map((att) => att.key + (att.explicit ? ":x" : "")).join("|");
 }
 
 function abandonAnnouncementEdit() {

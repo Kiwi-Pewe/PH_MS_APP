@@ -361,7 +361,7 @@ function buildForumPostCard(post) {
 
   card.addEventListener("click", (e) => {
     if (editingForumPostId === post.id) return;
-    if (e.target.closest(".announce-post-menu-btn, .forum-post-reactions, .forum-post-avatar")) return;
+    if (e.target.closest(".announce-post-menu-btn, .forum-post-reactions, .forum-post-avatar, .md-explicit-media:not(.is-open)")) return;
     openForumPost(post);
   });
   card.addEventListener("contextmenu", (e) => showForumPostContextMenu(e, post));
@@ -1019,13 +1019,13 @@ function seedForumEditMedia(post) {
 
 function forumEditAttachmentKeys() {
   return postMediaPending.forumEdit.files.map((item) => (
-    item.existing ? item.existing.key : "__new__"
+    (item.existing ? item.existing.key : "__new__") + ((item.explicit || (item.existing && item.existing.explicit)) ? ":x" : "")
   )).join("|");
 }
 
 function originalForumAttachmentKeys(post) {
   const items = typeof parsePostAttachments === "function" ? parsePostAttachments(post.attachment) : [];
-  return items.map((att) => att.key).join("|");
+  return items.map((att) => att.key + (att.explicit ? ":x" : "")).join("|");
 }
 
 function abandonForumEdit() {

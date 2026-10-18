@@ -559,7 +559,6 @@ def effective_perms_for_user(database, server, user_id):
     # hierarchy (who you can manage / later kick, ban, timeout).
     if server.owner_id == user_id:
         return owner_role_perms()
-    seed_server_roles(database, server.id)
     merged = empty_role_perms()
     for role in assigned_roles_for_user(database, server.id, user_id):
         perms = role.get("permissions") or {}
@@ -617,6 +616,117 @@ def category_overrides_by_role(database, category_id):
     return {int(row.role_id): parse_channel_override_perms(row) for row in rows}
 
 
+def channel_overrides_for_ids(database, channel_ids):
+    out = {}
+    ids = [int(cid) for cid in (channel_ids or []) if cid is not None]
+    if not ids:
+        return out
+    rows = database.query(Server_channel_role_perms).filter(
+        Server_channel_role_perms.channel_id.in_(ids)
+    ).all()
+    for row in rows:
+        out.setdefault(int(row.channel_id), {})[int(row.role_id)] = parse_channel_override_perms(row)
+    return out
+
+
+def category_overrides_for_ids(database, category_ids):
+    out = {}
+    ids = [int(cid) for cid in (category_ids or []) if cid is not None]
+    if not ids:
+        return out
+    rows = database.query(Server_category_role_perms).filter(
+        Server_category_role_perms.category_id.in_(ids)
+    ).all()
+    for row in rows:
+        out.setdefault(int(row.category_id), {})[int(row.role_id)] = parse_channel_override_perms(row)
+    return out
+
+
+def perms_for_user_in_channels(database, server, user_id, channels):
+    if not channels:
+        return {}
+    if server.owner_id == user_id:
+        owner = owner_role_perms()
+        return {channel.id: dict(owner) for channel in channels}
+    assigned = assigned_roles_for_user(database, server.id, user_id)
+    server_merged = empty_role_perms()
+    for role in assigned:
+        perms = role.get("permissions") or {}
+        for key in LIVE_ROLE_PERMS:
+            if perms.get(key):
+                server_merged[key] = True
+    ch_ov = channel_overrides_for_ids(database, [channel.id for channel in channels])
+    cat_ov = category_overrides_for_ids(database, list({channel.category_id for channel in channels if channel.category_id}))
+    out = {}
+    for channel in channels:
+        merged = dict(server_merged)
+        for key in LIVE_CHANNEL_OVERRIDE_PERMS:
+            merged[key] = False
+        channel_map = ch_ov.get(int(channel.id), {})
+        category_map = cat_ov.get(int(channel.category_id), {}) if channel.category_id else {}
+        for role in assigned:
+            server_perms = role.get("permissions") or {}
+            override = override_for_role_in_channel(channel_map, category_map, int(role.get("id") or 0))
+            for key in LIVE_CHANNEL_OVERRIDE_PERMS:
+                if role_perm_in_channel(server_perms, override, key):
+                    merged[key] = True
+        out[channel.id] = merged
+    return out
+
+
+def channel_role_visibility_map(database, server_id, channels):
+    if not channels:
+        return {}
+    roles = database.query(Server_roles).filter(Server_roles.server_id == server_id).all()
+    ch_ov = channel_overrides_for_ids(database, [channel.id for channel in channels])
+    out = {}
+    for channel in channels:
+        overrides = ch_ov.get(int(channel.id), {})
+        visible = {}
+        for role in roles:
+            server_perms = parse_role_perms(role)
+            override = overrides.get(role.id)
+            perms = {
+                key: role_perm_in_channel(server_perms, override, key)
+                for key in LIVE_CHANNEL_OVERRIDE_PERMS
+            }
+            visible[str(role.id)] = channel_type_visible(perms, channel.channel_type)
+        out[channel.id] = visible
+    return out
+
+
+def visible_channels_for_user_servers(database, user_id, servers):
+    out = {server.id: [] for server in (servers or [])}
+    if not servers:
+        return out
+    server_ids = [server.id for server in servers]
+    categories = database.query(Server_categories).filter(Server_categories.server_id.in_(server_ids)).all()
+    cats_by_server = {}
+    for category in categories:
+        cats_by_server.setdefault(category.server_id, []).append(category)
+    cat_ids = [category.id for category in categories]
+    channels = database.query(Server_channels).filter(Server_channels.category_id.in_(cat_ids)).all() if cat_ids else []
+    ch_by_cat = {}
+    for channel in channels:
+        ch_by_cat.setdefault(channel.category_id, []).append(channel)
+    for server in servers:
+        is_owner = server.owner_id == user_id
+        candidates = []
+        for category in cats_by_server.get(server.id, []):
+            if category.is_private and not is_owner:
+                continue
+            for channel in ch_by_cat.get(category.id, []):
+                if channel.is_private and not is_owner:
+                    continue
+                candidates.append(channel)
+        perm_map = perms_for_user_in_channels(database, server, user_id, candidates)
+        out[server.id] = [
+            channel for channel in candidates
+            if channel_type_visible(perm_map.get(channel.id) or {}, channel.channel_type)
+        ]
+    return out
+
+
 def override_for_role_in_channel(channel_overrides, category_overrides, role_id):
     if role_id in channel_overrides:
         return channel_overrides.get(role_id)
@@ -636,7 +746,6 @@ def role_perm_in_channel(server_perms, override, perm):
 def effective_perms_for_user_in_channel(database, server, user_id, channel_id):
     if server.owner_id == user_id:
         return owner_role_perms()
-    seed_server_roles(database, server.id)
     merged = effective_perms_for_user(database, server, user_id)
     overrides = channel_overrides_by_role(database, channel_id)
     channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()

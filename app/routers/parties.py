@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from app.models import UserInfo, Parties, Party_messages, Party_members
+from sqlalchemy import and_, func
+from app.models import UserInfo, Parties, Party_messages, Party_members, Message_mention
 from app.schemas import Party_create, Party_message_schema
 from app.database import get_db
 from app.auth import get_current_user
@@ -10,7 +10,7 @@ from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
 from app.routers.realtime import party_broadcast, serialize_member
 from app.routers.profile import avatar_lookup
-from app.routers.mentions import apply_party_mentions, decorate_history, party_mention_count, accepted_reply_parent, reply_map_for
+from app.routers.mentions import apply_party_mentions, decorate_history, accepted_reply_parent, reply_map_for
 from app.routers.feed import notify_activity_reply
 from app.site_moderation import mask_message_payloads
 from app.privacy import drop_blocked_rows
@@ -49,23 +49,62 @@ def create_party(party: Party_create, database: Session = Depends(get_db), curre
 def get_parties(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
     my_memberships = database.query(Party_members).filter(Party_members.user_id == current_user.id).all()
+    party_ids = [row.party_id for row in my_memberships]
+    parties = {row.id: row for row in database.query(Parties).filter(Parties.id.in_(party_ids)).all()} if party_ids else {}
+    member_counts = {}
+    latest_times = {}
+    unread_counts = {}
+    mention_counts = {}
+    if party_ids:
+        for party_id, count in database.query(Party_members.party_id, func.count(Party_members.id)).filter(
+            Party_members.party_id.in_(party_ids)
+        ).group_by(Party_members.party_id).all():
+            member_counts[party_id] = int(count or 0)
+        for party_id, latest in database.query(Party_messages.party_id, func.max(Party_messages.timestamp)).filter(
+            Party_messages.party_id.in_(party_ids)
+        ).group_by(Party_messages.party_id).all():
+            latest_times[party_id] = latest
+        for party_id, count in database.query(Party_messages.party_id, func.count(Party_messages.id)).join(
+            Party_members,
+            and_(
+                Party_members.party_id == Party_messages.party_id,
+                Party_members.user_id == current_user.id,
+            ),
+        ).filter(
+            Party_messages.party_id.in_(party_ids),
+            Party_messages.timestamp > Party_members.last_activity,
+            Party_messages.sender_id != current_user.id,
+        ).group_by(Party_messages.party_id).all():
+            unread_counts[party_id] = int(count or 0)
+        for party_id, count in database.query(Message_mention.party_id, func.count(Message_mention.id)).join(
+            Party_members,
+            and_(
+                Party_members.party_id == Message_mention.party_id,
+                Party_members.user_id == current_user.id,
+            ),
+        ).filter(
+            Message_mention.kind == "party",
+            Message_mention.party_id.in_(party_ids),
+            Message_mention.user_id == current_user.id,
+            Message_mention.created_at > Party_members.last_activity,
+        ).group_by(Message_mention.party_id).all():
+            mention_counts[party_id] = int(count or 0)
 
     parties_out = []
     for membership in my_memberships:
-        party_info = database.query(Parties).filter(Parties.id == membership.party_id).first()
-        member_count = database.query(Party_members).filter(Party_members.party_id == membership.party_id).count()
-
-        latest_message_time = database.query(func.max(Party_messages.timestamp)).filter(Party_messages.party_id == membership.party_id).scalar()
-        sort_timestamp = latest_message_time if latest_message_time else membership.joined_at
-
-        unread_count = database.query(Party_messages).filter(
-            Party_messages.party_id == membership.party_id,
-            Party_messages.timestamp > membership.last_activity,
-            Party_messages.sender_id != current_user.id
-        ).count()
-        mention_count = party_mention_count(database, membership.party_id, current_user.id, membership.last_activity)
-
-        parties_out.append({"type": "party", "id": membership.party_id, "name": party_info.party_name, "member_count": member_count, "last_activity": str(sort_timestamp), "unread_count": unread_count, "mention_count": mention_count})
+        party_info = parties.get(membership.party_id)
+        if not party_info:
+            continue
+        sort_timestamp = latest_times.get(membership.party_id) or membership.joined_at
+        parties_out.append({
+            "type": "party",
+            "id": membership.party_id,
+            "name": party_info.party_name,
+            "member_count": member_counts.get(membership.party_id, 0),
+            "last_activity": str(sort_timestamp),
+            "unread_count": unread_counts.get(membership.party_id, 0),
+            "mention_count": mention_counts.get(membership.party_id, 0),
+        })
 
     return {"parties": parties_out}
 

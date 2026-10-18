@@ -91,23 +91,31 @@ async def add_user(friends: Friend_user, database: Session = Depends(get_db), cu
 def get_friends(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     pending_requests = database.query(Friend_request).filter(Friend_request.user_2 == current_user.id, Friend_request.pending == True).all()
     accepted_friends = database.query(Friend_request).filter(or_(Friend_request.user_1 == current_user.id, Friend_request.user_2 == current_user.id), Friend_request.pending == False).all()
+    other_ids = []
+    for entry in pending_requests:
+        other_ids.append(entry.user_2 if entry.user_1 == current_user.id else entry.user_1)
+    for friends in accepted_friends:
+        other_ids.append(friends.user_2 if friends.user_1 == current_user.id else friends.user_1)
+    accounts = {row.id: row for row in database.query(UserInfo).filter(UserInfo.id.in_(other_ids)).all()} if other_ids else {}
     all_requests = []
     online_friends = []
     offline_friends = []
 
     for entry in pending_requests:
         other_id = entry.user_2 if entry.user_1 == current_user.id else entry.user_1
-        actual_account = database.query(UserInfo).filter(UserInfo.id == other_id).first()
-        all_requests.append({"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account) if actual_account else None})
+        actual_account = accounts.get(other_id)
+        all_requests.append({"id": other_id, "username": actual_account.username if actual_account else "", "avatar": public_avatar(actual_account) if actual_account else None})
 
     for friends in accepted_friends:
         other_id = friends.user_2 if friends.user_1 == current_user.id else friends.user_1
-        actual_account = database.query(UserInfo).filter(UserInfo.id == other_id).first()
-
+        actual_account = accounts.get(other_id)
+        if not actual_account:
+            continue
+        payload = {"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account), "status": (actual_account.profile_status or "").strip()}
         if actual_account.id in active_connections:
-            online_friends.append({"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account), "status": (actual_account.profile_status or "").strip()})
+            online_friends.append(payload)
         else:
-            offline_friends.append({"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account), "status": (actual_account.profile_status or "").strip()})
+            offline_friends.append(payload)
 
     return {"pending_requests": all_requests, "online_friends": online_friends, "offline_friends": offline_friends}
 

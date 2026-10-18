@@ -22,6 +22,9 @@ from app.routers.roles import (
     highest_roles_by_user,
     role_ids_by_user,
     channel_role_visibility,
+    channel_role_visibility_map,
+    perms_for_user_in_channels,
+    visible_channels_for_user_servers,
     hoist_roles_by_user,
     name_color_roles_by_user,
     nicknames_for_users,
@@ -35,7 +38,7 @@ from app.routers.roles import (
 )
 from app.routers.account import public_display_name
 from app.routers.moderation import iso_dt, require_not_timed_out, timeout_until_for
-from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
+from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, channel_notices_for, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 from app.routers.feed import notify_activity_reply
 from app.privacy import drop_blocked_rows
 import random
@@ -314,19 +317,46 @@ def create_server(server_name: Server_create, database: Session = Depends(get_db
 def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
     user_servers = database.query(Server_members).filter(Server_members.user_id == current_user.id).order_by(Server_members.position).all()
+    server_ids = [row.server_id for row in user_servers]
+    servers = database.query(Servers).filter(Servers.id.in_(server_ids)).all() if server_ids else []
+    by_id = {row.id: row for row in servers}
+    shown_by_server = visible_channels_for_user_servers(database, current_user.id, servers)
+    all_channels = []
+    server_of = {}
+    for server_id, channels in shown_by_server.items():
+        server_info = by_id.get(server_id)
+        for channel in channels:
+            all_channels.append(channel)
+            server_of[channel.id] = server_info
+    member_of = {row.server_id: row for row in user_servers}
+    notices = channel_notices_for(
+        database,
+        current_user.id,
+        all_channels,
+        member_of=member_of,
+        server_of=server_of,
+    )
 
     server_list = []
-    for server in user_servers:
-        server_info = database.query(Servers).filter(Servers.id == server.server_id).first()
-        notice = server_notice(database, server_info.id, current_user.id)
+    for row in user_servers:
+        server_info = by_id.get(row.server_id)
+        if not server_info:
+            continue
+        unread = False
+        mention_count = 0
+        for channel in shown_by_server.get(row.server_id) or []:
+            notice = notices.get(channel.id) or {}
+            if notice.get("unread"):
+                unread = True
+            mention_count += int(notice.get("mention_count") or 0)
         server_list.append({
             "type": "server",
             "id": server_info.id,
             "name": server_info.name,
-            "position": server.position,
+            "position": row.position,
             "owner_id": server_info.owner_id,
-            "unread": notice["unread"],
-            "mention_count": notice["mention_count"],
+            "unread": unread,
+            "mention_count": mention_count,
             "icon_url": server_icon_url(server_info),
             "url_slug": server_url_slug(server_info),
             **server_banner_fields(server_info)
@@ -346,55 +376,65 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
     server = database.query(Servers).filter(Servers.id == server_id).first()
     is_owner = server.owner_id == current_user.id
     permissions = effective_perms_for_user(database, server, current_user.id)
+    open_categories = [category for category in all_categories if category.is_private == False or is_owner]
+    cat_ids = [category.id for category in open_categories]
+    all_channels = database.query(Server_channels).filter(Server_channels.category_id.in_(cat_ids)).order_by(Server_channels.position).all() if cat_ids else []
+    candidates = [channel for channel in all_channels if channel.is_private == False or is_owner]
+    perm_map = perms_for_user_in_channels(database, server, current_user.id, candidates)
+    visible_channels = [
+        channel for channel in candidates
+        if channel_type_visible(perm_map.get(channel.id) or {}, channel.channel_type)
+    ]
+    notices = channel_notices_for(database, current_user.id, visible_channels, member=in_server)
+    vis_map = channel_role_visibility_map(database, server.id, visible_channels)
+    live_perm_keys = (
+        "manage_channels", "mention_everyone", "bypass_slowmode",
+        "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
+        "view_announcements", "create_announcements", "manage_announcements",
+        "read_forums", "create_topics", "create_topic_replies", "manage_topics",
+        "sticky_topics", "lock_topics",
+        "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
+        "view_docs", "create_docs", "manage_docs", "remove_docs",
+        "see_media", "create_media", "manage_media", "remove_media",
+        "hear_voice", "talk_voice", "mute_members", "deafen_members", "move_voice", "voice_messages",
+        "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
+        "view_schedules", "create_schedule", "delete_schedule",
+        "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
+    )
+    channels_by_cat = {}
+    for channel in visible_channels:
+        channel_perms = perm_map.get(channel.id) or {}
+        notice = notices.get(channel.id) or {"unread": False, "mention_count": 0}
+        channels_by_cat.setdefault(channel.category_id, []).append({
+            "id": channel.id,
+            "category_id": channel.category_id,
+            "name": channel.name,
+            "channel_type": channel.channel_type,
+            "position": channel.position,
+            "is_private": channel.is_private,
+            "topic": getattr(channel, "topic", None) or "",
+            "slowmode": int(getattr(channel, "slowmode", 0) or 0),
+            "user_limit": int(getattr(channel, "user_limit", 10) or 10),
+            "announce_public": bool(getattr(channel, "announce_public", False)),
+            "blog_enabled": bool(getattr(channel, "blog_enabled", False)),
+            "explicit": bool(getattr(channel, "explicit", False)),
+            "unread": notice["unread"],
+            "mention_count": notice["mention_count"],
+            "can_read": bool(channel_perms.get("read_messages")),
+            "can_send": bool(channel_perms.get("send_messages")),
+            "permissions": {key: bool(channel_perms.get(key)) for key in live_perm_keys},
+            "role_visible": vis_map.get(channel.id) or {},
+        })
     server_info = []
-
     for category in all_categories:
-        channel_info = []
         if category.is_private == False or is_owner:
-            all_channels = database.query(Server_channels).filter(Server_channels.category_id == category.id).order_by(Server_channels.position).all()
-
-            for channel in all_channels:
-                if channel.is_private == False or is_owner:
-                    channel_perms = effective_perms_for_user_in_channel(database, server, current_user.id, channel.id)
-                    if not channel_type_visible(channel_perms, channel.channel_type):
-                        continue
-                    notice = channel_notice(database, channel.id, current_user.id)
-                    live_flags = {key: bool(channel_perms.get(key)) for key in (
-                        "manage_channels", "mention_everyone", "bypass_slowmode",
-                        "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
-                        "view_announcements", "create_announcements", "manage_announcements",
-                        "read_forums", "create_topics", "create_topic_replies", "manage_topics",
-                        "sticky_topics", "lock_topics",
-                        "view_wallpaper", "create_wallpaper", "manage_wallpaper", "remove_wallpaper",
-                        "view_docs", "create_docs", "manage_docs", "remove_docs",
-                        "see_media", "create_media", "manage_media", "remove_media",
-                        "hear_voice", "talk_voice", "mute_members", "deafen_members", "move_voice", "voice_messages",
-                        "view_events", "create_events", "manage_events", "remove_events", "edit_rsvps",
-                        "view_schedules", "create_schedule", "delete_schedule",
-                        "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
-                    )}
-                    channel_info.append({
-                        "id": channel.id,
-                        "category_id": channel.category_id,
-                        "name": channel.name,
-                        "channel_type": channel.channel_type,
-                        "position": channel.position,
-                        "is_private": channel.is_private,
-                        "topic": getattr(channel, "topic", None) or "",
-                        "slowmode": int(getattr(channel, "slowmode", 0) or 0),
-                        "user_limit": int(getattr(channel, "user_limit", 10) or 10),
-                        "announce_public": bool(getattr(channel, "announce_public", False)),
-                        "blog_enabled": bool(getattr(channel, "blog_enabled", False)),
-                        "explicit": bool(getattr(channel, "explicit", False)),
-                        "unread": notice["unread"],
-                        "mention_count": notice["mention_count"],
-                        "can_read": bool(channel_perms.get("read_messages")),
-                        "can_send": bool(channel_perms.get("send_messages")),
-                        "permissions": live_flags,
-                        "role_visible": channel_role_visibility(database, server.id, channel),
-                    })
-
-            server_info.append({"id": category.id, "name": category.name, "position": category.position, "is_private": category.is_private, "channels": channel_info})
+            server_info.append({
+                "id": category.id,
+                "name": category.name,
+                "position": category.position,
+                "is_private": category.is_private,
+                "channels": channels_by_cat.get(category.id) or [],
+            })
             
     payload = {
         "type": "server",

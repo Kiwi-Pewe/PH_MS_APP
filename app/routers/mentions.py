@@ -4,7 +4,7 @@
 # user so unread counts are a simple filter.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from app.models import (
     UserInfo, Servers, Server_members, Server_categories, Server_channels,
     Server_roles, Server_role_members, Channel_messages, Channel_last_viewed,
@@ -553,64 +553,219 @@ def shape_channel_notice(unread, mention_count, level):
     return {"unread": show, "mention_count": mentions}
 
 
-def channel_notice(database, channel_id, user_id):
-    viewed = database.query(Channel_last_viewed).filter(
-        Channel_last_viewed.channel_id == channel_id,
-        Channel_last_viewed.user_id == user_id
-    ).first()
-    if not viewed:
-        return {"unread": False, "mention_count": 0}
-    since = viewed.last_viewed_at
-    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
-    unread = channel_has_unseen(database, channel, user_id, since) if channel else False
+def notify_gate_from(member, row):
+    server_level = inherited_server_level(member, None)
+    channel_level = clean_personal_level(row.notify_level) if row else None
+    level = server_level
+    if channel_level is not None and NOTIFY_RANK[channel_level] < NOTIFY_RANK[server_level]:
+        level = channel_level
+    muted = bool(member and member.muted) or bool(row and row.muted)
+    if muted and level == "all":
+        level = "mentions"
+    blocked = set()
+    if bool(member and member.suppress_pings) or bool(row and row.suppress_pings):
+        blocked.add("everyone")
+    if bool(member and getattr(member, "suppress_roles", False)) or bool(row and getattr(row, "suppress_roles", False)):
+        blocked.add("role")
+    return level, blocked
 
-    server = None
-    if channel:
-        category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
-        if category:
-            server = database.query(Servers).filter(Servers.id == category.server_id).first()
-    level, blocked = notify_gate(database, server, channel_id, user_id)
 
-    counted = database.query(func.count(Message_mention.id)).filter(
-        Message_mention.channel_id == channel_id,
-        Message_mention.user_id == user_id,
-        Message_mention.created_at > since
+def _latest_by_channel(database, channel_col, time_col, author_col, channel_ids, user_id):
+    if not channel_ids:
+        return {}
+    rows = database.query(channel_col, func.max(time_col)).filter(
+        channel_col.in_(list(channel_ids)),
+        author_col.isnot(None),
+        author_col != user_id,
+    ).group_by(channel_col).all()
+    return {cid: latest for cid, latest in rows}
+
+
+def _unseen_from_latest(latest_map, viewed):
+    out = set()
+    for cid, latest in latest_map.items():
+        since = viewed.get(cid)
+        if since is not None and latest and latest > since:
+            out.add(cid)
+    return out
+
+
+def _unseen_comment_channels(database, comment_model, comment_time, comment_author, post_model, post_channel, post_id_col, channel_ids, user_id, viewed):
+    if not channel_ids:
+        return set()
+    rows = database.query(post_channel, func.max(comment_time)).join(
+        post_model, post_id_col == post_model.id
+    ).filter(
+        post_channel.in_(list(channel_ids)),
+        comment_author.isnot(None),
+        comment_author != user_id,
+    ).group_by(post_channel).all()
+    return _unseen_from_latest({cid: latest for cid, latest in rows}, viewed)
+
+
+def unseen_channel_ids(database, channels, user_id, viewed):
+    by_kind = {}
+    for channel in channels:
+        if channel.id not in viewed:
+            continue
+        kind = (channel.channel_type or "text").lower()
+        if kind not in ("announcements", "forums", "lists", "media", "docs", "events"):
+            kind = "text"
+        by_kind.setdefault(kind, []).append(channel.id)
+    unseen = set()
+    unseen |= _unseen_from_latest(
+        _latest_by_channel(database, Channel_messages.channel_id, Channel_messages.timestamp, Channel_messages.sender_id, by_kind.get("text") or [], user_id),
+        viewed,
     )
-    if blocked:
-        counted = counted.filter(or_(Message_mention.source.is_(None), Message_mention.source.notin_(list(blocked))))
-    mention_count = counted.scalar() or 0
-    return shape_channel_notice(unread, mention_count, level)
+    unseen |= _unseen_from_latest(
+        _latest_by_channel(database, Announcement_post.channel_id, Announcement_post.created_at, Announcement_post.sender_id, by_kind.get("announcements") or [], user_id),
+        viewed,
+    )
+    unseen |= _unseen_comment_channels(
+        database, Announcement_comment, Announcement_comment.created_at, Announcement_comment.sender_id,
+        Announcement_post, Announcement_post.channel_id, Announcement_comment.post_id,
+        by_kind.get("announcements") or [], user_id, viewed,
+    )
+    unseen |= _unseen_from_latest(
+        _latest_by_channel(database, Forum_post.channel_id, Forum_post.created_at, Forum_post.author_id, by_kind.get("forums") or [], user_id),
+        viewed,
+    )
+    unseen |= _unseen_comment_channels(
+        database, Forum_messages, Forum_messages.created_at, Forum_messages.author_id,
+        Forum_post, Forum_post.channel_id, Forum_messages.post_id,
+        by_kind.get("forums") or [], user_id, viewed,
+    )
+    unseen |= _unseen_from_latest(
+        _latest_by_channel(database, List_item.channel_id, List_item.created_at, List_item.sender_id, by_kind.get("lists") or [], user_id),
+        viewed,
+    )
+    unseen |= _unseen_comment_channels(
+        database, List_thread_message, List_thread_message.created_at, List_thread_message.sender_id,
+        List_item, List_item.channel_id, List_thread_message.item_id,
+        by_kind.get("lists") or [], user_id, viewed,
+    )
+    unseen |= _unseen_from_latest(
+        _latest_by_channel(database, Media_item.channel_id, Media_item.created_at, Media_item.sender_id, by_kind.get("media") or [], user_id),
+        viewed,
+    )
+    unseen |= _unseen_comment_channels(
+        database, Media_comment, Media_comment.created_at, Media_comment.sender_id,
+        Media_item, Media_item.channel_id, Media_comment.item_id,
+        by_kind.get("media") or [], user_id, viewed,
+    )
+    unseen |= _unseen_from_latest(
+        _latest_by_channel(database, Doc_entry.channel_id, Doc_entry.created_at, Doc_entry.sender_id, by_kind.get("docs") or [], user_id),
+        viewed,
+    )
+    unseen |= _unseen_from_latest(
+        _latest_by_channel(database, Calendar_event.channel_id, Calendar_event.created_at, Calendar_event.sender_id, by_kind.get("events") or [], user_id),
+        viewed,
+    )
+    unseen |= _unseen_comment_channels(
+        database, Calendar_event_comment, Calendar_event_comment.created_at, Calendar_event_comment.user_id,
+        Calendar_event, Calendar_event.channel_id, Calendar_event_comment.event_id,
+        by_kind.get("events") or [], user_id, viewed,
+    )
+    return unseen
+
+
+def channel_notices_for(database, user_id, channels, member=None, member_of=None, server_of=None):
+    empty = {"unread": False, "mention_count": 0}
+    if not channels:
+        return {}
+    ids = [channel.id for channel in channels]
+    viewed_rows = database.query(Channel_last_viewed).filter(
+        Channel_last_viewed.user_id == user_id,
+        Channel_last_viewed.channel_id.in_(ids),
+    ).all()
+    viewed = {row.channel_id: row.last_viewed_at for row in viewed_rows}
+    notify_rows = database.query(Server_notifications).filter(
+        Server_notifications.user_id == user_id,
+        Server_notifications.channel_id.in_(ids),
+    ).all()
+    notify_map = {row.channel_id: row for row in notify_rows}
+    unseen = unseen_channel_ids(database, channels, user_id, viewed)
+    mention_rows = []
+    if viewed:
+        mention_rows = database.query(
+            Message_mention.channel_id,
+            Message_mention.source,
+            func.count(Message_mention.id),
+        ).join(
+            Channel_last_viewed,
+            and_(
+                Channel_last_viewed.channel_id == Message_mention.channel_id,
+                Channel_last_viewed.user_id == Message_mention.user_id,
+            ),
+        ).filter(
+            Message_mention.user_id == user_id,
+            Message_mention.channel_id.in_(list(viewed.keys())),
+            Message_mention.created_at > Channel_last_viewed.last_viewed_at,
+        ).group_by(Message_mention.channel_id, Message_mention.source).all()
+    mention_parts = {}
+    for channel_id, source, count in mention_rows:
+        mention_parts.setdefault(channel_id, []).append((source, int(count or 0)))
+    out = {}
+    for channel in channels:
+        if channel.id not in viewed:
+            out[channel.id] = dict(empty)
+            continue
+        row_member = member
+        if row_member is None and member_of is not None:
+            server = server_of.get(channel.id) if server_of else None
+            row_member = member_of.get(server.id) if server else None
+        level, blocked = notify_gate_from(row_member, notify_map.get(channel.id))
+        mention_count = 0
+        for source, count in mention_parts.get(channel.id, []):
+            if blocked and source in blocked:
+                continue
+            mention_count += count
+        out[channel.id] = shape_channel_notice(channel.id in unseen, mention_count, level)
+    return out
+
+
+def channel_notice(database, channel_id, user_id):
+    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not channel:
+        return {"unread": False, "mention_count": 0}
+    server = None
+    member = None
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    if category:
+        server = database.query(Servers).filter(Servers.id == category.server_id).first()
+        if server:
+            member = database.query(Server_members).filter(
+                Server_members.server_id == server.id,
+                Server_members.user_id == user_id,
+            ).first()
+    return channel_notices_for(database, user_id, [channel], member=member).get(channel.id) or {"unread": False, "mention_count": 0}
 
 def visible_channel_ids(database, server_id, user_id):
     server = database.query(Servers).filter(Servers.id == server_id).first()
-    is_owner = server and server.owner_id == user_id
-    from app.routers.roles import channel_type_visible, effective_perms_for_user_in_channel
-    categories = database.query(Server_categories).filter(Server_categories.server_id == server_id).all()
-    ids = []
-    for category in categories:
-        if category.is_private == True and not is_owner:
-            continue
-        channels = database.query(Server_channels).filter(Server_channels.category_id == category.id).all()
-        for channel in channels:
-            if channel.is_private == True and not is_owner:
-                continue
-            permissions = effective_perms_for_user_in_channel(database, server, user_id, channel.id) if server else {}
-            if not channel_type_visible(permissions, channel.channel_type):
-                continue
-            ids.append(channel.id)
-    return ids
+    if not server:
+        return []
+    from app.routers.roles import visible_channels_for_user_servers
+    shown = visible_channels_for_user_servers(database, user_id, [server]).get(server.id) or []
+    return [channel.id for channel in shown]
 
 def server_notice(database, server_id, user_id):
-    channels = {}
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        return {"unread": False, "mention_count": 0, "channels": {}}
+    from app.routers.roles import visible_channels_for_user_servers
+    member = database.query(Server_members).filter(
+        Server_members.server_id == server_id,
+        Server_members.user_id == user_id,
+    ).first()
+    shown = visible_channels_for_user_servers(database, user_id, [server]).get(server.id) or []
+    notices = channel_notices_for(database, user_id, shown, member=member)
     any_unread = False
     mention_total = 0
-    for channel_id in visible_channel_ids(database, server_id, user_id):
-        notice = channel_notice(database, channel_id, user_id)
-        channels[channel_id] = notice
+    for notice in notices.values():
         if notice["unread"]:
             any_unread = True
         mention_total += notice["mention_count"]
-    return {"unread": any_unread, "mention_count": mention_total, "channels": channels}
+    return {"unread": any_unread, "mention_count": mention_total, "channels": notices}
 
 def party_mention_count(database, party_id, user_id, since):
     return database.query(func.count(Message_mention.id)).filter(

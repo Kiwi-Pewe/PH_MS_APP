@@ -556,6 +556,11 @@ def ensure_load_indexes():
         "CREATE INDEX IF NOT EXISTS ix_forum_messages_post_id ON forum_messages (post_id, id)",
         "CREATE INDEX IF NOT EXISTS ix_announcements_channel_id ON announcements (channel_id, id)",
         "CREATE INDEX IF NOT EXISTS ix_feed_alerts_receiver ON feed_alerts (receiver_id, id)",
+        "CREATE INDEX IF NOT EXISTS ix_message_mentions_user_channel ON message_mentions (user_id, channel_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_channel_last_viewed_user ON channel_last_viewed (user_id, channel_id)",
+        "CREATE INDEX IF NOT EXISTS ix_party_members_user ON party_members (user_id, party_id)",
+        "CREATE INDEX IF NOT EXISTS ix_party_members_party ON party_members (party_id)",
+        "CREATE INDEX IF NOT EXISTS ix_message_mentions_party ON message_mentions (kind, party_id, user_id, created_at)",
     )
     with engine.connect() as conn:
         for statement in statements:

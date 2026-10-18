@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from app.models import UserInfo, Message, Block_user, Conversations
 from app.privacy import can_send_dm, drop_blocked_rows
 from app.schemas import Message_schema
@@ -156,18 +156,30 @@ def conversation_history(database: Session = Depends(get_db), current_user: User
     and_(Conversations.user_2 == current_user.id, Conversations.closed_by_user_2 == False))
     ).order_by(Conversations.last_message_at.desc()).all()
 
+    other_ids = []
+    for convo in convo_history:
+        other_ids.append(convo.user_2 if convo.user_1 == current_user.id else convo.user_1)
+    accounts = {row.id: row for row in database.query(UserInfo).filter(UserInfo.id.in_(other_ids)).all()} if other_ids else {}
+    unread_counts = {}
+    if other_ids:
+        for sender_id, count in database.query(Message.sender_id, func.count(Message.id)).filter(
+            Message.receiver_id == current_user.id,
+            Message.read == False,
+            Message.sender_id.in_(other_ids),
+        ).group_by(Message.sender_id).all():
+            unread_counts[sender_id] = int(count or 0)
+
     conversations_out = []
     for convo in convo_history:
         other_id = convo.user_2 if convo.user_1 == current_user.id else convo.user_1
-        other_account = database.query(UserInfo).filter(UserInfo.id == other_id).first()
-        message_status = database.query(Message).filter(Message.sender_id == other_id, Message.receiver_id == current_user.id, Message.read == False).count()
+        other_account = accounts.get(other_id)
         conversations_out.append({
             "type": "dm",
             "id": other_id,
             "username": other_account.username if other_account else "",
             "display_name": public_display_name(other_account) if other_account else "",
             "status": clip_text(other_account.profile_status, STATUS_MAX).strip() if other_account else "",
-            "unread_count": message_status,
+            "unread_count": unread_counts.get(other_id, 0),
             "last_message_at": str(convo.last_message_at),
             "avatar": public_avatar(other_account) if other_account else None,
             "permaban": not bool(other_account),

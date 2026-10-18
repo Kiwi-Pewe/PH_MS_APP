@@ -52,6 +52,33 @@ function recallPlaceMessages(kind, id) {
   return Array.isArray(rows) ? rows.slice() : null;
 }
 
+function lastChatStorageKey() {
+  return "oneira-last-chat:" + String(typeof myUserId !== "undefined" && myUserId ? myUserId : "0");
+}
+
+function rememberLastChatPlace(kind, id, name) {
+  if ((kind !== "dm" && kind !== "party") || !id) return;
+  try {
+    localStorage.setItem(lastChatStorageKey(), JSON.stringify({ kind, id, name: name || "" }));
+  } catch (e) {}
+}
+
+function forgetLastChatPlace() {
+  try {
+    localStorage.removeItem(lastChatStorageKey());
+  } catch (e) {}
+}
+
+function readLastChatPlace() {
+  try {
+    const data = JSON.parse(localStorage.getItem(lastChatStorageKey()) || "null");
+    if (!data || (data.kind !== "dm" && data.kind !== "party") || data.id == null || data.id === "") return null;
+    return data;
+  } catch (e) {
+    return null;
+  }
+}
+
 function fillPlaceHold(host, count) {
   if (!host) return;
   host.replaceChildren();
@@ -203,6 +230,7 @@ async function goHome() {
   if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return false;
+  forgetLastChatPlace();
   beginPlace({
     sidebar: "home",
     topbar: "messages",

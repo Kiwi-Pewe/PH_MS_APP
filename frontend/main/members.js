@@ -49,6 +49,22 @@ function showMemberListPanel() {
   if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 }
 
+function applyPartyMembers(partyId, members) {
+  memberListScope = "party";
+  memberListScopeId = partyId;
+  memberList = Array.isArray(members) ? members : [];
+  memberList.forEach((member) => {
+    if (typeof rememberIdentityFace === "function") rememberIdentityFace(member.id, member && member.avatar);
+    if (typeof rememberUserStatus === "function") rememberUserStatus(member.id, member && member.status_line);
+  });
+  showMemberListPanel();
+  renderMemberList();
+  if (typeof refreshComposerMentions === "function") {
+    const input = typeof activeMentionComposer === "function" ? activeMentionComposer() : null;
+    if (input) refreshComposerMentions(input);
+  }
+}
+
 function applyServerMembers(serverId, members, opts) {
   opts = opts || {};
   memberListScope = "server";
@@ -82,19 +98,7 @@ async function loadMemberList(scope, scopeId) {
     const data = await response.json();
     if (memberListScope !== scope || memberListScopeId !== scopeId) return;
     if (scope === "server") applyServerMembers(scopeId, data.members || []);
-    else {
-      memberList = data.members || [];
-      memberList.forEach((member) => {
-        if (typeof rememberIdentityFace === "function") rememberIdentityFace(member.id, member && member.avatar);
-        if (typeof rememberUserStatus === "function") rememberUserStatus(member.id, member && member.status_line);
-      });
-      showMemberListPanel();
-      renderMemberList();
-      if (typeof refreshComposerMentions === "function") {
-        const input = typeof activeMentionComposer === "function" ? activeMentionComposer() : null;
-        if (input) refreshComposerMentions(input);
-      }
-    }
+    else applyPartyMembers(scopeId, data.members || []);
   } catch (e) {
     hideMemberList();
   }

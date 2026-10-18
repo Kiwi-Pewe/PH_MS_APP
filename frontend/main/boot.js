@@ -802,11 +802,60 @@ function applyReadyPayload(data) {
   if (typeof applyFriendsView === "function") applyFriendsView(data.friends || {});
 }
 
+async function applyReadyPlace(place) {
+  if (!place || !place.kind) return false;
+  if (place.kind === "home") {
+    if (typeof goHome === "function") await goHome();
+    return true;
+  }
+  if (place.kind === "server" && place.server && typeof openServer === "function") {
+    const iconEl = document.querySelector(`.server-icon[data-server-id="${place.id}"]`);
+    await openServer(place.id, iconEl, null, place.server);
+    return true;
+  }
+  if (place.kind === "dm" && typeof openDirectMessage === "function") {
+    await openDirectMessage(place.id, place.name || place.other_username || "", place);
+    return true;
+  }
+  if (place.kind === "party" && typeof openParty === "function") {
+    await openParty(place.id, place.name || place.party_name || "", place);
+    return true;
+  }
+  if (place.kind === "profile" && place.profile && typeof openUserProfile === "function") {
+    await openUserProfile(place.id, place.profile);
+    return true;
+  }
+  return false;
+}
+
+function readyPlaceQuery() {
+  const search = new URLSearchParams(window.location.search);
+  if (search.get("join_type") || search.get("connection")) return null;
+  const qs = new URLSearchParams();
+  qs.set("path", window.location.pathname || "");
+  const parts = (window.location.pathname || "").split("/").filter(Boolean);
+  const onHome = !parts.length || parts[0] === "main" || parts[0] === "messages";
+  const chat = onHome && typeof readLastChatPlace === "function" ? readLastChatPlace() : null;
+  if (chat) {
+    qs.set("chat", chat.kind);
+    qs.set("chat_id", String(chat.id));
+  }
+  return qs;
+}
+
 async function bootRails() {
   try {
-    const response = await fetch(`https://${serverAddress}/ready`, { credentials: "include" });
+    const qs = readyPlaceQuery();
+    const url = qs ? `https://${serverAddress}/ready?${qs.toString()}` : `https://${serverAddress}/ready`;
+    const response = await fetch(url, { credentials: "include" });
     if (!response.ok) throw new Error("ready");
-    applyReadyPayload(await response.json());
+    const data = await response.json();
+    applyReadyPayload(data);
+    if (!qs) return false;
+    if (qs.get("chat") && (!data.place || data.place.kind === "home") && typeof forgetLastChatPlace === "function") {
+      forgetLastChatPlace();
+    }
+    return applyReadyPlace(data.place);
   } catch (e) {
     if (typeof loadBlockedUserIds === "function") await loadBlockedUserIds();
     await Promise.all([
@@ -814,6 +863,7 @@ async function bootRails() {
       typeof loadConversations === "function" ? loadConversations() : Promise.resolve(),
       typeof loadServers === "function" ? loadServers() : Promise.resolve(),
     ]);
+    return false;
   }
 }
 
@@ -827,10 +877,10 @@ function enterApp() {
   const serverHeader = document.getElementById("server-sidebar-header");
   serverHeader.addEventListener("click", showServerHeaderMenu);
   serverHeader.addEventListener("contextmenu", showServerHeaderMenu);
-  bootRails().then(() => {
+  bootRails().then((usedPlace) => {
     handleJoinDeepLink();
     handleConnectionDeepLink();
-    if (typeof applyAppAddress === "function") applyAppAddress();
+    if (!usedPlace && typeof applyAppAddress === "function") applyAppAddress();
     if (typeof loadFeedAlerts === "function") loadFeedAlerts();
   });
 }

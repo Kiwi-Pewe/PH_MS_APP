@@ -205,20 +205,62 @@ function resetChatView() {
   document.getElementById("chat-empty").style.display = "flex";
 }
 
-async function openDirectMessage(id, username) {
+function mapDmApiMessages(messages, otherId, username) {
+  return (messages || []).map((msg) => {
+    const isMine = msg.sender_id !== otherId;
+    const mapped = applyDeletionFields({
+      id: msg.id,
+      chatKind: "dm",
+      isMine,
+      senderId: msg.sender_id,
+      username: isMine ? myUsername : username,
+      content: msg.content,
+      attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
+      time: new Date(msg.timestamp),
+      avatar: msg.avatar || null,
+      permaban: !!msg.permaban
+    }, msg);
+    if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
+    return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
+  });
+}
+
+function mapPartyApiMessages(messages) {
+  return (messages || []).map((msg) => {
+    const mapped = applyDeletionFields({
+      id: msg.id,
+      chatKind: "party",
+      isMine: msg.username === myUsername,
+      senderId: msg.sender_id,
+      username: msg.username,
+      content: msg.content,
+      attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
+      time: new Date(msg.timestamp),
+      avatar: msg.avatar || null,
+      permaban: !!msg.permaban
+    }, msg);
+    if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
+    if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);
+    return mapped;
+  });
+}
+
+async function openDirectMessage(id, username, preload) {
   if (typeof abandonMessageEdit === "function") abandonMessageEdit();
   if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
   if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (typeof clearPendingReply === "function") clearPendingReply();
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
-  const cachedMessages = typeof recallPlaceMessages === "function" ? recallPlaceMessages("dm", id) : null;
+  const readyMessages = preload && Array.isArray(preload.messages) ? preload.messages : null;
+  const cachedMessages = readyMessages ? null : (typeof recallPlaceMessages === "function" ? recallPlaceMessages("dm", id) : null);
+  if (typeof rememberLastChatPlace === "function") rememberLastChatPlace("dm", id, username);
   const token = beginPlace({
     view: "chat",
     titleEl: "chat-header-title",
     title: username,
     hideMembers: true,
-    hold: (cachedMessages && cachedMessages.length) ? null : ["chat-messages"]
+    hold: (readyMessages != null || (cachedMessages && cachedMessages.length)) ? null : ["chat-messages"]
   });
   openChatType = "dm";
   openChatId = id;
@@ -246,38 +288,29 @@ async function openDirectMessage(id, username) {
     renderMessages();
   }
 
-  const historyFetch = fetch(`https://${serverAddress}/messages/${id}`, { credentials: "include" });
-  try {
-    const response = await historyFetch;
-    if (!bodyIsCurrent(token)) return;
-    if (!response.ok) { renderMessages(); }
-    else {
-      const data = await response.json();
+  if (readyMessages) {
+    currentMessages = mapDmApiMessages(readyMessages, id, username);
+    if (currentMessages.length < 25) hasMoreHistory = false;
+    if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("dm", id, currentMessages);
+    renderMessages();
+  } else {
+    const historyFetch = fetch(`https://${serverAddress}/messages/${id}`, { credentials: "include" });
+    try {
+      const response = await historyFetch;
       if (!bodyIsCurrent(token)) return;
-      currentMessages = data.messages.map(msg => {
-        const isMine = msg.sender_id !== id;
-        const mapped = applyDeletionFields({
-          id: msg.id,
-          chatKind: "dm",
-          isMine,
-          senderId: msg.sender_id,
-          username: isMine ? myUsername : username,
-          content: msg.content,
-          attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-          time: new Date(msg.timestamp),
-          avatar: msg.avatar || null,
-          permaban: !!msg.permaban
-        }, msg);
-        if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
-        return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
-      });
-      if (currentMessages.length < 25) hasMoreHistory = false;
-      if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("dm", id, currentMessages);
+      if (!response.ok) { renderMessages(); }
+      else {
+        const data = await response.json();
+        if (!bodyIsCurrent(token)) return;
+        currentMessages = mapDmApiMessages(data.messages, id, username);
+        if (currentMessages.length < 25) hasMoreHistory = false;
+        if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("dm", id, currentMessages);
+        renderMessages();
+      }
+    } catch (e) {
+      if (!bodyIsCurrent(token)) return;
       renderMessages();
     }
-  } catch (e) {
-    if (!bodyIsCurrent(token)) return;
-    renderMessages();
   }
   if (!bodyIsCurrent(token)) return;
   if (typeof stampDmView === "function") stampDmView(id);
@@ -287,20 +320,22 @@ async function openDirectMessage(id, username) {
 
 // Mirrors openDirectMessage exactly, pointed at party endpoints -
 // everything downstream works off openChatType/openChatId/currentMessages.
-async function openParty(id, name) {
+async function openParty(id, name, preload) {
   if (typeof abandonMessageEdit === "function") abandonMessageEdit();
   if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
   if (typeof abandonForumEdit === "function") abandonForumEdit();
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (typeof clearPendingReply === "function") clearPendingReply();
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
-  const cachedMessages = typeof recallPlaceMessages === "function" ? recallPlaceMessages("party", id) : null;
+  const readyMessages = preload && Array.isArray(preload.messages) ? preload.messages : null;
+  const cachedMessages = readyMessages ? null : (typeof recallPlaceMessages === "function" ? recallPlaceMessages("party", id) : null);
+  if (typeof rememberLastChatPlace === "function") rememberLastChatPlace("party", id, name);
   const token = beginPlace({
     view: "chat",
     titleEl: "chat-header-title",
     title: name,
     members: true,
-    hold: (cachedMessages && cachedMessages.length) ? null : ["chat-messages"]
+    hold: (readyMessages != null || (cachedMessages && cachedMessages.length)) ? null : ["chat-messages"]
   });
   openChatType = "party";
   openChatId = id;
@@ -327,39 +362,34 @@ async function openParty(id, name) {
     renderMessages();
   }
 
-  const historyFetch = fetch(`https://${serverAddress}/get_party_messages/${id}`, { credentials: "include" });
-  if (typeof loadMemberList === "function") loadMemberList("party", id);
-  try {
-    const response = await historyFetch;
-    if (!bodyIsCurrent(token)) return;
-    if (!response.ok) { renderMessages(); }
-    else {
-      const data = await response.json();
+  if (preload && Array.isArray(preload.members) && typeof applyPartyMembers === "function") {
+    applyPartyMembers(id, preload.members);
+  } else if (typeof loadMemberList === "function") {
+    loadMemberList("party", id);
+  }
+  if (readyMessages) {
+    currentMessages = mapPartyApiMessages(readyMessages);
+    if (currentMessages.length < 25) hasMoreHistory = false;
+    if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("party", id, currentMessages);
+    renderMessages();
+  } else {
+    const historyFetch = fetch(`https://${serverAddress}/get_party_messages/${id}`, { credentials: "include" });
+    try {
+      const response = await historyFetch;
       if (!bodyIsCurrent(token)) return;
-      currentMessages = data.messages.map(msg => {
-        const mapped = applyDeletionFields({
-          id: msg.id,
-          chatKind: "party",
-          isMine: msg.username === myUsername,
-          senderId: msg.sender_id,
-          username: msg.username,
-          content: msg.content,
-          attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-          time: new Date(msg.timestamp),
-          avatar: msg.avatar || null,
-          permaban: !!msg.permaban
-        }, msg);
-        if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
-        if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);
-        return mapped;
-      });
-      if (currentMessages.length < 25) hasMoreHistory = false;
-      if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("party", id, currentMessages);
+      if (!response.ok) { renderMessages(); }
+      else {
+        const data = await response.json();
+        if (!bodyIsCurrent(token)) return;
+        currentMessages = mapPartyApiMessages(data.messages);
+        if (currentMessages.length < 25) hasMoreHistory = false;
+        if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("party", id, currentMessages);
+        renderMessages();
+      }
+    } catch (e) {
+      if (!bodyIsCurrent(token)) return;
       renderMessages();
     }
-  } catch (e) {
-    if (!bodyIsCurrent(token)) return;
-    renderMessages();
   }
   if (!bodyIsCurrent(token)) return;
   if (typeof stampPartyView === "function") stampPartyView(id);

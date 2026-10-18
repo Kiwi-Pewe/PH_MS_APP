@@ -362,13 +362,14 @@ async function applyOpenServerLand(serverId, data, token) {
   await selectChannel(channel, null, { keepPlace: true, token, messages });
 }
 
-async function openServer(serverId, iconEl, channelId) {
+async function openServer(serverId, iconEl, channelId, preload) {
   selectRailIcon(serverId, iconEl);
   if (typeof leaveDocIfNeeded === "function" && !(await leaveDocIfNeeded())) return;
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return;
 
   const listed = (typeof serverList !== "undefined" ? serverList : []).find((row) => row && String(row.id) === String(serverId));
-  const cached = typeof placeCache !== "undefined" ? placeCache.servers[String(serverId)] : null;
+  const readyData = preload && preload.categories ? preload : null;
+  const cached = readyData || (typeof placeCache !== "undefined" ? placeCache.servers[String(serverId)] : null);
   const hasMemberCache = !!(cached && Array.isArray(cached.members) && cached.members.length);
   const token = beginPlace({
     settings: true,
@@ -406,6 +407,13 @@ async function openServer(serverId, iconEl, channelId) {
     else showServerChannelShell();
   } else {
     showServerChannelShell();
+  }
+
+  if (readyData) {
+    storeServerPlace(serverId, readyData);
+    await applyOpenServerLand(serverId, readyData, token);
+    if (typeof syncAppAddress === "function") syncAppAddress();
+    return;
   }
 
   let data;

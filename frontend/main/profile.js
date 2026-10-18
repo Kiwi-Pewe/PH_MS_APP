@@ -357,7 +357,7 @@ function paintProfileChrome() {
   renderProfileBoard();
 }
 
-async function openUserProfile(userId) {
+async function openUserProfile(userId, preload) {
   if (typeof leaveDocIfNeeded === "function" && !(await leaveDocIfNeeded())) return;
   if (isProfileOpen && profileEditing && profileDirty) {
     if (!window.confirm("Discard profile changes?")) return;
@@ -366,7 +366,8 @@ async function openUserProfile(userId) {
   if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
   if (typeof hideDocsChrome === "function") hideDocsChrome();
   const targetId = !userId || userId === myUserId ? myUserId : userId;
-  const cached = typeof placeCache !== "undefined" ? placeCache.profiles[String(targetId)] : null;
+  const readyData = preload && preload.user ? preload : null;
+  const cached = readyData || (typeof placeCache !== "undefined" ? placeCache.profiles[String(targetId)] : null);
   const token = beginPlace({
     settings: true,
     sidebar: "profile",
@@ -381,6 +382,10 @@ async function openUserProfile(userId) {
     applyProfilePayload(cached);
     paintProfileChrome();
     if (typeof syncAppAddress === "function") syncAppAddress();
+  }
+  if (readyData) {
+    if (typeof placeCache !== "undefined" && readyData.user && readyData.user.id) placeCache.profiles[String(readyData.user.id)] = readyData;
+    return;
   }
   try {
     if (!userId || userId === myUserId) await loadOwnProfile();

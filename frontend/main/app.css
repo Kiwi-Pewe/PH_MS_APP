@@ -5661,6 +5661,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   padding: 8px 10px 12px; border-top: 1px solid var(--border);
 }
 #profile-page-tools[hidden] { display: none; }
+.profile-more-tab { width: 100%; }
 .profile-page-add {
   background: var(--accent); color: #fff; border-color: transparent;
 }
@@ -10714,4 +10715,75 @@ button.voice-more-row:disabled,
   color: var(--text-dim);
   font-size: calc(12px * var(--message-scale));
   white-space: nowrap;
+}
+
+#blocked-users-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+#blocked-users-overlay[hidden] { display: none; }
+.blocked-users-modal {
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--accent-submenu);
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+.blocked-users-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 12px;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--border);
+}
+.blocked-users-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+}
+.blocked-users-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 16px 12px;
+}
+.blocked-users-empty {
+  padding: 18px 4px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+}
+.blocked-users-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.blocked-users-body .blocked-users-row:last-child { border-bottom: none; }
+.blocked-users-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.blocked-users-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.blocked-users-handle {
+  font-size: 12px;
+  color: var(--text-dim);
 }

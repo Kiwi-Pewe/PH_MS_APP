@@ -130,6 +130,7 @@ function hideProfileChromeBits() {
   const palette = document.getElementById("profile-palette");
   if (palette) palette.hidden = true;
   profileEditing = false;
+  closeBlockedUsersSubmenu();
 }
 
 function closeProfileChrome() {
@@ -272,10 +273,11 @@ function renderProfilePages() {
   host.innerHTML = "";
   const layout = profileDraft || profileSavedLayout || { pages: [] };
   if (tools) {
-    const showTools = profileIsOwn && profileEditing;
-    tools.hidden = !showTools;
+    const showAdd = profileIsOwn && profileEditing;
+    const showMore = profileIsOwn && !profileEditing;
+    tools.hidden = !(showAdd || showMore);
     tools.innerHTML = "";
-    if (showTools) {
+    if (showAdd) {
       const pages = layout.pages || [];
       const full = !profileSideOpen(pages, false) && !profileSideOpen(pages, true);
       const add = document.createElement("button");
@@ -287,6 +289,14 @@ function renderProfilePages() {
         if (!full && typeof openProfilePageCreate === "function") openProfilePageCreate();
       });
       tools.appendChild(add);
+    }
+    if (showMore) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "profile-page-item profile-more-tab";
+      more.textContent = "More";
+      more.addEventListener("click", openProfileMoreMenu);
+      tools.appendChild(more);
     }
   }
   const ordered = profileOrderedPages(layout.pages || []);
@@ -481,6 +491,124 @@ function bindProfileQuickEdit(el, tile) {
   el.style.cursor = "pointer";
   el.addEventListener("click", (e) => showMiniProfileIdentityMenu(e, tile.type));
 }
+
+function openProfileMoreMenu(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof openContextMenu !== "function") return;
+  if (typeof activeMenuEl !== "undefined" && activeMenuEl) {
+    closeContextMenu();
+    return;
+  }
+  const btn = e.currentTarget;
+  const rect = btn ? btn.getBoundingClientRect() : { left: e.clientX, top: e.clientY };
+  openContextMenu(rect.left, rect.top, null, [
+    { label: "Blocked Users", onSelect: () => openBlockedUsersSubmenu() }
+  ]);
+}
+
+function closeBlockedUsersSubmenu() {
+  const overlay = document.getElementById("blocked-users-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+function paintBlockedUsersBody(people) {
+  const body = document.getElementById("blocked-users-body");
+  if (!body) return;
+  body.replaceChildren();
+  const rows = Array.isArray(people) ? people : [];
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "blocked-users-empty";
+    empty.textContent = "You haven't blocked anyone.";
+    body.appendChild(empty);
+    return;
+  }
+  rows.forEach((person) => {
+    const row = document.createElement("div");
+    row.className = "blocked-users-row";
+    const who = document.createElement("div");
+    who.className = "blocked-users-who";
+    const face = document.createElement("div");
+    face.className = "avatar-dot";
+    const label = person.display_name || person.username || "?";
+    if (typeof paintUserFace === "function") paintUserFace(face, person, { name: label, userId: person.id });
+    else face.textContent = typeof avatarLetter === "function" ? avatarLetter(label) : String(label).slice(0, 1);
+    const names = document.createElement("div");
+    const display = document.createElement("div");
+    display.className = "blocked-users-name";
+    display.textContent = label;
+    names.appendChild(display);
+    if (person.display_name && person.username && person.display_name !== person.username) {
+      const handle = document.createElement("div");
+      handle.className = "blocked-users-handle";
+      handle.textContent = person.username;
+      names.appendChild(handle);
+    }
+    who.appendChild(face);
+    who.appendChild(names);
+    const unblock = document.createElement("button");
+    unblock.type = "button";
+    unblock.className = "settings-row-btn";
+    unblock.textContent = "Unblock";
+    unblock.addEventListener("click", async () => {
+      unblock.disabled = true;
+      try {
+        const response = await fetch(`https://${serverAddress}/unblock`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ blocked_user: person.id })
+        });
+        if (!response.ok) throw new Error("Could not unblock.");
+        if (typeof forgetBlockedUser === "function") forgetBlockedUser(person.id);
+        paintBlockedUsersBody(rows.filter((entry) => entry.id !== person.id));
+      } catch (err) {
+        unblock.disabled = false;
+      }
+    });
+    row.appendChild(who);
+    row.appendChild(unblock);
+    body.appendChild(row);
+  });
+}
+
+async function openBlockedUsersSubmenu() {
+  const overlay = document.getElementById("blocked-users-overlay");
+  if (!overlay) return;
+  paintBlockedUsersBody([]);
+  overlay.hidden = false;
+  try {
+    const response = await fetch(`https://${serverAddress}/messaging_settings`, { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error();
+    const blocked = Array.isArray(data.blocked) ? data.blocked : [];
+    if (typeof setBlockedUserIds === "function") setBlockedUserIds(blocked.map((row) => row.id));
+    paintBlockedUsersBody(blocked);
+  } catch (err) {
+    paintBlockedUsersBody([]);
+  }
+}
+
+function bindBlockedUsersSubmenu() {
+  if (bindBlockedUsersSubmenu.ready) return;
+  bindBlockedUsersSubmenu.ready = true;
+  const overlay = document.getElementById("blocked-users-overlay");
+  const closeBtn = document.getElementById("blocked-users-close");
+  if (closeBtn) closeBtn.addEventListener("click", closeBlockedUsersSubmenu);
+  if (overlay) {
+    overlay.addEventListener("mousedown", (e) => {
+      if (e.target === overlay) closeBlockedUsersSubmenu();
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const card = document.getElementById("blocked-users-overlay");
+    if (card && !card.hidden) closeBlockedUsersSubmenu();
+  });
+}
+
+bindBlockedUsersSubmenu();
 
 document.getElementById("profile-edit-btn").addEventListener("click", enterProfileEdit);
 document.getElementById("profile-cancel-btn").addEventListener("click", () => exitProfileEdit(true));

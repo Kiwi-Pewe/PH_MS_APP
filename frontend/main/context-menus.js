@@ -854,14 +854,36 @@ async function deleteChannelFromContextMenu(channel) {
   return true;
 }
 
-// leave_party is a live socket action, not an HTTP round-trip, so there's
-// no response to await - backend deletes the membership synchronously.
-function leavePartyFromContextMenu(id, name) {
-  if (!ws) return;
-  ws.send(JSON.stringify({ type: "leave_party", party_id: id }));
-  if (openChatType === "party" && openChatId === id) resetChatView();
-  conversationList = conversationList.filter(c => !(c.type === "party" && c.id === id));
+let pendingLeaveParty = null;
+
+function closeLeavePartyConfirm() {
+  pendingLeaveParty = null;
+  const overlay = document.getElementById("leave-party-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+function openLeavePartyConfirm(id, name) {
+  pendingLeaveParty = { id, name };
+  const body = document.getElementById("leave-party-body");
+  if (body) body.textContent = "Are you sure you want to leave " + (name || "this party") + "?";
+  const overlay = document.getElementById("leave-party-overlay");
+  if (overlay) overlay.hidden = false;
+  const cancel = document.getElementById("leave-party-cancel");
+  if (cancel) cancel.focus();
+}
+
+function confirmLeaveParty() {
+  const pending = pendingLeaveParty;
+  closeLeavePartyConfirm();
+  if (!pending || !ws) return;
+  ws.send(JSON.stringify({ type: "leave_party", party_id: pending.id }));
+  if (openChatType === "party" && openChatId === pending.id) resetChatView();
+  conversationList = conversationList.filter(c => !(c.type === "party" && c.id === pending.id));
   renderConversationList();
+}
+
+function leavePartyFromContextMenu(id, name) {
+  openLeavePartyConfirm(id, name);
 }
 
 async function leaveServerFromContextMenu(id) {
@@ -949,6 +971,26 @@ async function blockFromContextMenu(id, username) {
   refreshFriendsView();
   loadConversations();
 }
+
+(function bindLeavePartyConfirm() {
+  const overlay = document.getElementById("leave-party-overlay");
+  const closeBtn = document.getElementById("leave-party-close");
+  const cancelBtn = document.getElementById("leave-party-cancel");
+  const confirmBtn = document.getElementById("leave-party-confirm");
+  if (closeBtn) closeBtn.addEventListener("click", closeLeavePartyConfirm);
+  if (cancelBtn) cancelBtn.addEventListener("click", closeLeavePartyConfirm);
+  if (confirmBtn) confirmBtn.addEventListener("click", confirmLeaveParty);
+  if (overlay) {
+    overlay.addEventListener("mousedown", (e) => {
+      if (e.target === overlay) closeLeavePartyConfirm();
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const card = document.getElementById("leave-party-overlay");
+    if (card && !card.hidden) closeLeavePartyConfirm();
+  });
+})();
 
 async function logout() {
   try {

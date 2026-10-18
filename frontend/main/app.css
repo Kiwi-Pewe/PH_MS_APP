@@ -3840,6 +3840,53 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 #confirm-delete-action { font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 6px; }
 
+#leave-party-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+#leave-party-overlay[hidden] { display: none; }
+.leave-party-modal {
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  background: var(--panel);
+  border: 1px solid var(--accent-submenu);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.leave-party-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 0;
+}
+.leave-party-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+}
+.leave-party-body {
+  margin: 12px 16px 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.leave-party-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
 #moderation-overlay {
   position: fixed; inset: 0; z-index: 950;
   background: rgba(0, 0, 0, 0.6);

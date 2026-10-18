@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=351">
+<link rel="stylesheet" href="app.css?v=352">
 </head>
 <body>
 
@@ -1858,6 +1858,20 @@
     </div>
   </div>
 
+  <div id="leave-party-overlay" hidden>
+    <div id="leave-party-modal" class="leave-party-modal" role="dialog" aria-modal="true" aria-labelledby="leave-party-title">
+      <div class="leave-party-header">
+        <span id="leave-party-title" class="leave-party-title">Leave Party</span>
+        <button type="button" class="icon-btn" id="leave-party-close" title="Close">&times;</button>
+      </div>
+      <p id="leave-party-body" class="leave-party-body"></p>
+      <div class="leave-party-footer">
+        <button type="button" class="ghost-btn" id="leave-party-cancel">Cancel</button>
+        <button type="button" class="deny-btn" id="leave-party-confirm">Leave Party</button>
+      </div>
+    </div>
+  </div>
+
   <div id="member-prune-overlay" style="display:none;">
     <div id="member-prune-modal" role="dialog" aria-modal="true" aria-labelledby="member-prune-title">
       <div class="view-header">
@@ -2384,7 +2398,7 @@
 <script src="profile.js?v=22"></script>
 <script src="profile-identity.js?v=8"></script>
 <script src="profile-edit.js?v=88"></script>
-<script src="context-menus.js?v=99"></script>
+<script src="context-menus.js?v=100"></script>
 <script src="conversations.js?v=70"></script>
 <script src="chat-render.js?v=70"></script>
 <script src="chat-history.js?v=51"></script>

@@ -535,7 +535,7 @@ async function openOverviewAnnouncement(post) {
   if (el) el.scrollIntoView({ block: "center" });
 }
 
-async function openServerOverview() {
+async function openServerOverview(preload) {
   if (!currentServerId) return;
   const token = ++overviewLoadToken;
   const serverId = currentServerId;
@@ -579,6 +579,22 @@ async function openServerOverview() {
   if (title) title.textContent = "Overview";
   if (typeof setHeaderDescription === "function") setHeaderDescription("channel-header-desc", "");
   overviewPaintPlaceholders();
+  if (preload && (preload.members || preload.roles || preload.posts)) {
+    const members = preload.members || [];
+    const roles = preload.roles || [];
+    const posts = preload.posts || [];
+    const events = preload.events || [];
+    const windows = overviewEventWindows(events);
+    overviewPaintStaff(members, roles);
+    overviewPaintMembers(members);
+    overviewPaintTimezone();
+    overviewPaintAbout();
+    overviewPaintPost(posts);
+    overviewPaintCurrentEvent(windows);
+    overviewPaintUpcoming(windows);
+    overviewStartTick();
+    return;
+  }
   const [membersPayload, rolesPayload, postsPayload, eventsPayload] = await Promise.all([
     overviewFetchJson(`https://${serverAddress}/get_server_members/${serverId}`),
     overviewFetchJson(`https://${serverAddress}/get_server_roles/${serverId}`),

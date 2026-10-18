@@ -15,6 +15,7 @@ from app.routers.roles import (
     actor_highest_role,
     assigned_roles_for_user,
     channel_type_visible,
+    list_server_roles,
     effective_perms_for_user,
     effective_perms_for_user_in_channel,
     can_moderate_target,
@@ -333,7 +334,7 @@ def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo
     return {"servers": server_list}
 
 @router.get("/get_server_contents/{server_id}")
-def get_server_contents(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+def get_server_contents(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), land: int = 0, land_channel_id: int = None):
 
     in_server = database.query(Server_members).filter(Server_members.server_id == server_id, Server_members.user_id == current_user.id).first()
 
@@ -396,7 +397,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
 
             server_info.append({"id": category.id, "name": category.name, "position": category.position, "is_private": category.is_private, "channels": channel_info})
             
-    return {
+    payload = {
         "type": "server",
         "categories": server_info,
         "owner": server.owner_id,
@@ -413,6 +414,9 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         **server_privacy_fields(server),
         **server_banner_fields(server)
     }
+    if land:
+        attach_server_land(database, current_user, server, payload, land_channel_id)
+    return payload
 
 
 @router.post("/remember_server_channel")
@@ -808,46 +812,87 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
     return {"ok": True, **fields}
 
 
-@router.get("/get_server_members/{server_id}")
-def get_server_members(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    in_server = database.query(Server_members).filter(Server_members.server_id == server_id, Server_members.user_id == current_user.id).first()
-    if not in_server:
-        raise HTTPException(status_code=404, detail="Server membership not found")
-
-    server = database.query(Servers).filter(Servers.id == server_id).first()
-    if not server:
-        raise HTTPException(status_code=404, detail="Server not found")
-
-    from app.routers.roles import seed_server_roles, hoist_roles_by_user, name_color_roles_by_user
+def server_members_payload(database, server, server_id):
+    from app.routers.roles import hoist_roles_by_user, name_color_roles_by_user
     seed_server_roles(database, server_id)
     database.commit()
-
     memberships = database.query(Server_members).filter(Server_members.server_id == server_id).all()
     user_ids = [row.user_id for row in memberships]
-    accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all()
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
     account_lookup = {account.id: account for account in accounts}
     hoist_map = hoist_roles_by_user(database, server_id, user_ids)
     name_map = name_color_roles_by_user(database, server_id, user_ids)
     highest_map = highest_roles_by_user(database, server_id, user_ids)
     role_id_map = role_ids_by_user(database, server_id, user_ids)
-
     members = []
     for row in memberships:
         account = account_lookup.get(row.user_id)
-        if account:
-            members.append(serialize_member(
-                account,
-                account.id == server.owner_id,
-                hoist_map.get(account.id),
-                name_map.get(account.id),
-                highest_map.get(account.id),
-                iso_dt(timeout_until_for(row)),
-                getattr(row, "timeout_reason", None) if timeout_until_for(row) else None,
-                getattr(row, "nickname", None),
-                role_ids=role_id_map.get(account.id, []),
-                display_name=getattr(account, "display_name", None),
-            ))
+        if not account:
+            continue
+        members.append(serialize_member(
+            account,
+            account.id == server.owner_id,
+            hoist_map.get(account.id),
+            name_map.get(account.id),
+            highest_map.get(account.id),
+            iso_dt(timeout_until_for(row)),
+            getattr(row, "timeout_reason", None) if timeout_until_for(row) else None,
+            getattr(row, "nickname", None),
+            role_ids=role_id_map.get(account.id, []),
+            display_name=getattr(account, "display_name", None),
+        ))
     return {"server_id": server_id, "members": members}
+
+
+def land_channel_from_contents(data, channel_id):
+    try:
+        wanted = int(channel_id)
+    except (TypeError, ValueError):
+        return None
+    for category in data.get("categories") or []:
+        for channel in category.get("channels") or []:
+            try:
+                if int(channel.get("id")) == wanted:
+                    return channel
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def attach_server_land(database, current_user, server, data, land_channel_id=None):
+    from app.routers.voice import roster_payload
+    data["members"] = server_members_payload(database, server, server.id)["members"]
+    data["roles"] = list_server_roles(database, server.id)
+    data["voice"] = roster_payload(server.id)
+    wanted = land_channel_id if land_channel_id is not None else data.get("last_channel_id")
+    channel = land_channel_from_contents(data, wanted)
+    if not channel:
+        data["land"] = {"kind": "overview"}
+        try:
+            from app.routers.announcements import server_overview
+            data["overview_posts"] = server_overview(server.id, database, current_user).get("posts") or []
+        except Exception:
+            data["overview_posts"] = []
+        return
+    kind = channel.get("channel_type") or "text"
+    data["land"] = {"kind": "channel", "channel_id": channel.get("id"), "channel_type": kind}
+    if kind in ("text", "voice"):
+        try:
+            history = channel_history_payload(database, current_user, int(channel.get("id")))
+            data["land"]["messages"] = history.get("messages") or []
+        except HTTPException:
+            data["land"]["messages"] = []
+
+
+@router.get("/get_server_members/{server_id}")
+def get_server_members(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    in_server = database.query(Server_members).filter(Server_members.server_id == server_id, Server_members.user_id == current_user.id).first()
+    if not in_server:
+        raise HTTPException(status_code=404, detail="Server membership not found")
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found")
+    return server_members_payload(database, server, server_id)
 
 
 @router.get("/server_settings_members/{server_id}")
@@ -947,9 +992,7 @@ async def message_server_channel(server_msg: Server_message, database: Session =
         )
     return new_message    
 
-@router.get("/get_channel_history/{channel_id}")
-def get_channel_history(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None, around_id: int = None):
-
+def channel_history_payload(database, current_user, channel_id, before_id=None, around_id=None):
     target_channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
     if not target_channel:
         raise HTTPException(status_code= 404, detail="Channel not found.")
@@ -1018,6 +1061,11 @@ def get_channel_history(channel_id: int, database: Session = Depends(get_db), cu
     from app.site_moderation import mask_message_payloads
     mask_message_payloads(database, message_history)
     return {"server_name": server.name, "server_id": server.id, "channel_id": channel_id, "session_username": current_user.username, "messages": message_history}
+
+
+@router.get("/get_channel_history/{channel_id}")
+def get_channel_history(channel_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user), before_id: int = None, around_id: int = None):
+    return channel_history_payload(database, current_user, channel_id, before_id, around_id)
 
 @router.post("/create_category")
 async def create_category(category_info: Category_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

@@ -262,6 +262,72 @@ function applyServerContents(serverId, data) {
   if (data.categories) renderServerSidebar(data);
 }
 
+function mapChannelHistory(messages) {
+  return (messages || []).map((msg) => {
+    const mapped = {
+      id: msg.id,
+      chatKind: "channel",
+      isMine: msg.sender_id === myUserId,
+      senderId: msg.sender_id,
+      username: msg.username,
+      nickname: msg.nickname || "",
+      content: msg.content,
+      attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
+      time: new Date(msg.timestamp),
+      edited: !!msg.edited,
+      reactions: applyReactionMe(msg.reactions || []),
+      avatar: msg.avatar || null,
+      nameRole: msg.name_role || null,
+      permaban: !!msg.permaban
+    };
+    if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
+    return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
+  });
+}
+
+function showServerChannelShell() {
+  if (typeof hideChannelSurfaces === "function") hideChannelSurfaces();
+  const overview = document.getElementById("server-overview");
+  if (overview) overview.style.display = "none";
+  const body = document.getElementById("channel-body");
+  const messages = document.getElementById("channel-messages");
+  const empty = document.getElementById("channel-empty");
+  const composer = document.getElementById("channel-composer");
+  if (body) body.style.display = "flex";
+  if (composer) composer.style.display = "block";
+  if (empty) empty.style.display = "none";
+  if (messages) {
+    messages.style.display = "block";
+    fillPlaceHold(messages, 6);
+  }
+}
+
+async function applyOpenServerLand(serverId, data, token) {
+  applyServerContents(serverId, data);
+  if (typeof applyServerMembers === "function") applyServerMembers(serverId, data.members || []);
+  if (typeof applyMentionRolesFromApi === "function") applyMentionRolesFromApi(data.roles || []);
+  if (typeof applyVoiceRoster === "function" && data.voice) applyVoiceRoster(data.voice);
+  const land = data.land || {};
+  if (land.kind === "overview") {
+    if (typeof openServerOverview === "function") {
+      await openServerOverview({
+        members: data.members || [],
+        roles: data.roles || [],
+        posts: data.overview_posts || []
+      });
+    } else showNoChannelSelected();
+    return;
+  }
+  const wanted = land.channel_id || data.last_channel_id;
+  const channel = findChannelInServer(data, wanted) || firstVisibleSidebarChannel();
+  if (!channel) {
+    showNoChannelSelected();
+    return;
+  }
+  const messages = Array.isArray(land.messages) ? land.messages : null;
+  await selectChannel(channel, null, { keepPlace: true, token, messages });
+}
+
 async function openServer(serverId, iconEl, channelId) {
   selectRailIcon(serverId, iconEl);
   if (typeof leaveDocIfNeeded === "function" && !(await leaveDocIfNeeded())) return;
@@ -280,7 +346,6 @@ async function openServer(serverId, iconEl, channelId) {
     title: (listed && listed.name) || (cached && cached.name) || "",
     members: true
   });
-  const landBody = token.body;
   currentServerId = serverId;
   const nameEl = document.getElementById("server-sidebar-name");
   if (nameEl) nameEl.textContent = (listed && listed.name) || (cached && cached.name) || "";
@@ -290,39 +355,24 @@ async function openServer(serverId, iconEl, channelId) {
   });
   if (cached && cached.categories) applyServerContents(serverId, cached);
   else fillPlaceHold(document.getElementById("category-list"), 8);
-
-  if (typeof loadServerNotifyPrefs === "function") loadServerNotifyPrefs(serverId).catch(() => {});
-  if (typeof loadChannelNotifyPrefs === "function") loadChannelNotifyPrefs(serverId).catch(() => {});
-
-  let landed = false;
-  const cachedPreferred = channelId || (cached && cached.last_channel_id) || null;
-  if (cached && !cachedPreferred) {
-    if (typeof openServerOverview === "function") await openServerOverview();
-    landed = true;
-  } else if (cached && cachedPreferred) {
-    const landing = findChannelInServer(cached, cachedPreferred) || firstVisibleSidebarChannel();
-    if (landing) {
-      await selectChannel(landing, null, { keepPlace: true, token });
-      landed = true;
-    }
+  if (cached && Array.isArray(cached.members) && typeof applyServerMembers === "function") {
+    applyServerMembers(serverId, cached.members);
   } else {
-    if (typeof hideChannelSurfaces === "function") hideChannelSurfaces();
-    const body = document.getElementById("channel-body");
-    const messages = document.getElementById("channel-messages");
-    const empty = document.getElementById("channel-empty");
-    const composer = document.getElementById("channel-composer");
-    if (body) body.style.display = "flex";
-    if (composer) composer.style.display = "block";
-    if (empty) empty.style.display = "none";
-    if (messages) {
-      messages.style.display = "block";
-      fillPlaceHold(messages, 6);
-    }
+    fillPlaceHold(document.getElementById("member-list-body"), 6);
+  }
+  if (cached && cached.land && cached.land.kind === "channel" && Array.isArray(cached.land.messages) && cached.land.messages.length) {
+    const cachedChannel = findChannelInServer(cached, channelId || cached.land.channel_id || cached.last_channel_id);
+    if (cachedChannel) selectChannel(cachedChannel, null, { keepPlace: true, token, messages: cached.land.messages });
+    else showServerChannelShell();
+  } else {
+    showServerChannelShell();
   }
 
   let data;
   try {
-    const response = await fetch(`https://${serverAddress}/get_server_contents/${serverId}`, { credentials: "include" });
+    let path = `https://${serverAddress}/get_server_contents/${encodeURIComponent(serverId)}?land=1`;
+    if (channelId) path += `&land_channel_id=${encodeURIComponent(channelId)}`;
+    const response = await fetch(path, { credentials: "include" });
     if (!response.ok) return;
     data = await response.json();
   } catch (e) {
@@ -330,26 +380,7 @@ async function openServer(serverId, iconEl, channelId) {
   }
   if (!placeIsCurrent(token)) return;
   if (typeof placeCache !== "undefined") placeCache.servers[String(serverId)] = data;
-  applyServerContents(serverId, data);
-  if (typeof loadVoiceRoster === "function") loadVoiceRoster(serverId);
-  if (typeof loadMemberList === "function") loadMemberList("server", serverId);
-  if (typeof loadMentionRoles === "function") loadMentionRoles(serverId);
-  if (!bodyIsCurrent({ place: token.place, body: landBody })) {
-    if (typeof syncAppAddress === "function") syncAppAddress();
-    return;
-  }
-
-  const preferredId = channelId || data.last_channel_id;
-  if (!preferredId) {
-    if (!landed) {
-      if (typeof openServerOverview === "function") await openServerOverview();
-      else showNoChannelSelected();
-    }
-  } else if (!landed || Number(currentChannelId) !== Number(preferredId)) {
-    const firstChannel = findChannelInServer(data, preferredId) || firstVisibleSidebarChannel();
-    if (firstChannel) await selectChannel(firstChannel, null, { keepPlace: true, token });
-    else showNoChannelSelected();
-  }
+  await applyOpenServerLand(serverId, data, token);
   if (typeof syncAppAddress === "function") syncAppAddress();
 }
 
@@ -792,6 +823,13 @@ async function selectChannel(channel, rowEl, opts) {
   currentChannelMessages = [];
   channelHasMoreHistory = true;
   channelIsLoadingMore = false;
+  if (opts.messages) {
+    currentChannelMessages = mapChannelHistory(opts.messages);
+    if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
+    if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("channel", channel.id, currentChannelMessages);
+    renderChannelMessages();
+    return;
+  }
   const cachedMessages = !isVoice && typeof recallPlaceMessages === "function" ? recallPlaceMessages("channel", channel.id) : null;
   if (cachedMessages && cachedMessages.length) {
     currentChannelMessages = cachedMessages;
@@ -806,26 +844,7 @@ async function selectChannel(channel, rowEl, opts) {
     if (!response.ok) { renderChannelMessages(); return; }
     const data = await response.json();
     if (!bodyIsCurrent(token)) return;
-    currentChannelMessages = data.messages.map(msg => {
-      const mapped = {
-        id: msg.id,
-        chatKind: "channel",
-        isMine: msg.sender_id === myUserId,
-        senderId: msg.sender_id,
-        username: msg.username,
-        nickname: msg.nickname || "",
-        content: msg.content,
-        attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-        time: new Date(msg.timestamp),
-        edited: !!msg.edited,
-        reactions: applyReactionMe(msg.reactions || []),
-        avatar: msg.avatar || null,
-        nameRole: msg.name_role || null,
-        permaban: !!msg.permaban
-      };
-      if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
-      return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
-    });
+    currentChannelMessages = mapChannelHistory(data.messages);
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
     if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("channel", channel.id, currentChannelMessages);
     renderChannelMessages();

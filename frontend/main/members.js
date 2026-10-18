@@ -49,6 +49,23 @@ function showMemberListPanel() {
   if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 }
 
+function applyServerMembers(serverId, members) {
+  memberListScope = "server";
+  memberListScopeId = serverId;
+  memberList = Array.isArray(members) ? members : [];
+  memberList.forEach((member) => {
+    if (typeof rememberIdentityFace === "function") rememberIdentityFace(member.id, member && member.avatar);
+    if (typeof rememberUserStatus === "function") rememberUserStatus(member.id, member && member.status_line);
+  });
+  showMemberListPanel();
+  renderMemberList();
+  if (typeof refreshServerNameColors === "function") refreshServerNameColors();
+  if (typeof refreshComposerMentions === "function") {
+    const input = typeof activeMentionComposer === "function" ? activeMentionComposer() : null;
+    if (input) refreshComposerMentions(input);
+  }
+}
+
 async function loadMemberList(scope, scopeId) {
   memberListScope = scope;
   memberListScopeId = scopeId;
@@ -63,17 +80,19 @@ async function loadMemberList(scope, scopeId) {
     }
     const data = await response.json();
     if (memberListScope !== scope || memberListScopeId !== scopeId) return;
-    memberList = data.members || [];
-    memberList.forEach((member) => {
-      if (typeof rememberIdentityFace === "function") rememberIdentityFace(member.id, member && member.avatar);
-      if (typeof rememberUserStatus === "function") rememberUserStatus(member.id, member && member.status_line);
-    });
-    showMemberListPanel();
-    renderMemberList();
-    if (scope === "server" && typeof refreshServerNameColors === "function") refreshServerNameColors();
-    if (typeof refreshComposerMentions === "function") {
-      const input = typeof activeMentionComposer === "function" ? activeMentionComposer() : null;
-      if (input) refreshComposerMentions(input);
+    if (scope === "server") applyServerMembers(scopeId, data.members || []);
+    else {
+      memberList = data.members || [];
+      memberList.forEach((member) => {
+        if (typeof rememberIdentityFace === "function") rememberIdentityFace(member.id, member && member.avatar);
+        if (typeof rememberUserStatus === "function") rememberUserStatus(member.id, member && member.status_line);
+      });
+      showMemberListPanel();
+      renderMemberList();
+      if (typeof refreshComposerMentions === "function") {
+        const input = typeof activeMentionComposer === "function" ? activeMentionComposer() : null;
+        if (input) refreshComposerMentions(input);
+      }
     }
   } catch (e) {
     hideMemberList();

@@ -105,11 +105,6 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
     banned = permaban_by_user_id(database, user_id)
     if not target_user and not banned:
         raise HTTPException(status_code= 404,  detail="No user found")
-    for msg in History:
-        if msg.receiver_id == current_user.id:
-            msg.read = True
-
-    database.commit()
     refresh_pending_messages(database, History)
     reaction_map = reactions_for_messages(database, "dm", [msg.id for msg in History], current_user.id)
     reply_map = reply_map_for(database, Message, History)
@@ -142,6 +137,16 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
         "permaban": bool(banned and not target_user),
         "messages": messages_out,
     }
+
+@router.post("/messages/{user_id}/read")
+def mark_conversation_read(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    database.query(Message).filter(
+        Message.sender_id == user_id,
+        Message.receiver_id == current_user.id,
+        Message.read == False
+    ).update({Message.read: True}, synchronize_session=False)
+    database.commit()
+    return {"ok": True}
 
 @router.get("/conversation_history")
 def conversation_history(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

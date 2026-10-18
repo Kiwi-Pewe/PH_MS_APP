@@ -386,6 +386,14 @@ function stampPartyView(partyId) {
   }).catch(() => {});
 }
 
+function stampDmView(userId) {
+  if (!userId || !serverAddress) return;
+  fetch(`https://${serverAddress}/messages/${userId}/read`, {
+    method: "POST",
+    credentials: "include"
+  }).catch(() => {});
+}
+
 function markChannelReadFromMenu(channelId) {
   if (typeof markChannelReadLocal === "function") markChannelReadLocal(channelId);
   if (typeof stampChannelView === "function") stampChannelView(channelId);

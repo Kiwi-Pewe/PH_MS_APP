@@ -344,8 +344,6 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
 
     all_categories = database.query(Server_categories).filter(Server_categories.server_id == server_id).order_by(Server_categories.position).all()
     server = database.query(Servers).filter(Servers.id == server_id).first()
-    seed_server_roles(database, server.id)
-    database.commit()
     is_owner = server.owner_id == current_user.id
     permissions = effective_perms_for_user(database, server, current_user.id)
     server_info = []
@@ -1020,8 +1018,6 @@ def channel_history_payload(database, current_user, channel_id, before_id=None, 
     elif before_id:
         channel_history = base.filter(Channel_messages.id < before_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()
     else:
-        stamp_channel_view(database, channel_id, current_user.id)
-        database.commit()
         channel_history = base.order_by(Channel_messages.timestamp.desc()).limit(25).all()
 
     channel_history = drop_blocked_rows(database, current_user.id, channel_history)

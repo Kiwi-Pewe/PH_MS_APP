@@ -141,12 +141,6 @@ def get_party_messages(party_id: int, database: Session = Depends(get_db), curre
 
     party_info = database.query(Parties).filter(Parties.id == party_id).first()
 
-    if not before_id and not around_id:
-        database.query(Party_members).filter(Party_members.party_id == party_id, Party_members.user_id == current_user.id).update(
-            {"last_activity": datetime.utcnow()}
-        )
-    database.commit()
-
     base = database.query(Party_messages).filter(Party_messages.party_id == party_id)
     around_mode = False
     if around_id:

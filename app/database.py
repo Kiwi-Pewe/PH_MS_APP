@@ -1,8 +1,21 @@
-# SQLAlchemy engine/session setup goes here.
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-engine = create_engine("sqlite:///./app.db")
+engine = create_engine(
+    "sqlite:///./app.db",
+    connect_args={"check_same_thread": False},
+)
+
+@event.listens_for(engine, "connect")
+def sqlite_connect(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA cache_size=-64000")
+    cursor.close()
+
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 Base = declarative_base()
 
@@ -532,3 +545,19 @@ def ensure_moderation_columns():
                 conn.commit()
             except Exception:
                 conn.rollback()
+
+
+def ensure_load_indexes():
+    statements = (
+        "CREATE INDEX IF NOT EXISTS ix_channel_messages_channel_id ON channel_messages (channel_id, id)",
+        "CREATE INDEX IF NOT EXISTS ix_party_messages_party_id ON party_messages (party_id, id)",
+        "CREATE INDEX IF NOT EXISTS ix_messages_pair ON messages (sender_id, receiver_id, id)",
+        "CREATE INDEX IF NOT EXISTS ix_messages_inbox ON messages (receiver_id, read, id)",
+        "CREATE INDEX IF NOT EXISTS ix_forum_messages_post_id ON forum_messages (post_id, id)",
+        "CREATE INDEX IF NOT EXISTS ix_announcements_channel_id ON announcements (channel_id, id)",
+        "CREATE INDEX IF NOT EXISTS ix_feed_alerts_receiver ON feed_alerts (receiver_id, id)",
+    )
+    with engine.connect() as conn:
+        for statement in statements:
+            conn.execute(text(statement))
+            conn.commit()

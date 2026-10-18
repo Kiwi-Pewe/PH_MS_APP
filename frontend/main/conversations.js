@@ -229,7 +229,6 @@ async function openDirectMessage(id, username) {
   enableComposer();
   ensureConversationPresent(id, username);
   clearUnread("dm", id);
-  if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof closePinsPanel === "function") closePinsPanel();
   if (typeof setChatSearchPlaceholder === "function") setChatSearchPlaceholder("Search @" + username);
   if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
@@ -246,36 +245,42 @@ async function openDirectMessage(id, username) {
     renderMessages();
   }
 
+  const historyFetch = fetch(`https://${serverAddress}/messages/${id}`, { credentials: "include" });
   try {
-    const response = await fetch(`https://${serverAddress}/messages/${id}`, { credentials: "include" });
+    const response = await historyFetch;
     if (!bodyIsCurrent(token)) return;
-    if (!response.ok) { renderMessages(); return; }
-    const data = await response.json();
-    if (!bodyIsCurrent(token)) return;
-    currentMessages = data.messages.map(msg => {
-      const isMine = msg.sender_id !== id;
-      const mapped = applyDeletionFields({
-        id: msg.id,
-        chatKind: "dm",
-        isMine,
-        senderId: msg.sender_id,
-        username: isMine ? myUsername : username,
-        content: msg.content,
-        attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-        time: new Date(msg.timestamp),
-        avatar: msg.avatar || null,
-        permaban: !!msg.permaban
-      }, msg);
-      if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
-      return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
-    });
-    if (currentMessages.length < 25) hasMoreHistory = false;
-    if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("dm", id, currentMessages);
-    renderMessages();
+    if (!response.ok) { renderMessages(); }
+    else {
+      const data = await response.json();
+      if (!bodyIsCurrent(token)) return;
+      currentMessages = data.messages.map(msg => {
+        const isMine = msg.sender_id !== id;
+        const mapped = applyDeletionFields({
+          id: msg.id,
+          chatKind: "dm",
+          isMine,
+          senderId: msg.sender_id,
+          username: isMine ? myUsername : username,
+          content: msg.content,
+          attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
+          time: new Date(msg.timestamp),
+          avatar: msg.avatar || null,
+          permaban: !!msg.permaban
+        }, msg);
+        if (typeof takeMessageAvatar === "function") takeMessageAvatar(mapped, msg);
+        return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
+      });
+      if (currentMessages.length < 25) hasMoreHistory = false;
+      if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("dm", id, currentMessages);
+      renderMessages();
+    }
   } catch (e) {
     if (!bodyIsCurrent(token)) return;
     renderMessages();
   }
+  if (!bodyIsCurrent(token)) return;
+  if (typeof stampDmView === "function") stampDmView(id);
+  if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof refreshOpenCall === "function") refreshOpenCall();
 }
 
@@ -305,11 +310,9 @@ async function openParty(id, name) {
   if (chatActions) chatActions.hidden = false;
   enableComposer();
   clearUnread("party", id);
-  if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof closePinsPanel === "function") closePinsPanel();
   if (typeof setChatSearchPlaceholder === "function") setChatSearchPlaceholder("Search " + name);
   if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
-  if (typeof loadMemberList === "function") loadMemberList("party", id);
 
   const chatEmpty = document.getElementById("chat-empty");
   const chatMessages = document.getElementById("chat-messages");
@@ -323,8 +326,10 @@ async function openParty(id, name) {
     renderMessages();
   }
 
+  const historyFetch = fetch(`https://${serverAddress}/get_party_messages/${id}`, { credentials: "include" });
+  if (typeof loadMemberList === "function") loadMemberList("party", id);
   try {
-    const response = await fetch(`https://${serverAddress}/get_party_messages/${id}`, { credentials: "include" });
+    const response = await historyFetch;
     if (!bodyIsCurrent(token)) return;
     if (!response.ok) { renderMessages(); }
     else {
@@ -355,5 +360,8 @@ async function openParty(id, name) {
     if (!bodyIsCurrent(token)) return;
     renderMessages();
   }
+  if (!bodyIsCurrent(token)) return;
+  if (typeof stampPartyView === "function") stampPartyView(id);
+  if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof refreshOpenCall === "function") refreshOpenCall();
 }

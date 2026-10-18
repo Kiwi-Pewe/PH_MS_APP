@@ -63,7 +63,7 @@ function showValidCard(loggedIn) {
   const isParty = inviteData.type === "party";
   const name = isParty ? inviteData.party_name : inviteData.server_name;
   const subtitle = isParty
-    ? (inviteData.full ? "This party is currently full." : "You've been invited to join.")
+    ? (inviteData.blocked ? "You can't join this party." : (inviteData.full ? "This party is currently full." : "You've been invited to join."))
     : `<span class="dot">\u25CF</span> ${inviteData.active_users} Online \u00b7 ${inviteData.total_users} Members`;
 
   document.getElementById("invite-icon-badge").textContent = isParty
@@ -79,6 +79,12 @@ function showValidCard(loggedIn) {
   body.querySelector(".invite-subtitle").innerHTML = subtitle;
 
   const btn = document.getElementById("invite-action-btn");
+
+  if (isParty && inviteData.blocked) {
+    btn.textContent = "Can't Join";
+    btn.disabled = true;
+    return;
+  }
 
   if (isParty && inviteData.full) {
     btn.textContent = "Party is Full";
@@ -128,6 +134,14 @@ async function joinInvite(btn) {
       return;
     }
     const data = await response.json();
+    if (data.blocked) {
+      btn.textContent = "Can't Join";
+      return;
+    }
+    if (data.full) {
+      btn.textContent = "Party is Full";
+      return;
+    }
     const name = data.party_name || data.server_name || "";
     window.location.href = `main/app.html?join_type=${data.type}&join_id=${data.id}&join_name=${encodeURIComponent(name)}`;
   } catch (e) {

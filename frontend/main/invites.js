@@ -426,8 +426,9 @@ function renderInviteCard(card, code, data) {
   const name = isParty ? data.party_name : data.server_name;
   // Party lookup only tells full-or-not, no exact count (get_invite_info
   // response is deliberately lean) - unlike server, no member tally here.
+  const barred = isParty && data.blocked;
   const subtitle = isParty
-    ? (data.full ? "This party is currently full." : "Click below to join.")
+    ? (barred ? "You can't join this party." : (data.full ? "This party is currently full." : "Click below to join."))
     : `${data.active_users} Online \u00b7 ${data.total_users} Members`;
   if (!isParty && data.channel_name) subtitle += " \u00b7 " + data.channel_name;
 
@@ -439,13 +440,13 @@ function renderInviteCard(card, code, data) {
         <div class="invite-card-subtitle"></div>
       </div>
     </div>
-    <button class="invite-card-btn">${isParty && data.full ? "Party is Full" : "Join " + (isParty ? "Party" : "Server")}</button>`;
+    <button class="invite-card-btn">${barred ? "Can't Join" : (isParty && data.full ? "Party is Full" : "Join " + (isParty ? "Party" : "Server"))}</button>`;
   card.querySelector(".invite-card-badge").textContent = isParty ? avatarLetter(name) : serverAvatarLetters(name);
   card.querySelector(".invite-card-name").textContent = name;
   card.querySelector(".invite-card-subtitle").textContent = subtitle;
 
   const btn = card.querySelector(".invite-card-btn");
-  if (isParty && data.full) {
+  if (barred || (isParty && data.full)) {
     btn.disabled = true;
   } else {
     btn.addEventListener("click", () => joinInviteFromCard(code, btn));
@@ -474,6 +475,11 @@ async function joinInviteFromCard(code, btnEl) {
   } catch (e) {
     btnEl.textContent = "Failed \u2014 try again";
     btnEl.disabled = false;
+    return;
+  }
+
+  if (data.blocked) {
+    btnEl.textContent = "Can't Join";
     return;
   }
 

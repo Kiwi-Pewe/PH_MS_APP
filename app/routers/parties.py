@@ -13,12 +13,14 @@ from app.routers.profile import avatar_lookup
 from app.routers.mentions import apply_party_mentions, decorate_history, accepted_reply_parent, reply_map_for
 from app.routers.feed import notify_activity_reply
 from app.site_moderation import mask_message_payloads
-from app.privacy import drop_blocked_rows
+from app.privacy import drop_blocked_rows, blocked_from_party_owner
 from app.routers.messages import mute_until_for, mute_public
 from datetime import datetime
 import random
 
 router = APIRouter()
+
+PARTY_MEMBER_CAP = 10
 
 @router.post("/create_party")
 async def create_party(party: Party_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -40,10 +42,17 @@ async def create_party(party: Party_create, database: Session = Depends(get_db),
     database.add(owner_member)
 
     unseen = datetime(1970, 1, 1)
+    seated = {current_user.id}
     for user in party.member_ids:
-        if not user == current_user.id:
-            invited_member = Party_members(party_id=potential_id, user_id=user, last_activity=unseen)
-            database.add(invited_member)
+        if user in seated:
+            continue
+        if blocked_from_party_owner(database, user, current_user.id):
+            continue
+        if len(seated) >= PARTY_MEMBER_CAP:
+            break
+        seated.add(user)
+        invited_member = Party_members(party_id=potential_id, user_id=user, last_activity=unseen)
+        database.add(invited_member)
 
     created_line = Party_messages(
         party_id=potential_id,

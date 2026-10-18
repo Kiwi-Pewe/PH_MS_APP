@@ -68,6 +68,12 @@ def blocked_either_way(database: Session, user_a, user_b):
     )
 
 
+def blocked_from_party_owner(database: Session, user_id, owner_id):
+    if not user_id or not owner_id or user_id == owner_id:
+        return False
+    return blocked_either_way(database, user_id, owner_id)
+
+
 def pending_dm_request(database: Session, sender_id, receiver_id):
     return database.query(Message_request).filter(
         Message_request.sender_id == sender_id,

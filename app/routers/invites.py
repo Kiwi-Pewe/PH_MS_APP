@@ -11,6 +11,8 @@ from app.routers.moderation import active_ban, iso_dt
 from app.routers.deletion import write_audit_log
 from app.routers.account import public_display_name
 from app.routers.profile import public_avatar
+from app.routers.parties import PARTY_MEMBER_CAP
+from app.privacy import blocked_from_party_owner
 from datetime import datetime, timedelta
 import asyncio
 import json
@@ -395,16 +397,22 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
         is_member = database.query(Party_members).filter(Party_members.party_id == invite.party_id, Party_members.user_id == current_user.id).first()
         if is_member:
             return {"type": "party", "party_name": party.party_name, "party_id": invite.party_id}
+        if blocked_from_party_owner(database, current_user.id, party.created_by_id):
+            return {"type": "party", "id": invite.party_id, "party_name": party.party_name, "blocked": True}
         member_count = database.query(Party_members).filter(Party_members.party_id == invite.party_id).count()
-        if member_count == 10:
+        if member_count >= PARTY_MEMBER_CAP:
             return{"type": "party", "id": invite.party_id, "party_name": party.party_name,"full": True}
 
         new_member = Party_members(
             party_id = invite.party_id,
             user_id = current_user.id
         )
-        invite.use_count += 1
         database.add(new_member)
+        database.flush()
+        if database.query(Party_members).filter(Party_members.party_id == invite.party_id).count() > PARTY_MEMBER_CAP:
+            database.rollback()
+            return{"type": "party", "id": invite.party_id, "party_name": party.party_name,"full": True}
+        invite.use_count += 1
         join_message = Party_messages(
             sender_id= None,
             party_id= invite.party_id,
@@ -565,7 +573,12 @@ def get_invite_info(code: str, database: Session = Depends(get_db), current_user
         if not party_info:
             return {"valid": False}
         all_members = database.query(Party_members).filter(Party_members.party_id == invite.party_id).count()
-        return {"valid": True, "type": "party","party_name": party_info.party_name, "full": True if all_members >= 10 else  False}
+        blocked = False
+        if current_user:
+            already = database.query(Party_members).filter(Party_members.party_id == invite.party_id, Party_members.user_id == current_user.id).first()
+            if not already:
+                blocked = blocked_from_party_owner(database, current_user.id, party_info.created_by_id)
+        return {"valid": True, "type": "party","party_name": party_info.party_name, "full": True if all_members >= PARTY_MEMBER_CAP else False, "blocked": blocked}
     elif invite.type == "server":
         server_info = database.query(Servers).filter(Servers.id == invite.server_id).first()
         if not server_info:

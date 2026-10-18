@@ -35,6 +35,7 @@ let mailTrayOpen = false;
 let feedAlertRows = [];
 let feedHasMore = true;
 let feedLoadingMore = false;
+let feedBootApplied = false;
 let feedSessionFilter = null;
 const FEED_PAGE_SIZE = 25;
 
@@ -507,7 +508,20 @@ function openFeedFilterMenu(e) {
   openContextMenu(rect.left, rect.bottom + 4, null, options);
 }
 
+function applyFeedAlerts(alerts) {
+  feedAlertRows = Array.isArray(alerts) ? alerts : [];
+  feedHasMore = feedAlertRows.length >= FEED_PAGE_SIZE;
+  feedLoadingMore = false;
+  feedBootApplied = true;
+  paintFeedPosts();
+}
+
 async function loadFeedAlerts() {
+  if (feedBootApplied) {
+    feedBootApplied = false;
+    paintFeedPosts();
+    return;
+  }
   feedHasMore = true;
   feedLoadingMore = false;
   try {

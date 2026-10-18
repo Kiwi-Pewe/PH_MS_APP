@@ -800,6 +800,7 @@ function applyReadyPayload(data) {
   if (typeof rememberNotifyBundle === "function") rememberNotifyBundle(data.notify, data.servers || []);
   if (typeof applyConversationLists === "function") applyConversationLists(data.conversations, data.parties);
   if (typeof applyFriendsView === "function") applyFriendsView(data.friends || {});
+  if (typeof applyFeedAlerts === "function") applyFeedAlerts((data.feed && data.feed.alerts) || []);
 }
 
 async function applyReadyPlace(place) {
@@ -833,13 +834,6 @@ function readyPlaceQuery() {
   if (search.get("join_type") || search.get("connection")) return null;
   const qs = new URLSearchParams();
   qs.set("path", window.location.pathname || "");
-  const parts = (window.location.pathname || "").split("/").filter(Boolean);
-  const onHome = !parts.length || parts[0] === "main" || parts[0] === "messages";
-  const chat = onHome && typeof readLastChatPlace === "function" ? readLastChatPlace() : null;
-  if (chat) {
-    qs.set("chat", chat.kind);
-    qs.set("chat_id", String(chat.id));
-  }
   return qs;
 }
 
@@ -852,9 +846,6 @@ async function bootRails() {
     const data = await response.json();
     applyReadyPayload(data);
     if (!qs) return false;
-    if (qs.get("chat") && (!data.place || data.place.kind === "home") && typeof forgetLastChatPlace === "function") {
-      forgetLastChatPlace();
-    }
     return applyReadyPlace(data.place);
   } catch (e) {
     if (typeof loadBlockedUserIds === "function") await loadBlockedUserIds();
@@ -863,6 +854,7 @@ async function bootRails() {
       typeof loadConversations === "function" ? loadConversations() : Promise.resolve(),
       typeof loadServers === "function" ? loadServers() : Promise.resolve(),
     ]);
+    if (typeof loadFeedAlerts === "function") await loadFeedAlerts();
     return false;
   }
 }
@@ -881,7 +873,6 @@ function enterApp() {
     handleJoinDeepLink();
     handleConnectionDeepLink();
     if (!usedPlace && typeof applyAppAddress === "function") applyAppAddress();
-    if (typeof loadFeedAlerts === "function") loadFeedAlerts();
   });
 }
 

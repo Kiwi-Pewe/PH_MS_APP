@@ -254,7 +254,6 @@ async function openDirectMessage(id, username, preload) {
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   const readyMessages = preload && Array.isArray(preload.messages) ? preload.messages : null;
   const cachedMessages = readyMessages ? null : (typeof recallPlaceMessages === "function" ? recallPlaceMessages("dm", id) : null);
-  if (typeof rememberLastChatPlace === "function") rememberLastChatPlace("dm", id, username);
   const token = beginPlace({
     view: "chat",
     titleEl: "chat-header-title",
@@ -329,7 +328,6 @@ async function openParty(id, name, preload) {
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   const readyMessages = preload && Array.isArray(preload.messages) ? preload.messages : null;
   const cachedMessages = readyMessages ? null : (typeof recallPlaceMessages === "function" ? recallPlaceMessages("party", id) : null);
-  if (typeof rememberLastChatPlace === "function") rememberLastChatPlace("party", id, name);
   const token = beginPlace({
     view: "chat",
     titleEl: "chat-header-title",

@@ -3882,7 +3882,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .leave-party-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
   padding: 0 16px 16px;
 }

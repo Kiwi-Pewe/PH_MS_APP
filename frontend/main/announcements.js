@@ -426,8 +426,6 @@ async function loadAnnouncementPosts(channelId) {
   announcementHasMoreHistory = true;
   announcementIsLoadingMore = false;
   const container = document.getElementById("announcements-posts");
-  if (container && !container.querySelector(".place-hold")) container.innerHTML = "";
-  if (typeof loadAnnounceFollowInfo === "function" && !announcementSearchActive()) loadAnnounceFollowInfo(channelId);
   try {
     const response = await fetch(`https://${serverAddress}/get_announcement/${channelId}${announcementSearchParams()}`, { credentials: "include" });
     if (!response.ok) return;
@@ -439,6 +437,7 @@ async function loadAnnouncementPosts(channelId) {
       return post;
     });
     if (data.posts.length < 25) announcementHasMoreHistory = false;
+    if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("announce", channelId, currentAnnouncementPosts);
     container.innerHTML = "";
     data.posts.forEach(post => container.appendChild(buildAnnouncementPostCard(post)));
     updateAnnouncementEndMarker();
@@ -447,6 +446,7 @@ async function loadAnnouncementPosts(channelId) {
       if (spacer) spacer.remove();
       container.scrollTop = 0;
     } else container.scrollTop = container.scrollHeight;
+    if (typeof loadAnnounceFollowInfo === "function" && !announcementSearchActive()) loadAnnounceFollowInfo(channelId);
   } catch (e) { /* leave empty on failure */ }
 }
 

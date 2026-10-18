@@ -328,6 +328,7 @@ def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo
             "unread": notice["unread"],
             "mention_count": notice["mention_count"],
             "icon_url": server_icon_url(server_info),
+            "url_slug": server_url_slug(server_info),
             **server_banner_fields(server_info)
         })
 

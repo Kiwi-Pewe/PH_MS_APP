@@ -49,7 +49,8 @@ function showMemberListPanel() {
   if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
 }
 
-function applyServerMembers(serverId, members) {
+function applyServerMembers(serverId, members, opts) {
+  opts = opts || {};
   memberListScope = "server";
   memberListScopeId = serverId;
   memberList = Array.isArray(members) ? members : [];
@@ -58,7 +59,7 @@ function applyServerMembers(serverId, members) {
     if (typeof rememberUserStatus === "function") rememberUserStatus(member.id, member && member.status_line);
   });
   showMemberListPanel();
-  renderMemberList();
+  if (!opts.keepRows) renderMemberList();
   if (typeof refreshServerNameColors === "function") refreshServerNameColors();
   if (typeof refreshComposerMentions === "function") {
     const input = typeof activeMentionComposer === "function" ? activeMentionComposer() : null;

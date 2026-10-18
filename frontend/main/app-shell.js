@@ -218,10 +218,11 @@ document.getElementById("home-icon").addEventListener("click", () => goHome());
 
 let appAddressLock = false;
 
-function setAppAddress(path) {
+function setAppAddress(path, replace) {
   if (!path || appAddressLock) return;
   if (window.location.pathname === path) return;
-  history.pushState({ oneira: path }, "", path);
+  if (replace) history.replaceState({ oneira: path }, "", path);
+  else history.pushState({ oneira: path }, "", path);
 }
 
 function syncAppAddress() {
@@ -232,11 +233,11 @@ function syncAppAddress() {
     return;
   }
   if (typeof currentServerId !== "undefined" && currentServerId && typeof currentServerData !== "undefined" && currentServerData && currentServerData.url_slug) {
-    setAppAddress("/" + currentServerData.url_slug);
+    setAppAddress("/" + currentServerData.url_slug, true);
     return;
   }
   if (typeof currentServerId !== "undefined" && currentServerId) {
-    setAppAddress("/server/" + encodeURIComponent(currentServerId));
+    setAppAddress("/server/" + encodeURIComponent(currentServerId), true);
     return;
   }
   setAppAddress("/messages");

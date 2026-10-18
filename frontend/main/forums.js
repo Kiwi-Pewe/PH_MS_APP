@@ -676,7 +676,6 @@ async function loadForumPosts(channelId) {
   forumHasMore = true;
   forumIsLoadingMore = false;
   const container = document.getElementById("forum-posts");
-  if (container && !container.querySelector(".place-hold")) container.innerHTML = "";
   const searchEl = document.getElementById("forum-search-input");
   if (searchEl && searchEl.value !== forumSearchQuery) {
     forumSearchQuery = searchEl.value || "";
@@ -696,6 +695,7 @@ async function loadForumPosts(channelId) {
       return post;
     });
     forumHasMore = data.has_more != null ? !!data.has_more : currentForumPosts.filter(p => !p.sticky).length >= 10;
+    if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("forum", channelId, currentForumPosts);
     container.innerHTML = "";
     currentForumPosts.forEach(post => container.appendChild(buildForumPostCard(post)));
     container.scrollTop = 0;

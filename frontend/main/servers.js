@@ -241,7 +241,25 @@ function findChannelInServer(data, channelId) {
   return null;
 }
 
-function applyServerContents(serverId, data) {
+function storeServerPlace(serverId, data) {
+  if (typeof placeCache === "undefined" || !serverId || !data) return;
+  const key = String(serverId);
+  const prev = placeCache.servers[key];
+  if (!prev) {
+    placeCache.servers[key] = data;
+    return;
+  }
+  const next = Object.assign({}, prev, data);
+  if (data.members == null && prev.members) next.members = prev.members;
+  if (data.roles == null && prev.roles) next.roles = prev.roles;
+  if (data.voice == null && prev.voice) next.voice = prev.voice;
+  if (data.land == null && prev.land) next.land = prev.land;
+  if (data.overview_posts == null && prev.overview_posts) next.overview_posts = prev.overview_posts;
+  placeCache.servers[key] = next;
+}
+
+function applyServerContents(serverId, data, opts) {
+  opts = opts || {};
   currentServerId = serverId;
   currentServerOwnerId = data.owner;
   currentServerPerms = data.permissions || {};
@@ -253,13 +271,15 @@ function applyServerContents(serverId, data) {
   const listed = (typeof serverList !== "undefined" ? serverList : []).find((row) => row && String(row.id) === String(serverId));
   if (listed && data.icon_url) listed.icon_url = data.icon_url;
   if (listed && !data.icon_url && listed.icon_url) currentServerData.icon_url = listed.icon_url;
+  if (listed && data.url_slug) listed.url_slug = data.url_slug;
+  if (listed && !data.url_slug && listed.url_slug) currentServerData.url_slug = listed.url_slug;
   const nameEl = document.getElementById("server-sidebar-name");
   if (nameEl) nameEl.textContent = (listed && listed.name) || data.name || "";
   paintServerSidebarBanner({
     banner_url: data.banner_url || (listed && listed.banner_url) || "",
     banner_color: data.banner_color || (listed && listed.banner_color) || ""
   });
-  if (data.categories) renderServerSidebar(data);
+  if (data.categories && !opts.keepSidebar) renderServerSidebar(data);
 }
 
 function mapChannelHistory(messages) {
@@ -303,8 +323,11 @@ function showServerChannelShell() {
 }
 
 async function applyOpenServerLand(serverId, data, token) {
-  applyServerContents(serverId, data);
-  if (typeof applyServerMembers === "function") applyServerMembers(serverId, data.members || []);
+  const sameServer = String(currentServerId) === String(serverId);
+  const keepSidebar = sameServer && !!document.querySelector("#category-list .channel-row");
+  const keepMembers = sameServer && !!document.querySelector("#member-list-body .member-row");
+  applyServerContents(serverId, data, { keepSidebar });
+  if (typeof applyServerMembers === "function") applyServerMembers(serverId, data.members || [], { keepRows: keepMembers });
   if (typeof applyMentionRolesFromApi === "function") applyMentionRolesFromApi(data.roles || []);
   if (typeof applyVoiceRoster === "function" && data.voice) applyVoiceRoster(data.voice);
   const land = data.land || {};
@@ -325,6 +348,13 @@ async function applyOpenServerLand(serverId, data, token) {
     return;
   }
   const messages = Array.isArray(land.messages) ? land.messages : null;
+  if (messages && Number(currentChannelId) === Number(channel.id)) {
+    currentChannelMessages = mapChannelHistory(messages);
+    if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
+    if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("channel", channel.id, currentChannelMessages);
+    renderChannelMessages({ preserveScroll: true });
+    return;
+  }
   await selectChannel(channel, null, { keepPlace: true, token, messages });
 }
 
@@ -335,6 +365,7 @@ async function openServer(serverId, iconEl, channelId) {
 
   const listed = (typeof serverList !== "undefined" ? serverList : []).find((row) => row && String(row.id) === String(serverId));
   const cached = typeof placeCache !== "undefined" ? placeCache.servers[String(serverId)] : null;
+  const hasMemberCache = !!(cached && Array.isArray(cached.members) && cached.members.length);
   const token = beginPlace({
     settings: true,
     serverSettings: true,
@@ -344,9 +375,14 @@ async function openServer(serverId, iconEl, channelId) {
     topbar: "messages",
     titleEl: "channel-header-title",
     title: (listed && listed.name) || (cached && cached.name) || "",
-    members: true
+    members: !hasMemberCache
   });
   currentServerId = serverId;
+  const slug = (cached && cached.url_slug) || (listed && listed.url_slug) || "";
+  if (typeof setAppAddress === "function") {
+    if (slug) setAppAddress("/" + slug);
+    else setAppAddress("/server/" + encodeURIComponent(serverId));
+  }
   const nameEl = document.getElementById("server-sidebar-name");
   if (nameEl) nameEl.textContent = (listed && listed.name) || (cached && cached.name) || "";
   paintServerSidebarBanner({
@@ -379,7 +415,7 @@ async function openServer(serverId, iconEl, channelId) {
     return;
   }
   if (!placeIsCurrent(token)) return;
-  if (typeof placeCache !== "undefined") placeCache.servers[String(serverId)] = data;
+  storeServerPlace(serverId, data);
   await applyOpenServerLand(serverId, data, token);
   if (typeof syncAppAddress === "function") syncAppAddress();
 }
@@ -401,7 +437,7 @@ async function refreshServerContentsSoft() {
     else renderServerSidebar(data);
     if (typeof paintChatAccess === "function") paintChatAccess();
     if (typeof renderMemberList === "function" && typeof memberListScope !== "undefined" && memberListScope === "server") renderMemberList();
-    if (typeof placeCache !== "undefined" && currentServerId) placeCache.servers[String(currentServerId)] = data;
+    storeServerPlace(currentServerId, data);
     return data;
   } catch (e) {
     return null;
@@ -568,6 +604,12 @@ function rememberServerChannel(serverId, channelId) {
   }).catch(() => {});
 }
 
+function noteChannelOpened(channel, explicitBlocked) {
+  if (!explicitBlocked && channel && channel.channel_type !== "voice" && currentServerId) rememberServerChannel(currentServerId, channel.id);
+  if (!explicitBlocked && typeof stampChannelView === "function") stampChannelView(channel.id);
+  if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
+}
+
 async function selectChannel(channel, rowEl, opts) {
   opts = opts || {};
   const keepPlace = !!opts.keepPlace;
@@ -636,11 +678,7 @@ async function selectChannel(channel, rowEl, opts) {
 
   currentChannelId = channel.id;
   currentChannelType = channel.channel_type;
-  if (typeof renderMemberList === "function" && typeof memberListScope !== "undefined" && memberListScope === "server") renderMemberList();
-  if (!explicitBlocked && channel.channel_type !== "voice" && currentServerId) rememberServerChannel(currentServerId, channel.id);
   currentChannelName = channel.name;
-  if (!explicitBlocked && typeof markChannelReadLocal === "function") markChannelReadLocal(channel.id);
-  if (!explicitBlocked && typeof stampChannelView === "function") stampChannelView(channel.id);
 
   document.querySelectorAll(".channel-row").forEach(r => r.classList.remove("active"));
   const activeRow = document.querySelector(`.channel-row[data-channel-id="${channel.id}"]`);
@@ -662,7 +700,6 @@ async function selectChannel(channel, rowEl, opts) {
   if (typeof setHeaderDescription === "function") {
     setHeaderDescription("channel-header-desc", channel.topic || "");
   }
-  if (typeof syncPinsForOpenChat === "function") syncPinsForOpenChat();
   if (typeof closePinsPanel === "function") closePinsPanel();
   if (typeof setChatSearchPlaceholder === "function") {
     setChatSearchPlaceholder((isVoice || isDoc || isDocs || isMedia || isScheduling) ? ("Search " + channel.name) : ("Search #" + channel.name));
@@ -712,20 +749,30 @@ async function selectChannel(channel, rowEl, opts) {
     return;
   }
   if (typeof hideExplicitChannelGate === "function") hideExplicitChannelGate();
+  if (typeof markChannelReadLocal === "function") markChannelReadLocal(channel.id);
 
   if (isAnnouncement) {
     channelBody.style.display = "none";
     channelComposer.style.display = "none";
     announcementsView.style.display = "flex";
     hideAnnounceComposerEditing();
-    // Only owner can post right now (server-enforced) - hidden entirely
-    // for everyone else rather than greyed out.
     document.getElementById("announce-new-post-btn").style.display =
       (typeof canCreateAnnouncements === "function" && canCreateAnnouncements()) ? "inline-flex" : "none";
     if (typeof clearAnnouncementSearch === "function") clearAnnouncementSearch();
-    fillPlaceHold(document.getElementById("announcements-posts"), 4);
+    const announceBox = document.getElementById("announcements-posts");
+    const cachedAnnounce = typeof recallPlaceMessages === "function" ? recallPlaceMessages("announce", channel.id) : null;
+    if (cachedAnnounce && cachedAnnounce.length && typeof buildAnnouncementPostCard === "function") {
+      currentAnnouncementPosts = cachedAnnounce;
+      if (announceBox) {
+        announceBox.innerHTML = "";
+        cachedAnnounce.forEach((post) => announceBox.appendChild(buildAnnouncementPostCard(post)));
+      }
+    } else {
+      fillPlaceHold(announceBox, 4);
+    }
     await loadAnnouncementPosts(channel.id);
     if (!bodyIsCurrent(token)) return;
+    noteChannelOpened(channel, explicitBlocked);
     if (typeof paintSlowmodeIndicator === "function") paintSlowmodeIndicator();
     return;
   }
@@ -740,9 +787,20 @@ async function selectChannel(channel, rowEl, opts) {
     if (typeof paintServerTimeoutLock === "function") paintServerTimeoutLock();
     forumFilterTagId = null;
     forumComposerTagIds = [];
-    fillPlaceHold(document.getElementById("forum-posts"), 5);
+    const forumBox = document.getElementById("forum-posts");
+    const cachedForum = typeof recallPlaceMessages === "function" ? recallPlaceMessages("forum", channel.id) : null;
+    if (cachedForum && cachedForum.length && typeof buildForumPostCard === "function") {
+      currentForumPosts = cachedForum;
+      if (forumBox) {
+        forumBox.innerHTML = "";
+        cachedForum.forEach((post) => forumBox.appendChild(buildForumPostCard(post)));
+      }
+    } else {
+      fillPlaceHold(forumBox, 5);
+    }
     await loadForumPosts(channel.id);
     if (!bodyIsCurrent(token)) return;
+    noteChannelOpened(channel, explicitBlocked);
     if (typeof paintSlowmodeIndicator === "function") paintSlowmodeIndicator();
     return;
   }
@@ -754,6 +812,7 @@ async function selectChannel(channel, rowEl, opts) {
     fillPlaceHold(document.getElementById("lists-open"), 5);
     if (typeof loadListItems === "function") await loadListItems(channel.id);
     if (!bodyIsCurrent(token)) return;
+    noteChannelOpened(channel, explicitBlocked);
     return;
   }
 
@@ -763,6 +822,7 @@ async function selectChannel(channel, rowEl, opts) {
     if (calendarView) calendarView.style.display = "flex";
     if (typeof loadCalendar === "function") await loadCalendar(channel.id);
     if (!bodyIsCurrent(token)) return;
+    noteChannelOpened(channel, explicitBlocked);
     return;
   }
 
@@ -773,6 +833,7 @@ async function selectChannel(channel, rowEl, opts) {
     fillPlaceHold(document.getElementById("doc-channel-grid"), 6);
     if (typeof loadDocEntries === "function") await loadDocEntries(channel.id);
     if (!bodyIsCurrent(token)) return;
+    noteChannelOpened(channel, explicitBlocked);
     return;
   }
 
@@ -783,6 +844,7 @@ async function selectChannel(channel, rowEl, opts) {
     fillPlaceHold(document.getElementById("media-channel-grid"), 6);
     if (typeof loadMediaItems === "function") await loadMediaItems(channel.id);
     if (!bodyIsCurrent(token)) return;
+    noteChannelOpened(channel, explicitBlocked);
     return;
   }
 
@@ -794,6 +856,7 @@ async function selectChannel(channel, rowEl, opts) {
     if (pins) pins.style.display = "none";
     if (typeof loadSchedule === "function") await loadSchedule(channel.id);
     if (!bodyIsCurrent(token)) return;
+    noteChannelOpened(channel, explicitBlocked);
     return;
   }
 
@@ -801,7 +864,9 @@ async function selectChannel(channel, rowEl, opts) {
     channelBody.style.display = "none";
     channelComposer.style.display = "none";
     docsView.style.display = "flex";
-    loadDoc(channel.id);
+    if (typeof loadDoc === "function") await loadDoc(channel.id);
+    if (!bodyIsCurrent(token)) return;
+    noteChannelOpened(channel, explicitBlocked);
     if (typeof paintSlowmodeIndicator === "function") paintSlowmodeIndicator();
     return;
   }
@@ -815,11 +880,13 @@ async function selectChannel(channel, rowEl, opts) {
     channelMessages.style.display = "none";
     channelEmpty.style.display = "none";
     if (typeof openVoiceStage === "function") openVoiceStage(channel);
-  } else {
-    enableChannelComposer(label);
-    channelEmpty.style.display = "none";
-    channelMessages.style.display = "block";
+    noteChannelOpened(channel, explicitBlocked);
+    return;
   }
+
+  enableChannelComposer(label);
+  channelEmpty.style.display = "none";
+  channelMessages.style.display = "block";
   currentChannelMessages = [];
   channelHasMoreHistory = true;
   channelIsLoadingMore = false;
@@ -828,20 +895,26 @@ async function selectChannel(channel, rowEl, opts) {
     if (currentChannelMessages.length < 25) channelHasMoreHistory = false;
     if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("channel", channel.id, currentChannelMessages);
     renderChannelMessages();
+    noteChannelOpened(channel, explicitBlocked);
     return;
   }
-  const cachedMessages = !isVoice && typeof recallPlaceMessages === "function" ? recallPlaceMessages("channel", channel.id) : null;
+  const cachedMessages = typeof recallPlaceMessages === "function" ? recallPlaceMessages("channel", channel.id) : null;
   if (cachedMessages && cachedMessages.length) {
     currentChannelMessages = cachedMessages;
     renderChannelMessages();
-  } else if (!isVoice) {
+  } else {
     fillPlaceHold(channelMessages, 6);
   }
 
+  const historyFetch = fetch(`https://${serverAddress}/get_channel_history/${channel.id}`, { credentials: "include" });
   try {
-    const response = await fetch(`https://${serverAddress}/get_channel_history/${channel.id}`, { credentials: "include" });
+    const response = await historyFetch;
     if (!bodyIsCurrent(token)) return;
-    if (!response.ok) { renderChannelMessages(); return; }
+    if (!response.ok) {
+      renderChannelMessages();
+      noteChannelOpened(channel, explicitBlocked);
+      return;
+    }
     const data = await response.json();
     if (!bodyIsCurrent(token)) return;
     currentChannelMessages = mapChannelHistory(data.messages);
@@ -852,6 +925,7 @@ async function selectChannel(channel, rowEl, opts) {
     if (!bodyIsCurrent(token)) return;
     renderChannelMessages();
   }
+  if (bodyIsCurrent(token)) noteChannelOpened(channel, explicitBlocked);
 }
 
 function showNoChannelSelected() {

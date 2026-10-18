@@ -270,6 +270,7 @@ def create_account(account: Account_register, database : Session = Depends(get_d
         friend_req_friends_of_friends= True,
         friend_req_server_members= True,
         allow_server_dms= True,
+        dm_access= "request",
         notify_sound_message= True,
         notify_sound_current= False,
         notify_sound_ring= True,

@@ -304,10 +304,39 @@ function canModerateMember(member) {
 async function fetchRelationship(userId) {
   try {
     const response = await fetch(`https://${serverAddress}/relationship/${userId}`, { credentials: "include" });
-    if (!response.ok) return { friend: false, pending_out: false, blocked: false };
+    if (!response.ok) return { friend: false, pending_out: false, blocked: false, dm_action: "message" };
     return await response.json();
   } catch (e) {
-    return { friend: false, pending_out: false, blocked: false };
+    return { friend: false, pending_out: false, blocked: false, dm_action: "message" };
+  }
+}
+
+function dmMenuOption(id, username, relation) {
+  const action = (relation && relation.dm_action) || "message";
+  if (action === "blocked" || (relation && relation.blocked)) return null;
+  if (action === "message") {
+    return { label: "Message", onSelect: () => messageMemberFromList(id, username) };
+  }
+  return {
+    label: "Request DM",
+    disabled: action !== "request",
+    onSelect: () => requestDirectMessage(id)
+  };
+}
+
+async function requestDirectMessage(userId) {
+  try {
+    const response = await fetch(`https://${serverAddress}/dm_request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ user_id: userId })
+    });
+    if (!response.ok) {
+      console.error(`Failed to request DM: ${response.status}`);
+    }
+  } catch (e) {
+    console.error("Failed to request DM, network error:", e);
   }
 }
 
@@ -355,7 +384,7 @@ async function memberContextOptions(member) {
     { label: "Profile", onSelect: () => openUserProfile(member.id) },
     nicknameRow,
     { label: "Mention", onSelect: () => insertMentionToken(member.username) },
-    { label: "Message", onSelect: () => messageMemberFromList(member.id, member.username) },
+    dmMenuOption(member.id, member.username, relation),
     !relation.blocked && (relation.friend
       ? { label: "Remove Friend", onSelect: () => unfriendFromContextMenu(member.id, member.username) }
       : { label: "Add Friend", disabled: !!relation.pending_out, onSelect: () => addFriendFromContextMenu(member.username) }),
@@ -466,6 +495,7 @@ async function showProfileContextMenu(e, id, username, isSelf) {
       line = "";
     }
   }
+  const relation = isSelf ? { self: true } : await fetchRelationship(id);
   const options = isSelf ? [
     { label: "Profile", onSelect: () => openUserProfile(id) },
     { label: "Settings", onSelect: () => console.log("Open settings from context menu — not implemented yet") }
@@ -473,9 +503,11 @@ async function showProfileContextMenu(e, id, username, isSelf) {
     { label: "Profile", onSelect: () => openUserProfile(id) },
     { label: "Unfriend", onSelect: () => unfriendFromContextMenu(id, username) },
     { label: "Mute", onSelect: () => console.log("Mute — not implemented yet") },
-    { label: "Message", onSelect: () => openDirectMessage(id, username) },
+    dmMenuOption(id, username, relation),
     { label: "Invite", onSelect: () => console.log("Invite — not implemented yet") },
-    { label: "Block", danger: true, onSelect: () => blockFromContextMenu(id, username) }
+    relation.blocked
+      ? { label: "Unblock", onSelect: () => unblockFromContextMenu(id, username) }
+      : { label: "Block", danger: true, onSelect: () => blockFromContextMenu(id, username) }
   ];
   openContextMenu(e.clientX, e.clientY, {
     avatarText: avatarLetter(username),

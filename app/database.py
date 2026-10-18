@@ -108,6 +108,7 @@ def ensure_account_columns():
         ("users", "friend_req_friends_of_friends", "BOOLEAN"),
         ("users", "friend_req_server_members", "BOOLEAN"),
         ("users", "allow_server_dms", "BOOLEAN"),
+        ("users", "dm_access", "VARCHAR"),
         ("users", "notify_sound_message", "BOOLEAN"),
         ("users", "notify_sound_current", "BOOLEAN"),
         ("users", "notify_sound_ring", "BOOLEAN"),
@@ -166,6 +167,11 @@ def ensure_account_columns():
                 conn.commit()
             except Exception:
                 conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET dm_access = 'request' WHERE dm_access IS NULL OR dm_access = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
         try:
             conn.execute(text("UPDATE users SET notify_sound_message = 1 WHERE notify_sound_message IS NULL"))
             conn.commit()
@@ -547,6 +553,33 @@ def ensure_moderation_columns():
                 conn.rollback()
 
 
+def ensure_dm_request_columns():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE messages ADD COLUMN is_system BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE messages SET is_system = 0 WHERE is_system IS NULL"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS message_requests ("
+                "id INTEGER PRIMARY KEY, "
+                "sender_id INTEGER, "
+                "receiver_id INTEGER, "
+                "status VARCHAR, "
+                "created_at DATETIME, "
+                "CONSTRAINT uq_message_request_pair UNIQUE (sender_id, receiver_id))"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_load_indexes():
     statements = (
         "CREATE INDEX IF NOT EXISTS ix_channel_messages_channel_id ON channel_messages (channel_id, id)",
@@ -563,6 +596,7 @@ def ensure_load_indexes():
         "CREATE INDEX IF NOT EXISTS ix_message_mentions_party ON message_mentions (kind, party_id, user_id, created_at)",
         "CREATE INDEX IF NOT EXISTS ix_server_notifications_user ON server_notifications (user_id, server_id)",
         "CREATE INDEX IF NOT EXISTS ix_server_members_user ON server_members (user_id, position)",
+        "CREATE INDEX IF NOT EXISTS ix_message_requests_receiver ON message_requests (receiver_id, status)",
     )
     with engine.connect() as conn:
         for statement in statements:

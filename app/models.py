@@ -20,6 +20,7 @@ class UserInfo(Base):
     friend_req_friends_of_friends = Column(Boolean, default= True)
     friend_req_server_members = Column(Boolean, default= True)
     allow_server_dms = Column(Boolean, default= True)
+    dm_access = Column(String, nullable= True)
     notify_sound_message = Column(Boolean, default= True)
     notify_sound_current = Column(Boolean, default= False)
     notify_sound_ring = Column(Boolean, default= True)
@@ -63,6 +64,7 @@ class Message(Base):
     deletion_state = Column(String, nullable=True)
     deletion_requested_at = Column(DateTime, nullable=True)
     edited = Column(Boolean, default= False)
+    is_system = Column(Boolean, default= False)
     reply_to_id = Column(Integer, nullable=True)
 
 class Active_Sessions(Base):
@@ -103,6 +105,15 @@ class Conversations(Base):
     last_message_at = Column(DateTime)
     closed_by_user_1 = Column(Boolean, default=False)
     closed_by_user_2 = Column(Boolean, default=False)
+
+class Message_request(Base):
+    __tablename__ = "message_requests"
+    id = Column(Integer, primary_key=True)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    receiver_id = Column(Integer, ForeignKey("users.id"))
+    status = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("sender_id", "receiver_id", name="uq_message_request_pair"),)
 
 class Parties(Base):
     __tablename__ = "parties"

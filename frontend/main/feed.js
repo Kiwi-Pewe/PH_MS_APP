@@ -16,6 +16,8 @@ const FEED_TYPE_LABELS = {
   profile_event: "Profile event",
   friend_accept: "Friend request accepted",
   friend_deny: "Friend request declined",
+  dm_request: "Message request",
+  dm_request_accept: "Message request accepted",
   kick: "Removed from server",
   ban: "Banned from server",
   timeout: "Timed out",
@@ -139,6 +141,12 @@ function feedAlertBody(alert) {
   }
   if (kind === "friend_deny") {
     return feedSenderLabel(alert) + " declined your friend request.";
+  }
+  if (kind === "dm_request") {
+    return feedSenderLabel(alert) + " sent a request to open DMs with you.";
+  }
+  if (kind === "dm_request_accept") {
+    return feedSenderLabel(alert) + " accepted your DM Request";
   }
   if (kind === "feedback_status" || kind === "report_status") {
     const status = String(alert && alert.reason || "").trim() || "updated";
@@ -271,7 +279,67 @@ function buildMailAlertRow(alert) {
 
   row.appendChild(head);
   if (line.textContent) row.appendChild(line);
+  const actions = buildDmRequestActions(alert);
+  if (actions) row.appendChild(actions);
   return row;
+}
+
+function buildDmRequestActions(alert) {
+  if (!alert || String(alert.alert_type || "").toLowerCase() !== "dm_request") return null;
+  const actions = document.createElement("div");
+  actions.className = "feed-alert-actions";
+  const accept = document.createElement("button");
+  accept.type = "button";
+  accept.className = "accept-btn";
+  accept.textContent = "Accept";
+  const deny = document.createElement("button");
+  deny.type = "button";
+  deny.className = "deny-btn";
+  deny.textContent = "Deny";
+  accept.addEventListener("click", (e) => {
+    e.stopPropagation();
+    respondToDmRequest(alert, true);
+  });
+  deny.addEventListener("click", (e) => {
+    e.stopPropagation();
+    respondToDmRequest(alert, false);
+  });
+  actions.appendChild(accept);
+  actions.appendChild(deny);
+  return actions;
+}
+
+function dropDmRequestNotices(senderId) {
+  const sid = Number(senderId);
+  feedAlertRows = feedAlertRows.filter((row) => !(String(row.alert_type || "").toLowerCase() === "dm_request" && Number(row.sender_id) === sid));
+  mailSessionItems = mailSessionItems.filter((row) => !(String(row.alert_type || "").toLowerCase() === "dm_request" && Number(row.sender_id) === sid));
+  paintFeedPosts({ preserveScroll: true });
+  paintMailTray();
+  paintMailBadge();
+}
+
+async function respondToDmRequest(alert, accept) {
+  const userId = alert && alert.sender_id;
+  if (userId == null) return;
+  try {
+    const response = await fetch(`https://${serverAddress}/dm_request/respond`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ user_id: userId, accept: !!accept })
+    });
+    if (!response.ok) return;
+    const data = await response.json().catch(() => ({}));
+    dropDmRequestNotices(userId);
+    if (accept) {
+      const id = data.user_id != null ? data.user_id : userId;
+      const name = data.username || alert.sender_username || feedSenderLabel(alert);
+      if (currentServerId && typeof goHome === "function") {
+        if (!(await goHome())) return;
+      }
+      if (typeof openDirectMessage === "function") openDirectMessage(id, name);
+    }
+  } catch (err) {}
 }
 
 function paintMailTray() {
@@ -341,7 +409,8 @@ function pushMailSessionAlert(alert) {
 
 function noteIncomingFeedAlert(alert) {
   if (!alert || alert.id == null) return;
-  if (typeof feedAlertTypeEnabled === "function" && !feedAlertTypeEnabled(alert.alert_type)) return;
+  const kind = String(alert.alert_type || "").toLowerCase();
+  if (kind !== "dm_request" && typeof feedAlertTypeEnabled === "function" && !feedAlertTypeEnabled(alert.alert_type)) return;
   pushMailSessionAlert(alert);
   if (feedAlertRows.some((row) => row.id === alert.id)) {
     feedAlertRows = feedAlertRows.map((row) => (row.id === alert.id ? alert : row));
@@ -432,6 +501,8 @@ function buildFeedAlertCard(alert) {
     body.textContent = bodyText;
     content.appendChild(body);
   }
+  const actions = buildDmRequestActions(alert);
+  if (actions) content.appendChild(actions);
 
   const date = document.createElement("div");
   date.className = "announce-post-date";

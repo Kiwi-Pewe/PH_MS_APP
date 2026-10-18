@@ -20,7 +20,7 @@ import random
 router = APIRouter()
 
 @router.post("/create_party")
-def create_party(party: Party_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+async def create_party(party: Party_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
     while True:
         potential_id = random.randint(1000, 9999)
@@ -38,12 +38,32 @@ def create_party(party: Party_create, database: Session = Depends(get_db), curre
     owner_member = Party_members(party_id=potential_id, user_id=current_user.id)
     database.add(owner_member)
 
+    unseen = datetime(1970, 1, 1)
     for user in party.member_ids:
         if not user == current_user.id:
-            invited_member = Party_members(party_id=potential_id, user_id=user)
+            invited_member = Party_members(party_id=potential_id, user_id=user, last_activity=unseen)
             database.add(invited_member)
 
+    created_line = Party_messages(
+        party_id=potential_id,
+        sender_id=None,
+        content=current_user.username + " created the party.",
+    )
+    database.add(created_line)
     database.commit()
+    database.refresh(created_line)
+    await party_broadcast(party_id=potential_id, payload={
+        "type": "party_message",
+        "id": created_line.id,
+        "party_id": potential_id,
+        "party_name": new_party.party_name,
+        "sender_id": None,
+        "username": "",
+        "content": created_line.content,
+        "timestamp": str(created_line.timestamp),
+        "is_system": True,
+    }, database=database, exclude_user_id=current_user.id)
+    return {"id": potential_id, "party_name": new_party.party_name}
 
 @router.get("/get_parties")
 def get_parties(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

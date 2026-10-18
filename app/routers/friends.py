@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from app.models import UserInfo, Block_user, Friend_request
+from sqlalchemy import and_, or_
+from app.models import UserInfo, Block_user, Friend_request, Message_request, Feed_alert
 from app.schemas import Block_schema, Friend_user
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import active_connections, notify_user
-from app.privacy import can_send_friend_request
+from app.privacy import can_send_friend_request, dm_menu_state, pair_has_messages
 from app.routers.profile import public_avatar
 from app.routers.feed import notify_feed_alert
 
@@ -27,6 +27,17 @@ async def block_account(block_user: Block_schema, database: Session= Depends(get
 
     block = Block_user(initiated_by= current_user.id ,blocked_user = block_user.blocked_user)
     database.add(block)
+    database.query(Message_request).filter(or_(
+        and_(Message_request.sender_id == current_user.id, Message_request.receiver_id == block_user.blocked_user),
+        and_(Message_request.sender_id == block_user.blocked_user, Message_request.receiver_id == current_user.id),
+    )).delete(synchronize_session=False)
+    database.query(Feed_alert).filter(
+        Feed_alert.alert_type == "dm_request",
+        or_(
+            and_(Feed_alert.receiver_id == current_user.id, Feed_alert.sender_id == block_user.blocked_user),
+            and_(Feed_alert.receiver_id == block_user.blocked_user, Feed_alert.sender_id == current_user.id),
+        ),
+    ).delete(synchronize_session=False)
     database.commit()
     database.refresh(block)
     return
@@ -68,6 +79,15 @@ async def add_user(friends: Friend_user, database: Session = Depends(get_db), cu
             sender_id=current_user.id,
             alert_family="profile",
         )
+        if not pair_has_messages(database, current_user.id, friend_exists.id):
+            from app.routers.messages import insert_system_dm, notify_system_dm
+            system = insert_system_dm(
+                database,
+                current_user,
+                friend_exists.id,
+                current_user.username + " accepted your friend request.",
+            )
+            await notify_system_dm(current_user, friend_exists.id, system)
         return
 
     pending_request = database.query(Friend_request).filter(Friend_request.user_1 == current_user.id, Friend_request.user_2 == friend_exists.id).first()
@@ -122,7 +142,7 @@ def get_friends(database: Session = Depends(get_db), current_user: UserInfo = De
 @router.get("/relationship/{user_id}")
 def get_relationship(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     if user_id == current_user.id:
-        return {"self": True, "friend": False, "pending_out": False, "pending_in": False, "blocked": False}
+        return {"self": True, "friend": False, "pending_out": False, "pending_in": False, "blocked": False, "dm_action": None}
 
     outgoing = database.query(Friend_request).filter(Friend_request.user_1 == current_user.id, Friend_request.user_2 == user_id).first()
     incoming = database.query(Friend_request).filter(Friend_request.user_1 == user_id, Friend_request.user_2 == current_user.id).first()
@@ -131,12 +151,15 @@ def get_relationship(user_id: int, database: Session = Depends(get_db), current_
     friend = (outgoing and outgoing.pending == False) or (incoming and incoming.pending == False)
     pending_out = bool(outgoing and outgoing.pending == True)
     pending_in = bool(incoming and incoming.pending == True)
+    target = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    menu = dm_menu_state(database, current_user, target)
     return {
         "self": False,
         "friend": bool(friend),
         "pending_out": pending_out,
         "pending_in": pending_in,
-        "blocked": bool(blocked)
+        "blocked": bool(blocked),
+        "dm_action": menu.get("dm_action"),
     }
 
 @router.post("/unfriend_user")

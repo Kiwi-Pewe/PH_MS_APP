@@ -17,6 +17,8 @@ const FEED_PREF_GROUPS = [
       { type: "widget_comment", label: "Profile comments" },
       { type: "friend_accept", label: "Friend request accepted" },
       { type: "friend_deny", label: "Friend request declined" },
+      { type: "dm_request", label: "Message requests" },
+      { type: "dm_request_accept", label: "Message request accepted" },
     ],
   },
   {

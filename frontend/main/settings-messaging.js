@@ -1,8 +1,8 @@
 // ==================================================================
 // settings-messaging.js - Messaging Permissions. Friend requests,
-// server-member DMs, and the block list save and enforce. Hide blocked
-// history is live on chat APIs. Message requests / friend-request notes
-// wait on Feed + mailing. Content filters / spam / games stay parked.
+// Open / Request / Closed DMs, and the block list save and enforce.
+// Hide blocked history is live on chat APIs. Content filters / spam /
+// games stay parked.
 // ==================================================================
 
 function messagingSettingsUrl(path) {
@@ -171,54 +171,34 @@ async function renderMessagingSettings(pane, jumpChildId) {
   dms.appendChild(dmsTitle);
   const dmsBlurb = document.createElement("p");
   dmsBlurb.className = "settings-blurb";
-  dmsBlurb.textContent = "Friends can always DM you. This toggle allows people who share a server with you to DM you even if you are not friends. All servers sets your default; pick a server to override it.";
+  dmsBlurb.textContent = "Friends can always DM you. These options only apply to people who are not on your friends list.";
   dms.appendChild(dmsBlurb);
-  const serverSelect = settingsSelect(
-    [{ value: "all", label: "All servers" }].concat((info.servers || []).map(server => ({ value: server.id, label: server.name }))),
-    "all",
-    false
-  );
-  dms.appendChild(serverSelect);
-  let dmServerId = "all";
-  function currentAllow() {
-    if (dmServerId === "all") return !!info.allow_server_dms;
-    const server = (info.servers || []).find(row => row.id === dmServerId);
-    return server ? !!server.allow_dms : !!info.allow_server_dms;
-  }
-  const dmToggleHost = document.createElement("div");
-  function paintDmToggle() {
-    dmToggleHost.innerHTML = "";
-    dmToggleHost.appendChild(settingsOpt(
-      "Direct Messages",
-      "Allow DMs from other server members",
-      settingsToggle(currentAllow(), false, async (on) => {
+  const accessList = document.createElement("div");
+  accessList.className = "settings-radio-list";
+  let dmAccess = info.dm_access === "open" || info.dm_access === "closed" ? info.dm_access : "request";
+  function paintDmAccess() {
+    accessList.replaceChildren();
+    [
+      ["open", "Open", "Allow anyone to send a DM directly to you."],
+      ["request", "Request", "Anyone can send a message request to you."],
+      ["closed", "Closed", "No one can send a message request to you."]
+    ].forEach((row) => {
+      accessList.appendChild(privacyRadio(row[0], dmAccess, row[1], row[2], async (value) => {
+        const previous = dmAccess;
+        dmAccess = value;
+        paintDmAccess();
         try {
-          await postMessaging("/messaging_server_dms", { server_id: dmServerId === "all" ? null : dmServerId, allow: on });
-          if (dmServerId === "all") info.allow_server_dms = on;
-          else {
-            const server = (info.servers || []).find(row => row.id === dmServerId);
-            if (server) {
-              server.allow_dms = on;
-              server.overridden = true;
-            }
-          }
+          await postMessaging("/messaging_dm_access", { value });
+          info.dm_access = value;
         } catch (e) {
-          paintDmToggle();
+          dmAccess = previous;
+          paintDmAccess();
         }
-      })
-    ));
+      }));
+    });
   }
-  serverSelect.addEventListener("change", () => {
-    dmServerId = serverSelect.value;
-    paintDmToggle();
-  });
-  paintDmToggle();
-  dms.appendChild(dmToggleHost);
-  dms.appendChild(settingsOpt(
-    "Message requests",
-    "Filter messages from server members you may not know into a request inbox.",
-    settingsToggle(true, true)
-  ));
+  paintDmAccess();
+  dms.appendChild(accessList);
   block.appendChild(dms);
 
   const friends = document.createElement("div");

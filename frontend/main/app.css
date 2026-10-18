@@ -146,6 +146,8 @@
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
 }
 .feed-alert-card .announce-divider { margin: 0 0 12px; }
+.feed-alert-actions { display: flex; gap: 6px; margin-top: 10px; }
+.mail-tray-item .feed-alert-actions { margin-top: 8px; }
 
 .mail-tray-item-head {
   display: flex; align-items: center; gap: 8px; min-width: 0;

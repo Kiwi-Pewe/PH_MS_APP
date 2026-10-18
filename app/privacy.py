@@ -1,6 +1,6 @@
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
-from app.models import Friend_request, Server_members, Dm_server_pref, UserInfo, Block_user
+from app.models import Friend_request, Server_members, Dm_server_pref, UserInfo, Block_user, Conversations, Message, Message_request
 
 PROFILE_VISIBILITY = ("public", "friends_all", "friends_small", "friends_only")
 
@@ -34,13 +34,77 @@ def dms_allowed_on_server(database: Session, user: UserInfo, server_id):
         return bool(row.allow_dms)
     return flag_on(user, "allow_server_dms", True)
 
+def dm_access_value(user):
+    value = ((getattr(user, "dm_access", None) or "").strip().lower())
+    if value in ("open", "request", "closed"):
+        return value
+    return "request"
+
+
+def find_conversation(database: Session, user_a, user_b):
+    return database.query(Conversations).filter(or_(
+        and_(Conversations.user_1 == user_a, Conversations.user_2 == user_b),
+        and_(Conversations.user_1 == user_b, Conversations.user_2 == user_a),
+    )).first()
+
+
+def conversation_is_open(convo):
+    if not convo:
+        return False
+    return (not convo.closed_by_user_1) or (not convo.closed_by_user_2)
+
+
+def pair_has_messages(database: Session, user_a, user_b):
+    return database.query(Message.id).filter(or_(
+        and_(Message.sender_id == user_a, Message.receiver_id == user_b),
+        and_(Message.sender_id == user_b, Message.receiver_id == user_a),
+    )).first() is not None
+
+
+def blocked_either_way(database: Session, user_a, user_b):
+    return bool(
+        database.query(Block_user).filter(Block_user.initiated_by == user_a, Block_user.blocked_user == user_b).first()
+        or database.query(Block_user).filter(Block_user.initiated_by == user_b, Block_user.blocked_user == user_a).first()
+    )
+
+
+def pending_dm_request(database: Session, sender_id, receiver_id):
+    return database.query(Message_request).filter(
+        Message_request.sender_id == sender_id,
+        Message_request.receiver_id == receiver_id,
+        Message_request.status == "pending",
+    ).first()
+
+
 def can_send_dm(database: Session, sender_id, recipient: UserInfo):
+    if not recipient or sender_id == recipient.id:
+        return False
+    if blocked_either_way(database, sender_id, recipient.id):
+        return False
     if are_friends(database, sender_id, recipient.id):
         return True
-    for server_id in shared_server_ids(database, sender_id, recipient.id):
-        if dms_allowed_on_server(database, recipient, server_id):
-            return True
-    return False
+    if conversation_is_open(find_conversation(database, sender_id, recipient.id)):
+        return True
+    return dm_access_value(recipient) == "open"
+
+
+def dm_menu_state(database: Session, viewer: UserInfo, target: UserInfo):
+    if not target:
+        return {"dm_action": "request_disabled"}
+    if blocked_either_way(database, viewer.id, target.id):
+        return {"dm_action": "blocked"}
+    if are_friends(database, viewer.id, target.id):
+        return {"dm_action": "message"}
+    if conversation_is_open(find_conversation(database, viewer.id, target.id)):
+        return {"dm_action": "message"}
+    mode = dm_access_value(target)
+    if mode == "open":
+        return {"dm_action": "message"}
+    if mode == "closed":
+        return {"dm_action": "request_disabled"}
+    if pending_dm_request(database, viewer.id, target.id):
+        return {"dm_action": "request_pending"}
+    return {"dm_action": "request"}
 
 def owner_profile_visibility(user):
     value = (user.profile_visibility or "").strip()

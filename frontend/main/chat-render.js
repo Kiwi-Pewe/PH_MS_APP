@@ -39,7 +39,7 @@ function renderClusteredMessages(wrap, messages) {
       return;
     }
 
-    if (msg.senderId === null) {
+    if (msg.isSystem || msg.senderId === null) {
       wrap.appendChild(buildSystemDivider(msg));
       openCluster = null;
       return;

@@ -47,6 +47,16 @@ class Messaging_dms_pref(BaseModel):
     server_id: str | None = None
     allow: bool
 
+class Messaging_dm_access(BaseModel):
+    value: str
+
+class Dm_request_in(BaseModel):
+    user_id: int
+
+class Dm_request_respond(BaseModel):
+    user_id: int
+    accept: bool
+
 class Notification_sound_prefs(BaseModel):
     message: bool
     current_channel: bool

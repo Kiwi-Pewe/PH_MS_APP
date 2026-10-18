@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.models import UserInfo, Block_user, Server_members, Servers, Dm_server_pref
-from app.schemas import Messaging_friend_prefs, Messaging_dms_pref, Notification_sound_prefs, Notification_reaction_pref
+from app.schemas import Messaging_friend_prefs, Messaging_dms_pref, Messaging_dm_access, Notification_sound_prefs, Notification_reaction_pref
 from app.database import get_db
 from app.auth import get_current_user
-from app.privacy import flag_on, dms_allowed_on_server
+from app.privacy import flag_on, dms_allowed_on_server, dm_access_value
 from app.routers.profile import public_avatar
 
 router = APIRouter()
@@ -37,6 +37,7 @@ def get_messaging_settings(current_user: UserInfo = Depends(get_current_user), d
         "friend_req_friends_of_friends": bool_flag(current_user, "friend_req_friends_of_friends"),
         "friend_req_server_members": bool_flag(current_user, "friend_req_server_members"),
         "allow_server_dms": bool_flag(current_user, "allow_server_dms"),
+        "dm_access": dm_access_value(current_user),
         "servers": servers,
         "blocked": blocked,
     }
@@ -71,6 +72,15 @@ def update_messaging_server_dms(pref: Messaging_dms_pref, current_user: UserInfo
         row.allow_dms = bool(pref.allow)
     database.commit()
     return {"server_id": server_id, "allow": bool(row.allow_dms)}
+
+@router.post("/messaging_dm_access")
+def update_messaging_dm_access(pref: Messaging_dm_access, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    value = (pref.value or "").strip().lower()
+    if value not in ("open", "request", "closed"):
+        raise HTTPException(status_code=400, detail="Pick Open, Request, or Closed.")
+    current_user.dm_access = value
+    database.commit()
+    return {"dm_access": value}
 
 REACTION_NOTIFY = ("all", "dms", "off")
 

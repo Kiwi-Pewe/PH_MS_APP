@@ -1,9 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
-from app.models import UserInfo, Message, Block_user, Conversations
-from app.privacy import can_send_dm, drop_blocked_rows
-from app.schemas import Message_schema
+from app.models import UserInfo, Message, Block_user, Conversations, Message_request, Feed_alert
+from app.privacy import (
+    can_send_dm,
+    drop_blocked_rows,
+    dm_access_value,
+    find_conversation,
+    conversation_is_open,
+    pair_has_messages,
+    blocked_either_way,
+    pending_dm_request,
+    are_friends,
+)
+from app.schemas import Message_schema, Dm_request_in, Dm_request_respond
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
@@ -11,11 +21,73 @@ from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
 from app.routers.mentions import accepted_reply_parent, reply_map_for
 from app.routers.profile import STATUS_MAX, avatar_lookup, clip_text, public_avatar, public_display_name
-from app.routers.feed import notify_activity_reply
+from app.routers.feed import notify_activity_reply, notify_feed_alert
+from app.routers.realtime import notify_user
 from app.site_moderation import mask_message_payloads, permaban_by_user_id
 from datetime import datetime
 
 router = APIRouter()
+
+
+def open_conversation(database, user_a, user_b):
+    convo = find_conversation(database, user_a, user_b)
+    now = datetime.now()
+    if not convo:
+        convo = Conversations(
+            user_1=user_a,
+            user_2=user_b,
+            last_message_at=now,
+            closed_by_user_1=False,
+            closed_by_user_2=False,
+        )
+        database.add(convo)
+    else:
+        convo.last_message_at = now
+        convo.closed_by_user_1 = False
+        convo.closed_by_user_2 = False
+    return convo
+
+
+def insert_system_dm(database, actor, recipient_id, content):
+    open_conversation(database, actor.id, recipient_id)
+    row = Message(
+        sender_id=actor.id,
+        receiver_id=recipient_id,
+        content=content,
+        read=False,
+        is_system=True,
+    )
+    database.add(row)
+    database.commit()
+    database.refresh(row)
+    return row
+
+
+async def notify_system_dm(actor, recipient_id, row):
+    await notify_user(recipient_id, {
+        "type": "message",
+        "id": row.id,
+        "username": actor.username,
+        "display_name": public_display_name(actor),
+        "status": clip_text(actor.profile_status, STATUS_MAX).strip(),
+        "sender_id": actor.id,
+        "content": row.content,
+        "attachment": None,
+        "timestamp": str(row.timestamp),
+        "is_system": True,
+        "avatar": public_avatar(actor),
+    })
+
+
+def drop_dm_request_alerts(database, receiver_id, sender_id):
+    rows = database.query(Feed_alert).filter(
+        Feed_alert.receiver_id == receiver_id,
+        Feed_alert.sender_id == sender_id,
+        Feed_alert.alert_type == "dm_request",
+    ).all()
+    for row in rows:
+        database.delete(row)
+
 
 @router.post("/messages")
 async def send_message(message: Message_schema, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -125,6 +197,7 @@ def get_conversation(user_id: int, database: Session = Depends(get_db), current_
             "deletion_state": fields["deletion_state"],
             "deletion_requested_at": fields["deletion_requested_at"],
             "edited": fields["edited"],
+            "is_system": bool(getattr(msg, "is_system", False)),
             "reactions": reaction_map.get(msg.id, []),
             "reply_to": reply_map.get(msg.reply_to_id) if msg.reply_to_id else None,
             "avatar": faces.get(msg.sender_id),
@@ -204,4 +277,84 @@ def close_conversation(other_user_id: int, database: Session = Depends(get_db), 
     else:
         active_convo.closed_by_user_2 = True
         database.commit()
+
+
+@router.post("/dm_request")
+async def send_dm_request(body: Dm_request_in, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    if body.user_id == current_user.id:
+        raise HTTPException(status_code=409, detail="Cannot request a DM with yourself.")
+    target = database.query(UserInfo).filter(UserInfo.id == body.user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if blocked_either_way(database, current_user.id, target.id):
+        raise HTTPException(status_code=400, detail="User is blocked.")
+    if are_friends(database, current_user.id, target.id) or conversation_is_open(find_conversation(database, current_user.id, target.id)):
+        raise HTTPException(status_code=409, detail="You can already message this user.")
+    mode = dm_access_value(target)
+    if mode == "open":
+        raise HTTPException(status_code=409, detail="You can already message this user.")
+    if mode == "closed":
+        raise HTTPException(status_code=403, detail="This user is not accepting message requests.")
+    existing = database.query(Message_request).filter(
+        Message_request.sender_id == current_user.id,
+        Message_request.receiver_id == target.id,
+    ).first()
+    if existing and existing.status == "pending":
+        raise HTTPException(status_code=409, detail="A message request is already pending.")
+    if existing:
+        existing.status = "pending"
+        existing.created_at = datetime.now()
+        row = existing
+    else:
+        row = Message_request(sender_id=current_user.id, receiver_id=target.id, status="pending")
+        database.add(row)
+    database.commit()
+    database.refresh(row)
+    await notify_feed_alert(
+        database,
+        receiver_id=target.id,
+        alert_type="dm_request",
+        sender_id=current_user.id,
+        alert_family="profile",
+        force=True,
+    )
+    return {"ok": True, "status": "pending"}
+
+
+@router.post("/dm_request/respond")
+async def respond_dm_request(body: Dm_request_respond, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    row = pending_dm_request(database, body.user_id, current_user.id)
+    if not row:
+        raise HTTPException(status_code=404, detail="No pending message request.")
+    sender = database.query(UserInfo).filter(UserInfo.id == row.sender_id).first()
+    if not sender:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if blocked_either_way(database, current_user.id, sender.id):
+        raise HTTPException(status_code=400, detail="User is blocked.")
+    drop_dm_request_alerts(database, current_user.id, sender.id)
+    if not body.accept:
+        row.status = "denied"
+        database.commit()
+        return {"ok": True, "accepted": False}
+    row.status = "accepted"
+    system = insert_system_dm(
+        database,
+        current_user,
+        sender.id,
+        current_user.username + " accepted your DM Request",
+    )
+    await notify_system_dm(current_user, sender.id, system)
+    await notify_feed_alert(
+        database,
+        receiver_id=sender.id,
+        alert_type="dm_request_accept",
+        sender_id=current_user.id,
+        alert_family="profile",
+    )
+    return {
+        "ok": True,
+        "accepted": True,
+        "user_id": sender.id,
+        "username": sender.username,
+    }
 

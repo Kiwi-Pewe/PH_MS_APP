@@ -24,6 +24,8 @@ ALERT_TYPE_LABELS = {
     "profile_event": "Profile event",
     "friend_accept": "Friend request accepted",
     "friend_deny": "Friend request declined",
+    "dm_request": "Message request",
+    "dm_request_accept": "Message request accepted",
     "kick": "Removed from server",
     "ban": "Banned from server",
     "timeout": "Timed out",
@@ -42,6 +44,8 @@ FAMILY_FOR_TYPE = {
     "profile_event": "profile",
     "friend_accept": "profile",
     "friend_deny": "profile",
+    "dm_request": "profile",
+    "dm_request_accept": "profile",
     "kick": "moderation",
     "ban": "moderation",
     "timeout": "moderation",
@@ -58,6 +62,8 @@ FEED_PREF_TYPES = (
     "widget_comment",
     "friend_accept",
     "friend_deny",
+    "dm_request",
+    "dm_request_accept",
     "kick",
     "ban",
     "timeout",
@@ -299,10 +305,11 @@ async def notify_feed_alert(
     reason=None,
     duration_seconds=None,
     context=None,
+    force=False,
 ):
     from app.routers.realtime import notify_user
     receiver = database.query(UserInfo).filter(UserInfo.id == receiver_id).first() if receiver_id else None
-    if receiver and not feed_alert_type_enabled(receiver, alert_type):
+    if receiver and not force and not feed_alert_type_enabled(receiver, alert_type):
         return None
     row = create_feed_alert(
         database,
@@ -432,7 +439,7 @@ def list_feed_alerts(
 ):
     size = max(1, min(int(limit or 25), 50))
     prefs = feed_alert_prefs_for(current_user)
-    muted = [kind for kind, enabled in prefs.items() if not enabled]
+    muted = [kind for kind, enabled in prefs.items() if not enabled and kind != "dm_request"]
     query = database.query(Feed_alert).filter(Feed_alert.receiver_id == current_user.id)
     if muted:
         query = query.filter(~Feed_alert.alert_type.in_(muted))

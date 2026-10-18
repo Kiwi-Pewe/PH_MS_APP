@@ -398,6 +398,7 @@ async function memberContextOptions(member) {
     { label: "Mention", onSelect: () => insertMentionToken(member.username) },
     dmMenuOption(member.id, member.username, relation),
     friendMenuOption(member.id, member.username, relation),
+    partyKickMenuOption(member.id, member.username),
     relation.blocked
       ? { label: "Unblock", onSelect: () => unblockFromContextMenu(member.id, member.username) }
       : { label: "Block", danger: true, onSelect: () => blockFromContextMenu(member.id, member.username) },
@@ -513,7 +514,25 @@ function muteMenuOption(type, id) {
   return { label: "Mute", submenu: muteDurationRows(type, id) };
 }
 
-async function showProfileContextMenu(e, id, username, isSelf) {
+function canKickFromParty(userId) {
+  if (userId == null || Number(userId) === Number(myUserId)) return false;
+  if (typeof memberListScope === "undefined" || memberListScope !== "party") return false;
+  const rows = (typeof memberList !== "undefined" && Array.isArray(memberList)) ? memberList : [];
+  const me = rows.find((row) => Number(row.id) === Number(myUserId));
+  if (!me || !me.is_owner) return false;
+  return rows.some((row) => Number(row.id) === Number(userId));
+}
+
+function partyKickMenuOption(id, username) {
+  if (!canKickFromParty(id)) return null;
+  return {
+    label: "Remove from Party",
+    danger: true,
+    onSelect: () => kickFromPartyFromContextMenu(memberListScopeId, id, username)
+  };
+}
+
+async function showProfileContextMenu(e, id, username, isSelf, inParty) {
   e.preventDefault();
   let line = userStatusLine(id);
   if (id && !userStatusKnown[String(id)]) {
@@ -538,6 +557,7 @@ async function showProfileContextMenu(e, id, username, isSelf) {
     muteMenuOption("dm", id),
     dmMenuOption(id, username, relation),
     { label: "Invite", onSelect: () => console.log("Invite — not implemented yet") },
+    inParty && partyKickMenuOption(id, username),
     relation.blocked
       ? { label: "Unblock", onSelect: () => unblockFromContextMenu(id, username) }
       : { label: "Block", danger: true, onSelect: () => blockFromContextMenu(id, username) }
@@ -895,20 +915,63 @@ function closeLeavePartyConfirm() {
   if (overlay) overlay.hidden = true;
 }
 
-function openLeavePartyConfirm(id, name) {
-  pendingLeaveParty = { id, name };
+function showPartyConfirmCard(title, bodyText, confirmLabel) {
+  const titleEl = document.getElementById("leave-party-title");
+  if (titleEl) titleEl.textContent = title;
   const body = document.getElementById("leave-party-body");
-  if (body) body.textContent = "Are you sure you want to leave " + (name || "this party") + "?";
+  if (body) body.textContent = bodyText;
+  const confirmBtn = document.getElementById("leave-party-confirm");
+  if (confirmBtn) confirmBtn.textContent = confirmLabel;
   const overlay = document.getElementById("leave-party-overlay");
   if (overlay) overlay.hidden = false;
   const cancel = document.getElementById("leave-party-cancel");
   if (cancel) cancel.focus();
 }
 
+function partyConfirmName(partyId, fallback) {
+  const convo = (typeof conversationList !== "undefined" ? conversationList : []).find((c) => c.type === "party" && Number(c.id) === Number(partyId));
+  return (convo && convo.name) || fallback || openChatName || "this party";
+}
+
+function openLeavePartyConfirm(id, name) {
+  pendingLeaveParty = { kind: "leave", id, name };
+  showPartyConfirmCard("Leave Party", "Are you sure you want to leave " + (name || "this party") + "?", "Leave Party");
+}
+
+function kickFromPartyFromContextMenu(partyId, userId, username) {
+  const name = partyConfirmName(partyId);
+  pendingLeaveParty = { kind: "kick", id: partyId, userId, username, name };
+  showPartyConfirmCard("Remove from Party", "Are you sure you want to remove " + (username || "this member") + " from " + name + "?", "Remove");
+}
+
+async function kickPartyMember(partyId, userId, username) {
+  try {
+    const response = await fetch(`https://${serverAddress}/party/${encodeURIComponent(partyId)}/kick`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ user_id: userId })
+    });
+    if (!response.ok) {
+      console.error(`Failed to remove ${username} from party: ${response.status}`);
+      return;
+    }
+  } catch (e) {
+    console.error("Failed to remove from party, network error:", e);
+    return;
+  }
+  if (typeof applyMemberLeft === "function") applyMemberLeft("party", partyId, userId);
+}
+
 function confirmLeaveParty() {
   const pending = pendingLeaveParty;
   closeLeavePartyConfirm();
-  if (!pending || !ws) return;
+  if (!pending) return;
+  if (pending.kind === "kick") {
+    kickPartyMember(pending.id, pending.userId, pending.username);
+    return;
+  }
+  if (!ws) return;
   ws.send(JSON.stringify({ type: "leave_party", party_id: pending.id }));
   if (openChatType === "party" && openChatId === pending.id) resetChatView();
   conversationList = conversationList.filter(c => !(c.type === "party" && c.id === pending.id));

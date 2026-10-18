@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 from app.models import UserInfo, Parties, Party_messages, Party_members, Message_mention
-from app.schemas import Party_create, Party_message_schema, Conversation_mute_in
+from app.schemas import Party_create, Party_message_schema, Conversation_mute_in, Party_kick_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
-from app.routers.realtime import party_broadcast, serialize_member
+from app.routers.realtime import party_broadcast, serialize_member, notify_user
 from app.routers.profile import avatar_lookup
 from app.routers.mentions import apply_party_mentions, decorate_history, accepted_reply_parent, reply_map_for
 from app.routers.feed import notify_activity_reply
@@ -301,3 +301,51 @@ async def leave_party(party_id: int, database: Session = Depends(get_db), curren
         }, database= database, exclude_user_id= current_user.id)
 
     return {"success": True, "message": server_message}
+
+@router.post("/party/{party_id}/kick")
+async def kick_party_member(party_id: int, body: Party_kick_in, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    party = database.query(Parties).filter(Parties.id == party_id).first()
+    if not party:
+        raise HTTPException(status_code=404, detail="Party not found")
+    if party.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the party owner can remove members.")
+    if body.user_id == current_user.id:
+        raise HTTPException(status_code=409, detail="Leave the party instead.")
+    target = database.query(UserInfo).filter(UserInfo.id == body.user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found.")
+    membership = database.query(Party_members).filter(Party_members.party_id == party_id, Party_members.user_id == target.id).first()
+    if not membership:
+        raise HTTPException(status_code=404, detail="User not in party")
+    notice = Party_messages(
+        party_id=party_id,
+        sender_id=None,
+        content=f"{target.username} was removed from the party.",
+    )
+    database.add(notice)
+    database.delete(membership)
+    database.commit()
+    database.refresh(notice)
+    await party_broadcast(party_id=party_id, payload={
+        "type": "member_left",
+        "scope": "party",
+        "scope_id": party_id,
+        "user_id": target.id
+    }, database=database)
+    await party_broadcast(party_id=party_id, payload={
+        "type": "party_message",
+        "id": notice.id,
+        "party_id": party_id,
+        "party_name": party.party_name,
+        "sender_id": None,
+        "username": "",
+        "content": notice.content,
+        "timestamp": str(notice.timestamp),
+        "is_system": True,
+    }, database=database)
+    await notify_user(target.id, {
+        "type": "removed_from_party",
+        "party_id": party_id,
+        "party_name": party.party_name,
+    })
+    return {"ok": True}

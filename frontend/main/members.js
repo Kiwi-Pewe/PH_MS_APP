@@ -746,3 +746,16 @@ function applyMemberLeft(scope, scopeId, userId) {
   memberList = memberList.filter(m => m.id !== userId);
   removePlacedMemberRow(userId);
 }
+
+function applyRemovedFromParty(data) {
+  const id = data && data.party_id;
+  if (id == null) return;
+  if (openChatType === "party" && Number(openChatId) === Number(id) && typeof resetChatView === "function") {
+    resetChatView();
+  }
+  if (typeof conversationList !== "undefined") {
+    conversationList = conversationList.filter((c) => !(c.type === "party" && Number(c.id) === Number(id)));
+    if (typeof renderConversationList === "function") renderConversationList();
+  }
+  if (memberListScope === "party" && Number(memberListScopeId) === Number(id)) hideMemberList();
+}

@@ -154,6 +154,10 @@ function openMiniProfileMenu(btn, data) {
     showMemberContextMenu(ev, member);
     return;
   }
+  if (typeof memberListScope !== "undefined" && memberListScope === "party" && typeof showMemberContextMenu === "function") {
+    showMemberContextMenu(ev, member);
+    return;
+  }
   if (typeof showProfileContextMenu === "function") {
     showProfileContextMenu(ev, user.id, user.username, isSelf);
   }

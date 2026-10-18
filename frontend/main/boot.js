@@ -540,6 +540,10 @@ function connectSocket() {
       if (typeof applyRemovedFromServer === "function") applyRemovedFromServer(data);
     }
 
+    if (data.type === "removed_from_party") {
+      if (typeof applyRemovedFromParty === "function") applyRemovedFromParty(data);
+    }
+
     if (data.type === "server_deleted") {
       if (typeof applyServerDeleted === "function") applyServerDeleted(data.server_id);
     }

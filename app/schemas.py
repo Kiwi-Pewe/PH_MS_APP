@@ -214,6 +214,9 @@ class Party_create(BaseModel):
     party_name: str
     member_ids: list[int]
 
+class Party_kick_in(BaseModel):
+    user_id: int
+
 class Party_message_schema(BaseModel):
     sender_id: int
     party_id: int

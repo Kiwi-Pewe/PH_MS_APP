@@ -74,6 +74,7 @@ def boot_ready(
     return {
         "servers": servers.get("servers") or [],
         "conversations": conversations.get("conversations") or [],
+        "closed_mutes": conversations.get("closed_mutes") or [],
         "parties": parties.get("parties") or [],
         "friends": friends,
         "blocked_ids": list(blocked_user_ids(database, current_user.id)),

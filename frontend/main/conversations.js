@@ -2,27 +2,123 @@
 // conversations.js - The DM/party sidebar, and opening a conversation.
 // ==================================================================
 
-function applyConversationLists(conversations, parties) {
-  const dms = (conversations || []).map(c => ({
-    type: "dm",
-    id: c.id,
-    username: c.username,
-    displayName: c.display_name || c.username,
-    status: (c.status || "").trim(),
-    unread: c.unread_count || 0,
-    timestamp: c.last_message_at,
-    avatar: c.avatar || null
-  }));
-  const partyRows = (parties || []).map(p => ({
-    type: "party",
-    id: p.id,
-    name: p.name,
-    memberCount: p.member_count,
-    unread: p.unread_count || 0,
-    mentions: p.mention_count || 0,
-    timestamp: p.last_activity
-  }));
+const conversationMutes = {};
+let muteExpiryTimer = null;
+
+function muteMapKey(type, id) {
+  return type + ":" + String(id);
+}
+
+function rememberConversationMute(type, id, muted, untilMs) {
+  const key = muteMapKey(type, id);
+  if (!muted) {
+    delete conversationMutes[key];
+    return;
+  }
+  const until = untilMs == null || untilMs === "" ? Number.MAX_SAFE_INTEGER : Number(untilMs);
+  if (until > Date.now()) conversationMutes[key] = until;
+  else delete conversationMutes[key];
+}
+
+function isConversationMuted(type, id) {
+  const until = conversationMutes[muteMapKey(type, id)];
+  return !!until && until > Date.now();
+}
+
+function scheduleMuteExpiryRefresh() {
+  if (muteExpiryTimer) {
+    clearTimeout(muteExpiryTimer);
+    muteExpiryTimer = null;
+  }
+  const now = Date.now();
+  let next = 0;
+  Object.keys(conversationMutes).forEach((key) => {
+    const until = conversationMutes[key];
+    if (until <= now) {
+      delete conversationMutes[key];
+      return;
+    }
+    if (until >= Number.MAX_SAFE_INTEGER) return;
+    if (!next || until < next) next = until;
+  });
+  if (!next) return;
+  const wait = Math.min(Math.max(next - now, 50), 2147483647);
+  muteExpiryTimer = setTimeout(() => {
+    scheduleMuteExpiryRefresh();
+    renderConversationList();
+  }, wait);
+}
+
+function applyConversationMute(type, id, muted, untilMs) {
+  rememberConversationMute(type, id, muted, untilMs);
+  scheduleMuteExpiryRefresh();
+  renderConversationList();
+}
+
+function localMuteState(duration) {
+  const key = String(duration || "").toLowerCase();
+  if (key === "off" || key === "unmute") return { muted: false, muted_until: null };
+  if (key === "on") return { muted: true, muted_until: null };
+  const ms = { "15m": 15 * 60 * 1000, "1h": 60 * 60 * 1000, "8h": 8 * 60 * 60 * 1000, "24h": 24 * 60 * 60 * 1000 }[key];
+  return { muted: true, muted_until: Date.now() + (ms || 0) };
+}
+
+async function muteConversation(type, id, duration) {
+  const guess = localMuteState(duration);
+  applyConversationMute(type, id, guess.muted, guess.muted_until);
+  const path = type === "party"
+    ? `https://${serverAddress}/party/${encodeURIComponent(id)}/mute`
+    : `https://${serverAddress}/conversation/${encodeURIComponent(id)}/mute`;
+  try {
+    const response = await fetch(path, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ duration })
+    });
+    if (!response.ok) {
+      loadConversations();
+      return;
+    }
+    const data = await response.json();
+    applyConversationMute(type, id, !!data.muted, data.muted_until);
+  } catch (err) {
+    loadConversations();
+  }
+}
+
+function applyConversationLists(conversations, parties, closedMutes) {
+  Object.keys(conversationMutes).forEach((key) => { delete conversationMutes[key]; });
+  const dms = (conversations || []).map(c => {
+    rememberConversationMute("dm", c.id, !!c.muted, c.muted_until);
+    return {
+      type: "dm",
+      id: c.id,
+      username: c.username,
+      displayName: c.display_name || c.username,
+      status: (c.status || "").trim(),
+      unread: c.unread_count || 0,
+      timestamp: c.last_message_at,
+      avatar: c.avatar || null
+    };
+  });
+  const partyRows = (parties || []).map(p => {
+    rememberConversationMute("party", p.id, !!p.muted, p.muted_until);
+    return {
+      type: "party",
+      id: p.id,
+      name: p.name,
+      memberCount: p.member_count,
+      unread: p.unread_count || 0,
+      mentions: p.mention_count || 0,
+      timestamp: p.last_activity
+    };
+  });
+  (closedMutes || []).forEach((row) => {
+    rememberConversationMute("dm", row.id, true, row.muted_until);
+  });
   conversationList = dms.concat(partyRows).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  scheduleMuteExpiryRefresh();
   renderConversationList();
 }
 
@@ -35,7 +131,7 @@ function loadConversations() {
       .then(response => response.ok ? response.json() : { parties: [] })
       .catch(() => ({ parties: [] }))
   ]).then(([dmData, partyData]) => {
-    applyConversationLists(dmData.conversations, partyData.parties);
+    applyConversationLists(dmData.conversations, partyData.parties, dmData.closed_mutes);
   });
 }
 
@@ -66,18 +162,20 @@ function renderConversationList() {
       row.querySelector(".dm-item-text").appendChild(sub);
     }
     if (convo.type !== "party" && typeof rememberUserStatus === "function") rememberUserStatus(convo.id, convo.status);
-    if (convo.type === "party") {
-      if ((convo.mentions || 0) > 0) {
-        const badge = row.querySelector(".dm-unread-badge");
-        badge.textContent = convo.mentions > 99 ? "99+" : convo.mentions;
-        badge.style.display = "flex";
+    if (!isConversationMuted(convo.type, convo.id)) {
+      if (convo.type === "party") {
+        if ((convo.mentions || 0) > 0) {
+          const badge = row.querySelector(".dm-unread-badge");
+          badge.textContent = convo.mentions > 99 ? "99+" : convo.mentions;
+          badge.style.display = "flex";
+        } else if (convo.unread > 0) {
+          row.classList.add("has-unread");
+        }
       } else if (convo.unread > 0) {
-        row.classList.add("has-unread");
+        const badge = row.querySelector(".dm-unread-badge");
+        badge.textContent = convo.unread;
+        badge.style.display = "flex";
       }
-    } else if (convo.unread > 0) {
-      const badge = row.querySelector(".dm-unread-badge");
-      badge.textContent = convo.unread;
-      badge.style.display = "flex";
     }
 
     if (convo.type === "party") {
@@ -149,6 +247,7 @@ function clearUnread(type, id) {
 function updateHomeBadge() {
   const badge = document.getElementById("home-unread-badge");
   const total = conversationList.reduce((sum, c) => {
+    if (isConversationMuted(c.type, c.id)) return sum;
     if (c.type === "party") return sum + (c.mentions || 0);
     return sum + (c.unread || 0);
   }, 0);

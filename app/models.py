@@ -105,6 +105,8 @@ class Conversations(Base):
     last_message_at = Column(DateTime)
     closed_by_user_1 = Column(Boolean, default=False)
     closed_by_user_2 = Column(Boolean, default=False)
+    muted_until_user_1 = Column(DateTime, nullable=True)
+    muted_until_user_2 = Column(DateTime, nullable=True)
 
 class Message_request(Base):
     __tablename__ = "message_requests"
@@ -129,6 +131,7 @@ class Party_members(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     joined_at = Column(DateTime, server_default=func.now())
     last_activity = Column(DateTime, server_default=func.now())
+    muted_until = Column(DateTime, nullable=True)
 
 class Party_messages(Base):
     __tablename__ = "party_messages"

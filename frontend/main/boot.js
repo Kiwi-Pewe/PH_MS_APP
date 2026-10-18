@@ -800,7 +800,7 @@ function applyReadyPayload(data) {
   if (typeof setBlockedUserIds === "function") setBlockedUserIds(data.blocked_ids || []);
   if (typeof applyServerList === "function") applyServerList(data.servers || [], true);
   if (typeof rememberNotifyBundle === "function") rememberNotifyBundle(data.notify, data.servers || []);
-  if (typeof applyConversationLists === "function") applyConversationLists(data.conversations, data.parties);
+  if (typeof applyConversationLists === "function") applyConversationLists(data.conversations, data.parties, data.closed_mutes);
   if (typeof applyFriendsView === "function") applyFriendsView(data.friends || {});
   if (typeof applyFeedAlerts === "function") applyFeedAlerts((data.feed && data.feed.alerts) || []);
 }

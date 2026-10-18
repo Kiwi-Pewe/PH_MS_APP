@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 from app.models import UserInfo, Parties, Party_messages, Party_members, Message_mention
-from app.schemas import Party_create, Party_message_schema
+from app.schemas import Party_create, Party_message_schema, Conversation_mute_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
@@ -14,6 +14,7 @@ from app.routers.mentions import apply_party_mentions, decorate_history, accepte
 from app.routers.feed import notify_activity_reply
 from app.site_moderation import mask_message_payloads
 from app.privacy import drop_blocked_rows
+from app.routers.messages import mute_until_for, mute_public
 from datetime import datetime
 import random
 
@@ -116,6 +117,7 @@ def get_parties(database: Session = Depends(get_db), current_user: UserInfo = De
         if not party_info:
             continue
         sort_timestamp = latest_times.get(membership.party_id) or membership.joined_at
+        mute_info = mute_public(membership.muted_until)
         parties_out.append({
             "type": "party",
             "id": membership.party_id,
@@ -124,6 +126,8 @@ def get_parties(database: Session = Depends(get_db), current_user: UserInfo = De
             "last_activity": str(sort_timestamp),
             "unread_count": unread_counts.get(membership.party_id, 0),
             "mention_count": mention_counts.get(membership.party_id, 0),
+            "muted": mute_info["muted"],
+            "muted_until": mute_info["muted_until"],
         })
 
     return {"parties": parties_out}
@@ -149,6 +153,16 @@ def get_party_members(party_id: int, database: Session = Depends(get_db), curren
         if account:
             members.append(serialize_member(account, account.id == party.created_by_id))
     return {"party_id": party_id, "members": members}
+
+@router.post("/party/{party_id}/mute")
+def mute_party(party_id: int, body: Conversation_mute_in, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    membership = database.query(Party_members).filter(Party_members.party_id == party_id, Party_members.user_id == current_user.id).first()
+    if not membership:
+        raise HTTPException(status_code=404, detail="User not in party")
+    until = mute_until_for(body.duration)
+    membership.muted_until = until
+    database.commit()
+    return mute_public(until)
     
 @router.post("/send_party_message")
 async def message_party(party_msg: Party_message_schema, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

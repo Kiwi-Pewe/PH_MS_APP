@@ -57,6 +57,9 @@ class Dm_request_respond(BaseModel):
     user_id: int
     accept: bool
 
+class Conversation_mute_in(BaseModel):
+    duration: str
+
 class Notification_sound_prefs(BaseModel):
     message: bool
     current_channel: bool

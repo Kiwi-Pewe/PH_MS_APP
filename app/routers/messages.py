@@ -13,7 +13,7 @@ from app.privacy import (
     pending_dm_request,
     are_friends,
 )
-from app.schemas import Message_schema, Dm_request_in, Dm_request_respond
+from app.schemas import Message_schema, Dm_request_in, Dm_request_respond, Conversation_mute_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import attachment_public, require_message_body, store_attachment
@@ -24,9 +24,66 @@ from app.routers.profile import STATUS_MAX, avatar_lookup, clip_text, public_ava
 from app.routers.feed import notify_activity_reply, notify_feed_alert
 from app.routers.realtime import notify_user
 from app.site_moderation import mask_message_payloads, permaban_by_user_id
-from datetime import datetime
+from datetime import datetime, timedelta
 
 router = APIRouter()
+
+MUTE_DURATION_DELTAS = {
+    "15m": timedelta(minutes=15),
+    "1h": timedelta(hours=1),
+    "8h": timedelta(hours=8),
+    "24h": timedelta(hours=24),
+}
+MUTE_FOREVER = datetime(9999, 1, 1)
+
+
+def mute_until_for(duration):
+    key = (duration or "").strip().lower()
+    if key in ("off", "unmute"):
+        return None
+    if key == "on":
+        return MUTE_FOREVER
+    delta = MUTE_DURATION_DELTAS.get(key)
+    if not delta:
+        raise HTTPException(status_code=400, detail="Invalid mute duration.")
+    return datetime.now() + delta
+
+
+def mute_is_active(until, now=None):
+    if not until:
+        return False
+    return until > (now or datetime.now())
+
+
+def mute_public(until):
+    if not mute_is_active(until):
+        return {"muted": False, "muted_until": None}
+    if until.year >= 9999:
+        return {"muted": True, "muted_until": None}
+    return {"muted": True, "muted_until": int(until.timestamp() * 1000)}
+
+
+def conversation_mute_until(convo, user_id):
+    if not convo:
+        return None
+    if convo.user_1 == user_id:
+        return convo.muted_until_user_1
+    if convo.user_2 == user_id:
+        return convo.muted_until_user_2
+    return None
+
+
+def set_conversation_mute_until(convo, user_id, until):
+    if convo.user_1 == user_id:
+        convo.muted_until_user_1 = until
+    elif convo.user_2 == user_id:
+        convo.muted_until_user_2 = until
+
+
+def conversation_closed_for(convo, user_id):
+    if convo.user_1 == user_id:
+        return bool(convo.closed_by_user_1)
+    return bool(convo.closed_by_user_2)
 
 
 def open_conversation(database, user_a, user_b):
@@ -224,14 +281,22 @@ def mark_conversation_read(user_id: int, database: Session = Depends(get_db), cu
 @router.get("/conversation_history")
 def conversation_history(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
 
-    convo_history = database.query(Conversations).filter(or_(Conversations.user_1 == current_user.id, Conversations.user_2 == current_user.id),
-    or_(and_(Conversations.user_1 == current_user.id, Conversations.closed_by_user_1 == False),
-    and_(Conversations.user_2 == current_user.id, Conversations.closed_by_user_2 == False))
+    convo_history = database.query(Conversations).filter(
+        or_(Conversations.user_1 == current_user.id, Conversations.user_2 == current_user.id)
     ).order_by(Conversations.last_message_at.desc()).all()
 
-    other_ids = []
+    open_rows = []
+    closed_mutes = []
     for convo in convo_history:
-        other_ids.append(convo.user_2 if convo.user_1 == current_user.id else convo.user_1)
+        other_id = convo.user_2 if convo.user_1 == current_user.id else convo.user_1
+        mute_info = mute_public(conversation_mute_until(convo, current_user.id))
+        if conversation_closed_for(convo, current_user.id):
+            if mute_info["muted"]:
+                closed_mutes.append({"id": other_id, "muted": True, "muted_until": mute_info["muted_until"]})
+            continue
+        open_rows.append((convo, other_id, mute_info))
+
+    other_ids = [other_id for _, other_id, _ in open_rows]
     accounts = {row.id: row for row in database.query(UserInfo).filter(UserInfo.id.in_(other_ids)).all()} if other_ids else {}
     unread_counts = {}
     if other_ids:
@@ -243,8 +308,7 @@ def conversation_history(database: Session = Depends(get_db), current_user: User
             unread_counts[sender_id] = int(count or 0)
 
     conversations_out = []
-    for convo in convo_history:
-        other_id = convo.user_2 if convo.user_1 == current_user.id else convo.user_1
+    for convo, other_id, mute_info in open_rows:
         other_account = accounts.get(other_id)
         conversations_out.append({
             "type": "dm",
@@ -256,9 +320,34 @@ def conversation_history(database: Session = Depends(get_db), current_user: User
             "last_message_at": str(convo.last_message_at),
             "avatar": public_avatar(other_account) if other_account else None,
             "permaban": not bool(other_account),
+            "muted": mute_info["muted"],
+            "muted_until": mute_info["muted_until"],
         })
 
-    return {"conversations": conversations_out}
+    return {"conversations": conversations_out, "closed_mutes": closed_mutes}
+
+@router.post("/conversation/{other_user_id}/mute")
+def mute_conversation(other_user_id: int, body: Conversation_mute_in, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    if other_user_id == current_user.id:
+        raise HTTPException(status_code=409, detail="Cannot mute yourself.")
+    target = database.query(UserInfo).filter(UserInfo.id == other_user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found.")
+    until = mute_until_for(body.duration)
+    convo = find_conversation(database, current_user.id, other_user_id)
+    if not convo:
+        convo = Conversations(
+            user_1=current_user.id,
+            user_2=other_user_id,
+            last_message_at=datetime.now(),
+            closed_by_user_1=True,
+            closed_by_user_2=True,
+        )
+        database.add(convo)
+        database.flush()
+    set_conversation_mute_until(convo, current_user.id, until)
+    database.commit()
+    return mute_public(until)
 
 @router.post("/conversation/{other_user_id}/close")
 def close_conversation(other_user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):

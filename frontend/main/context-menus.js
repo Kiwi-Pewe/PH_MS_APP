@@ -480,6 +480,29 @@ function applyUserStatusLine(userId, status) {
   });
 }
 
+function muteDurationRows(type, id) {
+  const pick = (duration) => () => {
+    if (typeof closeContextMenu === "function") closeContextMenu();
+    if (typeof muteConversation === "function") muteConversation(type, id, duration);
+  };
+  return [
+    { label: "For 15 Minutes", onSelect: pick("15m") },
+    { label: "For 1 Hour", onSelect: pick("1h") },
+    { label: "For 8 Hours", onSelect: pick("8h") },
+    { label: "For 24 Hours", onSelect: pick("24h") },
+    { separator: true },
+    { label: "Until I turn it back on", onSelect: pick("on") }
+  ];
+}
+
+function muteMenuOption(type, id) {
+  const muted = typeof isConversationMuted === "function" && isConversationMuted(type, id);
+  if (muted) {
+    return { label: "Unmute", onSelect: () => { if (typeof muteConversation === "function") muteConversation(type, id, "off"); } };
+  }
+  return { label: "Mute", submenu: muteDurationRows(type, id) };
+}
+
 async function showProfileContextMenu(e, id, username, isSelf) {
   e.preventDefault();
   let line = userStatusLine(id);
@@ -502,7 +525,7 @@ async function showProfileContextMenu(e, id, username, isSelf) {
   ] : [
     { label: "Profile", onSelect: () => openUserProfile(id) },
     { label: "Unfriend", onSelect: () => unfriendFromContextMenu(id, username) },
-    { label: "Mute", onSelect: () => console.log("Mute — not implemented yet") },
+    muteMenuOption("dm", id),
     dmMenuOption(id, username, relation),
     { label: "Invite", onSelect: () => console.log("Invite — not implemented yet") },
     relation.blocked
@@ -527,7 +550,7 @@ function showPartyContextMenu(e, id, name, memberCount) {
     { label: "Invite to Party", onSelect: () => openInviteModal("party", id, name) },
     { label: "Mark as Read", onSelect: () => markPartyRead(id) },
     { label: "Party Info", onSelect: () => console.log("Party info — not implemented yet") },
-    { label: "Mute", onSelect: () => console.log("Mute — not implemented yet") },
+    muteMenuOption("party", id),
     { label: "Leave Party", danger: true, onSelect: () => leavePartyFromContextMenu(id, name) }
   ]);
 }

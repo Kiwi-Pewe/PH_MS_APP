@@ -311,6 +311,18 @@ async function fetchRelationship(userId) {
   }
 }
 
+function friendMenuOption(id, username, relation) {
+  if (!relation || relation.self || relation.blocked) return null;
+  if (relation.friend) {
+    return { label: "Remove Friend", onSelect: () => unfriendFromContextMenu(id, username) };
+  }
+  return {
+    label: "Add Friend",
+    disabled: !!relation.pending_out,
+    onSelect: () => addFriendFromContextMenu(username)
+  };
+}
+
 function dmMenuOption(id, username, relation) {
   const action = (relation && relation.dm_action) || "message";
   if (action === "blocked" || (relation && relation.blocked)) return null;
@@ -385,9 +397,7 @@ async function memberContextOptions(member) {
     nicknameRow,
     { label: "Mention", onSelect: () => insertMentionToken(member.username) },
     dmMenuOption(member.id, member.username, relation),
-    !relation.blocked && (relation.friend
-      ? { label: "Remove Friend", onSelect: () => unfriendFromContextMenu(member.id, member.username) }
-      : { label: "Add Friend", disabled: !!relation.pending_out, onSelect: () => addFriendFromContextMenu(member.username) }),
+    friendMenuOption(member.id, member.username, relation),
     relation.blocked
       ? { label: "Unblock", onSelect: () => unblockFromContextMenu(member.id, member.username) }
       : { label: "Block", danger: true, onSelect: () => blockFromContextMenu(member.id, member.username) },
@@ -524,7 +534,7 @@ async function showProfileContextMenu(e, id, username, isSelf) {
     { label: "Settings", onSelect: () => console.log("Open settings from context menu — not implemented yet") }
   ] : [
     { label: "Profile", onSelect: () => openUserProfile(id) },
-    { label: "Unfriend", onSelect: () => unfriendFromContextMenu(id, username) },
+    friendMenuOption(id, username, relation),
     muteMenuOption("dm", id),
     dmMenuOption(id, username, relation),
     { label: "Invite", onSelect: () => console.log("Invite — not implemented yet") },

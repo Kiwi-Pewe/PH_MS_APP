@@ -2,10 +2,31 @@
 // conversations.js - The DM/party sidebar, and opening a conversation.
 // ==================================================================
 
+function applyConversationLists(conversations, parties) {
+  const dms = (conversations || []).map(c => ({
+    type: "dm",
+    id: c.id,
+    username: c.username,
+    displayName: c.display_name || c.username,
+    status: (c.status || "").trim(),
+    unread: c.unread_count || 0,
+    timestamp: c.last_message_at,
+    avatar: c.avatar || null
+  }));
+  const partyRows = (parties || []).map(p => ({
+    type: "party",
+    id: p.id,
+    name: p.name,
+    memberCount: p.member_count,
+    unread: p.unread_count || 0,
+    mentions: p.mention_count || 0,
+    timestamp: p.last_activity
+  }));
+  conversationList = dms.concat(partyRows).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  renderConversationList();
+}
+
 function loadConversations() {
-  // DMs and parties are separate backend tables, merged here so the
-  // sidebar can interleave by recency. Returns the Promise.all chain
-  // (not just fires it) so callers like handleJoinDeepLink can await it.
   return Promise.all([
     fetch(`https://${serverAddress}/conversation_history`, { credentials: "include" })
       .then(response => response.ok ? response.json() : { conversations: [] })
@@ -14,27 +35,7 @@ function loadConversations() {
       .then(response => response.ok ? response.json() : { parties: [] })
       .catch(() => ({ parties: [] }))
   ]).then(([dmData, partyData]) => {
-    const dms = (dmData.conversations || []).map(c => ({
-      type: "dm",
-      id: c.id,
-      username: c.username,
-      displayName: c.display_name || c.username,
-      status: (c.status || "").trim(),
-      unread: c.unread_count || 0,
-      timestamp: c.last_message_at,
-      avatar: c.avatar || null
-    }));
-    const parties = (partyData.parties || []).map(p => ({
-      type: "party",
-      id: p.id,
-      name: p.name,
-      memberCount: p.member_count,
-      unread: p.unread_count || 0,
-      mentions: p.mention_count || 0,
-      timestamp: p.last_activity
-    }));
-    conversationList = dms.concat(parties).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    renderConversationList();
+    applyConversationLists(dmData.conversations, partyData.parties);
   });
 }
 

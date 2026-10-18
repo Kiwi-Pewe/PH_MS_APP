@@ -32,17 +32,23 @@ async function sendFriendRequestFromMain() {
   }
 }
 
+function applyFriendsView(data) {
+  const pending = (data && data.pending_requests) || [];
+  const online = (data && data.online_friends) || [];
+  const offline = (data && data.offline_friends) || [];
+  renderPendingRequests(pending);
+  renderFriendList("online", online);
+  renderFriendList("offline", offline);
+  if (typeof rememberFriendsForOnlineToasts === "function") {
+    rememberFriendsForOnlineToasts(online, offline);
+  }
+}
+
 async function refreshFriendsView() {
   try {
     const response = await fetch(`https://${serverAddress}/get_friends`, { credentials: "include" });
     if (!response.ok) return;
-    const data = await response.json();
-    renderPendingRequests(data.pending_requests || []);
-    renderFriendList("online", data.online_friends || []);
-    renderFriendList("offline", data.offline_friends || []);
-    if (typeof rememberFriendsForOnlineToasts === "function") {
-      rememberFriendsForOnlineToasts(data.online_friends || [], data.offline_friends || []);
-    }
+    applyFriendsView(await response.json());
   } catch (e) { /* leave last render in place */ }
 }
 

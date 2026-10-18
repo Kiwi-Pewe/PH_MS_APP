@@ -64,6 +64,21 @@ function rememberChannelNotifyList(serverId, rows) {
   channelNotifyByServer[String(serverId)] = map;
 }
 
+function rememberNotifyBundle(bundle, servers) {
+  (bundle && bundle.servers || []).forEach((row) => rememberServerNotifyPrefs(row));
+  const byServer = {};
+  (bundle && bundle.channels || []).forEach((row) => {
+    if (!row || row.server_id == null) return;
+    const key = String(row.server_id);
+    if (!byServer[key]) byServer[key] = [];
+    byServer[key].push(row);
+  });
+  Object.keys(byServer).forEach((serverId) => rememberChannelNotifyList(serverId, byServer[serverId]));
+  (servers || []).forEach((server) => {
+    if (server && server.id && !channelNotifyReady(server.id)) rememberChannelNotifyList(server.id, []);
+  });
+}
+
 function rememberChannelNotifyPrefs(serverId, data) {
   if (!data || data.channel_id == null) return null;
   const key = String(serverId);

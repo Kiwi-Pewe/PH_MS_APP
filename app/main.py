@@ -8,7 +8,7 @@ from app.schemas import Attachment_in, Message_schema, Party_message_schema, Ser
 from app.database import get_db, Base, engine, ensure_attachment_columns, ensure_deletion_columns, ensure_edited_columns, ensure_reply_columns, ensure_account_columns, ensure_server_columns, ensure_channel_columns, ensure_invite_columns, ensure_list_columns, ensure_calendar_columns, ensure_schedule_columns, ensure_role_columns, ensure_moderation_columns, ensure_forum_columns, ensure_doc_columns, ensure_feedback_columns, ensure_feed_alert_columns, ensure_load_indexes
 from app.auth import validate_session
 from app.r2 import attachment_public
-from app.routers import account, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation, feedback, admin, emojis, notify_prefs, audit, feed, pins, search, lists, calendar, doc_entries, media_items, schedule, voice, connections, channel_follows
+from app.routers import account, boot, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation, feedback, admin, emojis, notify_prefs, audit, feed, pins, search, lists, calendar, doc_entries, media_items, schedule, voice, connections, channel_follows
 from pydantic import ValidationError
 from app.routers.realtime import active_connections, heartbeat, notify_presence, notify_status_line, safe_send_json, set_viewer_focus
 from app.routers.messages import send_message
@@ -67,6 +67,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="frontend", html=True), name="frontend")
 
 app.include_router(account.router)
+app.include_router(boot.router)
 app.include_router(messaging_settings.router)
 app.include_router(appearance.router)
 app.include_router(accessibility.router)

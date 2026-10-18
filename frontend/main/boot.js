@@ -794,29 +794,45 @@ function connectSocket() {
   };
 }
 
+function applyReadyPayload(data) {
+  if (typeof setBlockedUserIds === "function") setBlockedUserIds(data.blocked_ids || []);
+  if (typeof applyServerList === "function") applyServerList(data.servers || [], true);
+  if (typeof rememberNotifyBundle === "function") rememberNotifyBundle(data.notify, data.servers || []);
+  if (typeof applyConversationLists === "function") applyConversationLists(data.conversations, data.parties);
+  if (typeof applyFriendsView === "function") applyFriendsView(data.friends || {});
+}
+
+async function bootRails() {
+  try {
+    const response = await fetch(`https://${serverAddress}/ready`, { credentials: "include" });
+    if (!response.ok) throw new Error("ready");
+    applyReadyPayload(await response.json());
+  } catch (e) {
+    if (typeof loadBlockedUserIds === "function") await loadBlockedUserIds();
+    await Promise.all([
+      typeof refreshFriendsView === "function" ? refreshFriendsView() : Promise.resolve(),
+      typeof loadConversations === "function" ? loadConversations() : Promise.resolve(),
+      typeof loadServers === "function" ? loadServers() : Promise.resolve(),
+    ]);
+  }
+}
+
 function enterApp() {
   const shown = myDisplayName || myUsername || "(existing session)";
   document.getElementById("footer-username").textContent = shown;
   document.getElementById("footer-avatar-letter").textContent = avatarLetter(shown);
   if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
   if (typeof syncAdminTab === "function") syncAdminTab();
-  if (typeof loadBlockedUserIds === "function") loadBlockedUserIds();
-  refreshFriendsView();
-  loadConversations();
-  loadServers();
-  handleJoinDeepLink();
-  handleConnectionDeepLink();
-  if (typeof applyAppAddress === "function") applyAppAddress();
-  if (typeof loadFeedAlerts === "function") loadFeedAlerts();
-
-  // Wired once here, not in renderServerSidebar — #server-sidebar-body
-  // is static markup, never rebuilt. Category/channel rows call
-  // e.stopPropagation() so this only fires for genuine blank space.
   document.getElementById("server-sidebar-body").addEventListener("contextmenu", showServerAreaContextMenu);
-
   const serverHeader = document.getElementById("server-sidebar-header");
   serverHeader.addEventListener("click", showServerHeaderMenu);
   serverHeader.addEventListener("contextmenu", showServerHeaderMenu);
+  bootRails().then(() => {
+    handleJoinDeepLink();
+    handleConnectionDeepLink();
+    if (typeof applyAppAddress === "function") applyAppAddress();
+    if (typeof loadFeedAlerts === "function") loadFeedAlerts();
+  });
 }
 
 // Handles arriving fresh from invite.html after accepting an invite
@@ -844,11 +860,9 @@ function handleJoinDeepLink() {
   history.replaceState({}, "", window.location.pathname);
 
   if (joinType === "party") {
-    loadConversations().then(() => openParty(Number(joinId), params.get("join_name") || ""));
+    openParty(Number(joinId), params.get("join_name") || "");
   } else if (joinType === "server") {
-    loadServers().then(() => {
-      const iconEl = document.querySelector(`.server-icon[data-server-id="${joinId}"]`);
-      openServer(joinId, iconEl);
-    });
+    const iconEl = document.querySelector(`.server-icon[data-server-id="${joinId}"]`);
+    openServer(joinId, iconEl);
   }
 }

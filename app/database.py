@@ -561,6 +561,8 @@ def ensure_load_indexes():
         "CREATE INDEX IF NOT EXISTS ix_party_members_user ON party_members (user_id, party_id)",
         "CREATE INDEX IF NOT EXISTS ix_party_members_party ON party_members (party_id)",
         "CREATE INDEX IF NOT EXISTS ix_message_mentions_party ON message_mentions (kind, party_id, user_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_server_notifications_user ON server_notifications (user_id, server_id)",
+        "CREATE INDEX IF NOT EXISTS ix_server_members_user ON server_members (user_id, position)",
     )
     with engine.connect() as conn:
         for statement in statements:

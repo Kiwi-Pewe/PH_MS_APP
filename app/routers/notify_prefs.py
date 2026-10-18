@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.models import UserInfo, Server_members, Server_notifications, Server_notify_prefs, Server_channels, Server_categories
+from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_notify_prefs, Server_channels, Server_categories
 from app.schemas import Server_notify_prefs_update, Channel_notify_prefs_update
 from app.database import get_db
 from app.auth import get_current_user
@@ -62,6 +62,26 @@ def serialize_server_prefs(member, server):
         "notify_level": level,
         "notify_level_label": NOTIFY_LEVEL_LABELS.get(level, level),
         "server_default_level": server_default_notifications(server),
+    }
+
+
+def notify_bundle_for_user(database, user_id):
+    members = database.query(Server_members).filter(Server_members.user_id == user_id).all()
+    server_ids = [row.server_id for row in members]
+    servers = {row.id: row for row in database.query(Servers).filter(Servers.id.in_(server_ids)).all()} if server_ids else {}
+    server_prefs = []
+    for member in members:
+        server = servers.get(member.server_id)
+        if not server:
+            continue
+        server_prefs.append(serialize_server_prefs(member, server))
+    channel_rows = database.query(Server_notifications).filter(
+        Server_notifications.user_id == user_id,
+        Server_notifications.server_id.in_(server_ids),
+    ).all() if server_ids else []
+    return {
+        "servers": server_prefs,
+        "channels": [serialize_channel_prefs(row) for row in channel_rows],
     }
 
 

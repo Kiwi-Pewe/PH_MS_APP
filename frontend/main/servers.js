@@ -34,24 +34,28 @@ function channelTypeSidebarLabel(channelType) {
   return "Text Channel";
 }
 
+function applyServerList(servers, skipNotify) {
+  serverList = servers || [];
+  renderServerList();
+  if (skipNotify) return;
+  if (typeof loadServerNotifyPrefs === "function") {
+    serverList.forEach((server) => {
+      if (server && server.id) loadServerNotifyPrefs(server.id).catch(() => {});
+    });
+  }
+  if (typeof loadChannelNotifyPrefs === "function") {
+    serverList.forEach((server) => {
+      if (server && server.id) loadChannelNotifyPrefs(server.id).catch(() => {});
+    });
+  }
+}
+
 async function loadServers() {
   try {
     const response = await fetch(`https://${serverAddress}/get_servers`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
-    serverList = data.servers || [];
-    renderServerList();
-    // Prefetch personal mute/level so unread honors mute without opening the menu first.
-    if (typeof loadServerNotifyPrefs === "function") {
-      serverList.forEach((server) => {
-        if (server && server.id) loadServerNotifyPrefs(server.id).catch(() => {});
-      });
-    }
-    if (typeof loadChannelNotifyPrefs === "function") {
-      serverList.forEach((server) => {
-        if (server && server.id) loadChannelNotifyPrefs(server.id).catch(() => {});
-      });
-    }
+    applyServerList(data.servers || []);
   } catch (e) { /* leave last render in place */ }
 }
 

@@ -676,7 +676,7 @@ async function loadForumPosts(channelId) {
   forumHasMore = true;
   forumIsLoadingMore = false;
   const container = document.getElementById("forum-posts");
-  container.innerHTML = "";
+  if (container && !container.querySelector(".place-hold")) container.innerHTML = "";
   const searchEl = document.getElementById("forum-search-input");
   if (searchEl && searchEl.value !== forumSearchQuery) {
     forumSearchQuery = searchEl.value || "";
@@ -686,7 +686,9 @@ async function loadForumPosts(channelId) {
     const qs = params.toString();
     const response = await fetch(`https://${serverAddress}/get_forum_post/${channelId}${qs ? ("?" + qs) : ""}`, { credentials: "include" });
     if (!response.ok) return;
+    if (Number(currentChannelId) !== Number(channelId) || currentChannelType !== "forums") return;
     const data = await response.json();
+    if (Number(currentChannelId) !== Number(channelId) || currentChannelType !== "forums") return;
     if (data.settings) applyForumChannelSettings(data.settings);
     else paintForumFilterBar();
     currentForumPosts = (data.forum_posts || []).map(post => {
@@ -694,6 +696,7 @@ async function loadForumPosts(channelId) {
       return post;
     });
     forumHasMore = data.has_more != null ? !!data.has_more : currentForumPosts.filter(p => !p.sticky).length >= 10;
+    container.innerHTML = "";
     currentForumPosts.forEach(post => container.appendChild(buildForumPostCard(post)));
     container.scrollTop = 0;
   } catch (e) { /* leave the list empty on failure */ }

@@ -603,5 +603,14 @@ async function openServerOverview() {
 
 const serverSectionOverview = document.getElementById("server-section-overview");
 if (serverSectionOverview) {
-  serverSectionOverview.addEventListener("click", () => openServerOverview());
+  serverSectionOverview.addEventListener("click", () => {
+    if (typeof beginBody === "function") {
+      beginBody({
+        view: "channel",
+        titleEl: "channel-header-title",
+        title: "Overview"
+      });
+    }
+    openServerOverview();
+  });
 }

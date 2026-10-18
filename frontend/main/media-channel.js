@@ -750,10 +750,12 @@ async function loadMediaItems(channelId) {
   const pins = document.getElementById("channel-pins-btn");
   if (pins) pins.style.display = "none";
   closeMediaForm();
-  paintMediaChannelList();
   const response = await fetch(`https://${serverAddress}/get_media_items/${channelId}`, { credentials: "include" });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || Number(currentChannelId) !== Number(channelId)) return;
+  if (!response.ok || Number(currentChannelId) !== Number(channelId)) {
+    paintMediaChannelList();
+    return;
+  }
   currentMediaItems = data.items || [];
   if (mediaItemId == null) paintMediaChannelList();
 }

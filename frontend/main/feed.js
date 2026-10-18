@@ -572,7 +572,6 @@ async function deleteFeedAlert(alertId) {
 }
 
 function openFeedView() {
-  if (typeof hideMemberList === "function") hideMemberList();
   if (typeof clearPendingReply === "function") clearPendingReply();
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   openChatType = null;
@@ -585,7 +584,11 @@ function openFeedView() {
   const feedView = document.getElementById("view-feed");
   const alreadyOnFeed = !!(feedView && feedView.classList.contains("active"));
   if (!alreadyOnFeed) clearMailSession();
-  switchMainView("feed");
+  beginPlace({
+    sidebar: "home",
+    view: "feed",
+    hideMembers: true
+  });
   loadFeedAlerts();
 }
 

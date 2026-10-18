@@ -6,12 +6,29 @@
 <base href="/main/">
 <title>Oneira</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=12">
+<script>
+(function () {
+  try {
+    var raw = localStorage.getItem("oneira-theme-tokens");
+    if (!raw) return;
+    var tokens = JSON.parse(raw);
+    if (!tokens || typeof tokens !== "object") return;
+    var root = document.documentElement;
+    Object.keys(tokens).forEach(function (key) {
+      if (!/^--[a-z-]+$/.test(key)) return;
+      var value = String(tokens[key] || "").trim();
+      if (!/^#[0-9A-Fa-f]{6}$/.test(value)) return;
+      root.style.setProperty(key, value.toLowerCase());
+    });
+  } catch (e) {}
+})();
+</script>
 <link rel="stylesheet" href="../shared/context-menu.css?v=7">
 <link rel="stylesheet" href="../shared/media-player.css?v=9">
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=348">
+<link rel="stylesheet" href="app.css?v=349">
 </head>
 <body>
 
@@ -2275,7 +2292,7 @@
   <div id="mention-picker-list"></div>
 </div>
 <script src="state.js?v=73"></script>
-<script src="appearance.js?v=5"></script>
+<script src="appearance.js?v=6"></script>
 <script src="accessibility.js?v=11"></script>
 <script src="language-time.js?v=1"></script>
 <script src="util.js?v=51"></script>
@@ -2326,10 +2343,10 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=131"></script>
-<script src="app-shell.js?v=68"></script>
-<script src="feed.js?v=17"></script>
-<script src="settings.js?v=20"></script>
+<script src="boot.js?v=132"></script>
+<script src="app-shell.js?v=69"></script>
+<script src="feed.js?v=18"></script>
+<script src="settings.js?v=21"></script>
 <script src="server-settings.js?v=44"></script>
 <script src="server-roles.js?v=37"></script>
 <script src="server-moderation.js?v=6"></script>
@@ -2354,11 +2371,11 @@
 <script src="../shared/gallery-frame.js?v=1"></script>
 <script src="profile-comments.js?v=7"></script>
 <script src="profile-board.js?v=93"></script>
-<script src="profile.js?v=19"></script>
+<script src="profile.js?v=20"></script>
 <script src="profile-identity.js?v=8"></script>
 <script src="profile-edit.js?v=88"></script>
 <script src="context-menus.js?v=98"></script>
-<script src="conversations.js?v=64"></script>
+<script src="conversations.js?v=65"></script>
 <script src="chat-render.js?v=69"></script>
 <script src="chat-history.js?v=51"></script>
 <script src="chat-compose.js?v=64"></script>
@@ -2382,7 +2399,7 @@
 <script src="embeds.js?v=47"></script>
 <script src="mentions.js?v=20"></script>
 <script src="explicit-channel.js?v=1"></script>
-<script src="servers.js?v=126"></script>
+<script src="servers.js?v=127"></script>
 <script src="voice.js?v=22"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=4"></script>
@@ -2391,19 +2408,19 @@
 <script src="pins.js?v=3"></script>
 <script src="search.js?v=8"></script>
 <script src="members.js?v=22"></script>
-<script src="mini-profile.js?v=11"></script>
+<script src="mini-profile.js?v=12"></script>
 <script src="server-modals.js?v=48"></script>
-<script src="announcements.js?v=69"></script>
+<script src="announcements.js?v=70"></script>
 <script src="channel-follows.js?v=2"></script>
 <script src="comments.js?v=57"></script>
-<script src="forums.js?v=69"></script>
-<script src="lists.js?v=5"></script>
+<script src="forums.js?v=70"></script>
+<script src="lists.js?v=6"></script>
 <script src="calendar.js?v=8"></script>
 <script src="calendar-event.js?v=8"></script>
-<script src="overview.js?v=4"></script>
+<script src="overview.js?v=5"></script>
 <script src="schedule.js?v=10"></script>
-<script src="doc-channel.js?v=13"></script>
-<script src="media-channel.js?v=5"></script>
+<script src="doc-channel.js?v=14"></script>
+<script src="media-channel.js?v=6"></script>
 <script src="docs.js?v=48"></script>
 <script src="feedback.js?v=4"></script>
 <script src="update.js?v=1"></script>

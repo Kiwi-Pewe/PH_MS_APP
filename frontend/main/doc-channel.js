@@ -406,10 +406,12 @@ async function loadDocEntries(channelId) {
   currentDocEntries = [];
   const pins = document.getElementById("channel-pins-btn");
   if (pins) pins.style.display = "none";
-  paintDocChannelList();
   const response = await fetch(`https://${serverAddress}/get_doc_entries/${channelId}`, { credentials: "include" });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || Number(currentChannelId) !== Number(channelId)) return;
+  if (!response.ok || Number(currentChannelId) !== Number(channelId)) {
+    paintDocChannelList();
+    return;
+  }
   currentDocEntries = data.docs || [];
   if (docEntryMode === "list") paintDocChannelList();
 }

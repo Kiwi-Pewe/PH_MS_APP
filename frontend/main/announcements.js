@@ -426,17 +426,20 @@ async function loadAnnouncementPosts(channelId) {
   announcementHasMoreHistory = true;
   announcementIsLoadingMore = false;
   const container = document.getElementById("announcements-posts");
-  container.innerHTML = "";
+  if (container && !container.querySelector(".place-hold")) container.innerHTML = "";
   if (typeof loadAnnounceFollowInfo === "function" && !announcementSearchActive()) loadAnnounceFollowInfo(channelId);
   try {
     const response = await fetch(`https://${serverAddress}/get_announcement/${channelId}${announcementSearchParams()}`, { credentials: "include" });
     if (!response.ok) return;
+    if (Number(currentChannelId) !== Number(channelId) || currentChannelType !== "announcements") return;
     const data = await response.json();
+    if (Number(currentChannelId) !== Number(channelId) || currentChannelType !== "announcements") return;
     currentAnnouncementPosts = data.posts.map(post => {
       post.reactions = applyReactionMe(post.reactions || []);
       return post;
     });
     if (data.posts.length < 25) announcementHasMoreHistory = false;
+    container.innerHTML = "";
     data.posts.forEach(post => container.appendChild(buildAnnouncementPostCard(post)));
     updateAnnouncementEndMarker();
     if (announcementSearchActive()) {

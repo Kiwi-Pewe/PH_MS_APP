@@ -211,13 +211,18 @@ async function openDirectMessage(id, username) {
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (typeof clearPendingReply === "function") clearPendingReply();
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
-  if (typeof hideMemberList === "function") hideMemberList();
+  const cachedMessages = typeof recallPlaceMessages === "function" ? recallPlaceMessages("dm", id) : null;
+  const token = beginPlace({
+    view: "chat",
+    titleEl: "chat-header-title",
+    title: username,
+    hideMembers: true,
+    hold: (cachedMessages && cachedMessages.length) ? null : ["chat-messages"]
+  });
   openChatType = "dm";
   openChatId = id;
   openChatName = username;
   document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
-  switchMainView("chat");
-  document.getElementById("chat-header-title").textContent = username;
   if (typeof setHeaderDescription === "function") setHeaderDescription("chat-header-desc", "");
   const chatActions = document.getElementById("chat-header-actions");
   if (chatActions) chatActions.hidden = false;
@@ -236,11 +241,17 @@ async function openDirectMessage(id, username) {
   currentMessages = [];
   hasMoreHistory = true;
   isLoadingMore = false;
+  if (cachedMessages && cachedMessages.length) {
+    currentMessages = cachedMessages;
+    renderMessages();
+  }
 
   try {
     const response = await fetch(`https://${serverAddress}/messages/${id}`, { credentials: "include" });
+    if (!bodyIsCurrent(token)) return;
     if (!response.ok) { renderMessages(); return; }
     const data = await response.json();
+    if (!bodyIsCurrent(token)) return;
     currentMessages = data.messages.map(msg => {
       const isMine = msg.sender_id !== id;
       const mapped = applyDeletionFields({
@@ -259,8 +270,12 @@ async function openDirectMessage(id, username) {
       return typeof applyMentionFields === "function" ? applyMentionFields(mapped, msg) : mapped;
     });
     if (currentMessages.length < 25) hasMoreHistory = false;
+    if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("dm", id, currentMessages);
     renderMessages();
-  } catch (e) { renderMessages(); }
+  } catch (e) {
+    if (!bodyIsCurrent(token)) return;
+    renderMessages();
+  }
   if (typeof refreshOpenCall === "function") refreshOpenCall();
 }
 
@@ -273,12 +288,18 @@ async function openParty(id, name) {
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (typeof clearPendingReply === "function") clearPendingReply();
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
+  const cachedMessages = typeof recallPlaceMessages === "function" ? recallPlaceMessages("party", id) : null;
+  const token = beginPlace({
+    view: "chat",
+    titleEl: "chat-header-title",
+    title: name,
+    members: true,
+    hold: (cachedMessages && cachedMessages.length) ? null : ["chat-messages"]
+  });
   openChatType = "party";
   openChatId = id;
   openChatName = name;
   document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
-  switchMainView("chat");
-  document.getElementById("chat-header-title").textContent = name;
   if (typeof setHeaderDescription === "function") setHeaderDescription("chat-header-desc", "");
   const chatActions = document.getElementById("chat-header-actions");
   if (chatActions) chatActions.hidden = false;
@@ -288,6 +309,7 @@ async function openParty(id, name) {
   if (typeof closePinsPanel === "function") closePinsPanel();
   if (typeof setChatSearchPlaceholder === "function") setChatSearchPlaceholder("Search " + name);
   if (typeof syncChatSearchPlacement === "function") syncChatSearchPlacement();
+  if (typeof loadMemberList === "function") loadMemberList("party", id);
 
   const chatEmpty = document.getElementById("chat-empty");
   const chatMessages = document.getElementById("chat-messages");
@@ -296,12 +318,18 @@ async function openParty(id, name) {
   currentMessages = [];
   hasMoreHistory = true;
   isLoadingMore = false;
+  if (cachedMessages && cachedMessages.length) {
+    currentMessages = cachedMessages;
+    renderMessages();
+  }
 
   try {
     const response = await fetch(`https://${serverAddress}/get_party_messages/${id}`, { credentials: "include" });
+    if (!bodyIsCurrent(token)) return;
     if (!response.ok) { renderMessages(); }
     else {
       const data = await response.json();
+      if (!bodyIsCurrent(token)) return;
       currentMessages = data.messages.map(msg => {
         const mapped = applyDeletionFields({
           id: msg.id,
@@ -320,9 +348,12 @@ async function openParty(id, name) {
         return mapped;
       });
       if (currentMessages.length < 25) hasMoreHistory = false;
+      if (typeof rememberPlaceMessages === "function") rememberPlaceMessages("party", id, currentMessages);
       renderMessages();
     }
-  } catch (e) { renderMessages(); }
-  if (typeof loadMemberList === "function") loadMemberList("party", id);
+  } catch (e) {
+    if (!bodyIsCurrent(token)) return;
+    renderMessages();
+  }
   if (typeof refreshOpenCall === "function") refreshOpenCall();
 }

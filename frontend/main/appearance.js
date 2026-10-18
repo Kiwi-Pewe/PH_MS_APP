@@ -130,6 +130,32 @@ function brightnessAdjustedColors(colors, brightness) {
   return [mixHex(bg, "#0e0c14", 0.78), mixHex(surface, "#161320", 0.72), accent, highlight];
 }
 
+const THEME_TOKEN_KEYS = [
+  "--bg",
+  "--rail",
+  "--panel",
+  "--panel-alt",
+  "--border",
+  "--text",
+  "--text-dim",
+  "--accent",
+  "--accent-hover",
+  "--accent-submenu",
+  "--accent-submenu-hover"
+];
+
+function persistThemeTokens() {
+  const root = document.documentElement;
+  const tokens = {};
+  THEME_TOKEN_KEYS.forEach((key) => {
+    const value = String(root.style.getPropertyValue(key) || "").trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(value)) tokens[key] = value.toLowerCase();
+  });
+  try {
+    localStorage.setItem("oneira-theme-tokens", JSON.stringify(tokens));
+  } catch (e) {}
+}
+
 function applyThemeTokens(colors) {
   const sat = themeSaturationAmount();
   const [bg, surface, accent, highlight] = colors.map(c => desaturateHex(c, sat));
@@ -151,6 +177,7 @@ function applyThemeTokens(colors) {
   root.style.setProperty("--accent-hover", shadeHex(accent, light ? -0.12 : -0.08));
   root.style.setProperty("--accent-submenu", highlight);
   root.style.setProperty("--accent-submenu-hover", shadeHex(highlight, -0.1));
+  persistThemeTokens();
 }
 
 function appearancePref(name, fallback) {

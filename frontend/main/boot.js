@@ -23,6 +23,10 @@ window.addEventListener("load", () => {
       if (typeof hydrateAccessibility === "function") hydrateAccessibility(data.accessibility);
       if (typeof hydrateLanguageTime === "function") hydrateLanguageTime(data.language_time);
       if (data.identity && typeof rememberOwnIdentity === "function") rememberOwnIdentity(data.identity);
+      if (!appEntered) {
+        appEntered = true;
+        enterApp();
+      }
       connectSocket();
     })
     .catch(() => {
@@ -33,7 +37,7 @@ window.addEventListener("load", () => {
     });
 });
 
-let socketStarted = false;
+let appEntered = false;
 let socketLeaving = false;
 let socketRetry = 0;
 let socketReconnectTimer = null;
@@ -98,8 +102,8 @@ function connectSocket() {
     hasOpened = true;
     socketRetry = 0;
     hideConnectionStatus();
-    if (!socketStarted) {
-      socketStarted = true;
+    if (!appEntered) {
+      appEntered = true;
       enterApp();
     }
     publishViewerFocus();

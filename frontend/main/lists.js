@@ -353,9 +353,11 @@ async function loadListItems(channelId) {
     note.hidden = true;
   }
   paintListAddState();
-  renderList();
   const response = await fetch(`https://${serverAddress}/get_list/${channelId}`, { credentials: "include" });
-  if (!response.ok || Number(currentChannelId) !== Number(channelId)) return;
+  if (!response.ok || Number(currentChannelId) !== Number(channelId)) {
+    renderList();
+    return;
+  }
   const data = await response.json();
   currentListItems = data.items || [];
   listMoveTargets = data.destinations || [];

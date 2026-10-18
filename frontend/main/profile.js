@@ -110,13 +110,17 @@ function applyProfilePayload(data) {
 async function loadOwnProfile() {
   const response = await profileApi("/profile_layout");
   if (!response.ok) throw new Error("Could not load profile.");
-  applyProfilePayload(await response.json());
+  const data = await response.json();
+  applyProfilePayload(data);
+  if (typeof placeCache !== "undefined" && data.user && data.user.id) placeCache.profiles[String(data.user.id)] = data;
 }
 
 async function loadPublicProfile(userId) {
   const response = await profileApi("/profile/" + userId);
   if (!response.ok) throw new Error("Could not load profile.");
-  applyProfilePayload(await response.json());
+  const data = await response.json();
+  applyProfilePayload(data);
+  if (typeof placeCache !== "undefined" && data.user && data.user.id) placeCache.profiles[String(data.user.id)] = data;
 }
 
 function hideProfileChromeBits() {
@@ -358,23 +362,35 @@ async function openUserProfile(userId) {
   if (isProfileOpen && profileEditing && profileDirty) {
     if (!window.confirm("Discard profile changes?")) return;
   }
-  if (typeof closeSettingsChrome === "function") closeSettingsChrome();
   if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
-  if (typeof hideMemberList === "function") hideMemberList();
   if (typeof hideDocsChrome === "function") hideDocsChrome();
+  const targetId = !userId || userId === myUserId ? myUserId : userId;
+  const cached = typeof placeCache !== "undefined" ? placeCache.profiles[String(targetId)] : null;
+  const token = beginPlace({
+    settings: true,
+    sidebar: "profile",
+    view: "profile",
+    topbar: targetId === myUserId ? "profile" : "",
+    hideMembers: true,
+    hold: cached ? null : ["profile-board"]
+  });
+  isProfileOpen = true;
+  profileEditing = false;
+  if (cached) {
+    applyProfilePayload(cached);
+    paintProfileChrome();
+    if (typeof syncAppAddress === "function") syncAppAddress();
+  }
   try {
     if (!userId || userId === myUserId) await loadOwnProfile();
     else await loadPublicProfile(userId);
   } catch (e) {
+    if (!placeIsCurrent(token)) return;
     window.alert(e.message || "Could not open profile.");
     return;
   }
-  isProfileOpen = true;
-  profileEditing = false;
-  showProfileSidebar();
-  setTopbarTab(profileIsOwn ? "profile" : "");
-  switchMainView("profile");
+  if (!placeIsCurrent(token)) return;
   paintProfileChrome();
   if (typeof syncAppAddress === "function") syncAppAddress();
 }

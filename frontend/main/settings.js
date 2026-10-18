@@ -426,15 +426,14 @@ async function openSettings() {
     return;
   }
   if (typeof leaveDocIfNeeded === "function" && !(await leaveDocIfNeeded())) return;
-  if (typeof hideMemberList === "function") hideMemberList();
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   isSettingsOpen = true;
-  document.getElementById("dm-sidebar-view").style.display = "none";
-  document.getElementById("server-sidebar-view").style.display = "none";
-  document.getElementById("account-footer").style.display = "none";
-  document.getElementById("settings-sidebar-view").style.display = "flex";
-  setTopbarTab("settings");
-  switchMainView("settings");
+  beginPlace({
+    sidebar: "settings",
+    view: "settings",
+    topbar: "settings",
+    hideMembers: true
+  });
   showSettingsPane("general");
 }
 

@@ -23,6 +23,107 @@ function switchMainView(viewName) {
   if (typeof publishViewerFocus === "function") publishViewerFocus();
 }
 
+let placeGen = 0;
+let bodyGen = 0;
+const placeCache = { servers: {}, messages: {}, profiles: {}, mini: {} };
+
+function currentPlaceToken() {
+  return { place: placeGen, body: bodyGen };
+}
+
+function placeIsCurrent(token) {
+  return !!(token && Number(token.place) === Number(placeGen));
+}
+
+function bodyIsCurrent(token) {
+  return !!(token && Number(token.place) === Number(placeGen) && Number(token.body) === Number(bodyGen));
+}
+
+function placeMessageKey(kind, id) {
+  return String(kind) + ":" + String(id);
+}
+
+function rememberPlaceMessages(kind, id, rows) {
+  placeCache.messages[placeMessageKey(kind, id)] = Array.isArray(rows) ? rows.slice() : [];
+}
+
+function recallPlaceMessages(kind, id) {
+  const rows = placeCache.messages[placeMessageKey(kind, id)];
+  return Array.isArray(rows) ? rows.slice() : null;
+}
+
+function fillPlaceHold(host, count) {
+  if (!host) return;
+  host.replaceChildren();
+  const wrap = document.createElement("div");
+  wrap.className = "place-hold";
+  const widths = ["is-wide", "is-mid", "is-short", "is-wide", "is-mid"];
+  const n = Math.max(3, Number(count) || 5);
+  for (let i = 0; i < n; i++) {
+    const row = document.createElement("div");
+    row.className = "place-hold-row " + widths[i % widths.length];
+    wrap.appendChild(row);
+  }
+  host.appendChild(wrap);
+}
+
+function showPlaceSidebar(kind) {
+  const map = {
+    home: "dm-sidebar-view",
+    server: "server-sidebar-view",
+    settings: "settings-sidebar-view",
+    profile: "profile-sidebar-view"
+  };
+  const shown = map[kind];
+  if (!shown) return;
+  ["dm-sidebar-view", "server-sidebar-view", "settings-sidebar-view", "profile-sidebar-view"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = id === shown ? "flex" : "none";
+  });
+  const footer = document.getElementById("account-footer");
+  if (footer) footer.style.display = kind === "settings" ? "none" : "flex";
+}
+
+function applyPlaceChrome(opts) {
+  opts = opts || {};
+  if (opts.sidebar) showPlaceSidebar(opts.sidebar);
+  if (opts.view) switchMainView(opts.view);
+  if (opts.topbar != null && typeof setTopbarTab === "function") setTopbarTab(opts.topbar);
+  if (opts.titleEl && opts.title != null) {
+    const el = document.getElementById(opts.titleEl);
+    if (el) el.textContent = opts.title;
+  }
+  if (opts.hold) {
+    (Array.isArray(opts.hold) ? opts.hold : [opts.hold]).forEach((id) => {
+      fillPlaceHold(document.getElementById(id), opts.holdCount);
+    });
+  }
+  if (opts.members) {
+    if (typeof showMemberListPanel === "function") showMemberListPanel();
+    fillPlaceHold(document.getElementById("member-list-body"), 6);
+  } else if (opts.hideMembers && typeof hideMemberList === "function") {
+    hideMemberList();
+  }
+}
+
+function beginPlace(opts) {
+  opts = opts || {};
+  placeGen += 1;
+  bodyGen += 1;
+  if (opts.mini !== false && typeof closeMiniProfile === "function") closeMiniProfile();
+  if (opts.settings && typeof closeSettingsChrome === "function") closeSettingsChrome();
+  if (opts.serverSettings && typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
+  if (opts.channelSettings && typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
+  applyPlaceChrome(opts);
+  return currentPlaceToken();
+}
+
+function beginBody(opts) {
+  bodyGen += 1;
+  applyPlaceChrome(opts || {});
+  return currentPlaceToken();
+}
+
 function isOneiraAdmin() {
   return String(myUsername || "").toLowerCase() === "kiwi";
 }
@@ -48,8 +149,11 @@ document.querySelectorAll("#secondary-nav .nav-item").forEach(btn => {
     document.querySelectorAll("#secondary-nav .nav-item").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".dm-item").forEach(d => d.classList.remove("active"));
     btn.classList.add("active");
-    switchMainView(btn.dataset.view);
-    if (btn.dataset.view && typeof hideMemberList === "function") hideMemberList();
+    beginPlace({
+      sidebar: "home",
+      view: btn.dataset.view,
+      hideMembers: true
+    });
     if (btn.dataset.view === "friends") refreshFriendsView();
   });
 });
@@ -99,11 +203,13 @@ async function goHome() {
   if (typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
   if (typeof closeProfileChrome === "function" && !closeProfileChrome()) return false;
-  document.getElementById("server-sidebar-view").style.display = "none";
-  document.getElementById("dm-sidebar-view").style.display = "flex";
+  beginPlace({
+    sidebar: "home",
+    topbar: "messages",
+    hideMembers: true
+  });
 
   resetChatView();
-  if (typeof setTopbarTab === "function") setTopbarTab("messages");
   syncAppAddress();
   return true;
 }
@@ -151,9 +257,16 @@ async function applyAppAddress() {
       return;
     }
     if (parts[0] === "profile" && parts[1]) {
+      const token = beginPlace({
+        sidebar: "profile",
+        view: "profile",
+        hold: ["profile-board"]
+      });
       const response = await fetch(`https://${serverAddress}/user_by_username/${encodeURIComponent(decodeURIComponent(parts[1]))}`, { credentials: "include" });
+      if (!placeIsCurrent(token)) return;
       if (!response.ok) return;
       const data = await response.json();
+      if (!placeIsCurrent(token)) return;
       if (data && data.id && typeof openUserProfile === "function") await openUserProfile(data.id);
       return;
     }

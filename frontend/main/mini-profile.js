@@ -648,15 +648,29 @@ async function openMiniProfile(userId, anchorEl) {
   miniProfileUserId = userId;
   miniProfileAnchor = anchorEl || null;
   miniProfileRolesExpanded = false;
+  const card = document.getElementById("mini-profile");
+  if (!card) return;
+  card.hidden = false;
+  card.classList.add("mini-profile-card");
+  const cached = typeof placeCache !== "undefined" ? placeCache.mini[String(userId)] : null;
+  if (cached) {
+    miniProfileData = cached;
+    paintMiniProfile(cached);
+  } else if (typeof fillPlaceHold === "function") {
+    fillPlaceHold(card, 5);
+  } else {
+    card.innerHTML = "";
+  }
+  positionMiniProfile(anchorEl);
   try {
     const data = await fetchMiniProfile(userId);
     if (!miniProfileOpen || miniProfileUserId !== userId) return;
+    if (typeof placeCache !== "undefined") placeCache.mini[String(userId)] = data;
     miniProfileData = data;
-    const card = document.getElementById("mini-profile");
-    card.hidden = false;
     paintMiniProfile(data);
     positionMiniProfile(anchorEl);
   } catch (e) {
+    if (!miniProfileOpen || miniProfileUserId !== userId) return;
     closeMiniProfile();
     window.alert(e.message || "Could not open mini profile.");
   }

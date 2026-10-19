@@ -3112,8 +3112,11 @@ function openProfileTileOptions(tile) {
   }
 
   function paintPreview() {
-    const nativeW = Math.max(80, tile.w * PROFILE_ROW_H);
-    const nativeH = Math.max(PROFILE_ROW_H, tile.h * PROFILE_ROW_H);
+    const spec = (typeof PROFILE_TILE_TYPES !== "undefined" && PROFILE_TILE_TYPES[tile.type]) || {};
+    const cellsW = Math.round(Number(tile.w)) || spec.w || 8;
+    const cellsH = Math.round(Number(tile.h)) || spec.h || 3;
+    const nativeW = Math.max(80, cellsW * PROFILE_ROW_H);
+    const nativeH = Math.max(PROFILE_ROW_H, cellsH * PROFILE_ROW_H);
     const leftW = 300;
     const pad = 80;
     const overlayW = overlay.clientWidth || window.innerWidth;
@@ -3124,11 +3127,18 @@ function openProfileTileOptions(tile) {
     previewCard.style.width = nativeW + 'px';
     previewCard.style.height = nativeH + 'px';
     previewCard.style.transform = 'none';
-    const fake = { type: tile.type, props: draft, id: tile.id, w: tile.w, h: tile.h, x: 0, y: 0, z_index: clampProfileZIndex(draft.z_index) };
+    const fake = { type: tile.type, props: draft, id: tile.id, w: cellsW, h: cellsH, x: 0, y: 0, z_index: clampProfileZIndex(draft.z_index) };
     const wasEditing = profileEditing;
     profileEditing = false;
     try {
-      paintProfileTileContent(fake, previewCard);
+      const mini = typeof isMiniProfilePageId === "function" && isMiniProfilePageId(profileActivePageId);
+      if (mini && typeof paintMiniProfileWidgetTile === "function") {
+        const data = typeof miniProfileDataFromOpenProfile === "function" ? miniProfileDataFromOpenProfile() : null;
+        paintMiniProfileWidgetTile(previewCard, fake, data, false);
+        previewCard.classList.add("is-opt-preview");
+      } else if (typeof paintProfileTileContent === "function") {
+        paintProfileTileContent(fake, previewCard);
+      }
     } finally {
       profileEditing = wasEditing;
     }

@@ -8396,8 +8396,7 @@ a.profile-link-row:hover { color: var(--accent); }
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 88px;
-  border: 1px dashed var(--border);
+  border: 1px dashed transparent;
   border-radius: 8px;
   box-sizing: border-box;
   padding: 8px;
@@ -8408,11 +8407,13 @@ a.profile-link-row:hover { color: var(--accent); }
   font-size: 12px;
   font-weight: 600;
 }
-.mini-widget-slot.is-filled {
-  border-color: color-mix(in srgb, var(--text-dim) 45%, transparent);
+.mini-profile-widgets.is-edit .mini-widget-slot {
+  min-height: 88px;
+  border-color: var(--border);
 }
 .mini-profile-widgets.is-edit .mini-widget-slot.is-filled {
   cursor: grab;
+  border-color: color-mix(in srgb, var(--text-dim) 45%, transparent);
 }
 .mini-widget-slot.is-drop {
   border-color: var(--accent);

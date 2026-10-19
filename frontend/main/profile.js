@@ -361,7 +361,7 @@ function paintProfileChrome() {
   if (note) note.hidden = !profileLimited;
   document.getElementById("main-grid").classList.toggle("is-profile-edit", !!(profileIsOwn && profileEditing));
   const palette = document.getElementById("profile-palette");
-  if (palette) palette.hidden = !(profileIsOwn && profileEditing && !isMiniProfilePageId(profileActivePageId));
+  if (palette) palette.hidden = !(profileIsOwn && profileEditing);
   if (profileIsOwn && profileEditing && typeof renderProfilePalette === "function") renderProfilePalette();
   renderProfilePages();
   renderProfileBoard();

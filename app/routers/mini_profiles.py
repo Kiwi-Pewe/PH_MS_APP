@@ -155,14 +155,20 @@ def mini_widgets_payload(database, owner, viewer_id, layout):
             live = mini_connection(database, owner.id, props.get("provider"))
         elif kind == "member_since":
             live = {"member_since": member_since_iso(owner)}
+        try:
+            slot = int(tile.get("slot"))
+        except (TypeError, ValueError):
+            slot = len(out)
         out.append({
             "id": tile.get("id"),
             "type": kind,
             "props": props,
+            "slot": slot if 0 <= slot < 3 else len(out),
             "live": live,
         })
         if len(out) >= 3:
             break
+    out.sort(key=lambda row: row.get("slot", 0))
     return out
 
 

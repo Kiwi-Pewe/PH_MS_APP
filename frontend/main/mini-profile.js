@@ -460,31 +460,20 @@ function paintMiniProfileInto(card, data, opts) {
 }
 
 function miniWidgetTiles(data) {
-  if (data && Array.isArray(data.widgets) && data.widgets.length) {
-    return data.widgets.map((row) => ({
-      id: row.id,
-      type: row.type,
-      props: row.props || {},
-      live: row.live,
-      w: 8,
-      h: row.type === "steam_playing_now" ? 4 : 3,
-      x: 0,
-      y: 0
-    }));
-  }
-  if (typeof miniProfileWidgets === "function") {
-    return miniProfileWidgets().map((row) => ({
-      id: row.id,
-      type: row.type,
-      props: row.props || {},
-      live: null,
-      w: 8,
-      h: row.type === "steam_playing_now" ? 4 : 3,
-      x: 0,
-      y: 0
-    }));
-  }
-  return [];
+  const rows = data && Array.isArray(data.widgets)
+    ? data.widgets
+    : (typeof miniProfileWidgets === "function" ? miniProfileWidgets() : []);
+  return rows.map((row) => ({
+    id: row.id,
+    type: row.type,
+    props: row.props || {},
+    slot: typeof miniWidgetSlotOf === "function" ? miniWidgetSlotOf(row, -1) : row.slot,
+    live: row.live,
+    w: 8,
+    h: row.type === "steam_playing_now" ? 4 : 3,
+    x: 0,
+    y: 0
+  }));
 }
 
 function miniWidgetLabel(type) {
@@ -773,19 +762,149 @@ function removeMiniProfileWidget(id) {
   if (typeof markProfileDirty === "function") markProfileDirty();
 }
 
-function addMiniProfileWidget(type) {
-  const store = typeof miniProfileStore === "function" ? miniProfileStore(profileDraft || profileSavedLayout) : null;
-  if (!store) return;
-  if (!Array.isArray(store.widgets)) store.widgets = [];
-  if (store.widgets.length >= MINI_WIDGET_CAP) return;
-  if (store.widgets.some((row) => row.type === type)) return;
-  const props = typeof defaultProfileTileProps === "function" ? defaultProfileTileProps(type) : {};
-  store.widgets.push({
-    id: typeof profileNewId === "function" ? profileNewId("tile") : ("tile_" + Date.now()),
-    type: type,
-    props: props
+function miniProfileSlotList() {
+  if (typeof ensureMiniWidgetSlots === "function") return ensureMiniWidgetSlots();
+  const rows = typeof miniProfileWidgets === "function" ? miniProfileWidgets() : [];
+  const slots = [null, null, null];
+  rows.forEach((row) => {
+    const n = typeof miniWidgetSlotOf === "function" ? miniWidgetSlotOf(row, -1) : -1;
+    if (n >= 0 && !slots[n]) slots[n] = row;
   });
+  return slots;
+}
+
+function placeMiniProfileWidget(type, slot) {
+  const dest = Math.max(0, Math.min(2, Math.round(Number(slot))));
+  const store = typeof miniProfileStore === "function" ? miniProfileStore(profileDraft || profileSavedLayout) : null;
+  if (!store || !type) return;
+  if (!Array.isArray(store.widgets)) store.widgets = [];
+  const slots = miniProfileSlotList();
+  const existing = store.widgets.find((row) => row.type === type);
+  const occupant = slots[dest];
+  if (existing) {
+    const from = typeof miniWidgetSlotOf === "function" ? miniWidgetSlotOf(existing, dest) : dest;
+    existing.slot = dest;
+    if (occupant && occupant.id !== existing.id) occupant.slot = from;
+  } else {
+    if (occupant) store.widgets = store.widgets.filter((row) => row.id !== occupant.id);
+    store.widgets.push({
+      id: typeof profileNewId === "function" ? profileNewId("tile") : ("tile_" + Date.now()),
+      type: type,
+      slot: dest,
+      props: typeof defaultProfileTileProps === "function" ? defaultProfileTileProps(type) : {}
+    });
+  }
   if (typeof markProfileDirty === "function") markProfileDirty();
+}
+
+function moveMiniProfileWidget(id, slot) {
+  const dest = Math.max(0, Math.min(2, Math.round(Number(slot))));
+  const store = typeof miniProfileStore === "function" ? miniProfileStore(profileDraft || profileSavedLayout) : null;
+  if (!store || !Array.isArray(store.widgets)) return;
+  const moving = store.widgets.find((row) => row.id === id);
+  if (!moving) return;
+  const from = typeof miniWidgetSlotOf === "function" ? miniWidgetSlotOf(moving, 0) : 0;
+  if (from === dest) return;
+  const occupant = miniProfileSlotList()[dest];
+  moving.slot = dest;
+  if (occupant && occupant.id !== moving.id) occupant.slot = from;
+  if (typeof markProfileDirty === "function") markProfileDirty();
+}
+
+function miniDropSlotAt(x, y) {
+  const nodes = document.elementsFromPoint(x, y) || [];
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const slot = node && node.closest ? node.closest(".mini-widget-slot") : null;
+    if (slot && slot.dataset.slot != null) return Number(slot.dataset.slot);
+  }
+  return null;
+}
+
+function clearMiniDropHighlight() {
+  document.querySelectorAll(".mini-widget-slot.is-drop").forEach((node) => node.classList.remove("is-drop"));
+}
+
+function highlightMiniDropSlot(x, y) {
+  clearMiniDropHighlight();
+  const dest = miniDropSlotAt(x, y);
+  if (dest == null) return;
+  const el = document.querySelector('.mini-widget-slot[data-slot="' + dest + '"]');
+  if (el) el.classList.add("is-drop");
+}
+
+function moveMiniDragGhost(ghost, x, y) {
+  if (!ghost) return;
+  ghost.style.left = (x + 8) + "px";
+  ghost.style.top = (y + 8) + "px";
+}
+
+function beginMiniPaletteDrag(e, type, btn) {
+  if (!e || e.button !== 0 || !type) return;
+  if (btn && btn.disabled) return;
+  e.preventDefault();
+  if (btn && btn.setPointerCapture) btn.setPointerCapture(e.pointerId);
+  const ghost = document.createElement("div");
+  ghost.className = "mini-palette-ghost";
+  ghost.textContent = (btn && btn.textContent) || miniWidgetLabel(type);
+  document.body.appendChild(ghost);
+  moveMiniDragGhost(ghost, e.clientX, e.clientY);
+  function onMove(ev) {
+    moveMiniDragGhost(ghost, ev.clientX, ev.clientY);
+    highlightMiniDropSlot(ev.clientX, ev.clientY);
+  }
+  function onUp(ev) {
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    ghost.remove();
+    clearMiniDropHighlight();
+    const dest = miniDropSlotAt(ev.clientX, ev.clientY);
+    if (dest == null) return;
+    placeMiniProfileWidget(type, dest);
+  }
+  document.addEventListener("pointermove", onMove);
+  document.addEventListener("pointerup", onUp);
+}
+
+function bindMiniSlotMove(slotEl, tile) {
+  if (!slotEl || !tile) return;
+  slotEl.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest && e.target.closest("textarea, input, button, a, select")) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let ghost = null;
+    let moved = false;
+    function onMove(ev) {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!moved && (dx * dx + dy * dy) < 36) return;
+      if (!moved) {
+        moved = true;
+        if (slotEl.setPointerCapture) slotEl.setPointerCapture(ev.pointerId);
+        ghost = document.createElement("div");
+        ghost.className = "mini-palette-ghost";
+        ghost.textContent = miniWidgetLabel(tile.type);
+        document.body.appendChild(ghost);
+        slotEl.classList.add("is-dragging");
+      }
+      moveMiniDragGhost(ghost, ev.clientX, ev.clientY);
+      highlightMiniDropSlot(ev.clientX, ev.clientY);
+    }
+    function onUp(ev) {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      slotEl.classList.remove("is-dragging");
+      if (ghost) ghost.remove();
+      clearMiniDropHighlight();
+      if (!moved) return;
+      const dest = miniDropSlotAt(ev.clientX, ev.clientY);
+      if (dest == null) return;
+      moveMiniProfileWidget(tile.id, dest);
+    }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  });
 }
 
 function closeMiniSubOverlay() {
@@ -836,30 +955,6 @@ function openMiniSubOverlay(title, fillBody) {
   return overlay;
 }
 
-function openMiniWidgetAdd() {
-  const store = typeof miniProfileStore === "function" ? miniProfileStore(profileDraft || profileSavedLayout) : { widgets: [] };
-  const used = {};
-  (store.widgets || []).forEach((row) => { used[row.type] = true; });
-  openMiniSubOverlay("Add widget", (main, close) => {
-    MINI_WIDGET_ADD.forEach((item) => {
-      if (used[item.type]) return;
-      if (item.steam && typeof profileSteamLinked !== "undefined" && !profileSteamLinked) return;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "mini-sub-pick";
-      btn.textContent = item.label;
-      btn.addEventListener("click", () => {
-        addMiniProfileWidget(item.type);
-        close();
-      });
-      main.appendChild(btn);
-    });
-    if (!main.childNodes.length) {
-      paintMiniEmpty(main, "Every Mini Profile widget is already on this card.");
-    }
-  });
-}
-
 function openMiniMutualsSubmenu(people, total) {
   openMiniSubOverlay("Mutuals", (main) => {
     const list = document.createElement("div");
@@ -876,35 +971,66 @@ function openMiniMutualsSubmenu(people, total) {
   });
 }
 
+function miniWidgetSlotsFromTiles(tiles) {
+  const slots = [null, null, null];
+  const leftover = [];
+  (tiles || []).forEach((tile) => {
+    const n = typeof miniWidgetSlotOf === "function" ? miniWidgetSlotOf(tile, -1) : -1;
+    if (n >= 0 && !slots[n]) slots[n] = tile;
+    else leftover.push(tile);
+  });
+  leftover.forEach((tile) => {
+    const i = slots.findIndex((item) => !item);
+    if (i < 0) return;
+    tile.slot = i;
+    slots[i] = tile;
+  });
+  return slots;
+}
+
+function buildMiniWidgetSlot(index, tile, data, editing) {
+  const slot = document.createElement("div");
+  slot.className = "mini-widget-slot" + (tile ? " is-filled" : " is-empty");
+  slot.dataset.slot = String(index);
+  if (!tile) {
+    slot.textContent = "Drop a widget here.";
+    return slot;
+  }
+  const host = document.createElement("div");
+  paintMiniProfileWidgetTile(host, tile, data, editing);
+  if (editing) host.addEventListener("contextmenu", (e) => showMiniWidgetMenu(e, tile));
+  slot.appendChild(host);
+  if (editing) bindMiniSlotMove(slot, tile);
+  return slot;
+}
+
 function buildMiniProfileWidgets(data, opts) {
   const page = !!(opts && opts.page);
   const editing = !!(opts && opts.editing);
-  const tiles = miniWidgetTiles(data);
-  if (!tiles.length && !(page && editing)) return null;
-  const wrap = document.createElement("div");
-  wrap.className = "mini-profile-widgets";
-  const split = document.createElement("div");
-  split.className = "mini-profile-section-split";
-  wrap.appendChild(split);
-  tiles.forEach((tile) => {
-    const host = document.createElement("div");
-    paintMiniProfileWidgetTile(host, tile, data, editing);
-    if (editing && page) {
-      host.addEventListener("contextmenu", (e) => showMiniWidgetMenu(e, tile));
-    }
-    wrap.appendChild(host);
-  });
-  if (page && editing && tiles.length < MINI_WIDGET_CAP) {
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "mini-profile-widget-add";
-    add.title = "Add widget";
-    add.textContent = "+";
-    add.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openMiniWidgetAdd();
+  if (page && editing && typeof ensureMiniWidgetSlots === "function") ensureMiniWidgetSlots();
+  const slots = miniWidgetSlotsFromTiles(miniWidgetTiles(data));
+  if (!editing) {
+    const filled = slots.filter(Boolean);
+    if (!filled.length) return null;
+    const wrap = document.createElement("div");
+    wrap.className = "mini-profile-widgets";
+    filled.forEach((tile) => {
+      const split = document.createElement("div");
+      split.className = "mini-profile-section-split";
+      wrap.appendChild(split);
+      const host = document.createElement("div");
+      paintMiniProfileWidgetTile(host, tile, data, false);
+      wrap.appendChild(host);
     });
-    wrap.appendChild(add);
+    return wrap;
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "mini-profile-widgets is-edit";
+  for (let i = 0; i < MINI_WIDGET_CAP; i++) {
+    const split = document.createElement("div");
+    split.className = "mini-profile-section-split";
+    wrap.appendChild(split);
+    wrap.appendChild(buildMiniWidgetSlot(i, slots[i], data, true));
   }
   return wrap;
 }

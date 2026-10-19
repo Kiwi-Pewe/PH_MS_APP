@@ -86,6 +86,56 @@ const PROFILE_PALETTE = [
   }
 ];
 
+const MINI_PROFILE_PALETTE = [
+  {
+    id: "identity",
+    label: "Identity",
+    items: [
+      { type: "member_since", label: "Member since" }
+    ]
+  },
+  {
+    id: "text",
+    label: "Text",
+    items: [
+      { type: "body", label: "Body" },
+      { type: "button", label: "Button" }
+    ]
+  },
+  {
+    id: "social",
+    label: "Social",
+    items: [
+      { type: "connections", label: "Connections" },
+      { type: "featured_friend", label: "Featured friend" },
+      { type: "mutuals", label: "Mutuals" }
+    ]
+  },
+  {
+    id: "decoration",
+    label: "Decoration",
+    items: [
+      { type: "meter", label: "Meter" },
+      { type: "clock", label: "Clock" }
+    ]
+  },
+  {
+    id: "community",
+    label: "Community",
+    items: [
+      { type: "featured_server", label: "Featured server" }
+    ]
+  },
+  {
+    id: "steam",
+    label: "Steam",
+    connection: "steam",
+    items: [
+      { type: "steam_playing_now", label: "Playing Now" }
+    ]
+  }
+];
+
 let profileSteamLinked = false;
 let profileSteamChecked = false;
 let profileSteamLoad = null;
@@ -126,10 +176,18 @@ function renderProfilePalette() {
       });
   }
   host.innerHTML = "";
-  PROFILE_PALETTE.forEach(group => {
+  const mini = typeof isMiniProfilePageId === "function" && isMiniProfilePageId(profileActivePageId);
+  const groups = mini ? MINI_PROFILE_PALETTE : PROFILE_PALETTE;
+  const used = {};
+  if (mini && typeof miniProfileWidgets === "function") {
+    miniProfileWidgets().forEach((row) => {
+      if (row && row.type) used[row.type] = true;
+    });
+  }
+  groups.forEach(group => {
     if (group.connection === "steam" && !profileSteamLinked) return;
     const wrap = document.createElement("div");
-    wrap.className = "profile-palette-group";
+    wrap.className = "profile-palette-group" + (mini ? " is-open" : "");
     const toggle = document.createElement("button");
     toggle.type = "button";
     const caret = document.createElement("span");
@@ -146,12 +204,19 @@ function renderProfilePalette() {
         btn.type = "button";
         btn.className = "profile-palette-item";
         btn.textContent = item.label;
-        btn.addEventListener("click", () => {
-          const page = currentProfilePage();
-          if (!page || isMiniProfilePageId(page.id)) return;
-          placeProfileTile(page, item.type);
-          markProfileDirty();
-        });
+        if (mini) {
+          btn.disabled = !!used[item.type];
+          btn.addEventListener("pointerdown", (e) => {
+            if (typeof beginMiniPaletteDrag === "function") beginMiniPaletteDrag(e, item.type, btn);
+          });
+        } else {
+          btn.addEventListener("click", () => {
+            const page = currentProfilePage();
+            if (!page || isMiniProfilePageId(page.id)) return;
+            placeProfileTile(page, item.type);
+            markProfileDirty();
+          });
+        }
         items.appendChild(btn);
       });
     }

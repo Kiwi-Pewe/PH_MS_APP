@@ -1334,9 +1334,10 @@ def normalize_mini_body_props(data, banner_fallback):
 def normalize_mini_profile(raw_mini, banner_fallback):
     data = raw_mini if isinstance(raw_mini, dict) else {}
     chrome = normalize_props("bio", data, banner_fallback)
-    widgets = []
-    seen = set()
+    placed = [None, None, None]
     used_types = set()
+    seen = set()
+    pending = []
     rows = data.get("widgets")
     if not isinstance(rows, list):
         rows = []
@@ -1355,16 +1356,33 @@ def normalize_mini_profile(raw_mini, banner_fallback):
             props = normalize_mini_body_props(props_in, banner_fallback)
         else:
             props = normalize_props(kind, props_in, banner_fallback)
-        widgets.append({"id": tile_id, "type": kind, "props": props})
-        used_types.add(kind)
-        if len(widgets) >= MINI_WIDGET_MAX:
-            break
+        tile = {"id": tile_id, "type": kind, "props": props}
+        try:
+            slot = int(row.get("slot"))
+        except (TypeError, ValueError):
+            slot = -1
+        taken = sum(1 for item in placed if item is not None) + len(pending)
+        if 0 <= slot < MINI_WIDGET_MAX and placed[slot] is None:
+            tile["slot"] = slot
+            placed[slot] = tile
+            used_types.add(kind)
+        elif taken < MINI_WIDGET_MAX:
+            pending.append(tile)
+            used_types.add(kind)
+    for tile in pending:
+        for i in range(MINI_WIDGET_MAX):
+            if placed[i] is None:
+                tile["slot"] = i
+                placed[i] = tile
+                break
+    widgets = [row for row in placed if row]
     if not widgets and data.get("widgets") is None:
         leftover = clip_text(data.get("text"), MINI_BODY_MAX).strip()
         if leftover:
             widgets.append({
                 "id": "mini-body",
                 "type": "body",
+                "slot": 0,
                 "props": normalize_mini_body_props({"text": leftover}, banner_fallback),
             })
     chrome["widgets"] = widgets

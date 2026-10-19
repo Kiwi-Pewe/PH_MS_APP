@@ -3533,7 +3533,15 @@ function paintProfileTileContent(tile, el) {
 
 function syncProfilePaletteForPage() {
   const palette = document.getElementById("profile-palette");
-  if (palette) palette.hidden = !(profileIsOwn && profileEditing && !isMiniProfilePageId(profileActivePageId));
+  const show = !!(profileIsOwn && profileEditing);
+  if (palette) palette.hidden = !show;
+  if (!show || !palette || typeof renderProfilePalette !== "function") return;
+  const mini = typeof isMiniProfilePageId === "function" && isMiniProfilePageId(profileActivePageId);
+  const mode = mini ? "mini" : "main";
+  if (mini || palette.dataset.mode !== mode) {
+    palette.dataset.mode = mode;
+    renderProfilePalette();
+  }
 }
 
 function paintMiniProfileEditorPage(board) {
@@ -3571,8 +3579,39 @@ function miniProfileStore(layout) {
   return host.mini_profile;
 }
 
+function miniWidgetSlotOf(row, fallback) {
+  const n = Math.round(Number(row && row.slot));
+  if (n === 0 || n === 1 || n === 2) return n;
+  return fallback == null ? -1 : fallback;
+}
+
+function ensureMiniWidgetSlots(store) {
+  const host = store || miniProfileStore(profileDraft || profileSavedLayout);
+  if (!host || !Array.isArray(host.widgets)) return [null, null, null];
+  const slots = [null, null, null];
+  const leftover = [];
+  host.widgets.forEach((row) => {
+    if (!row || !row.type) return;
+    const n = miniWidgetSlotOf(row, -1);
+    if (n >= 0 && !slots[n]) {
+      row.slot = n;
+      slots[n] = row;
+    } else leftover.push(row);
+  });
+  leftover.forEach((row) => {
+    const i = slots.findIndex((item) => !item);
+    if (i < 0) return;
+    row.slot = i;
+    slots[i] = row;
+  });
+  host.widgets = host.widgets.filter((row) => slots.indexOf(row) >= 0);
+  return slots;
+}
+
 function miniProfileWidgets() {
-  return miniProfileStore(profileDraft || profileSavedLayout).widgets;
+  const store = miniProfileStore(profileDraft || profileSavedLayout);
+  ensureMiniWidgetSlots(store);
+  return store.widgets;
 }
 
 function miniProfileBioTile() {
@@ -3596,6 +3635,7 @@ function miniProfileDataFromOpenProfile() {
     });
   });
   const store = miniProfileStore(layout);
+  ensureMiniWidgetSlots(store);
   const user = profileUser || {};
   return {
     user: {
@@ -3616,6 +3656,7 @@ function miniProfileDataFromOpenProfile() {
       id: tile.id,
       type: tile.type,
       props: tile.props || {},
+      slot: tile.slot,
       live: null
     })),
     roles: [],

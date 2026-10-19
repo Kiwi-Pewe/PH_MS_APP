@@ -98,9 +98,12 @@ function renderMessageText(el, text) {
 }
 
 function fillDefaultEmbedLayout(card, data) {
+  const oldStage = card.querySelector(".link-embed-player");
+  if (oldStage && oldStage._oneiraEmbed && oldStage._oneiraEmbed.destroy) oldStage._oneiraEmbed.destroy();
   const hide = card.querySelector(".link-embed-hide");
   card.innerHTML = "";
   if (hide) card.appendChild(hide);
+  card.classList.remove("link-embed-has-player");
 
   const body = document.createElement("div");
   body.className = "link-embed-body";
@@ -120,6 +123,16 @@ function fillDefaultEmbedLayout(card, data) {
     body.appendChild(desc);
   }
   card.appendChild(body);
+
+  const yt = typeof parseOneiraEmbed === "function" ? parseOneiraEmbed(data.url) : null;
+  if (yt && yt.provider === "youtube" && yt.kind === "video") {
+    card.classList.add("link-embed-has-player");
+    const stage = document.createElement("div");
+    stage.className = "link-embed-player";
+    card.appendChild(stage);
+    if (typeof mountOneiraEmbed === "function") mountOneiraEmbed(stage, { url: data.url });
+    return;
+  }
 
   if (data.image) {
     const img = document.createElement("img");
@@ -200,7 +213,7 @@ function attachLinkImagesIfNeeded(host, content) {
     img.alt = "";
     img.referrerPolicy = "no-referrer";
     img.addEventListener("error", () => wrap.remove());
-    img.addEventListener("click", () => window.open(url, "_blank", "noopener"));
+    if (typeof bindChatImageLightbox === "function") bindChatImageLightbox(img, url);
     wrap.appendChild(img);
     host.appendChild(wrap);
   });

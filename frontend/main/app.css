@@ -2387,7 +2387,7 @@ html.legacy-chat-input #mention-picker { display: none !important; }
 .md-explicit-media.is-open .md-explicit-media-label {
   display: none;
 }
-.md-image { max-width: 100%; display: block; margin: 8px auto; border-radius: 6px; }
+.md-image { max-width: 100%; display: block; margin: 8px auto; border-radius: 6px; cursor: pointer; }
 .composer-highlight .md-image { display: inline-block; height: 1.2em; width: auto; margin: 0; vertical-align: middle; }
 .md-highlight { border-radius: 2px; padding: 0 1px; }
 .composer-highlight .md-size { font-size: inherit; }
@@ -3567,6 +3567,36 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .system-divider::before, .system-divider::after {
   content: ""; flex: 1 1 auto; height: 1px; background: var(--border);
 }
+.chat-date-sep {
+  display: flex; align-items: center; gap: 12px;
+  margin: 16px 0 10px;
+  color: var(--text-dim); font-size: calc(12px * var(--message-scale));
+  font-weight: 700;
+}
+.chat-date-sep::before, .chat-date-sep::after {
+  content: ""; flex: 1 1 auto; height: 1px; background: var(--border);
+}
+.new-messages-divider {
+  display: flex; align-items: center; gap: 8px;
+  margin: 10px 0 12px;
+  color: var(--danger); font-size: calc(12px * var(--message-scale));
+  font-weight: 700; white-space: nowrap;
+}
+.new-messages-divider::before {
+  content: ""; flex: 1 1 auto; height: 1px; background: var(--danger);
+}
+#chat-lightbox-overlay {
+  position: fixed; inset: 0; z-index: 980;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.82);
+  cursor: pointer;
+}
+#chat-lightbox-overlay[hidden] { display: none; }
+#chat-lightbox-img {
+  max-width: min(92vw, 1400px); max-height: 92vh;
+  object-fit: contain; border-radius: 8px; cursor: default;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+}
 
 .deletion-card, .deletion-tombstone {
   width: fit-content;
@@ -4175,6 +4205,7 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .post-media img, .post-media video {
   max-width: 100%; max-height: 360px; border-radius: 8px; display: block;
 }
+.post-media img { cursor: pointer; }
 .post-media-multi {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
 }
@@ -5438,6 +5469,19 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 }
 .link-embed-logo {
   width: 80px; height: 80px; object-fit: cover; border-radius: 8px;
+}
+.link-embed-has-player {
+  width: min(480px, 100%);
+  grid-template-columns: 1fr;
+}
+.link-embed-player {
+  grid-column: 1 / -1;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
 }
 
 #docs-editing-banner {

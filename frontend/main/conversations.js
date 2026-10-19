@@ -371,6 +371,7 @@ async function openDirectMessage(id, username, preload) {
   if (chatActions) chatActions.hidden = false;
   enableComposer();
   ensureConversationPresent(id, username);
+  if (typeof captureNewMessagesIntent === "function") captureNewMessagesIntent("dm", id);
   clearUnread("dm", id);
   if (typeof closePinsPanel === "function") closePinsPanel();
   if (typeof setChatSearchPlaceholder === "function") setChatSearchPlaceholder("Search @" + username);
@@ -444,6 +445,7 @@ async function openParty(id, name, preload) {
   const chatActions = document.getElementById("chat-header-actions");
   if (chatActions) chatActions.hidden = false;
   enableComposer();
+  if (typeof captureNewMessagesIntent === "function") captureNewMessagesIntent("party", id);
   clearUnread("party", id);
   if (typeof closePinsPanel === "function") closePinsPanel();
   if (typeof setChatSearchPlaceholder === "function") setChatSearchPlaceholder("Search " + name);

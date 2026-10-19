@@ -256,6 +256,7 @@ function appendPostMediaItem(host, data) {
     const img = document.createElement("img");
     img.src = data.url;
     img.alt = data.name || "";
+    if (typeof bindChatImageLightbox === "function") bindChatImageLightbox(img, data.url);
     mediaEl = img;
   }
   host.appendChild(typeof wrapExplicitMedia === "function" ? wrapExplicitMedia(mediaEl, data) : mediaEl);

@@ -293,6 +293,7 @@ function mdRenderNode(el, node, options) {
     img.className = "md-image";
     img.alt = node.text || "";
     img.src = node.url;
+    if (typeof bindChatImageLightbox === "function") bindChatImageLightbox(img, node.url);
     el.appendChild(img);
     return;
   }

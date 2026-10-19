@@ -379,6 +379,53 @@ async function uploadPendingIfNeeded() {
   }
 }
 
+function chatLightboxOverlay() {
+  let overlay = document.getElementById("chat-lightbox-overlay");
+  if (overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "chat-lightbox-overlay";
+  overlay.hidden = true;
+  const img = document.createElement("img");
+  img.id = "chat-lightbox-img";
+  img.alt = "";
+  img.addEventListener("click", (e) => e.stopPropagation());
+  overlay.appendChild(img);
+  overlay.addEventListener("click", closeChatLightbox);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeChatLightbox();
+  });
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function openChatLightbox(url) {
+  if (!url) return;
+  const overlay = chatLightboxOverlay();
+  const img = document.getElementById("chat-lightbox-img");
+  if (img) img.src = url;
+  overlay.hidden = false;
+}
+
+function closeChatLightbox() {
+  const overlay = document.getElementById("chat-lightbox-overlay");
+  if (!overlay) return;
+  overlay.hidden = true;
+  const img = document.getElementById("chat-lightbox-img");
+  if (img) img.src = "";
+}
+
+function bindChatImageLightbox(img, url) {
+  if (!img) return;
+  img.addEventListener("click", (e) => {
+    if (img.closest(".composer-highlight, .attach-preview, .announce-composer-media-strip, .forum-post-thumb")) return;
+    const cover = img.closest(".md-explicit-media");
+    if (cover && !cover.classList.contains("is-open")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openChatLightbox(url || img.src);
+  });
+}
+
 function attachMediaIfNeeded(bubble, msg) {
   if (!appearancePref("show_uploads", true)) return;
   const att = parseAttachment(msg && msg.attachment);
@@ -395,13 +442,7 @@ function attachMediaIfNeeded(bubble, msg) {
     const img = document.createElement("img");
     img.src = att.url;
     img.alt = att.name || "image";
-    img.addEventListener("click", (e) => {
-      if (img.closest(".md-explicit-media") && !img.closest(".md-explicit-media.is-open")) {
-        e.preventDefault();
-        return;
-      }
-      window.open(att.url, "_blank", "noopener");
-    });
+    bindChatImageLightbox(img, att.url);
     wrap.appendChild(wrapExplicitMedia(img, att));
   }
   wrap.addEventListener("contextmenu", (e) => showMessageContextMenu(e, msg));

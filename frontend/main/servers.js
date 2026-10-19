@@ -761,6 +761,12 @@ async function selectChannel(channel, rowEl, opts) {
     return;
   }
   if (typeof hideExplicitChannelGate === "function") hideExplicitChannelGate();
+  if (typeof captureNewMessagesIntent === "function") {
+    captureNewMessagesIntent("channel", channel.id, {
+      unread: channel.unread,
+      mention_count: channel.mention_count
+    });
+  }
   if (typeof markChannelReadLocal === "function") markChannelReadLocal(channel.id);
 
   if (isAnnouncement) {

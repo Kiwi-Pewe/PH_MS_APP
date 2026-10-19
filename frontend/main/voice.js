@@ -718,7 +718,8 @@ function paintVoiceChannelChat(opts) {
     wrap.appendChild(buildChannelStartCard(currentChannelName));
   }
   if (typeof renderClusteredMessages === "function") renderClusteredMessages(wrap, currentChannelMessages || []);
-  if (!opts || !opts.preserveScroll) wrap.scrollTop = wrap.scrollHeight;
+  if (typeof scrollFeedToNewOrEnd === "function") scrollFeedToNewOrEnd(wrap, opts);
+  else if (!opts || !opts.preserveScroll) wrap.scrollTop = wrap.scrollHeight;
   paintVoiceChatComposer();
 }
 

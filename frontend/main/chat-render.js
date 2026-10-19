@@ -2,59 +2,180 @@
 // chat-render.js - Turning a message array into DOM: clusters, dividers, start cards.
 // ==================================================================
 
-// Shared by renderMessages (DMs/parties) and renderChannelMessages
-// (server channels) so both get identical clustering/divider behavior.
+const lastReadMessageIds = {};
+let chatNewMarker = { kind: null, id: null, unreadCount: 0, useCursor: false, messageId: null };
+
+function chatReadKey(kind, id) {
+  return String(kind || "") + ":" + String(id);
+}
+
+function captureNewMessagesIntent(kind, id, extra) {
+  extra = extra || {};
+  chatNewMarker = {
+    kind: kind,
+    id: id,
+    unreadCount: 0,
+    useCursor: false,
+    messageId: null
+  };
+  if (kind === "dm" || kind === "party") {
+    const row = (typeof conversationList !== "undefined" ? conversationList : []).find(
+      (c) => c.type === kind && Number(c.id) === Number(id)
+    );
+    const unread = (row && row.unread) || 0;
+    const mentions = (row && row.mentions) || 0;
+    chatNewMarker.unreadCount = kind === "party" ? (unread + mentions) : unread;
+    return;
+  }
+  if (kind === "channel") {
+    const unread = !!(extra.unread || extra.mention_count);
+    const cursor = lastReadMessageIds[chatReadKey("channel", id)];
+    if (unread && cursor != null) chatNewMarker.useCursor = true;
+  }
+}
+
+function resolveNewMessagesMarker(messages) {
+  if (chatNewMarker.messageId != null) return;
+  if (!messages || !messages.length) return;
+  if (chatNewMarker.unreadCount > 0) {
+    let left = chatNewMarker.unreadCount;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (!m || m.isMine || m.isSystem || m.senderId == null) continue;
+      left -= 1;
+      if (left <= 0) {
+        chatNewMarker.messageId = m.id;
+        return;
+      }
+    }
+    const first = messages.find((m) => m && !m.isMine && !m.isSystem && m.senderId != null);
+    if (first) chatNewMarker.messageId = first.id;
+    return;
+  }
+  if (chatNewMarker.useCursor) {
+    const cursor = lastReadMessageIds[chatReadKey(chatNewMarker.kind, chatNewMarker.id)];
+    const found = messages.find((m) => (
+      m && m.id != null && Number(m.id) > Number(cursor) && !m.isMine && !m.isSystem && m.senderId != null
+    ));
+    if (found) chatNewMarker.messageId = found.id;
+  }
+}
+
+function rememberReadCursor(kind, id, messages) {
+  if (!kind || id == null || !messages || !messages.length) return;
+  let last = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m && m.id != null && String(m.id).indexOf("tmp-") !== 0) {
+      last = m.id;
+      break;
+    }
+  }
+  if (last == null) return;
+  const key = chatReadKey(kind, id);
+  const prev = lastReadMessageIds[key];
+  if (prev == null || Number(last) >= Number(prev)) lastReadMessageIds[key] = last;
+}
+
+function chatItemTime(msg) {
+  if (!msg || msg.time == null) return null;
+  const d = msg.time instanceof Date ? msg.time : new Date(msg.time);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function buildDateSeparator(date) {
+  const el = document.createElement("div");
+  el.className = "chat-date-sep";
+  el.textContent = typeof formatChatDateSeparator === "function" ? formatChatDateSeparator(date) : "";
+  return el;
+}
+
+function buildNewMessagesDivider() {
+  const el = document.createElement("div");
+  el.className = "new-messages-divider";
+  el.textContent = "New Messages";
+  return el;
+}
+
+function appendChatDecorators(wrap, msg, lastDateRef) {
+  const when = chatItemTime(msg);
+  if (when && (!lastDateRef.date || (typeof sameCalendarDay === "function" ? !sameCalendarDay(lastDateRef.date, when) : false))) {
+    wrap.appendChild(buildDateSeparator(when));
+  }
+  if (when) lastDateRef.date = when;
+  if (chatNewMarker && chatNewMarker.messageId != null && msg && msg.id != null && String(msg.id) === String(chatNewMarker.messageId)) {
+    wrap.appendChild(buildNewMessagesDivider());
+  }
+}
+
+function scrollFeedToNewOrEnd(scrollEl, opts) {
+  if (!scrollEl || (opts && opts.preserveScroll)) return;
+  const line = scrollEl.querySelector(".new-messages-divider");
+  if (line) {
+    line.scrollIntoView({ block: "center" });
+    return;
+  }
+  scrollEl.scrollTop = scrollEl.scrollHeight;
+}
+
 function renderClusteredMessages(wrap, messages) {
-  let openCluster = null; // { isMine, lastTime, bubbleEl }
+  let openCluster = null;
+  const lastDateRef = { date: null };
+  resolveNewMessagesMarker(messages);
 
   messages.forEach(msg => {
-    // No sender = system notice (leave-party, etc.) - always a full-width
-    // divider, never merged into a cluster. Resets openCluster so the
-    // next real message starts fresh rather than silently merging across
-    // the divider.
+    const when = chatItemTime(msg);
+    const newDay = !!(when && lastDateRef.date && typeof sameCalendarDay === "function" && !sameCalendarDay(lastDateRef.date, when));
+    const isNewStart = !!(chatNewMarker && chatNewMarker.messageId != null && msg.id != null && String(msg.id) === String(chatNewMarker.messageId));
+
     if (msg.deletionState === "deleted" || pendingIsExpired(msg)) {
+      appendChatDecorators(wrap, msg, lastDateRef);
       wrap.appendChild(buildDeletedTombstone(msg));
       openCluster = null;
       return;
     }
     if (msg.permaban) {
+      appendChatDecorators(wrap, msg, lastDateRef);
       wrap.appendChild(buildPermabanFooter(msg));
       openCluster = null;
       return;
     }
     if (msg.deletionState === "pending") {
+      appendChatDecorators(wrap, msg, lastDateRef);
       wrap.appendChild(buildPendingDeleteCard(msg));
       openCluster = null;
       return;
     }
     if (editingMessageId && msg.id === editingMessageId) {
+      appendChatDecorators(wrap, msg, lastDateRef);
       wrap.appendChild(buildEditComposer(msg));
       openCluster = null;
       return;
     }
 
     if (isCallMessage(msg)) {
+      appendChatDecorators(wrap, msg, lastDateRef);
       wrap.appendChild(buildCallLine(msg));
       openCluster = null;
       return;
     }
 
     if (msg.isSystem || msg.senderId === null) {
+      appendChatDecorators(wrap, msg, lastDateRef);
       wrap.appendChild(buildSystemDivider(msg));
       openCluster = null;
       return;
     }
 
-    // username (not just isMine) is the real clustering key - a party
-    // can have multiple "not me" senders, and isMine alone would wrongly
-    // merge two different people's back-to-back messages.
     const sameSenderAsLast = openCluster && openCluster.isMine === msg.isMine && openCluster.username === msg.username;
     const withinGap = openCluster &&
       (msg.time - openCluster.lastTime) <= CLUSTER_GAP_MINUTES * 60 * 1000;
 
-    if (msg.replyTo || !(sameSenderAsLast && withinGap)) {
+    if (msg.replyTo || isNewStart || newDay || !(sameSenderAsLast && withinGap)) {
+      appendChatDecorators(wrap, msg, lastDateRef);
       openCluster = startNewCluster(wrap, msg);
     } else {
+      if (when) lastDateRef.date = when;
       const line = document.createElement("div");
       if (msg.content) {
         fillBubbleLine(line, msg);
@@ -97,12 +218,8 @@ function renderMessages(opts = {}) {
 
   renderClusteredMessages(wrap, currentMessages);
 
-  // #chat-body is the actual scrolling element, not #chat-messages.
-  // loadOlderMessages manages scroll itself, so skip when preserving.
-  if (!opts.preserveScroll) {
-    const chatBody = document.getElementById("chat-body");
-    chatBody.scrollTop = chatBody.scrollHeight;
-  }
+  if (openChatId != null && openChatType) rememberReadCursor(openChatType, openChatId, currentMessages);
+  scrollFeedToNewOrEnd(document.getElementById("chat-body"), opts);
 }
 
 function renderChannelMessages(opts = {}) {
@@ -119,10 +236,12 @@ function renderChannelMessages(opts = {}) {
 
   renderClusteredMessages(wrap, currentChannelMessages);
 
-  if (!opts.preserveScroll) {
-    const channelBody = document.getElementById("channel-body");
-    channelBody.scrollTop = channelBody.scrollHeight;
+  if (typeof openForumPostId !== "undefined" && openForumPostId != null) {
+    rememberReadCursor("forum", openForumPostId, currentChannelMessages);
+  } else if (currentChannelId != null) {
+    rememberReadCursor("channel", currentChannelId, currentChannelMessages);
   }
+  scrollFeedToNewOrEnd(document.getElementById("channel-body"), opts);
   if (typeof paintVoiceChannelChat === "function") paintVoiceChannelChat(opts);
 }
 
@@ -553,6 +672,15 @@ function buildReplySnippet(replyTo, chatKind) {
   if (replyTo.id && !replyTo.deleted) {
     row.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (typeof jumpToPinnedMessage === "function") {
+        jumpToPinnedMessage({
+          message_kind: chatKind,
+          chat_kind: chatKind,
+          message_id: replyTo.id,
+          post_id: (typeof openForumPostId !== "undefined" ? openForumPostId : null)
+        });
+        return;
+      }
       const target = document.querySelector(`[data-message-id="${replyTo.id}"]`);
       if (target) target.scrollIntoView({ block: "center" });
     });
@@ -568,10 +696,18 @@ function buildConversationStartCard(id, username) {
   avatar.className = "convo-start-avatar";
   if (typeof paintUserFace === "function") paintUserFace(avatar, { id: id, username: username }, { name: username, userId: id });
   else avatar.textContent = avatarLetter(username);
+  avatar.addEventListener("contextmenu", (e) => {
+    if (typeof showProfileContextMenu === "function") showProfileContextMenu(e, id, username, false, false);
+  });
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(avatar, id);
 
   const name = document.createElement("div");
   name.className = "convo-start-name";
   name.textContent = username;
+  name.addEventListener("contextmenu", (e) => {
+    if (typeof showProfileContextMenu === "function") showProfileContextMenu(e, id, username, false, false);
+  });
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(name, id);
 
   const meta = document.createElement("div");
   meta.className = "convo-start-meta";

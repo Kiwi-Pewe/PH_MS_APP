@@ -42,6 +42,28 @@ function formatClusterTime(date) {
   return `${dateStr} \u00b7 ${timeStr}`;
 }
 
+function sameCalendarDay(a, b) {
+  if (!a || !b) return false;
+  const da = a instanceof Date ? a : new Date(a);
+  const db = b instanceof Date ? b : new Date(b);
+  if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return false;
+  return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+}
+
+function formatChatDateSeparator(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const that = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round((today - that) / (24 * 60 * 60 * 1000));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  const opts = { weekday: "long", month: "long", day: "numeric" };
+  if (d.getFullYear() !== now.getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString([], opts);
+}
+
 // Backend timestamps come back as str(datetime) with no timezone marker
 // (naive UTC) — a bare space-separated string gets misread as LOCAL time
 // by Date(). Client-generated ISO strings (trailing Z) don't need this.

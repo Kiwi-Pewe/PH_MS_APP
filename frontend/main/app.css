@@ -8500,11 +8500,13 @@ body.is-mini-dragging {
   justify-content: flex-start;
   overflow: hidden;
 }
-.mini-profile-widget-tile.is-connections.has-steam > .profile-tile-head {
-  text-align: center;
-  width: 100%;
-}
-.mini-profile-widget-tile.is-connections.has-steam > .profile-tile-body {
+.mini-profile-widget-tile.is-connections.has-steam .profile-text-shell {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   text-align: left;
 }
 .mini-profile-widget-tile.is-connections .steam-profile-card,

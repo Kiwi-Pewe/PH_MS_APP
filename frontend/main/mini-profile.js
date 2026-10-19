@@ -807,8 +807,10 @@ function paintMiniConnection(el, tile, live, editing, data) {
     const card = miniSteamCardSource(live, data);
     if (card && card.linked) {
       el.classList.add("has-steam");
-      const body = paintMiniWidgetChrome(el, "Connection");
-      paintMiniSteamConnection(body, props, card);
+      const shell = document.createElement("div");
+      shell.className = "profile-text-shell";
+      el.appendChild(shell);
+      paintMiniSteamConnection(shell, props, card);
       return;
     }
     const owner = String((data && data.user && data.user.id) || (typeof profileOwnerId !== "undefined" ? profileOwnerId : "") || "");
@@ -834,7 +836,6 @@ function paintMiniConnection(el, tile, live, editing, data) {
     paintMiniAwaiting(el, "Connection", waiting);
     return;
   }
-  const body = paintMiniWidgetChrome(el, "Connection");
   const label = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : "Connection";
   const line = document.createElement("div");
   line.className = "profile-friend-row";
@@ -842,7 +843,7 @@ function paintMiniConnection(el, tile, live, editing, data) {
   name.className = "profile-friend-name";
   name.textContent = live.name ? (label + " · " + live.name) : label;
   line.appendChild(name);
-  body.appendChild(line);
+  el.appendChild(line);
 }
 
 function paintMiniMemberSince(el, tile, live) {

@@ -833,10 +833,36 @@ function highlightMiniDropSlot(x, y) {
   if (el) el.classList.add("is-drop");
 }
 
+function miniDragZoom() {
+  return typeof pageZoom === "function" ? pageZoom() : 1;
+}
+
+function makeMiniDragGhost(label, e, source) {
+  const ghost = document.createElement("div");
+  ghost.className = "mini-palette-ghost";
+  ghost.textContent = label;
+  ghost.style.position = "fixed";
+  const z = miniDragZoom();
+  if (source && source.getBoundingClientRect) {
+    const rect = source.getBoundingClientRect();
+    ghost._grabX = e.clientX - rect.left;
+    ghost._grabY = e.clientY - rect.top;
+    ghost.style.width = (rect.width / z) + "px";
+    ghost.style.boxSizing = "border-box";
+  } else {
+    ghost._grabX = 12;
+    ghost._grabY = 12;
+  }
+  document.body.appendChild(ghost);
+  moveMiniDragGhost(ghost, e.clientX, e.clientY);
+  return ghost;
+}
+
 function moveMiniDragGhost(ghost, x, y) {
   if (!ghost) return;
-  ghost.style.left = (x + 8) + "px";
-  ghost.style.top = (y + 8) + "px";
+  const z = miniDragZoom();
+  ghost.style.left = ((x - (ghost._grabX || 0)) / z) + "px";
+  ghost.style.top = ((y - (ghost._grabY || 0)) / z) + "px";
 }
 
 function beginMiniPaletteDrag(e, type, btn) {
@@ -844,11 +870,7 @@ function beginMiniPaletteDrag(e, type, btn) {
   if (btn && btn.disabled) return;
   e.preventDefault();
   if (btn && btn.setPointerCapture) btn.setPointerCapture(e.pointerId);
-  const ghost = document.createElement("div");
-  ghost.className = "mini-palette-ghost";
-  ghost.textContent = (btn && btn.textContent) || miniWidgetLabel(type);
-  document.body.appendChild(ghost);
-  moveMiniDragGhost(ghost, e.clientX, e.clientY);
+  const ghost = makeMiniDragGhost((btn && btn.textContent) || miniWidgetLabel(type), e, btn);
   function onMove(ev) {
     moveMiniDragGhost(ghost, ev.clientX, ev.clientY);
     highlightMiniDropSlot(ev.clientX, ev.clientY);
@@ -882,10 +904,7 @@ function bindMiniSlotMove(slotEl, tile) {
       if (!moved) {
         moved = true;
         if (slotEl.setPointerCapture) slotEl.setPointerCapture(ev.pointerId);
-        ghost = document.createElement("div");
-        ghost.className = "mini-palette-ghost";
-        ghost.textContent = miniWidgetLabel(tile.type);
-        document.body.appendChild(ghost);
+        ghost = makeMiniDragGhost(miniWidgetLabel(tile.type), ev, slotEl);
         slotEl.classList.add("is-dragging");
       }
       moveMiniDragGhost(ghost, ev.clientX, ev.clientY);

@@ -8414,6 +8414,8 @@ a.profile-link-row:hover { color: var(--accent); }
   position: fixed;
   z-index: 1200;
   pointer-events: none;
+  width: max-content;
+  max-width: 240px;
   background: var(--panel-alt);
   color: var(--text);
   border: 1px solid var(--border);

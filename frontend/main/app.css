@@ -8631,6 +8631,9 @@ body.is-mini-dragging {
   white-space: nowrap;
   min-height: 1.3em;
 }
+.mini-featured-server.is-no-type .who {
+  margin-top: calc(1.3em + 2px);
+}
 .mini-featured-server-desc {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -8641,7 +8644,6 @@ body.is-mini-dragging {
   white-space: normal;
   min-height: 2.6em;
 }
-.mini-featured-server-type.is-empty::before,
 .mini-featured-server-desc.is-empty::before {
   content: "\00a0";
 }

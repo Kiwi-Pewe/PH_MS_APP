@@ -789,16 +789,19 @@ function paintMiniFeaturedServerCard(server, opts) {
   const who = document.createElement("div");
   who.className = "who";
   who.textContent = (server && server.name) || "Server";
-  const kind = document.createElement("div");
   const typeLabel = serverTypeLabel(server && server.server_type);
-  kind.className = "mini-featured-server-type" + (typeLabel ? "" : " is-empty");
-  kind.textContent = typeLabel;
+  if (!typeLabel) row.classList.add("is-no-type");
   const desc = document.createElement("div");
   const about = String((server && (server.about || server.description)) || "").trim();
   desc.className = "mini-featured-server-desc" + (about ? "" : " is-empty");
   desc.textContent = about;
   text.appendChild(who);
-  text.appendChild(kind);
+  if (typeLabel) {
+    const kind = document.createElement("div");
+    kind.className = "mini-featured-server-type";
+    kind.textContent = typeLabel;
+    text.appendChild(kind);
+  }
   text.appendChild(desc);
   row.appendChild(face);
   row.appendChild(text);

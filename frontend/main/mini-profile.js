@@ -569,33 +569,73 @@ function paintMiniWidgetChrome(el, title) {
   return body;
 }
 
-function paintMiniMutuals(el, tile, live, editing) {
-  if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
-  if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
-  const people = (live && Array.isArray(live.people) ? live.people : []).slice();
-  const total = live && live.total != null ? Number(live.total) : people.length;
-  if (!people.length) {
-    paintMiniAwaiting(el, "Mutuals", editing ? "Other people see friends you share." : "No mutuals to show.");
-    return;
-  }
-  const body = paintMiniWidgetChrome(el, "Mutuals");
+function miniMutualPlaceholders() {
+  return [1, 2, 3, 4].map((n) => ({
+    id: "placeholder-" + n,
+    username: "P" + n,
+    display_name: "P" + n,
+    status: "Status",
+    presence: "online",
+    placeholder: true
+  }));
+}
+
+function paintMiniMutualList(el, people, total, liveView) {
+  const wrap = document.createElement("div");
+  wrap.className = "mini-mutuals";
   people.slice(0, MINI_MUTUAL_CAP).forEach((person) => {
-    body.appendChild(paintMiniPersonRow(person, (row) => {
-      if (typeof closeMiniProfile === "function") closeMiniProfile();
-      if (row.id && typeof openUserProfile === "function") openUserProfile(row.id);
-    }));
+    const card = paintMiniFeaturedFriendCard(person);
+    card.classList.add("is-mutual");
+    if (liveView && person && person.id && !person.placeholder) {
+      card.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (typeof openMiniProfile === "function") {
+          openMiniProfile(person.id, (typeof miniProfileAnchor !== "undefined" && miniProfileAnchor) || card);
+        }
+      });
+      card.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof showProfileContextMenu === "function") {
+          showProfileContextMenu(e, person.id, person.username || person.display_name, false);
+        }
+      });
+    }
+    wrap.appendChild(card);
   });
   if (total > MINI_MUTUAL_CAP) {
     const more = document.createElement("button");
     more.type = "button";
     more.className = "mini-mutual-more";
     more.textContent = "+" + (total - MINI_MUTUAL_CAP) + " more";
-    more.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openMiniMutualsSubmenu(people, total);
-    });
-    body.appendChild(more);
+    if (liveView) {
+      more.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openMiniMutualsSubmenu(people, total);
+      });
+    }
+    wrap.appendChild(more);
   }
+  el.appendChild(wrap);
+}
+
+function paintMiniMutuals(el, tile, live, editing, data) {
+  if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+  if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
+  const people = (live && Array.isArray(live.people) ? live.people : []).slice();
+  const total = live && live.total != null ? Number(live.total) : people.length;
+  const liveView = !editing && !el.classList.contains("is-opt-preview");
+  if (editing) {
+    paintMiniMutualList(el, miniMutualPlaceholders(), MINI_MUTUAL_CAP, false);
+    return;
+  }
+  if (!people.length) {
+    const isSelf = !!(data && data.is_self);
+    const owner = (data && data.user && (data.user.display_name || data.user.username)) || "this user";
+    paintMiniAwaiting(el, "Mutuals", isSelf ? "No mutuals to show." : ("You have no mutuals with \"" + owner + "\""));
+    return;
+  }
+  paintMiniMutualList(el, people, total, liveView);
 }
 
 function paintMiniFeaturedFriendCard(person) {
@@ -988,7 +1028,7 @@ function paintMiniProfileWidgetTile(host, tile, data, editing) {
     return;
   }
   if (tile.type === "mutuals") {
-    paintMiniMutuals(host, tile, live, editing);
+    paintMiniMutuals(host, tile, live, editing, data);
     return;
   }
   if (tile.type === "featured_friend") {

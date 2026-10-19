@@ -8700,6 +8700,36 @@ body.is-mini-dragging {
   padding: 4px;
   font-size: calc(var(--profile-text-size, 14pt) * 0.8);
 }
+.mini-profile-widget-tile.is-mutuals:not(.is-awaiting) {
+  justify-content: flex-start;
+  align-items: stretch;
+  text-align: left;
+}
+.mini-mutuals {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 4px;
+  box-sizing: border-box;
+  padding: 2px 4px;
+}
+.mini-mutuals .mini-featured-friend.is-mutual {
+  min-height: 0;
+  flex: 0 0 auto;
+  padding: 4px 2px;
+  gap: 10px;
+}
+.mini-mutuals .mini-featured-friend.is-mutual .avatar-dot {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  font-size: 18px;
+}
+.mini-mutuals .mini-featured-friend.is-mutual .status-dot {
+  width: 14px;
+  height: 14px;
+  border-width: 3px;
+}
 .mini-mutual-more {
   display: block;
   width: 100%;

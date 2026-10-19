@@ -8392,6 +8392,79 @@ a.profile-link-row:hover { color: var(--accent); }
   color: var(--accent-hover);
   border-color: var(--accent-hover);
 }
+.mini-profile-widget-tile {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 10px;
+  min-height: 52px;
+}
+.mini-profile-widget-tile .profile-tile-head {
+  padding: 8px 4px 0;
+}
+.mini-profile-widget-tile .profile-tile-body {
+  padding: 6px 4px 8px;
+}
+.mini-mutual-more {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.mini-sub-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 980;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+.mini-sub-modal {
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(520px, calc(100vh - 24px));
+  display: flex;
+  flex-direction: column;
+}
+.mini-sub-modal .leave-party-main {
+  overflow: auto;
+  min-height: 80px;
+}
+.mini-sub-pick {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 0;
+  cursor: pointer;
+}
+.mini-sub-pick:hover { color: var(--accent); }
+.mini-mutual-list { display: flex; flex-direction: column; gap: 4px; }
+.profile-opt-pick {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 8px 10px;
+  margin: 0 0 6px;
+  cursor: pointer;
+}
+.profile-opt-pick.is-on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .mini-profile-section-label {
   font-size: 12px;
   font-weight: 700;

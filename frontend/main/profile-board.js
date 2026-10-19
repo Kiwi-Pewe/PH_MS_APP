@@ -602,6 +602,17 @@ function defaultProfileTileProps(type, existing) {
     }, chrome);
   }
   if (type === "friends") return Object.assign({ friend_size: clampProfileEntrySize(prev.friend_size) }, chrome);
+  if (type === "featured_friend") {
+    const n = Number(prev.user_id);
+    return Object.assign({ user_id: Number.isFinite(n) && n > 0 ? n : 0 }, chrome);
+  }
+  if (type === "featured_server") {
+    return Object.assign({ server_id: String(prev.server_id || "").trim().toUpperCase() }, chrome);
+  }
+  if (type === "connections") {
+    return Object.assign({ provider: String(prev.provider || "").trim().toLowerCase() }, chrome);
+  }
+  if (type === "mutuals") return Object.assign({}, chrome);
   if (type === "button") {
     const action = prev.action === "page" || prev.action === "friend" ? prev.action : "link";
     return Object.assign({
@@ -762,7 +773,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "meter" || type === "member_since" || type === "friends" || type === "link_tree" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "meter" || type === "member_since" || type === "friends" || type === "link_tree" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "mutuals" || type === "featured_friend" || type === "featured_server" || type === "connections";
 }
 
 function profileTextChrome(props, type) {
@@ -1962,7 +1973,7 @@ function paintProfileHeader(tile, el) {
 
 function paintProfileCopy(tile, el, kind) {
   const text = (tile.props && tile.props.text) || "";
-  const max = kind === "footnote" ? 300 : 1000;
+  const max = kind === "footnote" ? 300 : (Number(tile.maxChars) > 0 ? Number(tile.maxChars) : 1000);
   const emptyLabel = kind === "footnote" ? "Footnote" : kind === "bio" ? "Write something about yourself." : "Write something.";
   if (profileEditing && profileIsOwn) {
     const area = document.createElement("textarea");
@@ -3556,7 +3567,12 @@ function miniProfileStore(layout) {
     const leftover = leftoverProfileBioText(host);
     if (leftover) host.mini_profile.text = leftover;
   }
+  if (!Array.isArray(host.mini_profile.widgets)) host.mini_profile.widgets = [];
   return host.mini_profile;
+}
+
+function miniProfileWidgets() {
+  return miniProfileStore(profileDraft || profileSavedLayout).widgets;
 }
 
 function miniProfileBioTile() {
@@ -3579,7 +3595,7 @@ function miniProfileDataFromOpenProfile() {
       if (tile.type === "banner" && props.color && banner === "#1e6b8a") banner = props.color;
     });
   });
-  const about = String(miniProfileStore(layout).text || leftoverProfileBioText(layout) || "").trim();
+  const store = miniProfileStore(layout);
   const user = profileUser || {};
   return {
     user: {
@@ -3587,15 +3603,21 @@ function miniProfileDataFromOpenProfile() {
       username: user.username || myUsername,
       display_name: user.display_name || myDisplayName || myUsername,
       status: user.status || "",
-      pronouns: user.pronouns || ""
+      pronouns: user.pronouns || "",
+      member_since: user.member_since || ""
     },
     banner_color: banner,
-    about,
     identity: layout.identity || null,
     presence: "online",
     is_self: true,
     in_server: false,
     note: "",
+    widgets: (store.widgets || []).map((tile) => ({
+      id: tile.id,
+      type: tile.type,
+      props: tile.props || {},
+      live: null
+    })),
     roles: [],
     assignable: []
   };

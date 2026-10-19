@@ -37,6 +37,12 @@ TILE_TYPES = {
 PAGE_VIS = {"public", "owner"}
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 BIO_MAX = 1000
+MINI_BODY_MAX = 200
+MINI_WIDGET_MAX = 3
+MINI_WIDGET_TYPES = {
+    "clock", "steam_playing_now", "body", "member_since", "button", "meter",
+    "mutuals", "featured_friend", "featured_server", "connections",
+}
 HEADER_MAX = 120
 FOOTNOTE_MAX = 300
 LIST_ITEM_MAX = 200
@@ -1296,7 +1302,73 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_steam_achievement_props(data)
     if kind == "steam_badges":
         return normalize_steam_badge_props(data)
+    if kind == "featured_friend":
+        try:
+            user_id = int(data.get("user_id") or 0)
+        except (TypeError, ValueError):
+            user_id = 0
+        out = normalize_text_chrome(data, 14, True)
+        out["user_id"] = user_id if user_id > 0 else 0
+        return out
+    if kind == "featured_server":
+        code = str(data.get("server_id") or "").strip().upper()
+        out = normalize_text_chrome(data, 14, True)
+        out["server_id"] = code if SERVER_ID_RE.match(code) else ""
+        return out
+    if kind == "connections":
+        provider = str(data.get("provider") or "").strip().lower()
+        out = normalize_text_chrome(data, 14, True)
+        out["provider"] = provider
+        return out
+    if kind == "mutuals":
+        return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)
+
+
+def normalize_mini_body_props(data, banner_fallback):
+    out = normalize_props("body", data, banner_fallback)
+    out["text"] = clip_text(out.get("text"), MINI_BODY_MAX)
+    return out
+
+
+def normalize_mini_profile(raw_mini, banner_fallback):
+    data = raw_mini if isinstance(raw_mini, dict) else {}
+    chrome = normalize_props("bio", data, banner_fallback)
+    widgets = []
+    seen = set()
+    used_types = set()
+    rows = data.get("widgets")
+    if not isinstance(rows, list):
+        rows = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        kind = str(row.get("type") or "")
+        if kind not in MINI_WIDGET_TYPES or kind in used_types:
+            continue
+        tile_id = str(row.get("id") or "").strip() or new_id("tile")
+        if tile_id in seen:
+            tile_id = new_id("tile")
+        seen.add(tile_id)
+        props_in = row.get("props") if isinstance(row.get("props"), dict) else {}
+        if kind == "body":
+            props = normalize_mini_body_props(props_in, banner_fallback)
+        else:
+            props = normalize_props(kind, props_in, banner_fallback)
+        widgets.append({"id": tile_id, "type": kind, "props": props})
+        used_types.add(kind)
+        if len(widgets) >= MINI_WIDGET_MAX:
+            break
+    if not widgets and data.get("widgets") is None:
+        leftover = clip_text(data.get("text"), MINI_BODY_MAX).strip()
+        if leftover:
+            widgets.append({
+                "id": "mini-body",
+                "type": "body",
+                "props": normalize_mini_body_props({"text": leftover}, banner_fallback),
+            })
+    chrome["widgets"] = widgets
+    return chrome
 
 
 def normalize_tile(raw, used_ids, banner_fallback):
@@ -1468,7 +1540,7 @@ def normalize_layout(raw):
                 raw_mini = dict(raw_mini)
                 raw_mini["text"] = found
                 break
-    out["mini_profile"] = normalize_props("bio", raw_mini, banner_fallback)
+    out["mini_profile"] = normalize_mini_profile(raw_mini, banner_fallback)
     out["identity"] = normalize_identity(data.get("identity"))
     out["image_recents"] = normalize_image_recents(data.get("image_recents"))
     for page in out.get("pages") or []:

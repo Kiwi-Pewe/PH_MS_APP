@@ -519,7 +519,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -665,6 +665,18 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   if (tile.type === "steam_badges") {
     fillFixedTitleOptions(box, draft, onChange, "left");
     fillSteamBadgeOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "featured_friend") {
+    fillMiniFriendPick(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "featured_server") {
+    fillMiniServerPick(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "connections") {
+    fillMiniConnectionPick(box, draft, onChange, hintEl);
     return;
   }
   const empty = document.createElement("div");
@@ -1514,6 +1526,142 @@ function fillDisplayServerOptions(box, draft, onChange, hintEl) {
     .catch(() => {
       if (!list.isConnected) return;
       list.textContent = "Could not load your servers.";
+    });
+}
+
+function fillMiniFriendPick(box, draft, onChange, hintEl) {
+  const heading = document.createElement("div");
+  heading.className = "profile-opt-field-label";
+  heading.textContent = "Friend";
+  profileOptHint(heading, "The one person this card shows.", hintEl);
+  box.appendChild(heading);
+  const list = document.createElement("div");
+  list.className = "profile-opt-server-picks";
+  list.textContent = "Loading friends…";
+  box.appendChild(list);
+  const paint = (people) => {
+    if (!list.isConnected) return;
+    list.innerHTML = "";
+    if (!people.length) {
+      const note = document.createElement("div");
+      note.className = "settings-opt-desc";
+      note.textContent = "Add a friend first, then pick them here.";
+      list.appendChild(note);
+      return;
+    }
+    people.forEach((person) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "profile-opt-pick" + (Number(draft.user_id) === Number(person.id) ? " is-on" : "");
+      row.textContent = person.display_name || person.username || "Friend";
+      row.addEventListener("click", () => {
+        draft.user_id = person.id;
+        Array.from(list.children).forEach((child) => child.classList.toggle("is-on", child === row));
+        onChange();
+      });
+      list.appendChild(row);
+    });
+  };
+  const cached = typeof profileFriends !== "undefined" && Array.isArray(profileFriends) ? profileFriends : [];
+  if (cached.length) {
+    paint(cached);
+    return;
+  }
+  fetch("https://" + serverAddress + "/get_friends", { credentials: "include" })
+    .then((res) => res.ok ? res.json() : Promise.reject())
+    .then((data) => {
+      const people = [].concat(data.online_friends || [], data.offline_friends || []);
+      paint(people);
+    })
+    .catch(() => {
+      if (!list.isConnected) return;
+      list.textContent = "Could not load friends.";
+    });
+}
+
+function fillMiniServerPick(box, draft, onChange, hintEl) {
+  const heading = document.createElement("div");
+  heading.className = "profile-opt-field-label";
+  heading.textContent = "Server";
+  profileOptHint(heading, "The one server this card shows.", hintEl);
+  box.appendChild(heading);
+  const list = document.createElement("div");
+  list.className = "profile-opt-server-picks";
+  list.textContent = "Loading servers…";
+  box.appendChild(list);
+  fetch("https://" + serverAddress + "/get_servers", { credentials: "include" })
+    .then((res) => res.ok ? res.json() : Promise.reject())
+    .then((data) => {
+      if (!list.isConnected) return;
+      const servers = (data && data.servers) || [];
+      list.innerHTML = "";
+      if (!servers.length) {
+        const note = document.createElement("div");
+        note.className = "settings-opt-desc";
+        note.textContent = "Join a server first, then pick it here.";
+        list.appendChild(note);
+        return;
+      }
+      servers.forEach((server) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "profile-opt-pick" + (String(draft.server_id || "") === String(server.id) ? " is-on" : "");
+        row.textContent = server.name || "Server";
+        row.addEventListener("click", () => {
+          draft.server_id = server.id;
+          Array.from(list.children).forEach((child) => child.classList.toggle("is-on", child === row));
+          onChange();
+        });
+        list.appendChild(row);
+      });
+    })
+    .catch(() => {
+      if (!list.isConnected) return;
+      list.textContent = "Could not load your servers.";
+    });
+}
+
+function fillMiniConnectionPick(box, draft, onChange, hintEl) {
+  const heading = document.createElement("div");
+  heading.className = "profile-opt-field-label";
+  heading.textContent = "Connection";
+  profileOptHint(heading, "One linked account. Only accounts you have actually connected.", hintEl);
+  box.appendChild(heading);
+  const list = document.createElement("div");
+  list.className = "profile-opt-server-picks";
+  list.textContent = "Loading connections…";
+  box.appendChild(list);
+  fetch("https://" + serverAddress + "/connections", { credentials: "include" })
+    .then((res) => res.ok ? res.json() : Promise.reject())
+    .then((data) => {
+      if (!list.isConnected) return;
+      const rows = (data && data.connections) || [];
+      list.innerHTML = "";
+      if (!rows.length) {
+        const note = document.createElement("div");
+        note.className = "settings-opt-desc";
+        note.textContent = "Connect an account in Settings first.";
+        list.appendChild(note);
+        return;
+      }
+      rows.forEach((row) => {
+        const slug = String(row.provider || "");
+        const label = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : "Connection";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "profile-opt-pick" + (String(draft.provider || "") === slug ? " is-on" : "");
+        btn.textContent = row.name ? (label + " · " + row.name) : label;
+        btn.addEventListener("click", () => {
+          draft.provider = slug;
+          Array.from(list.children).forEach((child) => child.classList.toggle("is-on", child === btn));
+          onChange();
+        });
+        list.appendChild(btn);
+      });
+    })
+    .catch(() => {
+      if (!list.isConnected) return;
+      list.textContent = "Could not load connections.";
     });
 }
 

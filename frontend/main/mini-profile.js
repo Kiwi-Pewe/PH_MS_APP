@@ -5,6 +5,21 @@
 // ==================================================================
 
 const MINI_PROFILE_ROLE_CAP = 5;
+const MINI_WIDGET_CAP = 3;
+const MINI_MUTUAL_CAP = 4;
+const MINI_BODY_MAX = 200;
+const MINI_WIDGET_ADD = [
+  { type: "clock", label: "Clock" },
+  { type: "steam_playing_now", label: "Playing Now", steam: true },
+  { type: "body", label: "Body" },
+  { type: "member_since", label: "Member since" },
+  { type: "button", label: "Button" },
+  { type: "meter", label: "Meter" },
+  { type: "mutuals", label: "Mutuals" },
+  { type: "featured_friend", label: "Featured friend" },
+  { type: "featured_server", label: "Featured server" },
+  { type: "connections", label: "Connections" }
+];
 
 let miniProfileOpen = false;
 let miniProfileData = null;
@@ -41,6 +56,7 @@ function flushMiniProfileNote() {
 }
 
 function closeMiniProfile() {
+  closeMiniSubOverlay();
   flushMiniProfileNote();
   miniProfileOpen = false;
   miniProfileData = null;
@@ -63,6 +79,7 @@ function miniProfileClickOutside(e) {
   if (card && card.contains(e.target)) return;
   if (picker && picker.contains(e.target)) return;
   if (typeof activeMenuEl !== "undefined" && activeMenuEl && activeMenuEl.contains(e.target)) return;
+  if (e.target.closest && e.target.closest(".mini-sub-overlay, .settings-form-overlay, .profile-opt")) return;
   closeMiniProfile();
 }
 
@@ -398,42 +415,13 @@ function paintMiniProfileInto(card, data, opts) {
   nameRow.appendChild(actions);
   identity.appendChild(nameRow);
 
-  if (data.about || editing) {
-    const about = document.createElement("div");
-    about.className = "mini-profile-about" + (data.about ? "" : " is-empty");
-    about.textContent = data.about || "Bio";
-    if (editing && typeof miniProfileBioTile === "function") {
-      const tile = miniProfileBioTile();
-      if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(about, tile);
-      if (typeof profileTextChrome === "function") {
-        const chrome = profileTextChrome(tile.props, "bio");
-        about.style.fontSize = chrome.text_size + "pt";
-        about.style.textAlign = chrome.text_align;
-      }
-    }
-    bindMiniProfileBio(about, editing);
-    identity.appendChild(about);
-  }
   card.appendChild(identity);
+
+  const widgetHost = buildMiniProfileWidgets(data, { page: page, editing: editing });
+  if (widgetHost) card.appendChild(widgetHost);
 
   if (data.in_server) {
     card.appendChild(buildMiniProfileRoles(data));
-  }
-
-  if (page && editing) {
-    const widgets = document.createElement("div");
-    widgets.className = "mini-profile-widgets";
-    const split = document.createElement("div");
-    split.className = "mini-profile-section-split";
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "mini-profile-widget-add";
-    add.title = "Add widget";
-    add.textContent = "+";
-    add.addEventListener("click", (e) => e.stopPropagation());
-    widgets.appendChild(split);
-    widgets.appendChild(add);
-    card.appendChild(widgets);
   }
 
   if (page) return;
@@ -469,6 +457,456 @@ function paintMiniProfileInto(card, data, opts) {
     footer.appendChild(note);
   }
   card.appendChild(footer);
+}
+
+function miniWidgetTiles(data) {
+  if (data && Array.isArray(data.widgets) && data.widgets.length) {
+    return data.widgets.map((row) => ({
+      id: row.id,
+      type: row.type,
+      props: row.props || {},
+      live: row.live,
+      w: 8,
+      h: row.type === "steam_playing_now" ? 4 : 3,
+      x: 0,
+      y: 0
+    }));
+  }
+  if (typeof miniProfileWidgets === "function") {
+    return miniProfileWidgets().map((row) => ({
+      id: row.id,
+      type: row.type,
+      props: row.props || {},
+      live: null,
+      w: 8,
+      h: row.type === "steam_playing_now" ? 4 : 3,
+      x: 0,
+      y: 0
+    }));
+  }
+  return [];
+}
+
+function miniWidgetLabel(type) {
+  const row = MINI_WIDGET_ADD.find((item) => item.type === type);
+  if (row) return row.label;
+  return (typeof PROFILE_TILE_TYPES !== "undefined" && PROFILE_TILE_TYPES[type] && PROFILE_TILE_TYPES[type].label) || type;
+}
+
+function formatMiniMemberSince(raw) {
+  if (!raw) return "";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function miniPersonName(person) {
+  if (!person) return "";
+  return person.display_name || person.username || "User";
+}
+
+function paintMiniPersonRow(person, onClick) {
+  const row = document.createElement("div");
+  row.className = "profile-friend-row mini-widget-person";
+  const dot = document.createElement("div");
+  dot.className = "avatar-dot";
+  const shown = miniPersonName(person);
+  if (typeof paintUserFace === "function") paintUserFace(dot, person, { name: shown, userId: person.id });
+  else dot.textContent = shown.slice(0, 1);
+  const name = document.createElement("div");
+  name.className = "profile-friend-name";
+  name.textContent = shown;
+  row.appendChild(dot);
+  row.appendChild(name);
+  if (onClick) {
+    row.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onClick(person);
+    });
+  }
+  return row;
+}
+
+function paintMiniEmpty(el, text) {
+  const note = document.createElement("div");
+  note.className = "settings-opt-desc";
+  note.textContent = text;
+  el.appendChild(note);
+}
+
+function paintMiniMutuals(el, tile, live, editing) {
+  if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+  if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
+  const people = (live && Array.isArray(live.people) ? live.people : []).slice();
+  const total = live && live.total != null ? Number(live.total) : people.length;
+  const head = document.createElement("div");
+  head.className = "profile-tile-head";
+  head.textContent = "Mutuals";
+  el.appendChild(head);
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  if (!people.length) {
+    paintMiniEmpty(body, editing ? "Other people see friends you share." : "No mutuals to show.");
+  } else {
+    people.slice(0, MINI_MUTUAL_CAP).forEach((person) => {
+      body.appendChild(paintMiniPersonRow(person, (row) => {
+        if (typeof closeMiniProfile === "function") closeMiniProfile();
+        if (row.id && typeof openUserProfile === "function") openUserProfile(row.id);
+      }));
+    });
+    if (total > MINI_MUTUAL_CAP) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "mini-mutual-more";
+      more.textContent = "+" + (total - MINI_MUTUAL_CAP) + " more";
+      more.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openMiniMutualsSubmenu(people, total);
+      });
+      body.appendChild(more);
+    }
+  }
+  el.appendChild(body);
+}
+
+function paintMiniFeaturedFriend(el, tile, live, editing) {
+  if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+  if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
+  const head = document.createElement("div");
+  head.className = "profile-tile-head";
+  head.textContent = "Featured friend";
+  el.appendChild(head);
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  let person = live;
+  if (!person && typeof profileFriends !== "undefined") {
+    const id = Number((tile.props || {}).user_id);
+    person = (profileFriends || []).find((row) => Number(row.id) === id) || null;
+  }
+  if (!person) {
+    paintMiniEmpty(body, editing ? "Pick a friend in Options." : "No friend selected.");
+  } else {
+    body.appendChild(paintMiniPersonRow(person, (row) => {
+      if (typeof closeMiniProfile === "function") closeMiniProfile();
+      if (row.id && typeof openUserProfile === "function") openUserProfile(row.id);
+    }));
+  }
+  el.appendChild(body);
+}
+
+function paintMiniFeaturedServer(el, tile, live, editing) {
+  if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+  if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
+  const head = document.createElement("div");
+  head.className = "profile-tile-head";
+  head.textContent = "Featured server";
+  el.appendChild(head);
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  const show = (server) => {
+    body.innerHTML = "";
+    if (!server || !server.id) {
+      paintMiniEmpty(body, editing ? "Pick a server in Options." : "No server selected.");
+      return;
+    }
+    if (typeof paintProfileServerRows === "function") paintProfileServerRows(body, [server]);
+    else {
+      const name = document.createElement("div");
+      name.className = "profile-friend-name";
+      name.textContent = server.name || "Server";
+      body.appendChild(name);
+    }
+  };
+  show(live);
+  const code = String((tile.props || {}).server_id || "").trim();
+  if (!live && editing && code && typeof serverAddress === "string") {
+    fetch("https://" + serverAddress + "/get_servers", { credentials: "include" })
+      .then((res) => res.ok ? res.json() : Promise.reject())
+      .then((data) => {
+        if (!body.isConnected) return;
+        const server = ((data && data.servers) || []).find((row) => String(row.id) === code);
+        show(server || null);
+      })
+      .catch(() => {});
+  }
+  el.appendChild(body);
+}
+
+function paintMiniConnection(el, tile, live, editing) {
+  if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+  if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
+  const head = document.createElement("div");
+  head.className = "profile-tile-head";
+  head.textContent = "Connection";
+  el.appendChild(head);
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  const paintLive = (row) => {
+    body.innerHTML = "";
+    if (!row || !row.provider) {
+      paintMiniEmpty(body, editing ? "Pick a linked account in Options." : "No connection selected.");
+      return;
+    }
+    const slug = String(row.provider);
+    const label = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : "Connection";
+    const line = document.createElement("div");
+    line.className = "profile-friend-row";
+    const name = document.createElement("div");
+    name.className = "profile-friend-name";
+    name.textContent = row.name ? (label + " · " + row.name) : label;
+    line.appendChild(name);
+    body.appendChild(line);
+  };
+  paintLive(live);
+  const slug = String((tile.props || {}).provider || "").trim();
+  if (!live && editing && slug && typeof serverAddress === "string") {
+    fetch("https://" + serverAddress + "/connections", { credentials: "include" })
+      .then((res) => res.ok ? res.json() : Promise.reject())
+      .then((data) => {
+        if (!body.isConnected) return;
+        paintLive(((data && data.connections) || []).find((row) => String(row.provider) === slug) || null);
+      })
+      .catch(() => {});
+  }
+  el.appendChild(body);
+}
+
+function paintMiniMemberSince(el, tile, live) {
+  if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+  if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
+  const head = document.createElement("div");
+  head.className = "profile-tile-head";
+  head.textContent = "Member since";
+  el.appendChild(head);
+  const date = document.createElement("div");
+  date.className = "profile-since-date";
+  const raw = (live && live.member_since) || tile._memberSince || "";
+  date.textContent = formatMiniMemberSince(raw) || (typeof profileOwnerMemberSince === "function" ? profileOwnerMemberSince() : "") || "—";
+  el.appendChild(date);
+}
+
+function paintMiniCarryTile(el, tile) {
+  const fake = {
+    id: tile.id,
+    type: tile.type,
+    props: tile.props || {},
+    w: tile.w || 8,
+    h: tile.h || 3,
+    x: 0,
+    y: 0
+  };
+  if (tile.type === "body") fake.maxChars = MINI_BODY_MAX;
+  if (typeof paintProfileTileContent === "function") paintProfileTileContent(fake, el);
+}
+
+function paintMiniProfileWidgetTile(host, tile, data, editing) {
+  host.className = "profile-tile is-" + tile.type + " mini-profile-widget-tile";
+  host.innerHTML = "";
+  const live = tile.live;
+  if (tile.type === "mutuals") {
+    paintMiniMutuals(host, tile, live, editing);
+    return;
+  }
+  if (tile.type === "featured_friend") {
+    paintMiniFeaturedFriend(host, tile, live, editing);
+    return;
+  }
+  if (tile.type === "featured_server") {
+    paintMiniFeaturedServer(host, tile, live, editing);
+    return;
+  }
+  if (tile.type === "connections") {
+    paintMiniConnection(host, tile, live, editing);
+    return;
+  }
+  if (tile.type === "member_since") {
+    const since = (live && live.member_since) || (data && data.user && data.user.member_since) || "";
+    tile._memberSince = since;
+    paintMiniMemberSince(host, tile, { member_since: since });
+    return;
+  }
+  if (tile.type === "steam_playing_now" && live) {
+    const prevData = typeof steamPlayingData !== "undefined" ? steamPlayingData : null;
+    const prevOwner = typeof steamPlayingOwnerId !== "undefined" ? steamPlayingOwnerId : "";
+    steamPlayingData = live;
+    steamPlayingOwnerId = String((data && data.user && data.user.id) || "");
+    paintMiniCarryTile(host, tile);
+    steamPlayingData = prevData;
+    steamPlayingOwnerId = prevOwner;
+    return;
+  }
+  paintMiniCarryTile(host, tile);
+}
+
+function miniStoreTile(id) {
+  const rows = typeof miniProfileWidgets === "function" ? miniProfileWidgets() : [];
+  return rows.find((row) => row.id === id) || null;
+}
+
+function showMiniWidgetMenu(e, tile) {
+  if (typeof openContextMenu !== "function") return;
+  e.preventDefault();
+  e.stopPropagation();
+  const stored = miniStoreTile(tile.id) || tile;
+  const items = [];
+  if (typeof openProfileTileOptions === "function") {
+    items.push({
+      label: "Options",
+      onSelect: () => openProfileTileOptions(stored)
+    });
+  }
+  items.push({
+    label: "Remove",
+    danger: true,
+    onSelect: () => removeMiniProfileWidget(stored.id)
+  });
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: miniWidgetLabel(tile.type).slice(0, 1),
+    title: miniWidgetLabel(tile.type)
+  }, items);
+}
+
+function removeMiniProfileWidget(id) {
+  const store = typeof miniProfileStore === "function" ? miniProfileStore(profileDraft || profileSavedLayout) : null;
+  if (!store || !Array.isArray(store.widgets)) return;
+  store.widgets = store.widgets.filter((row) => row.id !== id);
+  if (typeof markProfileDirty === "function") markProfileDirty();
+}
+
+function addMiniProfileWidget(type) {
+  const store = typeof miniProfileStore === "function" ? miniProfileStore(profileDraft || profileSavedLayout) : null;
+  if (!store) return;
+  if (!Array.isArray(store.widgets)) store.widgets = [];
+  if (store.widgets.length >= MINI_WIDGET_CAP) return;
+  if (store.widgets.some((row) => row.type === type)) return;
+  const props = typeof defaultProfileTileProps === "function" ? defaultProfileTileProps(type) : {};
+  store.widgets.push({
+    id: typeof profileNewId === "function" ? profileNewId("tile") : ("tile_" + Date.now()),
+    type: type,
+    props: props
+  });
+  if (typeof markProfileDirty === "function") markProfileDirty();
+}
+
+function closeMiniSubOverlay() {
+  document.querySelectorAll(".mini-sub-overlay").forEach((node) => node.remove());
+}
+
+function openMiniSubOverlay(title, fillBody) {
+  closeMiniSubOverlay();
+  const overlay = document.createElement("div");
+  overlay.className = "mini-sub-overlay";
+  const box = document.createElement("div");
+  box.className = "leave-party-modal mini-sub-modal";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
+  const header = document.createElement("div");
+  header.className = "leave-party-header";
+  const name = document.createElement("span");
+  name.className = "leave-party-title";
+  name.textContent = title;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "icon-btn";
+  close.title = "Close";
+  close.textContent = "\u00d7";
+  header.appendChild(name);
+  header.appendChild(close);
+  const main = document.createElement("div");
+  main.className = "leave-party-main";
+  fillBody(main, () => overlay.remove());
+  const footer = document.createElement("div");
+  footer.className = "leave-party-footer";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "ghost-btn";
+  cancel.textContent = "Cancel";
+  footer.appendChild(cancel);
+  box.appendChild(header);
+  box.appendChild(main);
+  box.appendChild(footer);
+  overlay.appendChild(box);
+  const drop = () => overlay.remove();
+  close.addEventListener("click", drop);
+  cancel.addEventListener("click", drop);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) drop();
+  });
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function openMiniWidgetAdd() {
+  const store = typeof miniProfileStore === "function" ? miniProfileStore(profileDraft || profileSavedLayout) : { widgets: [] };
+  const used = {};
+  (store.widgets || []).forEach((row) => { used[row.type] = true; });
+  openMiniSubOverlay("Add widget", (main, close) => {
+    MINI_WIDGET_ADD.forEach((item) => {
+      if (used[item.type]) return;
+      if (item.steam && typeof profileSteamLinked !== "undefined" && !profileSteamLinked) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "mini-sub-pick";
+      btn.textContent = item.label;
+      btn.addEventListener("click", () => {
+        addMiniProfileWidget(item.type);
+        close();
+      });
+      main.appendChild(btn);
+    });
+    if (!main.childNodes.length) {
+      paintMiniEmpty(main, "Every Mini Profile widget is already on this card.");
+    }
+  });
+}
+
+function openMiniMutualsSubmenu(people, total) {
+  openMiniSubOverlay("Mutuals", (main) => {
+    const list = document.createElement("div");
+    list.className = "mini-mutual-list";
+    (people || []).forEach((person) => {
+      list.appendChild(paintMiniPersonRow(person, (row) => {
+        closeMiniSubOverlay();
+        if (typeof closeMiniProfile === "function") closeMiniProfile();
+        if (row.id && typeof openUserProfile === "function") openUserProfile(row.id);
+      }));
+    });
+    if (!people.length) paintMiniEmpty(list, "No mutuals to show.");
+    main.appendChild(list);
+  });
+}
+
+function buildMiniProfileWidgets(data, opts) {
+  const page = !!(opts && opts.page);
+  const editing = !!(opts && opts.editing);
+  const tiles = miniWidgetTiles(data);
+  if (!tiles.length && !(page && editing)) return null;
+  const wrap = document.createElement("div");
+  wrap.className = "mini-profile-widgets";
+  const split = document.createElement("div");
+  split.className = "mini-profile-section-split";
+  wrap.appendChild(split);
+  tiles.forEach((tile) => {
+    const host = document.createElement("div");
+    paintMiniProfileWidgetTile(host, tile, data, editing);
+    if (editing && page) {
+      host.addEventListener("contextmenu", (e) => showMiniWidgetMenu(e, tile));
+    }
+    wrap.appendChild(host);
+  });
+  if (page && editing && tiles.length < MINI_WIDGET_CAP) {
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "mini-profile-widget-add";
+    add.title = "Add widget";
+    add.textContent = "+";
+    add.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openMiniWidgetAdd();
+    });
+    wrap.appendChild(add);
+  }
+  return wrap;
 }
 
 function buildMiniProfileRoles(data) {

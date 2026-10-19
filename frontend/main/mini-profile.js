@@ -598,6 +598,32 @@ function paintMiniMutuals(el, tile, live, editing) {
   }
 }
 
+function paintMiniFeaturedFriendCard(person) {
+  const row = document.createElement("div");
+  row.className = "mini-featured-friend";
+  const face = document.createElement("div");
+  face.className = "avatar-dot";
+  const pip = document.createElement("div");
+  const presence = typeof personPresence === "function" ? personPresence(person) : "offline";
+  pip.className = "status-dot status-" + presence;
+  face.appendChild(pip);
+  const shown = miniPersonName(person);
+  if (typeof paintUserFace === "function") paintUserFace(face, person, { name: shown, userId: person && person.id });
+  const text = document.createElement("div");
+  text.className = "mini-featured-friend-text";
+  const who = document.createElement("div");
+  who.className = "who";
+  who.textContent = shown;
+  const status = document.createElement("div");
+  status.className = "mini-featured-status" + (String((person && person.status) || "").trim() ? "" : " is-empty");
+  status.textContent = String((person && person.status) || "").trim();
+  text.appendChild(who);
+  text.appendChild(status);
+  row.appendChild(face);
+  row.appendChild(text);
+  return row;
+}
+
 function paintMiniFeaturedFriend(el, tile, live, editing) {
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
@@ -616,9 +642,7 @@ function paintMiniFeaturedFriend(el, tile, live, editing) {
       paintMiniAwaiting(el, "Featured friend", editing ? "Pick a friend in Options." : "No friend selected.");
       return;
     }
-    const card = typeof paintDmPersonCard === "function"
-      ? paintDmPersonCard(row)
-      : paintMiniPersonRow(row);
+    const card = paintMiniFeaturedFriendCard(row);
     if (liveView) {
       card.addEventListener("click", (e) => {
         e.stopPropagation();

@@ -8541,15 +8541,65 @@ body.is-mini-dragging {
   text-align: center;
 }
 .mini-profile-widget-tile.is-featured_friend:not(.is-awaiting) {
-  justify-content: flex-start;
+  justify-content: stretch;
+  align-items: stretch;
   text-align: left;
 }
-.mini-profile-widget-tile.is-featured_friend .dm-item {
+.mini-featured-friend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  height: auto;
-  min-height: 44px;
-  padding: 0 4px;
-  color: inherit;
+  flex: 1 1 auto;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+}
+.mini-featured-friend .avatar-dot {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  font-size: 24px;
+  overflow: visible;
+}
+.mini-featured-friend .status-dot {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid var(--panel-alt);
+  right: -2px;
+  bottom: -2px;
+  z-index: 1;
+}
+.mini-featured-friend-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+.mini-featured-friend .who {
+  font-size: var(--profile-text-size, 14pt);
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mini-featured-status {
+  font-size: calc(var(--profile-text-size, 14pt) * 0.75);
+  color: var(--text-dim);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-height: 1.3em;
+}
+.mini-featured-status.is-empty::before {
+  content: "\00a0";
 }
 .mini-profile-widget-tile.is-connections.has-steam {
   justify-content: flex-start;

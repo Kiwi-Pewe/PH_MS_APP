@@ -1663,12 +1663,12 @@ function fillMiniFriendPick(box, draft, onChange, hintEl) {
 
 function fillMiniServerPick(box, draft, onChange, hintEl) {
   const heading = document.createElement("div");
-  heading.className = "profile-opt-field-label";
-  heading.textContent = "Server";
+  heading.className = "profile-opt-section-title";
+  heading.textContent = "Servers";
   profileOptHint(heading, "The one server this card shows.", hintEl);
   box.appendChild(heading);
   const list = document.createElement("div");
-  list.className = "profile-opt-server-picks";
+  list.className = "profile-opt-server-picks profile-opt-featured-server-picks";
   list.textContent = "Loading servers…";
   box.appendChild(list);
   fetch("https://" + serverAddress + "/get_servers", { credentials: "include" })
@@ -1685,10 +1685,11 @@ function fillMiniServerPick(box, draft, onChange, hintEl) {
         return;
       }
       servers.forEach((server) => {
-        const row = document.createElement("button");
-        row.type = "button";
-        row.className = "profile-opt-pick" + (String(draft.server_id || "") === String(server.id) ? " is-on" : "");
-        row.textContent = server.name || "Server";
+        const selected = String(draft.server_id || "") === String(server.id);
+        const row = typeof paintMiniFeaturedServerCard === "function"
+          ? paintMiniFeaturedServerCard(server, { tag: "button", selected: selected })
+          : document.createElement("button");
+        if (row.tagName === "BUTTON") row.type = "button";
         row.addEventListener("click", () => {
           draft.server_id = server.id;
           Array.from(list.children).forEach((child) => child.classList.toggle("is-on", child === row));

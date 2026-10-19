@@ -744,37 +744,127 @@ function paintMiniFeaturedFriend(el, tile, live, editing) {
   showPerson(person || null);
 }
 
+function serverTypeLabel(type) {
+  const map = {
+    community: "Community",
+    team: "Team",
+    organization: "Organization",
+    clan: "Clan",
+    guild: "Guild",
+    friends: "Friends",
+    streaming: "Streaming",
+    other: "Other"
+  };
+  const key = String(type || "").toLowerCase();
+  return map[key] || "";
+}
+
+function paintMiniServerFace(host, server) {
+  host.textContent = "";
+  if (server && server.icon_url) {
+    const img = document.createElement("img");
+    img.src = server.icon_url;
+    img.alt = "";
+    img.draggable = false;
+    host.appendChild(img);
+    return;
+  }
+  const letter = document.createElement("span");
+  letter.className = "face-letter";
+  letter.textContent = typeof serverAvatarLetters === "function"
+    ? serverAvatarLetters(server && server.name)
+    : String((server && server.name) || "?").slice(0, 2);
+  host.appendChild(letter);
+}
+
+function paintMiniFeaturedServerCard(server, opts) {
+  opts = opts || {};
+  const row = document.createElement(opts.tag || "div");
+  row.className = "mini-featured-server" + (opts.selected ? " is-on" : "");
+  const face = document.createElement("div");
+  face.className = "avatar-dot";
+  paintMiniServerFace(face, server);
+  const text = document.createElement("div");
+  text.className = "mini-featured-server-text";
+  const who = document.createElement("div");
+  who.className = "who";
+  who.textContent = (server && server.name) || "Server";
+  const kind = document.createElement("div");
+  const typeLabel = serverTypeLabel(server && server.server_type);
+  kind.className = "mini-featured-server-type" + (typeLabel ? "" : " is-empty");
+  kind.textContent = typeLabel;
+  const desc = document.createElement("div");
+  const about = String((server && (server.about || server.description)) || "").trim();
+  desc.className = "mini-featured-server-desc" + (about ? "" : " is-empty");
+  desc.textContent = about;
+  text.appendChild(who);
+  text.appendChild(kind);
+  text.appendChild(desc);
+  row.appendChild(face);
+  row.appendChild(text);
+  return row;
+}
+
+function bindMiniFeaturedServer(el, server, liveView) {
+  if (!el || !server || !server.id || !liveView) return;
+  const mine = typeof serverList !== "undefined" && Array.isArray(serverList) && serverList.some((row) => String(row.id) === String(server.id));
+  el.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!mine || typeof openServer !== "function") return;
+    if (typeof closeMiniProfile === "function") closeMiniProfile();
+    const icon = document.querySelector('.server-icon[data-server-id="' + server.id + '"]');
+    openServer(server.id, icon || undefined);
+  });
+  el.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!mine || typeof showServerContextMenu !== "function") return;
+    showServerContextMenu(e, server);
+  });
+}
+
 function paintMiniFeaturedServer(el, tile, live, editing) {
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
-  const body = paintMiniWidgetChrome(el, "Featured server");
+  const code = String((tile.props || {}).server_id || "").trim();
+  const liveView = !editing && !el.classList.contains("is-opt-preview");
   const show = (server) => {
-    body.innerHTML = "";
-    el.classList.toggle("is-awaiting", !server || !server.id);
+    el.innerHTML = "";
+    el.classList.remove("is-awaiting");
+    if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+    if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
     if (!server || !server.id) {
-      paintMiniEmpty(body, editing ? "Pick a server in Options." : "No server selected.");
+      paintMiniAwaiting(el, "Featured server", editing ? "Pick a server in Options." : "No server selected.");
       return;
     }
-    if (typeof paintProfileServerRows === "function") paintProfileServerRows(body, [server]);
-    else {
-      const name = document.createElement("div");
-      name.className = "profile-friend-name";
-      name.textContent = server.name || "Server";
-      body.appendChild(name);
-    }
+    const card = paintMiniFeaturedServerCard(server);
+    bindMiniFeaturedServer(card, server, liveView);
+    el.appendChild(card);
   };
-  show(live);
-  const code = String((tile.props || {}).server_id || "").trim();
-  if (!live && editing && code && typeof serverAddress === "string") {
+  if (live && live.id) {
+    show(live);
+    return;
+  }
+  if (code && typeof serverAddress === "string") {
+    if (typeof serverList !== "undefined" && Array.isArray(serverList)) {
+      const cached = serverList.find((row) => String(row.id) === code);
+      if (cached) show(cached);
+    } else {
+      paintMiniAwaiting(el, "Featured server", editing ? "Pick a server in Options." : "No server selected.");
+    }
     fetch("https://" + serverAddress + "/get_servers", { credentials: "include" })
       .then((res) => res.ok ? res.json() : Promise.reject())
       .then((data) => {
-        if (!body.isConnected) return;
-        const server = ((data && data.servers) || []).find((row) => String(row.id) === code);
-        show(server || null);
+        if (!el.isConnected) return;
+        show(((data && data.servers) || []).find((row) => String(row.id) === code) || live || null);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!el.isConnected || (live && live.id)) return;
+        show(null);
+      });
+    return;
   }
+  show(null);
 }
 
 function miniSteamCardSource(live, data) {

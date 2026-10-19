@@ -113,6 +113,9 @@ def mini_featured_server(database, owner_id, server_id):
         "id": server.id,
         "name": server.name or "Server",
         "icon_url": public_url_for(server.icon_key) if getattr(server, "icon_key", None) else "",
+        "server_type": getattr(server, "server_type", None) or "",
+        "about": getattr(server, "about", None) or "",
+        "owner_id": server.owner_id,
     }
 
 

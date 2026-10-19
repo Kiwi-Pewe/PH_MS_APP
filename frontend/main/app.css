@@ -8403,13 +8403,18 @@ a.profile-link-row:hover { color: var(--accent); }
   touch-action: none;
 }
 .mini-widget-slot.is-empty {
-  color: var(--text-dim);
-  font-size: 12px;
-  font-weight: 600;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
 }
 .mini-profile-widgets.is-edit .mini-widget-slot {
   min-height: 88px;
-  border-color: var(--border);
+}
+.mini-profile-widgets.is-edit .mini-widget-slot.is-empty {
+  border-color: var(--accent);
 }
 .mini-profile-widgets.is-edit .mini-widget-slot.is-filled {
   cursor: grab;

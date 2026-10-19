@@ -1104,7 +1104,7 @@ function buildMiniWidgetSlot(index, tile, data, editing) {
   slot.className = "mini-widget-slot" + (tile ? " is-filled" : " is-empty") + (tile && tile.type === "body" ? " is-body-slot" : "");
   slot.dataset.slot = String(index);
   if (!tile) {
-    slot.textContent = "Drop a widget here.";
+    slot.textContent = "+";
     return slot;
   }
   const host = document.createElement("div");

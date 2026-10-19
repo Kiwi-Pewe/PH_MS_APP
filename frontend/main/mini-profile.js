@@ -546,77 +546,84 @@ function paintMiniEmpty(el, text) {
   el.appendChild(note);
 }
 
+function paintMiniAwaiting(el, title, text) {
+  el.classList.add("is-awaiting");
+  const head = document.createElement("div");
+  head.className = "profile-tile-head";
+  head.textContent = title;
+  el.appendChild(head);
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  paintMiniEmpty(body, text);
+  el.appendChild(body);
+}
+
+function paintMiniWidgetChrome(el, title) {
+  const head = document.createElement("div");
+  head.className = "profile-tile-head";
+  head.textContent = title;
+  el.appendChild(head);
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  el.appendChild(body);
+  return body;
+}
+
 function paintMiniMutuals(el, tile, live, editing) {
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
   const people = (live && Array.isArray(live.people) ? live.people : []).slice();
   const total = live && live.total != null ? Number(live.total) : people.length;
-  const head = document.createElement("div");
-  head.className = "profile-tile-head";
-  head.textContent = "Mutuals";
-  el.appendChild(head);
-  const body = document.createElement("div");
-  body.className = "profile-tile-body";
   if (!people.length) {
-    paintMiniEmpty(body, editing ? "Other people see friends you share." : "No mutuals to show.");
-  } else {
-    people.slice(0, MINI_MUTUAL_CAP).forEach((person) => {
-      body.appendChild(paintMiniPersonRow(person, (row) => {
-        if (typeof closeMiniProfile === "function") closeMiniProfile();
-        if (row.id && typeof openUserProfile === "function") openUserProfile(row.id);
-      }));
-    });
-    if (total > MINI_MUTUAL_CAP) {
-      const more = document.createElement("button");
-      more.type = "button";
-      more.className = "mini-mutual-more";
-      more.textContent = "+" + (total - MINI_MUTUAL_CAP) + " more";
-      more.addEventListener("click", (e) => {
-        e.stopPropagation();
-        openMiniMutualsSubmenu(people, total);
-      });
-      body.appendChild(more);
-    }
+    paintMiniAwaiting(el, "Mutuals", editing ? "Other people see friends you share." : "No mutuals to show.");
+    return;
   }
-  el.appendChild(body);
+  const body = paintMiniWidgetChrome(el, "Mutuals");
+  people.slice(0, MINI_MUTUAL_CAP).forEach((person) => {
+    body.appendChild(paintMiniPersonRow(person, (row) => {
+      if (typeof closeMiniProfile === "function") closeMiniProfile();
+      if (row.id && typeof openUserProfile === "function") openUserProfile(row.id);
+    }));
+  });
+  if (total > MINI_MUTUAL_CAP) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "mini-mutual-more";
+    more.textContent = "+" + (total - MINI_MUTUAL_CAP) + " more";
+    more.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openMiniMutualsSubmenu(people, total);
+    });
+    body.appendChild(more);
+  }
 }
 
 function paintMiniFeaturedFriend(el, tile, live, editing) {
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
-  const head = document.createElement("div");
-  head.className = "profile-tile-head";
-  head.textContent = "Featured friend";
-  el.appendChild(head);
-  const body = document.createElement("div");
-  body.className = "profile-tile-body";
   let person = live;
   if (!person && typeof profileFriends !== "undefined") {
     const id = Number((tile.props || {}).user_id);
     person = (profileFriends || []).find((row) => Number(row.id) === id) || null;
   }
   if (!person) {
-    paintMiniEmpty(body, editing ? "Pick a friend in Options." : "No friend selected.");
-  } else {
-    body.appendChild(paintMiniPersonRow(person, (row) => {
-      if (typeof closeMiniProfile === "function") closeMiniProfile();
-      if (row.id && typeof openUserProfile === "function") openUserProfile(row.id);
-    }));
+    paintMiniAwaiting(el, "Featured friend", editing ? "Pick a friend in Options." : "No friend selected.");
+    return;
   }
-  el.appendChild(body);
+  const body = paintMiniWidgetChrome(el, "Featured friend");
+  body.appendChild(paintMiniPersonRow(person, (row) => {
+    if (typeof closeMiniProfile === "function") closeMiniProfile();
+    if (row.id && typeof openUserProfile === "function") openUserProfile(row.id);
+  }));
 }
 
 function paintMiniFeaturedServer(el, tile, live, editing) {
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
-  const head = document.createElement("div");
-  head.className = "profile-tile-head";
-  head.textContent = "Featured server";
-  el.appendChild(head);
-  const body = document.createElement("div");
-  body.className = "profile-tile-body";
+  const body = paintMiniWidgetChrome(el, "Featured server");
   const show = (server) => {
     body.innerHTML = "";
+    el.classList.toggle("is-awaiting", !server || !server.id);
     if (!server || !server.id) {
       paintMiniEmpty(body, editing ? "Pick a server in Options." : "No server selected.");
       return;
@@ -641,7 +648,6 @@ function paintMiniFeaturedServer(el, tile, live, editing) {
       })
       .catch(() => {});
   }
-  el.appendChild(body);
 }
 
 function miniSteamCardSource(live, data) {
@@ -790,19 +796,19 @@ function paintMiniSteamConnection(el, props, data) {
 function paintMiniConnection(el, tile, live, editing, data) {
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
-  const shell = document.createElement("div");
-  shell.className = "profile-text-shell";
-  el.appendChild(shell);
   const props = tile.props || {};
   const slug = String(props.provider || (live && live.provider) || "").trim().toLowerCase();
+  const waiting = editing ? "Pick a linked account in Options." : "No connection selected.";
   if (!slug) {
-    paintMiniEmpty(shell, editing ? "Pick a linked account in Options." : "No connection selected.");
+    paintMiniAwaiting(el, "Connection", waiting);
     return;
   }
   if (slug === "steam") {
     const card = miniSteamCardSource(live, data);
-    if (card) {
-      paintMiniSteamConnection(shell, props, card);
+    if (card && card.linked) {
+      el.classList.add("has-steam");
+      const body = paintMiniWidgetChrome(el, "Connection");
+      paintMiniSteamConnection(body, props, card);
       return;
     }
     const owner = String((data && data.user && data.user.id) || (typeof profileOwnerId !== "undefined" ? profileOwnerId : "") || "");
@@ -811,21 +817,24 @@ function paintMiniConnection(el, tile, live, editing, data) {
       ensureSteamCard();
       const wait = typeof steamCardLoad !== "undefined" ? steamCardLoad : null;
       if (wait) {
+        paintMiniAwaiting(el, "Connection", waiting);
         wait.then(() => {
           if (!el.isConnected) return;
           el.innerHTML = "";
+          el.classList.remove("is-awaiting", "has-steam");
           paintMiniConnection(el, tile, live, editing, data);
         });
         return;
       }
     }
-    paintMiniEmpty(shell, editing ? "Connect Steam to show this." : "No connection selected.");
+    paintMiniAwaiting(el, "Connection", editing ? "Connect Steam to show this." : waiting);
     return;
   }
   if (!live || !live.provider) {
-    paintMiniEmpty(shell, editing ? "Pick a linked account in Options." : "No connection selected.");
+    paintMiniAwaiting(el, "Connection", waiting);
     return;
   }
+  const body = paintMiniWidgetChrome(el, "Connection");
   const label = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : "Connection";
   const line = document.createElement("div");
   line.className = "profile-friend-row";
@@ -833,7 +842,7 @@ function paintMiniConnection(el, tile, live, editing, data) {
   name.className = "profile-friend-name";
   name.textContent = live.name ? (label + " · " + live.name) : label;
   line.appendChild(name);
-  shell.appendChild(line);
+  body.appendChild(line);
 }
 
 function paintMiniMemberSince(el, tile, live) {

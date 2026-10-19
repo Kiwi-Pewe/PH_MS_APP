@@ -8492,18 +8492,20 @@ body.is-mini-dragging {
 .mini-profile-widget-tile .profile-tile-body {
   padding: 4px 0 0;
 }
-.mini-profile-widget-tile.is-connections {
+.mini-profile-widget-tile.is-awaiting {
+  justify-content: center;
+  text-align: center;
+}
+.mini-profile-widget-tile.is-connections.has-steam {
   justify-content: flex-start;
-  text-align: left;
   overflow: hidden;
 }
-.mini-profile-widget-tile.is-connections .profile-text-shell {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+.mini-profile-widget-tile.is-connections.has-steam > .profile-tile-head {
+  text-align: center;
+  width: 100%;
+}
+.mini-profile-widget-tile.is-connections.has-steam > .profile-tile-body {
+  text-align: left;
 }
 .mini-profile-widget-tile.is-connections .steam-profile-card,
 .mini-profile-widget-tile.is-connections .steam-profile-card.is-mini-connection {

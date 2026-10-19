@@ -1064,9 +1064,8 @@ function buildMiniProfileWidgets(data, opts) {
       const split = document.createElement("div");
       split.className = "mini-profile-section-split";
       wrap.appendChild(split);
-      const host = document.createElement("div");
-      paintMiniProfileWidgetTile(host, tile, data, false);
-      wrap.appendChild(host);
+      const slot = typeof miniWidgetSlotOf === "function" ? miniWidgetSlotOf(tile, 0) : 0;
+      wrap.appendChild(buildMiniWidgetSlot(slot, tile, data, false));
     });
     return wrap;
   }

@@ -3538,7 +3538,7 @@ function syncProfilePaletteForPage() {
   if (!show || !palette || typeof renderProfilePalette !== "function") return;
   const mini = typeof isMiniProfilePageId === "function" && isMiniProfilePageId(profileActivePageId);
   const mode = mini ? "mini" : "main";
-  if (mini || palette.dataset.mode !== mode) {
+  if ((mini || palette.dataset.mode !== mode) && !(typeof isMiniWidgetDragging === "function" && isMiniWidgetDragging())) {
     palette.dataset.mode = mode;
     renderProfilePalette();
   }

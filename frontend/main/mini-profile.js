@@ -833,59 +833,83 @@ function highlightMiniDropSlot(x, y) {
   if (el) el.classList.add("is-drop");
 }
 
+let miniWidgetDragging = false;
+
+function isMiniWidgetDragging() {
+  return !!miniWidgetDragging;
+}
+
 function miniDragZoom() {
   return typeof pageZoom === "function" ? pageZoom() : 1;
 }
 
-function makeMiniDragGhost(label, e, source) {
+function applyMiniDragGhost(ghost) {
+  if (!ghost || !ghost.isConnected) return;
+  const z = miniDragZoom();
+  ghost.style.transform = "translate3d(" + ((ghost._x - (ghost._grabX || 0)) / z) + "px," + ((ghost._y - (ghost._grabY || 0)) / z) + "px,0)";
+}
+
+function makeMiniDragGhost(label, e) {
   const ghost = document.createElement("div");
   ghost.className = "mini-palette-ghost";
   ghost.textContent = label;
-  ghost.style.position = "fixed";
-  const z = miniDragZoom();
-  if (source && source.getBoundingClientRect) {
-    const rect = source.getBoundingClientRect();
-    ghost._grabX = e.clientX - rect.left;
-    ghost._grabY = e.clientY - rect.top;
-    ghost.style.width = (rect.width / z) + "px";
-    ghost.style.boxSizing = "border-box";
-  } else {
-    ghost._grabX = 12;
-    ghost._grabY = 12;
-  }
+  ghost._grabX = 8;
+  ghost._grabY = 8;
+  ghost._x = e.clientX;
+  ghost._y = e.clientY;
+  ghost._raf = 0;
   document.body.appendChild(ghost);
-  moveMiniDragGhost(ghost, e.clientX, e.clientY);
+  applyMiniDragGhost(ghost);
   return ghost;
 }
 
 function moveMiniDragGhost(ghost, x, y) {
   if (!ghost) return;
-  const z = miniDragZoom();
-  ghost.style.left = ((x - (ghost._grabX || 0)) / z) + "px";
-  ghost.style.top = ((y - (ghost._grabY || 0)) / z) + "px";
+  ghost._x = x;
+  ghost._y = y;
+  if (ghost._raf) return;
+  ghost._raf = requestAnimationFrame(() => {
+    ghost._raf = 0;
+    applyMiniDragGhost(ghost);
+    highlightMiniDropSlot(ghost._x, ghost._y);
+  });
+}
+
+function stopMiniDragGhost(ghost) {
+  if (ghost && ghost._raf) {
+    cancelAnimationFrame(ghost._raf);
+    ghost._raf = 0;
+  }
+  if (ghost && ghost.isConnected) ghost.remove();
+  miniWidgetDragging = false;
+  document.body.classList.remove("is-mini-dragging");
+  clearMiniDropHighlight();
 }
 
 function beginMiniPaletteDrag(e, type, btn) {
   if (!e || e.button !== 0 || !type) return;
   if (btn && btn.disabled) return;
   e.preventDefault();
-  if (btn && btn.setPointerCapture) btn.setPointerCapture(e.pointerId);
-  const ghost = makeMiniDragGhost((btn && btn.textContent) || miniWidgetLabel(type), e, btn);
+  miniWidgetDragging = true;
+  document.body.classList.add("is-mini-dragging");
+  const ghost = makeMiniDragGhost((btn && btn.textContent) || miniWidgetLabel(type), e);
   function onMove(ev) {
     moveMiniDragGhost(ghost, ev.clientX, ev.clientY);
-    highlightMiniDropSlot(ev.clientX, ev.clientY);
   }
   function onUp(ev) {
-    document.removeEventListener("pointermove", onMove);
-    document.removeEventListener("pointerup", onUp);
-    ghost.remove();
-    clearMiniDropHighlight();
-    const dest = miniDropSlotAt(ev.clientX, ev.clientY);
+    document.removeEventListener("pointermove", onMove, true);
+    document.removeEventListener("pointerup", onUp, true);
+    document.removeEventListener("pointercancel", onUp, true);
+    const x = ev.clientX;
+    const y = ev.clientY;
+    stopMiniDragGhost(ghost);
+    const dest = miniDropSlotAt(x, y);
     if (dest == null) return;
     placeMiniProfileWidget(type, dest);
   }
-  document.addEventListener("pointermove", onMove);
-  document.addEventListener("pointerup", onUp);
+  document.addEventListener("pointermove", onMove, true);
+  document.addEventListener("pointerup", onUp, true);
+  document.addEventListener("pointercancel", onUp, true);
 }
 
 function bindMiniSlotMove(slotEl, tile) {
@@ -903,26 +927,29 @@ function bindMiniSlotMove(slotEl, tile) {
       if (!moved && (dx * dx + dy * dy) < 36) return;
       if (!moved) {
         moved = true;
-        if (slotEl.setPointerCapture) slotEl.setPointerCapture(ev.pointerId);
-        ghost = makeMiniDragGhost(miniWidgetLabel(tile.type), ev, slotEl);
+        miniWidgetDragging = true;
+        document.body.classList.add("is-mini-dragging");
+        ghost = makeMiniDragGhost(miniWidgetLabel(tile.type), ev);
         slotEl.classList.add("is-dragging");
       }
       moveMiniDragGhost(ghost, ev.clientX, ev.clientY);
-      highlightMiniDropSlot(ev.clientX, ev.clientY);
     }
     function onUp(ev) {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointermove", onMove, true);
+      document.removeEventListener("pointerup", onUp, true);
+      document.removeEventListener("pointercancel", onUp, true);
       slotEl.classList.remove("is-dragging");
-      if (ghost) ghost.remove();
-      clearMiniDropHighlight();
+      const x = ev.clientX;
+      const y = ev.clientY;
+      stopMiniDragGhost(ghost);
       if (!moved) return;
-      const dest = miniDropSlotAt(ev.clientX, ev.clientY);
+      const dest = miniDropSlotAt(x, y);
       if (dest == null) return;
       moveMiniProfileWidget(tile.id, dest);
     }
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointermove", onMove, true);
+    document.addEventListener("pointerup", onUp, true);
+    document.addEventListener("pointercancel", onUp, true);
   });
 }
 

@@ -553,6 +553,15 @@ def ensure_moderation_columns():
                 conn.rollback()
 
 
+def ensure_party_icon_column():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE parties ADD COLUMN icon_key VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_conversation_mute_columns():
     with engine.connect() as conn:
         for table, column, coltype in (

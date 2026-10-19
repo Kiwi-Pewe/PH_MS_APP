@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=355">
+<link rel="stylesheet" href="app.css?v=356">
 </head>
 <body>
 
@@ -1874,6 +1874,32 @@
     </div>
   </div>
 
+  <div id="edit-party-overlay" hidden>
+    <div id="edit-party-modal" class="leave-party-modal" role="dialog" aria-modal="true" aria-labelledby="edit-party-title">
+      <div class="leave-party-header">
+        <span id="edit-party-title" class="leave-party-title">Edit Party</span>
+        <button type="button" class="icon-btn" id="edit-party-close" title="Close">&times;</button>
+      </div>
+      <div class="leave-party-main">
+        <div class="edit-party-face-row">
+          <div id="edit-party-face" class="edit-party-face"></div>
+          <div class="edit-party-face-actions">
+            <button type="button" id="edit-party-upload" class="settings-row-btn">Upload Image</button>
+            <button type="button" id="edit-party-remove" class="settings-row-btn" hidden>Remove</button>
+          </div>
+        </div>
+        <input type="file" id="edit-party-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+        <label class="edit-party-label" for="edit-party-name">Name</label>
+        <input type="text" id="edit-party-name" class="edit-party-name" maxlength="100" autocomplete="off" spellcheck="false">
+        <p id="edit-party-error" class="server-settings-help" hidden></p>
+      </div>
+      <div class="leave-party-footer">
+        <button type="button" class="ghost-btn" id="edit-party-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="edit-party-save">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div id="member-prune-overlay" style="display:none;">
     <div id="member-prune-modal" role="dialog" aria-modal="true" aria-labelledby="member-prune-title">
       <div class="view-header">
@@ -2369,7 +2395,7 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=139"></script>
+<script src="boot.js?v=140"></script>
 <script src="app-shell.js?v=72"></script>
 <script src="feed.js?v=20"></script>
 <script src="settings.js?v=21"></script>
@@ -2400,9 +2426,9 @@
 <script src="profile.js?v=22"></script>
 <script src="profile-identity.js?v=8"></script>
 <script src="profile-edit.js?v=88"></script>
-<script src="context-menus.js?v=103"></script>
-<script src="conversations.js?v=73"></script>
-<script src="chat-render.js?v=72"></script>
+<script src="context-menus.js?v=104"></script>
+<script src="conversations.js?v=74"></script>
+<script src="chat-render.js?v=73"></script>
 <script src="chat-history.js?v=52"></script>
 <script src="chat-compose.js?v=64"></script>
 <script src="typing.js?v=2"></script>
@@ -2410,7 +2436,7 @@
 <script src="emoji-picker.js?v=57"></script>
 <script src="online-toast.js?v=1"></script>
 <script src="friends.js?v=49"></script>
-<script src="parties.js?v=46"></script>
+<script src="parties.js?v=47"></script>
 <script src="invites.js?v=51"></script>
 <script src="server-invites.js?v=6"></script>
 <script src="server-bans.js?v=3"></script>

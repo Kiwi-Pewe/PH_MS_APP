@@ -394,6 +394,12 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "party_updated") {
+      if (typeof applyPartyUpdated === "function") {
+        applyPartyUpdated(data.party_id, data.party_name, data.icon_url || "", data.owner_id);
+      }
+    }
+
     if (data.type === "server_icon_updated") {
       if (typeof applyServerIcon === "function") applyServerIcon(data.server_id, data.icon_url || "");
     }

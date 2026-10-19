@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 from app.models import UserInfo, Parties, Party_messages, Party_members, Message_mention
-from app.schemas import Party_create, Party_message_schema, Conversation_mute_in, Party_kick_in
+from app.schemas import Party_create, Party_message_schema, Conversation_mute_in, Party_kick_in, Party_update
 from app.database import get_db
 from app.auth import get_current_user
-from app.r2 import attachment_public, require_message_body, store_attachment
+from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
 from app.routers.deletion import deletion_fields, refresh_pending_messages
 from app.routers.reactions import reactions_for_messages
 from app.routers.realtime import party_broadcast, serialize_member, notify_user
@@ -21,6 +21,19 @@ import random
 router = APIRouter()
 
 PARTY_MEMBER_CAP = 10
+PARTY_NAME_MAX = 100
+
+def party_icon_url(party):
+    key = getattr(party, "icon_key", None) if party else None
+    return public_url_for(key) if key else ""
+
+def clean_party_name(value):
+    name = " ".join((value or "").split())
+    if not name:
+        raise HTTPException(status_code=400, detail="Enter a party name.")
+    if len(name) > PARTY_NAME_MAX:
+        name = name[:PARTY_NAME_MAX]
+    return name
 
 @router.post("/create_party")
 async def create_party(party: Party_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -131,6 +144,8 @@ def get_parties(database: Session = Depends(get_db), current_user: UserInfo = De
             "type": "party",
             "id": membership.party_id,
             "name": party_info.party_name,
+            "owner_id": party_info.created_by_id,
+            "icon_url": party_icon_url(party_info),
             "member_count": member_counts.get(membership.party_id, 0),
             "last_activity": str(sort_timestamp),
             "unread_count": unread_counts.get(membership.party_id, 0),
@@ -140,6 +155,50 @@ def get_parties(database: Session = Depends(get_db), current_user: UserInfo = De
         })
 
     return {"parties": parties_out}
+
+@router.post("/update_party")
+async def update_party(body: Party_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    party = database.query(Parties).filter(Parties.id == body.party_id).first()
+    if not party:
+        raise HTTPException(status_code=404, detail="Party not found")
+    membership = database.query(Party_members).filter(Party_members.party_id == party.id, Party_members.user_id == current_user.id).first()
+    if not membership:
+        raise HTTPException(status_code=404, detail="User not in party")
+    if party.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the party owner can edit this party.")
+    party.party_name = clean_party_name(body.party_name)
+    old_key = getattr(party, "icon_key", None)
+    if body.clear_icon:
+        party.icon_key = None
+    else:
+        key = (body.key or "").strip() or None
+        if key:
+            mime = normalize_mime(body.mime)
+            if mime == "image/jpg":
+                mime = "image/jpeg"
+            if not SERVER_KEY_RE.match(key) or mime not in ALLOWED_MIME or ALLOWED_MIME[mime][1] != "image":
+                raise HTTPException(status_code=400, detail="That is not a valid party picture.")
+            if not key.endswith(ALLOWED_MIME[mime][0]):
+                raise HTTPException(status_code=400, detail="That is not a valid party picture.")
+            try:
+                size = int(body.size or 0)
+            except (TypeError, ValueError):
+                size = 0
+            if size < 1 or size > PROFILE_IMAGE_BYTES:
+                raise HTTPException(status_code=400, detail="Party pictures must be 5 MB or smaller.")
+            party.icon_key = key
+    database.commit()
+    if old_key and old_key != getattr(party, "icon_key", None):
+        delete_r2_object(old_key)
+    icon_url = party_icon_url(party)
+    await party_broadcast(party_id=party.id, payload={
+        "type": "party_updated",
+        "party_id": party.id,
+        "party_name": party.party_name,
+        "icon_url": icon_url,
+        "owner_id": party.created_by_id,
+    }, database=database, exclude_user_id=current_user.id)
+    return {"ok": True, "id": party.id, "party_name": party.party_name, "icon_url": icon_url, "owner_id": party.created_by_id}
 
 @router.get("/get_party_members/{party_id}")
 def get_party_members(party_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
@@ -297,7 +356,10 @@ async def leave_party(party_id: int, database: Session = Depends(get_db), curren
         database.query(Party_messages).filter(Party_messages.party_id == party_id).delete()
         empty_party = database.query(Parties).filter(Parties.id == party_id).first()
         if empty_party:
+            old_icon = getattr(empty_party, "icon_key", None)
             database.delete(empty_party)
+            if old_icon:
+                delete_r2_object(old_icon)
 
     database.commit()
     database.refresh(server_message)

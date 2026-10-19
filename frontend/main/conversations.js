@@ -108,6 +108,8 @@ function applyConversationLists(conversations, parties, closedMutes) {
       type: "party",
       id: p.id,
       name: p.name,
+      ownerId: p.owner_id,
+      iconUrl: p.icon_url || "",
       memberCount: p.member_count,
       unread: p.unread_count || 0,
       mentions: p.mention_count || 0,
@@ -149,7 +151,10 @@ function renderConversationList() {
     row.className = "dm-item" + (isActive ? " active" : "");
     row.innerHTML = `<div class="avatar-dot"></div><div class="dm-item-text"><div class="who"></div></div><span class="dm-unread-badge"></span>`;
     const face = row.querySelector(".avatar-dot");
-    if (convo.type !== "party" && typeof paintUserFace === "function") {
+    if (convo.type === "party") {
+      if (typeof paintPartyFace === "function") paintPartyFace(face, displayName, convo.iconUrl);
+      else face.textContent = avatarLetter(displayName);
+    } else if (typeof paintUserFace === "function") {
       paintUserFace(face, convo, { name: displayName, userId: convo.id });
     } else {
       face.textContent = avatarLetter(displayName);
@@ -182,7 +187,7 @@ function renderConversationList() {
       // No close button on parties - leaving is the equivalent action,
       // and lives in the context menu instead.
       row.addEventListener("click", () => openParty(convo.id, convo.name));
-      row.addEventListener("contextmenu", (e) => showPartyContextMenu(e, convo.id, convo.name, convo.memberCount));
+      row.addEventListener("contextmenu", (e) => showPartyContextMenu(e, convo.id, convo.name, convo.memberCount, { ownerId: convo.ownerId, iconUrl: convo.iconUrl }));
     } else {
       row.addEventListener("click", () => openDirectMessage(convo.id, convo.username));
       row.addEventListener("contextmenu", (e) => showProfileContextMenu(e, convo.id, convo.username, false));
@@ -206,13 +211,47 @@ function renderConversationList() {
 
 // type+id together identify an entry - a DM partner's id and a party's
 // id can coincidentally collide.
+function paintPartyFace(el, name, iconUrl) {
+  if (!el) return;
+  el.textContent = "";
+  if (iconUrl) {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.src = iconUrl;
+    img.addEventListener("error", () => {
+      img.remove();
+      el.textContent = avatarLetter(name);
+    });
+    el.appendChild(img);
+    return;
+  }
+  el.textContent = avatarLetter(name);
+}
+
+function applyPartyUpdated(partyId, name, iconUrl, ownerId) {
+  const entry = conversationList.find((c) => c.type === "party" && Number(c.id) === Number(partyId));
+  if (entry) {
+    if (name) entry.name = name;
+    if (iconUrl !== undefined) entry.iconUrl = iconUrl || "";
+    if (ownerId != null) entry.ownerId = ownerId;
+  }
+  if (openChatType === "party" && Number(openChatId) === Number(partyId)) {
+    if (name) openChatName = name;
+    const title = document.getElementById("chat-header-title");
+    if (title && name) title.textContent = name;
+    if (name && typeof setChatSearchPlaceholder === "function") setChatSearchPlaceholder("Search " + name);
+    if (typeof renderMessages === "function") renderMessages({ preserveScroll: true });
+  }
+  renderConversationList();
+}
+
 function bumpConversation(type, id, name, incrementUnread, opts) {
   const extra = opts || {};
   let entry = conversationList.find(c => c.type === type && c.id === id);
   conversationList = conversationList.filter(c => !(c.type === type && c.id === id));
   if (!entry) {
     entry = type === "party"
-      ? { type, id, name, memberCount: 0, unread: 0, mentions: 0 }
+      ? { type, id, name, memberCount: 0, unread: 0, mentions: 0, ownerId: extra.ownerId, iconUrl: extra.iconUrl || "" }
       : { type, id, username: name, displayName: extra.displayName || name, status: (extra.status || "").trim(), unread: 0 };
   } else if (type === "dm") {
     if (extra.displayName) entry.displayName = extra.displayName;

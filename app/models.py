@@ -121,6 +121,7 @@ class Parties(Base):
     __tablename__ = "parties"
     id = Column(Integer, primary_key=True) 
     party_name = Column(String)
+    icon_key = Column(String)
     created_by_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, server_default=func.now())
 

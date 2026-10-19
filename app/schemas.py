@@ -217,6 +217,15 @@ class Party_create(BaseModel):
 class Party_kick_in(BaseModel):
     user_id: int
 
+class Party_update(BaseModel):
+    party_id: int
+    party_name: str
+    key: str | None = None
+    clear_icon: bool = False
+    mime: str = ""
+    size: int = 0
+    name: str = ""
+
 class Party_message_schema(BaseModel):
     sender_id: int
     party_id: int

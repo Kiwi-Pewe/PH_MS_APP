@@ -746,7 +746,11 @@ function buildPartyStartCard(name) {
 
   const avatar = document.createElement("div");
   avatar.className = "convo-start-avatar";
-  avatar.textContent = avatarLetter(name);
+  const open = (typeof conversationList !== "undefined" ? conversationList : []).find(
+    (c) => c.type === "party" && Number(c.id) === Number(openChatId)
+  );
+  if (typeof paintPartyFace === "function") paintPartyFace(avatar, name, open && open.iconUrl);
+  else avatar.textContent = avatarLetter(name);
 
   const nameEl = document.createElement("div");
   nameEl.className = "convo-start-name";

@@ -570,14 +570,18 @@ async function showProfileContextMenu(e, id, username, isSelf, inParty) {
   }, options);
 }
 
-function showPartyContextMenu(e, id, name, memberCount) {
+function showPartyContextMenu(e, id, name, memberCount, extra) {
   e.preventDefault();
+  extra = extra || {};
+  const isOwner = Number(extra.ownerId) === Number(myUserId);
   openContextMenu(e.clientX, e.clientY, {
+    image: extra.iconUrl || "",
     avatarText: avatarLetter(name),
     title: name,
     subtitle: `${memberCount} Members`
   }, [
     { label: "Invite to Party", onSelect: () => openInviteModal("party", id, name) },
+    isOwner ? { label: "Edit Party", onSelect: () => { if (typeof openEditParty === "function") openEditParty(id); } } : null,
     { label: "Mark as Read", onSelect: () => markPartyRead(id) },
     { label: "Party Info", onSelect: () => console.log("Party info — not implemented yet") },
     muteMenuOption("party", id),

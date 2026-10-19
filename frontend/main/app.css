@@ -8580,7 +8580,7 @@ body.is-mini-dragging {
 }
 .mini-featured-server {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   width: 100%;
   flex: 1 1 auto;
@@ -8630,9 +8630,6 @@ body.is-mini-dragging {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-height: 1.3em;
-}
-.mini-featured-server.is-no-type .who {
-  margin-top: calc(1.3em + 2px);
 }
 .mini-featured-server-desc {
   display: -webkit-box;

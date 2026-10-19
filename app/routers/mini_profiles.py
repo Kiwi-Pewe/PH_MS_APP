@@ -6,7 +6,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.privacy import accepted_friend_ids
 from app.r2 import public_url_for
-from app.routers.connections import connection_public, load_steam_playing
+from app.routers.connections import connection_public, load_steam_card, load_steam_playing
 from app.routers.profile import (
     STATUS_MAX,
     clip_text,
@@ -153,6 +153,9 @@ def mini_widgets_payload(database, owner, viewer_id, layout):
             live = mini_featured_server(database, owner.id, props.get("server_id"))
         elif kind == "connections":
             live = mini_connection(database, owner.id, props.get("provider"))
+            if live and str(live.get("provider") or "") == "steam":
+                live = dict(live)
+                live["steam"] = load_steam_card(database, owner.id)
         elif kind == "member_since":
             live = {"member_since": member_since_iso(owner)}
         try:

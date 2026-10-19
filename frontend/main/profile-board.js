@@ -610,7 +610,17 @@ function defaultProfileTileProps(type, existing) {
     return Object.assign({ server_id: String(prev.server_id || "").trim().toUpperCase() }, chrome);
   }
   if (type === "connections") {
-    return Object.assign({ provider: String(prev.provider || "").trim().toLowerCase() }, chrome);
+    return Object.assign({
+      provider: String(prev.provider || "").trim().toLowerCase(),
+      show_name: prev.show_name !== false,
+      show_avatar: prev.show_avatar !== false,
+      show_online: prev.show_online !== false,
+      show_level: prev.show_level !== false,
+      show_xp: prev.show_xp !== false,
+      show_country: !!prev.show_country,
+      show_state: !!prev.show_state,
+      show_city: !!prev.show_city
+    }, chrome);
   }
   if (type === "mutuals") return Object.assign({}, chrome);
   if (type === "button") {

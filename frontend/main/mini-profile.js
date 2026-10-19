@@ -644,43 +644,196 @@ function paintMiniFeaturedServer(el, tile, live, editing) {
   el.appendChild(body);
 }
 
-function paintMiniConnection(el, tile, live, editing) {
+function miniSteamCardSource(live, data) {
+  if (live && live.steam) return live.steam;
+  const owner = String((data && data.user && data.user.id) || (typeof profileOwnerId !== "undefined" ? profileOwnerId : "") || "");
+  if (typeof steamCardData !== "undefined" && steamCardData && String(typeof steamCardOwnerId !== "undefined" ? steamCardOwnerId : "") === owner) {
+    return steamCardData;
+  }
+  return null;
+}
+
+function miniSteamNote(text) {
+  if (typeof steamProfileNote === "function") return steamProfileNote(text);
+  const note = document.createElement("div");
+  note.className = "steam-profile-note";
+  note.textContent = text;
+  return note;
+}
+
+function paintMiniSteamConnection(el, props, data) {
+  const card = document.createElement("div");
+  card.className = "steam-profile-card is-mini-connection";
+  if (!data || !data.linked) {
+    card.appendChild(miniSteamNote("Connect Steam to show this."));
+    el.appendChild(card);
+    return;
+  }
+  const avail = data.available || {};
+  const identityOn = data.identity !== false;
+  const levelOn = data.level !== false;
+  const flag = typeof steamFlag === "function" ? steamFlag : (row, key, fallback) => (row && row[key] == null ? fallback : !!(row && row[key]));
+  if (!identityOn && !levelOn) {
+    card.appendChild(miniSteamNote("Turn on Identity and Level and badges for Steam."));
+    el.appendChild(card);
+    return;
+  }
+  if (identityOn) {
+    const top = document.createElement("div");
+    top.className = "steam-profile-top";
+    const showAvatar = flag(props, "show_avatar", true) && avail.avatar !== false && data.avatar;
+    const showLevel = flag(props, "show_level", true) && avail.level && levelOn && data.player_level != null;
+    if (showAvatar || showLevel) {
+      const face = document.createElement("div");
+      face.className = "steam-profile-face";
+      if (showAvatar) {
+        const img = document.createElement("img");
+        img.className = "steam-profile-avatar";
+        img.src = data.avatar;
+        img.alt = "";
+        img.draggable = false;
+        face.appendChild(img);
+      }
+      if (showLevel) {
+        const badge = document.createElement("span");
+        badge.className = "steam-profile-level";
+        badge.textContent = String(data.player_level);
+        face.appendChild(badge);
+      }
+      top.appendChild(face);
+    }
+    const who = document.createElement("div");
+    who.className = "steam-profile-who";
+    if (flag(props, "show_name", true) && avail.name !== false && data.name) {
+      const name = document.createElement("div");
+      name.className = "steam-profile-name";
+      name.textContent = data.name;
+      who.appendChild(name);
+    }
+    if (flag(props, "show_online", true) && avail.online) {
+      const status = document.createElement("div");
+      status.className = "steam-profile-status";
+      const dot = document.createElement("span");
+      const state = Number(data.persona_state);
+      const offline = state === 0;
+      dot.className = "steam-profile-dot" + (offline ? "" : " is-online");
+      const label = document.createElement("span");
+      label.className = "steam-profile-status-text";
+      if (offline) {
+        const when = typeof steamDateText === "function" ? steamDateText(data.last_logoff) : "";
+        label.textContent = when ? ("Offline | Last online : " + when) : "Offline";
+      } else {
+        label.textContent = "Online";
+      }
+      status.appendChild(dot);
+      status.appendChild(label);
+      who.appendChild(status);
+    }
+    if (who.childNodes.length) top.appendChild(who);
+    if (top.childNodes.length) card.appendChild(top);
+    const place = [];
+    if (flag(props, "show_city", false) && avail.city && data.city) place.push(data.city);
+    if (flag(props, "show_state", false) && avail.state && data.state) place.push(data.state);
+    if (flag(props, "show_country", false) && avail.country && data.country) {
+      place.push(typeof steamCountryName === "function" ? steamCountryName(data.country) : data.country);
+    }
+    if (place.length) {
+      const lines = document.createElement("div");
+      lines.className = "steam-profile-lines";
+      const line = document.createElement("div");
+      line.textContent = place.join(", ");
+      lines.appendChild(line);
+      card.appendChild(lines);
+    }
+  } else {
+    card.appendChild(miniSteamNote("Turn on Identity for Steam."));
+  }
+  if (levelOn && !identityOn && flag(props, "show_level", true) && avail.level && data.player_level != null) {
+    const badge = document.createElement("span");
+    badge.className = "steam-profile-level is-alone";
+    badge.textContent = String(data.player_level);
+    card.appendChild(badge);
+  }
+  const showXp = flag(props, "show_xp", true) && avail.xp && avail.xp_next && levelOn;
+  if (levelOn) {
+    if (showXp && data.player_xp != null && data.xp_to_next != null) {
+      const block = document.createElement("div");
+      block.className = "steam-profile-xp";
+      const track = document.createElement("div");
+      track.className = "steam-profile-xp-track";
+      const fill = document.createElement("div");
+      fill.className = "steam-profile-xp-fill";
+      let pct = 0;
+      const xp = Number(data.player_xp);
+      const toNext = Number(data.xp_to_next);
+      const floor = Number(data.xp_floor);
+      if (data.xp_floor != null && toNext >= 0) {
+        const into = Math.max(0, xp - floor);
+        const span = into + toNext;
+        pct = span ? Math.max(0, Math.min(100, Math.round(into / span * 100))) : 0;
+      }
+      fill.style.width = pct + "%";
+      track.appendChild(fill);
+      const text = document.createElement("div");
+      text.className = "steam-profile-xp-text";
+      text.textContent = xp.toLocaleString() + " XP · " + toNext.toLocaleString() + " to next";
+      block.appendChild(track);
+      block.appendChild(text);
+      card.appendChild(block);
+    }
+  } else {
+    card.appendChild(miniSteamNote("Turn on Level and badges for Steam."));
+  }
+  el.appendChild(card);
+}
+
+function paintMiniConnection(el, tile, live, editing, data) {
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
-  const head = document.createElement("div");
-  head.className = "profile-tile-head";
-  head.textContent = "Connection";
-  el.appendChild(head);
-  const body = document.createElement("div");
-  body.className = "profile-tile-body";
-  const paintLive = (row) => {
-    body.innerHTML = "";
-    if (!row || !row.provider) {
-      paintMiniEmpty(body, editing ? "Pick a linked account in Options." : "No connection selected.");
+  const shell = document.createElement("div");
+  shell.className = "profile-text-shell";
+  el.appendChild(shell);
+  const props = tile.props || {};
+  const slug = String(props.provider || (live && live.provider) || "").trim().toLowerCase();
+  if (!slug) {
+    paintMiniEmpty(shell, editing ? "Pick a linked account in Options." : "No connection selected.");
+    return;
+  }
+  if (slug === "steam") {
+    const card = miniSteamCardSource(live, data);
+    if (card) {
+      paintMiniSteamConnection(shell, props, card);
       return;
     }
-    const slug = String(row.provider);
-    const label = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : "Connection";
-    const line = document.createElement("div");
-    line.className = "profile-friend-row";
-    const name = document.createElement("div");
-    name.className = "profile-friend-name";
-    name.textContent = row.name ? (label + " · " + row.name) : label;
-    line.appendChild(name);
-    body.appendChild(line);
-  };
-  paintLive(live);
-  const slug = String((tile.props || {}).provider || "").trim();
-  if (!live && editing && slug && typeof serverAddress === "string") {
-    fetch("https://" + serverAddress + "/connections", { credentials: "include" })
-      .then((res) => res.ok ? res.json() : Promise.reject())
-      .then((data) => {
-        if (!body.isConnected) return;
-        paintLive(((data && data.connections) || []).find((row) => String(row.provider) === slug) || null);
-      })
-      .catch(() => {});
+    const owner = String((data && data.user && data.user.id) || (typeof profileOwnerId !== "undefined" ? profileOwnerId : "") || "");
+    const pageOwner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId : "");
+    if (owner && pageOwner === owner && typeof ensureSteamCard === "function") {
+      ensureSteamCard();
+      const wait = typeof steamCardLoad !== "undefined" ? steamCardLoad : null;
+      if (wait) {
+        wait.then(() => {
+          if (!el.isConnected) return;
+          el.innerHTML = "";
+          paintMiniConnection(el, tile, live, editing, data);
+        });
+        return;
+      }
+    }
+    paintMiniEmpty(shell, editing ? "Connect Steam to show this." : "No connection selected.");
+    return;
   }
-  el.appendChild(body);
+  if (!live || !live.provider) {
+    paintMiniEmpty(shell, editing ? "Pick a linked account in Options." : "No connection selected.");
+    return;
+  }
+  const label = slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : "Connection";
+  const line = document.createElement("div");
+  line.className = "profile-friend-row";
+  const name = document.createElement("div");
+  name.className = "profile-friend-name";
+  name.textContent = live.name ? (label + " · " + live.name) : label;
+  line.appendChild(name);
+  shell.appendChild(line);
 }
 
 function paintMiniMemberSince(el, tile, live) {
@@ -770,7 +923,7 @@ function paintMiniProfileWidgetTile(host, tile, data, editing) {
     return;
   }
   if (tile.type === "connections") {
-    paintMiniConnection(host, tile, live, editing);
+    paintMiniConnection(host, tile, live, editing, data);
     return;
   }
   if (tile.type === "member_since") {

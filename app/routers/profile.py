@@ -1039,6 +1039,18 @@ def normalize_embed_props(data):
     return out
 
 
+def normalize_connection_props(data):
+    out = normalize_text_chrome(data, 14, True)
+    out["provider"] = str(data.get("provider") or "").strip().lower()
+    on_keys = ("show_name", "show_avatar", "show_online", "show_level", "show_xp")
+    off_keys = ("show_country", "show_state", "show_city")
+    for key in on_keys:
+        out[key] = True if key not in data or data.get(key) is None else bool(data.get(key))
+    for key in off_keys:
+        out[key] = False if key not in data or data.get(key) is None else bool(data.get(key))
+    return out
+
+
 def normalize_steam_profile_props(data):
     out = normalize_text_chrome(data, 14, True)
     on_keys = (
@@ -1316,10 +1328,7 @@ def normalize_props(kind, props, banner_fallback):
         out["server_id"] = code if SERVER_ID_RE.match(code) else ""
         return out
     if kind == "connections":
-        provider = str(data.get("provider") or "").strip().lower()
-        out = normalize_text_chrome(data, 14, True)
-        out["provider"] = provider
-        return out
+        return normalize_connection_props(data)
     if kind == "mutuals":
         return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)

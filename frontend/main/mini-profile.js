@@ -224,6 +224,12 @@ function paintMiniProfileHighest(card, data) {
   }
 }
 
+function miniProfileSectionSplit() {
+  const split = document.createElement("div");
+  split.className = "mini-profile-section-split";
+  return split;
+}
+
 function paintMiniProfileRolesOnly(data) {
   const card = document.getElementById("mini-profile");
   if (!card || !data) return;
@@ -231,11 +237,25 @@ function paintMiniProfileRolesOnly(data) {
   const next = data.in_server ? buildMiniProfileRoles(data) : null;
   const prev = card.querySelector(".mini-profile-roles");
   if (prev && next) prev.replaceWith(next);
-  else if (prev && !next) prev.remove();
-  else if (!prev && next) {
+  else if (prev && !next) {
+    const before = prev.previousElementSibling;
+    if (before && before.classList.contains("mini-profile-section-split")) before.remove();
+    prev.remove();
+  } else if (!prev && next) {
     const footer = card.querySelector(".mini-profile-footer");
-    if (footer) card.insertBefore(next, footer);
-    else card.appendChild(next);
+    let mark = footer;
+    if (footer) {
+      const before = footer.previousElementSibling;
+      if (before && before.classList.contains("mini-profile-section-split")) mark = before;
+    }
+    const split = miniProfileSectionSplit();
+    if (mark) {
+      card.insertBefore(split, mark);
+      card.insertBefore(next, mark);
+    } else {
+      card.appendChild(split);
+      card.appendChild(next);
+    }
   }
 }
 
@@ -421,11 +441,13 @@ function paintMiniProfileInto(card, data, opts) {
   if (widgetHost) card.appendChild(widgetHost);
 
   if (data.in_server) {
+    card.appendChild(miniProfileSectionSplit());
     card.appendChild(buildMiniProfileRoles(data));
   }
 
   if (page) return;
 
+  card.appendChild(miniProfileSectionSplit());
   const footer = document.createElement("div");
   footer.className = "mini-profile-footer";
   if (data.is_self) {

@@ -8534,8 +8534,15 @@ body.is-mini-dragging {
   color: var(--text);
   margin: 0 0 8px;
 }
-.mini-profile-roles,
-.mini-profile-footer { padding: 4px 16px 16px; }
+.mini-profile-roles { padding: 8px 16px 16px; }
+.mini-profile-footer {
+  padding: 12px 16px 16px;
+  background: var(--rail);
+  border-radius: 0 0 8px 8px;
+}
+.mini-profile-footer .mini-profile-note {
+  background: var(--panel-alt);
+}
 .mini-profile-role-row {
   display: flex;
   flex-wrap: wrap;

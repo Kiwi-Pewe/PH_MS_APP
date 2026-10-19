@@ -5969,7 +5969,6 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-display_name[data-text-align="right"] .profile-tile-status { text-align: right; }
 .profile-tile-pronouns { font-size: 12px; color: var(--text-dim); margin-top: 2px; text-align: center; }
 .profile-tile.is-member_since {
-  container-type: size;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -5977,16 +5976,20 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   padding: 6px 10px;
   overflow: hidden;
 }
+.profile-tile.is-member_since[data-text-align="left"] { text-align: left; align-items: flex-start; }
+.profile-tile.is-member_since[data-text-align="center"] { text-align: center; align-items: center; }
+.profile-tile.is-member_since[data-text-align="right"] { text-align: right; align-items: flex-end; }
+.profile-tile.is-member_since[data-text-align="justify"] { text-align: justify; align-items: stretch; }
 .profile-tile.is-member_since .profile-tile-head {
   padding: 0;
-  font-size: clamp(9px, 16cqh, 11px);
+  font-size: calc(var(--profile-text-size, 18pt) * 0.55);
   line-height: 1.2;
 }
 .profile-since-date {
   font-weight: 700;
   color: var(--text);
   line-height: 1.1;
-  font-size: clamp(13px, 42cqh, 26px);
+  font-size: var(--profile-text-size, 18pt);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6427,6 +6430,15 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.has-text-shadow {
   text-shadow: var(--profile-text-shadow);
 }
+.profile-tile.has-text-outline {
+  -webkit-text-stroke: var(--profile-text-outline-width) var(--profile-text-outline-color);
+  paint-order: stroke fill;
+}
+.profile-tile.has-text-outline .avatar-dot,
+.profile-tile.has-text-outline .steam-profile-level {
+  -webkit-text-stroke: 0;
+  paint-order: normal;
+}
 .profile-tile.has-text-color :is(
   .profile-tile-name,
   .profile-tile-handle,
@@ -6453,6 +6465,17 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .profile-spoiler-title,
   .profile-callout-copy,
   .settings-opt-desc,
+  .profile-tile-head,
+  .profile-since-date,
+  .profile-link-label,
+  .steam-profile-name,
+  .steam-profile-status-text,
+  .steam-profile-link,
+  .steam-profile-lines,
+  .steam-profile-xp-text,
+  .steam-profile-note,
+  .steam-playing-name,
+  .steam-playing-time,
   .steam-recent-name,
   .steam-recent-time,
   .steam-achieve-desc,
@@ -6488,6 +6511,17 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .profile-spoiler-title,
   .profile-callout-copy,
   .settings-opt-desc,
+  .profile-tile-head,
+  .profile-since-date,
+  .profile-link-label,
+  .steam-profile-name,
+  .steam-profile-status-text,
+  .steam-profile-link,
+  .steam-profile-lines,
+  .steam-profile-xp-text,
+  .steam-profile-note,
+  .steam-playing-name,
+  .steam-playing-time,
   .steam-recent-name,
   .steam-recent-time,
   .steam-achieve-desc,
@@ -6521,7 +6555,19 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .steam-achieve-desc,
   .steam-badge-xp,
   .profile-meter-title,
-  .profile-meter-readout
+  .profile-meter-readout,
+  .profile-tile-head,
+  .profile-since-date,
+  .profile-link-label,
+  .profile-friend-name,
+  .steam-profile-name,
+  .steam-profile-status-text,
+  .steam-profile-link,
+  .steam-profile-lines,
+  .steam-profile-xp-text,
+  .steam-profile-note,
+  .steam-playing-name,
+  .steam-playing-time
 ) {
   line-height: var(--profile-line-height);
 }
@@ -6644,7 +6690,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 }
 .profile-friend-name {
   min-width: 0;
-  font-size: var(--profile-friend-text, 13px);
+  font-size: var(--profile-text-size, 14pt);
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6735,26 +6781,26 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .steam-profile-level.is-alone { position: static; }
 .steam-profile-who { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .steam-profile-name {
-  font-size: 16px; font-weight: 800; color: var(--text); line-height: 1.2;
+  font-size: var(--profile-text-size, 14pt); font-weight: 800; color: var(--text); line-height: 1.2;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.steam-profile-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.steam-profile-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: calc(var(--profile-text-size, 14pt) * 0.75); color: var(--text-dim); }
 .steam-profile-status-text { min-width: 0; }
 .steam-profile-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); flex: 0 0 auto; }
 .steam-profile-dot.is-online { background: var(--online); }
 .steam-profile-link {
-  font-size: 12px; color: var(--text-dim); text-decoration: none;
+  font-size: calc(var(--profile-text-size, 14pt) * 0.75); color: var(--text-dim); text-decoration: none;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .steam-profile-link:hover { color: var(--text); }
-.steam-profile-lines { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-dim); line-height: 1.35; }
+.steam-profile-lines { display: flex; flex-direction: column; gap: 2px; font-size: calc(var(--profile-text-size, 14pt) * 0.75); color: var(--text-dim); line-height: 1.35; }
 .steam-profile-xp { display: flex; flex-direction: column; gap: 4px; margin-top: auto; }
 .steam-profile-xp-track { height: 6px; border-radius: 999px; background: var(--panel); overflow: hidden; }
 .steam-profile-xp-fill { height: 100%; background: var(--accent); }
-.steam-profile-xp-text { font-size: 12px; color: var(--text-dim); }
+.steam-profile-xp-text { font-size: calc(var(--profile-text-size, 14pt) * 0.75); color: var(--text-dim); }
 .steam-profile-note {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  text-align: center; color: var(--text-dim); font-size: 13px; line-height: 1.4; padding: 8px;
+  text-align: center; color: var(--text-dim); font-size: calc(var(--profile-text-size, 14pt) * 0.85); line-height: 1.4; padding: 8px;
 }
 .profile-tile.is-steam_playing_now { overflow: hidden; }
 .steam-playing-card {
@@ -6772,15 +6818,22 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 }
 .steam-playing-copy { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
 .steam-playing-name {
-  font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.2;
+  font-size: var(--profile-text-size, 14pt); font-weight: 800; color: var(--text); line-height: 1.2;
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
-.steam-playing-time { font-size: 12px; color: var(--text-dim); }
+.steam-playing-time { font-size: calc(var(--profile-text-size, 14pt) * 0.75); color: var(--text-dim); }
+.profile-tile.is-friends > .profile-tile-head,
+.profile-tile.is-link_tree > .profile-tile-head,
+.profile-tile.is-steam_profile > .profile-tile-head,
+.profile-tile.is-steam_playing_now > .profile-tile-head {
+  font-size: calc(var(--profile-text-size, 14pt) * 0.72);
+}
 .profile-tile.is-steam_recently_played > .profile-tile-head,
 .profile-tile.is-steam_library > .profile-tile-head,
 .profile-tile.is-steam_achievements > .profile-tile-head,
 .profile-tile.is-steam_badges > .profile-tile-head {
   height: 28px; box-sizing: border-box; padding: 8px 12px 0; line-height: 20px;
+  font-size: calc(var(--profile-text-size, 14pt) * 0.72);
 }
 .profile-tile.is-steam_recently_played > .profile-text-rule,
 .profile-tile.is-steam_library > .profile-text-rule,
@@ -6830,6 +6883,37 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile[data-text-align="center"] .steam-recent-copy { text-align: center; }
 .profile-tile[data-text-align="right"] .steam-recent-copy { text-align: right; }
 .profile-tile[data-text-align="justify"] .steam-recent-copy { text-align: justify; }
+.profile-tile.is-friends[data-text-align="center"] .profile-tile-head,
+.profile-tile.is-friends[data-text-align="center"] .profile-friend-name,
+.profile-tile.is-link_tree[data-text-align="center"] .profile-tile-head,
+.profile-tile.is-link_tree[data-text-align="center"] .profile-link-label,
+.profile-tile.is-steam_profile[data-text-align="center"] .steam-profile-who,
+.profile-tile.is-steam_profile[data-text-align="center"] .steam-profile-lines,
+.profile-tile.is-steam_profile[data-text-align="center"] .steam-profile-xp-text,
+.profile-tile.is-steam_profile[data-text-align="center"] .steam-profile-note,
+.profile-tile.is-steam_playing_now[data-text-align="center"] .steam-playing-copy { text-align: center; }
+.profile-tile.is-friends[data-text-align="right"] .profile-tile-head,
+.profile-tile.is-friends[data-text-align="right"] .profile-friend-name,
+.profile-tile.is-link_tree[data-text-align="right"] .profile-tile-head,
+.profile-tile.is-link_tree[data-text-align="right"] .profile-link-label,
+.profile-tile.is-steam_profile[data-text-align="right"] .steam-profile-who,
+.profile-tile.is-steam_profile[data-text-align="right"] .steam-profile-lines,
+.profile-tile.is-steam_profile[data-text-align="right"] .steam-profile-xp-text,
+.profile-tile.is-steam_profile[data-text-align="right"] .steam-profile-note,
+.profile-tile.is-steam_playing_now[data-text-align="right"] .steam-playing-copy { text-align: right; }
+.profile-tile.is-friends[data-text-align="justify"] .profile-tile-head,
+.profile-tile.is-friends[data-text-align="justify"] .profile-friend-name,
+.profile-tile.is-link_tree[data-text-align="justify"] .profile-tile-head,
+.profile-tile.is-link_tree[data-text-align="justify"] .profile-link-label,
+.profile-tile.is-steam_profile[data-text-align="justify"] .steam-profile-who,
+.profile-tile.is-steam_profile[data-text-align="justify"] .steam-profile-lines,
+.profile-tile.is-steam_profile[data-text-align="justify"] .steam-profile-xp-text,
+.profile-tile.is-steam_profile[data-text-align="justify"] .steam-profile-note,
+.profile-tile.is-steam_playing_now[data-text-align="justify"] .steam-playing-copy { text-align: justify; }
+.profile-tile.is-friends[data-text-align="center"] .profile-friend-row,
+.profile-tile.is-link_tree[data-text-align="center"] .profile-link-row { justify-content: center; }
+.profile-tile.is-friends[data-text-align="right"] .profile-friend-row,
+.profile-tile.is-link_tree[data-text-align="right"] .profile-link-row { justify-content: flex-end; }
 .steam-recent-pages {
   flex: 0 0 36px; height: 36px; display: flex; align-items: center;
   justify-content: center; gap: 12px;
@@ -6983,7 +7067,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 a.profile-link-row:hover { color: var(--accent); }
 .profile-link-label {
   min-width: 0;
-  font-size: var(--profile-link-text, 13px);
+  font-size: var(--profile-text-size, 14pt);
   font-weight: 700;
   color: var(--text);
   overflow: hidden;

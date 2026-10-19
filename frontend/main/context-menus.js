@@ -583,7 +583,6 @@ function showPartyContextMenu(e, id, name, memberCount, extra) {
     { label: "Invite to Party", onSelect: () => openInviteModal("party", id, name) },
     isOwner ? { label: "Edit Party", onSelect: () => { if (typeof openEditParty === "function") openEditParty(id); } } : null,
     { label: "Mark as Read", onSelect: () => markPartyRead(id) },
-    { label: "Party Info", onSelect: () => console.log("Party info — not implemented yet") },
     muteMenuOption("party", id),
     { label: "Leave Party", danger: true, onSelect: () => leavePartyFromContextMenu(id, name) }
   ]);

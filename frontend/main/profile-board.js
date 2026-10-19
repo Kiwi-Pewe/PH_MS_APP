@@ -355,7 +355,7 @@ function defaultTextSize(type, prev) {
   if (old === 1) return 12;
   if (old === 3) return 18;
   if (type === "header") return 18;
-  if (type === "local_time" || type === "details" || type === "clock" || type === "display_name") return 18;
+  if (type === "local_time" || type === "details" || type === "clock" || type === "display_name" || type === "member_since") return 18;
   if (type === "footnote") return 12;
   return 14;
 }
@@ -476,6 +476,10 @@ function defaultTextChrome(type, prev) {
     text_shadow_blur: clampProfileSpan(row.text_shadow_blur, 4, 40),
     text_shadow_color: profileBorderColor(row.text_shadow_color) || "#000000",
     text_shadow_opacity: clampProfilePercent(row.text_shadow_opacity, 40),
+    show_text_outline: !!row.show_text_outline,
+    text_outline_width: Math.max(1, Math.min(8, clampProfileSpan(row.text_outline_width, 2, 8))),
+    text_outline_color: profileBorderColor(row.text_outline_color) || "#000000",
+    text_outline_opacity: clampProfilePercent(row.text_outline_opacity, 100),
     show_background: row.show_background != null ? !!row.show_background : card,
     show_border: row.show_border != null ? !!row.show_border : false,
     bg_color: profileBorderColor(row.bg_color) || "",
@@ -758,7 +762,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "meter" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "meter" || type === "member_since" || type === "friends" || type === "link_tree" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges";
 }
 
 function profileTextChrome(props, type) {
@@ -802,6 +806,16 @@ function applyProfileTextPaint(el, chrome) {
     el.style.setProperty("--profile-text-shadow", look.text_shadow_x + "px " + look.text_shadow_y + "px " + look.text_shadow_blur + "px " + color);
   } else {
     el.style.removeProperty("--profile-text-shadow");
+  }
+  el.classList.toggle("has-text-outline", !!look.show_text_outline);
+  if (look.show_text_outline) {
+    const color = profileMixColor(look.text_outline_color || "#000000", look.text_outline_opacity);
+    const width = Math.max(1, Math.min(8, Number(look.text_outline_width) || 2));
+    el.style.setProperty("--profile-text-outline-width", width + "px");
+    el.style.setProperty("--profile-text-outline-color", color);
+  } else {
+    el.style.removeProperty("--profile-text-outline-width");
+    el.style.removeProperty("--profile-text-outline-color");
   }
 }
 
@@ -1212,6 +1226,7 @@ function paintProfileRail(tile, el) {
 
 function paintProfileLinkTree(tile, el) {
   applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
   applyProfileLinkSize(el, tile);
   mountProfileFixedTitle(el, "Links");
   const body = document.createElement("div");
@@ -2141,6 +2156,7 @@ function steamProfileNote(text) {
 
 function paintSteamProfile(tile, el) {
   applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
   mountSteamTitle(el, tile, "Steam profile", "center");
   const card = document.createElement("div");
   card.className = "steam-profile-card";
@@ -2407,6 +2423,7 @@ function ensureSteamPlaying() {
 
 function paintSteamPlaying(tile, el) {
   applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
   mountSteamTitle(el, tile, "Currently playing", "left");
   const card = document.createElement("div");
   card.className = "steam-playing-card";
@@ -3391,6 +3408,7 @@ function paintProfileTileContent(tile, el) {
     return;
   }
   if (tile.type === "member_since") {
+    applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
     const head = document.createElement("div");
     head.className = "profile-tile-head";
     head.textContent = "Member since";
@@ -3493,6 +3511,7 @@ function paintProfileTileContent(tile, el) {
   if (tile.type === "friends") {
     mountProfileFixedTitle(el, "Friends");
     applyProfileWidgetSurface(el, tile);
+    applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
     applyProfileFriendSize(el, tile);
     const body = document.createElement("div");
     body.className = "profile-tile-body";

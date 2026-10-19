@@ -492,6 +492,30 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
   shadow.extras.appendChild(fade.label);
   shadow.extras.appendChild(fade.row);
   box.appendChild(shadow.block);
+
+  const outline = profileToggleExtras("Outline", "Draw a stroke around the letters.", !!draft.show_text_outline, hintEl, (on) => {
+    draft.show_text_outline = on;
+    onChange();
+  });
+  const thick = profileSliderField("Thickness", chrome.text_outline_width, 1, 8, hintEl, "How wide the outline is.", (n) => {
+    draft.text_outline_width = n;
+    onChange();
+  });
+  const outlineShade = profileColorFields("Color", chrome.text_outline_color || "#000000", hintEl, "Outline color.", (clean) => {
+    draft.text_outline_color = clean;
+    onChange();
+  });
+  const outlineFade = profileSliderField("Opacity", chrome.text_outline_opacity, 0, 100, hintEl, "How solid the outline is.", (n) => {
+    draft.text_outline_opacity = n;
+    onChange();
+  });
+  outline.extras.appendChild(thick.label);
+  outline.extras.appendChild(thick.row);
+  outline.extras.appendChild(outlineShade.label);
+  outline.extras.appendChild(outlineShade.row);
+  outline.extras.appendChild(outlineFade.label);
+  outline.extras.appendChild(outlineFade.row);
+  box.appendChild(outline.block);
 }
 
 function profileHasWidgetSettings(type) {

@@ -1613,12 +1613,12 @@ function fillDisplayServerOptions(box, draft, onChange, hintEl) {
 
 function fillMiniFriendPick(box, draft, onChange, hintEl) {
   const heading = document.createElement("div");
-  heading.className = "profile-opt-field-label";
-  heading.textContent = "Friend";
+  heading.className = "profile-opt-section-title";
+  heading.textContent = "Friends";
   profileOptHint(heading, "The one person this card shows.", hintEl);
   box.appendChild(heading);
   const list = document.createElement("div");
-  list.className = "profile-opt-server-picks";
+  list.className = "profile-opt-server-picks profile-opt-friend-picks";
   list.textContent = "Loading friends…";
   box.appendChild(list);
   const paint = (people) => {
@@ -1632,23 +1632,23 @@ function fillMiniFriendPick(box, draft, onChange, hintEl) {
       return;
     }
     people.forEach((person) => {
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "profile-opt-pick" + (Number(draft.user_id) === Number(person.id) ? " is-on" : "");
-      row.textContent = person.display_name || person.username || "Friend";
+      const selected = Number(draft.user_id) === Number(person.id);
+      const row = typeof paintDmPersonCard === "function"
+        ? paintDmPersonCard(person, { tag: "button", selected: selected })
+        : document.createElement("button");
+      if (row.tagName === "BUTTON") row.type = "button";
+      if (!row.classList.contains("dm-item")) {
+        row.className = "profile-opt-pick" + (selected ? " is-on" : "");
+        row.textContent = person.display_name || person.username || "Friend";
+      }
       row.addEventListener("click", () => {
         draft.user_id = person.id;
-        Array.from(list.children).forEach((child) => child.classList.toggle("is-on", child === row));
+        Array.from(list.children).forEach((child) => child.classList.toggle("active", child === row));
         onChange();
       });
       list.appendChild(row);
     });
   };
-  const cached = typeof profileFriends !== "undefined" && Array.isArray(profileFriends) ? profileFriends : [];
-  if (cached.length) {
-    paint(cached);
-    return;
-  }
   fetch("https://" + serverAddress + "/get_friends", { credentials: "include" })
     .then((res) => res.ok ? res.json() : Promise.reject())
     .then((data) => {
@@ -1704,35 +1704,52 @@ function fillMiniServerPick(box, draft, onChange, hintEl) {
 }
 
 function fillMiniConnectionPick(box, draft, onChange, hintEl) {
-  const field = profileSelectField("Connection", [
-    { value: "", label: "Loading connections…" }
-  ], draft.provider || "");
-  profileOptHint(field.label, "One linked account. Only accounts you have actually connected.", hintEl);
-  box.appendChild(field.label);
+  const title = document.createElement("div");
+  title.className = "profile-opt-section-title";
+  title.textContent = "Connection";
+  profileOptHint(title, "One linked account. Only accounts you have actually connected.", hintEl);
+  box.appendChild(title);
+  const select = document.createElement("select");
+  select.className = "settings-select";
+  const loading = document.createElement("option");
+  loading.value = "";
+  loading.textContent = "Loading connections…";
+  select.appendChild(loading);
+  box.appendChild(select);
   function paintExtras() {
-    while (box.lastChild && box.lastChild !== field.label) box.removeChild(box.lastChild);
-    if (String(draft.provider || "") === "steam") {
-      fillMiniSteamConnectionOptions(box, draft, onChange);
-    }
+    while (box.lastChild && box.lastChild !== select) box.removeChild(box.lastChild);
+    const slug = String(draft.provider || "").trim().toLowerCase();
+    if (!slug) return;
+    const split = document.createElement("div");
+    split.className = "profile-opt-section-split";
+    box.appendChild(split);
+    const heading = document.createElement("div");
+    heading.className = "profile-opt-section-title";
+    heading.textContent = slug.charAt(0).toUpperCase() + slug.slice(1) + " Options";
+    box.appendChild(heading);
+    const extras = document.createElement("div");
+    extras.className = "profile-opt-connection-flags";
+    box.appendChild(extras);
+    if (slug === "steam") fillMiniSteamConnectionOptions(extras, draft, onChange);
   }
-  field.select.addEventListener("change", () => {
-    draft.provider = String(field.select.value || "").trim().toLowerCase();
+  select.addEventListener("change", () => {
+    draft.provider = String(select.value || "").trim().toLowerCase();
     paintExtras();
     onChange();
   });
   fetch("https://" + serverAddress + "/connections", { credentials: "include" })
     .then((res) => res.ok ? res.json() : Promise.reject())
     .then((data) => {
-      if (!field.select.isConnected) return;
+      if (!select.isConnected) return;
       const rows = (data && data.connections) || [];
-      field.select.innerHTML = "";
-      field.select.disabled = false;
+      select.innerHTML = "";
+      select.disabled = false;
       if (!rows.length) {
         const opt = document.createElement("option");
         opt.value = "";
         opt.textContent = "Connect an account in Settings first.";
-        field.select.appendChild(opt);
-        field.select.disabled = true;
+        select.appendChild(opt);
+        select.disabled = true;
         draft.provider = "";
         paintExtras();
         onChange();
@@ -1741,7 +1758,7 @@ function fillMiniConnectionPick(box, draft, onChange, hintEl) {
       const blank = document.createElement("option");
       blank.value = "";
       blank.textContent = "Choose a connection";
-      field.select.appendChild(blank);
+      select.appendChild(blank);
       let found = false;
       rows.forEach((row) => {
         const slug = String(row.provider || "").trim().toLowerCase();
@@ -1750,21 +1767,21 @@ function fillMiniConnectionPick(box, draft, onChange, hintEl) {
         opt.value = slug;
         opt.textContent = slug.charAt(0).toUpperCase() + slug.slice(1);
         if (String(draft.provider || "") === slug) found = true;
-        field.select.appendChild(opt);
+        select.appendChild(opt);
       });
       if (draft.provider && !found) draft.provider = "";
-      field.select.value = draft.provider || "";
+      select.value = draft.provider || "";
       paintExtras();
       onChange();
     })
     .catch(() => {
-      if (!field.select.isConnected) return;
-      field.select.innerHTML = "";
+      if (!select.isConnected) return;
+      select.innerHTML = "";
       const opt = document.createElement("option");
       opt.value = "";
       opt.textContent = "Could not load connections.";
-      field.select.appendChild(opt);
-      field.select.disabled = true;
+      select.appendChild(opt);
+      select.disabled = true;
     });
 }
 

@@ -747,6 +747,7 @@
 }
 .dm-item:hover, .dm-item.active { background: var(--panel-alt); color: var(--text); }
 .dm-item .avatar-dot {
+  position: relative;
   width: 32px;
   height: 32px;
   flex: none;
@@ -755,7 +756,17 @@
   border-radius: 50%;
   font-size: 13px;
   line-height: 1;
-  overflow: hidden;
+  overflow: visible;
+}
+.dm-item .status-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--panel-alt);
+  right: -2px;
+  bottom: -2px;
+  z-index: 1;
 }
 .avatar-dot {
   position: relative;
@@ -7283,6 +7294,39 @@ a.profile-link-row:hover { color: var(--accent); }
 .profile-opt-field-label {
   font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 8px;
 }
+.profile-opt-section-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+  margin: 0 0 10px;
+}
+.profile-opt-section-split {
+  height: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 14px 0 14px;
+}
+.profile-opt-connection-flags .profile-name-opt {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+.profile-opt-connection-flags .settings-opt {
+  border-bottom: none;
+}
+.profile-opt-friend-picks > .dm-item {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.profile-opt-friend-picks > .dm-item.active {
+  background: var(--panel-alt);
+  color: var(--text);
+}
 .profile-opt-seg { display: flex; gap: 6px; margin-bottom: 14px; }
 .profile-opt-seg button {
   background: var(--panel-alt); color: var(--text-dim);
@@ -8495,6 +8539,17 @@ body.is-mini-dragging {
 .mini-profile-widget-tile.is-awaiting {
   justify-content: center;
   text-align: center;
+}
+.mini-profile-widget-tile.is-featured_friend:not(.is-awaiting) {
+  justify-content: flex-start;
+  text-align: left;
+}
+.mini-profile-widget-tile.is-featured_friend .dm-item {
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  padding: 0 4px;
+  color: inherit;
 }
 .mini-profile-widget-tile.is-connections.has-steam {
   justify-content: flex-start;

@@ -7,7 +7,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.routers.realtime import active_connections, notify_user
 from app.privacy import can_send_friend_request, dm_menu_state, pair_has_messages
-from app.routers.profile import public_avatar
+from app.routers.profile import public_avatar, public_display_name
 from app.routers.feed import notify_feed_alert
 
 router = APIRouter()
@@ -131,7 +131,14 @@ def get_friends(database: Session = Depends(get_db), current_user: UserInfo = De
         actual_account = accounts.get(other_id)
         if not actual_account:
             continue
-        payload = {"id": other_id, "username": actual_account.username, "avatar": public_avatar(actual_account), "status": (actual_account.profile_status or "").strip()}
+        payload = {
+            "id": other_id,
+            "username": actual_account.username,
+            "display_name": public_display_name(actual_account),
+            "avatar": public_avatar(actual_account),
+            "status": (actual_account.profile_status or "").strip(),
+            "presence": "online" if actual_account.id in active_connections else "offline",
+        }
         if actual_account.id in active_connections:
             online_friends.append(payload)
         else:

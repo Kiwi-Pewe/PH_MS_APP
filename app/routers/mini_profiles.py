@@ -66,6 +66,8 @@ def mini_person(user):
         "username": user.username,
         "display_name": public_display_name(user),
         "avatar": public_avatar(user),
+        "status": (getattr(user, "profile_status", None) or "").strip(),
+        "presence": presence_status(user.id),
     }
 
 

@@ -300,6 +300,42 @@ function paintUserFace(host, source, opts) {
   if (pip) host.appendChild(pip);
 }
 
+function personPresence(person) {
+  const raw = String((person && (person.presence || person.online_status)) || "").toLowerCase();
+  if (raw === "online" || raw === "away" || raw === "dnd") return raw;
+  if (person && person.online === true) return "online";
+  return "offline";
+}
+
+function paintDmPersonCard(person, opts) {
+  opts = opts || {};
+  const row = document.createElement(opts.tag || "div");
+  row.className = "dm-item" + (opts.selected ? " active" : "");
+  const face = document.createElement("div");
+  face.className = "avatar-dot";
+  const pip = document.createElement("div");
+  pip.className = "status-dot status-" + personPresence(person);
+  face.appendChild(pip);
+  const shown = (person && (person.display_name || person.username)) || "User";
+  if (typeof paintUserFace === "function") paintUserFace(face, person, { name: shown, userId: person && person.id });
+  const text = document.createElement("div");
+  text.className = "dm-item-text";
+  const who = document.createElement("div");
+  who.className = "who";
+  who.textContent = shown;
+  text.appendChild(who);
+  const line = String((person && person.status) || "").trim();
+  if (line) {
+    const sub = document.createElement("div");
+    sub.className = "dm-subtitle";
+    sub.textContent = line;
+    text.appendChild(sub);
+  }
+  row.appendChild(face);
+  row.appendChild(text);
+  return row;
+}
+
 function paintOwnFooterAvatar() {
   const media = (typeof profileIsOwn !== "undefined" && profileIsOwn)
     ? getIdentityMedia("avatar")

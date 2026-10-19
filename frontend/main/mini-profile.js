@@ -601,20 +601,58 @@ function paintMiniMutuals(el, tile, live, editing) {
 function paintMiniFeaturedFriend(el, tile, live, editing) {
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
+  const id = Number((tile.props || {}).user_id);
   let person = live;
   if (!person && typeof profileFriends !== "undefined") {
-    const id = Number((tile.props || {}).user_id);
     person = (profileFriends || []).find((row) => Number(row.id) === id) || null;
   }
-  if (!person) {
-    paintMiniAwaiting(el, "Featured friend", editing ? "Pick a friend in Options." : "No friend selected.");
+  const liveView = !editing && !el.classList.contains("is-opt-preview");
+  const showPerson = (row) => {
+    el.innerHTML = "";
+    el.classList.remove("is-awaiting");
+    if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+    if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
+    if (!row || !row.id) {
+      paintMiniAwaiting(el, "Featured friend", editing ? "Pick a friend in Options." : "No friend selected.");
+      return;
+    }
+    const card = typeof paintDmPersonCard === "function"
+      ? paintDmPersonCard(row)
+      : paintMiniPersonRow(row);
+    if (liveView) {
+      card.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (typeof openMiniProfile === "function") {
+          openMiniProfile(row.id, (typeof miniProfileAnchor !== "undefined" && miniProfileAnchor) || card);
+        }
+      });
+      card.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof showProfileContextMenu === "function") {
+          showProfileContextMenu(e, row.id, row.username || row.display_name, false);
+        }
+      });
+    }
+    el.appendChild(card);
+  };
+  if (person) {
+    showPerson(person);
     return;
   }
-  const body = paintMiniWidgetChrome(el, "Featured friend");
-  body.appendChild(paintMiniPersonRow(person, (row) => {
-    if (typeof closeMiniProfile === "function") closeMiniProfile();
-    if (row.id && typeof openUserProfile === "function") openUserProfile(row.id);
-  }));
+  if (editing && id && typeof serverAddress === "string") {
+    paintMiniAwaiting(el, "Featured friend", "Pick a friend in Options.");
+    fetch("https://" + serverAddress + "/get_friends", { credentials: "include" })
+      .then((res) => res.ok ? res.json() : Promise.reject())
+      .then((data) => {
+        if (!el.isConnected) return;
+        const people = [].concat((data && data.online_friends) || [], (data && data.offline_friends) || []);
+        showPerson(people.find((row) => Number(row.id) === id) || null);
+      })
+      .catch(() => {});
+    return;
+  }
+  showPerson(null);
 }
 
 function paintMiniFeaturedServer(el, tile, live, editing) {

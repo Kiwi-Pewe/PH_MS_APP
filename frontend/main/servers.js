@@ -297,7 +297,7 @@ function mapChannelHistory(messages) {
       nickname: msg.nickname || "",
       content: msg.content,
       attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-      time: new Date(msg.timestamp),
+      time: parseUtcTimestamp(msg.timestamp),
       edited: !!msg.edited,
       reactions: applyReactionMe(msg.reactions || []),
       avatar: msg.avatar || null,

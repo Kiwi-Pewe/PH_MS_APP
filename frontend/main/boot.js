@@ -189,7 +189,7 @@ function connectSocket() {
           username: data.username,
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
-          time: data.timestamp ? new Date(data.timestamp) : new Date(),
+          time: data.timestamp ? parseUtcTimestamp(data.timestamp) : new Date(),
           edited: false,
           reactions: [],
           avatar: data.avatar || null
@@ -217,7 +217,7 @@ function connectSocket() {
           username: data.username,
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
-          time: data.timestamp ? new Date(data.timestamp) : new Date(),
+          time: data.timestamp ? parseUtcTimestamp(data.timestamp) : new Date(),
           edited: false,
           avatar: data.avatar || null
         };
@@ -245,7 +245,7 @@ function connectSocket() {
           nickname: data.nickname || "",
           content: data.content,
           attachment: typeof parseAttachment === "function" ? parseAttachment(data.attachment) : data.attachment,
-          time: data.timestamp ? new Date(data.timestamp) : new Date(),
+          time: data.timestamp ? parseUtcTimestamp(data.timestamp) : new Date(),
           edited: false,
           reactions: [],
           avatar: data.avatar || null,

@@ -64,16 +64,22 @@ function formatChatDateSeparator(date) {
   return d.toLocaleDateString([], opts);
 }
 
-// Backend timestamps come back as str(datetime) with no timezone marker
-// (naive UTC) — a bare space-separated string gets misread as LOCAL time
-// by Date(). Client-generated ISO strings (trailing Z) don't need this.
-// KNOWN BUG (Team Chat/SplitPlan.md, "Not in this pass"): the T-check
-// below still misreads FastAPI's auto-serialized "2026-09-05T18:23:11.123456"
-// (has a T, no Z) as local time. Fix is queued, not part of this move.
 function parseUtcTimestamp(ts) {
-  if (!ts) return new Date();
-  if (ts.includes("T")) return new Date(ts);
-  return new Date(ts.replace(" ", "T") + "Z");
+  if (ts instanceof Date) return Number.isNaN(ts.getTime()) ? new Date() : ts;
+  if (ts == null || ts === "") return new Date();
+  if (typeof ts === "number") {
+    const numbered = new Date(ts);
+    return Number.isNaN(numbered.getTime()) ? new Date() : numbered;
+  }
+  const raw = String(ts).trim();
+  if (!raw) return new Date();
+  if (/[zZ]$/.test(raw) || /[+-]\d{2}:?\d{2}$/.test(raw)) {
+    const marked = new Date(raw);
+    return Number.isNaN(marked.getTime()) ? new Date() : marked;
+  }
+  const iso = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const utc = new Date(iso + "Z");
+  return Number.isNaN(utc.getTime()) ? new Date() : utc;
 }
 
 function nextMessageTempId() {

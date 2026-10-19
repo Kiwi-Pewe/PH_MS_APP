@@ -31,7 +31,7 @@ async function loadOlderMessages() {
         username: isMine ? myUsername : (openChatType === "party" ? msg.username : openChatName),
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-        time: new Date(msg.timestamp),
+        time: parseUtcTimestamp(msg.timestamp),
         avatar: msg.avatar || null,
         permaban: !!msg.permaban
       }, msg);
@@ -88,11 +88,7 @@ async function loadOlderChannelMessages() {
         username: msg.username,
         content: msg.content,
         attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-        // Forum rows go through parseUtcTimestamp (correct for the
-        // space-separated str(datetime) the backend sends); the channel
-        // branch keeps bare Date() so it stays consistent with its own
-        // initial load until the queued timestamp fix lands everywhere.
-        time: isForum ? parseUtcTimestamp(msg.timestamp) : new Date(msg.timestamp),
+        time: parseUtcTimestamp(msg.timestamp),
         avatar: msg.avatar || null,
         nameRole: msg.name_role || null,
         permaban: !!msg.permaban

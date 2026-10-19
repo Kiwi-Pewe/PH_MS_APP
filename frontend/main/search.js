@@ -806,7 +806,7 @@ function buildSearchResultRow(row) {
     username: row.username || "",
     content: row.content || "",
     attachment: typeof parseAttachment === "function" ? parseAttachment(row.attachment) : row.attachment,
-    time: row.timestamp ? new Date(row.timestamp) : new Date(),
+    time: row.timestamp ? parseUtcTimestamp(row.timestamp) : new Date(),
     edited: !!row.edited,
     reactions: [],
     avatar: row.avatar || null,

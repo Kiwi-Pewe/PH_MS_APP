@@ -117,7 +117,7 @@ function applyConversationLists(conversations, parties, closedMutes) {
   (closedMutes || []).forEach((row) => {
     rememberConversationMute("dm", row.id, true, row.muted_until);
   });
-  conversationList = dms.concat(partyRows).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  conversationList = dms.concat(partyRows).sort((a, b) => parseUtcTimestamp(b.timestamp) - parseUtcTimestamp(a.timestamp));
   scheduleMuteExpiryRefresh();
   renderConversationList();
 }
@@ -316,7 +316,7 @@ function mapDmApiMessages(messages, otherId, username) {
       username: isMine ? myUsername : username,
       content: msg.content,
       attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-      time: new Date(msg.timestamp),
+      time: parseUtcTimestamp(msg.timestamp),
       avatar: msg.avatar || null,
       permaban: !!msg.permaban
     }, msg);
@@ -336,7 +336,7 @@ function mapPartyApiMessages(messages) {
       username: msg.username,
       content: msg.content,
       attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : msg.attachment,
-      time: new Date(msg.timestamp),
+      time: parseUtcTimestamp(msg.timestamp),
       avatar: msg.avatar || null,
       permaban: !!msg.permaban
     }, msg);

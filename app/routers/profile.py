@@ -1675,6 +1675,7 @@ def friend_preview(database: Session, owner_id, limit=8):
             "username": other.username,
             "display_name": public_display_name(other),
             "avatar": public_avatar(other),
+            "status": (other.profile_status or "").strip(),
         })
         if len(out) >= limit:
             break

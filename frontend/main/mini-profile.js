@@ -614,9 +614,10 @@ function paintMiniFeaturedFriendCard(person) {
   const who = document.createElement("div");
   who.className = "who";
   who.textContent = shown;
+  const line = String((person && (person.status || person.profile_status)) || "").trim();
   const status = document.createElement("div");
-  status.className = "mini-featured-status" + (String((person && person.status) || "").trim() ? "" : " is-empty");
-  status.textContent = String((person && person.status) || "").trim();
+  status.className = "mini-featured-status" + (line ? "" : " is-empty");
+  status.textContent = line;
   text.appendChild(who);
   text.appendChild(status);
   row.appendChild(face);
@@ -660,23 +661,27 @@ function paintMiniFeaturedFriend(el, tile, live, editing) {
     }
     el.appendChild(card);
   };
-  if (person) {
+  if (person && Object.prototype.hasOwnProperty.call(person, "status")) {
     showPerson(person);
     return;
   }
-  if (editing && id && typeof serverAddress === "string") {
-    paintMiniAwaiting(el, "Featured friend", "Pick a friend in Options.");
+  if (id && typeof serverAddress === "string") {
+    if (person) showPerson(person);
+    else paintMiniAwaiting(el, "Featured friend", editing ? "Pick a friend in Options." : "No friend selected.");
     fetch("https://" + serverAddress + "/get_friends", { credentials: "include" })
       .then((res) => res.ok ? res.json() : Promise.reject())
       .then((data) => {
         if (!el.isConnected) return;
         const people = [].concat((data && data.online_friends) || [], (data && data.offline_friends) || []);
-        showPerson(people.find((row) => Number(row.id) === id) || null);
+        showPerson(people.find((row) => Number(row.id) === id) || person || null);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!el.isConnected || person) return;
+        showPerson(null);
+      });
     return;
   }
-  showPerson(null);
+  showPerson(person || null);
 }
 
 function paintMiniFeaturedServer(el, tile, live, editing) {

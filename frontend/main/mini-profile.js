@@ -1080,6 +1080,83 @@ function paintMiniMemberSince(el, tile, live) {
   el.appendChild(date);
 }
 
+function miniPlayingDuration(minutes) {
+  const text = typeof steamPlayingTime === "function" ? steamPlayingTime(minutes) : "";
+  return text || "Just started";
+}
+
+function paintMiniPlayingCard(data) {
+  const row = document.createElement("div");
+  row.className = "mini-playing-now";
+  const appid = String((data && data.appid) || "");
+  if (/^\d+$/.test(appid)) {
+    const face = document.createElement("div");
+    face.className = "mini-playing-art";
+    const img = document.createElement("img");
+    img.alt = "";
+    img.draggable = false;
+    img.src = "https://cdn.cloudflare.steamstatic.com/steam/apps/" + appid + "/library_600x900.jpg";
+    img.addEventListener("error", () => face.remove());
+    face.appendChild(img);
+    row.appendChild(face);
+  }
+  const text = document.createElement("div");
+  text.className = "mini-playing-text";
+  const who = document.createElement("div");
+  who.className = "who";
+  who.textContent = (data && data.name) || "Game";
+  const time = document.createElement("div");
+  time.className = "mini-playing-time";
+  time.textContent = miniPlayingDuration(data && data.minutes);
+  text.appendChild(who);
+  text.appendChild(time);
+  row.appendChild(text);
+  return row;
+}
+
+function paintMiniPlayingNow(el, tile, live, editing, data) {
+  if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+  if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
+  const owner = (data && data.user && (data.user.display_name || data.user.username))
+    || (typeof myDisplayName !== "undefined" && myDisplayName)
+    || (typeof myUsername !== "undefined" && myUsername)
+    || "This user";
+  const idle = () => paintMiniAwaiting(el, "Playing Now", owner + " is not playing anything");
+  const show = (row) => {
+    el.innerHTML = "";
+    el.classList.remove("is-awaiting");
+    if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+    if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
+    if (!row || !row.linked || row.playing === false || !row.in_game) {
+      idle();
+      return;
+    }
+    el.appendChild(paintMiniPlayingCard(row));
+  };
+  if (live) {
+    show(live);
+    return;
+  }
+  const ownerId = String((data && data.user && data.user.id) || (typeof profileOwnerId !== "undefined" ? profileOwnerId : "") || "");
+  if (typeof steamPlayingData !== "undefined" && steamPlayingData && String(typeof steamPlayingOwnerId !== "undefined" ? steamPlayingOwnerId : "") === ownerId) {
+    show(steamPlayingData);
+    return;
+  }
+  if (ownerId && typeof ensureSteamPlaying === "function") {
+    ensureSteamPlaying();
+    const wait = typeof steamPlayingLoad !== "undefined" ? steamPlayingLoad : null;
+    if (wait) {
+      idle();
+      wait.then(() => {
+        if (!el.isConnected) return;
+        show(typeof steamPlayingData !== "undefined" ? steamPlayingData : null);
+      });
+      return;
+    }
+  }
+  idle();
+}
+
 function paintMiniCarryTile(el, tile) {
   const fake = {
     id: tile.id,
@@ -1162,14 +1239,8 @@ function paintMiniProfileWidgetTile(host, tile, data, editing) {
     paintMiniMemberSince(host, tile, { member_since: since });
     return;
   }
-  if (tile.type === "steam_playing_now" && live) {
-    const prevData = typeof steamPlayingData !== "undefined" ? steamPlayingData : null;
-    const prevOwner = typeof steamPlayingOwnerId !== "undefined" ? steamPlayingOwnerId : "";
-    steamPlayingData = live;
-    steamPlayingOwnerId = String((data && data.user && data.user.id) || "");
-    paintMiniCarryTile(host, tile);
-    steamPlayingData = prevData;
-    steamPlayingOwnerId = prevOwner;
+  if (tile.type === "steam_playing_now") {
+    paintMiniPlayingNow(host, tile, live, editing, data);
     return;
   }
   paintMiniCarryTile(host, tile);

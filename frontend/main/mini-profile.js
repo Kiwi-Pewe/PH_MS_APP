@@ -572,48 +572,52 @@ function paintMiniWidgetChrome(el, title) {
 function miniMutualPlaceholders() {
   return [1, 2, 3, 4].map((n) => ({
     id: "placeholder-" + n,
-    username: "P" + n,
-    display_name: "P" + n,
+    username: "Person " + n,
+    display_name: "Person " + n,
+    initials: "P" + n,
     status: "Status",
     presence: "online",
     placeholder: true
   }));
 }
 
-function paintMiniMutualList(el, people, total, liveView) {
+function bindMiniMutualPerson(el, person) {
+  if (!el || !person || person.placeholder || !person.id) return;
+  el.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof closeMiniSubOverlay === "function") closeMiniSubOverlay();
+    if (typeof openMiniProfile === "function") {
+      openMiniProfile(person.id, (typeof miniProfileAnchor !== "undefined" && miniProfileAnchor) || el);
+    }
+  });
+  el.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof showProfileContextMenu === "function") {
+      showProfileContextMenu(e, person.id, person.username || person.display_name, false);
+    }
+  });
+}
+
+function paintMiniMutualList(el, people, opts) {
+  opts = opts || {};
   const wrap = document.createElement("div");
   wrap.className = "mini-mutuals";
   people.slice(0, MINI_MUTUAL_CAP).forEach((person) => {
     const card = paintMiniFeaturedFriendCard(person);
     card.classList.add("is-mutual");
-    if (liveView && person && person.id && !person.placeholder) {
-      card.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (typeof openMiniProfile === "function") {
-          openMiniProfile(person.id, (typeof miniProfileAnchor !== "undefined" && miniProfileAnchor) || card);
-        }
-      });
-      card.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (typeof showProfileContextMenu === "function") {
-          showProfileContextMenu(e, person.id, person.username || person.display_name, false);
-        }
-      });
-    }
+    if (opts.bindPeople) bindMiniMutualPerson(card, person);
     wrap.appendChild(card);
   });
-  if (total > MINI_MUTUAL_CAP) {
+  if (opts.moreText) {
     const more = document.createElement("button");
     more.type = "button";
     more.className = "mini-mutual-more";
-    more.textContent = "+" + (total - MINI_MUTUAL_CAP) + " more";
-    if (liveView) {
-      more.addEventListener("click", (e) => {
-        e.stopPropagation();
-        openMiniMutualsSubmenu(people, total);
-      });
-    }
+    more.textContent = opts.moreText;
+    more.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openMiniMutualsSubmenu(opts.allPeople || people);
+    });
     wrap.appendChild(more);
   }
   el.appendChild(wrap);
@@ -626,7 +630,11 @@ function paintMiniMutuals(el, tile, live, editing, data) {
   const total = live && live.total != null ? Number(live.total) : people.length;
   const liveView = !editing && !el.classList.contains("is-opt-preview");
   if (editing) {
-    paintMiniMutualList(el, miniMutualPlaceholders(), MINI_MUTUAL_CAP, false);
+    paintMiniMutualList(el, miniMutualPlaceholders(), {
+      moreText: "+3 more mutuals",
+      allPeople: people,
+      bindPeople: false
+    });
     return;
   }
   if (!people.length) {
@@ -635,7 +643,11 @@ function paintMiniMutuals(el, tile, live, editing, data) {
     paintMiniAwaiting(el, "Mutuals", isSelf ? "No mutuals to show." : ("You have no mutuals with \"" + owner + "\""));
     return;
   }
-  paintMiniMutualList(el, people, total, liveView);
+  paintMiniMutualList(el, people, {
+    moreText: total > MINI_MUTUAL_CAP ? ("+" + (total - MINI_MUTUAL_CAP) + " more mutuals") : "",
+    allPeople: people,
+    bindPeople: liveView
+  });
 }
 
 function paintMiniFeaturedFriendCard(person) {
@@ -648,7 +660,15 @@ function paintMiniFeaturedFriendCard(person) {
   pip.className = "status-dot status-" + presence;
   face.appendChild(pip);
   const shown = miniPersonName(person);
-  if (typeof paintUserFace === "function") paintUserFace(face, person, { name: shown, userId: person && person.id });
+  if (person && person.placeholder && person.initials) {
+    const letter = document.createElement("span");
+    letter.className = "face-letter";
+    letter.textContent = person.initials;
+    face.appendChild(letter);
+    face.appendChild(pip);
+  } else if (typeof paintUserFace === "function") {
+    paintUserFace(face, person, { name: shown, userId: person && person.id });
+  }
   const text = document.createElement("div");
   text.className = "mini-featured-friend-text";
   const who = document.createElement("div");
@@ -1336,18 +1356,17 @@ function openMiniSubOverlay(title, fillBody) {
   return overlay;
 }
 
-function openMiniMutualsSubmenu(people, total) {
+function openMiniMutualsSubmenu(people) {
+  const rows = (people || []).filter((person) => person && !person.placeholder);
   openMiniSubOverlay("Mutuals", (main) => {
     const list = document.createElement("div");
     list.className = "mini-mutual-list";
-    (people || []).forEach((person) => {
-      list.appendChild(paintMiniPersonRow(person, (row) => {
-        closeMiniSubOverlay();
-        if (typeof closeMiniProfile === "function") closeMiniProfile();
-        if (row.id && typeof openUserProfile === "function") openUserProfile(row.id);
-      }));
+    rows.forEach((person) => {
+      const row = paintMiniPersonRow(person);
+      bindMiniMutualPerson(row, person);
+      list.appendChild(row);
     });
-    if (!people.length) paintMiniEmpty(list, "No mutuals to show.");
+    if (!rows.length) paintMiniEmpty(list, "No mutuals to show.");
     main.appendChild(list);
   });
 }

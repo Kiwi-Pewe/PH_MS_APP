@@ -8723,7 +8723,10 @@ body.is-mini-dragging {
   width: 48px;
   height: 48px;
   flex: 0 0 48px;
-  font-size: 18px;
+  font-size: 16px;
+}
+.mini-mutuals .mini-featured-friend.is-mutual .face-letter {
+  font-size: 16px;
 }
 .mini-mutuals .mini-featured-friend.is-mutual .status-dot {
   width: 14px;

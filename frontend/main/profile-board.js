@@ -31,8 +31,8 @@ function syncProfileBoardScale() {
     board.style.transform = "none";
     profileBoardScale = 1;
     if (fit) {
-      fit.style.width = "100%";
-      fit.style.height = "100%";
+      fit.style.width = "";
+      fit.style.height = "";
     }
     return;
   }

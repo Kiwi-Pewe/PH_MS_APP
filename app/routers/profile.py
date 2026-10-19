@@ -1356,6 +1356,9 @@ def normalize_mini_profile(raw_mini, banner_fallback):
             props = normalize_mini_body_props(props_in, banner_fallback)
         else:
             props = normalize_props(kind, props_in, banner_fallback)
+        if isinstance(props, dict):
+            props.update(normalize_design_chrome(props_in))
+            props.update(normalize_text_look(props_in))
         tile = {"id": tile_id, "type": kind, "props": props}
         try:
             slot = int(row.get("slot"))

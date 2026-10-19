@@ -3340,6 +3340,7 @@ function openProfileTileOptions(tile) {
     tile.z_index = clampProfileZIndex(draft.z_index);
     delete draft.z_index;
     if (draft.props) delete draft.props;
+    if (!tile.props || typeof tile.props !== "object") tile.props = {};
     Object.assign(tile.props, draft);
     if (tile.type === 'display_name') growNameClusterTile(tile);
     overlay.remove();

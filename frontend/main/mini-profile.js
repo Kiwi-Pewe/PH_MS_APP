@@ -8,6 +8,7 @@ const MINI_PROFILE_ROLE_CAP = 5;
 const MINI_WIDGET_CAP = 3;
 const MINI_MUTUAL_CAP = 4;
 const MINI_BODY_MAX = 200;
+const MINI_BODY_WRAPS = 8;
 const MINI_WIDGET_ADD = [
   { type: "clock", label: "Clock" },
   { type: "steam_playing_now", label: "Playing Now", steam: true },
@@ -710,10 +711,52 @@ function paintMiniCarryTile(el, tile) {
   if (typeof paintProfileTileContent === "function") paintProfileTileContent(fake, el);
 }
 
+function sizeMiniBodyField(field) {
+  if (!field || field.tagName !== "TEXTAREA") return;
+  const line = parseFloat(window.getComputedStyle(field).lineHeight) || 19;
+  const maxH = line * MINI_BODY_WRAPS;
+  field.style.height = "0px";
+  const next = Math.min(Math.max(field.scrollHeight, line), maxH);
+  field.style.height = next + "px";
+  field.style.overflowY = field.scrollHeight > maxH + 1 ? "auto" : "hidden";
+}
+
+function paintMiniBody(el, tile, editing) {
+  const stored = (typeof miniStoreTile === "function" && tile && tile.id) ? miniStoreTile(tile.id) : null;
+  const target = stored || tile;
+  if (!target.props || typeof target.props !== "object") target.props = {};
+  const fake = {
+    id: target.id,
+    type: "body",
+    props: target.props,
+    maxChars: MINI_BODY_MAX,
+    w: 8,
+    h: 3,
+    x: 0,
+    y: 0
+  };
+  const wasEditing = typeof profileEditing !== "undefined" ? profileEditing : false;
+  if (editing && typeof profileEditing !== "undefined") profileEditing = true;
+  try {
+    if (typeof paintProfileTileContent === "function") paintProfileTileContent(fake, el);
+  } finally {
+    if (typeof profileEditing !== "undefined") profileEditing = wasEditing;
+  }
+  const field = el.querySelector(".profile-tile-copy");
+  if (field) {
+    sizeMiniBodyField(field);
+    if (field.tagName === "TEXTAREA") field.addEventListener("input", () => sizeMiniBodyField(field));
+  }
+}
+
 function paintMiniProfileWidgetTile(host, tile, data, editing) {
   host.className = "profile-tile is-" + tile.type + " mini-profile-widget-tile";
   host.innerHTML = "";
   const live = tile.live;
+  if (tile.type === "body") {
+    paintMiniBody(host, tile, editing);
+    return;
+  }
   if (tile.type === "mutuals") {
     paintMiniMutuals(host, tile, live, editing);
     return;
@@ -1058,7 +1101,7 @@ function miniWidgetSlotsFromTiles(tiles) {
 
 function buildMiniWidgetSlot(index, tile, data, editing) {
   const slot = document.createElement("div");
-  slot.className = "mini-widget-slot" + (tile ? " is-filled" : " is-empty");
+  slot.className = "mini-widget-slot" + (tile ? " is-filled" : " is-empty") + (tile && tile.type === "body" ? " is-body-slot" : "");
   slot.dataset.slot = String(index);
   if (!tile) {
     slot.textContent = "Drop a widget here.";

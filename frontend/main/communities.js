@@ -300,7 +300,7 @@ function paintCommunityPager() {
   const host = document.getElementById("community-pager");
   if (!host) return;
   host.replaceChildren();
-  if (communityPages < 1) {
+  if (communityPages <= 1) {
     host.hidden = true;
     return;
   }

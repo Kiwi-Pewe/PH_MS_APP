@@ -11945,7 +11945,8 @@ button.voice-more-row:disabled,
   width: 940px;
   max-width: 100%;
   margin: 28px auto 8px;
-  padding: 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--border);
 }
 .community-pager-page {
   min-width: 24px;

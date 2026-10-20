@@ -81,11 +81,11 @@ function paintCommunityVotes(host, votes) {
 function openCommunityListing(row) {
   communityListingRow = row || null;
   const overlay = document.getElementById("community-listing-overlay");
+  const header = document.getElementById("community-listing-header");
   const title = document.getElementById("community-listing-title");
   const online = document.getElementById("community-listing-online");
   const icon = document.getElementById("community-listing-icon");
   const about = document.getElementById("community-listing-about");
-  const banner = document.getElementById("community-listing-banner");
   if (!overlay || !row) return;
   if (title) title.textContent = row.name;
   if (online) online.textContent = String(row.online) + " online";
@@ -94,14 +94,9 @@ function openCommunityListing(row) {
     icon.textContent = communityLetter(row.name);
   }
   if (about) about.textContent = row.about;
-  if (banner) {
-    if (row.banner) {
-      banner.hidden = false;
-      banner.style.background = row.banner;
-    } else {
-      banner.hidden = true;
-      banner.style.background = "";
-    }
+  if (header) {
+    header.classList.toggle("has-banner", !!row.banner);
+    header.style.background = row.banner || "";
   }
   paintCommunityTags(document.getElementById("community-listing-tags"), row.tags);
   paintCommunityVotes(document.getElementById("community-listing-votes"), row.votes);
@@ -265,6 +260,12 @@ async function openCommunities() {
 
 document.getElementById("community-listing-close").addEventListener("click", () => closeCommunityListing());
 document.getElementById("community-listing-cancel").addEventListener("click", () => closeCommunityListing());
+document.getElementById("community-listing-comment-send").addEventListener("click", (e) => {
+  e.preventDefault();
+});
+document.getElementById("community-listing-comment-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") e.preventDefault();
+});
 document.getElementById("community-listing-overlay").addEventListener("click", (e) => {
   if (e.target && e.target.id === "community-listing-overlay") closeCommunityListing();
 });

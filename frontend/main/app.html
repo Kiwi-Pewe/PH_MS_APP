@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=388">
+<link rel="stylesheet" href="app.css?v=389">
 </head>
 <body>
 
@@ -1880,7 +1880,7 @@
 
   <div id="community-listing-overlay" hidden>
     <div class="community-listing-modal" role="dialog" aria-modal="true" aria-labelledby="community-listing-title">
-      <div class="community-listing-header">
+      <div class="community-listing-header" id="community-listing-header">
         <div class="community-listing-head-face">
           <div class="avatar-dot" id="community-listing-icon"></div>
           <div class="community-listing-head-copy">
@@ -1888,13 +1888,30 @@
             <span id="community-listing-online" class="community-listing-online"></span>
           </div>
         </div>
-        <button type="button" class="icon-btn" id="community-listing-close" title="Close">&times;</button>
+        <div class="community-listing-head-tools">
+          <div id="community-listing-votes" class="community-listing-votes"></div>
+          <button type="button" class="icon-btn" id="community-listing-close" title="Close">&times;</button>
+        </div>
       </div>
       <div class="community-listing-main">
-        <div id="community-listing-banner" class="community-listing-banner" hidden></div>
-        <div id="community-listing-tags" class="community-listing-tags"></div>
-        <div id="community-listing-about" class="community-listing-about"></div>
-        <div id="community-listing-votes" class="community-listing-votes"></div>
+        <div class="community-listing-info">
+          <div id="community-listing-tags" class="community-listing-tags"></div>
+          <div id="community-listing-about" class="community-listing-about"></div>
+        </div>
+        <div class="community-listing-comments">
+          <div class="announce-comments-row">
+            <button type="button" class="announce-comments-btn" id="community-listing-comments-btn">0 comments</button>
+          </div>
+          <div class="announce-comments-pane">
+            <div class="announce-comments-list" id="community-listing-comments-list"></div>
+            <div class="announce-end-marker" id="community-listing-comments-empty">There's no comments yet.</div>
+          </div>
+          <div class="announce-divider"></div>
+          <div class="announce-comment-composer">
+            <input type="text" class="announce-comment-input" id="community-listing-comment-input" placeholder="Add a comment..." autocomplete="off">
+            <button type="button" class="announce-comment-send-btn" id="community-listing-comment-send">Post</button>
+          </div>
+        </div>
       </div>
       <div class="community-listing-footer">
         <button type="button" class="ghost-btn" id="community-listing-cancel">Cancel</button>
@@ -2442,7 +2459,7 @@
     </div>
 <script src="boot.js?v=144"></script>
 <script src="app-shell.js?v=74"></script>
-<script src="communities.js?v=2"></script>
+<script src="communities.js?v=3"></script>
 <script src="feed.js?v=20"></script>
 <script src="settings.js?v=22"></script>
 <script src="server-settings.js?v=44"></script>

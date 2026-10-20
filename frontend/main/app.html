@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=393">
+<link rel="stylesheet" href="app.css?v=394">
 </head>
 <body>
 
@@ -917,6 +917,10 @@
       <div class="main-view" id="view-community">
         <div class="community-toolbar">
           <input type="search" id="community-search" class="community-search" placeholder="Search" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="community-filter-row">
+          <button type="button" class="ghost-btn" id="community-filter-btn">Filter</button>
+          <div id="community-filter-types" class="community-filter-types" hidden></div>
         </div>
         <div id="community-related" class="community-related"></div>
         <div id="community-grid-scroll">
@@ -2471,7 +2475,7 @@
     </div>
 <script src="boot.js?v=145"></script>
 <script src="app-shell.js?v=74"></script>
-<script src="communities.js?v=7"></script>
+<script src="communities.js?v=8"></script>
 <script src="feed.js?v=20"></script>
 <script src="settings.js?v=22"></script>
 <script src="server-settings.js?v=46"></script>

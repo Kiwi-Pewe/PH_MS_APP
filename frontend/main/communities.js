@@ -7,6 +7,17 @@ let communityFetchGen = 0;
 let communitySearchTimer = 0;
 let communityJoinBusy = false;
 
+const COMMUNITY_TYPE_PILLS = [
+  ["community", "Community"],
+  ["team", "Team"],
+  ["organization", "Organization"],
+  ["clan", "Clan"],
+  ["guild", "Guild"],
+  ["friends", "Friends"],
+  ["streaming", "Streaming"],
+  ["other", "Other"]
+];
+
 function communityLetter(name) {
   if (typeof avatarLetter === "function") return avatarLetter(name);
   return String(name || "?").slice(0, 1).toUpperCase();
@@ -410,6 +421,28 @@ document.getElementById("community-listing-comment-input").addEventListener("key
 });
 document.getElementById("community-listing-overlay").addEventListener("click", (e) => {
   if (e.target && e.target.id === "community-listing-overlay") closeCommunityListing();
+});
+function paintCommunityFilterTypes() {
+  const host = document.getElementById("community-filter-types");
+  if (!host) return;
+  host.replaceChildren();
+  COMMUNITY_TYPE_PILLS.forEach((item) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "community-tag";
+    chip.setAttribute("data-community-type", item[0]);
+    chip.textContent = item[1];
+    host.appendChild(chip);
+  });
+}
+
+paintCommunityFilterTypes();
+document.getElementById("community-filter-btn").addEventListener("click", () => {
+  const host = document.getElementById("community-filter-types");
+  const btn = document.getElementById("community-filter-btn");
+  if (!host) return;
+  host.hidden = !host.hidden;
+  if (btn) btn.classList.toggle("is-active", !host.hidden);
 });
 document.getElementById("community-search").addEventListener("input", () => {
   const search = document.getElementById("community-search");

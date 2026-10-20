@@ -11907,13 +11907,14 @@ button.voice-more-row:disabled,
 .community-card-join:disabled:hover,
 #community-listing-join:disabled:hover { background: var(--accent); }
 .community-pager {
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 10px 40px 14px;
-  border-top: 1px solid var(--border);
+  width: 940px;
+  max-width: 100%;
+  margin: 28px auto 8px;
+  padding: 0;
 }
 .community-pager-page {
   min-width: 24px;

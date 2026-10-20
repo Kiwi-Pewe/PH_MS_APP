@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=391">
+<link rel="stylesheet" href="app.css?v=392">
 </head>
 <body>
 
@@ -1063,11 +1063,11 @@
 
         <div class="server-settings-field">
           <div class="server-settings-field-title">Public listing</div>
-          <p class="server-settings-help">People outside this server can see the name, the description, and the type.</p>
+          <p class="server-settings-help">People outside this server can see the name, the description, the type, and the tags.</p>
 
           <div class="server-settings-option">
             <label class="server-settings-option-name" for="server-settings-type">Server type</label>
-            <p class="server-settings-help">This category is how people browse to this server.</p>
+            <p class="server-settings-help">This type also appears as a tag on the Communities listing.</p>
             <select id="server-settings-type" class="settings-select server-settings-select">
               <option value="">Select…</option>
               <option value="community">Community</option>
@@ -1080,6 +1080,18 @@
               <option value="other">Other</option>
             </select>
             <p id="server-settings-type-status" class="server-settings-help" hidden></p>
+          </div>
+
+          <div class="server-settings-option">
+            <div class="server-settings-option-name">Tags</div>
+            <p class="server-settings-help">Up to 5 extra tags. Use a preset or type your own.</p>
+            <div id="server-settings-tag-picks" class="server-listing-tag-picks"></div>
+            <div id="server-settings-tag-presets" class="server-listing-tag-presets"></div>
+            <div class="server-listing-tag-add">
+              <input id="server-settings-tag-input" class="server-settings-input" type="text" maxlength="24" placeholder="Add a tag" autocomplete="off" spellcheck="false">
+              <button type="button" class="ghost-btn" id="server-settings-tag-add">Add</button>
+            </div>
+            <p id="server-settings-tags-status" class="server-settings-help" hidden></p>
           </div>
 
           <div class="server-settings-option">
@@ -2457,12 +2469,13 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=144"></script>
+<script src="boot.js?v=145"></script>
 <script src="app-shell.js?v=74"></script>
-<script src="communities.js?v=5"></script>
+<script src="communities.js?v=6"></script>
 <script src="feed.js?v=20"></script>
 <script src="settings.js?v=22"></script>
-<script src="server-settings.js?v=45"></script>
+<script src="server-settings.js?v=46"></script>
+<script src="server-listing.js?v=1"></script>
 <script src="server-roles.js?v=37"></script>
 <script src="server-moderation.js?v=6"></script>
 <script src="server-members.js?v=8"></script>
@@ -2514,7 +2527,7 @@
 <script src="embeds.js?v=48"></script>
 <script src="mentions.js?v=21"></script>
 <script src="explicit-channel.js?v=1"></script>
-<script src="servers.js?v=133"></script>
+<script src="servers.js?v=134"></script>
 <script src="voice.js?v=23"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=4"></script>

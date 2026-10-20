@@ -199,6 +199,17 @@ function applyServerType(serverId, kind) {
     currentServerData.server_type = next;
   }
   if (typeof syncServerSettingsType === "function") syncServerSettingsType(next);
+  if (typeof paintServerListingTags === "function") paintServerListingTags();
+}
+
+function applyServerTags(serverId, tags) {
+  const next = Array.isArray(tags) ? tags.slice() : [];
+  const meta = serverList.find(s => s.id === serverId);
+  if (meta) meta.tags = next;
+  if (currentServerData && currentServerId === serverId) {
+    currentServerData.tags = next;
+  }
+  if (typeof paintServerListingTags === "function") paintServerListingTags();
 }
 
 function applyServerUrl(serverId, slug) {

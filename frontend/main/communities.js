@@ -69,25 +69,72 @@ function paintCommunityTags(host, tags) {
   });
 }
 
-function paintCommunityVotes(host, votes) {
+function communityVoteTip(row) {
+  const up = Number(row && row.vote_up) || 0;
+  const down = Number(row && row.vote_down) || 0;
+  return up + " up · " + down + " down";
+}
+
+function applyCommunityVote(row, data) {
+  if (!row || !data) return;
+  row.votes = data.votes;
+  row.vote_up = data.vote_up;
+  row.vote_down = data.vote_down;
+  row.my_vote = data.my_vote;
+  document.querySelectorAll('[data-community-votes="' + row.id + '"]').forEach((host) => {
+    paintCommunityVotes(host, row);
+  });
+}
+
+async function voteCommunityServer(row, next) {
+  if (!row || !row.id) return;
+  const current = Number(row.my_vote) || 0;
+  const vote = current === next ? 0 : next;
+  try {
+    const response = await fetch(`https://${serverAddress}/community_vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ server_id: row.id, vote: vote })
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    applyCommunityVote(row, data);
+  } catch (e) {}
+}
+
+function paintCommunityVotes(host, row) {
   if (!host) return;
   host.replaceChildren();
+  host.setAttribute("data-community-votes", row && row.id ? String(row.id) : "");
   const up = document.createElement("button");
   up.type = "button";
-  up.className = "community-vote community-vote-up";
-  up.disabled = true;
+  up.className = "community-vote community-vote-up" + ((row && row.my_vote) > 0 ? " is-on" : "");
   up.textContent = "\u25B2";
+  up.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    voteCommunityServer(row, 1);
+  });
   const count = document.createElement("span");
   count.className = "community-vote-count";
-  count.textContent = String(votes || 0);
+  count.textContent = String(row && row.votes != null ? row.votes : 0);
   const down = document.createElement("button");
   down.type = "button";
-  down.className = "community-vote community-vote-down";
-  down.disabled = true;
+  down.className = "community-vote community-vote-down" + ((row && row.my_vote) < 0 ? " is-on" : "");
   down.textContent = "\u25BC";
+  down.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    voteCommunityServer(row, -1);
+  });
+  const tip = document.createElement("div");
+  tip.className = "community-vote-tip";
+  tip.textContent = communityVoteTip(row);
   host.appendChild(up);
   host.appendChild(count);
   host.appendChild(down);
+  host.appendChild(tip);
 }
 
 function fillCommunityJoinButton(btn, row) {
@@ -112,7 +159,7 @@ function openCommunityListing(row) {
   if (about) about.textContent = row.about || "";
   applyCommunityBanner(header, row);
   paintCommunityTags(document.getElementById("community-listing-tags"), row.tags);
-  paintCommunityVotes(document.getElementById("community-listing-votes"), row.votes);
+  paintCommunityVotes(document.getElementById("community-listing-votes"), row);
   fillCommunityJoinButton(join, row);
   closeCommunityListingComments();
   overlay.hidden = false;
@@ -193,7 +240,7 @@ function paintCommunityCard(row) {
   tools.className = "community-card-tools";
   const votes = document.createElement("div");
   votes.className = "community-card-votes";
-  paintCommunityVotes(votes, row.votes);
+  paintCommunityVotes(votes, row);
   const more = document.createElement("button");
   more.type = "button";
   more.className = "community-card-more";

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Server_channel_role_perms, Server_category_role_perms, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_tags_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
@@ -41,6 +41,7 @@ from app.routers.moderation import iso_dt, require_not_timed_out, timeout_until_
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, channel_notices_for, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 from app.routers.feed import notify_activity_reply
 from app.privacy import drop_blocked_rows
+import json
 import random
 import re
 
@@ -59,6 +60,54 @@ SERVER_TYPES = {
     "streaming": "Streaming",
     "other": "Other",
 }
+SERVER_TAG_MAX = 5
+SERVER_TAG_LEN = 24
+SERVER_TAG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0," + str(SERVER_TAG_LEN - 2) + r"}[a-z0-9])?$")
+
+
+def clean_server_tag(value):
+    text = re.sub(r"[^a-z0-9-]+", "", (value or "").strip().lower().lstrip("#"))
+    text = re.sub(r"-{2,}", "-", text).strip("-")
+    if not text or len(text) > SERVER_TAG_LEN or not SERVER_TAG_RE.fullmatch(text):
+        return ""
+    return text
+
+
+def parse_server_tags(raw):
+    if isinstance(raw, list):
+        values = raw
+    else:
+        text = (raw or "").strip()
+        if not text:
+            return []
+        try:
+            parsed = json.loads(text)
+            values = parsed if isinstance(parsed, list) else []
+        except (TypeError, ValueError):
+            values = [part.strip() for part in text.split(",")]
+    tags = []
+    for value in values:
+        tag = clean_server_tag(value)
+        if tag and tag not in tags:
+            tags.append(tag)
+        if len(tags) >= SERVER_TAG_MAX:
+            break
+    return tags
+
+
+def store_server_tags(tags):
+    return json.dumps(parse_server_tags(tags))
+
+
+def server_listing_tags(server):
+    tags = []
+    kind = (getattr(server, "server_type", None) or "").strip().lower()
+    if kind in SERVER_TYPES:
+        tags.append(kind)
+    for tag in parse_server_tags(getattr(server, "tags", None)):
+        if tag not in tags:
+            tags.append(tag)
+    return tags
 SERVER_NOTIFICATIONS = ("all", "mentions")
 SERVER_NOTIFICATIONS_DEFAULT = "mentions"
 SERVER_PRIVACY_MODES = ("private", "default", "open")
@@ -360,6 +409,7 @@ def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo
             "icon_url": server_icon_url(server_info),
             "url_slug": server_url_slug(server_info),
             "server_type": getattr(server_info, "server_type", None) or "",
+            "tags": parse_server_tags(getattr(server_info, "tags", None)),
             "about": getattr(server_info, "about", None) or "",
             **server_banner_fields(server_info)
         })
@@ -446,6 +496,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "about": getattr(server, "about", None) or "",
         "url_slug": server_url_slug(server),
         "server_type": getattr(server, "server_type", None) or "",
+        "tags": parse_server_tags(getattr(server, "tags", None)),
         "timezone": getattr(server, "timezone", None) or "",
         "default_notifications": server_default_notifications(server),
         "permissions": permissions,
@@ -760,6 +811,27 @@ async def update_server_type(body: Server_type_update, database: Session = Depen
         exclude_user_id=current_user.id,
     )
     return {"ok": True, "server_type": saved}
+
+
+@router.post("/update_server_tags")
+async def update_server_tags(body: Server_tags_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
+    previous = parse_server_tags(getattr(server, "tags", None))
+    tags = parse_server_tags(body.tags)
+    server.tags = store_server_tags(tags)
+    if previous != tags:
+        write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+            "name": "Tags", "field": "Tags", "from": ", ".join(previous), "to": ", ".join(tags),
+        })
+    database.commit()
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_tags_updated", "server_id": server.id, "tags": tags},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "tags": tags}
 
 
 @router.post("/update_server_timezone")

@@ -441,6 +441,10 @@ function connectSocket() {
       if (typeof applyServerType === "function") applyServerType(data.server_id, data.server_type || "");
     }
 
+    if (data.type === "server_tags_updated") {
+      if (typeof applyServerTags === "function") applyServerTags(data.server_id, data.tags || []);
+    }
+
     if (data.type === "server_timezone_updated") {
       if (typeof applyServerTimezone === "function") applyServerTimezone(data.server_id, data.timezone || "");
     }

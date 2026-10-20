@@ -11732,7 +11732,7 @@ button.voice-more-row:disabled,
   background: var(--panel-alt);
   border: 1px solid var(--border);
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
   color: inherit;
   cursor: pointer;
 }
@@ -11748,6 +11748,8 @@ button.voice-more-row:disabled,
   padding: 12px 88px 12px 12px;
   background: var(--rail);
   border-bottom: 1px solid var(--border);
+  border-radius: 10px 10px 0 0;
+  overflow: visible;
 }
 .community-card-head.has-banner {
   min-height: 96px;
@@ -11803,6 +11805,7 @@ button.voice-more-row:disabled,
 }
 .community-card-votes,
 .community-listing-votes {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -11817,9 +11820,28 @@ button.voice-more-row:disabled,
   font-size: 11px;
   line-height: 1;
 }
-.community-vote:disabled { cursor: default; }
 .community-vote-up { color: #23c55e; }
 .community-vote-down { color: var(--danger); }
+.community-vote.is-on { background: var(--panel); }
+.community-vote-tip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 4;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--rail);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+.community-card-votes:hover .community-vote-tip,
+.community-listing-votes:hover .community-vote-tip { display: block; }
 .community-vote-count {
   min-width: 16px;
   text-align: center;
@@ -11901,6 +11923,7 @@ button.voice-more-row:disabled,
   padding: 10px 12px;
   border-top: 1px solid var(--border);
   background: var(--rail);
+  border-radius: 0 0 10px 10px;
 }
 .community-card-join {
   width: 72%;
@@ -12081,3 +12104,34 @@ button.voice-more-row:disabled,
   border-top: 1px solid var(--border);
   background: var(--rail);
 }
+.server-listing-tag-picks,
+.server-listing-tag-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.server-listing-tag {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+.server-listing-tag:hover { color: var(--text); border-color: var(--text-dim); }
+.server-listing-tag.is-on {
+  color: var(--text);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.server-listing-tag:disabled { opacity: 0.45; cursor: default; }
+.server-listing-tag-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.server-listing-tag-add .server-settings-input { flex: 1 1 auto; min-width: 0; }

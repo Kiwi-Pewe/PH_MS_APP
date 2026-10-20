@@ -2,17 +2,17 @@ from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func, or_
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Channel_messages, Server_categories, Server_channels, Server_members, Servers, UserInfo
+from app.models import Channel_messages, Server_categories, Server_channels, Server_members, Server_votes, Servers, UserInfo
 from app.routers.deletion import write_audit_log
 from app.routers.moderation import active_ban
 from app.routers.realtime import presence_status, serialize_member, server_broadcast
 from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user
-from app.routers.servers import server_banner_fields, server_icon_url, server_privacy_fields, server_url_slug
+from app.routers.servers import server_banner_fields, server_icon_url, server_listing_tags, server_privacy_fields, server_url_slug
 
 router = APIRouter()
 
@@ -21,6 +21,11 @@ COMMUNITY_PAGE = 24
 
 class Community_join_in(BaseModel):
     server_id: str
+
+
+class Community_vote_in(BaseModel):
+    server_id: str
+    vote: int = 0
 
 
 def listed_server(server):
@@ -48,7 +53,49 @@ def first_server_channel(database, server_id):
     ).order_by(Server_channels.position).first()
 
 
-def community_row(server, online, joined):
+def empty_vote_pack():
+    return {"votes": 0, "vote_up": 0, "vote_down": 0, "my_vote": 0}
+
+
+def vote_pack(up, down, mine):
+    up = int(up or 0)
+    down = int(down or 0)
+    return {"votes": up - down, "vote_up": up, "vote_down": down, "my_vote": int(mine or 0)}
+
+
+def votes_for_servers(database, server_ids, user_id):
+    packs = {sid: empty_vote_pack() for sid in server_ids}
+    if not server_ids:
+        return packs
+    rows = (
+        database.query(
+            Server_votes.server_id,
+            func.coalesce(func.sum(case((Server_votes.value > 0, 1), else_=0)), 0),
+            func.coalesce(func.sum(case((Server_votes.value < 0, 1), else_=0)), 0),
+        )
+        .filter(Server_votes.server_id.in_(server_ids))
+        .group_by(Server_votes.server_id)
+        .all()
+    )
+    for sid, up, down in rows:
+        packs[sid] = vote_pack(up, down, 0)
+    mine = database.query(Server_votes.server_id, Server_votes.value).filter(
+        Server_votes.server_id.in_(server_ids),
+        Server_votes.user_id == user_id,
+    ).all()
+    for sid, value in mine:
+        pack = packs.get(sid) or empty_vote_pack()
+        pack["my_vote"] = int(value or 0)
+        packs[sid] = pack
+    return packs
+
+
+def votes_for_server(database, server_id, user_id):
+    return votes_for_servers(database, [server_id], user_id).get(server_id) or empty_vote_pack()
+
+
+def community_row(server, online, joined, votes=None):
+    pack = votes or empty_vote_pack()
     return {
         "id": server.id,
         "name": server.name or "",
@@ -57,8 +104,8 @@ def community_row(server, online, joined):
         "url_slug": server_url_slug(server),
         "online": int(online or 0),
         "joined": bool(joined),
-        "votes": 0,
-        "tags": [],
+        "tags": server_listing_tags(server),
+        **pack,
         **server_banner_fields(server),
     }
 
@@ -78,6 +125,8 @@ def community_servers(
         query = query.filter(or_(
             func.lower(Servers.name).like(like),
             func.lower(func.coalesce(Servers.about, "")).like(like),
+            func.lower(func.coalesce(Servers.tags, "")).like(like),
+            func.lower(func.coalesce(Servers.server_type, "")).like(like),
         ))
     total = query.count()
     last_msg = (
@@ -113,8 +162,9 @@ def community_servers(
                 online[sid] = online.get(sid, 0) + 1
             if uid == current_user.id:
                 joined.add(sid)
+    votes = votes_for_servers(database, ids, current_user.id)
     return {
-        "servers": [community_row(server, online.get(server.id, 0), server.id in joined) for server in rows],
+        "servers": [community_row(server, online.get(server.id, 0), server.id in joined, votes.get(server.id)) for server in rows],
         "page": page,
         "pages": pages,
         "total": total,
@@ -175,3 +225,29 @@ async def join_community(
         exclude_user_id=current_user.id,
     )
     return {"ok": True, "id": server.id, "joined": True}
+
+
+@router.post("/community_vote")
+def community_vote(
+    body: Community_vote_in,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    server = database.query(Servers).filter(Servers.id == body.server_id).first()
+    if not listed_server(server):
+        raise HTTPException(status_code=404, detail="Server not found")
+    next_vote = 1 if body.vote > 0 else -1 if body.vote < 0 else 0
+    row = database.query(Server_votes).filter(
+        Server_votes.server_id == server.id,
+        Server_votes.user_id == current_user.id,
+    ).first()
+    current = int(row.value) if row else 0
+    if next_vote == 0 or next_vote == current:
+        if row:
+            database.delete(row)
+    elif row:
+        row.value = next_vote
+    else:
+        database.add(Server_votes(server_id=server.id, user_id=current_user.id, value=next_vote))
+    database.commit()
+    return {"ok": True, "id": server.id, **votes_for_server(database, server.id, current_user.id)}

@@ -1212,6 +1212,7 @@ function openServerSettings() {
   syncServerSettingsUrl(savedServerSettingsUrl());
   syncServerSettingsType(savedServerSettingsType());
   paintServerPublicListing();
+  if (typeof paintServerListingTags === "function") paintServerListingTags();
   syncServerSettingsTimezone(savedServerSettingsTimezone());
   syncServerSettingsNotifications(savedServerSettingsNotifications());
   setServerSettingsAvatarStatus("");

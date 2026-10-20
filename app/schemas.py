@@ -279,6 +279,10 @@ class Server_type_update(BaseModel):
     server_id: str
     server_type: str = ""
 
+class Server_tags_update(BaseModel):
+    server_id: str
+    tags: list[str] = []
+
 class Server_timezone_update(BaseModel):
     server_id: str
     timezone: str = ""

@@ -166,6 +166,15 @@ class Servers(Base):
     privacy_mode = Column(String)
     discoverable = Column(Boolean, default=False)
     explicit = Column(Boolean, default=False)
+    tags = Column(String)
+
+class Server_votes(Base):
+    __tablename__ = "server_votes"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    value = Column(Integer)
+    __table_args__ = (UniqueConstraint("server_id", "user_id", name="uq_server_vote"),)
 
 class Server_members(Base):
     __tablename__ = "server_members"

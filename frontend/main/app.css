@@ -11702,25 +11702,31 @@ button.voice-more-row:disabled,
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  padding: 0 40px 10px;
+  padding: 0 40px 8px;
   min-height: 26px;
 }
 #community-grid-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 40px 12px;
+  padding: 28px 40px 16px;
 }
 #community-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, 300px);
+  gap: 20px;
   align-content: start;
+  justify-content: center;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto;
 }
 .community-card {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
   text-align: left;
   background: var(--panel-alt);
   border: 1px solid var(--border);

@@ -62,7 +62,7 @@ function paintCommunityVotes(host, votes) {
   host.replaceChildren();
   const up = document.createElement("button");
   up.type = "button";
-  up.className = "community-vote";
+  up.className = "community-vote community-vote-up";
   up.disabled = true;
   up.textContent = "\u25B2";
   const count = document.createElement("span");
@@ -70,7 +70,7 @@ function paintCommunityVotes(host, votes) {
   count.textContent = String(votes || 0);
   const down = document.createElement("button");
   down.type = "button";
-  down.className = "community-vote";
+  down.className = "community-vote community-vote-down";
   down.disabled = true;
   down.textContent = "\u25BC";
   host.appendChild(up);
@@ -146,7 +146,7 @@ function paintCommunityCard(row) {
   const tools = document.createElement("div");
   tools.className = "community-card-tools";
   const votes = document.createElement("div");
-  votes.className = "community-card-votes is-later";
+  votes.className = "community-card-votes";
   paintCommunityVotes(votes, row.votes);
   const more = document.createElement("button");
   more.type = "button";

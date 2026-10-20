@@ -1186,9 +1186,9 @@ function paintServerPublicListing() {
   const wrap = document.getElementById("server-settings-discover-switch");
   if (toggle) {
     toggle.checked = !privateMode && !!saved.discoverable;
-    toggle.disabled = privateMode || !canUpdateServer();
+    toggle.disabled = !canUpdateServer();
   }
-  if (wrap) wrap.classList.toggle("is-disabled", privateMode || !canUpdateServer());
+  if (wrap) wrap.classList.toggle("is-disabled", !canUpdateServer());
 }
 
 function openServerSettings() {
@@ -1382,11 +1382,8 @@ document.getElementById("server-settings-discoverable").addEventListener("change
     return;
   }
   const saved = typeof savedServerPrivacy === "function" ? savedServerPrivacy() : { privacy_mode: "private", explicit: false };
-  if (saved.privacy_mode === "private") {
-    paintServerPublicListing();
-    return;
-  }
-  saveServerPrivacy(saved.privacy_mode, e.target.checked, saved.explicit);
+  const mode = e.target.checked && saved.privacy_mode === "private" ? "default" : saved.privacy_mode;
+  saveServerPrivacy(mode, e.target.checked, saved.explicit);
 });
 
 document.getElementById("server-settings-notify").addEventListener("click", (e) => {

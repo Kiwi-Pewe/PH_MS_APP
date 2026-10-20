@@ -45,9 +45,9 @@ function paintServerPrivacyPage() {
   const privateMode = saved.privacy_mode === "private";
   if (toggle) {
     toggle.checked = !privateMode && saved.discoverable;
-    toggle.disabled = privateMode || !canOpenServerPrivacy();
+    toggle.disabled = !canOpenServerPrivacy();
   }
-  if (wrap) wrap.classList.toggle("is-disabled", privateMode || !canOpenServerPrivacy());
+  if (wrap) wrap.classList.toggle("is-disabled", !canOpenServerPrivacy());
   const explicitToggle = document.getElementById("server-privacy-explicit");
   const explicitWrap = document.getElementById("server-privacy-explicit-switch");
   if (explicitToggle) {
@@ -117,11 +117,8 @@ async function saveServerPrivacy(nextMode, nextDiscoverable, nextExplicit) {
         return;
       }
       const saved = savedServerPrivacy();
-      if (saved.privacy_mode === "private") {
-        paintServerPrivacyPage();
-        return;
-      }
-      saveServerPrivacy(saved.privacy_mode, toggle.checked, saved.explicit);
+      const mode = toggle.checked && saved.privacy_mode === "private" ? "default" : saved.privacy_mode;
+      saveServerPrivacy(mode, toggle.checked, saved.explicit);
     });
   }
   const explicitToggle = document.getElementById("server-privacy-explicit");

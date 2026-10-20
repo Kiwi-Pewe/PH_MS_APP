@@ -328,6 +328,15 @@ async function renderAccountSettings(pane, jumpChildId) {
       await postAccount("/account_password", { current_password: values.current_password, new_password: values.new_password });
     });
   }));
+  sec.appendChild(settingsRow("Recovery code", "", "New", () => {
+    openSettingsForm("New recovery code", [
+      { name: "username", label: "Username", value: info.username || "", maxlength: 32 },
+      { name: "password", label: "Current password", type: "password", autocomplete: "current-password" }
+    ], "Show code", async (values) => {
+      const data = await postAccount("/account_recovery/rotate", { username: values.username, password: values.password });
+      openRecoveryCodeCard(data && data.recovery_code);
+    });
+  }));
   sec.appendChild(settingsLinkRow("Multi-Factor Authentication", info.mfa_enabled ? "Enabled" : "Disabled", () => renderMfaSettings(pane, info)));
   sec.appendChild(settingsLinkRow("Logged-in Devices", (info.device_count || 0) + ((info.device_count === 1) ? " device" : " devices"), () => renderDeviceSettings(pane)));
   block.appendChild(sec);
@@ -623,4 +632,203 @@ async function renderProfileSettings(pane, jumpChildId) {
     const target = document.getElementById(settingsTargetId(jumpChildId));
     if (target) pane.scrollTop = Math.max(0, target.offsetTop - 24);
   }
+}
+
+let recoveryResetPending = false;
+
+function noteRecoveryResetPending(on) {
+  recoveryResetPending = !!on;
+}
+
+function takeStoredRecoveryCode() {
+  try {
+    return sessionStorage.getItem("oneira_recovery_code") || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+function clearStoredRecoveryCode() {
+  try { sessionStorage.removeItem("oneira_recovery_code"); } catch (e) {}
+}
+
+function openAccountBand(title, fillMain, footerLeft, footerRight, onOutside) {
+  const overlay = document.createElement("div");
+  overlay.className = "mini-sub-overlay";
+  overlay.style.zIndex = "990";
+  const box = document.createElement("div");
+  box.className = "leave-party-modal mini-sub-modal";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
+  const header = document.createElement("div");
+  header.className = "leave-party-header";
+  const name = document.createElement("span");
+  name.className = "leave-party-title";
+  name.textContent = title;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "icon-btn";
+  close.title = "Close";
+  close.textContent = "\u00d7";
+  header.appendChild(name);
+  header.appendChild(close);
+  const main = document.createElement("div");
+  main.className = "leave-party-main";
+  fillMain(main);
+  const footer = document.createElement("div");
+  footer.className = "leave-party-footer";
+  if (footerLeft) footer.appendChild(footerLeft);
+  else footer.appendChild(document.createElement("span"));
+  if (footerRight) footer.appendChild(footerRight);
+  box.appendChild(header);
+  box.appendChild(main);
+  box.appendChild(footer);
+  overlay.appendChild(box);
+  const drop = () => overlay.remove();
+  close.addEventListener("click", () => {
+    if (onOutside) onOutside(drop);
+    else drop();
+  });
+  overlay.addEventListener("click", (e) => {
+    if (e.target !== overlay) return;
+    if (onOutside) onOutside(drop);
+    else drop();
+  });
+  document.body.appendChild(overlay);
+  return { overlay: overlay, drop: drop, main: main };
+}
+
+function openRecoveryCodeCard(code) {
+  const raw = String(code || "").trim();
+  if (!raw) return;
+  const done = document.createElement("button");
+  done.type = "button";
+  done.className = "pill-btn";
+  done.textContent = "Done";
+  const host = openAccountBand("Recovery code", (main) => {
+    const note = document.createElement("p");
+    note.className = "recovery-code-note";
+    note.textContent = "Oneira will never ask for this recovery code. Do not share it with anyone. Save it now \u2014 we cannot show it again.";
+    const value = document.createElement("div");
+    value.className = "recovery-code-value";
+    value.textContent = raw;
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "settings-row-btn";
+    copy.textContent = "Copy";
+    copy.addEventListener("click", () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(raw).then(() => { copy.textContent = "Copied"; }).catch(() => {});
+      }
+    });
+    main.appendChild(note);
+    main.appendChild(value);
+    main.appendChild(copy);
+  }, null, done, (drop) => {
+    clearStoredRecoveryCode();
+    drop();
+  });
+  done.addEventListener("click", () => {
+    clearStoredRecoveryCode();
+    host.drop();
+  });
+}
+
+function openRecoveryPasswordCard() {
+  const status = document.createElement("p");
+  status.className = "recovery-code-note";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "ghost-btn";
+  cancel.textContent = "Cancel";
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "pill-btn";
+  save.textContent = "Save";
+  let first;
+  let second;
+  let host;
+  const skip = async () => {
+    try {
+      await fetch(accountSettingsUrl("/account_recovery/skip_password"), { method: "POST", credentials: "include" });
+    } catch (e) {}
+    recoveryResetPending = false;
+    if (host) host.drop();
+  };
+  host = openAccountBand("New password", (main) => {
+    const note = document.createElement("p");
+    note.className = "recovery-code-note";
+    note.textContent = "Create a new password and type it again to confirm.";
+    const labelA = document.createElement("label");
+    labelA.className = "recovery-code-label";
+    labelA.textContent = "New password";
+    first = document.createElement("input");
+    first.type = "password";
+    first.className = "recovery-code-field";
+    first.autocomplete = "new-password";
+    const labelB = document.createElement("label");
+    labelB.className = "recovery-code-label";
+    labelB.textContent = "Confirm password";
+    second = document.createElement("input");
+    second.type = "password";
+    second.className = "recovery-code-field";
+    second.autocomplete = "new-password";
+    main.appendChild(note);
+    main.appendChild(labelA);
+    main.appendChild(first);
+    main.appendChild(labelB);
+    main.appendChild(second);
+    main.appendChild(status);
+  }, cancel, save, () => {
+    openRecoveryPasswordConfirm(skip);
+  });
+  cancel.addEventListener("click", () => openRecoveryPasswordConfirm(skip));
+  save.addEventListener("click", async () => {
+    status.textContent = "";
+    save.disabled = true;
+    try {
+      await postAccount("/account_recovery/set_password", {
+        new_password: first.value,
+        confirm_password: second.value
+      });
+      recoveryResetPending = false;
+      host.drop();
+    } catch (e) {
+      status.textContent = e.message || "Could not save.";
+      save.disabled = false;
+    }
+  });
+  if (first) first.focus();
+}
+
+function openRecoveryPasswordConfirm(onSkip) {
+  const back = document.createElement("button");
+  back.type = "button";
+  back.className = "ghost-btn";
+  back.textContent = "Don't update";
+  const stay = document.createElement("button");
+  stay.type = "button";
+  stay.className = "pill-btn";
+  stay.textContent = "Update";
+  const stacked = openAccountBand("Update your password?", (main) => {
+    const note = document.createElement("p");
+    note.className = "recovery-code-note";
+    note.textContent = "You can change it later in Settings if you skip this now.";
+    main.appendChild(note);
+  }, back, stay, null);
+  stacked.overlay.style.zIndex = "1000";
+  back.addEventListener("click", () => {
+    stacked.drop();
+    if (typeof onSkip === "function") onSkip();
+  });
+  stay.addEventListener("click", () => stacked.drop());
+}
+
+function offerAccountRecoveryPrompts() {
+  const code = takeStoredRecoveryCode();
+  if (code) {
+    openRecoveryCodeCard(code);
+    return;
+  }
+  if (recoveryResetPending) openRecoveryPasswordCard();
 }

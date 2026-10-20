@@ -28,6 +28,18 @@ class Account_login_mfa(BaseModel):
     username: str
     code: str
 
+class Account_recover_login(BaseModel):
+    username: str
+    recovery_code: str
+
+class Account_recovery_password(BaseModel):
+    new_password: str
+    confirm_password: str
+
+class Account_recovery_rotate(BaseModel):
+    username: str
+    password: str
+
 class Account_revoke_session(BaseModel):
     session_id: str
 

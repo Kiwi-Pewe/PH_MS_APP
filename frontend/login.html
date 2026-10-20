@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Oneira — Log In</title>
 <link rel="stylesheet" href="shared/tokens.css?v=7">
-<link rel="stylesheet" href="login.css?v=2">
+<link rel="stylesheet" href="login.css?v=3">
 </head>
 <body>
 
@@ -16,7 +16,11 @@
   <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
   <button onclick="login()">Log In</button>
   <div id="status"></div>
-  <div class="switch">No account? <a href="#" onclick="showRegister(); return false;">Register</a></div>
+  <div class="auth-footer">
+    <a href="#" onclick="showRegister(); return false;">Register</a>
+    <span class="auth-footer-split">|</span>
+    <a href="#" onclick="showRecover(); return false;">Forgot password</a>
+  </div>
 </div>
 
 <div class="card" id="mfa-card" style="display:none;">
@@ -26,6 +30,18 @@
   <input type="text" id="mfa-code" placeholder="000000" inputmode="numeric" autocomplete="one-time-code" maxlength="8">
   <button onclick="loginMfa()">Verify</button>
   <div id="mfa-status"></div>
+  <div class="switch"><a href="#" onclick="showLogin(); return false;">Back to log in</a></div>
+</div>
+
+<div class="card" id="recover-card" style="display:none;">
+  <h1>Forgot password</h1>
+  <p class="recover-note">Use this only if you do not remember your password. Signing in this way logs you out of every other device.</p>
+  <label for="recover-username">Username</label>
+  <input type="text" id="recover-username" placeholder="Username" autocomplete="username">
+  <label for="recover-code">Recovery code</label>
+  <input type="text" id="recover-code" placeholder="Recovery code" autocomplete="off" maxlength="14" spellcheck="false">
+  <button onclick="recoverLogin()">Log In</button>
+  <div id="recover-status"></div>
   <div class="switch"><a href="#" onclick="showLogin(); return false;">Back to log in</a></div>
 </div>
 
@@ -41,6 +57,6 @@
 </div>
 
 <script src="shared/config.js"></script>
-<script src="login.js?v=4"></script>
+<script src="login.js?v=5"></script>
 </body>
 </html>

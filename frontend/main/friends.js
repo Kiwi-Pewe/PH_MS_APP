@@ -132,6 +132,67 @@ async function respondToRequest(req, accept) {
   refreshFriendsView();
 }
 
+function paintConversationStartActions(actionsEl, id, username, relation) {
+  if (!actionsEl) return;
+  actionsEl.innerHTML = "";
+  const rel = relation || {};
+  if (rel.self) return;
+  if (!rel.blocked) {
+    const friendBtn = document.createElement("button");
+    friendBtn.type = "button";
+    friendBtn.className = "icon-btn";
+    if (rel.friend) {
+      friendBtn.textContent = "Remove Friend";
+      friendBtn.addEventListener("click", () => handleRemoveFriend(id, username, actionsEl));
+    } else {
+      friendBtn.textContent = "Add Friend";
+      if (rel.pending_out) friendBtn.disabled = true;
+      else friendBtn.addEventListener("click", () => handleAddFriend(id, username, actionsEl));
+    }
+    actionsEl.appendChild(friendBtn);
+  }
+  const blockBtn = document.createElement("button");
+  blockBtn.type = "button";
+  if (rel.blocked) {
+    blockBtn.className = "icon-btn";
+    blockBtn.textContent = "Unblock";
+    blockBtn.addEventListener("click", () => handleUnblockUser(id, username, actionsEl));
+  } else {
+    blockBtn.className = "danger-btn";
+    blockBtn.textContent = "Block";
+    blockBtn.addEventListener("click", () => handleBlockUser(id, username, actionsEl));
+  }
+  actionsEl.appendChild(blockBtn);
+}
+
+async function refreshConversationStartActions(actionsEl, id, username) {
+  const relation = typeof fetchRelationship === "function"
+    ? await fetchRelationship(id)
+    : { friend: false, pending_out: false, blocked: false };
+  if (!actionsEl || !actionsEl.isConnected) return;
+  paintConversationStartActions(actionsEl, id, username, relation);
+  if (typeof openChatType === "undefined" || openChatType !== "dm" || Number(openChatId) !== Number(id)) return;
+  if (relation.blocked) {
+    if (typeof disableComposer === "function") disableComposer("You can't message " + username + " \u2014 blocked.");
+  } else if (typeof enableComposer === "function") {
+    enableComposer();
+  }
+}
+
+async function handleAddFriend(id, username, actionsEl) {
+  try {
+    const response = await fetch(`https://${serverAddress}/friend_user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ username })
+    });
+    if (!response.ok) return;
+    await refreshConversationStartActions(actionsEl, id, username);
+    refreshFriendsView();
+  } catch (e) {}
+}
+
 async function handleRemoveFriend(id, username, actionsEl) {
   try {
     const response = await fetch(`https://${serverAddress}/unfriend_user`, {
@@ -141,13 +202,9 @@ async function handleRemoveFriend(id, username, actionsEl) {
       body: JSON.stringify({ user_id_2: id })
     });
     if (!response.ok) return;
-    actionsEl.innerHTML = "";
-    const status = document.createElement("div");
-    status.className = "convo-start-status";
-    status.textContent = `You are no longer friends with ${username}.`;
-    actionsEl.appendChild(status);
-    disableComposer(`You can't message ${username} \u2014 you're no longer friends.`);
-  } catch (e) { /* leave the buttons as-is on failure */ }
+    await refreshConversationStartActions(actionsEl, id, username);
+    refreshFriendsView();
+  } catch (e) {}
 }
 
 async function handleBlockUser(id, username, actionsEl) {
@@ -159,11 +216,26 @@ async function handleBlockUser(id, username, actionsEl) {
       body: JSON.stringify({ blocked_user: id })
     });
     if (!response.ok) return;
-    actionsEl.innerHTML = "";
-    const status = document.createElement("div");
-    status.className = "convo-start-status";
-    status.textContent = `You have blocked ${username}.`;
-    actionsEl.appendChild(status);
-    disableComposer(`You can't message ${username} \u2014 blocked.`);
-  } catch (e) { /* leave the buttons as-is on failure */ }
+    if (typeof rememberBlockedUser === "function") rememberBlockedUser(id);
+    if (typeof purgeBlockedMessagesFromOpenViews === "function") purgeBlockedMessagesFromOpenViews(id);
+    await refreshConversationStartActions(actionsEl, id, username);
+    refreshFriendsView();
+    if (typeof loadConversations === "function") loadConversations();
+  } catch (e) {}
+}
+
+async function handleUnblockUser(id, username, actionsEl) {
+  try {
+    const response = await fetch(`https://${serverAddress}/unblock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ blocked_user: id })
+    });
+    if (!response.ok) return;
+    if (typeof forgetBlockedUser === "function") forgetBlockedUser(id);
+    await refreshConversationStartActions(actionsEl, id, username);
+    refreshFriendsView();
+    if (typeof loadConversations === "function") loadConversations();
+  } catch (e) {}
 }

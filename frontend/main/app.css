@@ -3365,8 +3365,17 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 .convo-start-card .post-media video { max-width: min(100%, 420px); }
 .convo-start-actions { display: flex; gap: 8px; justify-content: center; }
 .convo-start-actions .icon-btn { border: 1px solid var(--border); }
+.convo-start-actions .icon-btn:disabled,
+.convo-start-actions .danger-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 .convo-start-actions .danger-btn { background: transparent; border: 1px solid var(--danger); color: var(--danger); font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px; }
 .convo-start-actions .danger-btn:hover { background: var(--danger); color: #fff; }
+.convo-start-actions .danger-btn:disabled:hover {
+  background: transparent;
+  color: var(--danger);
+}
 .convo-start-status { font-size: 12px; color: var(--text-dim); font-style: italic; }
 
 .msg-cluster {
@@ -8922,6 +8931,46 @@ body.is-mini-dragging {
 .mini-sub-modal .leave-party-main {
   overflow: auto;
   min-height: 80px;
+}
+.recovery-code-note {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.recovery-code-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-align: center;
+  padding: 12px;
+  margin: 0 0 12px;
+  background: var(--rail);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  user-select: all;
+}
+.recovery-code-label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0 0 6px;
+}
+.recovery-code-field {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  background: var(--rail);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+}
+.recovery-code-field:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 .mini-sub-pick {
   display: block;

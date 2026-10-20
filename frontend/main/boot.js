@@ -23,6 +23,10 @@ window.addEventListener("load", () => {
       if (typeof hydrateAccessibility === "function") hydrateAccessibility(data.accessibility);
       if (typeof hydrateLanguageTime === "function") hydrateLanguageTime(data.language_time);
       if (data.identity && typeof rememberOwnIdentity === "function") rememberOwnIdentity(data.identity);
+      if (typeof noteRecoveryResetPending === "function") noteRecoveryResetPending(!!data.recovery_reset_pending);
+      if (data.recovery_code) {
+        try { sessionStorage.setItem("oneira_recovery_code", data.recovery_code); } catch (e) {}
+      }
       if (!appEntered) {
         appEntered = true;
         enterApp();
@@ -885,6 +889,7 @@ function enterApp() {
     handleJoinDeepLink();
     handleConnectionDeepLink();
     if (!usedPlace && typeof applyAppAddress === "function") applyAppAddress();
+    if (typeof offerAccountRecoveryPrompts === "function") offerAccountRecoveryPrompts();
   });
 }
 

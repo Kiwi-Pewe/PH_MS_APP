@@ -46,7 +46,6 @@ const PROFILE_PALETTE = [
       { type: "divider", label: "Divider" },
       { type: "rail", label: "Rail" },
       { type: "frame", label: "Frame" },
-      { type: "color_block", label: "Color block" },
       { type: "icon", label: "Icon" },
       { type: "meter", label: "Meter" },
       { type: "clock", label: "Clock" }

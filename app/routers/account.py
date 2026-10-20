@@ -4,6 +4,7 @@ from app.models import UserInfo, Active_Sessions
 from app.schemas import (
     Account_register, Account_login, Account_field_edit, Account_password_change,
     Account_mfa_confirm, Account_mfa_disable, Account_login_mfa, Account_revoke_session,
+    Account_recover_login, Account_recovery_password, Account_recovery_rotate,
     Account_privacy_edit, Account_delete_own,
 )
 from app.database import get_db
@@ -18,6 +19,8 @@ import re
 import secrets
 
 ALIAS_MAX = 10
+RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+RECOVERY_LEN = 10
 
 try:
     import pyotp
@@ -59,6 +62,46 @@ def remember_display_name(user, previous):
 def require_password(user, password):
     if not password or not pwd_context.verify(password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Password is incorrect.")
+
+def make_recovery_code():
+    return "".join(secrets.choice(RECOVERY_ALPHABET) for _ in range(RECOVERY_LEN))
+
+def issue_recovery_code_if_missing(user, database):
+    if user.recovery_hash:
+        return None
+    code = make_recovery_code()
+    user.recovery_hash = pwd_context.hash(code)
+    database.commit()
+    return code
+
+def normalize_recovery_code(value):
+    return re.sub(r"[^A-Za-z0-9]", "", (value or "")).upper()
+
+def recovery_code_ok(user, code):
+    raw = normalize_recovery_code(code)
+    if len(raw) != RECOVERY_LEN or not user.recovery_hash:
+        return False
+    try:
+        return pwd_context.verify(raw, user.recovery_hash)
+    except Exception:
+        return False
+
+def drop_account_sessions(database, user_id):
+    database.query(Active_Sessions).filter(Active_Sessions.account_id == user_id).delete()
+    database.commit()
+
+def begin_recovery_session(database, user, request: Request, response: Response):
+    user.recovery_reset_pending = True
+    database.commit()
+    drop_account_sessions(database, user.id)
+    if user.mfa_enabled:
+        user.mfa_challenge = create_session_id(24)
+        user.mfa_challenge_until = datetime.now() + timedelta(minutes=5)
+        database.commit()
+        return {"mfa_required": True, "username": user.username, "recovery": True}
+    session_row = stamp_new_session(database, user.id, request)
+    set_session_cookie(response, session_row.session_id)
+    return {"id": user.id, "username": user.username, "display_name": public_display_name(user), "mfa_required": False, "recovery": True}
 
 def client_ip(request: Request):
     forwarded = (request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
@@ -215,7 +258,11 @@ def login_account(account: Account_login, request: Request, response: Response, 
 
     session_row = stamp_new_session(database, existing_user.id, request)
     set_session_cookie(response, session_row.session_id)
-    return {"id": existing_user.id, "username": existing_user.username, "display_name": public_display_name(existing_user), "mfa_required": False}
+    issued = issue_recovery_code_if_missing(existing_user, database)
+    payload = {"id": existing_user.id, "username": existing_user.username, "display_name": public_display_name(existing_user), "mfa_required": False}
+    if issued:
+        payload["recovery_code"] = issued
+    return payload
 
 @router.post("/login_mfa")
 def login_account_mfa(account: Account_login_mfa, request: Request, response: Response, database: Session = Depends(get_db)):
@@ -236,7 +283,25 @@ def login_account_mfa(account: Account_login_mfa, request: Request, response: Re
     database.commit()
     session_row = stamp_new_session(database, user.id, request)
     set_session_cookie(response, session_row.session_id)
-    return {"id": user.id, "username": user.username, "display_name": public_display_name(user), "mfa_required": False}
+    issued = None if user.recovery_reset_pending else issue_recovery_code_if_missing(user, database)
+    payload = {"id": user.id, "username": user.username, "display_name": public_display_name(user), "mfa_required": False, "recovery": bool(user.recovery_reset_pending)}
+    if issued:
+        payload["recovery_code"] = issued
+    return payload
+
+@router.post("/recover_login")
+def recover_account_login(account: Account_recover_login, request: Request, response: Response, database: Session = Depends(get_db)):
+    existing_user = database.query(UserInfo).filter(UserInfo.username == account.username).first()
+    if not existing_user or not recovery_code_ok(existing_user, account.recovery_code):
+        if existing_user:
+            refuse_if_site_banned(existing_user)
+            database.commit()
+        else:
+            refuse_if_permabanned_name(database, account.username)
+        raise HTTPException(status_code=401, detail="Username or recovery code is incorrect.")
+    refuse_if_site_banned(existing_user)
+    database.commit()
+    return begin_recovery_session(database, existing_user, request, response)
 
 @router.post("/logout")
 def logout_account(response:Response, session_id: str = Cookie(None), database: Session = Depends(get_db)):
@@ -249,7 +314,7 @@ def logout_account(response:Response, session_id: str = Cookie(None), database: 
     return
 
 @router.post("/register", status_code = 201)
-def create_account(account: Account_register, database : Session = Depends(get_db)):
+def create_account(account: Account_register, request: Request, response: Response, database : Session = Depends(get_db)):
     username = clean_username(account.username)
     existing_username = database.query(UserInfo).filter(UserInfo.username == username).first()
 
@@ -258,9 +323,12 @@ def create_account(account: Account_register, database : Session = Depends(get_d
     if not (account.password or "").strip():
         raise HTTPException(status_code=400, detail="Password is required.")
 
+    code = make_recovery_code()
     info = UserInfo(
         username= username,
         hashed_password= pwd_context.hash(account.password),
+        recovery_hash= pwd_context.hash(code),
+        recovery_reset_pending= False,
         display_name= username,
         email= None,
         phone= None,
@@ -280,13 +348,22 @@ def create_account(account: Account_register, database : Session = Depends(get_d
     database.add(info)
     database.commit()
     database.refresh(info)
-    return {"id": info.id, "username": info.username, "display_name": info.display_name}
+    session_row = stamp_new_session(database, info.id, request)
+    set_session_cookie(response, session_row.session_id)
+    return {
+        "id": info.id,
+        "username": info.username,
+        "display_name": info.display_name,
+        "mfa_required": False,
+        "recovery_code": code,
+    }
 
 @router.get("/whoami")
-def self_identity(current_user: UserInfo = Depends(get_current_user)):
+def self_identity(current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
     from app.routers.profile import public_identity
     ident = public_identity(current_user)
-    return {
+    issued = None if current_user.recovery_reset_pending else issue_recovery_code_if_missing(current_user, database)
+    payload = {
         "username": current_user.username,
         "id": current_user.id,
         "display_name": public_display_name(current_user),
@@ -295,7 +372,11 @@ def self_identity(current_user: UserInfo = Depends(get_current_user)):
         "language_time": language_time_payload(current_user),
         "identity": ident,
         "avatar": ident["avatar"],
+        "recovery_reset_pending": bool(current_user.recovery_reset_pending),
     }
+    if issued:
+        payload["recovery_code"] = issued
+    return payload
 
 @router.get("/account_settings")
 def get_account_settings(current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db), session_id: str = Cookie(None)):
@@ -363,6 +444,38 @@ def update_account_password(edit: Account_password_change, current_user: UserInf
     current_user.hashed_password = pwd_context.hash(edit.new_password)
     database.commit()
     return {"ok": True}
+
+@router.post("/account_recovery/set_password")
+def set_password_after_recovery(edit: Account_recovery_password, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    if not current_user.recovery_reset_pending:
+        raise HTTPException(status_code=400, detail="Recovery login is not pending.")
+    new_password = (edit.new_password or "").strip()
+    confirm = (edit.confirm_password or "").strip()
+    if not new_password:
+        raise HTTPException(status_code=400, detail="New password is required.")
+    if new_password != confirm:
+        raise HTTPException(status_code=400, detail="Passwords do not match.")
+    current_user.hashed_password = pwd_context.hash(new_password)
+    current_user.recovery_reset_pending = False
+    database.commit()
+    return {"ok": True}
+
+@router.post("/account_recovery/skip_password")
+def skip_password_after_recovery(current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    current_user.recovery_reset_pending = False
+    database.commit()
+    return {"ok": True}
+
+@router.post("/account_recovery/rotate")
+def rotate_recovery_code(edit: Account_recovery_rotate, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    typed = clean_username(edit.username)
+    if typed.lower() != (current_user.username or "").lower():
+        raise HTTPException(status_code=401, detail="Username or password is incorrect.")
+    require_password(current_user, edit.password)
+    code = make_recovery_code()
+    current_user.recovery_hash = pwd_context.hash(code)
+    database.commit()
+    return {"recovery_code": code}
 
 @router.get("/account_devices")
 def list_account_devices(request: Request, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db), session_id: str = Cookie(None)):

@@ -8,6 +8,8 @@ class UserInfo(Base):
     id = Column(Integer, primary_key = True)
     username = Column(String, unique= True, nullable= False)
     hashed_password = Column(String, nullable= False)
+    recovery_hash = Column(String, nullable= True)
+    recovery_reset_pending = Column(Boolean, default= False)
     display_name = Column(String, nullable= True)
     email = Column(String, nullable= True)
     phone = Column(String, nullable= True)

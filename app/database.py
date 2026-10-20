@@ -138,6 +138,8 @@ def ensure_account_columns():
         ("users", "created_at", "DATETIME"),
         ("users", "banned_until", "DATETIME"),
         ("users", "ban_reason", "VARCHAR"),
+        ("users", "recovery_hash", "VARCHAR"),
+        ("users", "recovery_reset_pending", "BOOLEAN"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:

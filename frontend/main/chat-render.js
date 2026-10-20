@@ -718,19 +718,9 @@ function buildConversationStartCard(id, username) {
 
   const actions = document.createElement("div");
   actions.className = "convo-start-actions";
-
-  const removeBtn = document.createElement("button");
-  removeBtn.className = "icon-btn";
-  removeBtn.textContent = "Remove Friend";
-  removeBtn.onclick = () => handleRemoveFriend(id, username, actions);
-
-  const blockBtn = document.createElement("button");
-  blockBtn.className = "danger-btn";
-  blockBtn.textContent = "Block";
-  blockBtn.onclick = () => handleBlockUser(id, username, actions);
-
-  actions.appendChild(removeBtn);
-  actions.appendChild(blockBtn);
+  if (typeof refreshConversationStartActions === "function") {
+    refreshConversationStartActions(actions, id, username);
+  }
 
   card.appendChild(avatar);
   card.appendChild(name);

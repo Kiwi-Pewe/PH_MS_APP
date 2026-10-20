@@ -35,7 +35,13 @@ function communityLetter(name) {
   return String(name || "?").slice(0, 1).toUpperCase();
 }
 
+function closeCommunityListingComments() {
+  const thread = document.getElementById("community-listing-comments");
+  if (thread) thread.hidden = true;
+}
+
 function closeCommunityListing() {
+  closeCommunityListingComments();
   const overlay = document.getElementById("community-listing-overlay");
   if (overlay) overlay.hidden = true;
   communityListingRow = null;
@@ -100,6 +106,7 @@ function openCommunityListing(row) {
   }
   paintCommunityTags(document.getElementById("community-listing-tags"), row.tags);
   paintCommunityVotes(document.getElementById("community-listing-votes"), row.votes);
+  closeCommunityListingComments();
   overlay.hidden = false;
 }
 
@@ -260,6 +267,11 @@ async function openCommunities() {
 
 document.getElementById("community-listing-close").addEventListener("click", () => closeCommunityListing());
 document.getElementById("community-listing-cancel").addEventListener("click", () => closeCommunityListing());
+document.getElementById("community-listing-comments-btn").addEventListener("click", (e) => {
+  e.preventDefault();
+  const thread = document.getElementById("community-listing-comments");
+  if (thread) thread.hidden = !thread.hidden;
+});
 document.getElementById("community-listing-comment-send").addEventListener("click", (e) => {
   e.preventDefault();
 });

@@ -11940,10 +11940,10 @@ button.voice-more-row:disabled,
 .community-listing-modal {
   width: 720px;
   max-width: calc(100vw - 48px);
-  height: min(82vh, 840px);
-  max-height: calc(100vh - 48px);
+  height: auto;
+  max-height: min(82vh, 840px);
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, auto) auto;
   background: var(--panel);
   border: 1px solid var(--accent-submenu);
   border-radius: 10px;
@@ -12023,7 +12023,7 @@ button.voice-more-row:disabled,
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
 }
 .community-listing-info {
   display: flex;
@@ -12033,16 +12033,18 @@ button.voice-more-row:disabled,
   padding: 16px 18px 12px;
 }
 .community-listing-comments {
-  flex: 1 1 auto;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 10px 18px 14px;
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 8px 18px 12px;
   background: var(--rail);
   border-top: 1px solid var(--border);
 }
+.community-listing-comments[hidden] { display: none; }
 .community-listing-comments .announce-comments-pane {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
+  max-height: 160px;
   min-height: 0;
 }
 .community-listing-comments .announce-comment-composer {
@@ -12050,8 +12052,16 @@ button.voice-more-row:disabled,
   flex: 0 0 auto;
 }
 #community-listing-comments-empty {
-  margin: auto 0;
+  margin: 0;
   padding: 8px 0;
+}
+#community-listing-comment-input {
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+#community-listing-comment-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 .community-listing-footer {
   display: flex;

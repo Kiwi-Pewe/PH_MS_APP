@@ -332,9 +332,9 @@ function paintReducedMotion(host, info, persist) {
   ));
   host.appendChild(settingsOpt(
     "Play GIFs when Oneira is focused",
-    "",
+    "Play GIFs while the Oneira window is focused.",
     settingsToggle(true, true),
-    settingsNote("Work in progress — this control is disabled for now.", "later")
+    settingsLaterNote("GIF playback")
   ));
   host.appendChild(settingsOpt(
     "Play animated emoji",

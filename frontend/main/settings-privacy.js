@@ -1,6 +1,6 @@
 // ==================================================================
 // settings-privacy.js - Data & Privacy. Profile visibility (incl.
-// Public) and Delete account are live. Disable is a grey placeholder.
+// Public) and Delete account are live.
 // Section dividers via has-sections (not per-option rules).
 // ==================================================================
 
@@ -35,9 +35,14 @@ function settingsNote(text, kind) {
   return note;
 }
 
+function settingsLaterNote(subject) {
+  return settingsNote("Not Implemented currently. (requires " + subject + ")", "later");
+}
+
 function settingsOpt(title, desc, control, note) {
   const row = document.createElement("div");
-  row.className = "settings-opt";
+  const later = !!(note && note.classList && note.classList.contains("is-later"));
+  row.className = "settings-opt" + (later ? " is-later" : "");
   const text = document.createElement("div");
   text.className = "settings-opt-text";
   const heading = document.createElement("div");
@@ -142,7 +147,7 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
 
   how.appendChild(settingsOpt(
     "Use data to make Oneira work",
-    "Oneira needs to store and process some data to provide the service, such as your messages, the servers you're in, and your Direct Messages. Using Oneira means you allow that. You can stop this later by disabling or deleting your account."
+    "Oneira needs to store and process some data to provide the service, such as your messages, the servers you're in, and your Direct Messages. Using Oneira means you allow that. You can stop this later by deleting your account."
   ));
   how.appendChild(settingsOpt(
     "Use data to improve Oneira",
@@ -159,7 +164,8 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   how.appendChild(settingsOpt(
     "Allow my voice to be recorded in Clips",
     "Allows your voice to be included when someone in the same voice channel uses Clips.",
-    settingsToggle(false, true)
+    settingsToggle(false, true),
+    settingsLaterNote("Clips")
   ));
   const requestBtn = document.createElement("button");
   requestBtn.type = "button";
@@ -169,7 +175,8 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   how.appendChild(settingsOpt(
     "Request my data",
     "If you need a copy of your personal data from your account's entire history, you can get it here.",
-    requestBtn
+    requestBtn,
+    settingsLaterNote("data export")
   ));
   const relatedHow = document.createElement("div");
   relatedHow.className = "settings-related-wrap";
@@ -212,7 +219,8 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   ads.appendChild(settingsOpt(
     "Manage Sponsored Content",
     "Control seeing Sponsored Content associated with certain topics. If you hide a topic, you will see no Sponsored Content from that topic.",
-    null
+    null,
+    settingsLaterNote("Sponsored Content")
   ));
   ads.appendChild(topicSearch);
   block.appendChild(ads);
@@ -295,7 +303,8 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   voice.appendChild(settingsOpt(
     "Enable persistent verification codes",
     "Gives your current device persistent verification codes. If this setting is on, your friends only have to verify your device once, instead of every time you enter a voice call.",
-    settingsToggle(false, true)
+    settingsToggle(false, true),
+    settingsLaterNote("Voice")
   ));
   block.appendChild(voice);
 
@@ -306,17 +315,6 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   accountTitle.className = "settings-subblock-title";
   accountTitle.textContent = "Account";
   account.appendChild(accountTitle);
-
-  const disableBtn = document.createElement("button");
-  disableBtn.type = "button";
-  disableBtn.className = "settings-row-btn";
-  disableBtn.textContent = "Disable Account";
-  disableBtn.disabled = true;
-  account.appendChild(settingsOpt(
-    "Disable Account",
-    "Disable your account instead of deleting it. You can reactivate later. Your data stays stored while the account is disabled.",
-    disableBtn
-  ));
 
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";

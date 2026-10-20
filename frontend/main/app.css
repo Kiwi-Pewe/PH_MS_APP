@@ -1190,6 +1190,20 @@
   color: var(--text);
   line-height: 1.35;
 }
+.settings-opt.is-later .settings-opt-title,
+.settings-filter-row.is-later .settings-opt-title,
+.settings-activity-server.is-later .settings-opt-title,
+.settings-game-row.is-later .settings-game-name,
+.settings-radio-list.is-disabled .settings-opt-title {
+  color: var(--text-dim);
+}
+.settings-opt.is-later .settings-opt-control {
+  pointer-events: none;
+}
+.settings-keybind-row.is-later {
+  opacity: 0.55;
+  pointer-events: none;
+}
 .settings-opt-desc {
   font-size: var(--settings-opt-desc, 12px);
   line-height: 1.45;
@@ -3129,6 +3143,17 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+#main-grid.has-search-fullscreen #search-results-panel {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  flex: none;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
 }
 #search-results-panel[hidden] { display: none !important; }
 .search-results-header {

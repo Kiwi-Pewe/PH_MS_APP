@@ -44,7 +44,7 @@ function settingsSelect(options, selected, disabled) {
 
 function filterScopeRow(label, selected) {
   const row = document.createElement("div");
-  row.className = "settings-filter-row";
+  row.className = "settings-filter-row is-later";
   const name = document.createElement("div");
   name.className = "settings-opt-title";
   name.textContent = label;
@@ -90,7 +90,7 @@ async function renderMessagingSettings(pane, jumpChildId) {
   filters.appendChild(filtersTitle);
   const filtersBlurb = document.createElement("p");
   filtersBlurb.className = "settings-blurb";
-  filtersBlurb.textContent = "Choose how you want to see image-based media. Oneira does not scan images yet. Later, a poster can censor their own media, and a server can auto-censor every image that enters a channel.";
+  filtersBlurb.textContent = "Choose how you want to see image-based media. A poster can censor their own media, and a server can auto-censor every image that enters a channel.";
   filters.appendChild(filtersBlurb);
   const filterGrid = document.createElement("div");
   filterGrid.className = "settings-filter-grid";
@@ -127,6 +127,7 @@ async function renderMessagingSettings(pane, jumpChildId) {
   filterGrid.appendChild(catRail);
   filterGrid.appendChild(filterMain);
   filters.appendChild(filterGrid);
+  filters.appendChild(settingsLaterNote("content filters"));
   const relatedFilters = document.createElement("div");
   relatedFilters.className = "settings-related-wrap";
   const relatedFiltersLabel = document.createElement("div");
@@ -146,7 +147,7 @@ async function renderMessagingSettings(pane, jumpChildId) {
   spam.appendChild(spamTitle);
   const spamBlurb = document.createElement("p");
   spamBlurb.className = "settings-blurb";
-  spamBlurb.textContent = "Automatically filter suspected spam messages. Filtered messages would go to a Spam inbox.";
+  spamBlurb.textContent = "Automatically filter suspected spam messages. Filtered messages go to a Spam inbox.";
   spam.appendChild(spamBlurb);
   const spamList = document.createElement("div");
   spamList.className = "settings-radio-list is-disabled";
@@ -160,6 +161,7 @@ async function renderMessagingSettings(pane, jumpChildId) {
     spamList.appendChild(radio);
   });
   spam.appendChild(spamList);
+  spam.appendChild(settingsLaterNote("spam filters"));
   block.appendChild(spam);
 
   const dms = document.createElement("div");
@@ -254,7 +256,8 @@ async function renderMessagingSettings(pane, jumpChildId) {
   friends.appendChild(settingsOpt(
     "Show personalized messages",
     "Show personalized messages on incoming friend requests. If you accept, the message will still appear in your DMs.",
-    settingsToggle(true, true)
+    settingsToggle(true, true),
+    settingsLaterNote("personalized friend requests")
   ));
   block.appendChild(friends);
 
@@ -267,7 +270,7 @@ async function renderMessagingSettings(pane, jumpChildId) {
   games.appendChild(gamesTitle);
   const gamesBlurb = document.createElement("p");
   gamesBlurb.className = "settings-blurb";
-  gamesBlurb.textContent = "These are settings for games that use Oneira to power their social features — including titles you link later, not only a game Oneira makes.";
+  gamesBlurb.textContent = "These are settings for games that use Oneira to power their social features — including titles you link, not only a game Oneira makes.";
   games.appendChild(gamesBlurb);
   const empty = document.createElement("div");
   empty.className = "settings-empty-card";
@@ -299,8 +302,14 @@ async function renderMessagingSettings(pane, jumpChildId) {
   blocks.appendChild(blocksTitle);
   const blocksBlurb = document.createElement("p");
   blocksBlurb.className = "settings-blurb";
-  blocksBlurb.textContent = "Blocked accounts cannot DM you, friend you, or see you as a friend. Their existing messages are hidden from your chat history. Ignore (hide messages without blocking) isn't built yet.";
+  blocksBlurb.textContent = "Blocked accounts cannot DM you, friend you, or see you as a friend. Their existing messages are hidden from your chat history.";
   blocks.appendChild(blocksBlurb);
+  blocks.appendChild(settingsOpt(
+    "Ignore",
+    "Hide messages from an account without blocking them.",
+    settingsToggle(false, true),
+    settingsLaterNote("Ignore")
+  ));
   const count = document.createElement("div");
   count.className = "settings-empty-card is-left";
   const blocked = info.blocked || [];

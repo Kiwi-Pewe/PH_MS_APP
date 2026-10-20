@@ -4,15 +4,13 @@
 // Games is what you've played or added. Detection waits on desktop.
 // ==================================================================
 
-const GAMES_DESKTOP = "This feature isn't built yet. It waits on a desktop app to see what you're playing.";
-
-function gamesLaterNote(text) {
-  return settingsNote(text || GAMES_DESKTOP, "later");
+function gamesLaterNote(subject) {
+  return settingsLaterNote(subject || "desktop game detection");
 }
 
 function settingsGameRow(opts) {
   const row = document.createElement("div");
-  row.className = "settings-game-row" + (opts.current ? " is-current" : "") + (opts.empty ? " is-empty" : "");
+  row.className = "settings-game-row is-later" + (opts.current ? " is-current" : "") + (opts.empty ? " is-empty" : "");
   const copy = document.createElement("div");
   copy.className = "settings-game-copy";
   const nameRow = document.createElement("div");
@@ -57,7 +55,7 @@ function paintCurrentGame(host) {
   add.textContent = "Add it!";
   addLine.appendChild(add);
   host.appendChild(addLine);
-  host.appendChild(gamesLaterNote("Seeing a running game, adding one by hand, and showing it on your status all wait on a desktop app."));
+  host.appendChild(gamesLaterNote("desktop game detection"));
 }
 
 function paintAddedGames(host) {
@@ -72,7 +70,7 @@ function paintAddedGames(host) {
   title.textContent = "No added games";
   const body = document.createElement("div");
   body.className = "settings-opt-desc";
-  body.textContent = "Once Oneira can see games on your computer, they'll show up here. You can also add a game yourself.";
+  body.textContent = "Games you've played show up here. You can also add a game yourself.";
   empty.appendChild(title);
   empty.appendChild(body);
   host.appendChild(empty);

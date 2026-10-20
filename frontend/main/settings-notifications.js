@@ -60,13 +60,13 @@ async function renderNotificationSettings(pane, jumpChildId) {
     "Enable Desktop Notifications",
     "If you're looking for per-channel or per-server notifications, that will live on the server icon.",
     settingsToggle(true, true),
-    settingsNote("This feature isn't built yet.", "later")
+    settingsLaterNote("OS notifications")
   ));
   overview.appendChild(settingsOpt(
     "Enable Taskbar Flashing",
     "Flashes the app in your taskbar when you have new notifications.",
     settingsToggle(true, true),
-    settingsNote("This feature isn't built yet. It waits on a desktop app.", "later")
+    settingsLaterNote("desktop app")
   ));
 
   const notifyHeading = document.createElement("div");
@@ -87,11 +87,11 @@ async function renderNotificationSettings(pane, jumpChildId) {
   ));
 
   [
-    ["People I know start streaming in small servers", "Streaming isn't built yet."],
-    ["A friend and I reach a friendship anniversary", "Friendship anniversaries aren't built yet."],
-    ["A server has an upcoming event", "Server events aren't built yet."]
+    ["People I know start streaming in small servers", "streaming"],
+    ["A friend and I reach a friendship anniversary", "friendship anniversaries"],
+    ["A server has an upcoming event", "server events"]
   ].forEach(row => {
-    overview.appendChild(settingsOpt(row[0], "", settingsToggle(true, true), settingsNote(row[1], "later")));
+    overview.appendChild(settingsOpt(row[0], "", settingsToggle(true, true), settingsLaterNote(row[1])));
   });
 
   const reactionSelect = settingsSelect(
@@ -205,7 +205,7 @@ async function renderNotificationSettings(pane, jumpChildId) {
     "Enable Unread Message Badge",
     "Shows a red badge on the app icon when you have unread messages. This is not the Home/server rail unread pills.",
     settingsToggle(true, true),
-    settingsNote("This feature isn't built yet. In-app unread on Home and servers is unchanged.", "later")
+    settingsLaterNote("OS app badge")
   ));
   block.appendChild(badges);
 
@@ -216,12 +216,11 @@ async function renderNotificationSettings(pane, jumpChildId) {
   emailTitle.className = "settings-subblock-title";
   emailTitle.textContent = "Email";
   email.appendChild(emailTitle);
-  email.appendChild(settingsNote("Oneira does not send emails yet.", "later"));
-  email.appendChild(settingsOpt("Communication Emails", "Receive emails for missed calls, messages, and message digests.", settingsToggle(true, true)));
-  email.appendChild(settingsOpt("Social Emails", "Receive emails for friend requests, new friend suggestions, and events in your server.", settingsToggle(true, true)));
-  email.appendChild(settingsOpt("Announcements and Update Emails", "Receive emails about product updates, new features, improvements and bug fixes.", settingsToggle(false, true)));
-  email.appendChild(settingsOpt("Tip Emails", "Receive emails with helpful advice on how to use Oneira.", settingsToggle(false, true)));
-  email.appendChild(settingsOpt("Recommendations Emails", "Receive emails with recommended servers and suggested events.", settingsToggle(false, true)));
+  email.appendChild(settingsOpt("Communication Emails", "Receive emails for missed calls, messages, and message digests.", settingsToggle(true, true), settingsLaterNote("email")));
+  email.appendChild(settingsOpt("Social Emails", "Receive emails for friend requests, new friend suggestions, and events in your server.", settingsToggle(true, true), settingsLaterNote("email")));
+  email.appendChild(settingsOpt("Announcements and Update Emails", "Receive emails about product updates, new features, improvements and bug fixes.", settingsToggle(false, true), settingsLaterNote("email")));
+  email.appendChild(settingsOpt("Tip Emails", "Receive emails with helpful advice on how to use Oneira.", settingsToggle(false, true), settingsLaterNote("email")));
+  email.appendChild(settingsOpt("Recommendations Emails", "Receive emails with recommended servers and suggested events.", settingsToggle(false, true), settingsLaterNote("email")));
   const unsub = document.createElement("button");
   unsub.type = "button";
   unsub.className = "settings-row-btn";
@@ -230,7 +229,8 @@ async function renderNotificationSettings(pane, jumpChildId) {
   email.appendChild(settingsOpt(
     "Unsubscribe from all marketing emails",
     "This includes any emails about product updates, new features, tips, and recommendations.",
-    unsub
+    unsub,
+    settingsLaterNote("email")
   ));
   block.appendChild(email);
 
@@ -256,13 +256,13 @@ async function renderNotificationSettings(pane, jumpChildId) {
     "Mobile Notification Delay",
     "Oneira won't send push notifications to your mobile device while you're active on your computer. Use this setting to choose how long you need to be inactive on desktop before mobile notifications start again.",
     delay,
-    settingsNote("This feature isn't built yet. It waits on a mobile app.", "later")
+    settingsLaterNote("mobile app")
   ));
   advanced.appendChild(settingsOpt(
     "Allow playback and usage of /tts command",
-    "Using the /tts command speaks your message out loud. Turn this off if you prefer to see /tts messages as text only. Playback speed will live on Accessibility.",
+    "Using the /tts command speaks your message out loud. Turn this off if you prefer to see /tts messages as text only. Playback speed lives on Accessibility.",
     settingsToggle(true, true),
-    settingsNote("This feature isn't built yet.", "later")
+    settingsLaterNote("TTS")
   ));
   const ttsList = document.createElement("div");
   ttsList.className = "settings-radio-list is-disabled";
@@ -276,7 +276,7 @@ async function renderNotificationSettings(pane, jumpChildId) {
     ttsList.appendChild(radio);
   });
   const ttsWrap = document.createElement("div");
-  ttsWrap.className = "settings-opt";
+  ttsWrap.className = "settings-opt is-later";
   const ttsText = document.createElement("div");
   ttsText.className = "settings-opt-text";
   const ttsTitle = document.createElement("div");
@@ -287,7 +287,7 @@ async function renderNotificationSettings(pane, jumpChildId) {
   ttsDesc.textContent = "Speaks messages out loud, even if they weren't using the /tts command.";
   ttsText.appendChild(ttsTitle);
   ttsText.appendChild(ttsDesc);
-  ttsText.appendChild(settingsNote("This feature isn't built yet.", "later"));
+  ttsText.appendChild(settingsLaterNote("TTS"));
   ttsWrap.appendChild(ttsText);
   advanced.appendChild(ttsWrap);
   advanced.appendChild(ttsList);

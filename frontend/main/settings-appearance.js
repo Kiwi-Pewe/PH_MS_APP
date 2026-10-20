@@ -153,7 +153,7 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
         }, { save: save !== false, rebuild: false });
       }));
     });
-    host.appendChild(settingsNote("Status colors stay locked: green Active, orange Away, red DND, grey offline.", "later"));
+    host.appendChild(settingsNote("Status colors stay locked: green Active, orange Away, red DND, grey offline."));
     return;
   }
 
@@ -222,14 +222,13 @@ function paintAppearanceSearch(host, info, persist) {
   const list = document.createElement("div");
   list.className = "settings-radio-list";
   [
-    ["auto", "Auto", "Use compact or full screen based on the window later."],
+    ["auto", "Auto", "Use compact or full screen based on the window."],
     ["compact", "Compact", "Keep search in a small panel."],
     ["fullscreen", "Full Screen", "Open search across the main pane."]
   ].forEach(row => {
     list.appendChild(privacyRadio(row[0], info.search_style || "auto", row[1], row[2], (value) => persist({ search_style: value })));
   });
   host.appendChild(list);
-  host.appendChild(settingsNote("Search isn't built yet. This choice is saved for when DM and channel search exist.", "later"));
 }
 
 function paintAppearanceStreamer(host) {
@@ -237,7 +236,7 @@ function paintAppearanceStreamer(host) {
     "Enable Streamer Mode",
     "A one-click hide for personal details while you're live.",
     settingsToggle(false, true),
-    settingsNote("Streamer Mode isn't built yet. We'll use this later with OBS and live streams.", "later")
+    settingsLaterNote("live streaming")
   ));
   [
     ["Hide personal information", "Hide email, phone, and similar details in the client."],
@@ -245,7 +244,7 @@ function paintAppearanceStreamer(host) {
     ["Disable sounds", "Mute notification sounds while streaming."],
     ["Disable notifications", "Pause desktop toasts while streaming."]
   ].forEach(row => {
-    host.appendChild(settingsOpt(row[0], row[1], settingsToggle(false, true), settingsNote("This waits on Streamer Mode.", "later")));
+    host.appendChild(settingsOpt(row[0], row[1], settingsToggle(false, true), settingsLaterNote("Streamer Mode")));
   });
 }
 

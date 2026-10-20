@@ -49,7 +49,7 @@ function paintLanguageSection(host, info, persist) {
   pick.appendChild(flag);
   pick.appendChild(select);
   host.appendChild(pick);
-  host.appendChild(settingsNote("More languages wait on translations.", "later"));
+  host.appendChild(settingsLaterNote("translations"));
 }
 
 function paintTimeFormatSection(host, info, persist) {

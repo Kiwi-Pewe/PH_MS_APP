@@ -27,6 +27,57 @@ function memberListIsVisible() {
   return !!(grid && grid.classList.contains("has-member-list"));
 }
 
+function resolvedSearchStyle() {
+  const pref = (typeof appearancePref === "function")
+    ? appearancePref("search_style", "auto")
+    : ((typeof appearancePrefs !== "undefined" && appearancePrefs && appearancePrefs.search_style) || "auto");
+  if (pref === "compact" || pref === "fullscreen") return pref;
+  return window.innerWidth < 1100 ? "fullscreen" : "compact";
+}
+
+function parkSearchResultsPanel() {
+  const panel = document.getElementById("search-results-panel");
+  const rail = document.getElementById("user-list");
+  if (!panel || !rail || panel.parentElement === rail) return;
+  const members = document.getElementById("member-list-body");
+  if (members) rail.insertBefore(panel, members);
+  else rail.appendChild(panel);
+}
+
+function applySearchLayout() {
+  const grid = document.getElementById("main-grid");
+  const panel = document.getElementById("search-results-panel");
+  const main = document.getElementById("main-panel");
+  const members = document.getElementById("member-list-body");
+  if (!grid || !panel) return;
+  const fullscreen = searchResultsOpen && resolvedSearchStyle() === "fullscreen";
+  grid.classList.toggle("has-search-fullscreen", fullscreen);
+  grid.classList.toggle("has-search-results", searchResultsOpen && !fullscreen);
+  if (members) members.hidden = searchResultsOpen && !fullscreen;
+  if (fullscreen) {
+    if (main && panel.parentElement !== main) main.appendChild(panel);
+    if (searchRailForced) {
+      searchRailForced = false;
+      grid.classList.remove("has-member-list");
+      const rail = document.getElementById("user-list");
+      if (rail) rail.style.display = "none";
+      syncChatSearchPlacement();
+    }
+  } else {
+    parkSearchResultsPanel();
+    if (searchResultsOpen && !memberListIsVisible()) {
+      searchRailForced = true;
+      if (typeof showMemberListPanel === "function") showMemberListPanel();
+      else {
+        grid.classList.add("has-member-list");
+        const rail = document.getElementById("user-list");
+        if (rail) rail.style.display = "flex";
+        syncChatSearchPlacement();
+      }
+    }
+  }
+}
+
 function syncSearchInputValues(source) {
   const chatInput = document.getElementById("chat-search-input");
   const railInput = document.getElementById("rail-search-input");
@@ -605,6 +656,7 @@ function pickSearchMore() {
 }
 
 function ensureSearchRail() {
+  if (resolvedSearchStyle() === "fullscreen") return;
   if (memberListIsVisible()) return;
   searchRailForced = true;
   if (typeof showMemberListPanel === "function") showMemberListPanel();
@@ -618,11 +670,8 @@ function ensureSearchRail() {
 function showSearchResultsMode(on) {
   searchResultsOpen = !!on;
   const panel = document.getElementById("search-results-panel");
-  const members = document.getElementById("member-list-body");
-  const grid = document.getElementById("main-grid");
   if (panel) panel.hidden = !on;
-  if (members) members.hidden = !!on;
-  if (grid) grid.classList.toggle("has-search-results", !!on);
+  applySearchLayout();
 }
 
 function closeSearchResults() {
@@ -634,6 +683,7 @@ function closeSearchResults() {
     footer.hidden = true;
     footer.replaceChildren();
   }
+  parkSearchResultsPanel();
   if (searchRailForced) {
     searchRailForced = false;
     if (typeof hideMemberList === "function") hideMemberList();
@@ -987,10 +1037,14 @@ function bindSearchInput(input) {
 
 loadSearchHistory();
 syncChatSearchPlacement();
+applySearchLayout();
 bindSearchInput(document.getElementById("chat-search-input"));
 bindSearchInput(document.getElementById("rail-search-input"));
 const searchClose = document.getElementById("search-results-close");
 if (searchClose) searchClose.addEventListener("click", () => clearSearchAndClose());
+window.addEventListener("resize", () => {
+  if (searchResultsOpen) applySearchLayout();
+});
 document.addEventListener("mousedown", (e) => {
   if (!searchDropdownEl) return;
   if (searchDropdownEl.contains(e.target)) return;

@@ -26,8 +26,12 @@ function hideMemberList() {
       footer.replaceChildren();
     }
   }
+  if (typeof parkSearchResultsPanel === "function") parkSearchResultsPanel();
   const grid = document.getElementById("main-grid");
-  if (grid) grid.classList.remove("has-search-results");
+  if (grid) {
+    grid.classList.remove("has-search-results");
+    grid.classList.remove("has-search-fullscreen");
+  }
   memberListScope = null;
   memberListScopeId = null;
   memberList = [];

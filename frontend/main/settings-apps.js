@@ -5,10 +5,8 @@
 // Nitro Rewards are Billing; they are not on this page.
 // ==================================================================
 
-const APPS_LATER = "This feature isn't built yet.";
-
-function appsLaterNote(text) {
-  return settingsNote(text || APPS_LATER, "later");
+function appsLaterNote(subject) {
+  return settingsLaterNote(subject || "developer platform");
 }
 
 const CONNECTION_PROVIDERS = [
@@ -326,11 +324,11 @@ function paintAuthorizedApps(host) {
   emptyTitle.textContent = "No authorized apps";
   const emptyBody = document.createElement("div");
   emptyBody.className = "settings-opt-desc";
-  emptyBody.textContent = "Games and bots you authorize would show here, with what they can access and a way to deauthorize them.";
+  emptyBody.textContent = "Games and bots you authorize show here, with what they can access and a way to deauthorize them.";
   empty.appendChild(emptyTitle);
   empty.appendChild(emptyBody);
   host.appendChild(empty);
-  host.appendChild(appsLaterNote("This waits on a developer platform so games and bots can ask for access — email, username, and banner at minimum. Some apps would request more. None of that exists yet."));
+  host.appendChild(appsLaterNote("developer platform"));
 }
 
 function renderConnectedAppsSettings(pane, jumpChildId) {

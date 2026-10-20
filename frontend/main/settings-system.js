@@ -4,10 +4,8 @@
 // Default Keybinds is a stub — not Discord's built-in shortcut list.
 // ==================================================================
 
-const SYSTEM_DESKTOP = "This feature isn't built yet. It waits on a desktop app.";
-
-function systemLaterNote(text) {
-  return settingsNote(text || SYSTEM_DESKTOP, "later");
+function systemLaterNote(subject) {
+  return settingsLaterNote(subject || "desktop app");
 }
 
 function systemCallout(kind, title, body, actionLabel) {
@@ -52,7 +50,7 @@ function paintSystemGeneral(host) {
     "Start Oneira minimized",
     "Start Oneira in the background, out of your way.",
     settingsToggle(false, true),
-    systemLaterNote("This waits on a desktop app, and stays off until auto-start is on.")
+    systemLaterNote("desktop app")
   ));
   host.appendChild(settingsOpt(
     "Minimize Oneira to System Tray",
@@ -82,7 +80,7 @@ function paintSystemCustomKeybinds(host) {
   add.disabled = true;
   addRow.appendChild(add);
   host.appendChild(addRow);
-  host.appendChild(systemLaterNote("Custom keybinds aren't built yet. In-app shortcuts can land before a desktop helper; global shortcuts in games wait on both."));
+  host.appendChild(systemLaterNote("custom keybinds"));
 
   host.appendChild(systemCallout(
     "info",
@@ -109,7 +107,7 @@ function paintSystemCustomKeybinds(host) {
   host.appendChild(labels);
 
   const row = document.createElement("div");
-  row.className = "settings-keybind-row";
+  row.className = "settings-keybind-row is-later";
   row.appendChild(settingsSelect(
     [{ value: "none", label: "Select an action" }],
     "none",
@@ -134,9 +132,9 @@ function paintSystemCustomKeybinds(host) {
 function paintSystemDefaultKeybinds(host) {
   const blurb = document.createElement("p");
   blurb.className = "settings-blurb";
-  blurb.textContent = "Built-in shortcuts that let you move around Oneira from the keyboard. Oneira will ship its own list later — this is not Discord's default keybind table.";
+  blurb.textContent = "Built-in shortcuts that let you move around Oneira from the keyboard.";
   host.appendChild(blurb);
-  host.appendChild(systemLaterNote("Default keybinds aren't built yet. Full-keyboard control of the app can come after custom keybinds have a real action list."));
+  host.appendChild(systemLaterNote("default keybinds"));
 }
 
 function paintSystemHelper(host) {
@@ -157,7 +155,7 @@ function paintSystemHelper(host) {
     "Oneira System Helper",
     learn,
     install,
-    systemLaterNote("This waits on a desktop app. Game Overlay is a later product on top of that.")
+    systemLaterNote("desktop app")
   ));
 }
 
@@ -171,7 +169,7 @@ function paintSystemAdvanced(host) {
     "Capture Performance Trace",
     "Record 30 seconds of performance data and save it to a file you can attach to a support ticket.",
     capture,
-    systemLaterNote("This waits on support diagnostics. A browser Performance trace can land later without a desktop app.")
+    systemLaterNote("performance diagnostics")
   ));
 }
 

@@ -4,10 +4,8 @@
 // Voice Widget also waits on Voice. No Discord branding in the preview.
 // ==================================================================
 
-const OVERLAY_LATER = "This feature isn't built yet. It waits on a desktop app.";
-
-function overlayLaterNote(text) {
-  return settingsNote(text || OVERLAY_LATER, "later");
+function overlayLaterNote(subject) {
+  return settingsLaterNote(subject || "Overlay");
 }
 
 function overlayChevronToggle(title, desc, on) {
@@ -18,7 +16,7 @@ function overlayChevronToggle(title, desc, on) {
   chev.className = "settings-row-chevron";
   chev.textContent = ">";
   controls.appendChild(chev);
-  return settingsOpt(title, desc, controls);
+  return settingsOpt(title, desc, controls, overlayLaterNote());
 }
 
 function overlaySelect(label, selected) {
@@ -58,9 +56,9 @@ function paintOverlayMain(host) {
   host.appendChild(settingsOpt(
     "Report a Problem",
     "If Overlay isn't working as expected, let us know so we can fix it.",
-    report
+    report,
+    overlayLaterNote()
   ));
-  host.appendChild(overlayLaterNote("Game Overlay waits on a desktop app that can draw over other programs."));
 }
 
 function paintOverlayLock(host) {
@@ -75,18 +73,19 @@ function paintOverlayLock(host) {
   edit.disabled = true;
   combo.appendChild(keys);
   combo.appendChild(edit);
-  host.appendChild(settingsOpt("Toggle Overlay Lock", "", combo));
+  host.appendChild(settingsOpt("Toggle Overlay Lock", "", combo, overlayLaterNote()));
   host.appendChild(settingsOpt(
     "Use Compatibility Mode",
     "Fixes issues with the overlay taking or losing focus during use. (Warning! This will reduce some functionality)",
-    settingsToggle(false, true)
+    settingsToggle(false, true),
+    overlayLaterNote()
   ));
   host.appendChild(settingsOpt(
     "Enable overlay clickable regions",
     "Allows areas of the overlay (ie notifications) to be clickable while the overlay is locked.",
-    settingsToggle(true, true)
+    settingsToggle(true, true),
+    overlayLaterNote()
   ));
-  host.appendChild(overlayLaterNote("Lock, keybind, and click-through wait on Overlay."));
 }
 
 function paintVoiceWidget(host) {
@@ -107,11 +106,11 @@ function paintVoiceWidget(host) {
   preview.appendChild(chip);
   host.appendChild(preview);
 
-  host.appendChild(settingsOpt("Avatar Size", "", overlaySelect("Large", "large")));
-  host.appendChild(settingsOpt("Display Names", "", overlaySelect("Never", "never")));
-  host.appendChild(settingsOpt("Display Users", "", overlaySelect("Always", "always")));
+  host.appendChild(settingsOpt("Avatar Size", "", overlaySelect("Large", "large"), overlayLaterNote("Voice widget")));
+  host.appendChild(settingsOpt("Display Names", "", overlaySelect("Never", "never"), overlayLaterNote("Voice widget")));
+  host.appendChild(settingsOpt("Display Users", "", overlaySelect("Always", "always"), overlayLaterNote("Voice widget")));
 
-  host.appendChild(settingsOpt("Max Users Displayed", "", null));
+  host.appendChild(settingsOpt("Max Users Displayed", "", null, overlayLaterNote("Voice widget")));
   const ticks = document.createElement("div");
   ticks.className = "a11y-ticks";
   ["Off", "5", "10", "15", "20", "25"].forEach(label => {
@@ -128,7 +127,6 @@ function paintVoiceWidget(host) {
   slider.value = "8";
   slider.disabled = true;
   host.appendChild(slider);
-  host.appendChild(overlayLaterNote("The in-game voice widget waits on Overlay and Voice."));
 }
 
 function paintOverlayNotifications(host) {
@@ -139,9 +137,8 @@ function paintOverlayNotifications(host) {
     ["Game Activity", "Shows friends who are currently playing, or have recently played the game you're currently playing."],
     ["Now Playing", "Notifies you when a friend starts playing the game you are currently playing."]
   ].forEach(row => {
-    host.appendChild(settingsOpt(row[0], row[1], settingsToggle(true, true)));
+    host.appendChild(settingsOpt(row[0], row[1], settingsToggle(true, true), overlayLaterNote()));
   });
-  host.appendChild(overlayLaterNote("Overlay toasts wait on Overlay, and on notification sounds/toasts."));
 }
 
 function renderGameOverlaySettings(pane, jumpChildId) {

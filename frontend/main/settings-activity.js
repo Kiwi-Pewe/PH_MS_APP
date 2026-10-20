@@ -4,10 +4,8 @@
 // wait on game activity / presence / Voice. The server list is real.
 // ==================================================================
 
-const ACTIVITY_LATER = "This feature isn't built yet.";
-
-function activityLaterNote(text) {
-  return settingsNote(text || ACTIVITY_LATER, "later");
+function activityLaterNote(subject) {
+  return settingsLaterNote(subject || "activity sharing");
 }
 
 function paintWhatActivity(host) {
@@ -15,13 +13,13 @@ function paintWhatActivity(host) {
     "Share my activity",
     "Share activity information from games and connected apps I use, including when and how I engage.",
     settingsToggle(false, true),
-    activityLaterNote("Hiding or showing what you're playing waits on Registered Games and connected apps.")
+    activityLaterNote("Registered Games")
   ));
   host.appendChild(settingsOpt(
     "Share when I come online",
     "Allow friends to receive a push notification when you come online.",
     settingsToggle(true, true),
-    activityLaterNote("Online pings aren't built yet.")
+    activityLaterNote("online pings")
   ));
   const related = document.createElement("div");
   related.className = "settings-related-wrap";
@@ -39,7 +37,7 @@ function paintWhatActivity(host) {
 
 function paintActivityServerRow(server) {
   const row = document.createElement("div");
-  row.className = "settings-activity-server";
+  row.className = "settings-activity-server is-later";
   row.dataset.name = (server.name || "").toLowerCase();
   const avatar = document.createElement("div");
   avatar.className = "avatar-dot";
@@ -83,7 +81,7 @@ function paintWhereActivity(host, servers) {
     "Server settings ignored when not sharing",
     ""
   ));
-  host.appendChild(activityLaterNote("Per-server activity sharing waits on the same activity status as Current Game."));
+  host.appendChild(activityLaterNote("activity sharing"));
 
   const search = document.createElement("input");
   search.type = "search";
@@ -134,19 +132,19 @@ function paintJoinGames(host) {
     "Allow friends to join my game",
     "Allow friends to join my game without sending a request.",
     settingsToggle(false, true),
-    activityLaterNote("Game joining isn't built yet.")
+    activityLaterNote("game joining")
   ));
   host.appendChild(settingsOpt(
     "Allow voice channel participants to join my game",
     "Allow anyone in a shared voice channel to join my game without sending a request.",
     settingsToggle(false, true),
-    activityLaterNote("This waits on Voice, and on game joining.")
+    activityLaterNote("Voice")
   ));
   const perServer = document.createElement("p");
   perServer.className = "settings-blurb";
   perServer.textContent = "Looking for per-server controls? Navigate to the server, select the dropdown menu next to the server name, then select Privacy Settings. From there, you can toggle on or off Activity Joining for just that server.";
   host.appendChild(perServer);
-  host.appendChild(activityLaterNote("Server Privacy Settings aren't built yet."));
+  host.appendChild(activityLaterNote("server Privacy Settings"));
 }
 
 async function renderActivityPrivacySettings(pane, jumpChildId) {

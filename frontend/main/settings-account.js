@@ -480,7 +480,7 @@ async function renderMfaSettings(pane, info) {
   pane.appendChild(heading);
   const blurb = document.createElement("p");
   blurb.className = "settings-blurb";
-  blurb.textContent = "Use Google Authenticator or another TOTP app. After this is on, logging in needs your password and a code from the app. Text-message and other methods come later.";
+  blurb.textContent = "Use Google Authenticator or another TOTP app. After this is on, logging in needs your password and a code from the app.";
   pane.appendChild(blurb);
   const status = document.createElement("div");
   status.className = "placeholder-panel";
@@ -621,10 +621,17 @@ async function renderProfileSettings(pane, jumpChildId) {
   avatarTitle.className = "settings-subblock-title";
   avatarTitle.textContent = "Avatar";
   avatar.appendChild(avatarTitle);
-  const avatarNote = document.createElement("div");
-  avatarNote.className = "placeholder-panel";
-  avatarNote.textContent = "Avatar upload isn't built yet.";
-  avatar.appendChild(avatarNote);
+  const changeAv = document.createElement("button");
+  changeAv.type = "button";
+  changeAv.className = "settings-row-btn";
+  changeAv.textContent = "Change Avatar";
+  changeAv.disabled = true;
+  avatar.appendChild(settingsOpt(
+    "Change Avatar",
+    "Choose the picture people see next to your name.",
+    changeAv,
+    settingsLaterNote("avatar upload")
+  ));
   block.appendChild(sub);
   block.appendChild(avatar);
   pane.appendChild(block);

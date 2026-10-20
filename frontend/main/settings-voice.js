@@ -3,10 +3,8 @@
 // processing are live. Camera, streaming, sounds, and logs stay grey.
 // ==================================================================
 
-const VOICE_LATER = "This feature isn't built yet. Voice is parked.";
-
-function voiceLaterNote() {
-  return settingsNote(VOICE_LATER, "later");
+function voiceLaterNote(subject) {
+  return settingsLaterNote(subject || "Voice");
 }
 
 function voiceDisabledSelect(label, selected) {
@@ -179,7 +177,7 @@ function paintVoiceSection(host) {
   ));
   host.appendChild(settingsOpt(
     "Push to Talk",
-    "Hold a key to open the mic. The key itself will live under System → Custom Keybinds.",
+    "Hold a key to open the mic. The key itself lives under System → Custom Keybinds.",
     settingsToggle(false, true),
     voiceLaterNote()
   ));
@@ -205,7 +203,7 @@ function paintCameraSection(host) {
   test.disabled = true;
   host.appendChild(settingsOpt(
     "Test Camera",
-    "Preview the webcam feed. Nothing opens until Voice exists.",
+    "Preview the webcam feed.",
     test,
     voiceLaterNote()
   ));
@@ -218,7 +216,7 @@ function paintCameraSection(host) {
   host.appendChild(settingsOpt(
     "Camera",
     "Which camera Oneira should use.",
-    voiceDisabledSelect("Unavailable until Voice", "none"),
+    voiceDisabledSelect("Default", "none"),
     voiceLaterNote()
   ));
 }
@@ -246,7 +244,7 @@ function paintVideoSection(host) {
   heading.textContent = "Video Background";
   heading.style.margin = "12px 0 8px";
   host.appendChild(heading);
-  host.appendChild(settingsNote("Backgrounds aren't built yet. These are layout only.", "later"));
+  host.appendChild(settingsLaterNote("video backgrounds"));
   const grid = document.createElement("div");
   grid.className = "video-bg-grid";
   ["None", "Blur", "Custom"].forEach((label, index) => {
@@ -287,11 +285,12 @@ function paintVoiceSoundsSection(host) {
     ["Voice Disconnected", "Played when you leave a call."]
   ].forEach(row => {
     const desc = document.createElement("div");
+    desc.appendChild(document.createTextNode(row[1] + " "));
     const preview = document.createElement("span");
     preview.className = "settings-inline-link is-static";
     preview.textContent = "Preview Sound";
     desc.appendChild(preview);
-    host.appendChild(settingsOpt(row[0], desc, settingsToggle(true, true), settingsNote(row[1] + " " + VOICE_LATER, "later")));
+    host.appendChild(settingsOpt(row[0], desc, settingsToggle(true, true), voiceLaterNote("Voice sounds")));
   });
   const related = document.createElement("div");
   related.className = "settings-related-wrap";
@@ -316,13 +315,13 @@ function paintSoundboardSection(host) {
   ));
   host.appendChild(settingsOpt(
     "Entrance Sounds",
-    "A clip that would play when you join a voice channel. We do not have a soundboard yet.",
+    "A clip that plays when you join a voice channel.",
     voiceDisabledSelect("None", "none"),
     voiceLaterNote()
   ));
   host.appendChild(settingsOpt(
     "Choose a Server",
-    "Entrance sounds would be per-server once Voice and soundboard exist.",
+    "Entrance sounds are per-server.",
     voiceDisabledSelect("All Servers", "all"),
     voiceLaterNote()
   ));
@@ -331,13 +330,13 @@ function paintSoundboardSection(host) {
 function paintVoiceAdvancedSection(host) {
   host.appendChild(settingsOpt(
     "Diagnostic Audio Recording",
-    "Would save a short clip of call audio for debugging. Nothing is recorded today.",
+    "Saves a short clip of call audio for debugging.",
     settingsToggle(false, true),
     voiceLaterNote()
   ));
   host.appendChild(settingsOpt(
     "Debug Logging",
-    "Would write voice logs you could send for support.",
+    "Writes voice logs you can send for support.",
     settingsToggle(false, true),
     voiceLaterNote()
   ));
@@ -357,7 +356,7 @@ function paintVoiceAdvancedSection(host) {
   logBtns.appendChild(folder);
   host.appendChild(settingsOpt(
     "Voice logs",
-    "Upload or open diagnostic files once Voice can write them.",
+    "Upload or open diagnostic files.",
     logBtns,
     voiceLaterNote()
   ));

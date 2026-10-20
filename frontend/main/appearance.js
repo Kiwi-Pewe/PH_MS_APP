@@ -208,6 +208,7 @@ function applyAppearance(prefs) {
   if (prefs.theme && prefs.theme !== "custom") appearanceLastPreset = prefs.theme;
   applyThemeTokens(brightnessAdjustedColors(nativeThemeColors(prefs), prefs.brightness === "light" ? "light" : "dark"));
   applyAppearanceChrome(prefs);
+  if (typeof applySearchLayout === "function") applySearchLayout();
 }
 
 function hydrateAppearance(payload) {

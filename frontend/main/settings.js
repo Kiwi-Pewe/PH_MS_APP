@@ -177,13 +177,11 @@ function settingsParentOf(id) {
 }
 
 function settingsPlaceholderNote(item) {
-  if (item.parked === "voice") return "Voice & Video waits until Voice is built.";
-  if (item.stage === 3) return "This feature isn't built yet.";
-  if (item.id === "developer") return "Developer options aren't designed yet. This page stays empty until we know what belongs here.";
-  if (item.id === "avatar") {
-    return "Avatar upload isn't built yet.";
-  }
-  return "This section isn't built yet.";
+  if (item.parked === "voice") return "Not Implemented currently. (requires Voice)";
+  if (item.id === "developer") return "Not Implemented currently. (requires Developer options)";
+  if (item.id === "avatar") return "Not Implemented currently. (requires avatar upload)";
+  if (item.stage === 3) return "Not Implemented currently. (requires this section)";
+  return "Not Implemented currently. (requires this section)";
 }
 
 function paintSettingsSection(item, jumpChildId) {

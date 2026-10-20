@@ -72,11 +72,12 @@ function showPlaceSidebar(kind) {
     home: "dm-sidebar-view",
     server: "server-sidebar-view",
     settings: "settings-sidebar-view",
-    profile: "profile-sidebar-view"
+    profile: "profile-sidebar-view",
+    community: "community-sidebar-view"
   };
   const shown = map[kind];
   if (!shown) return;
-  ["dm-sidebar-view", "server-sidebar-view", "settings-sidebar-view", "profile-sidebar-view"].forEach((id) => {
+  ["dm-sidebar-view", "server-sidebar-view", "settings-sidebar-view", "profile-sidebar-view", "community-sidebar-view"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = id === shown ? "flex" : "none";
   });
@@ -114,6 +115,7 @@ function beginPlace(opts) {
   if (opts.settings && typeof closeSettingsChrome === "function") closeSettingsChrome();
   if (opts.serverSettings && typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (opts.channelSettings && typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
+  if (opts.view !== "community" && typeof closeCommunitiesChrome === "function") closeCommunitiesChrome();
   applyPlaceChrome(opts);
   return currentPlaceToken();
 }
@@ -166,6 +168,10 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
     }
     if (btn.dataset.tab === "profile") {
       if (typeof openOwnProfile === "function") await openOwnProfile();
+      return;
+    }
+    if (btn.dataset.tab === "communities") {
+      if (typeof openCommunities === "function") await openCommunities();
       return;
     }
     if (btn.dataset.tab === "messages") {
@@ -233,6 +239,10 @@ function syncAppAddress() {
     setAppAddress("/profile/" + encodeURIComponent(profileUser.username));
     return;
   }
+  if (typeof isCommunitiesOpen !== "undefined" && isCommunitiesOpen) {
+    setAppAddress("/community");
+    return;
+  }
   if (typeof currentServerId !== "undefined" && currentServerId && typeof currentServerData !== "undefined" && currentServerData && currentServerData.url_slug) {
     setAppAddress("/" + currentServerData.url_slug, true);
     return;
@@ -256,6 +266,10 @@ async function applyAppAddress() {
   try {
     if (parts[0] === "messages") {
       await goHome();
+      return;
+    }
+    if (parts[0] === "community") {
+      if (typeof openCommunities === "function") await openCommunities();
       return;
     }
     if (parts[0] === "profile" && parts[1]) {

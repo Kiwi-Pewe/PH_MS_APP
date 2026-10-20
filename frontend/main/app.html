@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=383">
+<link rel="stylesheet" href="app.css?v=385">
 </head>
 <body>
 
@@ -40,7 +40,7 @@
       <button class="tab active" data-tab="messages">Messages</button>
       <button class="tab" data-tab="profile">Profile</button>
       <button class="tab" data-tab="settings">Settings</button>
-      <button class="tab is-later" type="button" disabled>Communities</button>
+      <button class="tab" data-tab="communities" type="button">Communities</button>
       <button class="tab is-later" type="button" disabled>Games</button>
       <button class="tab is-later" type="button" disabled>Announcements</button>
     </div>
@@ -145,6 +145,15 @@
         <div id="profile-sidebar-header">Pages</div>
         <div id="profile-page-list"></div>
         <div id="profile-page-tools"></div>
+      </div>
+
+      <div id="community-sidebar-view" style="display:none;">
+        <div id="community-nav">
+          <button class="nav-item is-later" type="button" disabled>Following</button>
+          <button class="nav-item is-later" type="button" disabled>Public</button>
+          <button class="nav-item active" type="button" data-community-row="servers">Servers</button>
+          <button class="nav-item is-later" type="button" disabled>Settings</button>
+        </div>
       </div>
 
       <div id="voice-user-card" hidden>
@@ -903,6 +912,17 @@
       <div class="main-view" id="view-settings">
         <div id="settings-general-pane" class="settings-pane"></div>
         <div id="settings-user-pane" class="settings-pane" hidden></div>
+      </div>
+
+      <div class="main-view" id="view-community">
+        <div class="community-toolbar">
+          <input type="search" id="community-search" class="community-search" placeholder="Search" autocomplete="off" spellcheck="false">
+        </div>
+        <div id="community-related" class="community-related"></div>
+        <div id="community-grid-scroll">
+          <div id="community-grid"></div>
+        </div>
+        <div id="community-pager" class="community-pager"></div>
       </div>
 
       <div class="main-view" id="view-profile">
@@ -1858,6 +1878,31 @@
     </div>
   </div>
 
+  <div id="community-listing-overlay" hidden>
+    <div class="community-listing-modal" role="dialog" aria-modal="true" aria-labelledby="community-listing-title">
+      <div class="community-listing-header">
+        <div class="community-listing-head-face">
+          <div class="avatar-dot" id="community-listing-icon"></div>
+          <div class="community-listing-head-copy">
+            <span id="community-listing-title" class="community-listing-title"></span>
+            <span id="community-listing-online" class="community-listing-online"></span>
+          </div>
+        </div>
+        <button type="button" class="icon-btn" id="community-listing-close" title="Close">&times;</button>
+      </div>
+      <div class="community-listing-main">
+        <div id="community-listing-banner" class="community-listing-banner" hidden></div>
+        <div id="community-listing-tags" class="community-listing-tags"></div>
+        <div id="community-listing-about" class="community-listing-about"></div>
+        <div id="community-listing-votes" class="community-listing-votes is-later"></div>
+      </div>
+      <div class="community-listing-footer">
+        <button type="button" class="ghost-btn" id="community-listing-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="community-listing-join" disabled>Join</button>
+      </div>
+    </div>
+  </div>
+
   <div id="leave-party-overlay" hidden>
     <div id="leave-party-modal" class="leave-party-modal" role="dialog" aria-modal="true" aria-labelledby="leave-party-title">
       <div class="leave-party-header">
@@ -2395,8 +2440,9 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=142"></script>
-<script src="app-shell.js?v=72"></script>
+<script src="boot.js?v=144"></script>
+<script src="app-shell.js?v=74"></script>
+<script src="communities.js?v=1"></script>
 <script src="feed.js?v=20"></script>
 <script src="settings.js?v=22"></script>
 <script src="server-settings.js?v=44"></script>

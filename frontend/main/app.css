@@ -273,7 +273,7 @@
    goHome(), and openSettings(). Each needs its own flex column so
    the nav/header + scrolling body layout inside it still works exactly
    like #secondary-panel's own flex column did before the split. */
-#dm-sidebar-view, #server-sidebar-view, #settings-sidebar-view, #profile-sidebar-view { flex: 1 1 auto; min-height: 0; min-width: 0; width: 100%; display: flex; flex-direction: column; align-items: stretch; }
+#dm-sidebar-view, #server-sidebar-view, #settings-sidebar-view, #profile-sidebar-view, #community-sidebar-view { flex: 1 1 auto; min-height: 0; min-width: 0; width: 100%; display: flex; flex-direction: column; align-items: stretch; }
 
 #secondary-body { flex: 1 1 auto; overflow-y: auto; padding: 4px 8px 8px; width: 100%; box-sizing: border-box; min-width: 0; }
 
@@ -11674,4 +11674,329 @@ button.voice-more-row:disabled,
 .blocked-users-handle {
   font-size: 12px;
   color: var(--text-dim);
+}
+
+#community-nav { padding: 8px; display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; box-sizing: border-box; }
+#view-community { min-height: 0; }
+.community-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px 8px;
+}
+.community-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--rail);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 13px;
+}
+.community-search:focus { outline: none; border-color: var(--accent); }
+.community-related {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 16px 10px;
+  min-height: 26px;
+}
+#community-grid-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 16px 12px;
+}
+#community-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+.community-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  color: inherit;
+  cursor: pointer;
+}
+.community-card:hover { border-color: var(--text-dim); }
+.community-card-head {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 72px;
+  padding: 12px;
+  background: var(--rail);
+  border-bottom: 1px solid var(--border);
+}
+.community-card-head.has-banner {
+  min-height: 96px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.community-card-head.has-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.12));
+  pointer-events: none;
+}
+.community-card-face,
+.community-card-tools {
+  position: relative;
+  z-index: 1;
+}
+.community-card-face {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.community-card-head .avatar-dot {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+.community-card-names { min-width: 0; }
+.community-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.community-card-online {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+.community-card-head.has-banner .community-card-name,
+.community-card-head.has-banner .community-card-online { color: #fff; }
+.community-card-tools {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.community-card-votes,
+.community-listing-votes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.community-card-votes.is-later,
+.community-listing-votes.is-later { opacity: 0.45; }
+.community-vote {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1;
+}
+.community-vote-count {
+  min-width: 16px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.community-card-head.has-banner .community-vote,
+.community-card-head.has-banner .community-vote-count { color: #fff; }
+.community-card-more {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0;
+}
+.community-card:hover .community-card-more,
+.community-card-more:focus { opacity: 1; }
+.community-card-head.has-banner .community-card-more { color: #fff; }
+.community-card-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  min-height: 0;
+}
+.community-card-tags,
+.community-listing-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.community-tag {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.community-tag.is-later,
+.community-tag:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.community-card-about,
+.community-listing-about {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+.community-card-about {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.community-card-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--rail);
+}
+.community-card-join:disabled,
+#community-listing-join:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.community-card-join:disabled:hover,
+#community-listing-join:disabled:hover { background: var(--accent); }
+.community-pager {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border);
+}
+.community-pager-page {
+  min-width: 24px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.community-pager .ghost-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+#community-listing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+#community-listing-overlay[hidden] { display: none; }
+.community-listing-modal {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--panel);
+  border: 1px solid var(--accent-submenu);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.community-listing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--rail);
+}
+.community-listing-head-face {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.community-listing-head-face .avatar-dot {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+}
+.community-listing-head-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.community-listing-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.community-listing-online {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+.community-listing-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.community-listing-banner {
+  height: 120px;
+  border-radius: 8px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.community-listing-banner[hidden] { display: none; }
+.community-listing-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--rail);
 }

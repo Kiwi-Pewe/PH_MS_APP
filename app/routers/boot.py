@@ -35,6 +35,8 @@ def last_place_payload(database, current_user, path):
     try:
         if not parts or parts[0] in ("messages", "home"):
             return {"kind": "home"}
+        if parts[0] == "community":
+            return {"kind": "community"}
         if parts[0] == "profile" and len(parts) > 1:
             info = user_by_username(username=parts[1], database=database, current_user=current_user)
             uid = info.get("id")

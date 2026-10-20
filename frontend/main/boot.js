@@ -825,6 +825,10 @@ async function applyReadyPlace(place) {
     if (typeof goHome === "function") await goHome();
     return true;
   }
+  if (place.kind === "community" && typeof openCommunities === "function") {
+    await openCommunities();
+    return true;
+  }
   if (place.kind === "server" && place.server && typeof openServer === "function") {
     const iconEl = document.querySelector(`.server-icon[data-server-id="${place.id}"]`);
     await openServer(place.id, iconEl, null, place.server);

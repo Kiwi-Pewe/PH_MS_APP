@@ -11705,6 +11705,7 @@ button.voice-more-row:disabled,
   padding: 0 40px 8px;
   min-height: 26px;
 }
+.community-related[hidden] { display: none; }
 #community-grid-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -11855,6 +11856,13 @@ button.voice-more-row:disabled,
   flex-wrap: wrap;
   gap: 6px;
 }
+.community-card-tags:empty,
+.community-listing-tags:empty { display: none; }
+.community-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 24px 8px;
+}
 .community-tag {
   height: 26px;
   padding: 0 10px;
@@ -11927,6 +11935,7 @@ button.voice-more-row:disabled,
   opacity: 0.45;
   cursor: default;
 }
+.community-pager[hidden] { display: none; }
 #community-listing-overlay {
   position: fixed;
   inset: 0;

@@ -1,38 +1,44 @@
 let isCommunitiesOpen = false;
 let communityListingRow = null;
-
-const COMMUNITY_LOOK_TAGS = ["community", "chill", "gaming", "music", "art", "hangout", "friends", "roleplay"];
-
-const COMMUNITY_LOOK_ROWS = [
-  { name: "Northwatch", about: "A quiet hall for long talks, voice nights, and people who actually stick around.", online: 42, votes: 18, tags: ["community", "chill"], banner: "#3b2a55" },
-  { name: "Saltmarsh Table", about: "Weekly games, one-shots, and a board for finding a group.", online: 11, votes: 7, tags: ["roleplay", "hangout"], banner: "" },
-  { name: "Violet Radio", about: "Share tracks, swap playlists, and sit in a listening room.", online: 27, votes: 22, tags: ["music", "chill"], banner: "#1f3a4c" },
-  { name: "Ink & Paper", about: "Writers and illustrators posting work and giving notes.", online: 9, votes: 4, tags: ["art", "community"], banner: "" },
-  { name: "Third Shift", about: "Late-night hangout for people whose clock does not match the rest of the map.", online: 33, votes: 15, tags: ["hangout", "friends"], banner: "#4a2c2a" },
-  { name: "Harbor Lights", about: "Small server for friends who already know each other and still want a public door.", online: 6, votes: 2, tags: ["friends", "chill"], banner: "" },
-  { name: "Queue Up", about: "Find a match, warm up, and keep the lobby open after the game.", online: 58, votes: 31, tags: ["gaming", "hangout"], banner: "#243a28" },
-  { name: "Glasshouse", about: "Plants, photos, and slow chat. No rush.", online: 14, votes: 9, tags: ["art", "chill"], banner: "#2e3f2f" },
-  { name: "The Cut", about: "Film nights and short reviews. Bring something you actually finished.", online: 19, votes: 11, tags: ["community", "art"], banner: "" },
-  { name: "Low Tide", about: "A smaller room for people who prefer fewer pings and longer threads.", online: 5, votes: 3, tags: ["chill", "community"], banner: "#2a3348" },
-  { name: "Forge Row", about: "Makers posting builds, failures, and the next attempt.", online: 21, votes: 13, tags: ["art", "community"], banner: "" },
-  { name: "Night Market", about: "Trading, showcases, and a stall for whatever you are working on.", online: 37, votes: 16, tags: ["community", "gaming"], banner: "#3a2f1f" },
-  { name: "Redline", about: "Racing, setups, and a voice channel that stays open on weekends.", online: 16, votes: 8, tags: ["gaming", "friends"], banner: "" },
-  { name: "Stillwater", about: "Study with someone else in the room. Cameras optional.", online: 24, votes: 14, tags: ["chill", "hangout"], banner: "#1e2f3a" },
-  { name: "Copper Kettle", about: "Cooking notes, terrible experiments, and the one recipe that worked.", online: 8, votes: 5, tags: ["community", "friends"], banner: "" },
-  { name: "Eastgate", about: "Local hangout with a public listing so new people can walk in.", online: 12, votes: 6, tags: ["hangout", "community"], banner: "#33283d" },
-  { name: "Parchment", about: "Tabletop prep, maps, and a place to park your campaign notes.", online: 17, votes: 10, tags: ["roleplay", "community"], banner: "" },
-  { name: "Signal Hill", about: "Radio drama, voice acting, and people who like hearing a story out loud.", online: 7, votes: 4, tags: ["music", "art"], banner: "#2c2438" },
-  { name: "Open Floor", about: "Dance clips, practice rooms, and people who will watch your run.", online: 29, votes: 19, tags: ["art", "hangout"], banner: "" },
-  { name: "Ashwood", about: "Horror nights and a spoiler wall. Read the pins.", online: 13, votes: 8, tags: ["community", "chill"], banner: "#3a1f1f" },
-  { name: "Blue Spar", about: "Sparring, VODs, and a board for challenge nights.", online: 22, votes: 12, tags: ["gaming", "community"], banner: "" },
-  { name: "Lantern Yard", about: "Seasonal events, small giveaways, and a porch that stays lit.", online: 31, votes: 17, tags: ["friends", "hangout"], banner: "#3a321c" },
-  { name: "Driftwood", about: "Travel notes and photos from people who are rarely in the same timezone.", online: 10, votes: 5, tags: ["community", "friends"], banner: "" },
-  { name: "The Annex", about: "Overflow room for a bigger circle. Same people, quieter channels.", online: 4, votes: 1, tags: ["chill", "friends"], banner: "#263040" }
-];
+let communityPage = 1;
+let communityPages = 0;
+let communityQuery = "";
+let communityFetchGen = 0;
+let communitySearchTimer = 0;
+let communityJoinBusy = false;
 
 function communityLetter(name) {
   if (typeof avatarLetter === "function") return avatarLetter(name);
   return String(name || "?").slice(0, 1).toUpperCase();
+}
+
+function applyCommunityBanner(el, row) {
+  if (!el) return;
+  const url = (row && row.banner_url) || "";
+  const color = (row && row.banner_color) || "";
+  el.classList.toggle("has-banner", !!(url || color));
+  el.style.backgroundImage = url ? "url(" + JSON.stringify(url) + ")" : "";
+  el.style.backgroundColor = (!url && color) ? color : "";
+}
+
+function paintCommunityFace(host, row) {
+  if (!host) return;
+  host.replaceChildren();
+  if (row && row.icon_url) {
+    const img = document.createElement("img");
+    img.src = row.icon_url;
+    img.alt = "";
+    host.appendChild(img);
+  } else {
+    host.textContent = communityLetter(row && row.name);
+  }
+}
+
+function communityJoinLink(row) {
+  const origin = window.location.origin || "https://oneira.cc";
+  if (row && row.url_slug) return origin + "/" + row.url_slug;
+  if (row && row.id) return origin + "/server/" + encodeURIComponent(row.id);
+  return origin + "/community";
 }
 
 function closeCommunityListingComments() {
@@ -84,6 +90,12 @@ function paintCommunityVotes(host, votes) {
   host.appendChild(down);
 }
 
+function fillCommunityJoinButton(btn, row) {
+  if (!btn || !row) return;
+  btn.disabled = false;
+  btn.textContent = row.joined ? "Open" : "Join";
+}
+
 function openCommunityListing(row) {
   communityListingRow = row || null;
   const overlay = document.getElementById("community-listing-overlay");
@@ -92,20 +104,16 @@ function openCommunityListing(row) {
   const online = document.getElementById("community-listing-online");
   const icon = document.getElementById("community-listing-icon");
   const about = document.getElementById("community-listing-about");
+  const join = document.getElementById("community-listing-join");
   if (!overlay || !row) return;
   if (title) title.textContent = row.name;
-  if (online) online.textContent = String(row.online) + " online";
-  if (icon) {
-    icon.replaceChildren();
-    icon.textContent = communityLetter(row.name);
-  }
-  if (about) about.textContent = row.about;
-  if (header) {
-    header.classList.toggle("has-banner", !!row.banner);
-    header.style.background = row.banner || "";
-  }
+  if (online) online.textContent = String(row.online || 0) + " online";
+  paintCommunityFace(icon, row);
+  if (about) about.textContent = row.about || "";
+  applyCommunityBanner(header, row);
   paintCommunityTags(document.getElementById("community-listing-tags"), row.tags);
   paintCommunityVotes(document.getElementById("community-listing-votes"), row.votes);
+  fillCommunityJoinButton(join, row);
   closeCommunityListingComments();
   overlay.hidden = false;
 }
@@ -113,26 +121,62 @@ function openCommunityListing(row) {
 function openCommunityCardMenu(e, row) {
   if (typeof openContextMenu !== "function") return;
   openContextMenu(e.clientX, e.clientY, {
+    image: row.icon_url || "",
     avatarText: communityLetter(row.name),
     title: row.name,
-    subtitle: String(row.online) + " online"
+    subtitle: String(row.online || 0) + " online"
   }, [
-    { label: "Copy join link", disabled: true },
+    {
+      label: "Copy join link",
+      onSelect: () => {
+        const text = communityJoinLink(row);
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
+      }
+    },
     { label: "Report", disabled: true, danger: true }
   ]);
+}
+
+async function enterCommunityServer(row) {
+  if (!row || !row.id) return;
+  closeCommunityListing();
+  if (typeof loadServers === "function") await loadServers();
+  if (typeof openServer === "function") await openServer(row.id);
+}
+
+async function joinCommunityServer(row) {
+  if (!row || !row.id || communityJoinBusy) return;
+  if (row.joined) {
+    await enterCommunityServer(row);
+    return;
+  }
+  communityJoinBusy = true;
+  try {
+    const response = await fetch(`https://${serverAddress}/join_community`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ server_id: row.id })
+    });
+    if (!response.ok) return;
+    row.joined = true;
+    await enterCommunityServer(row);
+  } finally {
+    communityJoinBusy = false;
+  }
 }
 
 function paintCommunityCard(row) {
   const card = document.createElement("div");
   card.className = "community-card";
   const head = document.createElement("div");
-  head.className = "community-card-head" + (row.banner ? " has-banner" : "");
-  if (row.banner) head.style.background = row.banner;
+  head.className = "community-card-head";
+  applyCommunityBanner(head, row);
   const face = document.createElement("div");
   face.className = "community-card-face";
   const icon = document.createElement("div");
   icon.className = "avatar-dot";
-  icon.textContent = communityLetter(row.name);
+  paintCommunityFace(icon, row);
   const names = document.createElement("div");
   names.className = "community-card-names";
   const name = document.createElement("div");
@@ -140,7 +184,7 @@ function paintCommunityCard(row) {
   name.textContent = row.name;
   const online = document.createElement("div");
   online.className = "community-card-online";
-  online.textContent = String(row.online) + " online";
+  online.textContent = String(row.online || 0) + " online";
   names.appendChild(name);
   names.appendChild(online);
   face.appendChild(icon);
@@ -171,7 +215,7 @@ function paintCommunityCard(row) {
   paintCommunityTags(tags, row.tags);
   const about = document.createElement("div");
   about.className = "community-card-about";
-  about.textContent = row.about;
+  about.textContent = row.about || "";
   body.appendChild(tags);
   body.appendChild(about);
   const foot = document.createElement("div");
@@ -179,11 +223,11 @@ function paintCommunityCard(row) {
   const join = document.createElement("button");
   join.type = "button";
   join.className = "pill-btn community-card-join";
-  join.textContent = "Join";
-  join.disabled = true;
+  fillCommunityJoinButton(join, row);
   join.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
+    joinCommunityServer(row);
   });
   foot.appendChild(join);
   foot.addEventListener("click", (e) => e.stopPropagation());
@@ -202,45 +246,79 @@ function paintCommunityRelated() {
   const host = document.getElementById("community-related");
   if (!host) return;
   host.replaceChildren();
-  COMMUNITY_LOOK_TAGS.forEach((tag) => {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "community-tag is-later";
-    chip.disabled = true;
-    chip.textContent = tag;
-    host.appendChild(chip);
-  });
+  host.hidden = true;
 }
 
 function paintCommunityPager() {
   const host = document.getElementById("community-pager");
   if (!host) return;
   host.replaceChildren();
+  if (communityPages < 1) {
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
   const prev = document.createElement("button");
   prev.type = "button";
   prev.className = "ghost-btn";
   prev.textContent = "Previous";
-  prev.disabled = true;
+  prev.disabled = communityPage <= 1;
+  prev.addEventListener("click", () => {
+    if (communityPage <= 1) return;
+    loadCommunityPage(communityPage - 1);
+  });
   const page = document.createElement("span");
   page.className = "community-pager-page";
-  page.textContent = "1";
+  page.textContent = String(communityPage);
   const next = document.createElement("button");
   next.type = "button";
   next.className = "ghost-btn";
   next.textContent = "Next";
-  next.disabled = true;
+  next.disabled = communityPage >= communityPages;
+  next.addEventListener("click", () => {
+    if (communityPage >= communityPages) return;
+    loadCommunityPage(communityPage + 1);
+  });
   host.appendChild(prev);
   host.appendChild(page);
   host.appendChild(next);
 }
 
-function paintCommunityGrid() {
+function paintCommunityGrid(rows) {
   const grid = document.getElementById("community-grid");
   if (!grid) return;
   grid.replaceChildren();
-  COMMUNITY_LOOK_ROWS.forEach((row) => grid.appendChild(paintCommunityCard(row)));
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-note community-empty";
+    empty.textContent = communityQuery ? "No servers match." : "No servers listed yet.";
+    grid.appendChild(empty);
+  } else {
+    rows.forEach((row) => grid.appendChild(paintCommunityCard(row)));
+  }
   paintCommunityRelated();
   paintCommunityPager();
+}
+
+async function loadCommunityPage(page) {
+  if (!isCommunitiesOpen) return;
+  communityPage = Math.max(1, Number(page) || 1);
+  const token = ++communityFetchGen;
+  const qs = new URLSearchParams();
+  qs.set("page", String(communityPage));
+  if (communityQuery) qs.set("q", communityQuery);
+  let data;
+  try {
+    const response = await fetch(`https://${serverAddress}/community_servers?${qs.toString()}`, { credentials: "include" });
+    if (!response.ok) return;
+    data = await response.json();
+  } catch (e) {
+    return;
+  }
+  if (token !== communityFetchGen || !isCommunitiesOpen) return;
+  communityPage = Number(data.page) || 1;
+  communityPages = Number(data.pages) || 0;
+  paintCommunityGrid(Array.isArray(data.servers) ? data.servers : []);
 }
 
 async function openCommunities() {
@@ -262,11 +340,16 @@ async function openCommunities() {
   currentServerOwnerId = null;
   currentChannelId = null;
   if (typeof setAppAddress === "function") setAppAddress("/community");
-  paintCommunityGrid();
+  const search = document.getElementById("community-search");
+  if (search && search.value !== communityQuery) search.value = communityQuery;
+  await loadCommunityPage(communityPage);
 }
 
 document.getElementById("community-listing-close").addEventListener("click", () => closeCommunityListing());
 document.getElementById("community-listing-cancel").addEventListener("click", () => closeCommunityListing());
+document.getElementById("community-listing-join").addEventListener("click", () => {
+  if (communityListingRow) joinCommunityServer(communityListingRow);
+});
 document.getElementById("community-listing-comments-btn").addEventListener("click", (e) => {
   e.preventDefault();
   const thread = document.getElementById("community-listing-comments");
@@ -280,6 +363,12 @@ document.getElementById("community-listing-comment-input").addEventListener("key
 });
 document.getElementById("community-listing-overlay").addEventListener("click", (e) => {
   if (e.target && e.target.id === "community-listing-overlay") closeCommunityListing();
+});
+document.getElementById("community-search").addEventListener("input", () => {
+  const search = document.getElementById("community-search");
+  communityQuery = search ? String(search.value || "").trim() : "";
+  window.clearTimeout(communitySearchTimer);
+  communitySearchTimer = window.setTimeout(() => loadCommunityPage(1), 250);
 });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;

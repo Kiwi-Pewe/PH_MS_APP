@@ -758,7 +758,7 @@ function openRecoveryPasswordCard() {
   host = openAccountBand("New password", (main) => {
     const note = document.createElement("p");
     note.className = "recovery-code-note";
-    note.textContent = "Create a new password and type it again to confirm.";
+    note.textContent = "We highly recommend creating a new password. You have been logged out of all other devices.";
     const labelA = document.createElement("label");
     labelA.className = "recovery-code-label";
     labelA.textContent = "New password";

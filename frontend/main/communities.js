@@ -7,6 +7,9 @@ let communityFetchGen = 0;
 let communitySearchTimer = 0;
 let communityJoinBusy = false;
 let communityApplyRow = null;
+let communityFacets = { tags: [], timezones: [] };
+let communityFilter = { type: "", tags: [], timezone: "" };
+let communityPickerKind = "";
 
 const COMMUNITY_TYPE_PILLS = [
   ["community", "Community"],
@@ -71,6 +74,7 @@ function closeCommunityListing() {
 function closeCommunitiesChrome() {
   closeCommunityApply();
   closeCommunityListing();
+  closeCommunityFilterPicker();
   isCommunitiesOpen = false;
 }
 
@@ -83,6 +87,13 @@ function paintCommunityTags(host, tags) {
     chip.textContent = tag;
     host.appendChild(chip);
   });
+}
+
+function paintCommunityAbout(host, row) {
+  if (!host) return;
+  const text = String((row && row.about) || "").trim();
+  host.classList.toggle("is-empty", !text);
+  host.textContent = text || "no description given...";
 }
 
 function communityVoteTip(row) {
@@ -170,13 +181,8 @@ function communityTypeLabel(type) {
 }
 
 function communityTimezoneLabel(zone) {
-  const want = String(zone || "").trim();
-  if (!want) return "";
-  if (typeof SERVER_TIMEZONE_OPTIONS !== "undefined") {
-    const row = SERVER_TIMEZONE_OPTIONS.find((item) => item[1] === want);
-    if (row) return row[2];
-  }
-  return want;
+  if (typeof serverTimezoneLabel === "function") return serverTimezoneLabel(zone);
+  return String(zone || "").trim();
 }
 
 function paintCommunityType(host, row) {
@@ -366,7 +372,7 @@ function openCommunityListing(row) {
   paintCommunityType(document.getElementById("community-listing-type"), row);
   paintCommunityExplicit(document.getElementById("community-listing-explicit"), row);
   paintCommunityZone(document.getElementById("community-listing-zone"), row);
-  if (about) about.textContent = row.about || "";
+  paintCommunityAbout(about, row);
   applyCommunityBanner(header, row);
   if (header) header.classList.toggle("has-marks", communityHasMarks(row));
   paintCommunityTags(document.getElementById("community-listing-tags"), row.tags);
@@ -493,7 +499,7 @@ function paintCommunityCard(row) {
   paintCommunityTags(tags, row.tags);
   const about = document.createElement("div");
   about.className = "community-card-about";
-  about.textContent = row.about || "";
+  paintCommunityAbout(about, row);
   body.appendChild(tags);
   body.appendChild(about);
   const foot = document.createElement("div");
@@ -518,13 +524,6 @@ function paintCommunityCard(row) {
     openCommunityCardMenu(e, row);
   });
   return card;
-}
-
-function paintCommunityRelated() {
-  const host = document.getElementById("community-related");
-  if (!host) return;
-  host.replaceChildren();
-  host.hidden = true;
 }
 
 function paintCommunityPager() {
@@ -574,7 +573,8 @@ function paintCommunityGrid(rows) {
   } else {
     rows.forEach((row) => grid.appendChild(paintCommunityCard(row)));
   }
-  paintCommunityRelated();
+  const end = document.getElementById("community-list-end");
+  if (end) end.hidden = communityPages > 1 && communityPage < communityPages;
   paintCommunityPager();
 }
 
@@ -585,6 +585,9 @@ async function loadCommunityPage(page) {
   const qs = new URLSearchParams();
   qs.set("page", String(communityPage));
   if (communityQuery) qs.set("q", communityQuery);
+  if (communityFilter.type) qs.set("type", communityFilter.type);
+  if (communityFilter.tags.length) qs.set("tags", communityFilter.tags.join(","));
+  if (communityFilter.timezone) qs.set("timezone", communityFilter.timezone);
   let data;
   try {
     const response = await fetch(`https://${serverAddress}/community_servers?${qs.toString()}`, { credentials: "include" });
@@ -596,7 +599,12 @@ async function loadCommunityPage(page) {
   if (token !== communityFetchGen || !isCommunitiesOpen) return;
   communityPage = Number(data.page) || 1;
   communityPages = Number(data.pages) || 0;
+  communityFacets = data.facets && typeof data.facets === "object"
+    ? { tags: data.facets.tags || [], timezones: data.facets.timezones || [] }
+    : { tags: [], timezones: [] };
   paintCommunityGrid(Array.isArray(data.servers) ? data.servers : []);
+  paintCommunityFilterPicks();
+  paintCommunityFilterPicker();
 }
 
 async function openCommunities() {
@@ -648,27 +656,167 @@ document.getElementById("community-apply-submit").addEventListener("click", () =
 document.getElementById("community-apply-overlay").addEventListener("click", (e) => {
   if (e.target && e.target.id === "community-apply-overlay") closeCommunityApply();
 });
-function paintCommunityFilterTypes() {
-  const host = document.getElementById("community-filter-types");
-  if (!host) return;
+function communityFilterMax(kind) {
+  if (kind === "tags") return 5;
+  return 1;
+}
+
+function communityFilterCount(kind) {
+  if (kind === "tags") return communityFilter.tags.length;
+  if (kind === "type") return communityFilter.type ? 1 : 0;
+  return communityFilter.timezone ? 1 : 0;
+}
+
+function communityFilterHas(kind, value) {
+  if (kind === "tags") return communityFilter.tags.indexOf(value) >= 0;
+  if (kind === "type") return communityFilter.type === value;
+  return communityFilter.timezone === value;
+}
+
+function closeCommunityFilterPicker() {
+  const picker = document.getElementById("community-filter-picker");
+  if (picker) picker.hidden = true;
+  communityPickerKind = "";
+}
+
+function toggleCommunityFilterValue(kind, value) {
+  if (!value) return;
+  if (kind === "tags") {
+    const at = communityFilter.tags.indexOf(value);
+    if (at >= 0) communityFilter.tags.splice(at, 1);
+    else if (communityFilter.tags.length < 5) communityFilter.tags.push(value);
+  } else if (kind === "type") {
+    communityFilter.type = communityFilter.type === value ? "" : value;
+  } else {
+    communityFilter.timezone = communityFilter.timezone === value ? "" : value;
+  }
+  paintCommunityFilterPicks();
+  paintCommunityFilterPicker();
+  loadCommunityPage(1);
+}
+
+function communityFilterChoices(kind, needle) {
+  const q = String(needle || "").trim().toLowerCase();
+  let rows = [];
+  if (kind === "type") {
+    rows = COMMUNITY_TYPE_PILLS.map((item) => ({ id: item[0], label: item[1] }));
+  } else if (kind === "tags") {
+    rows = (communityFacets.tags || []).map((tag) => ({ id: tag, label: tag }));
+  } else {
+    const seen = {};
+    (communityFacets.timezones || []).forEach((zone) => {
+      seen[zone] = true;
+      rows.push({ id: zone, label: communityTimezoneLabel(zone) || zone });
+    });
+    if (typeof SERVER_TIMEZONE_OPTIONS !== "undefined") {
+      SERVER_TIMEZONE_OPTIONS.forEach((item) => {
+        if (seen[item[1]]) return;
+        rows.push({ id: item[1], label: item[2] });
+      });
+    }
+  }
+  if (!q) return rows.slice(0, 12);
+  return rows.filter((row) => {
+    return row.label.toLowerCase().indexOf(q) >= 0 || String(row.id).toLowerCase().indexOf(q) >= 0;
+  }).slice(0, 12);
+}
+
+function paintCommunityFilterPicks() {
+  const typeHost = document.getElementById("community-filter-type-picks");
+  const tagHost = document.getElementById("community-filter-tag-picks");
+  const zoneHost = document.getElementById("community-filter-zone-picks");
+  const fill = (host, kind, items) => {
+    if (!host) return;
+    host.replaceChildren();
+    items.forEach((item) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "community-tag is-on";
+      chip.textContent = item.label;
+      chip.addEventListener("click", () => toggleCommunityFilterValue(kind, item.id));
+      host.appendChild(chip);
+    });
+  };
+  fill(typeHost, "type", communityFilter.type
+    ? [{ id: communityFilter.type, label: communityTypeLabel(communityFilter.type) || communityFilter.type }]
+    : []);
+  fill(tagHost, "tags", communityFilter.tags.map((tag) => ({ id: tag, label: tag })));
+  fill(zoneHost, "timezone", communityFilter.timezone
+    ? [{ id: communityFilter.timezone, label: communityTimezoneLabel(communityFilter.timezone) || communityFilter.timezone }]
+    : []);
+}
+
+function paintCommunityFilterPicker() {
+  const host = document.getElementById("community-filter-picker-pills");
+  const count = document.getElementById("community-filter-picker-count");
+  const search = document.getElementById("community-filter-picker-search");
+  if (count) count.textContent = communityFilterCount(communityPickerKind) + "/" + communityFilterMax(communityPickerKind);
+  if (!host || !communityPickerKind) return;
   host.replaceChildren();
-  COMMUNITY_TYPE_PILLS.forEach((item) => {
+  communityFilterChoices(communityPickerKind, search ? search.value : "").forEach((item) => {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "community-tag";
-    chip.setAttribute("data-community-type", item[0]);
-    chip.textContent = item[1];
+    chip.className = "community-tag" + (communityFilterHas(communityPickerKind, item.id) ? " is-on" : "");
+    chip.textContent = item.label;
+    chip.addEventListener("click", () => toggleCommunityFilterValue(communityPickerKind, item.id));
     host.appendChild(chip);
   });
 }
 
-paintCommunityFilterTypes();
-document.getElementById("community-filter-btn").addEventListener("click", () => {
-  const host = document.getElementById("community-filter-types");
+function openCommunityFilterPicker(kind, anchor) {
+  const picker = document.getElementById("community-filter-picker");
+  const search = document.getElementById("community-filter-picker-search");
+  if (!picker || !anchor) return;
+  communityPickerKind = kind;
+  if (search) search.value = "";
+  paintCommunityFilterPicker();
+  picker.hidden = false;
+  const box = anchor.getBoundingClientRect();
+  const width = picker.offsetWidth || 280;
+  let left = box.left;
+  if (left + width > window.innerWidth - 12) left = Math.max(12, window.innerWidth - width - 12);
+  picker.style.position = "fixed";
+  picker.style.top = Math.round(box.bottom + 6) + "px";
+  picker.style.left = Math.round(left) + "px";
+  if (search) search.focus();
+}
+
+function paintCommunityFilterPanel() {
+  const panel = document.getElementById("community-filter-panel");
   const btn = document.getElementById("community-filter-btn");
-  if (!host) return;
-  host.hidden = !host.hidden;
-  if (btn) btn.classList.toggle("is-active", !host.hidden);
+  if (!panel) return;
+  const open = !panel.hidden;
+  if (btn) btn.classList.toggle("is-active", open);
+  if (!open) closeCommunityFilterPicker();
+  paintCommunityFilterPicks();
+}
+
+document.getElementById("community-filter-btn").addEventListener("click", () => {
+  const panel = document.getElementById("community-filter-panel");
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  paintCommunityFilterPanel();
+});
+document.querySelectorAll("[data-filter-add]").forEach((btn) => {
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const kind = btn.getAttribute("data-filter-add");
+    if (communityPickerKind === kind && !document.getElementById("community-filter-picker").hidden) {
+      closeCommunityFilterPicker();
+      return;
+    }
+    openCommunityFilterPicker(kind, btn);
+  });
+});
+const communityPickerSearch = document.getElementById("community-filter-picker-search");
+if (communityPickerSearch) {
+  communityPickerSearch.addEventListener("input", () => paintCommunityFilterPicker());
+}
+document.addEventListener("mousedown", (e) => {
+  const picker = document.getElementById("community-filter-picker");
+  if (!picker || picker.hidden) return;
+  if (picker.contains(e.target) || (e.target.closest && e.target.closest("[data-filter-add]"))) return;
+  closeCommunityFilterPicker();
 });
 document.getElementById("community-search").addEventListener("input", () => {
   const search = document.getElementById("community-search");
@@ -681,6 +829,11 @@ document.addEventListener("keydown", (e) => {
   const apply = document.getElementById("community-apply-overlay");
   if (apply && !apply.hidden) {
     closeCommunityApply();
+    return;
+  }
+  const picker = document.getElementById("community-filter-picker");
+  if (picker && !picker.hidden) {
+    closeCommunityFilterPicker();
     return;
   }
   const overlay = document.getElementById("community-listing-overlay");

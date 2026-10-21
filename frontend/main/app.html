@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=399">
+<link rel="stylesheet" href="app.css?v=400">
 </head>
 <body>
 
@@ -920,11 +920,42 @@
         </div>
         <div class="community-filter-row">
           <button type="button" class="ghost-btn" id="community-filter-btn">Filter</button>
-          <div id="community-filter-types" class="community-filter-types" hidden></div>
+          <div id="community-filter-panel" class="community-filter-panel" hidden>
+            <div class="community-filter-chunk" data-filter-kind="type">
+              <span class="community-filter-label">Type:</span>
+              <button type="button" class="community-tag community-filter-add" data-filter-add="type">+</button>
+              <div id="community-filter-type-picks" class="community-filter-picks"></div>
+            </div>
+            <span class="community-filter-pipe" aria-hidden="true">|</span>
+            <div class="community-filter-chunk" data-filter-kind="tags">
+              <span class="community-filter-label">Tags:</span>
+              <button type="button" class="community-tag community-filter-add" data-filter-add="tags">+</button>
+              <div id="community-filter-tag-picks" class="community-filter-picks"></div>
+            </div>
+            <span class="community-filter-pipe" aria-hidden="true">|</span>
+            <div class="community-filter-chunk" data-filter-kind="timezone">
+              <span class="community-filter-label">Timezones:</span>
+              <button type="button" class="community-tag community-filter-add" data-filter-add="timezone">+</button>
+              <div id="community-filter-zone-picks" class="community-filter-picks"></div>
+            </div>
+          </div>
         </div>
-        <div id="community-related" class="community-related"></div>
+        <div id="community-filter-picker" class="community-filter-picker" hidden>
+          <div class="community-filter-picker-head">
+            <input type="search" id="community-filter-picker-search" class="community-search" placeholder="Search" autocomplete="off" spellcheck="false">
+            <span id="community-filter-picker-count">0/1</span>
+          </div>
+          <div id="community-filter-picker-pills" class="community-filter-picker-pills"></div>
+        </div>
+        <div class="community-list-head">
+          <h2 class="community-list-title">Public Servers</h2>
+          <p class="community-list-help">All servers with the discoverable setting turned on will appear here for you to join.</p>
+        </div>
+        <div class="community-list-divider"></div>
         <div id="community-grid-scroll">
           <div id="community-grid"></div>
+          <div class="community-list-divider"></div>
+          <p id="community-list-end" class="community-list-end" hidden>You have reached the end of the list.</p>
           <div id="community-pager" class="community-pager"></div>
         </div>
       </div>
@@ -2496,7 +2527,7 @@
     </div>
 <script src="boot.js?v=146"></script>
 <script src="app-shell.js?v=74"></script>
-<script src="communities.js?v=13"></script>
+<script src="communities.js?v=14"></script>
 <script src="feed.js?v=21"></script>
 <script src="settings.js?v=22"></script>
 <script src="server-settings.js?v=48"></script>

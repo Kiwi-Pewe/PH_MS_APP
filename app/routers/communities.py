@@ -13,7 +13,7 @@ from app.routers.moderation import active_ban
 from app.routers.realtime import presence_status, serialize_member, server_broadcast
 from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user
 from app.routers.feed import notify_feed_alert
-from app.routers.servers import parse_application_form, server_banner_fields, server_icon_url, server_listing_tags, server_url_slug
+from app.routers.servers import clean_server_tag, parse_application_form, parse_server_tags, server_banner_fields, server_icon_url, server_listing_tags, server_url_slug
 
 router = APIRouter()
 
@@ -40,6 +40,40 @@ def listed_server(server):
 
 def listed_servers_query(database):
     return database.query(Servers).filter(Servers.discoverable == True)
+
+
+def community_filter_tags(raw):
+    tags = []
+    for part in str(raw or "").split(","):
+        tag = clean_server_tag(part)
+        if tag and tag not in tags:
+            tags.append(tag)
+        if len(tags) >= 5:
+            break
+    return tags
+
+
+def community_facets(database):
+    tags = []
+    seen_tags = set()
+    zones = []
+    seen_zones = set()
+    rows = listed_servers_query(database).all()
+    for server in rows:
+        for tag in parse_server_tags(getattr(server, "tags", None)):
+            if tag in seen_tags:
+                continue
+            seen_tags.add(tag)
+            tags.append(tag)
+            if len(tags) >= 24:
+                break
+        zone = (getattr(server, "timezone", None) or "").strip()
+        if zone and zone not in seen_zones:
+            seen_zones.add(zone)
+            zones.append(zone)
+        if len(tags) >= 24 and len(zones) >= 24:
+            break
+    return {"tags": tags, "timezones": zones}
 
 
 def first_server_channel(database, server_id):
@@ -119,6 +153,9 @@ def community_row(server, online, joined, votes=None):
 def community_servers(
     q: str = "",
     page: int = 1,
+    type: str = "",
+    tags: str = "",
+    timezone: str = "",
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
@@ -134,6 +171,14 @@ def community_servers(
             func.lower(func.coalesce(Servers.server_type, "")).like(like),
             func.lower(func.coalesce(Servers.timezone, "")).like(like),
         ))
+    kind = (type or "").strip().lower()
+    if kind:
+        query = query.filter(func.lower(func.coalesce(Servers.server_type, "")) == kind)
+    for tag in community_filter_tags(tags):
+        query = query.filter(func.lower(func.coalesce(Servers.tags, "")).like("%" + tag + "%"))
+    zone = (timezone or "").strip()
+    if zone:
+        query = query.filter(Servers.timezone == zone)
     total = query.count()
     last_msg = (
         database.query(
@@ -174,6 +219,7 @@ def community_servers(
         "page": page,
         "pages": pages,
         "total": total,
+        "facets": community_facets(database),
     }
 
 

@@ -10,12 +10,15 @@ let communityApplyRow = null;
 
 const COMMUNITY_TYPE_PILLS = [
   ["community", "Community"],
-  ["team", "Team"],
-  ["organization", "Organization"],
-  ["clan", "Clan"],
-  ["guild", "Guild"],
+  ["gaming", "Gaming"],
+  ["social", "Social"],
+  ["chill", "Chill"],
+  ["roleplay", "Roleplay"],
+  ["hangout", "Hangout"],
   ["friends", "Friends"],
-  ["streaming", "Streaming"],
+  ["anime", "Anime"],
+  ["art", "Art"],
+  ["music", "Music"],
   ["other", "Other"]
 ];
 
@@ -160,11 +163,41 @@ function fillCommunityJoinButton(btn, row) {
   btn.textContent = row.applications_enabled ? "Apply" : "Join";
 }
 
+function communityTypeLabel(type) {
+  if (typeof serverTypeLabel === "function") return serverTypeLabel(type);
+  const row = COMMUNITY_TYPE_PILLS.find((item) => item[0] === String(type || "").toLowerCase());
+  return row ? row[1] : String(type || "").replace(/-/g, " ");
+}
+
+function communityTimezoneLabel(zone) {
+  const want = String(zone || "").trim();
+  if (!want) return "";
+  if (typeof SERVER_TIMEZONE_OPTIONS !== "undefined") {
+    const row = SERVER_TIMEZONE_OPTIONS.find((item) => item[1] === want);
+    if (row) return row[2];
+  }
+  return want;
+}
+
+function paintCommunityType(host, row) {
+  if (!host) return;
+  const label = communityTypeLabel(row && row.server_type);
+  host.hidden = !label;
+  host.textContent = label;
+}
+
 function paintCommunityExplicit(host, row) {
   if (!host) return;
   const on = !!(row && row.explicit);
   host.hidden = !on;
   host.textContent = on ? "EXPLICIT" : "";
+}
+
+function paintCommunityZone(host, row) {
+  if (!host) return;
+  const label = communityTimezoneLabel(row && row.timezone);
+  host.hidden = !label;
+  host.textContent = label;
 }
 
 function communityApplyQuestions(row) {
@@ -326,7 +359,9 @@ function openCommunityListing(row) {
   if (title) title.textContent = row.name;
   if (online) online.textContent = String(row.online || 0) + " online";
   paintCommunityFace(icon, row);
+  paintCommunityType(document.getElementById("community-listing-type"), row);
   paintCommunityExplicit(document.getElementById("community-listing-explicit"), row);
+  paintCommunityZone(document.getElementById("community-listing-zone"), row);
   if (about) about.textContent = row.about || "";
   applyCommunityBanner(header, row);
   paintCommunityTags(document.getElementById("community-listing-tags"), row.tags);
@@ -402,12 +437,20 @@ function paintCommunityCard(row) {
   icon.className = "avatar-dot";
   paintCommunityFace(icon, row);
   pic.appendChild(icon);
-  if (row.explicit) {
-    const mark = document.createElement("span");
-    mark.className = "community-explicit";
-    mark.textContent = "EXPLICIT";
-    pic.appendChild(mark);
-  }
+  const marks = document.createElement("div");
+  marks.className = "community-card-marks";
+  const type = document.createElement("span");
+  type.className = "community-type";
+  paintCommunityType(type, row);
+  marks.appendChild(type);
+  const explicit = document.createElement("span");
+  explicit.className = "community-explicit";
+  paintCommunityExplicit(explicit, row);
+  marks.appendChild(explicit);
+  pic.appendChild(marks);
+  const zone = document.createElement("span");
+  zone.className = "community-zone";
+  paintCommunityZone(zone, row);
   const names = document.createElement("div");
   names.className = "community-card-names";
   const name = document.createElement("div");
@@ -439,6 +482,7 @@ function paintCommunityCard(row) {
   tools.addEventListener("click", (e) => e.stopPropagation());
   head.appendChild(face);
   head.appendChild(tools);
+  head.appendChild(zone);
   const body = document.createElement("div");
   body.className = "community-card-body";
   const tags = document.createElement("div");

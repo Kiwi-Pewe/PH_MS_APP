@@ -838,12 +838,15 @@ function cancelServerSettingsUrl() {
 
 const SERVER_TYPES = {
   community: true,
-  team: true,
-  organization: true,
-  clan: true,
-  guild: true,
+  gaming: true,
+  social: true,
+  chill: true,
+  roleplay: true,
+  hangout: true,
   friends: true,
-  streaming: true,
+  anime: true,
+  art: true,
+  music: true,
   other: true
 };
 
@@ -863,7 +866,16 @@ function setServerSettingsTypeStatus(text) {
 
 function syncServerSettingsType(kind) {
   const select = document.getElementById("server-settings-type");
-  if (select) select.value = kind || "";
+  if (select) {
+    const value = kind || "";
+    if (value && !Array.from(select.options).some((option) => option.value === value)) {
+      const extra = document.createElement("option");
+      extra.value = value;
+      extra.textContent = value.replace(/-/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+      select.appendChild(extra);
+    }
+    select.value = value;
+  }
   setServerSettingsTypeStatus("");
 }
 

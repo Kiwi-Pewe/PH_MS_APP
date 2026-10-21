@@ -1,6 +1,3 @@
-const SERVER_LISTING_PRESETS = [
-  "community", "team", "organization", "clan", "guild", "friends", "streaming", "other"
-];
 const SERVER_LISTING_TAG_MAX = 5;
 
 function savedServerListingTags() {
@@ -67,7 +64,6 @@ function addServerListingTag(value) {
 
 function paintServerListingTags() {
   const picks = document.getElementById("server-settings-tag-picks");
-  const presets = document.getElementById("server-settings-tag-presets");
   const input = document.getElementById("server-settings-tag-input");
   const add = document.getElementById("server-settings-tag-add");
   const tags = savedServerListingTags();
@@ -84,21 +80,6 @@ function paintServerListingTags() {
         saveServerListingTags(tags.filter((item) => item !== tag));
       });
       picks.appendChild(chip);
-    });
-  }
-  if (presets) {
-    presets.replaceChildren();
-    SERVER_LISTING_PRESETS.forEach((tag) => {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "server-listing-tag" + (tags.indexOf(tag) >= 0 ? " is-on" : "");
-      chip.textContent = tag;
-      chip.disabled = locked;
-      chip.addEventListener("click", () => {
-        if (tags.indexOf(tag) >= 0) saveServerListingTags(tags.filter((item) => item !== tag));
-        else addServerListingTag(tag);
-      });
-      presets.appendChild(chip);
     });
   }
   if (input) input.disabled = locked;

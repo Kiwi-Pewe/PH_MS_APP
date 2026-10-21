@@ -105,6 +105,8 @@ def community_row(server, online, joined, votes=None):
         "online": int(online or 0),
         "joined": bool(joined),
         "tags": server_listing_tags(server),
+        "server_type": (getattr(server, "server_type", None) or "").strip().lower(),
+        "timezone": (getattr(server, "timezone", None) or "").strip(),
         "applications_enabled": bool(getattr(server, "applications_enabled", False)),
         "explicit": bool(getattr(server, "explicit", False)),
         "application_form": parse_application_form(getattr(server, "application_form", None)),
@@ -130,6 +132,7 @@ def community_servers(
             func.lower(func.coalesce(Servers.about, "")).like(like),
             func.lower(func.coalesce(Servers.tags, "")).like(like),
             func.lower(func.coalesce(Servers.server_type, "")).like(like),
+            func.lower(func.coalesce(Servers.timezone, "")).like(like),
         ))
     total = query.count()
     last_msg = (

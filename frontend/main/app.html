@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=396">
+<link rel="stylesheet" href="app.css?v=397">
 </head>
 <body>
 
@@ -916,7 +916,7 @@
 
       <div class="main-view" id="view-community">
         <div class="community-toolbar">
-          <input type="search" id="community-search" class="community-search" placeholder="Search" autocomplete="off" spellcheck="false">
+          <input type="search" id="community-search" class="community-search" placeholder="Search name, tags, type, or timezone" autocomplete="off" spellcheck="false">
         </div>
         <div class="community-filter-row">
           <button type="button" class="ghost-btn" id="community-filter-btn">Filter</button>
@@ -1182,7 +1182,7 @@
 
       <div id="server-settings-discovery" class="server-settings-page server-privacy-page" hidden>
         <h2 class="server-settings-page-title">Discovery</h2>
-        <p class="server-settings-help">List this server on Communities and choose how people join from there.</p>
+        <p class="server-settings-help">List this server on Communities. Type, tags, timezone, and explicit appear on your listing card.</p>
 
         <div class="server-settings-field">
           <div class="server-privacy-discover-row">
@@ -1215,20 +1215,23 @@
 
         <div class="server-settings-field">
           <div class="server-settings-field-title">Public listing</div>
-          <p class="server-settings-help">People outside this server can see the name, the description, the type, and the tags.</p>
+          <p class="server-settings-help">People outside this server can see the name, the description, the type, the tags, and the timezone.</p>
 
           <div class="server-settings-option">
             <label class="server-settings-option-name" for="server-settings-type">Server type</label>
-            <p class="server-settings-help">This type also appears as a tag on the Communities listing.</p>
+            <p class="server-settings-help">The category for this server on Communities. It is not a tag.</p>
             <select id="server-settings-type" class="settings-select server-settings-select">
               <option value="">Select…</option>
               <option value="community">Community</option>
-              <option value="team">Team</option>
-              <option value="organization">Organization</option>
-              <option value="clan">Clan</option>
-              <option value="guild">Guild</option>
+              <option value="gaming">Gaming</option>
+              <option value="social">Social</option>
+              <option value="chill">Chill</option>
+              <option value="roleplay">Roleplay</option>
+              <option value="hangout">Hangout</option>
               <option value="friends">Friends</option>
-              <option value="streaming">Streaming</option>
+              <option value="anime">Anime</option>
+              <option value="art">Art</option>
+              <option value="music">Music</option>
               <option value="other">Other</option>
             </select>
             <p id="server-settings-type-status" class="server-settings-help" hidden></p>
@@ -1236,9 +1239,8 @@
 
           <div class="server-settings-option">
             <div class="server-settings-option-name">Tags</div>
-            <p class="server-settings-help">Up to 5 extra tags. Use a preset or type your own.</p>
+            <p class="server-settings-help">Up to 5 tags you write. They describe what this server is about.</p>
             <div id="server-settings-tag-picks" class="server-listing-tag-picks"></div>
-            <div id="server-settings-tag-presets" class="server-listing-tag-presets"></div>
             <div class="server-listing-tag-add">
               <input id="server-settings-tag-input" class="server-settings-input" type="text" maxlength="24" placeholder="Add a tag" autocomplete="off" spellcheck="false">
               <button type="button" class="ghost-btn" id="server-settings-tag-add">Add</button>
@@ -1248,7 +1250,7 @@
 
           <div class="server-settings-option">
             <label class="server-settings-option-name" for="server-settings-timezone">Timezone</label>
-            <p class="server-settings-help">People can browse servers in this area.</p>
+            <p class="server-settings-help">Shown on your Communities card so people can see your region.</p>
             <select id="server-settings-timezone" class="settings-select server-settings-select">
               <option value="">Select…</option>
             </select>
@@ -1260,7 +1262,7 @@
           <div class="server-privacy-discover-row">
             <div class="server-privacy-discover-copy">
               <div class="server-settings-field-title">Explicit</div>
-              <p class="server-settings-help">This server is marked explicit. People looking for a server can see that mark.</p>
+              <p class="server-settings-help">People looking for a server can see this mark next to your type.</p>
             </div>
             <label id="server-privacy-explicit-switch" class="toggle-switch">
               <input type="checkbox" id="server-privacy-explicit">
@@ -1878,7 +1880,10 @@
         <div class="community-listing-head-face">
           <div class="community-listing-pic">
             <div class="avatar-dot" id="community-listing-icon"></div>
-            <span id="community-listing-explicit" class="community-explicit" hidden>EXPLICIT</span>
+            <div class="community-card-marks">
+              <span id="community-listing-type" class="community-type" hidden></span>
+              <span id="community-listing-explicit" class="community-explicit" hidden>EXPLICIT</span>
+            </div>
           </div>
           <div class="community-listing-head-copy">
             <span id="community-listing-title" class="community-listing-title"></span>
@@ -1889,6 +1894,7 @@
           <div id="community-listing-votes" class="community-listing-votes"></div>
           <button type="button" class="icon-btn" id="community-listing-close" title="Close">&times;</button>
         </div>
+        <span id="community-listing-zone" class="community-zone" hidden></span>
       </div>
       <div class="community-listing-main">
         <div class="community-listing-info">
@@ -2492,11 +2498,11 @@
     </div>
 <script src="boot.js?v=146"></script>
 <script src="app-shell.js?v=74"></script>
-<script src="communities.js?v=10"></script>
+<script src="communities.js?v=11"></script>
 <script src="feed.js?v=21"></script>
 <script src="settings.js?v=22"></script>
-<script src="server-settings.js?v=47"></script>
-<script src="server-listing.js?v=1"></script>
+<script src="server-settings.js?v=48"></script>
+<script src="server-listing.js?v=2"></script>
 <script src="server-roles.js?v=38"></script>
 <script src="server-moderation.js?v=6"></script>
 <script src="server-members.js?v=8"></script>
@@ -2557,7 +2563,7 @@
 <script src="pins.js?v=4"></script>
 <script src="search.js?v=10"></script>
 <script src="members.js?v=27"></script>
-<script src="mini-profile.js?v=32"></script>
+<script src="mini-profile.js?v=33"></script>
 <script src="server-modals.js?v=48"></script>
 <script src="announcements.js?v=71"></script>
 <script src="channel-follows.js?v=2"></script>

@@ -11816,7 +11816,7 @@ button.voice-more-row:disabled,
   justify-content: flex-start;
   gap: 8px;
   min-height: 72px;
-  padding: 12px 88px 12px 12px;
+  padding: 12px 88px 28px 12px;
   background: var(--rail);
   border-bottom: 1px solid var(--border);
   border-radius: 10px 10px 0 0;
@@ -11851,18 +11851,58 @@ button.voice-more-row:disabled,
   gap: 6px;
   flex: 0 0 auto;
 }
-.community-explicit {
+.community-card-marks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.community-type,
+.community-explicit,
+.community-zone {
   height: 18px;
   padding: 0 7px;
   border-radius: 999px;
-  background: #b91c1c;
-  color: #fff;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
   display: inline-flex;
   align-items: center;
   line-height: 1;
+  white-space: nowrap;
+}
+.community-type[hidden],
+.community-explicit[hidden],
+.community-zone[hidden] { display: none; }
+.community-type {
+  background: var(--panel);
+  border: 1px solid var(--text);
+  color: var(--text);
+}
+.community-explicit {
+  background: #b91c1c;
+  color: #fff;
+}
+.community-zone {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 1;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.community-card-head.has-banner .community-type,
+.community-listing-header.has-banner .community-type {
+  background: rgba(0, 0, 0, 0.45);
+  border-color: #fff;
+  color: #fff;
+}
+.community-card-head.has-banner .community-zone,
+.community-listing-header.has-banner .community-zone {
+  background: rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #fff;
 }
 .community-card-head .avatar-dot {
   width: 40px;
@@ -12087,7 +12127,7 @@ button.voice-more-row:disabled,
   justify-content: flex-start;
   gap: 12px;
   min-height: 88px;
-  padding: 16px 120px 16px 18px;
+  padding: 16px 120px 28px 18px;
   border-bottom: 1px solid var(--border);
   background: var(--rail);
 }

@@ -747,16 +747,21 @@ function paintMiniFeaturedFriend(el, tile, live, editing) {
 function serverTypeLabel(type) {
   const map = {
     community: "Community",
-    team: "Team",
-    organization: "Organization",
-    clan: "Clan",
-    guild: "Guild",
+    gaming: "Gaming",
+    social: "Social",
+    chill: "Chill",
+    roleplay: "Roleplay",
+    hangout: "Hangout",
     friends: "Friends",
-    streaming: "Streaming",
+    anime: "Anime",
+    art: "Art",
+    music: "Music",
     other: "Other"
   };
   const key = String(type || "").toLowerCase();
-  return map[key] || "";
+  if (map[key]) return map[key];
+  if (!key) return "";
+  return key.replace(/-/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
 function paintMiniServerFace(host, server) {

@@ -52,12 +52,15 @@ SERVER_SLUG_RE = re.compile(
 )
 SERVER_TYPES = {
     "community": "Community",
-    "team": "Team",
-    "organization": "Organization",
-    "clan": "Clan",
-    "guild": "Guild",
+    "gaming": "Gaming",
+    "social": "Social",
+    "chill": "Chill",
+    "roleplay": "Roleplay",
+    "hangout": "Hangout",
     "friends": "Friends",
-    "streaming": "Streaming",
+    "anime": "Anime",
+    "art": "Art",
+    "music": "Music",
     "other": "Other",
 }
 SERVER_TAG_MAX = 5
@@ -198,14 +201,16 @@ def derive_privacy_mode(discoverable, applications_enabled):
 
 
 def server_listing_tags(server):
-    tags = []
-    kind = (getattr(server, "server_type", None) or "").strip().lower()
+    return parse_server_tags(getattr(server, "tags", None) if server else None)
+
+
+def server_type_label(value):
+    kind = (value or "").strip().lower()
     if kind in SERVER_TYPES:
-        tags.append(kind)
-    for tag in parse_server_tags(getattr(server, "tags", None)):
-        if tag not in tags:
-            tags.append(tag)
-    return tags
+        return SERVER_TYPES[kind]
+    if not kind:
+        return ""
+    return kind.replace("-", " ").title()
 SERVER_NOTIFICATIONS = ("all", "mentions")
 SERVER_NOTIFICATIONS_DEFAULT = "mentions"
 SERVER_PRIVACY_MODES = ("private", "default", "open")

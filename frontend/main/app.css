@@ -11816,7 +11816,7 @@ button.voice-more-row:disabled,
   justify-content: flex-start;
   gap: 8px;
   min-height: 72px;
-  padding: 12px 88px 28px 12px;
+  padding: 12px 88px 12px 12px;
   background: var(--rail);
   border-bottom: 1px solid var(--border);
   border-radius: 10px 10px 0 0;
@@ -11843,18 +11843,13 @@ button.voice-more-row:disabled,
   gap: 10px;
   min-width: 0;
 }
-.community-card-pic,
-.community-listing-pic {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-}
 .community-card-marks {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 4px;
 }
 .community-type,
@@ -12127,7 +12122,7 @@ button.voice-more-row:disabled,
   justify-content: flex-start;
   gap: 12px;
   min-height: 88px;
-  padding: 16px 120px 28px 18px;
+  padding: 16px 120px 16px 18px;
   border-bottom: 1px solid var(--border);
   background: var(--rail);
 }

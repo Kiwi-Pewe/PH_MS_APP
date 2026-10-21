@@ -7665,7 +7665,7 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 #server-settings-index-label {
   flex: 0 0 auto;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--text);
   padding: 4px 10px 8px;
@@ -7675,10 +7675,11 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .server-settings-index-divider {
   flex: 0 0 auto;
-  height: 0;
-  margin: 8px 10px;
+  height: 1px;
+  margin: 10px 10px 12px;
+  background: var(--text-dim);
+  opacity: 0.45;
   border: 0;
-  border-top: 1px solid var(--border);
 }
 #server-settings-index-foot {
   flex: 0 0 auto;

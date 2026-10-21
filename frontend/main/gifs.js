@@ -42,6 +42,24 @@ function windowLooksFocused() {
   return document.visibilityState === "visible" && (typeof document.hasFocus !== "function" || document.hasFocus());
 }
 
+function viewingSelectedServer(serverId) {
+  if (serverId == null || serverId === "") return false;
+  if (typeof currentServerId === "undefined" || String(currentServerId) !== String(serverId)) return false;
+  if (typeof selectedRailIcon !== "undefined" && String(selectedRailIcon) !== String(serverId)) return false;
+  if (typeof isSettingsOpen !== "undefined" && isSettingsOpen) return false;
+  if (typeof isProfileOpen !== "undefined" && isProfileOpen) return false;
+  if (typeof isCommunitiesOpen !== "undefined" && isCommunitiesOpen) return false;
+  if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen) return false;
+  const sidebar = document.getElementById("server-sidebar-view");
+  if (sidebar && sidebar.style.display === "none") return false;
+  return true;
+}
+
+function finderListingOpen() {
+  const overlay = document.getElementById("community-listing-overlay");
+  return !!(overlay && !overlay.hidden);
+}
+
 function loadStillImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -116,20 +134,27 @@ function canvasStillFor(entry) {
   probe.src = entry.live;
 }
 
+function attentionSrcIsLive(entry) {
+  const src = entry.img.getAttribute("src") || "";
+  return !!(src && entry.live && (src === entry.live || src.indexOf(entry.live) !== -1));
+}
+
 function showAttentionStill(entry) {
-  if (entry.showing === "still" && entry.img.getAttribute("src")) return;
+  if (entry.showing === "still" && entry.img.getAttribute("src") && !attentionSrcIsLive(entry)) return;
   entry.showing = "still";
+  if (entry.canvasUrl) {
+    entry.img.src = entry.canvasUrl;
+    return;
+  }
   if (entry.still && !entry.stillFailed) {
     entry.img.onerror = () => {
       entry.img.onerror = null;
       entry.stillFailed = true;
-      entry.img.src = entry.live;
       canvasStillFor(entry);
     };
     entry.img.src = entry.still;
     return;
   }
-  entry.img.src = entry.live;
   canvasStillFor(entry);
 }
 
@@ -141,16 +166,18 @@ function showAttentionLive(entry) {
 }
 
 function attentionWantsLive(entry) {
+  if (!windowLooksFocused()) return false;
+  if (reduceMotionOn() && entry.kind !== "profile") return false;
+  const auto = shouldPlayGifsWhenFocused();
+  if (entry.kind === "voice") return !!(auto && entry.speaking);
+  if (entry.hovering) return true;
+  if (entry.kind === "user" || entry.kind === "hover" || entry.kind === "server-banner") return false;
   if (entry.kind === "profile") return true;
-  if (reduceMotionOn()) return false;
-  if (entry.hovering) {
-    if (entry.kind === "hover" && entry.host && entry.host.classList.contains("active")) return false;
-    return true;
-  }
-  if (entry.kind === "banner" && entry.introPlaying) return true;
-  if (entry.kind === "hover") return false;
-  if (!shouldPlayGifsWhenFocused()) return false;
-  return windowLooksFocused() && entry.inView;
+  if (!auto) return false;
+  if (entry.kind === "server-icon") return viewingSelectedServer(entry.serverId);
+  if (entry.kind === "finder") return !!(entry.open && finderListingOpen());
+  if (entry.kind === "chat") return !!entry.inView;
+  return false;
 }
 
 function teardownAttention(entry) {
@@ -161,10 +188,6 @@ function teardownAttention(entry) {
   if (entry.host && entry.onEnter) {
     entry.host.removeEventListener("mouseenter", entry.onEnter);
     entry.host.removeEventListener("mouseleave", entry.onLeave);
-  }
-  if (entry.introTimer) {
-    clearTimeout(entry.introTimer);
-    entry.introTimer = 0;
   }
   if (entry.img && entry.img._attention === entry) entry.img._attention = null;
   attentionGifs.delete(entry);
@@ -204,10 +227,11 @@ function bindAttentionGif(img, opts) {
     still: opts.still || stillUrlFromGif(live),
     kind: opts.kind || "chat",
     host: opts.host || img,
+    serverId: opts.serverId || "",
+    open: !!opts.open,
+    speaking: !!opts.speaking,
     hovering: false,
     inView: opts.kind !== "chat",
-    introPlaying: false,
-    introTimer: 0,
     showing: "",
     stillFailed: false,
     canvasUrl: "",
@@ -228,8 +252,10 @@ function bindAttentionGif(img, opts) {
     entry.hovering = false;
     entry.update();
   };
-  entry.host.addEventListener("mouseenter", entry.onEnter);
-  entry.host.addEventListener("mouseleave", entry.onLeave);
+  if (entry.kind !== "voice") {
+    entry.host.addEventListener("mouseenter", entry.onEnter);
+    entry.host.addEventListener("mouseleave", entry.onLeave);
+  }
   if (entry.kind === "chat") {
     entry.observer = new IntersectionObserver((rows) => {
       entry.inView = !!(rows[0] && rows[0].isIntersecting);
@@ -237,21 +263,15 @@ function bindAttentionGif(img, opts) {
     }, { threshold: 0.15 });
     entry.observer.observe(img);
   }
-  if (entry.kind === "banner" && !reduceMotionOn()) {
-    entry.introPlaying = true;
-    entry.introTimer = setTimeout(() => {
-      entry.introPlaying = false;
-      entry.update();
-    }, 5000);
-  }
   img._attention = entry;
   attentionGifs.add(entry);
   ensureAttentionListeners();
   entry.update();
 }
 
-function paintGifBannerStrip(el, url, color, stillUrl) {
+function paintGifBannerStrip(el, url, color, stillUrl, opts) {
   if (!el) return;
+  opts = opts || {};
   el.querySelectorAll(":scope > .attention-gif-layer").forEach((node) => node.remove());
   el.style.backgroundColor = (!url && color) ? color : "";
   if (!url || !isGifSrc(url)) {
@@ -266,7 +286,8 @@ function paintGifBannerStrip(el, url, color, stillUrl) {
   bindAttentionGif(img, {
     live: url,
     still: stillUrl || stillUrlFromGif(url),
-    kind: "banner",
-    host: el
+    kind: opts.kind || "server-banner",
+    host: opts.host || el,
+    open: !!opts.open
   });
 }

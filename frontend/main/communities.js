@@ -30,22 +30,28 @@ function communityLetter(name) {
   return String(name || "?").slice(0, 1).toUpperCase();
 }
 
-function applyCommunityBanner(el, row) {
+function applyCommunityBanner(el, row, opts) {
   if (!el) return;
+  opts = opts || {};
   const url = (row && row.banner_url) || "";
   const color = (row && row.banner_color) || "";
   const still = typeof bannerStillOf === "function" ? bannerStillOf(row) : "";
   el.classList.toggle("has-banner", !!(url || color));
   if (typeof paintGifBannerStrip === "function") {
-    paintGifBannerStrip(el, url, color, still);
+    paintGifBannerStrip(el, url, color, still, {
+      kind: opts.kind || "finder",
+      host: opts.host || el,
+      open: !!opts.open
+    });
   } else {
     el.style.backgroundImage = url ? "url(" + JSON.stringify(url) + ")" : "";
     el.style.backgroundColor = (!url && color) ? color : "";
   }
 }
 
-function paintCommunityFace(host, row) {
+function paintCommunityFace(host, row, opts) {
   if (!host) return;
+  opts = opts || {};
   host.replaceChildren();
   if (row && row.icon_url) {
     const img = document.createElement("img");
@@ -54,8 +60,9 @@ function paintCommunityFace(host, row) {
       bindAttentionGif(img, {
         live: row.icon_url,
         still: typeof iconStillOf === "function" ? iconStillOf(row) : "",
-        kind: "hover",
-        host
+        kind: opts.kind || "finder",
+        host: opts.host || host,
+        open: !!opts.open
       });
     } else {
       img.src = row.icon_url;
@@ -83,6 +90,7 @@ function closeCommunityListing() {
   const overlay = document.getElementById("community-listing-overlay");
   if (overlay) overlay.hidden = true;
   communityListingRow = null;
+  if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();
 }
 
 function closeCommunitiesChrome() {
@@ -382,18 +390,19 @@ function openCommunityListing(row) {
   if (!overlay || !row) return;
   if (title) title.textContent = row.name;
   if (online) online.textContent = String(row.online || 0) + " online";
-  paintCommunityFace(icon, row);
+  paintCommunityFace(icon, row, { kind: "finder", open: true, host: header });
   paintCommunityType(document.getElementById("community-listing-type"), row);
   paintCommunityExplicit(document.getElementById("community-listing-explicit"), row);
   paintCommunityZone(document.getElementById("community-listing-zone"), row);
   paintCommunityAbout(about, row);
-  applyCommunityBanner(header, row);
+  applyCommunityBanner(header, row, { kind: "finder", open: true, host: header });
   if (header) header.classList.toggle("has-marks", communityHasMarks(row));
   paintCommunityTags(document.getElementById("community-listing-tags"), row.tags);
   paintCommunityVotes(document.getElementById("community-listing-votes"), row);
   fillCommunityJoinButton(join, row);
   closeCommunityListingComments();
   overlay.hidden = false;
+  if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();
 }
 
 function openCommunityCardMenu(e, row) {
@@ -453,13 +462,13 @@ function paintCommunityCard(row) {
   card.className = "community-card";
   const head = document.createElement("div");
   head.className = "community-card-head";
-  applyCommunityBanner(head, row);
+  applyCommunityBanner(head, row, { kind: "finder", host: card });
   head.classList.toggle("has-marks", communityHasMarks(row));
   const face = document.createElement("div");
   face.className = "community-card-face";
   const icon = document.createElement("div");
   icon.className = "avatar-dot";
-  paintCommunityFace(icon, row);
+  paintCommunityFace(icon, row, { kind: "finder", host: card });
   const names = document.createElement("div");
   names.className = "community-card-names";
   const name = document.createElement("div");

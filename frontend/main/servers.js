@@ -110,7 +110,8 @@ function paintRailServerIcon(icon, server) {
       bindAttentionGif(img, {
         live: url,
         still: (typeof iconStillOf === "function" ? iconStillOf(server) : "") || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(url) : ""),
-        kind: "hover",
+        kind: "server-icon",
+        serverId: (server && server.id) || icon.getAttribute("data-server-id") || "",
         host: icon
       });
     } else {
@@ -138,6 +139,7 @@ function applyServerIcon(serverId, iconUrl, stillUrl) {
   const icon = document.querySelector(`.rail-icon.server-icon[data-server-id="${serverId}"]`);
   if (icon) {
     paintRailServerIcon(icon, {
+      id: serverId,
       name: (meta && meta.name) || icon.title,
       icon_url: iconUrl || "",
       icon_still_url: nextStill
@@ -170,6 +172,7 @@ function applyServerName(serverId, name) {
   if (icon) {
     icon.title = next;
     paintRailServerIcon(icon, {
+      id: serverId,
       name: next,
       icon_url: (meta && meta.icon_url) || "",
       icon_still_url: (meta && meta.icon_still_url) || ""

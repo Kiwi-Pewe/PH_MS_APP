@@ -376,7 +376,7 @@ function paintServerSettingsAvatar() {
       bindAttentionGif(img, {
         live: url,
         still: (currentServerData && currentServerData.icon_still_url) || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(url) : ""),
-        kind: "hover",
+        kind: "user",
         host: face
       });
     } else {
@@ -1242,6 +1242,7 @@ function openServerSettings() {
   const overlay = document.getElementById("server-settings-overlay");
   if (overlay) overlay.hidden = false;
   autosizeServerSettingsAbout();
+  if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();
 }
 
 function closeServerSettingsChrome() {
@@ -1250,6 +1251,7 @@ function closeServerSettingsChrome() {
   if (typeof closeEditApplication === "function") closeEditApplication();
   const overlay = document.getElementById("server-settings-overlay");
   if (overlay) overlay.hidden = true;
+  if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();
   const input = document.getElementById("server-settings-avatar-file");
   if (input) input.value = "";
   const bannerFile = document.getElementById("server-settings-banner-file");

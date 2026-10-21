@@ -224,7 +224,9 @@ function paintIdentityMedia(host, media, opts) {
     bindAttentionGif(img, {
       live,
       still: media.still_url || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(live) : ""),
-      kind: opts.attention
+      kind: opts.attention,
+      mime: media.mime || "",
+      host: opts.attentionHost || host
     });
   } else {
     img.src = live;
@@ -304,7 +306,7 @@ function paintUserFace(host, source, opts) {
   letter.textContent = typeof avatarLetter === "function" ? avatarLetter(name) : (name || "?").slice(0, 1);
   if (identityHasImage(media)) {
     letter.hidden = true;
-    paintIdentityMedia(host, media, { circle: opts.circle !== false, border: false });
+    paintIdentityMedia(host, media, { circle: opts.circle !== false, border: false, attention: "user", attentionHost: host });
   } else {
     letter.hidden = false;
   }

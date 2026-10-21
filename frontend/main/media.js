@@ -411,7 +411,17 @@ function openChatLightbox(url) {
   if (!url) return;
   const overlay = chatLightboxOverlay();
   const img = document.getElementById("chat-lightbox-img");
-  if (img) img.src = url;
+  if (img) {
+    if (typeof bindAttentionGif === "function" && typeof isGifSrc === "function" && isGifSrc(url)) {
+      bindAttentionGif(img, {
+        live: url,
+        still: typeof stillUrlFromGif === "function" ? stillUrlFromGif(url) : "",
+        kind: "profile"
+      });
+    } else {
+      img.src = url;
+    }
+  }
   overlay.hidden = false;
 }
 
@@ -454,7 +464,8 @@ function attachMediaIfNeeded(bubble, msg) {
       bindAttentionGif(img, {
         live: att.url,
         still: att.still_url || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(att.url) : ""),
-        kind: "chat"
+        kind: "chat",
+        mime: att.mime || ""
       });
     } else {
       img.src = att.url;

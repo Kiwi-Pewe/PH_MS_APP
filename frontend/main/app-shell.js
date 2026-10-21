@@ -21,6 +21,7 @@ function switchMainView(viewName) {
   document.getElementById(`view-${viewName}`).classList.add("active");
   updateHomeBadge();
   if (typeof publishViewerFocus === "function") publishViewerFocus();
+  if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();
 }
 
 let placeGen = 0;
@@ -105,6 +106,7 @@ function applyPlaceChrome(opts) {
   } else if (opts.hideMembers && typeof hideMemberList === "function") {
     hideMemberList();
   }
+  if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();
 }
 
 function beginPlace(opts) {

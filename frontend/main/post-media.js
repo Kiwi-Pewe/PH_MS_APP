@@ -260,7 +260,8 @@ function appendPostMediaItem(host, data) {
       bindAttentionGif(img, {
         live: data.url,
         still: data.still_url || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(data.url) : ""),
-        kind: "chat"
+        kind: "chat",
+        mime: data.mime || ""
       });
     } else {
       img.src = data.url;
@@ -302,7 +303,8 @@ function buildForumThumb(attachment) {
       bindAttentionGif(img, {
         live: data.url,
         still: data.still_url || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(data.url) : ""),
-        kind: "hover"
+        kind: "user",
+        mime: data.mime || ""
       });
     } else {
       img.src = data.url;

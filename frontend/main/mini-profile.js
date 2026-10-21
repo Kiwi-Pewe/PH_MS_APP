@@ -348,7 +348,7 @@ function paintMiniProfileInto(card, data, opts) {
   banner.style.background = data.banner_color || "#1e6b8a";
   const ident = data.identity || {};
   const bannerMedia = ident.banner || (editing && typeof getIdentityMedia === "function" ? getIdentityMedia("banner") : null);
-  if (typeof paintIdentityMedia === "function") paintIdentityMedia(banner, bannerMedia, { border: false, attention: "profile" });
+  if (typeof paintIdentityMedia === "function") paintIdentityMedia(banner, bannerMedia, { border: false, attention: "profile", attentionHost: banner });
   if (typeof applyIdentityBorder === "function") applyIdentityBorder(banner, bannerMedia);
   bindMiniProfileEditTarget(banner, "banner", editing);
   card.appendChild(banner);
@@ -768,9 +768,18 @@ function paintMiniServerFace(host, server) {
   host.textContent = "";
   if (server && server.icon_url) {
     const img = document.createElement("img");
-    img.src = server.icon_url;
     img.alt = "";
     img.draggable = false;
+    if (typeof bindAttentionGif === "function" && typeof isGifSrc === "function" && isGifSrc(server.icon_url)) {
+      bindAttentionGif(img, {
+        live: server.icon_url,
+        still: typeof iconStillOf === "function" ? iconStillOf(server) : "",
+        kind: "user",
+        host
+      });
+    } else {
+      img.src = server.icon_url;
+    }
     host.appendChild(img);
     return;
   }

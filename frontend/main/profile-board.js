@@ -1721,9 +1721,21 @@ function paintProfileServerRows(body, rows) {
     const dot = document.createElement("div");
     dot.className = "avatar-dot";
     if (server.icon_url) {
-      dot.style.backgroundImage = "url(" + JSON.stringify(server.icon_url) + ")";
-      dot.style.backgroundSize = "cover";
-      dot.style.backgroundPosition = "center";
+      if (typeof bindAttentionGif === "function" && typeof isGifSrc === "function" && isGifSrc(server.icon_url)) {
+        const img = document.createElement("img");
+        img.alt = "";
+        bindAttentionGif(img, {
+          live: server.icon_url,
+          still: typeof iconStillOf === "function" ? iconStillOf(server) : "",
+          kind: "user",
+          host: dot
+        });
+        dot.appendChild(img);
+      } else {
+        dot.style.backgroundImage = "url(" + JSON.stringify(server.icon_url) + ")";
+        dot.style.backgroundSize = "cover";
+        dot.style.backgroundPosition = "center";
+      }
     } else {
       dot.textContent = typeof serverAvatarLetters === "function" ? serverAvatarLetters(server.name) : String(server.name || "?").slice(0, 2);
     }
@@ -3358,7 +3370,7 @@ function paintProfileTileContent(tile, el) {
     applyProfileTileBorder(el, tile);
     if (typeof paintIdentityMedia === "function") {
       const media = typeof identityMediaForPaint === "function" ? identityMediaForPaint("banner", tile) : null;
-      if (media) paintIdentityMedia(el, media, { attention: "profile" });
+      if (media) paintIdentityMedia(el, media, { attention: "profile", attentionHost: el });
     }
     return;
   }
@@ -3368,7 +3380,7 @@ function paintProfileTileContent(tile, el) {
     face.className = "profile-tile-avatar";
     const media = typeof identityMediaForPaint === "function" ? identityMediaForPaint("avatar", tile) : null;
     if (typeof identityHasImage === "function" && identityHasImage(media) && typeof paintIdentityMedia === "function") {
-      paintIdentityMedia(face, media, { circle: true });
+      paintIdentityMedia(face, media, { circle: true, attention: "user", attentionHost: face });
     } else {
       face.textContent = typeof avatarLetter === "function" ? avatarLetter(profileOwnerName()) : (profileOwnerName() || "?").slice(0, 1);
     }

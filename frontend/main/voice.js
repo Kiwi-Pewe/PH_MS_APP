@@ -426,23 +426,21 @@ function mountVoiceFace(host, person, speaking, size) {
     host.appendChild(letter);
     return;
   }
-  if (mime === "image/gif" && !speaking) {
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const still = new Image();
-    still.onload = () => {
-      canvas.getContext("2d").drawImage(still, 0, 0, size, size);
-    };
-    still.onerror = () => {
-      canvas.remove();
-      const img = document.createElement("img");
-      img.alt = "";
+  if (mime === "image/gif" || (typeof isGifSrc === "function" && isGifSrc(url))) {
+    const img = document.createElement("img");
+    img.alt = "";
+    if (typeof bindAttentionGif === "function") {
+      bindAttentionGif(img, {
+        live: url,
+        still: (person.avatar && person.avatar.still_url) || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(url) : ""),
+        mime: mime,
+        kind: "voice",
+        speaking: !!speaking
+      });
+    } else {
       img.src = url;
-      host.appendChild(img);
-    };
-    still.src = url;
-    host.appendChild(canvas);
+    }
+    host.appendChild(img);
     return;
   }
   const img = document.createElement("img");

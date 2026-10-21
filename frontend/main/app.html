@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=402">
+<link rel="stylesheet" href="app.css?v=403">
 </head>
 <body>
 
@@ -1007,6 +1007,7 @@
   <div id="server-settings-overlay" hidden>
     <aside id="server-settings-index">
       <div id="server-settings-index-label"></div>
+      <div class="server-settings-index-divider"></div>
       <nav id="server-settings-nav">
         <button type="button" class="server-settings-nav-item active" data-tab="overview">Overview</button>
         <button type="button" class="server-settings-nav-item" data-tab="roles">Roles</button>
@@ -1018,8 +1019,11 @@
         <button type="button" class="server-settings-nav-item" data-tab="integrations">Integrations</button>
         <button type="button" class="server-settings-nav-item" data-tab="audit">Audit Log</button>
       </nav>
-      <button type="button" id="server-settings-transfer" class="server-settings-nav-item" hidden>Transfer Ownership</button>
-      <button type="button" id="server-settings-delete" class="server-settings-nav-item is-danger" hidden>Delete Server</button>
+      <div id="server-settings-index-foot" hidden>
+        <div class="server-settings-index-divider"></div>
+        <button type="button" id="server-settings-transfer" class="server-settings-nav-item" hidden>Transfer Ownership</button>
+        <button type="button" id="server-settings-delete" class="server-settings-nav-item is-danger" hidden>Delete Server</button>
+      </div>
     </aside>
     <section id="server-settings-main">
       <button type="button" id="server-settings-close" title="Close">
@@ -2542,7 +2546,7 @@
 <script src="communities.js?v=14"></script>
 <script src="feed.js?v=21"></script>
 <script src="settings.js?v=22"></script>
-<script src="server-settings.js?v=49"></script>
+<script src="server-settings.js?v=50"></script>
 <script src="server-listing.js?v=3"></script>
 <script src="server-roles.js?v=38"></script>
 <script src="server-moderation.js?v=6"></script>

@@ -7665,16 +7665,28 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 #server-settings-index-label {
   flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  padding: 4px 10px 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  padding: 4px 10px 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.server-settings-index-divider {
+  flex: 0 0 auto;
+  height: 0;
+  margin: 8px 10px;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+#server-settings-index-foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#server-settings-index-foot[hidden] { display: none; }
 #server-settings-nav {
   flex: 1 1 auto;
   min-height: 0;
@@ -7711,7 +7723,6 @@ a.profile-link-row:hover { color: var(--accent); }
 }
 .server-settings-nav-item.is-danger {
   color: var(--danger);
-  margin-top: 10px;
   opacity: 1;
 }
 .server-settings-nav-item.is-danger.is-later,

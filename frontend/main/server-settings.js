@@ -236,6 +236,7 @@ function paintServerSettingsAccess() {
   const auditBtn = document.querySelector('#server-settings-nav [data-tab="audit"]');
   const deleteBtn = document.getElementById("server-settings-delete");
   const transferBtn = document.getElementById("server-settings-transfer");
+  const foot = document.getElementById("server-settings-index-foot");
   const allowOverview = canUpdateServer();
   const allowRoles = canManageRoles();
   const allowMembers = canOpenServerMembers();
@@ -282,6 +283,7 @@ function paintServerSettingsAccess() {
     auditBtn.disabled = !allowAudit;
     auditBtn.classList.toggle("is-later", !allowAudit);
   }
+  if (foot) foot.hidden = !allowDelete;
   if (deleteBtn) {
     deleteBtn.hidden = !allowDelete;
     deleteBtn.disabled = !allowDelete;

@@ -11733,7 +11733,7 @@ button.voice-more-row:disabled,
 }
 
 #community-nav { padding: 8px; display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; box-sizing: border-box; }
-#view-community { min-height: 0; display: flex; flex-direction: column; }
+#view-community { min-height: 0; }
 .community-toolbar {
   flex: 0 0 auto;
   display: flex;
@@ -11826,6 +11826,7 @@ button.voice-more-row:disabled,
 .community-list-head {
   flex: 0 0 auto;
   padding: 8px 40px 10px;
+  text-align: center;
 }
 .community-list-title {
   margin: 0 0 6px;

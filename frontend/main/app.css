@@ -11822,6 +11822,10 @@ button.voice-more-row:disabled,
   border-radius: 10px 10px 0 0;
   overflow: visible;
 }
+.community-card-head.has-marks:not(.has-banner) {
+  min-height: 96px;
+  padding-bottom: 34px;
+}
 .community-card-head.has-banner {
   min-height: 96px;
   background-size: cover;
@@ -12125,6 +12129,10 @@ button.voice-more-row:disabled,
   padding: 16px 120px 16px 18px;
   border-bottom: 1px solid var(--border);
   background: var(--rail);
+}
+.community-listing-header.has-marks:not(.has-banner) {
+  min-height: 112px;
+  padding-bottom: 38px;
 }
 .community-listing-header.has-banner {
   min-height: 168px;

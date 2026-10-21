@@ -200,6 +200,10 @@ function paintCommunityZone(host, row) {
   host.textContent = label;
 }
 
+function communityHasMarks(row) {
+  return !!(communityTypeLabel(row && row.server_type) || (row && row.explicit));
+}
+
 function communityApplyQuestions(row) {
   const form = row && row.application_form && typeof row.application_form === "object"
     ? row.application_form
@@ -364,6 +368,7 @@ function openCommunityListing(row) {
   paintCommunityZone(document.getElementById("community-listing-zone"), row);
   if (about) about.textContent = row.about || "";
   applyCommunityBanner(header, row);
+  if (header) header.classList.toggle("has-marks", communityHasMarks(row));
   paintCommunityTags(document.getElementById("community-listing-tags"), row.tags);
   paintCommunityVotes(document.getElementById("community-listing-votes"), row);
   fillCommunityJoinButton(join, row);
@@ -429,6 +434,7 @@ function paintCommunityCard(row) {
   const head = document.createElement("div");
   head.className = "community-card-head";
   applyCommunityBanner(head, row);
+  head.classList.toggle("has-marks", communityHasMarks(row));
   const face = document.createElement("div");
   face.className = "community-card-face";
   const icon = document.createElement("div");

@@ -107,30 +107,29 @@ function canvasStillFor(entry) {
       canvas.getContext("2d").drawImage(probe, 0, 0);
       entry.canvasUrl = canvas.toDataURL("image/webp");
       if (entry.showing === "still") entry.img.src = entry.canvasUrl;
-    } catch (e) {
-      if (entry.showing === "still") entry.img.src = entry.live;
-    }
+    } catch (e) {}
     entry.canvasBusy = false;
   };
   probe.onerror = () => {
     entry.canvasBusy = false;
-    if (entry.showing === "still") entry.img.src = entry.live;
   };
   probe.src = entry.live;
 }
 
 function showAttentionStill(entry) {
-  if (entry.showing === "still" && entry.img.src) return;
+  if (entry.showing === "still" && entry.img.getAttribute("src")) return;
   entry.showing = "still";
   if (entry.still && !entry.stillFailed) {
     entry.img.onerror = () => {
       entry.img.onerror = null;
       entry.stillFailed = true;
+      entry.img.src = entry.live;
       canvasStillFor(entry);
     };
     entry.img.src = entry.still;
     return;
   }
+  entry.img.src = entry.live;
   canvasStillFor(entry);
 }
 
@@ -218,10 +217,6 @@ function bindAttentionGif(img, opts) {
     onLeave: null
   };
   entry.update = () => {
-    if (!entry.img.isConnected) {
-      teardownAttention(entry);
-      return;
-    }
     if (attentionWantsLive(entry)) showAttentionLive(entry);
     else showAttentionStill(entry);
   };

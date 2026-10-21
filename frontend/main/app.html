@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=401">
+<link rel="stylesheet" href="app.css?v=402">
 </head>
 <body>
 
@@ -1213,13 +1213,12 @@
 
       <div id="server-settings-discovery" class="server-settings-page server-privacy-page" hidden>
         <h2 class="server-settings-page-title">Discovery</h2>
-        <p class="server-settings-help">List this server on Communities. Type, tags, timezone, and explicit appear on your listing card.</p>
+        <p class="server-settings-help">Enable to list your server within the communities page for others to find.</p>
 
         <div class="server-settings-field">
           <div class="server-privacy-discover-row">
             <div class="server-privacy-discover-copy">
               <div class="server-settings-field-title">Discoverable</div>
-              <p class="server-settings-help">List this server in Communities.</p>
             </div>
             <label id="server-privacy-discover-switch" class="toggle-switch">
               <input type="checkbox" id="server-privacy-discoverable">
@@ -1245,12 +1244,9 @@
         </div>
 
         <div class="server-settings-field">
-          <div class="server-settings-field-title">Public listing</div>
-          <p class="server-settings-help">People outside this server can see the name, the description, the type, the tags, and the timezone.</p>
-
           <div class="server-settings-option">
             <label class="server-settings-option-name" for="server-settings-type">Server type</label>
-            <p class="server-settings-help">The category for this server on Communities. It is not a tag.</p>
+            <p class="server-settings-help">Choose a server type that best fits what you want your server to be.</p>
             <select id="server-settings-type" class="settings-select server-settings-select">
               <option value="">Select…</option>
               <option value="community">Community</option>
@@ -1270,10 +1266,10 @@
 
           <div class="server-settings-option">
             <div class="server-settings-option-name">Tags</div>
-            <p class="server-settings-help">Up to 5 tags you write. They describe what this server is about.</p>
+            <p class="server-settings-help">Use up to 5 words to describe what your server is about.</p>
             <div id="server-settings-tag-picks" class="server-listing-tag-picks"></div>
             <div class="server-listing-tag-add">
-              <input id="server-settings-tag-input" class="server-settings-input" type="text" maxlength="24" placeholder="Add a tag" autocomplete="off" spellcheck="false">
+              <input id="server-settings-tag-input" class="server-settings-input" type="text" maxlength="15" placeholder="Add a tag" autocomplete="off" spellcheck="false">
               <button type="button" class="ghost-btn" id="server-settings-tag-add">Add</button>
             </div>
             <p id="server-settings-tags-status" class="server-settings-help" hidden></p>
@@ -1281,7 +1277,7 @@
 
           <div class="server-settings-option">
             <label class="server-settings-option-name" for="server-settings-timezone">Timezone</label>
-            <p class="server-settings-help">Shown on your Communities card so people can see your region.</p>
+            <p class="server-settings-help">Enables a clock within the overview page for users within the server, and allows users within the community page to search for this server by this timezone.</p>
             <select id="server-settings-timezone" class="settings-select server-settings-select">
               <option value="">Select…</option>
             </select>
@@ -1293,7 +1289,7 @@
           <div class="server-privacy-discover-row">
             <div class="server-privacy-discover-copy">
               <div class="server-settings-field-title">Explicit</div>
-              <p class="server-settings-help">People looking for a server can see this mark next to your type.</p>
+              <p class="server-settings-help">Labels your server as containing <button type="button" class="settings-inline-link" id="server-privacy-graphic-link">graphic material</button>.</p>
             </div>
             <label id="server-privacy-explicit-switch" class="toggle-switch">
               <input type="checkbox" id="server-privacy-explicit">
@@ -2011,6 +2007,22 @@
     </div>
   </div>
 
+  <div id="graphic-material-overlay" hidden>
+    <div id="graphic-material-modal" class="leave-party-modal" role="dialog" aria-modal="true" aria-labelledby="graphic-material-title">
+      <div class="leave-party-header">
+        <span id="graphic-material-title" class="leave-party-title">Graphic material</span>
+        <button type="button" class="icon-btn" id="graphic-material-close" title="Close">&times;</button>
+      </div>
+      <div class="leave-party-main">
+        <p class="leave-party-body">Graphic material is content most people do not want to see. That includes talking about or showing images or videos of sexual or suggestive content, violence, and other disturbing material.</p>
+      </div>
+      <div class="leave-party-footer">
+        <button type="button" class="ghost-btn" id="graphic-material-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="graphic-material-confirm">Okay</button>
+      </div>
+    </div>
+  </div>
+
   <div id="edit-application-overlay" hidden>
     <div id="edit-application-modal" class="leave-party-modal edit-application-modal" role="dialog" aria-modal="true" aria-labelledby="edit-application-title">
       <div class="leave-party-header">
@@ -2530,8 +2542,8 @@
 <script src="communities.js?v=14"></script>
 <script src="feed.js?v=21"></script>
 <script src="settings.js?v=22"></script>
-<script src="server-settings.js?v=48"></script>
-<script src="server-listing.js?v=2"></script>
+<script src="server-settings.js?v=49"></script>
+<script src="server-listing.js?v=3"></script>
 <script src="server-roles.js?v=38"></script>
 <script src="server-moderation.js?v=6"></script>
 <script src="server-members.js?v=8"></script>
@@ -2572,7 +2584,7 @@
 <script src="invites.js?v=51"></script>
 <script src="server-invites.js?v=6"></script>
 <script src="server-bans.js?v=3"></script>
-<script src="server-privacy.js?v=5"></script>
+<script src="server-privacy.js?v=6"></script>
 <script src="server-emojis.js?v=3"></script>
 <script src="server-integrations.js?v=1"></script>
 <script src="server-audit.js?v=10"></script>

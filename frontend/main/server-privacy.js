@@ -298,6 +298,16 @@ function paintEditApplication() {
   if (add) add.hidden = applicationFormDraft.length >= APPLICATION_QUESTION_MAX;
 }
 
+function closeGraphicMaterial() {
+  const overlay = document.getElementById("graphic-material-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+function openGraphicMaterial() {
+  const overlay = document.getElementById("graphic-material-overlay");
+  if (overlay) overlay.hidden = false;
+}
+
 function closeEditApplication() {
   const overlay = document.getElementById("edit-application-overlay");
   if (overlay) overlay.hidden = true;
@@ -397,6 +407,18 @@ async function saveEditApplication() {
       saveServerPrivacy(saved.discoverable, saved.applications_enabled, explicitToggle.checked);
     });
   }
+  const graphicLink = document.getElementById("server-privacy-graphic-link");
+  if (graphicLink) graphicLink.addEventListener("click", openGraphicMaterial);
+  ["graphic-material-close", "graphic-material-cancel", "graphic-material-confirm"].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener("click", closeGraphicMaterial);
+  });
+  const graphicOverlay = document.getElementById("graphic-material-overlay");
+  if (graphicOverlay) {
+    graphicOverlay.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "graphic-material-overlay") closeGraphicMaterial();
+    });
+  }
   const editBtn = document.getElementById("server-privacy-edit-application");
   if (editBtn) editBtn.addEventListener("click", openEditApplication);
   const add = document.getElementById("edit-application-add");
@@ -416,6 +438,12 @@ async function saveEditApplication() {
   if (save) save.addEventListener("click", saveEditApplication);
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    const graphic = document.getElementById("graphic-material-overlay");
+    if (graphic && !graphic.hidden) {
+      closeGraphicMaterial();
+      e.stopPropagation();
+      return;
+    }
     const overlay = document.getElementById("edit-application-overlay");
     if (!overlay || overlay.hidden) return;
     closeEditApplication();

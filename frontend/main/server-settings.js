@@ -1226,6 +1226,7 @@ function openServerSettings() {
 
 function closeServerSettingsChrome() {
   isServerSettingsOpen = false;
+  if (typeof closeGraphicMaterial === "function") closeGraphicMaterial();
   if (typeof closeEditApplication === "function") closeEditApplication();
   const overlay = document.getElementById("server-settings-overlay");
   if (overlay) overlay.hidden = true;
@@ -1386,6 +1387,8 @@ document.getElementById("server-settings-notify").addEventListener("click", (e) 
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
+  const graphic = document.getElementById("graphic-material-overlay");
+  if (graphic && !graphic.hidden) return;
   const application = document.getElementById("edit-application-overlay");
   if (application && !application.hidden) return;
   const palette = document.getElementById("gradient-palette-overlay");

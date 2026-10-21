@@ -64,7 +64,7 @@ SERVER_TYPES = {
     "other": "Other",
 }
 SERVER_TAG_MAX = 5
-SERVER_TAG_LEN = 24
+SERVER_TAG_LEN = 15
 SERVER_TAG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0," + str(SERVER_TAG_LEN - 2) + r"}[a-z0-9])?$")
 
 

@@ -1,4 +1,5 @@
 const SERVER_LISTING_TAG_MAX = 5;
+const SERVER_LISTING_TAG_LEN = 15;
 
 function savedServerListingTags() {
   if (currentServerData && currentServerId && Array.isArray(currentServerData.tags)) {
@@ -11,8 +12,8 @@ function savedServerListingTags() {
 function cleanServerListingTag(value) {
   let text = String(value || "").trim().toLowerCase().replace(/^#+/, "");
   text = text.replace(/[^a-z0-9-]+/g, "").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "");
-  if (!text || text.length > 24) return "";
-  if (!/^[a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?$/.test(text)) return "";
+  if (!text || text.length > SERVER_LISTING_TAG_LEN) return "";
+  if (!new RegExp("^[a-z0-9](?:[a-z0-9-]{0," + String(SERVER_LISTING_TAG_LEN - 2) + "}[a-z0-9])?$").test(text)) return "";
   return text;
 }
 

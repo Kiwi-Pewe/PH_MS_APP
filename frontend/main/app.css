@@ -7785,6 +7785,10 @@ a.profile-link-row:hover { color: var(--accent); }
   color: var(--text-dim);
   margin: 0 0 10px;
 }
+.server-settings-help .settings-inline-link {
+  font-size: inherit;
+  font-weight: 600;
+}
 .server-settings-input {
   display: block;
   width: 100%;
@@ -10047,6 +10051,7 @@ body.is-mini-dragging {
 .server-privacy-discover-copy .server-settings-help { margin: 0; }
 .server-privacy-application-actions { margin-top: 12px; }
 #server-privacy-status { margin-top: 12px; }
+#graphic-material-overlay,
 #edit-application-overlay {
   position: fixed;
   inset: 0;
@@ -10056,6 +10061,7 @@ body.is-mini-dragging {
   justify-content: center;
   background: rgba(0, 0, 0, 0.6);
 }
+#graphic-material-overlay[hidden] { display: none; }
 #edit-application-overlay[hidden] { display: none; }
 .edit-application-modal {
   width: 560px;

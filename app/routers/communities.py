@@ -12,7 +12,8 @@ from app.routers.deletion import write_audit_log
 from app.routers.moderation import active_ban
 from app.routers.realtime import presence_status, serialize_member, server_broadcast
 from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user
-from app.routers.servers import server_banner_fields, server_icon_url, server_listing_tags, server_url_slug
+from app.routers.feed import notify_feed_alert
+from app.routers.servers import parse_application_form, server_banner_fields, server_icon_url, server_listing_tags, server_url_slug
 
 router = APIRouter()
 
@@ -26,6 +27,11 @@ class Community_join_in(BaseModel):
 class Community_vote_in(BaseModel):
     server_id: str
     vote: int = 0
+
+
+class Community_apply_in(BaseModel):
+    server_id: str
+    answers: list[dict] = []
 
 
 def listed_server(server):
@@ -100,6 +106,8 @@ def community_row(server, online, joined, votes=None):
         "joined": bool(joined),
         "tags": server_listing_tags(server),
         "applications_enabled": bool(getattr(server, "applications_enabled", False)),
+        "explicit": bool(getattr(server, "explicit", False)),
+        "application_form": parse_application_form(getattr(server, "application_form", None)),
         **pack,
         **server_banner_fields(server),
     }
@@ -222,6 +230,75 @@ async def join_community(
         exclude_user_id=current_user.id,
     )
     return {"ok": True, "id": server.id, "joined": True}
+
+
+def validate_application_answers(form, answers, username):
+    packed = {}
+    if isinstance(answers, list):
+        for item in answers:
+            if not isinstance(item, dict):
+                continue
+            qid = str(item.get("id") or "").strip()
+            if not qid:
+                continue
+            if "values" in item:
+                values = item.get("values") if isinstance(item.get("values"), list) else []
+                packed[qid] = [str(value or "").strip() for value in values if str(value or "").strip()]
+            else:
+                packed[qid] = str(item.get("value") or "").strip()
+    for question in form.get("questions") or []:
+        qid = str(question.get("id") or "")
+        kind = str(question.get("type") or "")
+        got = packed.get(qid)
+        if kind == "multi":
+            options = question.get("options") or []
+            picked = got if isinstance(got, list) else ([got] if got else [])
+            if any(item not in options for item in picked):
+                raise HTTPException(status_code=400, detail="Pick valid options.")
+        elif kind == "choice":
+            value = got[0] if isinstance(got, list) and got else got
+            if not value or value not in (question.get("options") or []):
+                raise HTTPException(status_code=400, detail="Pick one option.")
+        elif kind == "text":
+            value = got[0] if isinstance(got, list) and got else got
+            if not str(value or "").strip():
+                raise HTTPException(status_code=400, detail="Answer every written question.")
+        elif kind == "signature":
+            value = got[0] if isinstance(got, list) and got else got
+            if str(value or "").strip().lower() != str(username or "").strip().lower():
+                raise HTTPException(status_code=400, detail="Type your username to submit.")
+
+
+@router.post("/apply_community")
+async def apply_community(
+    body: Community_apply_in,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    server = database.query(Servers).filter(Servers.id == body.server_id).first()
+    if not listed_server(server) or active_ban(database, body.server_id, current_user.id):
+        raise HTTPException(status_code=404, detail="Server not found")
+    if not bool(getattr(server, "applications_enabled", False)):
+        raise HTTPException(status_code=400, detail="This server is not taking applications.")
+    is_member = database.query(Server_members).filter(
+        Server_members.server_id == server.id,
+        Server_members.user_id == current_user.id,
+    ).first()
+    if is_member:
+        return {"ok": True, "id": server.id, "joined": True}
+    form = parse_application_form(getattr(server, "application_form", None))
+    validate_application_answers(form, body.answers, current_user.username)
+    await notify_feed_alert(
+        database,
+        receiver_id=current_user.id,
+        alert_type="application_submitted",
+        sender_id=None,
+        alert_family="activity",
+        server_id=server.id,
+        reason=server.name or "Server",
+        force=True,
+    )
+    return {"ok": True, "id": server.id, "applied": True}
 
 
 @router.post("/community_vote")

@@ -23,6 +23,7 @@ const FEED_TYPE_LABELS = {
   timeout: "Timed out",
   feedback_status: "Feedback update",
   report_status: "Report update",
+  application_submitted: "Application submitted",
 };
 
 const FEED_MOD_VERBS = {
@@ -135,6 +136,10 @@ function feedAlertBody(alert) {
     if (reason) text += " for: " + reason;
     if (duration) text += " for " + duration;
     return text + ".";
+  }
+  if (kind === "application_submitted") {
+    const server = String((alert && (alert.subject_name || alert.reason)) || "").trim() || "the server";
+    return "Your application was successfully submitted to " + server + ".";
   }
   if (kind === "friend_accept") {
     return feedSenderLabel(alert) + " accepted your friend request.";

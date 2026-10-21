@@ -6,6 +6,7 @@ let communityQuery = "";
 let communityFetchGen = 0;
 let communitySearchTimer = 0;
 let communityJoinBusy = false;
+let communityApplyRow = null;
 
 const COMMUNITY_TYPE_PILLS = [
   ["community", "Community"],
@@ -65,6 +66,7 @@ function closeCommunityListing() {
 }
 
 function closeCommunitiesChrome() {
+  closeCommunityApply();
   closeCommunityListing();
   isCommunitiesOpen = false;
 }
@@ -150,18 +152,165 @@ function paintCommunityVotes(host, row) {
 
 function fillCommunityJoinButton(btn, row) {
   if (!btn || !row) return;
+  btn.disabled = false;
   if (row.joined) {
-    btn.disabled = false;
     btn.textContent = "Open";
     return;
   }
-  if (row.applications_enabled) {
-    btn.disabled = true;
-    btn.textContent = "Apply";
+  btn.textContent = row.applications_enabled ? "Apply" : "Join";
+}
+
+function paintCommunityExplicit(host, row) {
+  if (!host) return;
+  const on = !!(row && row.explicit);
+  host.hidden = !on;
+  host.textContent = on ? "EXPLICIT" : "";
+}
+
+function communityApplyQuestions(row) {
+  const form = row && row.application_form && typeof row.application_form === "object"
+    ? row.application_form
+    : {};
+  return Array.isArray(form.questions) ? form.questions : [];
+}
+
+function setCommunityApplyStatus(text) {
+  const status = document.getElementById("community-apply-status");
+  if (!status) return;
+  status.hidden = !text;
+  status.textContent = text || "";
+}
+
+function closeCommunityApply() {
+  const overlay = document.getElementById("community-apply-overlay");
+  if (overlay) overlay.hidden = true;
+  communityApplyRow = null;
+  setCommunityApplyStatus("");
+}
+
+function paintCommunityApply(row) {
+  const host = document.getElementById("community-apply-questions");
+  const title = document.getElementById("community-apply-title");
+  if (title) title.textContent = row && row.name ? ("Apply to " + row.name) : "Apply";
+  if (!host) return;
+  host.replaceChildren();
+  const questions = communityApplyQuestions(row);
+  if (!questions.length) {
+    const empty = document.createElement("p");
+    empty.className = "server-settings-help";
+    empty.textContent = "Submit an application to join this server.";
+    host.appendChild(empty);
     return;
   }
-  btn.disabled = false;
-  btn.textContent = "Join";
+  questions.forEach((question) => {
+    const card = document.createElement("div");
+    card.className = "community-apply-question";
+    card.setAttribute("data-question-id", question.id || "");
+    card.setAttribute("data-question-type", question.type || "");
+    const prompt = document.createElement("div");
+    prompt.className = "community-apply-prompt";
+    prompt.textContent = question.prompt || "";
+    card.appendChild(prompt);
+    if (question.type === "multi" || question.type === "choice") {
+      const options = document.createElement("div");
+      options.className = "community-apply-options";
+      (question.options || []).forEach((option) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "community-tag" + (question.type === "choice" ? " community-apply-choice" : "");
+        btn.setAttribute("data-apply-option", option);
+        btn.textContent = option;
+        btn.addEventListener("click", () => {
+          if (question.type === "choice") {
+            options.querySelectorAll("[data-apply-option]").forEach((item) => item.classList.toggle("is-on", item === btn));
+          } else {
+            btn.classList.toggle("is-on");
+          }
+        });
+        options.appendChild(btn);
+      });
+      card.appendChild(options);
+    } else if (question.type === "signature") {
+      const input = document.createElement("input");
+      input.className = "server-settings-input";
+      input.type = "text";
+      input.setAttribute("data-apply-value", "");
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.placeholder = typeof myUsername === "string" ? myUsername : "Username";
+      card.appendChild(input);
+    } else {
+      const area = document.createElement("textarea");
+      area.className = "server-settings-input server-settings-textarea";
+      area.rows = 5;
+      area.setAttribute("data-apply-value", "");
+      area.placeholder = "Write your answer";
+      card.appendChild(area);
+    }
+    host.appendChild(card);
+  });
+}
+
+function openCommunityApply(row) {
+  if (!row || !row.id) return;
+  communityApplyRow = row;
+  setCommunityApplyStatus("");
+  paintCommunityApply(row);
+  const overlay = document.getElementById("community-apply-overlay");
+  if (overlay) overlay.hidden = false;
+}
+
+function collectCommunityApplyAnswers() {
+  const host = document.getElementById("community-apply-questions");
+  const answers = [];
+  if (!host) return answers;
+  host.querySelectorAll(".community-apply-question").forEach((card) => {
+    const id = card.getAttribute("data-question-id") || "";
+    const type = card.getAttribute("data-question-type") || "";
+    if (type === "multi") {
+      const values = [];
+      card.querySelectorAll("[data-apply-option].is-on").forEach((btn) => {
+        values.push(btn.getAttribute("data-apply-option") || "");
+      });
+      answers.push({ id: id, values: values });
+    } else if (type === "choice") {
+      const on = card.querySelector("[data-apply-option].is-on");
+      answers.push({ id: id, value: on ? (on.getAttribute("data-apply-option") || "") : "" });
+    } else {
+      const field = card.querySelector("[data-apply-value]");
+      answers.push({ id: id, value: field ? String(field.value || "") : "" });
+    }
+  });
+  return answers;
+}
+
+async function submitCommunityApply() {
+  const row = communityApplyRow;
+  if (!row || !row.id || communityJoinBusy) return;
+  communityJoinBusy = true;
+  setCommunityApplyStatus("");
+  try {
+    const response = await fetch(`https://${serverAddress}/apply_community`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ server_id: row.id, answers: collectCommunityApplyAnswers() })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not submit the application.");
+    if (data.joined) {
+      row.joined = true;
+      closeCommunityApply();
+      await enterCommunityServer(row);
+      return;
+    }
+    closeCommunityApply();
+    closeCommunityListing();
+  } catch (e) {
+    setCommunityApplyStatus(e.message || "Could not submit the application.");
+  } finally {
+    communityJoinBusy = false;
+  }
 }
 
 function openCommunityListing(row) {
@@ -177,6 +326,7 @@ function openCommunityListing(row) {
   if (title) title.textContent = row.name;
   if (online) online.textContent = String(row.online || 0) + " online";
   paintCommunityFace(icon, row);
+  paintCommunityExplicit(document.getElementById("community-listing-explicit"), row);
   if (about) about.textContent = row.about || "";
   applyCommunityBanner(header, row);
   paintCommunityTags(document.getElementById("community-listing-tags"), row.tags);
@@ -218,7 +368,10 @@ async function joinCommunityServer(row) {
     await enterCommunityServer(row);
     return;
   }
-  if (row.applications_enabled) return;
+  if (row.applications_enabled) {
+    openCommunityApply(row);
+    return;
+  }
   communityJoinBusy = true;
   try {
     const response = await fetch(`https://${serverAddress}/join_community`, {
@@ -243,9 +396,18 @@ function paintCommunityCard(row) {
   applyCommunityBanner(head, row);
   const face = document.createElement("div");
   face.className = "community-card-face";
+  const pic = document.createElement("div");
+  pic.className = "community-card-pic";
   const icon = document.createElement("div");
   icon.className = "avatar-dot";
   paintCommunityFace(icon, row);
+  pic.appendChild(icon);
+  if (row.explicit) {
+    const mark = document.createElement("span");
+    mark.className = "community-explicit";
+    mark.textContent = "EXPLICIT";
+    pic.appendChild(mark);
+  }
   const names = document.createElement("div");
   names.className = "community-card-names";
   const name = document.createElement("div");
@@ -256,7 +418,7 @@ function paintCommunityCard(row) {
   online.textContent = String(row.online || 0) + " online";
   names.appendChild(name);
   names.appendChild(online);
-  face.appendChild(icon);
+  face.appendChild(pic);
   face.appendChild(names);
   const tools = document.createElement("div");
   tools.className = "community-card-tools";
@@ -433,6 +595,12 @@ document.getElementById("community-listing-comment-input").addEventListener("key
 document.getElementById("community-listing-overlay").addEventListener("click", (e) => {
   if (e.target && e.target.id === "community-listing-overlay") closeCommunityListing();
 });
+document.getElementById("community-apply-close").addEventListener("click", () => closeCommunityApply());
+document.getElementById("community-apply-cancel").addEventListener("click", () => closeCommunityApply());
+document.getElementById("community-apply-submit").addEventListener("click", () => submitCommunityApply());
+document.getElementById("community-apply-overlay").addEventListener("click", (e) => {
+  if (e.target && e.target.id === "community-apply-overlay") closeCommunityApply();
+});
 function paintCommunityFilterTypes() {
   const host = document.getElementById("community-filter-types");
   if (!host) return;
@@ -463,6 +631,11 @@ document.getElementById("community-search").addEventListener("input", () => {
 });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
+  const apply = document.getElementById("community-apply-overlay");
+  if (apply && !apply.hidden) {
+    closeCommunityApply();
+    return;
+  }
   const overlay = document.getElementById("community-listing-overlay");
   if (overlay && !overlay.hidden) closeCommunityListing();
 });

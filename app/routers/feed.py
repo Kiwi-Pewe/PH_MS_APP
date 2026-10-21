@@ -31,6 +31,7 @@ ALERT_TYPE_LABELS = {
     "timeout": "Timed out",
     "feedback_status": "Feedback update",
     "report_status": "Report update",
+    "application_submitted": "Application submitted",
 }
 
 FAMILY_FOR_TYPE = {
@@ -51,6 +52,7 @@ FAMILY_FOR_TYPE = {
     "timeout": "moderation",
     "feedback_status": "feedback",
     "report_status": "feedback",
+    "application_submitted": "activity",
 }
 
 FEED_PREF_TYPES = (
@@ -253,13 +255,16 @@ def serialize_feed_alert(row, sender=None, server=None):
         "subject_name": None,
         "subject_icon_url": None,
     }
+    if kind == "application_submitted":
+        face_kind = "server"
+        payload["face_kind"] = "server"
     if face_kind == "server":
         if server:
             payload["subject_name"] = server.name or "Server"
             payload["subject_icon_url"] = server_icon_url(server) or ""
             payload["server_id"] = server.id
         else:
-            payload["subject_name"] = "Unknown server"
+            payload["subject_name"] = payload.get("reason") or "Unknown server"
             payload["subject_icon_url"] = ""
     else:
         payload["subject_name"] = payload["sender_display_name"] or payload["sender_username"] or "Someone"

@@ -11843,6 +11843,27 @@ button.voice-more-row:disabled,
   gap: 10px;
   min-width: 0;
 }
+.community-card-pic,
+.community-listing-pic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.community-explicit {
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #b91c1c;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
 .community-card-head .avatar-dot {
   width: 40px;
   height: 40px;
@@ -11969,6 +11990,11 @@ button.voice-more-row:disabled,
   align-items: center;
   white-space: nowrap;
 }
+.community-tag.is-on {
+  color: var(--text);
+  border-color: var(--text);
+  background: var(--panel);
+}
 .community-tag.is-later,
 .community-tag:disabled {
   opacity: 0.45;
@@ -12085,6 +12111,38 @@ button.voice-more-row:disabled,
   align-items: center;
   gap: 12px;
   min-width: 0;
+}
+#community-apply-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 960;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+#community-apply-overlay[hidden] { display: none; }
+.community-apply-modal { width: 520px; }
+.community-apply-modal .leave-party-main {
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+}
+.community-apply-question { margin-bottom: 16px; }
+.community-apply-prompt {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.community-apply-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.community-apply-choice {
+  width: 100%;
+  justify-content: flex-start;
 }
 .community-listing-head-face .avatar-dot {
   width: 44px;

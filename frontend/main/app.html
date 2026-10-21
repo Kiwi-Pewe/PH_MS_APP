@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=395">
+<link rel="stylesheet" href="app.css?v=396">
 </head>
 <body>
 
@@ -1876,7 +1876,10 @@
     <div class="community-listing-modal" role="dialog" aria-modal="true" aria-labelledby="community-listing-title">
       <div class="community-listing-header" id="community-listing-header">
         <div class="community-listing-head-face">
-          <div class="avatar-dot" id="community-listing-icon"></div>
+          <div class="community-listing-pic">
+            <div class="avatar-dot" id="community-listing-icon"></div>
+            <span id="community-listing-explicit" class="community-explicit" hidden>EXPLICIT</span>
+          </div>
           <div class="community-listing-head-copy">
             <span id="community-listing-title" class="community-listing-title"></span>
             <span id="community-listing-online" class="community-listing-online"></span>
@@ -1910,6 +1913,23 @@
       <div class="community-listing-footer">
         <button type="button" class="ghost-btn" id="community-listing-cancel">Cancel</button>
         <button type="button" class="pill-btn" id="community-listing-join">Join</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="community-apply-overlay" hidden>
+    <div id="community-apply-modal" class="leave-party-modal community-apply-modal" role="dialog" aria-modal="true" aria-labelledby="community-apply-title">
+      <div class="leave-party-header">
+        <span id="community-apply-title" class="leave-party-title">Apply</span>
+        <button type="button" class="icon-btn" id="community-apply-close" title="Close">&times;</button>
+      </div>
+      <div class="leave-party-main">
+        <div id="community-apply-questions" class="community-apply-questions"></div>
+        <p id="community-apply-status" class="server-settings-help" hidden></p>
+      </div>
+      <div class="leave-party-footer">
+        <button type="button" class="ghost-btn" id="community-apply-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="community-apply-submit">Submit</button>
       </div>
     </div>
   </div>
@@ -2472,8 +2492,8 @@
     </div>
 <script src="boot.js?v=146"></script>
 <script src="app-shell.js?v=74"></script>
-<script src="communities.js?v=9"></script>
-<script src="feed.js?v=20"></script>
+<script src="communities.js?v=10"></script>
+<script src="feed.js?v=21"></script>
 <script src="settings.js?v=22"></script>
 <script src="server-settings.js?v=47"></script>
 <script src="server-listing.js?v=1"></script>

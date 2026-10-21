@@ -184,6 +184,18 @@
   transition: border-radius 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 .rail-icon:hover, .rail-icon.active { border-radius: 16px; background: var(--accent); color: #fff; }
+.rail-icon.server-icon.active,
+.rail-icon.server-icon.active:hover {
+  border-radius: 50%;
+  background: var(--panel-alt);
+  color: var(--text);
+  box-shadow: 0 0 0 2px var(--rail), 0 0 0 5px var(--accent);
+}
+.rail-icon.server-icon.has-icon.active,
+.rail-icon.server-icon.has-icon.active:hover {
+  background: transparent;
+  color: transparent;
+}
 .rail-divider { width: 32px; height: 1px; background: var(--border); margin: 2px 0; }
 
 /* Holds the server icons between the Home divider and the pinned

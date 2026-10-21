@@ -230,7 +230,7 @@ function paintServerSettingsAccess() {
   const membersBtn = document.querySelector('#server-settings-nav [data-tab="members"]');
   const invitesBtn = document.querySelector('#server-settings-nav [data-tab="invites"]');
   const bansBtn = document.querySelector('#server-settings-nav [data-tab="bans"]');
-  const privacyBtn = document.querySelector('#server-settings-nav [data-tab="privacy"]');
+  const privacyBtn = document.querySelector('#server-settings-nav [data-tab="discovery"]');
   const emojisBtn = document.querySelector('#server-settings-nav [data-tab="emojis"]');
   const integrationsBtn = document.querySelector('#server-settings-nav [data-tab="integrations"]');
   const auditBtn = document.querySelector('#server-settings-nav [data-tab="audit"]');
@@ -296,7 +296,7 @@ function paintServerSettingsAccess() {
   const members = document.getElementById("server-settings-members");
   const invites = document.getElementById("server-settings-invites");
   const bans = document.getElementById("server-settings-bans");
-  const privacy = document.getElementById("server-settings-privacy");
+  const privacy = document.getElementById("server-settings-discovery");
   const emojis = document.getElementById("server-settings-emojis");
   const integrations = document.getElementById("server-settings-integrations");
   const audit = document.getElementById("server-settings-audit");
@@ -1175,20 +1175,7 @@ async function saveServerSettingsType(kind) {
 }
 
 function paintServerPublicListing() {
-  const saved = typeof savedServerPrivacy === "function"
-    ? savedServerPrivacy()
-    : {
-      privacy_mode: (currentServerData && currentServerData.privacy_mode) || "private",
-      discoverable: !!(currentServerData && currentServerData.discoverable)
-    };
-  const privateMode = saved.privacy_mode === "private";
-  const toggle = document.getElementById("server-settings-discoverable");
-  const wrap = document.getElementById("server-settings-discover-switch");
-  if (toggle) {
-    toggle.checked = !privateMode && !!saved.discoverable;
-    toggle.disabled = !canUpdateServer();
-  }
-  if (wrap) wrap.classList.toggle("is-disabled", !canUpdateServer());
+  if (typeof paintServerPrivacyPage === "function") paintServerPrivacyPage();
 }
 
 function openServerSettings() {
@@ -1227,6 +1214,7 @@ function openServerSettings() {
 
 function closeServerSettingsChrome() {
   isServerSettingsOpen = false;
+  if (typeof closeEditApplication === "function") closeEditApplication();
   const overlay = document.getElementById("server-settings-overlay");
   if (overlay) overlay.hidden = true;
   const input = document.getElementById("server-settings-avatar-file");
@@ -1377,16 +1365,6 @@ document.getElementById("server-settings-timezone").addEventListener("change", (
   saveServerSettingsTimezone(e.target.value);
 });
 
-document.getElementById("server-settings-discoverable").addEventListener("change", (e) => {
-  if (!canUpdateServer() || typeof saveServerPrivacy !== "function") {
-    paintServerPublicListing();
-    return;
-  }
-  const saved = typeof savedServerPrivacy === "function" ? savedServerPrivacy() : { privacy_mode: "private", explicit: false };
-  const mode = e.target.checked && saved.privacy_mode === "private" ? "default" : saved.privacy_mode;
-  saveServerPrivacy(mode, e.target.checked, saved.explicit);
-});
-
 document.getElementById("server-settings-notify").addEventListener("click", (e) => {
   const row = e.target.closest("[data-notify]");
   if (!row || !document.getElementById("server-settings-notify").contains(row)) return;
@@ -1396,6 +1374,8 @@ document.getElementById("server-settings-notify").addEventListener("click", (e) 
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
+  const application = document.getElementById("edit-application-overlay");
+  if (application && !application.hidden) return;
   const palette = document.getElementById("gradient-palette-overlay");
   if (palette && !palette.hidden) return;
   if (!isServerSettingsOpen) return;

@@ -150,8 +150,18 @@ function paintCommunityVotes(host, row) {
 
 function fillCommunityJoinButton(btn, row) {
   if (!btn || !row) return;
+  if (row.joined) {
+    btn.disabled = false;
+    btn.textContent = "Open";
+    return;
+  }
+  if (row.applications_enabled) {
+    btn.disabled = true;
+    btn.textContent = "Apply";
+    return;
+  }
   btn.disabled = false;
-  btn.textContent = row.joined ? "Open" : "Join";
+  btn.textContent = "Join";
 }
 
 function openCommunityListing(row) {
@@ -208,6 +218,7 @@ async function joinCommunityServer(row) {
     await enterCommunityServer(row);
     return;
   }
+  if (row.applications_enabled) return;
   communityJoinBusy = true;
   try {
     const response = await fetch(`https://${serverAddress}/join_community`, {

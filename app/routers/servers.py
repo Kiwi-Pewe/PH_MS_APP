@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Server_channel_role_perms, Server_category_role_perms, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_tags_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_tags_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_application_form_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
@@ -97,6 +97,104 @@ def parse_server_tags(raw):
 
 def store_server_tags(tags):
     return json.dumps(parse_server_tags(tags))
+
+
+APPLICATION_QUESTION_TYPES = ("multi", "choice", "text", "signature")
+APPLICATION_QUESTION_MAX = 5
+APPLICATION_PROMPT_MAX = 200
+APPLICATION_OPTION_MAX = 8
+APPLICATION_OPTION_LEN = 80
+APPLICATION_ID_CHARS = "234679acdefghjkmnpqrtuvwxyz"
+
+
+def new_application_question_id():
+    return "".join(random.choices(APPLICATION_ID_CHARS, k=8))
+
+
+def empty_application_form(version=1):
+    return {"version": max(1, int(version or 1)), "questions": []}
+
+
+def clean_application_option(value):
+    text = " ".join(str(value or "").split())
+    if not text or len(text) > APPLICATION_OPTION_LEN:
+        return ""
+    return text
+
+
+def parse_application_questions(raw):
+    if isinstance(raw, dict):
+        values = raw.get("questions")
+    else:
+        values = raw
+    if not isinstance(values, list):
+        return []
+    questions = []
+    seen = set()
+    for item in values:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("type") or "").strip().lower()
+        if kind not in APPLICATION_QUESTION_TYPES:
+            continue
+        prompt = " ".join(str(item.get("prompt") or "").split())
+        if not prompt or len(prompt) > APPLICATION_PROMPT_MAX:
+            continue
+        qid = re.sub(r"[^a-z0-9]", "", str(item.get("id") or "").lower())[:12]
+        if not qid or qid in seen:
+            qid = new_application_question_id()
+        seen.add(qid)
+        question = {"id": qid, "type": kind, "prompt": prompt}
+        if kind in ("multi", "choice"):
+            options = []
+            for option in item.get("options") or []:
+                clean = clean_application_option(option)
+                if clean and clean not in options:
+                    options.append(clean)
+                if len(options) >= APPLICATION_OPTION_MAX:
+                    break
+            if len(options) < 2:
+                continue
+            question["options"] = options
+        questions.append(question)
+        if len(questions) >= APPLICATION_QUESTION_MAX:
+            break
+    return questions
+
+
+def parse_application_form(raw, version=None):
+    parsed = None
+    if isinstance(raw, dict):
+        parsed = raw
+    else:
+        text = (raw or "").strip() if isinstance(raw, str) else ""
+        if text:
+            try:
+                loaded = json.loads(text)
+                parsed = loaded if isinstance(loaded, dict) else None
+            except (TypeError, ValueError):
+                parsed = None
+    current = 1
+    if parsed and isinstance(parsed.get("version"), int):
+        current = max(1, parsed.get("version"))
+    if version is not None:
+        try:
+            current = max(1, int(version))
+        except (TypeError, ValueError):
+            pass
+    return {"version": current, "questions": parse_application_questions(parsed if parsed is not None else raw)}
+
+
+def store_application_form(form):
+    return json.dumps(parse_application_form(form))
+
+
+def derive_privacy_mode(discoverable, applications_enabled):
+    if not discoverable:
+        return "private"
+    if applications_enabled:
+        return "default"
+    return "open"
 
 
 def server_listing_tags(server):
@@ -262,12 +360,16 @@ def clean_server_privacy_mode(value):
 
 
 def server_privacy_fields(server):
-    mode = clean_server_privacy_mode(getattr(server, "privacy_mode", None) if server else None) or SERVER_PRIVACY_DEFAULT
     discoverable = bool(getattr(server, "discoverable", False)) if server else False
-    if mode == "private":
-        discoverable = False
+    applications_enabled = bool(getattr(server, "applications_enabled", False)) if server else False
     explicit = bool(getattr(server, "explicit", False)) if server else False
-    return {"privacy_mode": mode, "discoverable": discoverable, "explicit": explicit}
+    return {
+        "privacy_mode": derive_privacy_mode(discoverable, applications_enabled),
+        "discoverable": discoverable,
+        "explicit": explicit,
+        "applications_enabled": applications_enabled,
+        "application_form": parse_application_form(getattr(server, "application_form", None) if server else None),
+    }
 
 
 router = APIRouter()
@@ -311,7 +413,10 @@ def create_server(server_name: Server_create, database: Session = Depends(get_db
     new_server = Servers(
         id = test_id,
         name = name,
-        owner_id = current_user.id
+        owner_id = current_user.id,
+        privacy_mode = "private",
+        discoverable = False,
+        applications_enabled = False,
     )
     database.add(new_server)
 
@@ -890,22 +995,27 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
     server = require_server_member(database, body.server_id, current_user.id)
     require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
 
-    mode = clean_server_privacy_mode(body.privacy_mode)
-    if mode is None:
-        raise HTTPException(status_code=400, detail="Pick Private, Default, or Open entry.")
-    discoverable = bool(body.discoverable) and mode != "private"
+    discoverable = bool(body.discoverable)
+    applications_enabled = bool(body.applications_enabled)
     explicit = bool(body.explicit)
+    mode = derive_privacy_mode(discoverable, applications_enabled)
     previous = server_privacy_fields(server)
     server.privacy_mode = mode
     server.discoverable = discoverable
+    server.applications_enabled = applications_enabled
     server.explicit = explicit
-    if previous.get("privacy_mode") != mode or bool(previous.get("discoverable")) != discoverable:
+    if (
+        previous.get("privacy_mode") != mode
+        or bool(previous.get("discoverable")) != discoverable
+        or bool(previous.get("applications_enabled")) != applications_enabled
+    ):
         write_audit_log(database, server.id, current_user.id, "update_privacy", "server", 0, {
-            "name": "Privacy",
-            "field": "Privacy",
+            "name": "Discovery",
+            "field": "Discovery",
             "from": previous.get("privacy_mode") or "",
             "to": mode,
             "discoverable": discoverable,
+            "applications": applications_enabled,
         })
     if bool(previous.get("explicit")) != explicit:
         write_audit_log(database, server.id, current_user.id, "update_privacy", "server", 0, {
@@ -913,6 +1023,53 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
             "field": "Explicit",
             "from": "Yes" if previous.get("explicit") else "No",
             "to": "Yes" if explicit else "No",
+        })
+    database.commit()
+    fields = server_privacy_fields(server)
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_privacy_updated", "server_id": server.id, **fields},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, **fields}
+
+
+@router.post("/update_server_application")
+async def update_server_application(body: Server_application_form_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
+    previous = parse_application_form(getattr(server, "application_form", None))
+    next_form = parse_application_form({"questions": body.questions}, version=previous.get("version"))
+    if next_form.get("questions") != previous.get("questions"):
+        next_form["version"] = int(previous.get("version") or 1) + 1
+    if len(body.questions or []) > APPLICATION_QUESTION_MAX:
+        raise HTTPException(status_code=400, detail="You can use up to 5 questions.")
+    raw_types = [str((item or {}).get("type") or "") for item in (body.questions or []) if isinstance(item, dict)]
+    if any(kind and kind.lower() not in APPLICATION_QUESTION_TYPES for kind in raw_types):
+        raise HTTPException(status_code=400, detail="Pick a valid question type.")
+    for item in body.questions or []:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("type") or "").strip().lower()
+        prompt = " ".join(str(item.get("prompt") or "").split())
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Each question needs a prompt.")
+        if kind in ("multi", "choice"):
+            options = []
+            for option in item.get("options") or []:
+                clean = clean_application_option(option)
+                if clean and clean not in options:
+                    options.append(clean)
+            if len(options) < 2:
+                raise HTTPException(status_code=400, detail="Choice questions need at least two options.")
+    server.application_form = store_application_form(next_form)
+    if previous.get("questions") != next_form.get("questions"):
+        write_audit_log(database, server.id, current_user.id, "update_privacy", "server", 0, {
+            "name": "Application",
+            "field": "Application",
+            "from": str(previous.get("version") or 1),
+            "to": str(next_form.get("version") or 1),
         })
     database.commit()
     fields = server_privacy_fields(server)

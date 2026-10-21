@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=394">
+<link rel="stylesheet" href="app.css?v=395">
 </head>
 <body>
 
@@ -982,7 +982,7 @@
         <button type="button" class="server-settings-nav-item" data-tab="members">Members</button>
         <button type="button" class="server-settings-nav-item" data-tab="invites">Invites</button>
         <button type="button" class="server-settings-nav-item" data-tab="bans">Bans</button>
-        <button type="button" class="server-settings-nav-item" data-tab="privacy">Privacy</button>
+        <button type="button" class="server-settings-nav-item" data-tab="discovery">Discovery</button>
         <button type="button" class="server-settings-nav-item" data-tab="emojis">Emojis</button>
         <button type="button" class="server-settings-nav-item" data-tab="integrations">Integrations</button>
         <button type="button" class="server-settings-nav-item" data-tab="audit">Audit Log</button>
@@ -1063,60 +1063,6 @@
             <button type="button" id="server-settings-url-cancel" class="ghost-btn">Cancel</button>
           </div>
           <p id="server-settings-url-status" class="server-settings-help" hidden></p>
-        </div>
-
-        <div class="server-settings-field">
-          <div class="server-settings-field-title">Public listing</div>
-          <p class="server-settings-help">People outside this server can see the name, the description, the type, and the tags.</p>
-
-          <div class="server-settings-option">
-            <label class="server-settings-option-name" for="server-settings-type">Server type</label>
-            <p class="server-settings-help">This type also appears as a tag on the Communities listing.</p>
-            <select id="server-settings-type" class="settings-select server-settings-select">
-              <option value="">Select…</option>
-              <option value="community">Community</option>
-              <option value="team">Team</option>
-              <option value="organization">Organization</option>
-              <option value="clan">Clan</option>
-              <option value="guild">Guild</option>
-              <option value="friends">Friends</option>
-              <option value="streaming">Streaming</option>
-              <option value="other">Other</option>
-            </select>
-            <p id="server-settings-type-status" class="server-settings-help" hidden></p>
-          </div>
-
-          <div class="server-settings-option">
-            <div class="server-settings-option-name">Tags</div>
-            <p class="server-settings-help">Up to 5 extra tags. Use a preset or type your own.</p>
-            <div id="server-settings-tag-picks" class="server-listing-tag-picks"></div>
-            <div id="server-settings-tag-presets" class="server-listing-tag-presets"></div>
-            <div class="server-listing-tag-add">
-              <input id="server-settings-tag-input" class="server-settings-input" type="text" maxlength="24" placeholder="Add a tag" autocomplete="off" spellcheck="false">
-              <button type="button" class="ghost-btn" id="server-settings-tag-add">Add</button>
-            </div>
-            <p id="server-settings-tags-status" class="server-settings-help" hidden></p>
-          </div>
-
-          <div class="server-settings-option">
-            <label class="server-settings-option-name" for="server-settings-timezone">Timezone</label>
-            <p class="server-settings-help">People can browse servers in this area.</p>
-            <select id="server-settings-timezone" class="settings-select server-settings-select">
-              <option value="">Select…</option>
-            </select>
-            <p id="server-settings-timezone-status" class="server-settings-help" hidden></p>
-          </div>
-
-          <div class="server-privacy-discover-row">
-            <div class="server-privacy-discover-copy">
-              <div class="server-settings-option-name">Discoverable</div>
-              <p class="server-settings-help">List this server in Communities. Turning this on from Private switches the server to Default.</p>
-            </div>
-            <label id="server-settings-discover-switch" class="toggle-switch">
-              <input type="checkbox" id="server-settings-discoverable">
-              <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            </label>
-          </div>
         </div>
 
         <div class="server-settings-field">
@@ -1234,43 +1180,15 @@
         <p id="server-bans-status" class="server-settings-help" hidden></p>
       </div>
 
-      <div id="server-settings-privacy" class="server-settings-page server-privacy-page" hidden>
-        <h2 class="server-settings-page-title">Privacy</h2>
-        <p class="server-settings-help">Control who can find this server and how people join. Join and listing still follow invites until Communities and Applications ship.</p>
-
-        <div class="server-settings-field">
-          <div class="server-settings-field-title" id="server-privacy-mode-label">Who can join</div>
-          <p class="server-settings-help">Pick how new members get into this server.</p>
-          <div id="server-privacy-mode" class="settings-radio-list server-privacy-mode-list" role="radiogroup" aria-labelledby="server-privacy-mode-label">
-            <button type="button" class="settings-radio server-privacy-option is-on" data-privacy="private">
-              <span class="settings-radio-dot"></span>
-              <span class="server-privacy-option-copy">
-                <span class="server-privacy-option-title">Private</span>
-                <span class="server-privacy-option-desc">Invite only. Not listed in Communities or search.</span>
-              </span>
-            </button>
-            <button type="button" class="settings-radio server-privacy-option" data-privacy="default">
-              <span class="settings-radio-dot"></span>
-              <span class="server-privacy-option-copy">
-                <span class="server-privacy-option-title">Default</span>
-                <span class="server-privacy-option-desc">Invite or application. Applications come later; invites still work today.</span>
-              </span>
-            </button>
-            <button type="button" class="settings-radio server-privacy-option" data-privacy="open">
-              <span class="settings-radio-dot"></span>
-              <span class="server-privacy-option-copy">
-                <span class="server-privacy-option-title">Open entry</span>
-                <span class="server-privacy-option-desc">Anyone can join without an invite. Open Join ships with Communities.</span>
-              </span>
-            </button>
-          </div>
-        </div>
+      <div id="server-settings-discovery" class="server-settings-page server-privacy-page" hidden>
+        <h2 class="server-settings-page-title">Discovery</h2>
+        <p class="server-settings-help">List this server on Communities and choose how people join from there.</p>
 
         <div class="server-settings-field">
           <div class="server-privacy-discover-row">
             <div class="server-privacy-discover-copy">
               <div class="server-settings-field-title">Discoverable</div>
-              <p class="server-settings-help">List this server in Communities. Turning this on from Private switches the server to Default.</p>
+              <p class="server-settings-help">List this server in Communities.</p>
             </div>
             <label id="server-privacy-discover-switch" class="toggle-switch">
               <input type="checkbox" id="server-privacy-discoverable">
@@ -1278,6 +1196,66 @@
             </label>
           </div>
         </div>
+
+        <div id="server-privacy-applications-block" class="server-settings-field" hidden>
+          <div class="server-privacy-discover-row">
+            <div class="server-privacy-discover-copy">
+              <div class="server-settings-field-title">Enable Applications</div>
+              <p class="server-settings-help">People must apply before they can join from Communities.</p>
+            </div>
+            <label id="server-privacy-applications-switch" class="toggle-switch">
+              <input type="checkbox" id="server-privacy-applications">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <div class="server-privacy-application-actions">
+            <button type="button" id="server-privacy-edit-application" class="settings-row-btn">Edit Application</button>
+          </div>
+        </div>
+
+        <div class="server-settings-field">
+          <div class="server-settings-field-title">Public listing</div>
+          <p class="server-settings-help">People outside this server can see the name, the description, the type, and the tags.</p>
+
+          <div class="server-settings-option">
+            <label class="server-settings-option-name" for="server-settings-type">Server type</label>
+            <p class="server-settings-help">This type also appears as a tag on the Communities listing.</p>
+            <select id="server-settings-type" class="settings-select server-settings-select">
+              <option value="">Select…</option>
+              <option value="community">Community</option>
+              <option value="team">Team</option>
+              <option value="organization">Organization</option>
+              <option value="clan">Clan</option>
+              <option value="guild">Guild</option>
+              <option value="friends">Friends</option>
+              <option value="streaming">Streaming</option>
+              <option value="other">Other</option>
+            </select>
+            <p id="server-settings-type-status" class="server-settings-help" hidden></p>
+          </div>
+
+          <div class="server-settings-option">
+            <div class="server-settings-option-name">Tags</div>
+            <p class="server-settings-help">Up to 5 extra tags. Use a preset or type your own.</p>
+            <div id="server-settings-tag-picks" class="server-listing-tag-picks"></div>
+            <div id="server-settings-tag-presets" class="server-listing-tag-presets"></div>
+            <div class="server-listing-tag-add">
+              <input id="server-settings-tag-input" class="server-settings-input" type="text" maxlength="24" placeholder="Add a tag" autocomplete="off" spellcheck="false">
+              <button type="button" class="ghost-btn" id="server-settings-tag-add">Add</button>
+            </div>
+            <p id="server-settings-tags-status" class="server-settings-help" hidden></p>
+          </div>
+
+          <div class="server-settings-option">
+            <label class="server-settings-option-name" for="server-settings-timezone">Timezone</label>
+            <p class="server-settings-help">People can browse servers in this area.</p>
+            <select id="server-settings-timezone" class="settings-select server-settings-select">
+              <option value="">Select…</option>
+            </select>
+            <p id="server-settings-timezone-status" class="server-settings-help" hidden></p>
+          </div>
+        </div>
+
         <div class="server-settings-field">
           <div class="server-privacy-discover-row">
             <div class="server-privacy-discover-copy">
@@ -1978,6 +1956,25 @@
     </div>
   </div>
 
+  <div id="edit-application-overlay" hidden>
+    <div id="edit-application-modal" class="leave-party-modal edit-application-modal" role="dialog" aria-modal="true" aria-labelledby="edit-application-title">
+      <div class="leave-party-header">
+        <span id="edit-application-title" class="leave-party-title">Edit Application</span>
+        <button type="button" class="icon-btn" id="edit-application-close" title="Close">&times;</button>
+      </div>
+      <div class="leave-party-main">
+        <p class="server-settings-help">Add up to 5 questions. Changes apply to new applications only.</p>
+        <div id="edit-application-questions" class="edit-application-questions"></div>
+        <button type="button" id="edit-application-add" class="ghost-btn">Add question</button>
+        <p id="edit-application-status" class="server-settings-help" hidden></p>
+      </div>
+      <div class="leave-party-footer">
+        <button type="button" class="ghost-btn" id="edit-application-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="edit-application-save">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div id="member-prune-overlay" style="display:none;">
     <div id="member-prune-modal" role="dialog" aria-modal="true" aria-labelledby="member-prune-title">
       <div class="view-header">
@@ -2473,14 +2470,14 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=145"></script>
+<script src="boot.js?v=146"></script>
 <script src="app-shell.js?v=74"></script>
-<script src="communities.js?v=8"></script>
+<script src="communities.js?v=9"></script>
 <script src="feed.js?v=20"></script>
 <script src="settings.js?v=22"></script>
-<script src="server-settings.js?v=46"></script>
+<script src="server-settings.js?v=47"></script>
 <script src="server-listing.js?v=1"></script>
-<script src="server-roles.js?v=37"></script>
+<script src="server-roles.js?v=38"></script>
 <script src="server-moderation.js?v=6"></script>
 <script src="server-members.js?v=8"></script>
 <script src="settings-account.js?v=8"></script>
@@ -2520,7 +2517,7 @@
 <script src="invites.js?v=51"></script>
 <script src="server-invites.js?v=6"></script>
 <script src="server-bans.js?v=3"></script>
-<script src="server-privacy.js?v=4"></script>
+<script src="server-privacy.js?v=5"></script>
 <script src="server-emojis.js?v=3"></script>
 <script src="server-integrations.js?v=1"></script>
 <script src="server-audit.js?v=10"></script>

@@ -460,7 +460,9 @@ function connectSocket() {
         applyServerPrivacy(data.server_id, {
           privacy_mode: data.privacy_mode || "private",
           discoverable: !!data.discoverable,
-          explicit: !!data.explicit
+          explicit: !!data.explicit,
+          applications_enabled: !!data.applications_enabled,
+          application_form: data.application_form
         });
       }
       if (typeof isServerSettingsOpen !== "undefined" && isServerSettingsOpen

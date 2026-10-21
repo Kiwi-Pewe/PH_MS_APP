@@ -1516,7 +1516,7 @@ async function showServerSettingsTab(tab) {
   if (tab === "bans" && typeof canOpenServerBans === "function" && !canOpenServerBans()) {
     tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
   }
-  if (tab === "privacy" && typeof canOpenServerPrivacy === "function" && !canOpenServerPrivacy()) {
+  if (tab === "discovery" && typeof canOpenServerPrivacy === "function" && !canOpenServerPrivacy()) {
     tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
   }
   if (tab === "emojis" && typeof canOpenServerEmojis === "function" && !canOpenServerEmojis()) {
@@ -1533,7 +1533,7 @@ async function showServerSettingsTab(tab) {
   const members = document.getElementById("server-settings-members");
   const invites = document.getElementById("server-settings-invites");
   const bans = document.getElementById("server-settings-bans");
-  const privacy = document.getElementById("server-settings-privacy");
+  const privacy = document.getElementById("server-settings-discovery");
   const emojis = document.getElementById("server-settings-emojis");
   const integrations = document.getElementById("server-settings-integrations");
   const audit = document.getElementById("server-settings-audit");
@@ -1542,7 +1542,7 @@ async function showServerSettingsTab(tab) {
   if (members) members.hidden = tab !== "members";
   if (invites) invites.hidden = tab !== "invites";
   if (bans) bans.hidden = tab !== "bans";
-  if (privacy) privacy.hidden = tab !== "privacy";
+  if (privacy) privacy.hidden = tab !== "discovery";
   if (emojis) emojis.hidden = tab !== "emojis";
   if (integrations) integrations.hidden = tab !== "integrations";
   if (audit) audit.hidden = tab !== "audit";
@@ -1566,7 +1566,7 @@ async function showServerSettingsTab(tab) {
     await loadServerBansPage();
     return;
   }
-  if (tab === "privacy" && typeof loadServerPrivacyPage === "function") {
+  if (tab === "discovery" && typeof loadServerPrivacyPage === "function") {
     await loadServerPrivacyPage();
     return;
   }

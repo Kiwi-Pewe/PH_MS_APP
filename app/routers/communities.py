@@ -12,7 +12,7 @@ from app.routers.deletion import write_audit_log
 from app.routers.moderation import active_ban
 from app.routers.realtime import presence_status, serialize_member, server_broadcast
 from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user
-from app.routers.servers import server_banner_fields, server_icon_url, server_listing_tags, server_privacy_fields, server_url_slug
+from app.routers.servers import server_banner_fields, server_icon_url, server_listing_tags, server_url_slug
 
 router = APIRouter()
 
@@ -29,17 +29,11 @@ class Community_vote_in(BaseModel):
 
 
 def listed_server(server):
-    if not server:
-        return False
-    fields = server_privacy_fields(server)
-    return bool(fields.get("discoverable")) and fields.get("privacy_mode") != "private"
+    return bool(server and getattr(server, "discoverable", False))
 
 
 def listed_servers_query(database):
-    return database.query(Servers).filter(
-        Servers.discoverable == True,
-        Servers.privacy_mode.in_(("default", "open")),
-    )
+    return database.query(Servers).filter(Servers.discoverable == True)
 
 
 def first_server_channel(database, server_id):
@@ -105,6 +99,7 @@ def community_row(server, online, joined, votes=None):
         "online": int(online or 0),
         "joined": bool(joined),
         "tags": server_listing_tags(server),
+        "applications_enabled": bool(getattr(server, "applications_enabled", False)),
         **pack,
         **server_banner_fields(server),
     }
@@ -180,6 +175,8 @@ async def join_community(
     server = database.query(Servers).filter(Servers.id == body.server_id).first()
     if not listed_server(server) or active_ban(database, body.server_id, current_user.id):
         raise HTTPException(status_code=404, detail="Server not found")
+    if bool(getattr(server, "applications_enabled", False)):
+        raise HTTPException(status_code=400, detail="This server requires an application.")
     is_member = database.query(Server_members).filter(
         Server_members.server_id == server.id,
         Server_members.user_id == current_user.id,

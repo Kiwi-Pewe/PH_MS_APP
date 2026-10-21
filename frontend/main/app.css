@@ -7928,7 +7928,7 @@ a.profile-link-row:hover { color: var(--accent); }
 #server-settings-members[hidden],
 #server-settings-invites[hidden],
 #server-settings-bans[hidden],
-#server-settings-privacy[hidden],
+#server-settings-discovery[hidden],
 .server-roles-page[hidden],
 .server-members-page[hidden],
 .server-invites-page[hidden],
@@ -10045,7 +10045,63 @@ body.is-mini-dragging {
 .server-privacy-discover-copy .server-settings-field-title,
 .server-privacy-discover-copy .server-settings-option-name { margin-bottom: 4px; }
 .server-privacy-discover-copy .server-settings-help { margin: 0; }
+.server-privacy-application-actions { margin-top: 12px; }
 #server-privacy-status { margin-top: 12px; }
+#edit-application-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 960;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+#edit-application-overlay[hidden] { display: none; }
+.edit-application-modal {
+  width: 560px;
+}
+.edit-application-modal .leave-party-main {
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+}
+.edit-application-questions { margin: 12px 0; }
+.edit-application-question {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.edit-application-question-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.edit-application-question-top .settings-select { flex: 1 1 auto; min-width: 0; }
+.edit-application-remove {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.edit-application-prompt {
+  width: 100%;
+  margin-top: 10px;
+}
+.edit-application-options { margin-top: 10px; }
+.edit-application-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.edit-application-option-row .server-settings-input { flex: 1 1 auto; min-width: 0; }
+.edit-application-option-mark {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 1px solid var(--text-dim);
+  box-sizing: border-box;
+}
+.edit-application-option-mark.is-choice { border-radius: 50%; }
+.edit-application-help { margin-top: 8px; }
 
 /* ---- Server Settings Emojis (Guilded-like) ---- */
 .server-emojis-page {

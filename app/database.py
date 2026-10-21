@@ -333,6 +333,16 @@ def ensure_server_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN applications_enabled BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN application_form VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_channel_columns():

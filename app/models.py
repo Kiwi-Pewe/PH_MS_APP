@@ -167,6 +167,8 @@ class Servers(Base):
     discoverable = Column(Boolean, default=False)
     explicit = Column(Boolean, default=False)
     tags = Column(String)
+    applications_enabled = Column(Boolean, default=False)
+    application_form = Column(String)
 
 class Server_votes(Base):
     __tablename__ = "server_votes"

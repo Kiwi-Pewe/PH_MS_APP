@@ -293,9 +293,14 @@ class Server_notifications_update(BaseModel):
 
 class Server_privacy_update(BaseModel):
     server_id: str
-    privacy_mode: str = "private"
+    privacy_mode: str | None = None
     discoverable: bool = False
     explicit: bool = False
+    applications_enabled: bool = False
+
+class Server_application_form_update(BaseModel):
+    server_id: str
+    questions: list[dict] = []
 
 class Server_notify_prefs_update(BaseModel):
     server_id: str

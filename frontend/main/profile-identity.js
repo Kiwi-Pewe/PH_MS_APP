@@ -21,6 +21,7 @@ function emptyIdentityMedia() {
     mime: "",
     size: 0,
     name: "",
+    still_url: "",
     crop: defaultIdentityCrop(),
     show_border: false,
     border_width: 3,
@@ -53,6 +54,7 @@ function cloneIdentityMedia(media) {
   out.mime = src.mime || "";
   out.size = src.size || 0;
   out.name = src.name || "";
+  out.still_url = src.still_url || "";
   out.crop = normalizeIdentityCrop(src.crop);
   out.show_border = !!src.show_border;
   out.border_width = src.border_width || 3;
@@ -130,7 +132,8 @@ function pushIdentityRecent(layout, kind, media) {
     url: media.url || "",
     mime: media.mime || "",
     size: media.size || 0,
-    name: media.name || ""
+    name: media.name || "",
+    still_url: media.still_url || ""
   };
   const kept = [next].concat((host.image_recents[slot] || []).filter((row) => row && row.key && row.key !== next.key));
   host.image_recents[slot] = kept.slice(0, IDENTITY_RECENT_MAX);
@@ -203,7 +206,7 @@ function paintIdentityMedia(host, media, opts) {
   const img = document.createElement("img");
   img.alt = "";
   img.draggable = false;
-  img.src = identitySrc(media);
+  const live = identitySrc(media);
   let tries = 0;
   function layout() {
     const fw = host.clientWidth;
@@ -217,6 +220,15 @@ function paintIdentityMedia(host, media, opts) {
     applyIdentityCropToImg(img, media.crop, fw, fh);
   }
   img.addEventListener("load", layout);
+  if (opts.attention && typeof bindAttentionGif === "function" && typeof isGifMedia === "function" && isGifMedia(media)) {
+    bindAttentionGif(img, {
+      live,
+      still: media.still_url || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(live) : ""),
+      kind: opts.attention
+    });
+  } else {
+    img.src = live;
+  }
   layer.appendChild(img);
   host.appendChild(layer);
   if (opts.border !== false) applyIdentityBorder(host, media);
@@ -366,6 +378,7 @@ async function flushIdentityUploads(layout) {
     media.mime = att.mime;
     media.size = att.size;
     media.name = att.name || media.name || "";
+    media.still_url = att.still_url || "";
     if (media._previewUrl) URL.revokeObjectURL(media._previewUrl);
     delete media._file;
     delete media._previewUrl;
@@ -382,6 +395,7 @@ function applyIdentityDraft(kind, draft) {
     delete draft._ownedPreview;
     delete draft.key;
     delete draft.url;
+    delete draft.still_url;
     delete draft.mime;
     delete draft.size;
     delete draft.name;

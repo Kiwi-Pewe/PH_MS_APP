@@ -105,8 +105,17 @@ function paintRailServerIcon(icon, server) {
     icon.classList.add("has-icon");
     const img = document.createElement("img");
     img.className = "server-icon-img";
-    img.src = url;
     img.alt = "";
+    if (typeof bindAttentionGif === "function" && typeof isGifSrc === "function" && isGifSrc(url)) {
+      bindAttentionGif(img, {
+        live: url,
+        still: (typeof iconStillOf === "function" ? iconStillOf(server) : "") || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(url) : ""),
+        kind: "hover",
+        host: icon
+      });
+    } else {
+      img.src = url;
+    }
     icon.insertBefore(img, icon.firstChild);
   } else {
     icon.classList.remove("has-icon");
@@ -115,14 +124,25 @@ function paintRailServerIcon(icon, server) {
   }
 }
 
-function applyServerIcon(serverId, iconUrl) {
+function applyServerIcon(serverId, iconUrl, stillUrl) {
+  const nextStill = stillUrl || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(iconUrl) : "");
   const meta = serverList.find(s => s.id === serverId);
-  if (meta) meta.icon_url = iconUrl || "";
+  if (meta) {
+    meta.icon_url = iconUrl || "";
+    meta.icon_still_url = nextStill;
+  }
   if (currentServerData && currentServerId === serverId) {
     currentServerData.icon_url = iconUrl || "";
+    currentServerData.icon_still_url = nextStill;
   }
   const icon = document.querySelector(`.rail-icon.server-icon[data-server-id="${serverId}"]`);
-  if (icon) paintRailServerIcon(icon, { name: (meta && meta.name) || icon.title, icon_url: iconUrl || "" });
+  if (icon) {
+    paintRailServerIcon(icon, {
+      name: (meta && meta.name) || icon.title,
+      icon_url: iconUrl || "",
+      icon_still_url: nextStill
+    });
+  }
   if (typeof paintServerSettingsAvatar === "function") paintServerSettingsAvatar();
 }
 
@@ -132,8 +152,13 @@ function paintServerSidebarBanner(server) {
   if (!view || !strip) return;
   const url = (server && server.banner_url) || "";
   const color = (server && server.banner_color) || "";
-  strip.style.backgroundImage = url ? "url(" + JSON.stringify(url) + ")" : "";
-  strip.style.backgroundColor = (!url && color) ? color : "";
+  const still = (typeof bannerStillOf === "function" ? bannerStillOf(server) : "") || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(url) : "");
+  if (typeof paintGifBannerStrip === "function") {
+    paintGifBannerStrip(strip, url, color, still);
+  } else {
+    strip.style.backgroundImage = url ? "url(" + JSON.stringify(url) + ")" : "";
+    strip.style.backgroundColor = (!url && color) ? color : "";
+  }
   view.classList.toggle("has-banner", !!(url || color));
 }
 
@@ -144,7 +169,11 @@ function applyServerName(serverId, name) {
   const icon = document.querySelector(`.rail-icon.server-icon[data-server-id="${serverId}"]`);
   if (icon) {
     icon.title = next;
-    paintRailServerIcon(icon, { name: next, icon_url: (meta && meta.icon_url) || "" });
+    paintRailServerIcon(icon, {
+      name: next,
+      icon_url: (meta && meta.icon_url) || "",
+      icon_still_url: (meta && meta.icon_still_url) || ""
+    });
   }
   if (currentServerId === serverId) {
     const sidebar = document.getElementById("server-sidebar-name");
@@ -225,13 +254,16 @@ function applyServerUrl(serverId, slug) {
 function applyServerBanner(serverId, banner) {
   const url = (banner && banner.banner_url) || "";
   const color = (banner && banner.banner_color) || "";
+  const still = (banner && banner.banner_still_url) || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(url) : "");
   const meta = serverList.find(s => s.id === serverId);
   if (meta) {
     meta.banner_url = url;
+    meta.banner_still_url = still;
     meta.banner_color = color;
   }
   if (currentServerData && currentServerId === serverId) {
     currentServerData.banner_url = url;
+    currentServerData.banner_still_url = still;
     currentServerData.banner_color = color;
     paintServerSidebarBanner(currentServerData);
   }
@@ -245,6 +277,7 @@ function selectRailIcon(id, iconEl) {
     ? document.getElementById("home-icon")
     : document.querySelector(`.rail-icon.server-icon[data-server-id="${CSS.escape(String(id))}"]`));
   if (el) el.classList.add("active");
+  if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();
 }
 
 function findChannelInServer(data, channelId) {
@@ -285,13 +318,16 @@ function applyServerContents(serverId, data, opts) {
   currentServerData = data;
   const listed = (typeof serverList !== "undefined" ? serverList : []).find((row) => row && String(row.id) === String(serverId));
   if (listed && data.icon_url) listed.icon_url = data.icon_url;
+  if (listed && data.icon_still_url) listed.icon_still_url = data.icon_still_url;
   if (listed && !data.icon_url && listed.icon_url) currentServerData.icon_url = listed.icon_url;
+  if (listed && !data.icon_still_url && listed.icon_still_url) currentServerData.icon_still_url = listed.icon_still_url;
   if (listed && data.url_slug) listed.url_slug = data.url_slug;
   if (listed && !data.url_slug && listed.url_slug) currentServerData.url_slug = listed.url_slug;
   const nameEl = document.getElementById("server-sidebar-name");
   if (nameEl) nameEl.textContent = (listed && listed.name) || data.name || "";
   paintServerSidebarBanner({
     banner_url: data.banner_url || (listed && listed.banner_url) || "",
+    banner_still_url: data.banner_still_url || (listed && listed.banner_still_url) || "",
     banner_color: data.banner_color || (listed && listed.banner_color) || ""
   });
   if (data.categories && !opts.keepSidebar) renderServerSidebar(data);
@@ -403,6 +439,7 @@ async function openServer(serverId, iconEl, channelId, preload) {
   if (nameEl) nameEl.textContent = (listed && listed.name) || (cached && cached.name) || "";
   paintServerSidebarBanner({
     banner_url: (cached && cached.banner_url) || (listed && listed.banner_url) || "",
+    banner_still_url: (cached && cached.banner_still_url) || (listed && listed.banner_still_url) || "",
     banner_color: (cached && cached.banner_color) || (listed && listed.banner_color) || ""
   });
   if (cached && cached.categories) applyServerContents(serverId, cached);

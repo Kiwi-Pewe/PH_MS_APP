@@ -5,7 +5,7 @@ from app.models import UserInfo, Servers, Server_members, Server_notifications, 
 from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_tags_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_application_form_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
 from app.database import get_db
 from app.auth import get_current_user
-from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, store_attachment
+from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, still_url_for, store_attachment
 from app.routers.deletion import write_audit_log
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.pins import clear_pins
@@ -385,9 +385,19 @@ def server_icon_url(server):
     return public_url_for(key) if key else ""
 
 
+def server_icon_still_url(server):
+    key = getattr(server, "icon_key", None) if server else None
+    return still_url_for(key) if key else ""
+
+
 def server_banner_url(server):
     key = getattr(server, "banner_key", None) if server else None
     return public_url_for(key) if key else ""
+
+
+def server_banner_still_url(server):
+    key = getattr(server, "banner_key", None) if server else None
+    return still_url_for(key) if key else ""
 
 
 def clean_banner_hex(value):
@@ -400,6 +410,7 @@ def clean_banner_hex(value):
 def server_banner_fields(server):
     return {
         "banner_url": server_banner_url(server),
+        "banner_still_url": server_banner_still_url(server),
         "banner_color": (getattr(server, "banner_color", None) or "") if server else "",
     }
 
@@ -517,6 +528,7 @@ def get_user_servers(database: Session = Depends(get_db), current_user: UserInfo
             "unread": unread,
             "mention_count": mention_count,
             "icon_url": server_icon_url(server_info),
+            "icon_still_url": server_icon_still_url(server_info),
             "url_slug": server_url_slug(server_info),
             "server_type": getattr(server_info, "server_type", None) or "",
             "tags": parse_server_tags(getattr(server_info, "tags", None)),
@@ -603,6 +615,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "categories": server_info,
         "owner": server.owner_id,
         "icon_url": server_icon_url(server),
+        "icon_still_url": server_icon_still_url(server),
         "about": getattr(server, "about", None) or "",
         "url_slug": server_url_slug(server),
         "server_type": getattr(server, "server_type", None) or "",
@@ -714,13 +727,14 @@ async def update_server_icon(body: Server_icon_update, database: Session = Depen
         delete_r2_object(old_key)
 
     icon_url = server_icon_url(server)
+    icon_still_url = server_icon_still_url(server)
     await server_broadcast(
         server_id=server.id,
-        payload={"type": "server_icon_updated", "server_id": server.id, "icon_url": icon_url},
+        payload={"type": "server_icon_updated", "server_id": server.id, "icon_url": icon_url, "icon_still_url": icon_still_url},
         database=database,
         exclude_user_id=current_user.id,
     )
-    return {"ok": True, "icon_url": icon_url}
+    return {"ok": True, "icon_url": icon_url, "icon_still_url": icon_still_url}
 
 
 @router.post("/update_server_banner")

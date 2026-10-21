@@ -13,6 +13,7 @@ from app.r2 import (
     presign_put,
     public_url_for,
     r2_is_configured,
+    still_key_for,
 )
 
 EMOJI_IMAGE_MIME = PROFILE_IMAGE_MIME
@@ -57,11 +58,18 @@ def upload_intent(body: UploadIntent, current_user: UserInfo = Depends(get_curre
         raise HTTPException(status_code=503, detail="File uploads are not configured.")
 
     key, kind = new_object_key(mime, purpose)
-    return {
-        "upload_url": presign_put(key, mime if mime != "image/jpg" else "image/jpeg"),
+    put_mime = mime if mime != "image/jpg" else "image/jpeg"
+    payload = {
+        "upload_url": presign_put(key, put_mime),
         "key": key,
         "public_url": public_url_for(key),
         "kind": kind,
-        "mime": mime if mime != "image/jpg" else "image/jpeg",
+        "mime": put_mime,
         "max_bytes": cap,
     }
+    still_key = still_key_for(key)
+    if still_key:
+        payload["still_key"] = still_key
+        payload["still_upload_url"] = presign_put(still_key, "image/webp")
+        payload["still_public_url"] = public_url_for(still_key)
+    return payload

@@ -3358,7 +3358,7 @@ function paintProfileTileContent(tile, el) {
     applyProfileTileBorder(el, tile);
     if (typeof paintIdentityMedia === "function") {
       const media = typeof identityMediaForPaint === "function" ? identityMediaForPaint("banner", tile) : null;
-      if (media) paintIdentityMedia(el, media);
+      if (media) paintIdentityMedia(el, media, { attention: "profile" });
     }
     return;
   }

@@ -372,7 +372,16 @@ function paintServerSettingsAvatar() {
       img.alt = "";
       face.appendChild(img);
     }
-    img.src = url;
+    if (typeof bindAttentionGif === "function" && typeof isGifSrc === "function" && isGifSrc(url)) {
+      bindAttentionGif(img, {
+        live: url,
+        still: (currentServerData && currentServerData.icon_still_url) || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(url) : ""),
+        kind: "hover",
+        host: face
+      });
+    } else {
+      img.src = url;
+    }
   } else {
     face.classList.remove("has-icon");
     if (img) img.remove();
@@ -407,7 +416,9 @@ async function uploadServerSettingsAvatar(file) {
       size: att.size,
       name: att.name
     });
-    if (typeof applyServerIcon === "function") applyServerIcon(currentServerId, saved.icon_url || att.url || "");
+    if (typeof applyServerIcon === "function") {
+      applyServerIcon(currentServerId, saved.icon_url || att.url || "", saved.icon_still_url || att.still_url || "");
+    }
     setServerSettingsAvatarStatus("");
   } catch (err) {
     setServerSettingsAvatarStatus(err.message || "Could not upload that image.");
@@ -423,6 +434,7 @@ function currentServerBanner() {
   const meta = serverList.find(s => s.id === currentServerId) || {};
   return {
     banner_url: (fromOpen && fromOpen.banner_url) || meta.banner_url || "",
+    banner_still_url: (fromOpen && fromOpen.banner_still_url) || meta.banner_still_url || "",
     banner_color: (fromOpen && fromOpen.banner_color) || meta.banner_color || ""
   };
 }
@@ -465,8 +477,13 @@ function paintServerSettingsBanner() {
   const current = currentServerBanner();
   const url = current.banner_url;
   const color = current.banner_color;
-  preview.style.backgroundImage = url ? "url(" + JSON.stringify(url) + ")" : "";
-  preview.style.backgroundColor = (!url && color) ? color : "";
+  const still = current.banner_still_url || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(url) : "");
+  if (typeof paintGifBannerStrip === "function") {
+    paintGifBannerStrip(preview, url, color, still);
+  } else {
+    preview.style.backgroundImage = url ? "url(" + JSON.stringify(url) + ")" : "";
+    preview.style.backgroundColor = (!url && color) ? color : "";
+  }
   preview.classList.toggle("has-image", !!url);
   preview.classList.toggle("has-color", !url && !!color);
   if (remove) remove.hidden = !(url || color);
@@ -490,6 +507,7 @@ function applySavedBanner(saved) {
   if (typeof applyServerBanner === "function") {
     applyServerBanner(currentServerId, {
       banner_url: saved.banner_url || "",
+      banner_still_url: saved.banner_still_url || "",
       banner_color: saved.banner_color || ""
     });
   } else {

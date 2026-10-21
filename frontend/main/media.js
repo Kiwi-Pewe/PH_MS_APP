@@ -234,6 +234,7 @@ async function uploadEditIfNeeded() {
       mime: att.mime,
       size: att.size,
       name: att.name || "",
+      still_url: att.still_url || "",
       explicit: !!att.explicit
     };
   }
@@ -264,16 +265,20 @@ async function uploadEditIfNeeded() {
   } catch (e) {
     throw new Error("R2 blocked the browser upload. Re-save the bucket CORS policy.");
   }
-  if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
-  return {
-    key: intent.key,
-    mime: intent.mime,
-    size: editAttach.file.size,
-    name: editAttach.file.name || "",
-    url: intent.public_url,
-    kind: intent.kind,
-    explicit: !!editAttach.explicit
-  };
+    if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
+    const stillUrl = typeof uploadGifStillIfNeeded === "function"
+      ? await uploadGifStillIfNeeded(intent, editAttach.file)
+      : "";
+    return {
+      key: intent.key,
+      mime: intent.mime,
+      size: editAttach.file.size,
+      name: editAttach.file.name || "",
+      url: intent.public_url,
+      still_url: stillUrl,
+      kind: intent.kind,
+      explicit: !!editAttach.explicit
+    };
 }
 
 function renderAttachPreviews() {
@@ -364,12 +369,16 @@ async function uploadPendingIfNeeded() {
       throw new Error("R2 blocked the browser upload. Re-save the bucket CORS policy.");
     }
     if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
+    const stillUrl = typeof uploadGifStillIfNeeded === "function"
+      ? await uploadGifStillIfNeeded(intent, pendingAttach.file)
+      : "";
     return {
       key: intent.key,
       mime: intent.mime,
       size: pendingAttach.file.size,
       name: pendingAttach.file.name || "",
       url: intent.public_url,
+      still_url: stillUrl,
       kind: intent.kind,
       explicit: !!pendingAttach.explicit
     };
@@ -440,8 +449,16 @@ function attachMediaIfNeeded(bubble, msg) {
     wrap.appendChild(wrapExplicitMedia(vid, att));
   } else {
     const img = document.createElement("img");
-    img.src = att.url;
     img.alt = att.name || "image";
+    if (typeof bindAttentionGif === "function" && typeof isGifMedia === "function" && isGifMedia(att)) {
+      bindAttentionGif(img, {
+        live: att.url,
+        still: att.still_url || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(att.url) : ""),
+        kind: "chat"
+      });
+    } else {
+      img.src = att.url;
+    }
     bindChatImageLightbox(img, att.url);
     wrap.appendChild(wrapExplicitMedia(img, att));
   }
@@ -548,12 +565,16 @@ async function uploadProfileImageFile(file) {
     throw new Error("R2 blocked the browser upload. Re-save the bucket CORS policy.");
   }
   if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
+  const stillUrl = typeof uploadGifStillIfNeeded === "function"
+    ? await uploadGifStillIfNeeded(intent, file)
+    : "";
   return {
     key: intent.key,
     mime: intent.mime,
     size: file.size,
     name: file.name || "",
     url: intent.public_url,
+    still_url: stillUrl,
     kind: intent.kind
   };
 }
@@ -591,12 +612,16 @@ async function uploadServerIconFile(file) {
     throw new Error("R2 blocked the browser upload. Re-save the bucket CORS policy.");
   }
   if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
+  const stillUrl = typeof uploadGifStillIfNeeded === "function"
+    ? await uploadGifStillIfNeeded(intent, file)
+    : "";
   return {
     key: intent.key,
     mime: intent.mime,
     size: file.size,
     name: file.name || "",
     url: intent.public_url,
+    still_url: stillUrl,
     kind: intent.kind
   };
 }

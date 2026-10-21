@@ -348,7 +348,7 @@ function paintMiniProfileInto(card, data, opts) {
   banner.style.background = data.banner_color || "#1e6b8a";
   const ident = data.identity || {};
   const bannerMedia = ident.banner || (editing && typeof getIdentityMedia === "function" ? getIdentityMedia("banner") : null);
-  if (typeof paintIdentityMedia === "function") paintIdentityMedia(banner, bannerMedia, { border: false });
+  if (typeof paintIdentityMedia === "function") paintIdentityMedia(banner, bannerMedia, { border: false, attention: "profile" });
   if (typeof applyIdentityBorder === "function") applyIdentityBorder(banner, bannerMedia);
   bindMiniProfileEditTarget(banner, "banner", editing);
   card.appendChild(banner);

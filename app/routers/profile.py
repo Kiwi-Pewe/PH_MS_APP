@@ -14,7 +14,7 @@ from app.auth import get_current_user
 from app.privacy import are_friends, can_see_full_profile
 from app.routers.account import parse_display_name_history
 from app.routers.realtime import notify_user
-from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for
+from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for, still_url_for, still_url_from_public
 
 router = APIRouter()
 
@@ -709,8 +709,10 @@ def normalize_identity_media(data):
 
 def slim_identity_media(media):
     row = media if isinstance(media, dict) else empty_identity_media()
+    url = row.get("url") or ""
     return {
-        "url": row.get("url") or "",
+        "url": url,
+        "still_url": still_url_from_public(url) or still_url_for(row.get("key") or ""),
         "mime": row.get("mime") or "",
         "crop": normalize_identity_crop(row),
         "show_border": bool(row.get("show_border")),

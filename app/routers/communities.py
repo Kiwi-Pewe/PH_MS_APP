@@ -13,7 +13,7 @@ from app.routers.moderation import active_ban
 from app.routers.realtime import presence_status, serialize_member, server_broadcast
 from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user
 from app.routers.feed import notify_feed_alert
-from app.routers.servers import clean_server_tag, parse_application_form, parse_server_tags, server_banner_fields, server_icon_url, server_listing_tags, server_url_slug
+from app.routers.servers import clean_server_tag, parse_application_form, parse_server_tags, server_banner_fields, server_icon_still_url, server_icon_url, server_listing_tags, server_url_slug
 
 router = APIRouter()
 
@@ -135,6 +135,7 @@ def community_row(server, online, joined, votes=None):
         "name": server.name or "",
         "about": getattr(server, "about", None) or "",
         "icon_url": server_icon_url(server),
+        "icon_still_url": server_icon_still_url(server),
         "url_slug": server_url_slug(server),
         "online": int(online or 0),
         "joined": bool(joined),

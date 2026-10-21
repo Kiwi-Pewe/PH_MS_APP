@@ -405,13 +405,14 @@ function connectSocket() {
     }
 
     if (data.type === "server_icon_updated") {
-      if (typeof applyServerIcon === "function") applyServerIcon(data.server_id, data.icon_url || "");
+      if (typeof applyServerIcon === "function") applyServerIcon(data.server_id, data.icon_url || "", data.icon_still_url || "");
     }
 
     if (data.type === "server_banner_updated") {
       if (typeof applyServerBanner === "function") {
         applyServerBanner(data.server_id, {
           banner_url: data.banner_url || "",
+          banner_still_url: data.banner_still_url || "",
           banner_color: data.banner_color || ""
         });
       }

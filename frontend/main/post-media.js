@@ -215,6 +215,7 @@ async function uploadPendingPostFile(file) {
     throw new Error("R2 blocked the browser upload. Re-save the bucket CORS policy.");
   }
   if (!putRes.ok) throw new Error("R2 rejected the file (HTTP " + putRes.status + ").");
+  if (typeof uploadGifStillIfNeeded === "function") await uploadGifStillIfNeeded(intent, file);
   return {
     key: intent.key,
     mime: intent.mime,
@@ -254,8 +255,16 @@ function appendPostMediaItem(host, data) {
     mediaEl = vid;
   } else {
     const img = document.createElement("img");
-    img.src = data.url;
     img.alt = data.name || "";
+    if (typeof bindAttentionGif === "function" && typeof isGifMedia === "function" && isGifMedia(data)) {
+      bindAttentionGif(img, {
+        live: data.url,
+        still: data.still_url || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(data.url) : ""),
+        kind: "chat"
+      });
+    } else {
+      img.src = data.url;
+    }
     if (typeof bindChatImageLightbox === "function") bindChatImageLightbox(img, data.url);
     mediaEl = img;
   }
@@ -288,8 +297,16 @@ function buildForumThumb(attachment) {
     mediaEl = vid;
   } else {
     const img = document.createElement("img");
-    img.src = data.url;
     img.alt = "";
+    if (typeof bindAttentionGif === "function" && typeof isGifMedia === "function" && isGifMedia(data)) {
+      bindAttentionGif(img, {
+        live: data.url,
+        still: data.still_url || (typeof stillUrlFromGif === "function" ? stillUrlFromGif(data.url) : ""),
+        kind: "hover"
+      });
+    } else {
+      img.src = data.url;
+    }
     mediaEl = img;
   }
   thumb.appendChild(typeof wrapExplicitMedia === "function" ? wrapExplicitMedia(mediaEl, data) : mediaEl);

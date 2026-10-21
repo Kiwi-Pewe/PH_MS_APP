@@ -77,6 +77,7 @@ function applyAccessibility(prefs) {
   if (typeof applyAppearance === "function" && appearancePrefs) applyAppearance(appearancePrefs);
   if (typeof refreshAccessibilityPreview === "function") refreshAccessibilityPreview();
   if (typeof refreshServerNameColors === "function") refreshServerNameColors();
+  if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();
 }
 
 function applyAccessibilityZoom(percent) {

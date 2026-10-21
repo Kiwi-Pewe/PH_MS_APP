@@ -125,6 +125,29 @@ def public_url_for(key):
     return f"{_env('R2_PUBLIC_BASE').rstrip('/')}/{key}"
 
 
+def still_key_for(key):
+    text = (key or "").strip()
+    if not text.lower().endswith(".gif"):
+        return ""
+    return text[:-4] + ".still.webp"
+
+
+def still_url_for(key):
+    still = still_key_for(key)
+    return public_url_for(still) if still else ""
+
+
+def still_url_from_public(url):
+    text = (url or "").strip()
+    if not text:
+        return ""
+    base, sep, query = text.partition("?")
+    if not base.lower().endswith(".gif"):
+        return ""
+    still = base[:-4] + ".still.webp"
+    return still + (sep + query if query else "")
+
+
 def new_object_key(mime, purpose="chat"):
     ext, kind = ALLOWED_MIME[mime]
     folder = "chat"
@@ -246,7 +269,7 @@ def store_attachment(att, user=None):
         raise HTTPException(status_code=400, detail="Upload key does not match type.")
     _, kind = ALLOWED_MIME[mime]
     name = (att.name or "").replace("\\", "/").split("/")[-1][:200]
-    return json.dumps({
+    packed = {
         "key": att.key,
         "url": public_url_for(att.key),
         "kind": kind,
@@ -254,7 +277,11 @@ def store_attachment(att, user=None):
         "size": att.size,
         "name": name,
         "explicit": bool(getattr(att, "explicit", False)),
-    })
+    }
+    still = still_url_for(att.key)
+    if still:
+        packed["still_url"] = still
+    return json.dumps(packed)
 
 
 def attachment_public(raw):
@@ -273,5 +300,12 @@ def delete_r2_object(key):
         return
     try:
         get_r2_client().delete_object(Bucket=_env("R2_BUCKET"), Key=key)
+    except Exception:
+        pass
+    still = still_key_for(key)
+    if not still:
+        return
+    try:
+        get_r2_client().delete_object(Bucket=_env("R2_BUCKET"), Key=still)
     except Exception:
         pass

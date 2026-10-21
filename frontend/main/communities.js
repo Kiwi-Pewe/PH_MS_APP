@@ -34,9 +34,14 @@ function applyCommunityBanner(el, row) {
   if (!el) return;
   const url = (row && row.banner_url) || "";
   const color = (row && row.banner_color) || "";
+  const still = typeof bannerStillOf === "function" ? bannerStillOf(row) : "";
   el.classList.toggle("has-banner", !!(url || color));
-  el.style.backgroundImage = url ? "url(" + JSON.stringify(url) + ")" : "";
-  el.style.backgroundColor = (!url && color) ? color : "";
+  if (typeof paintGifBannerStrip === "function") {
+    paintGifBannerStrip(el, url, color, still);
+  } else {
+    el.style.backgroundImage = url ? "url(" + JSON.stringify(url) + ")" : "";
+    el.style.backgroundColor = (!url && color) ? color : "";
+  }
 }
 
 function paintCommunityFace(host, row) {
@@ -44,8 +49,17 @@ function paintCommunityFace(host, row) {
   host.replaceChildren();
   if (row && row.icon_url) {
     const img = document.createElement("img");
-    img.src = row.icon_url;
     img.alt = "";
+    if (typeof bindAttentionGif === "function" && typeof isGifSrc === "function" && isGifSrc(row.icon_url)) {
+      bindAttentionGif(img, {
+        live: row.icon_url,
+        still: typeof iconStillOf === "function" ? iconStillOf(row) : "",
+        kind: "hover",
+        host
+      });
+    } else {
+      img.src = row.icon_url;
+    }
     host.appendChild(img);
   } else {
     host.textContent = communityLetter(row && row.name);

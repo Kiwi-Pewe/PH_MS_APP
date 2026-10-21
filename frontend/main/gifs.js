@@ -167,10 +167,13 @@ function showAttentionLive(entry) {
 
 function attentionWantsLive(entry) {
   if (!windowLooksFocused()) return false;
+  if (entry.kind === "voice") {
+    if (reduceMotionOn()) return false;
+    return !!(shouldPlayGifsWhenFocused() && entry.speaking);
+  }
+  if (entry.hovering) return true;
   if (reduceMotionOn() && entry.kind !== "profile") return false;
   const auto = shouldPlayGifsWhenFocused();
-  if (entry.kind === "voice") return !!(auto && entry.speaking);
-  if (entry.hovering) return true;
   if (entry.kind === "user" || entry.kind === "hover" || entry.kind === "server-banner") return false;
   if (entry.kind === "profile") return true;
   if (!auto) return false;
@@ -185,9 +188,15 @@ function teardownAttention(entry) {
     try { entry.observer.disconnect(); } catch (e) {}
     entry.observer = null;
   }
-  if (entry.host && entry.onEnter) {
-    entry.host.removeEventListener("mouseenter", entry.onEnter);
-    entry.host.removeEventListener("mouseleave", entry.onLeave);
+  if (entry.onEnter) {
+    if (entry.host) {
+      entry.host.removeEventListener("mouseenter", entry.onEnter);
+      entry.host.removeEventListener("mouseleave", entry.onLeave);
+    }
+    if (entry.img) {
+      entry.img.removeEventListener("mouseenter", entry.onEnter);
+      entry.img.removeEventListener("mouseleave", entry.onLeave);
+    }
   }
   if (entry.img && entry.img._attention === entry) entry.img._attention = null;
   attentionGifs.delete(entry);
@@ -203,10 +212,16 @@ function ensureAttentionListeners() {
 
 function refreshAttentionGifs() {
   attentionGifs.forEach((entry) => {
-    if (!entry.img || !entry.img.isConnected) {
+    if (!entry.img) {
       teardownAttention(entry);
       return;
     }
+    if (!entry.img.isConnected) {
+      if (entry.away) teardownAttention(entry);
+      else entry.away = true;
+      return;
+    }
+    entry.away = false;
     entry.update();
   });
 }
@@ -255,6 +270,10 @@ function bindAttentionGif(img, opts) {
   if (entry.kind !== "voice") {
     entry.host.addEventListener("mouseenter", entry.onEnter);
     entry.host.addEventListener("mouseleave", entry.onLeave);
+    if (entry.host !== entry.img) {
+      entry.img.addEventListener("mouseenter", entry.onEnter);
+      entry.img.addEventListener("mouseleave", entry.onLeave);
+    }
   }
   if (entry.kind === "chat") {
     entry.observer = new IntersectionObserver((rows) => {

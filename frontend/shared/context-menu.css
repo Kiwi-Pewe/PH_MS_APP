@@ -7,7 +7,7 @@
 
 .context-menu {
   position: fixed;
-  z-index: 1000;
+  z-index: 2000;
   min-width: 220px;
   max-width: 280px;
   background: var(--panel);
@@ -156,7 +156,7 @@
 .context-menu-flyout {
   min-width: 240px;
   max-width: 300px;
-  z-index: 1001;
+  z-index: 2001;
 }
 
 .context-menu-flyout .context-menu-item {

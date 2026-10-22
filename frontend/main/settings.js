@@ -341,16 +341,8 @@ function renderSettingsNav() {
     });
   });
 
-  if (settingsPane === "general" && !query) {
-    const logoutBtn = document.createElement("button");
-    logoutBtn.type = "button";
-    logoutBtn.className = "settings-nav-logout";
-    logoutBtn.textContent = "Log Out";
-    logoutBtn.addEventListener("click", () => {
-      if (typeof logout === "function") logout();
-    });
-    host.appendChild(logoutBtn);
-  }
+  const foot = document.getElementById("settings-nav-foot");
+  if (foot) foot.hidden = settingsPane !== "general";
 }
 
 function settingsPaneEl() {
@@ -440,4 +432,7 @@ document.getElementById("settings-user-card").addEventListener("click", () => {
 });
 document.getElementById("settings-search").addEventListener("input", () => {
   renderSettingsNav();
+});
+document.getElementById("settings-nav-logout").addEventListener("click", () => {
+  if (typeof logout === "function") logout();
 });

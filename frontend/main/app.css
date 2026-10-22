@@ -10901,7 +10901,7 @@ body.is-mini-dragging {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: var(--rail);
+  background: var(--panel);
 }
 .notify-sound-row {
   display: flex;

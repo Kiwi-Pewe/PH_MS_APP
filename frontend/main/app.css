@@ -10858,12 +10858,25 @@ body.is-mini-dragging {
 .notify-sound-header {
   flex-direction: column;
   align-items: stretch;
-  gap: 12px;
+  gap: 10px;
   padding-bottom: 0;
+}
+.notify-sound-header .leave-party-title {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+.notify-sound-lead {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  font-weight: 400;
 }
 .notify-sound-tabs {
   display: flex;
-  margin: 0 -18px;
+  margin: 4px -18px 0;
   border-top: 1px solid var(--border);
 }
 .notify-sound-tab {
@@ -10882,18 +10895,26 @@ body.is-mini-dragging {
   border-bottom-color: var(--accent);
 }
 .notify-sound-main {
-  padding: 0;
+  padding: 12px 14px;
   min-height: 220px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--rail);
 }
 .notify-sound-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 14px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: inherit;
 }
-.notify-sound-row.is-on { background: var(--panel-alt); }
+.notify-sound-row:hover { border-color: var(--text-dim); }
+.notify-sound-row.is-on { border-color: var(--accent); }
 .notify-sound-copy { flex: 1 1 auto; min-width: 0; }
 .notify-sound-name {
   font-size: 15px;

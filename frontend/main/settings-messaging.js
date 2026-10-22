@@ -28,6 +28,20 @@ async function postMessaging(path, body) {
   return data;
 }
 
+function settingsSelect(options, selected, disabled) {
+  const select = document.createElement("select");
+  select.className = "settings-select";
+  select.disabled = !!disabled;
+  options.forEach(opt => {
+    const row = document.createElement("option");
+    row.value = opt.value;
+    row.textContent = opt.label;
+    if (opt.value === selected) row.selected = true;
+    select.appendChild(row);
+  });
+  return select;
+}
+
 async function renderMessagingSettings(pane, jumpChildId) {
   pane.innerHTML = "";
   let info;

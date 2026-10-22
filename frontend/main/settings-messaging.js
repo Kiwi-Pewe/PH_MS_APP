@@ -28,35 +28,6 @@ async function postMessaging(path, body) {
   return data;
 }
 
-function settingsSelect(options, selected, disabled) {
-  const select = document.createElement("select");
-  select.className = "settings-select";
-  select.disabled = !!disabled;
-  options.forEach(opt => {
-    const row = document.createElement("option");
-    row.value = opt.value;
-    row.textContent = opt.label;
-    if (opt.value === selected) row.selected = true;
-    select.appendChild(row);
-  });
-  return select;
-}
-
-function filterScopeRow(label, selected) {
-  const row = document.createElement("div");
-  row.className = "settings-filter-row is-later";
-  const name = document.createElement("div");
-  name.className = "settings-opt-title";
-  name.textContent = label;
-  row.appendChild(name);
-  row.appendChild(settingsSelect(
-    [{ value: "show", label: "Show" }, { value: "blur", label: "Blur" }, { value: "block", label: "Block" }],
-    selected,
-    true
-  ));
-  return row;
-}
-
 async function renderMessagingSettings(pane, jumpChildId) {
   pane.innerHTML = "";
   let info;
@@ -81,95 +52,12 @@ async function renderMessagingSettings(pane, jumpChildId) {
   title.textContent = "Messaging Permissions";
   block.appendChild(title);
 
-  const filters = document.createElement("div");
-  filters.className = "settings-subblock";
-  filters.id = settingsTargetId("content-filters");
-  const filtersTitle = document.createElement("h3");
-  filtersTitle.className = "settings-subblock-title";
-  filtersTitle.textContent = "Content Filters";
-  filters.appendChild(filtersTitle);
-  const filtersBlurb = document.createElement("p");
-  filtersBlurb.className = "settings-blurb";
-  filtersBlurb.textContent = "Choose how you want to see image-based media. A poster can censor their own media, and a server can auto-censor every image that enters a channel.";
-  filters.appendChild(filtersBlurb);
-  const filterGrid = document.createElement("div");
-  filterGrid.className = "settings-filter-grid";
-  const catRail = document.createElement("div");
-  catRail.className = "settings-filter-cats";
-  const matureBtn = document.createElement("button");
-  matureBtn.type = "button";
-  matureBtn.className = "settings-filter-cat is-on";
-  matureBtn.textContent = "Mature Sexual Media";
-  const graphicBtn = document.createElement("button");
-  graphicBtn.type = "button";
-  graphicBtn.className = "settings-filter-cat";
-  graphicBtn.textContent = "Graphic Media";
-  catRail.appendChild(matureBtn);
-  catRail.appendChild(graphicBtn);
-  const filterMain = document.createElement("div");
-  filterMain.className = "settings-filter-main";
-  const help = document.createElement("div");
-  help.className = "settings-opt-desc";
-  help.textContent = "Helps detect image-based media that may contain sexually explicit or suggestive material.";
-  function showFilterCat(kind) {
-    matureBtn.classList.toggle("is-on", kind === "mature");
-    graphicBtn.classList.toggle("is-on", kind === "graphic");
-    help.textContent = kind === "graphic"
-      ? "Helps detect image-based media that may contain violence or gore."
-      : "Helps detect image-based media that may contain sexually explicit or suggestive material.";
-  }
-  matureBtn.addEventListener("click", () => showFilterCat("mature"));
-  graphicBtn.addEventListener("click", () => showFilterCat("graphic"));
-  filterMain.appendChild(filterScopeRow("Direct messages from friends", "show"));
-  filterMain.appendChild(filterScopeRow("Direct messages from others", "block"));
-  filterMain.appendChild(filterScopeRow("Messages in server channels", "show"));
-  filterMain.appendChild(help);
-  filterGrid.appendChild(catRail);
-  filterGrid.appendChild(filterMain);
-  filters.appendChild(filterGrid);
-  filters.appendChild(settingsLaterNote("content filters"));
-  const relatedFilters = document.createElement("div");
-  relatedFilters.className = "settings-related-wrap";
-  const relatedFiltersLabel = document.createElement("div");
-  relatedFiltersLabel.className = "settings-related-heading";
-  relatedFiltersLabel.textContent = "Related Settings";
-  relatedFilters.appendChild(relatedFiltersLabel);
-  relatedFilters.appendChild(settingsRelatedCard("Appearance", "Show/hide media in chat, spoiler content", "appearance"));
-  filters.appendChild(relatedFilters);
-  block.appendChild(filters);
-
-  const spam = document.createElement("div");
-  spam.className = "settings-subblock";
-  spam.id = settingsTargetId("spam-filters");
-  const spamTitle = document.createElement("h3");
-  spamTitle.className = "settings-subblock-title";
-  spamTitle.textContent = "Spam Filters";
-  spam.appendChild(spamTitle);
-  const spamBlurb = document.createElement("p");
-  spamBlurb.className = "settings-blurb";
-  spamBlurb.textContent = "Automatically filter suspected spam messages. Filtered messages go to a Spam inbox.";
-  spam.appendChild(spamBlurb);
-  const spamList = document.createElement("div");
-  spamList.className = "settings-radio-list is-disabled";
-  [
-    ["all", "Filter all spam"],
-    ["nonfriends", "Filter messages from non-friends (Recommended)"],
-    ["off", "Don't filter spam"]
-  ].forEach(row => {
-    const radio = privacyRadio(row[0], "nonfriends", row[1], "", () => {});
-    radio.disabled = true;
-    spamList.appendChild(radio);
-  });
-  spam.appendChild(spamList);
-  spam.appendChild(settingsLaterNote("spam filters"));
-  block.appendChild(spam);
-
   const dms = document.createElement("div");
   dms.className = "settings-subblock";
   dms.id = settingsTargetId("direct-messages");
   const dmsTitle = document.createElement("h3");
   dmsTitle.className = "settings-subblock-title";
-  dmsTitle.textContent = "Direct Message (DM) Permissions";
+  dmsTitle.textContent = "Direct Message Permissions";
   dms.appendChild(dmsTitle);
   const dmsBlurb = document.createElement("p");
   dmsBlurb.className = "settings-blurb";
@@ -253,130 +141,7 @@ async function renderMessagingSettings(pane, jumpChildId) {
     "Server members can only send you friend requests from servers where you also allow Direct Messages.",
     serverToggle
   ));
-  friends.appendChild(settingsOpt(
-    "Show personalized messages",
-    "Show personalized messages on incoming friend requests. If you accept, the message will still appear in your DMs.",
-    settingsToggle(true, true),
-    settingsLaterNote("personalized friend requests")
-  ));
   block.appendChild(friends);
-
-  const games = document.createElement("div");
-  games.className = "settings-subblock";
-  games.id = settingsTargetId("connected-games");
-  const gamesTitle = document.createElement("h3");
-  gamesTitle.className = "settings-subblock-title";
-  gamesTitle.textContent = "Messaging in Connected Games";
-  games.appendChild(gamesTitle);
-  const gamesBlurb = document.createElement("p");
-  gamesBlurb.className = "settings-blurb";
-  gamesBlurb.textContent = "These are settings for games that use Oneira to power their social features — including titles you link, not only a game Oneira makes.";
-  games.appendChild(gamesBlurb);
-  const empty = document.createElement("div");
-  empty.className = "settings-empty-card";
-  const emptyTitle = document.createElement("div");
-  emptyTitle.className = "settings-opt-title";
-  emptyTitle.textContent = "No games connected";
-  const emptyBody = document.createElement("div");
-  emptyBody.className = "settings-opt-desc";
-  emptyBody.textContent = "Want to connect a game to your account?";
-  empty.appendChild(emptyTitle);
-  empty.appendChild(emptyBody);
-  games.appendChild(empty);
-  const relatedGames = document.createElement("div");
-  relatedGames.className = "settings-related-wrap";
-  const relatedGamesLabel = document.createElement("div");
-  relatedGamesLabel.className = "settings-related-heading";
-  relatedGamesLabel.textContent = "Related Settings";
-  relatedGames.appendChild(relatedGamesLabel);
-  relatedGames.appendChild(settingsRelatedCard("Connected Apps", "Manage your games in Connected Apps", "connected-apps"));
-  games.appendChild(relatedGames);
-  block.appendChild(games);
-
-  const blocks = document.createElement("div");
-  blocks.className = "settings-subblock";
-  blocks.id = settingsTargetId("ignore-block");
-  const blocksTitle = document.createElement("h3");
-  blocksTitle.className = "settings-subblock-title";
-  blocksTitle.textContent = "Ignore & Block";
-  blocks.appendChild(blocksTitle);
-  const blocksBlurb = document.createElement("p");
-  blocksBlurb.className = "settings-blurb";
-  blocksBlurb.textContent = "Blocked accounts cannot DM you, friend you, or see you as a friend. Their existing messages are hidden from your chat history.";
-  blocks.appendChild(blocksBlurb);
-  blocks.appendChild(settingsOpt(
-    "Ignore",
-    "Hide messages from an account without blocking them.",
-    settingsToggle(false, true),
-    settingsLaterNote("Ignore")
-  ));
-  const count = document.createElement("div");
-  count.className = "settings-empty-card is-left";
-  const blocked = info.blocked || [];
-  const countTitle = document.createElement("div");
-  countTitle.className = "settings-opt-title";
-  countTitle.textContent = "Blocked accounts";
-  const countBody = document.createElement("div");
-  countBody.className = "settings-opt-desc";
-  countBody.textContent = blocked.length === 1 ? "1 account" : blocked.length + " accounts";
-  count.appendChild(countTitle);
-  count.appendChild(countBody);
-  blocks.appendChild(count);
-  if (!blocked.length) {
-    blocks.appendChild(settingsNote("You haven't blocked anyone."));
-  }
-  blocked.forEach(person => {
-    const row = document.createElement("div");
-    row.className = "settings-block-row";
-    const who = document.createElement("div");
-    who.className = "settings-block-who";
-    const letter = document.createElement("div");
-    letter.className = "avatar-dot";
-    if (typeof paintUserFace === "function") paintUserFace(letter, person, { name: person.display_name || person.username, userId: person.id });
-    else letter.textContent = typeof avatarLetter === "function" ? avatarLetter(person.display_name || person.username) : (person.username || "?").slice(0, 1);
-    const names = document.createElement("div");
-    const display = document.createElement("div");
-    display.className = "settings-opt-title";
-    display.textContent = person.display_name || person.username;
-    const handle = document.createElement("div");
-    handle.className = "settings-opt-desc";
-    handle.textContent = person.username;
-    names.appendChild(display);
-    if (person.display_name && person.display_name !== person.username) names.appendChild(handle);
-    who.appendChild(letter);
-    who.appendChild(names);
-    const unblock = document.createElement("button");
-    unblock.type = "button";
-    unblock.className = "settings-row-btn";
-    unblock.textContent = "Unblock";
-    unblock.addEventListener("click", async () => {
-      unblock.disabled = true;
-      try {
-        const response = await fetch(messagingSettingsUrl("/unblock"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ blocked_user: person.id })
-        });
-        if (!response.ok) throw new Error("Could not unblock.");
-        if (typeof forgetBlockedUser === "function") forgetBlockedUser(person.id);
-        row.remove();
-        info.blocked = (info.blocked || []).filter(entry => entry.id !== person.id);
-        const left = info.blocked.length;
-        countBody.textContent = left === 1 ? "1 account" : left + " accounts";
-        if (!left && !blocks.querySelector(".settings-note")) {
-          blocks.appendChild(settingsNote("You haven't blocked anyone."));
-        }
-      } catch (e) {
-        unblock.disabled = false;
-        window.alert(e.message || "Could not unblock.");
-      }
-    });
-    row.appendChild(who);
-    row.appendChild(unblock);
-    blocks.appendChild(row);
-  });
-  block.appendChild(blocks);
 
   pane.appendChild(block);
   if (jumpChildId) {

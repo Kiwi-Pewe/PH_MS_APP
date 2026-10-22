@@ -1263,6 +1263,8 @@
 .settings-opt-control { flex: 0 0 auto; padding-top: 2px; }
 .settings-opt:has(.settings-select) { position: relative; }
 .settings-opt:has(.settings-select) .settings-opt-title { padding-right: 240px; }
+.settings-opt:has(.settings-select) .settings-opt-desc,
+.settings-opt:has(.settings-select) .settings-note { padding-right: 240px; }
 .settings-opt:has(.settings-select) .settings-opt-control {
   position: absolute;
   top: 16px;

@@ -58,7 +58,7 @@ async function renderNotificationSettings(pane, jumpChildId) {
   overview.appendChild(overviewTitle);
   overview.appendChild(settingsOpt(
     "Enable Desktop Notifications",
-    "If you're looking for per-channel or per-server notifications, that will live on the server icon.",
+    "Shows a system alert when you get a notification while Oneira is in the background.",
     settingsToggle(true, true),
     settingsLaterNote("OS notifications")
   ));
@@ -87,36 +87,11 @@ async function renderNotificationSettings(pane, jumpChildId) {
   ));
 
   [
-    ["People I know start streaming in small servers", "streaming"],
     ["A friend and I reach a friendship anniversary", "friendship anniversaries"],
     ["A server has an upcoming event", "server events"]
   ].forEach(row => {
     overview.appendChild(settingsOpt(row[0], "", settingsToggle(true, true), settingsLaterNote(row[1])));
   });
-
-  const reactionSelect = settingsSelect(
-    [
-      { value: "all", label: "All Messages" },
-      { value: "dms", label: "Direct Messages" },
-      { value: "off", label: "Never" }
-    ],
-    info.notify_reactions || "all",
-    false
-  );
-  reactionSelect.addEventListener("change", async () => {
-    const previous = info.notify_reactions || "all";
-    try {
-      const data = await postNotification("/notification_reactions", { value: reactionSelect.value });
-      info.notify_reactions = data.notify_reactions;
-    } catch (e) {
-      reactionSelect.value = previous;
-    }
-  });
-  overview.appendChild(settingsOpt(
-    "Someone reacts to my messages",
-    "Reactions never add a red unread number. This controls when a reaction plays a notification sound.",
-    reactionSelect
-  ));
 
   const feedBtn = document.createElement("button");
   feedBtn.type = "button";
@@ -202,7 +177,7 @@ async function renderNotificationSettings(pane, jumpChildId) {
   badges.appendChild(badgesTitle);
   badges.appendChild(settingsOpt(
     "Enable Unread Message Badge",
-    "Shows a red badge on the app icon when you have unread messages. This is not the Home/server rail unread pills.",
+    "Shows a red badge on the Oneira app icon when you have unread messages.",
     settingsToggle(true, true),
     settingsLaterNote("OS app badge")
   ));
@@ -228,43 +203,10 @@ async function renderNotificationSettings(pane, jumpChildId) {
   );
   advanced.appendChild(settingsOpt(
     "Mobile Notification Delay",
-    "Oneira won't send push notifications to your mobile device while you're active on your computer. Use this setting to choose how long you need to be inactive on desktop before mobile notifications start again.",
+    "Sets how long you need to be away from desktop before push notifications go to your phone.",
     delay,
     settingsLaterNote("mobile app")
   ));
-  advanced.appendChild(settingsOpt(
-    "Allow playback and usage of /tts command",
-    "Using the /tts command speaks your message out loud. Turn this off if you prefer to see /tts messages as text only. Playback speed lives on Accessibility.",
-    settingsToggle(true, true),
-    settingsLaterNote("TTS")
-  ));
-  const ttsList = document.createElement("div");
-  ttsList.className = "settings-radio-list is-disabled";
-  [
-    ["all", "For all channels"],
-    ["selected", "Only for currently selected channel"],
-    ["never", "Never"]
-  ].forEach(row => {
-    const radio = privacyRadio(row[0], "never", row[1], "", () => {});
-    radio.disabled = true;
-    ttsList.appendChild(radio);
-  });
-  const ttsWrap = document.createElement("div");
-  ttsWrap.className = "settings-opt is-later";
-  const ttsText = document.createElement("div");
-  ttsText.className = "settings-opt-text";
-  const ttsTitle = document.createElement("div");
-  ttsTitle.className = "settings-opt-title";
-  ttsTitle.textContent = "Speak all messages out loud";
-  const ttsDesc = document.createElement("div");
-  ttsDesc.className = "settings-opt-desc";
-  ttsDesc.textContent = "Speaks messages out loud, even if they weren't using the /tts command.";
-  ttsText.appendChild(ttsTitle);
-  ttsText.appendChild(ttsDesc);
-  ttsText.appendChild(settingsLaterNote("TTS"));
-  ttsWrap.appendChild(ttsText);
-  advanced.appendChild(ttsWrap);
-  advanced.appendChild(ttsList);
   block.appendChild(advanced);
 
   pane.appendChild(block);

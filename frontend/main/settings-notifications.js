@@ -69,8 +69,11 @@ async function renderNotificationSettings(pane, jumpChildId) {
     settingsLaterNote("desktop app")
   ));
 
-  const notifyHeading = document.createElement("div");
-  notifyHeading.className = "settings-opt-title settings-notify-heading";
+  const notifySplit = document.createElement("div");
+  notifySplit.className = "settings-opt-divider";
+  overview.appendChild(notifySplit);
+  const notifyHeading = document.createElement("h3");
+  notifyHeading.className = "settings-subblock-title settings-notify-heading";
   notifyHeading.textContent = "Notify me when...";
   overview.appendChild(notifyHeading);
 
@@ -87,8 +90,8 @@ async function renderNotificationSettings(pane, jumpChildId) {
   ));
 
   [
-    ["A friend and I reach a friendship anniversary", "friendship anniversaries"],
-    ["A server has an upcoming event", "server events"]
+    ["Friendship Anniversary", "friendship anniversaries"],
+    ["Server Events", "server events"]
   ].forEach(row => {
     overview.appendChild(settingsOpt(row[0], "", settingsToggle(true, true), settingsLaterNote(row[1])));
   });

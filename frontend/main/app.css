@@ -1632,8 +1632,13 @@
   color: var(--text-dim);
   margin: 14px 0 8px;
 }
+.settings-opt-divider {
+  height: 1px;
+  margin: 20px 0 18px;
+  background: var(--border);
+}
 .settings-notify-heading {
-  margin: 16px 0 8px;
+  margin: 0 0 10px;
 }
 .online-toast-stack {
   position: fixed;

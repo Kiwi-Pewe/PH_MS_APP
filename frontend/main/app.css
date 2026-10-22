@@ -1121,6 +1121,17 @@
   background: transparent; color: inherit; text-align: left;
 }
 .settings-subblock .settings-row:last-child { border-bottom: none; }
+.settings-row.has-desc { align-items: flex-start; }
+.settings-row-copy { flex: 1 1 auto; min-width: 0; }
+.settings-row.has-desc .settings-row-label { flex: none; display: block; }
+.settings-row-desc {
+  font-size: var(--settings-opt-desc, 12px);
+  line-height: 1.45;
+  color: var(--text-dim);
+  margin-top: 4px;
+  font-weight: 400;
+}
+.settings-row.has-desc .settings-row-btn { align-self: center; }
 .settings-row-label { flex: 0 0 200px; font-size: 16px; font-weight: 600; color: var(--text); }
 .settings-row-value { flex: 1 1 auto; text-align: right; font-size: 16px; color: var(--text); min-width: 0; }
 .settings-row-value.is-empty, .settings-row-value .is-empty { color: var(--text-dim); }

@@ -67,12 +67,27 @@ function applyLocalIdentity(data) {
   }
 }
 
-function settingsRow(label, value, actionLabel, onClick) {
+function settingsRow(label, value, actionLabel, onClick, desc) {
   const row = document.createElement("div");
-  row.className = "settings-row";
-  const left = document.createElement("div");
-  left.className = "settings-row-label";
-  left.textContent = label;
+  row.className = "settings-row" + (desc ? " has-desc" : "");
+  if (desc) {
+    const copy = document.createElement("div");
+    copy.className = "settings-row-copy";
+    const title = document.createElement("div");
+    title.className = "settings-row-label";
+    title.textContent = label;
+    const body = document.createElement("div");
+    body.className = "settings-row-desc";
+    body.textContent = desc;
+    copy.appendChild(title);
+    copy.appendChild(body);
+    row.appendChild(copy);
+  } else {
+    const left = document.createElement("div");
+    left.className = "settings-row-label";
+    left.textContent = label;
+    row.appendChild(left);
+  }
   const mid = document.createElement("div");
   mid.className = "settings-row-value";
   if (typeof value === "string") {
@@ -84,7 +99,6 @@ function settingsRow(label, value, actionLabel, onClick) {
   btn.className = "settings-row-btn";
   btn.textContent = actionLabel;
   btn.addEventListener("click", onClick);
-  row.appendChild(left);
   row.appendChild(mid);
   row.appendChild(btn);
   return row;
@@ -336,8 +350,20 @@ async function renderAccountSettings(pane, jumpChildId) {
       const data = await postAccount("/account_recovery/rotate", { username: values.username, password: values.password });
       openRecoveryCodeCard(data && data.recovery_code);
     });
-  }));
-  sec.appendChild(settingsLinkRow("Multi-Factor Authentication", info.mfa_enabled ? "Enabled" : "Disabled", () => renderMfaSettings(pane, info)));
+  }, "Oneira will never ask or show your recovery code again. if you do not remember it, you can generate a new one here."));
+  if (typeof settingsOpt === "function" && typeof settingsNote === "function") {
+    sec.appendChild(settingsOpt(
+      "Multi-Factor Authentication",
+      "",
+      null,
+      settingsNote("Not Implemented yet.", "later")
+    ));
+  } else {
+    const mfa = settingsLinkRow("Multi-Factor Authentication", "Disabled", () => {});
+    mfa.disabled = true;
+    mfa.classList.add("is-later");
+    sec.appendChild(mfa);
+  }
   sec.appendChild(settingsLinkRow("Logged-in Devices", (info.device_count || 0) + ((info.device_count === 1) ? " device" : " devices"), () => renderDeviceSettings(pane)));
   block.appendChild(sec);
   pane.appendChild(block);

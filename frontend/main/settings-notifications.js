@@ -216,20 +216,55 @@ async function renderNotificationSettings(pane, jumpChildId) {
   }
 }
 
-const NOTIFY_SOUND_STOCK = {
+const NOTIFY_SOUND_FILES = {
   pings: [
-    { id: "ping-default", name: "Default", duration: "0:01", stock: true },
-    { id: "ping-chime", name: "Chime", duration: "0:02", stock: true },
-    { id: "ping-knock", name: "Knock", duration: "0:01", stock: true },
-    { id: "ping-pop", name: "Pop", duration: "0:01", stock: true },
-    { id: "ping-soft", name: "Soft", duration: "0:03", stock: true }
+    "Achievement.mp3",
+    "Alarm.mp3",
+    "Alerted.mp3",
+    "confusion.mp3",
+    "Connected.mp3",
+    "Disconnect.mp3",
+    "dong.mp3",
+    "Failed Connection.mp3",
+    "Flow.mp3",
+    "Item.mp3",
+    "Level up.mp3",
+    "Ping.mp3",
+    "Ping2.mp3",
+    "Question Mark.mp3",
+    "Swing.mp3",
+    "twang.mp3"
   ],
   calls: [
-    { id: "call-default", name: "Default", duration: "0:03", stock: true },
-    { id: "call-classic", name: "Classic", duration: "0:04", stock: true },
-    { id: "call-soft", name: "Soft", duration: "0:03", stock: true },
-    { id: "call-pulse", name: "Pulse", duration: "0:05", stock: true },
-    { id: "call-echo", name: "Echo", duration: "0:04", stock: true }
+    "2056.mp3",
+    "Annoying1.mp3",
+    "Annoying2.mp3",
+    "good morning.mp3",
+    "Handheld.mp3",
+    "morning birds.mp3",
+    "News.mp3",
+    "Passing Animals.mp3",
+    "temp ringtone 1.mp3",
+    "temp ringtone 2.mp3",
+    "temp ringtone 3.mp3",
+    "temp ringtone 4.mp3",
+    "temp ringtone 5.mp3",
+    "temp ringtone 6.mp3",
+    "temp ringtone 7.mp3",
+    "temp ringtone 8.mp3",
+    "temp ringtone 9.mp3",
+    "temp ringtone 10.mp3",
+    "temp ringtone 11.mp3",
+    "temp ringtone 12.mp3",
+    "temp ringtone 13.mp3",
+    "temp ringtone 14.mp3",
+    "temp ringtone 15.mp3",
+    "temp ringtone 16.mp3",
+    "temp ringtone 17.mp3",
+    "Warning.mp3",
+    "Wondering Waves.mp3",
+    "Y2K.mp3",
+    "You Free.mp3"
   ]
 };
 
@@ -237,6 +272,54 @@ let notifySoundTab = "pings";
 let notifySoundDraft = null;
 let notifySoundSaved = null;
 let notifySoundBound = false;
+let notifySoundPreview = null;
+
+function notifySoundId(kind, file) {
+  const stem = file.replace(/\.mp3$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return kind + "-" + stem;
+}
+
+function notifySoundSrc(kind, file) {
+  const folder = kind === "calls" ? "ringtones" : "alerts";
+  return "sounds/" + folder + "/" + encodeURIComponent(file);
+}
+
+function formatNotifySoundDuration(seconds) {
+  if (!isFinite(seconds) || seconds < 0) return "0:00";
+  const total = Math.round(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return mins + ":" + String(secs).padStart(2, "0");
+}
+
+function stopNotifySoundPreview() {
+  if (!notifySoundPreview) return;
+  notifySoundPreview.pause();
+  notifySoundPreview = null;
+}
+
+function playNotifySoundPreview(row) {
+  stopNotifySoundPreview();
+  if (!row || !row.src) return;
+  const audio = new Audio(row.src);
+  notifySoundPreview = audio;
+  audio.play().catch(() => {});
+}
+
+function packNotifySoundFiles(kind, files, preferred) {
+  const items = files.map((file) => ({
+    id: notifySoundId(kind, file),
+    name: file.replace(/\.mp3$/i, ""),
+    file: file,
+    src: notifySoundSrc(kind, file),
+    duration: "",
+    stock: true
+  }));
+  items.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+  const preferredId = preferred ? notifySoundId(kind, preferred) : "";
+  const using = items.some((row) => row.id === preferredId) ? preferredId : (items[0] ? items[0].id : "");
+  return { using, items };
+}
 
 function copyNotifySoundPack(pack) {
   return {
@@ -244,6 +327,8 @@ function copyNotifySoundPack(pack) {
     items: pack.items.map((row) => ({
       id: row.id,
       name: row.name,
+      file: row.file,
+      src: row.src,
       duration: row.duration,
       stock: !!row.stock
     }))
@@ -252,8 +337,8 @@ function copyNotifySoundPack(pack) {
 
 function blankNotifySoundState() {
   return {
-    pings: { using: "ping-default", items: NOTIFY_SOUND_STOCK.pings.map((row) => ({ ...row })) },
-    calls: { using: "call-default", items: NOTIFY_SOUND_STOCK.calls.map((row) => ({ ...row })) }
+    pings: packNotifySoundFiles("pings", NOTIFY_SOUND_FILES.pings, "Ping.mp3"),
+    calls: packNotifySoundFiles("calls", NOTIFY_SOUND_FILES.calls, "News.mp3")
   };
 }
 
@@ -264,7 +349,21 @@ function cloneNotifySoundState(state) {
   };
 }
 
+function applyNotifySoundSaved(fresh) {
+  if (!notifySoundSaved) return fresh;
+  ["pings", "calls"].forEach((kind) => {
+    const ids = {};
+    fresh[kind].items.forEach((row) => { ids[row.id] = row; });
+    if (ids[notifySoundSaved[kind].using]) fresh[kind].using = notifySoundSaved[kind].using;
+    (notifySoundSaved[kind].items || []).forEach((row) => {
+      if (ids[row.id] && row.name) ids[row.id].name = row.name;
+    });
+  });
+  return fresh;
+}
+
 function closeNotifySoundSubmenu(discard) {
+  stopNotifySoundPreview();
   const overlay = document.getElementById("notify-sound-overlay");
   if (overlay) overlay.hidden = true;
   if (discard) notifySoundDraft = null;
@@ -286,14 +385,23 @@ function paintNotifySoundList() {
     name.textContent = row.name;
     const duration = document.createElement("div");
     duration.className = "notify-sound-duration";
-    duration.textContent = row.duration;
+    duration.textContent = row.duration || "0:00";
     copy.appendChild(name);
     copy.appendChild(duration);
+    if (row.src && !row.duration) {
+      const probe = new Audio();
+      probe.preload = "metadata";
+      probe.src = row.src;
+      probe.addEventListener("loadedmetadata", () => {
+        row.duration = formatNotifySoundDuration(probe.duration);
+        duration.textContent = row.duration;
+      });
+    }
     const play = document.createElement("button");
     play.type = "button";
     play.className = "ghost-btn notify-sound-play";
     play.textContent = "Play";
-    play.disabled = true;
+    play.addEventListener("click", () => playNotifySoundPreview(row));
     const use = document.createElement("button");
     use.type = "button";
     use.className = "settings-row-btn";
@@ -314,7 +422,7 @@ function paintNotifySoundList() {
       openContextMenu(rect.left, rect.bottom + 4, null, [
         {
           label: "Rename",
-          disabled: row.id === "ping-default" || row.id === "call-default",
+          disabled: row.file === "Ping.mp3" || row.file === "News.mp3",
           onSelect: () => startNotifySoundRename(row, name)
         },
         {
@@ -368,6 +476,7 @@ function startNotifySoundRename(row, nameEl) {
 }
 
 function setNotifySoundTab(tab) {
+  stopNotifySoundPreview();
   notifySoundTab = tab === "calls" ? "calls" : "pings";
   document.querySelectorAll(".notify-sound-tab").forEach((btn) => {
     btn.classList.toggle("is-on", btn.getAttribute("data-sound-tab") === notifySoundTab);
@@ -378,7 +487,7 @@ function setNotifySoundTab(tab) {
 function openNotifySoundSubmenu() {
   const overlay = document.getElementById("notify-sound-overlay");
   if (!overlay) return;
-  notifySoundDraft = cloneNotifySoundState(notifySoundSaved || blankNotifySoundState());
+  notifySoundDraft = applyNotifySoundSaved(blankNotifySoundState());
   setNotifySoundTab(notifySoundTab);
   overlay.hidden = false;
 }

@@ -137,46 +137,17 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   title.textContent = "Data & Privacy";
   block.appendChild(title);
 
-  const how = document.createElement("div");
-  how.className = "settings-subblock";
-  how.id = settingsTargetId("how-data-used");
-  const howTitle = document.createElement("h3");
-  howTitle.className = "settings-subblock-title";
-  howTitle.textContent = "How Oneira Uses My Data";
-  how.appendChild(howTitle);
-
-  how.appendChild(settingsOpt(
-    "Use data to make Oneira work",
-    "Oneira needs to store and process some data to provide the service, such as your messages, the servers you're in, and your Direct Messages. Using Oneira means you allow that. You can stop this later by deleting your account."
-  ));
-  how.appendChild(settingsOpt(
-    "Use data to improve Oneira",
-    "Allow Oneira to use and process my information to understand and improve the service.",
-    settingsToggle(false, true),
-    settingsNote("Oneira does not collect extra analytics data.")
-  ));
-  how.appendChild(settingsOpt(
-    "Use data to personalize my Oneira experience",
-    "Allow Oneira to use information such as who you talk to and what you play, to personalize Oneira for you.",
-    settingsToggle(false, true),
-    settingsNote("Oneira does not collect personalization data.")
-  ));
-  how.appendChild(settingsOpt(
+  const intro = document.createElement("div");
+  intro.className = "settings-subblock";
+  const blurb = document.createElement("p");
+  blurb.className = "settings-blurb";
+  blurb.textContent = "Oneira chooses not to collect any extra data. We do not gather analytics, personalize from your activity, or sell information. The only information we keep is what is needed to create and maintain your account, servers, chats, and messages.";
+  intro.appendChild(blurb);
+  intro.appendChild(settingsOpt(
     "Allow my voice to be recorded in Clips",
     "Allows your voice to be included when someone in the same voice channel uses Clips.",
     settingsToggle(false, true),
     settingsLaterNote("Clips")
-  ));
-  const requestBtn = document.createElement("button");
-  requestBtn.type = "button";
-  requestBtn.className = "settings-row-btn";
-  requestBtn.textContent = "Request Data";
-  requestBtn.disabled = true;
-  how.appendChild(settingsOpt(
-    "Request my data",
-    "If you need a copy of your personal data from your account's entire history, you can get it here.",
-    requestBtn,
-    settingsLaterNote("data export")
   ));
   const relatedHow = document.createElement("div");
   relatedHow.className = "settings-related-wrap";
@@ -189,41 +160,8 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
     "See what you're playing and choose which games can show on your status.",
     "registered-games"
   ));
-  how.appendChild(relatedHow);
-  block.appendChild(how);
-
-  const ads = document.createElement("div");
-  ads.className = "settings-subblock";
-  ads.id = settingsTargetId("sponsored-content");
-  const adsTitle = document.createElement("h3");
-  adsTitle.className = "settings-subblock-title";
-  adsTitle.textContent = "Sponsored Content";
-  ads.appendChild(adsTitle);
-  ads.appendChild(settingsOpt(
-    "Use my Oneira activity to personalize Sponsored Content",
-    "Allows us to personalize Sponsored Content using your Oneira activity, such as the games you play. If you opt out you may still see that content, but it won't be personalized.",
-    settingsToggle(false, true),
-    settingsNote("Oneira does not have sponsored content, and does not collect this data.")
-  ));
-  ads.appendChild(settingsOpt(
-    "Use third-party data to personalize Sponsored Content",
-    "Allows us to personalize Sponsored Content using data we receive from advertisers and third-party data providers.",
-    settingsToggle(false, true),
-    settingsNote("Oneira does not collect third-party advertising data.")
-  ));
-  const topicSearch = document.createElement("input");
-  topicSearch.type = "search";
-  topicSearch.className = "settings-disabled-search";
-  topicSearch.placeholder = "Search...";
-  topicSearch.disabled = true;
-  ads.appendChild(settingsOpt(
-    "Manage Sponsored Content",
-    "Control seeing Sponsored Content associated with certain topics. If you hide a topic, you will see no Sponsored Content from that topic.",
-    null,
-    settingsLaterNote("Sponsored Content")
-  ));
-  ads.appendChild(topicSearch);
-  block.appendChild(ads);
+  intro.appendChild(relatedHow);
+  block.appendChild(intro);
 
   const profile = document.createElement("div");
   profile.className = "settings-subblock";

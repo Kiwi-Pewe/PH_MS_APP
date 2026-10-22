@@ -39,7 +39,6 @@ const SETTINGS_GENERAL_CATALOG = [
           { id: "notifications-overview", label: "Overview" },
           { id: "notifications-sounds", label: "Sounds" },
           { id: "notifications-badges", label: "Badges" },
-          { id: "notifications-email", label: "Email" },
           { id: "notifications-advanced", label: "Advanced" }
         ]
       }

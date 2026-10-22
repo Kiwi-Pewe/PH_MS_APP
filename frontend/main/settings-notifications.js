@@ -165,7 +165,6 @@ async function renderNotificationSettings(pane, jumpChildId) {
     sounds.appendChild(settingsOpt(title, desc, toggle));
   }
   appendSoundRow("New Message", "message");
-  appendSoundRow("New Message in the channel I'm currently reading", "current_channel");
   appendSoundRow("Incoming Ring", "incoming_ring");
   const muteToggle = settingsToggle(soundPrefs.mute_all, false, async (on) => {
     const previous = soundPrefs.mute_all;
@@ -208,31 +207,6 @@ async function renderNotificationSettings(pane, jumpChildId) {
     settingsLaterNote("OS app badge")
   ));
   block.appendChild(badges);
-
-  const email = document.createElement("div");
-  email.className = "settings-subblock";
-  email.id = settingsTargetId("notifications-email");
-  const emailTitle = document.createElement("h3");
-  emailTitle.className = "settings-subblock-title";
-  emailTitle.textContent = "Email";
-  email.appendChild(emailTitle);
-  email.appendChild(settingsOpt("Communication Emails", "Receive emails for missed calls, messages, and message digests.", settingsToggle(true, true), settingsLaterNote("email")));
-  email.appendChild(settingsOpt("Social Emails", "Receive emails for friend requests, new friend suggestions, and events in your server.", settingsToggle(true, true), settingsLaterNote("email")));
-  email.appendChild(settingsOpt("Announcements and Update Emails", "Receive emails about product updates, new features, improvements and bug fixes.", settingsToggle(false, true), settingsLaterNote("email")));
-  email.appendChild(settingsOpt("Tip Emails", "Receive emails with helpful advice on how to use Oneira.", settingsToggle(false, true), settingsLaterNote("email")));
-  email.appendChild(settingsOpt("Recommendations Emails", "Receive emails with recommended servers and suggested events.", settingsToggle(false, true), settingsLaterNote("email")));
-  const unsub = document.createElement("button");
-  unsub.type = "button";
-  unsub.className = "settings-row-btn";
-  unsub.textContent = "Unsubscribe";
-  unsub.disabled = true;
-  email.appendChild(settingsOpt(
-    "Unsubscribe from all marketing emails",
-    "This includes any emails about product updates, new features, tips, and recommendations.",
-    unsub,
-    settingsLaterNote("email")
-  ));
-  block.appendChild(email);
 
   const advanced = document.createElement("div");
   advanced.className = "settings-subblock";

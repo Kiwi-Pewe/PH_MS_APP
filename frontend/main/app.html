@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=410">
+<link rel="stylesheet" href="app.css?v=411">
 </head>
 <body>
 
@@ -2385,6 +2385,24 @@
     </div>
   </div>
 
+  <div id="notify-sound-overlay" hidden>
+    <div id="notify-sound-modal" class="leave-party-modal notify-sound-modal" role="dialog" aria-modal="true" aria-labelledby="notify-sound-title">
+      <div class="leave-party-header notify-sound-header">
+        <span id="notify-sound-title" class="leave-party-title">Notification sounds</span>
+        <div class="notify-sound-tabs" role="tablist">
+          <button type="button" class="notify-sound-tab is-on" data-sound-tab="pings">Pings &amp; Messages</button>
+          <button type="button" class="notify-sound-tab" data-sound-tab="calls">Incoming Calls</button>
+        </div>
+      </div>
+      <div id="notify-sound-list" class="leave-party-main notify-sound-main"></div>
+      <div class="leave-party-footer notify-sound-footer">
+        <button type="button" class="ghost-btn" id="notify-sound-cancel">Cancel</button>
+        <button type="button" class="ghost-btn" id="notify-sound-import" disabled>Import</button>
+        <button type="button" class="pill-btn" id="notify-sound-confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <div id="feed-alert-prefs-overlay" hidden>
     <div id="feed-alert-prefs-modal" class="feed-prefs-modal" role="dialog" aria-modal="true" aria-labelledby="feed-alert-prefs-title">
       <div class="feed-prefs-header">
@@ -2551,7 +2569,7 @@
 <script src="app-shell.js?v=75"></script>
 <script src="communities.js?v=16"></script>
 <script src="feed.js?v=21"></script>
-<script src="settings.js?v=26"></script>
+<script src="settings.js?v=27"></script>
 <script src="server-settings.js?v=52"></script>
 <script src="server-listing.js?v=3"></script>
 <script src="server-roles.js?v=38"></script>
@@ -2561,7 +2579,7 @@
 <script src="settings-privacy.js?v=11"></script>
 <script src="feed-settings.js?v=5"></script>
 <script src="settings-messaging.js?v=8"></script>
-<script src="settings-notifications.js?v=9"></script>
+<script src="settings-notifications.js?v=11"></script>
 <script src="settings-appearance.js?v=6"></script>
 <script src="settings-voice.js?v=4"></script>
 <script src="settings-system.js?v=2"></script>

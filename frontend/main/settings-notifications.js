@@ -57,10 +57,10 @@ async function renderNotificationSettings(pane, jumpChildId) {
   overviewTitle.textContent = "Overview";
   overview.appendChild(overviewTitle);
   overview.appendChild(settingsOpt(
-    "Enable Desktop Notifications",
-    "Shows a system alert when you get a notification while Oneira is in the background.",
+    "Enable Mail Notifications",
+    "Shows a toast when you receive Mail.",
     settingsToggle(true, true),
-    settingsLaterNote("OS notifications")
+    settingsLaterNote("the app")
   ));
   overview.appendChild(settingsOpt(
     "Enable Taskbar Flashing",
@@ -126,24 +126,18 @@ async function renderNotificationSettings(pane, jumpChildId) {
   async function saveSounds() {
     await postNotification("/notification_sounds", soundPrefs);
   }
-  function appendSoundRow(title, key) {
-    const toggle = settingsToggle(soundPrefs[key], false, async (on) => {
-      const previous = soundPrefs[key];
-      soundPrefs[key] = on;
-      try { await saveSounds(); } catch (e) {
-        soundPrefs[key] = previous;
-        toggle.querySelector("input").checked = previous;
-      }
-    });
-    const desc = document.createElement("div");
-    const preview = document.createElement("span");
-    preview.className = "settings-inline-link is-static";
-    preview.textContent = "Preview Sound";
-    desc.appendChild(preview);
-    sounds.appendChild(settingsOpt(title, desc, toggle));
-  }
-  appendSoundRow("New Message", "message");
-  appendSoundRow("Incoming Ring", "incoming_ring");
+  const soundEditBtn = document.createElement("button");
+  soundEditBtn.type = "button";
+  soundEditBtn.className = "ghost-btn settings-feed-prefs-btn";
+  soundEditBtn.textContent = "Edit";
+  soundEditBtn.addEventListener("click", () => {
+    if (typeof openNotifySoundSubmenu === "function") openNotifySoundSubmenu();
+  });
+  sounds.appendChild(settingsOpt(
+    "Edit Notification sounds",
+    "Change your ringtones and notification sounds to better fit your profile.",
+    soundEditBtn
+  ));
   const muteToggle = settingsToggle(soundPrefs.mute_all, false, async (on) => {
     const previous = soundPrefs.mute_all;
     soundPrefs.mute_all = on;
@@ -221,3 +215,193 @@ async function renderNotificationSettings(pane, jumpChildId) {
     pane.scrollTop = 0;
   }
 }
+
+const NOTIFY_SOUND_STOCK = {
+  pings: [
+    { id: "ping-default", name: "Default", duration: "0:01", stock: true },
+    { id: "ping-chime", name: "Chime", duration: "0:02", stock: true },
+    { id: "ping-knock", name: "Knock", duration: "0:01", stock: true },
+    { id: "ping-pop", name: "Pop", duration: "0:01", stock: true },
+    { id: "ping-soft", name: "Soft", duration: "0:03", stock: true }
+  ],
+  calls: [
+    { id: "call-default", name: "Default", duration: "0:03", stock: true },
+    { id: "call-classic", name: "Classic", duration: "0:04", stock: true },
+    { id: "call-soft", name: "Soft", duration: "0:03", stock: true },
+    { id: "call-pulse", name: "Pulse", duration: "0:05", stock: true },
+    { id: "call-echo", name: "Echo", duration: "0:04", stock: true }
+  ]
+};
+
+let notifySoundTab = "pings";
+let notifySoundDraft = null;
+let notifySoundSaved = null;
+let notifySoundBound = false;
+
+function copyNotifySoundPack(pack) {
+  return {
+    using: pack.using,
+    items: pack.items.map((row) => ({
+      id: row.id,
+      name: row.name,
+      duration: row.duration,
+      stock: !!row.stock
+    }))
+  };
+}
+
+function blankNotifySoundState() {
+  return {
+    pings: { using: "ping-default", items: NOTIFY_SOUND_STOCK.pings.map((row) => ({ ...row })) },
+    calls: { using: "call-default", items: NOTIFY_SOUND_STOCK.calls.map((row) => ({ ...row })) }
+  };
+}
+
+function cloneNotifySoundState(state) {
+  return {
+    pings: copyNotifySoundPack(state.pings),
+    calls: copyNotifySoundPack(state.calls)
+  };
+}
+
+function closeNotifySoundSubmenu(discard) {
+  const overlay = document.getElementById("notify-sound-overlay");
+  if (overlay) overlay.hidden = true;
+  if (discard) notifySoundDraft = null;
+  if (typeof closeContextMenu === "function") closeContextMenu();
+}
+
+function paintNotifySoundList() {
+  const host = document.getElementById("notify-sound-list");
+  if (!host || !notifySoundDraft) return;
+  const pack = notifySoundDraft[notifySoundTab] || notifySoundDraft.pings;
+  host.replaceChildren();
+  pack.items.forEach((row) => {
+    const item = document.createElement("div");
+    item.className = "notify-sound-row" + (pack.using === row.id ? " is-on" : "");
+    const copy = document.createElement("div");
+    copy.className = "notify-sound-copy";
+    const name = document.createElement("div");
+    name.className = "notify-sound-name";
+    name.textContent = row.name;
+    const duration = document.createElement("div");
+    duration.className = "notify-sound-duration";
+    duration.textContent = row.duration;
+    copy.appendChild(name);
+    copy.appendChild(duration);
+    const play = document.createElement("button");
+    play.type = "button";
+    play.className = "ghost-btn notify-sound-play";
+    play.textContent = "Play";
+    play.disabled = true;
+    const use = document.createElement("button");
+    use.type = "button";
+    use.className = "settings-row-btn";
+    use.textContent = pack.using === row.id ? "Using" : "Use";
+    use.disabled = pack.using === row.id;
+    use.addEventListener("click", () => {
+      pack.using = row.id;
+      paintNotifySoundList();
+    });
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "icon-btn notify-sound-more";
+    more.textContent = "···";
+    more.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (typeof openContextMenu !== "function") return;
+      const rect = more.getBoundingClientRect();
+      openContextMenu(rect.left, rect.bottom + 4, null, [
+        {
+          label: "Rename",
+          disabled: row.id === "ping-default" || row.id === "call-default",
+          onSelect: () => startNotifySoundRename(row, name)
+        },
+        {
+          label: "Remove",
+          danger: true,
+          disabled: !!row.stock,
+          onSelect: () => {
+            pack.items = pack.items.filter((entry) => entry.id !== row.id);
+            if (pack.using === row.id && pack.items[0]) pack.using = pack.items[0].id;
+            paintNotifySoundList();
+          }
+        }
+      ]);
+    });
+    item.appendChild(copy);
+    item.appendChild(play);
+    item.appendChild(use);
+    item.appendChild(more);
+    host.appendChild(item);
+  });
+}
+
+function startNotifySoundRename(row, nameEl) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "notify-sound-rename";
+  input.value = row.name;
+  input.maxLength = 32;
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  function finish(save) {
+    if (done) return;
+    done = true;
+    const next = input.value.trim();
+    if (save && next) row.name = next;
+    paintNotifySoundList();
+  }
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      finish(true);
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      finish(false);
+    }
+  });
+  input.addEventListener("blur", () => finish(true));
+}
+
+function setNotifySoundTab(tab) {
+  notifySoundTab = tab === "calls" ? "calls" : "pings";
+  document.querySelectorAll(".notify-sound-tab").forEach((btn) => {
+    btn.classList.toggle("is-on", btn.getAttribute("data-sound-tab") === notifySoundTab);
+  });
+  paintNotifySoundList();
+}
+
+function openNotifySoundSubmenu() {
+  const overlay = document.getElementById("notify-sound-overlay");
+  if (!overlay) return;
+  notifySoundDraft = cloneNotifySoundState(notifySoundSaved || blankNotifySoundState());
+  setNotifySoundTab(notifySoundTab);
+  overlay.hidden = false;
+}
+
+function bindNotifySoundSubmenu() {
+  if (notifySoundBound) return;
+  notifySoundBound = true;
+  const overlay = document.getElementById("notify-sound-overlay");
+  const cancel = document.getElementById("notify-sound-cancel");
+  const confirm = document.getElementById("notify-sound-confirm");
+  if (cancel) cancel.addEventListener("click", () => closeNotifySoundSubmenu(true));
+  if (confirm) confirm.addEventListener("click", () => {
+    if (notifySoundDraft) notifySoundSaved = cloneNotifySoundState(notifySoundDraft);
+    closeNotifySoundSubmenu(false);
+  });
+  document.querySelectorAll(".notify-sound-tab").forEach((btn) => {
+    btn.addEventListener("click", () => setNotifySoundTab(btn.getAttribute("data-sound-tab")));
+  });
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeNotifySoundSubmenu(true);
+    });
+  }
+}
+
+bindNotifySoundSubmenu();

@@ -34,43 +34,14 @@ NOTE_MAX = 256
 DEFAULT_BANNER = "#1e6b8a"
 
 
-def layout_banner_tile(layout):
-    color = ""
-    width = 32
-    height = 3
-    for page in (layout or {}).get("pages") or []:
-        if page.get("id") == "mini_profile":
-            continue
-        for tile in page.get("tiles") or []:
-            if tile.get("type") != "banner":
-                continue
-            props = tile.get("props") or {}
-            if not color:
-                color = (props.get("color") or "").strip()
-            try:
-                w = int(tile.get("w") or 0)
-            except (TypeError, ValueError):
-                w = 0
-            try:
-                h = int(tile.get("h") or 0)
-            except (TypeError, ValueError):
-                h = 0
-            if w > 0:
-                width = w
-            if h > 0:
-                height = h
-            break
-        if color or width != 32 or height != 3:
-            break
-    return color, width, height
-
-
 def layout_banner_and_about(layout):
-    banner, _width, _height = layout_banner_tile(layout)
+    banner = ""
     about = ""
     for page in (layout or {}).get("pages") or []:
         for tile in page.get("tiles") or []:
             props = tile.get("props") or {}
+            if tile.get("type") == "banner" and not banner:
+                banner = (props.get("color") or "").strip()
             if tile.get("type") == "bio" and not about:
                 about = clip_text(props.get("text"), 300).strip()
     store = (layout or {}).get("mini_profile") if isinstance((layout or {}).get("mini_profile"), dict) else {}
@@ -223,7 +194,7 @@ def get_mini_profile(user_id: int, server_id: str | None = None, current_user: U
     if not owner:
         raise HTTPException(status_code=404, detail="User not found.")
     layout = ensure_layout(owner, database)
-    banner, banner_w, banner_h = layout_banner_tile(layout)
+    banner, _about = layout_banner_and_about(layout)
     is_self = current_user.id == owner.id
     payload = {
         "user": {
@@ -234,9 +205,7 @@ def get_mini_profile(user_id: int, server_id: str | None = None, current_user: U
             "pronouns": clip_text(owner.profile_pronouns, 32),
             "member_since": member_since_iso(owner),
         },
-        "banner_color": banner or DEFAULT_BANNER,
-        "banner_w": banner_w,
-        "banner_h": banner_h,
+        "banner_color": banner,
         "identity": normalize_identity((layout or {}).get("identity")),
         "presence": presence_status(owner.id),
         "is_self": is_self,

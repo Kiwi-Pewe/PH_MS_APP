@@ -3813,6 +3813,9 @@ function renderProfileBoard() {
     if (!profileEditing && profileIsOwn && typeof bindProfileQuickEdit === "function") {
       bindProfileQuickEdit(el, tile);
     }
+    if (!profileEditing && !profileIsOwn && typeof bindProfileVisitorAvatar === "function") {
+      bindProfileVisitorAvatar(el, tile);
+    }
     board.appendChild(el);
   });
   syncProfileBoardScale();

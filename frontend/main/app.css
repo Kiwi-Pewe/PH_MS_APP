@@ -7703,6 +7703,8 @@ a.profile-link-row:hover { color: var(--accent); }
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }
 .oneira-wall-row:last-child { border-bottom: 0; }
+.oneira-wall-name.is-mini-profile-target,
+.oneira-wall-avatar.is-mini-profile-target { cursor: pointer; }
 .oneira-wall-avatar {
   width: 32px;
   height: 32px;

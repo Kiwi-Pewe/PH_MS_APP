@@ -492,6 +492,27 @@ function bindProfileQuickEdit(el, tile) {
   el.addEventListener("click", (e) => showMiniProfileIdentityMenu(e, tile.type));
 }
 
+function bindProfileVisitorAvatar(el, tile) {
+  if (!el || !tile || tile.type !== "avatar") return;
+  if (profileEditing || profileIsOwn || !profileOwnerId) return;
+  el.classList.add("is-mini-profile-target");
+  el.style.cursor = "pointer";
+  el.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof openMiniProfile === "function") openMiniProfile(profileOwnerId, el);
+  });
+  el.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof showProfileContextMenu !== "function") return;
+    const name = (profileUser && (profileUser.username || profileUser.display_name))
+      || (typeof profileOwnerHandle === "function" && profileOwnerHandle())
+      || "";
+    showProfileContextMenu(e, profileOwnerId, name, false);
+  });
+}
+
 function openProfileMoreMenu(e) {
   e.preventDefault();
   e.stopPropagation();

@@ -197,6 +197,23 @@ function mountProfileComments(host, tile) {
     rowEl.addEventListener("contextmenu", open);
   }
 
+  function bindCommentPerson(el, row) {
+    if (!el || !row || !row.sender_id || profileEditing) return;
+    el.classList.add("is-mini-profile-target");
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof openMiniProfile === "function") openMiniProfile(row.sender_id, el);
+    });
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof showProfileContextMenu === "function") {
+        showProfileContextMenu(e, row.sender_id, row.username || row.display_name, row.sender_id === myUserId);
+      }
+    });
+  }
+
   function startEdit(rowEl, row) {
     editingId = row.id;
     const content = rowEl.querySelector(".oneira-wall-text");
@@ -305,6 +322,8 @@ function mountProfileComments(host, tile) {
       body.appendChild(text);
       item.appendChild(avatar);
       item.appendChild(body);
+      bindCommentPerson(avatar, row);
+      bindCommentPerson(name, row);
       bindMenu(item, row);
       list.appendChild(item);
     });

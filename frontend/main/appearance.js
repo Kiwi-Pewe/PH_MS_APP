@@ -77,6 +77,71 @@ function mixHex(a, b, amount) {
   );
 }
 
+function hexToHsl(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6;
+  else if (max === gn) h = ((bn - rn) / d + 2) / 6;
+  else h = ((rn - gn) / d + 4) / 6;
+  return { h, s, l };
+}
+
+function hslToHex(h, s, l) {
+  const hue2rgb = (p, q, t) => {
+    let n = t;
+    if (n < 0) n += 1;
+    if (n > 1) n -= 1;
+    if (n < 1 / 6) return p + (q - p) * 6 * n;
+    if (n < 1 / 2) return q;
+    if (n < 2 / 3) return p + (q - p) * (2 / 3 - n) * 6;
+    return p;
+  };
+  const hh = ((h % 1) + 1) % 1;
+  const ss = Math.max(0, Math.min(1, s));
+  const ll = Math.max(0, Math.min(1, l));
+  if (ss === 0) {
+    const g = ll * 255;
+    return rgbToHex(g, g, g);
+  }
+  const q = ll < 0.5 ? ll * (1 + ss) : ll + ss - ll * ss;
+  const p = 2 * ll - q;
+  return rgbToHex(
+    hue2rgb(p, q, hh + 1 / 3) * 255,
+    hue2rgb(p, q, hh) * 255,
+    hue2rgb(p, q, hh - 1 / 3) * 255
+  );
+}
+
+function firstChroma(colors) {
+  for (let i = 0; i < colors.length; i += 1) {
+    const hsl = hexToHsl(colors[i]);
+    if (hsl.s >= 0.04) return hsl;
+  }
+  return null;
+}
+
+function retargetHex(hex, targetL, satMul, satMin, satMax, chroma) {
+  const hsl = hexToHsl(hex);
+  let h = hsl.h;
+  let s = hsl.s;
+  if (s < 0.03 && chroma) {
+    h = chroma.h;
+    s = chroma.s;
+  }
+  if (s < 0.03) return hslToHex(0, 0, targetL);
+  const nextS = Math.max(satMin, Math.min(satMax, s * satMul));
+  return hslToHex(h, nextS, targetL);
+}
+
 function luminance(hex) {
   const { r, g, b } = hexToRgb(hex);
   const lin = (c) => {
@@ -139,12 +204,23 @@ function nativeThemeColors(prefs) {
 function brightnessAdjustedColors(colors, brightness) {
   const [bg, surface, accent, highlight] = colors;
   const lightNative = luminance(bg) >= 0.55;
+  const chroma = firstChroma(colors);
   if (brightness === "light") {
     if (lightNative) return [bg, surface, accent, highlight];
-    return [mixHex(bg, "#f4f0fa", 0.84), mixHex(surface, "#ffffff", 0.86), accent, highlight];
+    return [
+      retargetHex(bg, 0.86, 1.05, 0.16, 0.40, chroma),
+      retargetHex(surface, 0.93, 0.70, 0.08, 0.24, chroma),
+      accent,
+      highlight
+    ];
   }
   if (!lightNative) return [bg, surface, accent, highlight];
-  return [mixHex(bg, "#0e0c14", 0.78), mixHex(surface, "#161320", 0.72), accent, highlight];
+  return [
+    retargetHex(bg, 0.11, 1.15, 0.22, 0.48, chroma),
+    retargetHex(surface, 0.18, 1.05, 0.16, 0.42, chroma),
+    accent,
+    highlight
+  ];
 }
 
 const THEME_TOKEN_KEYS = [

@@ -166,7 +166,8 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
     return;
   }
 
-  const pages = [THEME_PRESETS, THEME_PRESETS_MORE];
+  const pages = [THEME_PRESETS];
+  if (THEME_PRESETS_MORE.length) pages.push(THEME_PRESETS_MORE);
   const headings = ["Default Themes", "More Themes"];
   if (appearanceThemePage < 0 || appearanceThemePage >= pages.length) appearanceThemePage = 0;
   const heading = document.createElement("div");
@@ -180,6 +181,7 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
     grid.appendChild(themeTile(preset, info.theme, (id) => persist({ theme: id })));
   });
   host.appendChild(grid);
+  if (pages.length < 2) return;
   const pager = appearanceSeg(
     [
       { value: 0, label: "1" },

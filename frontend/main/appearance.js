@@ -6,7 +6,6 @@
 
 const THEME_PRESETS = [
   { id: "midnight-purple", name: "Midnight Purple", colors: ["#0f0a1a", "#1c1430", "#8b5cf6", "#d946ef"] },
-  { id: "light", name: "Light", colors: ["#f4efe8", "#fffaf4", "#c4a07a", "#8a6244"] },
   { id: "midnight", name: "Midnight", colors: ["#0d0d10", "#1a1b20", "#e06c62", "#c8c9ce"] },
   { id: "paper", name: "Paper", colors: ["#f7f1e4", "#fffaf0", "#c9a227", "#5c3d2e"] },
   { id: "cyberpunk", name: "Cyberpunk", colors: ["#0a0a12", "#151528", "#00e5ff", "#ff2bd6"] },
@@ -17,21 +16,16 @@ const THEME_PRESETS = [
   { id: "copper", name: "Copper", colors: ["#1a100c", "#3a2418", "#d4783a", "#e8b080"] },
   { id: "terminal", name: "Terminal", colors: ["#030504", "#0b100c", "#39ff14", "#b8ffb0"] },
   { id: "crimson", name: "Crimson", colors: ["#14060a", "#2a0c14", "#c41e3a", "#ff4d6d"] },
-  { id: "lavender", name: "Lavender", colors: ["#f4f0fa", "#ffffff", "#b8a0d8", "#7c5cbf"] },
-  { id: "gpt", name: "GPT", colors: ["#212121", "#2f2f2f", "#10a37f", "#ececec"] },
-  { id: "claude", name: "Claude", colors: ["#1a1614", "#2a2420", "#d97757", "#c4a484"] },
   { id: "cute", name: "Cute", colors: ["#fff5f8", "#ffffff", "#ff8ab5", "#ffc0d4"] },
   { id: "beehive", name: "Beehive", colors: ["#0a0804", "#1c1408", "#f0c014", "#c4892a"] },
-  { id: "frutiger-aero", name: "Frutiger Aero", colors: ["#9ee4f0", "#ffffff", "#00b8c8", "#64d830"] }
+  { id: "frutiger-aero", name: "Frutiger Aero", colors: ["#9ee4f0", "#ffffff", "#00b8c8", "#64d830"] },
+  { id: "glacier", name: "Glacier", colors: ["#0a1418", "#1a2e38", "#8ab4c4", "#e8f4f8"] },
+  { id: "solar", name: "Solar", colors: ["#261204", "#5c220c", "#ffb000", "#ff2a00"] },
+  { id: "noir", name: "Noir", colors: ["#080808", "#161616", "#e8e8e8", "#8a8a8a"] },
+  { id: "reef", name: "Reef", colors: ["#041614", "#0a2a28", "#14b8a6", "#fb7185"] }
 ];
 
-const THEME_PRESETS_MORE = [
-  { id: "glacier", name: "Glacier", colors: ["#0a1418", "#1a2e38", "#8ab4c4", "#e8f4f8"] },
-  { id: "solar", name: "Solar", colors: ["#160402", "#3c0c08", "#ffb000", "#ff2a00"] },
-  { id: "noir", name: "Noir", colors: ["#080808", "#161616", "#e8e8e8", "#8a8a8a"] },
-  { id: "reef", name: "Reef", colors: ["#041614", "#0a2a28", "#14b8a6", "#fb7185"] },
-  { id: "matcha", name: "Matcha", colors: ["#1a1610", "#32281c", "#8fad2e", "#e8d5a0"] }
-];
+const THEME_PRESETS_MORE = [];
 
 function defaultAppearancePrefs() {
   return {
@@ -119,7 +113,10 @@ function allThemePresets() {
 function resolveThemeId(id) {
   if (id === "ash") return "beehive";
   if (id === "organs") return "crimson";
-  if (id === "indigo") return "midnight-purple";
+  if (id === "light") return "paper";
+  if (id === "lavender") return "cute";
+  if (id === "claude") return "midnight";
+  if (id === "indigo" || id === "gpt" || id === "matcha") return "midnight-purple";
   return id;
 }
 

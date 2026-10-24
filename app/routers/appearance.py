@@ -10,15 +10,29 @@ from app.privacy import flag_on
 router = APIRouter()
 
 THEME_IDS = {
-    "midnight-purple", "light", "midnight", "paper", "cyberpunk", "retrowave",
-    "forest", "ocean", "ume", "copper", "terminal", "organs", "lavender",
-    "gpt", "claude", "cute", "ash", "beehive", "frutiger-aero",
-    "crimson", "glacier", "solar", "noir", "reef", "matcha", "custom",
+    "midnight-purple", "midnight", "paper", "cyberpunk", "retrowave",
+    "forest", "ocean", "ume", "copper", "terminal", "crimson", "cute",
+    "beehive", "frutiger-aero", "glacier", "solar", "noir", "reef", "custom",
 }
 BRIGHTNESS_IDS = {"dark", "light"}
 SEARCH_STYLES = {"compact", "fullscreen", "auto"}
 SELF_SIDES = {"right", "left"}
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+THEME_ALIASES = {
+    "ash": "beehive",
+    "organs": "crimson",
+    "light": "paper",
+    "lavender": "cute",
+    "claude": "midnight",
+    "indigo": "midnight-purple",
+    "gpt": "midnight-purple",
+    "matcha": "midnight-purple",
+}
+
+
+def resolve_theme_id(theme):
+    return THEME_ALIASES.get((theme or "").strip(), (theme or "").strip())
 
 
 def clean_hex(value):
@@ -30,12 +44,7 @@ def clean_hex(value):
 
 def appearance_payload(user):
     theme = (user.appearance_theme or "").strip()
-    if theme == "ash":
-        theme = "beehive"
-    if theme == "organs":
-        theme = "crimson"
-    if theme == "indigo":
-        theme = "midnight-purple"
+    theme = resolve_theme_id(theme)
     if theme not in THEME_IDS:
         theme = "midnight-purple"
     brightness = (user.appearance_brightness or "").strip()
@@ -72,13 +81,7 @@ def get_appearance_settings(current_user: UserInfo = Depends(get_current_user)):
 
 @router.post("/appearance_settings")
 def update_appearance_settings(prefs: Appearance_prefs, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
-    theme = (prefs.theme or "").strip()
-    if theme == "ash":
-        theme = "beehive"
-    if theme == "organs":
-        theme = "crimson"
-    if theme == "indigo":
-        theme = "midnight-purple"
+    theme = resolve_theme_id(prefs.theme)
     if theme not in THEME_IDS:
         raise HTTPException(status_code=400, detail="Pick a valid theme.")
     brightness = (prefs.brightness or "").strip()

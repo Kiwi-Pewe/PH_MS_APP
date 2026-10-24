@@ -132,6 +132,10 @@
 .feed-alert-card {
   border-left: 3px solid var(--border);
 }
+.feed-alert-card:hover {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
 .feed-alert-card.is-jumpable,
 .mail-tray-item.is-jumpable { cursor: pointer; }
 .feed-alert-card.is-activity { border-left-color: var(--accent); }

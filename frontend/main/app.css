@@ -6094,6 +6094,11 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   min-width: 0; min-height: 0; overflow: hidden;
   position: relative; z-index: 1;
   box-sizing: border-box;
+  overflow-anchor: none;
+}
+#profile-board.is-tile-dragging,
+#profile-board-scroll:has(.is-tile-dragging) {
+  overflow-anchor: none;
 }
 .profile-tile.is-banner {
   border: none; border-radius: 12px;

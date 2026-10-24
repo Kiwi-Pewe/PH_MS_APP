@@ -314,29 +314,33 @@ function bindProfileTileDrag(el, tile, handle) {
   let mode = null;
   let origin = null;
   let startPt = null;
-  let grabPx = { x: 0, y: 0 };
-  let resizePx = { x: 0, y: 0 };
+  let dragScale = 1;
   let group = [];
 
-  function moveTarget(clientX, clientY) {
-    const pt = profileBoardPoint(clientX, clientY);
-    const x = Math.round((pt.x - grabPx.x) / PROFILE_ROW_H);
-    const y = Math.round((pt.y - grabPx.y) / PROFILE_ROW_H);
+  function cellDelta(clientX, clientY) {
+    const step = (dragScale || 1) * PROFILE_ROW_H;
     return {
-      x: Math.max(0, Math.min(PROFILE_COLS - tile.w, x)),
-      y: Math.max(0, y)
+      x: Math.round((clientX - startPt.x) / step),
+      y: Math.round((clientY - startPt.y) / step)
+    };
+  }
+
+  function moveTarget(clientX, clientY) {
+    const d = cellDelta(clientX, clientY);
+    return {
+      x: Math.max(0, Math.min(PROFILE_COLS - tile.w, origin.x + d.x)),
+      y: Math.max(0, origin.y + d.y)
     };
   }
 
   function resizeTarget(clientX, clientY) {
-    const pt = profileBoardPoint(clientX, clientY);
-    const dw = Math.round((pt.x - resizePx.x) / PROFILE_ROW_H);
-    const dh = Math.round((pt.y - resizePx.y) / PROFILE_ROW_H);
-    return clampProfileTileSize(tile.type, origin.w + dw, origin.h + dh, origin.x, tile);
+    const d = cellDelta(clientX, clientY);
+    return clampProfileTileSize(tile.type, origin.w + d.x, origin.h + d.y, origin.x, tile);
   }
 
   function onMove(e) {
     if (!mode) return;
+    e.preventDefault();
     if (mode === "move") {
       const next = moveTarget(e.clientX, e.clientY);
       el.style.gridColumn = (next.x + 1) + " / span " + tile.w;
@@ -377,8 +381,12 @@ function bindProfileTileDrag(el, tile, handle) {
     mode = null;
     const grouped = group.length > 0;
     group = [];
+    el.classList.remove("is-dragging");
+    const board = document.getElementById("profile-board");
+    if (board) board.classList.remove("is-tile-dragging");
     document.removeEventListener("pointermove", onMove);
     document.removeEventListener("pointerup", onUp);
+    document.removeEventListener("pointercancel", onUp);
     if (rerender || grouped) renderProfileBoard();
   }
 
@@ -397,11 +405,11 @@ function bindProfileTileDrag(el, tile, handle) {
     mode = "move";
     origin = { x: tile.x, y: tile.y, w: tile.w, h: tile.h };
     startPt = { x: e.clientX, y: e.clientY };
-    const pt = profileBoardPoint(e.clientX, e.clientY);
-    grabPx = {
-      x: pt.x - tile.x * PROFILE_ROW_H,
-      y: pt.y - tile.y * PROFILE_ROW_H
-    };
+    dragScale = profileBoardScale || 1;
+    el.classList.add("is-dragging");
+    const boardEl = document.getElementById("profile-board");
+    if (boardEl) boardEl.classList.add("is-tile-dragging");
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
     group = [];
     if (typeof profileFrameMovesContents === "function" && profileFrameMovesContents(tile)) {
       const page = currentProfilePage();
@@ -415,6 +423,7 @@ function bindProfileTileDrag(el, tile, handle) {
     }
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
   }, true);
 
   handle.addEventListener("pointerdown", (e) => {
@@ -423,9 +432,14 @@ function bindProfileTileDrag(el, tile, handle) {
     mode = "resize";
     origin = { x: tile.x, y: tile.y, w: tile.w, h: tile.h };
     startPt = { x: e.clientX, y: e.clientY };
-    resizePx = profileBoardPoint(e.clientX, e.clientY);
+    dragScale = profileBoardScale || 1;
+    el.classList.add("is-dragging");
+    const boardEl = document.getElementById("profile-board");
+    if (boardEl) boardEl.classList.add("is-tile-dragging");
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
   });
 }
 

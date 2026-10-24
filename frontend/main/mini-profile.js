@@ -346,6 +346,11 @@ function paintMiniProfileInto(card, data, opts) {
   const banner = document.createElement("div");
   banner.className = "mini-profile-banner";
   banner.style.background = data.banner_color || "#1e6b8a";
+  const bannerSize = typeof identityBannerTileSize === "function"
+    ? identityBannerTileSize(data)
+    : { w: 32, h: 3 };
+  const bannerH = 300 * bannerSize.h / bannerSize.w;
+  banner.style.height = bannerH + "px";
   const ident = data.identity || {};
   const bannerMedia = ident.banner || (editing && typeof getIdentityMedia === "function" ? getIdentityMedia("banner") : null);
   if (typeof paintIdentityMedia === "function") paintIdentityMedia(banner, bannerMedia, { border: false, attention: "profile", attentionHost: banner });
@@ -358,6 +363,7 @@ function paintMiniProfileInto(card, data, opts) {
 
   const face = document.createElement("div");
   face.className = "mini-profile-face";
+  face.style.marginTop = (-Math.min(36, Math.max(0, bannerH - 4))) + "px";
 
   const avatar = document.createElement("div");
   avatar.className = "mini-profile-avatar";

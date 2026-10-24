@@ -69,6 +69,7 @@ function closeMiniProfile() {
   const card = document.getElementById("mini-profile");
   if (card) {
     card.hidden = true;
+    card.style.visibility = "";
     card.innerHTML = "";
   }
 }
@@ -124,15 +125,90 @@ function positionMiniProfile(anchorEl) {
   if (!ar) return;
   const z = typeof pageZoom === "function" ? pageZoom() : 1;
   const cr = card.getBoundingClientRect();
+  const cardW = cr.width || 300;
+  const cardH = cr.height || 200;
   let left = ar.right + 8;
-  if (ar.left > window.innerWidth * 0.55) left = ar.left - cr.width - 8;
-  if (left + cr.width > window.innerWidth - 8) left = window.innerWidth - cr.width - 8;
+  if (ar.left > window.innerWidth * 0.55) left = ar.left - cardW - 8;
+  if (left + cardW > window.innerWidth - 8) left = window.innerWidth - cardW - 8;
   if (left < 8) left = 8;
   let top = ar.top;
-  if (top + cr.height > window.innerHeight - 8) top = window.innerHeight - cr.height - 8;
+  if (top + cardH > window.innerHeight - 8) top = window.innerHeight - cardH - 8;
   if (top < 8) top = 8;
   card.style.left = (left / z) + "px";
   card.style.top = (top / z) + "px";
+}
+
+function miniPaintKey(data) {
+  if (!data) return "";
+  const ident = data.identity || {};
+  const av = ident.avatar || {};
+  const bn = ident.banner || {};
+  function cropKey(crop) {
+    if (!crop) return "";
+    return [crop.zoom, crop.x, crop.y, crop.rotation].join(",");
+  }
+  return [
+    data.user && data.user.id,
+    data.user && data.user.display_name,
+    data.user && data.user.username,
+    data.user && data.user.status,
+    data.user && data.user.pronouns,
+    data.presence,
+    data.banner_color,
+    av.key || av.url,
+    bn.key || bn.url,
+    cropKey(av.crop),
+    cropKey(bn.crop),
+    data.note || "",
+    JSON.stringify(data.widgets || []),
+    JSON.stringify(data.roles || [])
+  ].join("|");
+}
+
+function miniWarmData(userId) {
+  if (typeof placeCache !== "undefined" && placeCache.mini[String(userId)]) {
+    return placeCache.mini[String(userId)];
+  }
+  if (typeof profileUser === "undefined" || !profileUser || Number(profileUser.id) !== Number(userId)) {
+    return null;
+  }
+  const layout = (typeof profileDraft !== "undefined" && profileDraft)
+    || (typeof profileSavedLayout !== "undefined" && profileSavedLayout)
+    || {};
+  let banner = "#1e6b8a";
+  (layout.pages || []).forEach((page) => {
+    if (page.id === "mini_profile") return;
+    (page.tiles || []).forEach((tile) => {
+      if (tile.type !== "banner") return;
+      const color = tile.props && tile.props.color;
+      if (color && banner === "#1e6b8a") banner = color;
+    });
+  });
+  const store = typeof miniProfileStore === "function" ? miniProfileStore(layout) : {};
+  return {
+    user: {
+      id: profileUser.id,
+      username: profileUser.username,
+      display_name: profileUser.display_name,
+      status: profileUser.status,
+      pronouns: profileUser.pronouns,
+      member_since: profileUser.member_since
+    },
+    banner_color: banner,
+    identity: layout.identity || null,
+    presence: "offline",
+    is_self: !!(typeof profileIsOwn !== "undefined" && profileIsOwn),
+    in_server: false,
+    note: "",
+    widgets: (store.widgets || []).map((tile) => ({
+      id: tile.id,
+      type: tile.type,
+      props: tile.props || {},
+      slot: tile.slot,
+      live: null
+    })),
+    roles: []
+  };
 }
 
 function miniProfileIconButton(kind, title) {
@@ -1795,25 +1871,30 @@ async function openMiniProfile(userId, anchorEl) {
   miniProfileRolesExpanded = false;
   const card = document.getElementById("mini-profile");
   if (!card) return;
+  card.style.visibility = "hidden";
   card.hidden = false;
   card.classList.add("mini-profile-card");
-  const cached = typeof placeCache !== "undefined" ? placeCache.mini[String(userId)] : null;
-  if (cached) {
-    miniProfileData = cached;
-    paintMiniProfile(cached);
+  const warm = miniWarmData(userId);
+  if (warm) {
+    miniProfileData = warm;
+    paintMiniProfile(warm);
   } else if (typeof fillPlaceHold === "function") {
     fillPlaceHold(card, 5);
   } else {
     card.innerHTML = "";
   }
   positionMiniProfile(anchorEl);
+  card.style.visibility = "";
+  const painted = warm ? miniPaintKey(warm) : "";
   try {
     const data = await fetchMiniProfile(userId);
     if (!miniProfileOpen || miniProfileUserId !== userId) return;
     if (typeof placeCache !== "undefined") placeCache.mini[String(userId)] = data;
     miniProfileData = data;
-    paintMiniProfile(data);
-    positionMiniProfile(anchorEl);
+    if (miniPaintKey(data) !== painted) {
+      paintMiniProfile(data);
+      positionMiniProfile(anchorEl);
+    }
   } catch (e) {
     if (!miniProfileOpen || miniProfileUserId !== userId) return;
     closeMiniProfile();

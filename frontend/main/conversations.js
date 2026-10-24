@@ -260,6 +260,7 @@ function bumpConversation(type, id, name, incrementUnread, opts) {
   if (incrementUnread) {
     if (type === "party" && extra.mentioned) entry.mentions = (entry.mentions || 0) + 1;
     else entry.unread = (entry.unread || 0) + 1;
+    if ((type === "dm" || extra.mentioned) && typeof playOneiraAlert === "function") playOneiraAlert();
   }
   conversationList.unshift(entry);
   renderConversationList();

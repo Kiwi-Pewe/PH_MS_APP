@@ -123,6 +123,7 @@ async function renderNotificationSettings(pane, jumpChildId) {
     incoming_ring: !!info.sound_incoming_ring,
     mute_all: !!info.sound_mute_all
   };
+  oneiraSoundMuteAll = !!soundPrefs.mute_all;
   async function saveSounds() {
     await postNotification("/notification_sounds", soundPrefs);
   }
@@ -141,8 +142,11 @@ async function renderNotificationSettings(pane, jumpChildId) {
   const muteToggle = settingsToggle(soundPrefs.mute_all, false, async (on) => {
     const previous = soundPrefs.mute_all;
     soundPrefs.mute_all = on;
+    oneiraSoundMuteAll = on;
+    if (on && typeof stopOneiraRingtone === "function") stopOneiraRingtone();
     try { await saveSounds(); } catch (e) {
       soundPrefs.mute_all = previous;
+      oneiraSoundMuteAll = previous;
       muteToggle.querySelector("input").checked = previous;
     }
   });
@@ -217,55 +221,8 @@ async function renderNotificationSettings(pane, jumpChildId) {
 }
 
 const NOTIFY_SOUND_FILES = {
-  pings: [
-    "Achievement.mp3",
-    "Alarm.mp3",
-    "Alerted.mp3",
-    "confusion.mp3",
-    "Connected.mp3",
-    "Disconnect.mp3",
-    "dong.mp3",
-    "Failed Connection.mp3",
-    "Flow.mp3",
-    "Item.mp3",
-    "Level up.mp3",
-    "Ping.mp3",
-    "Ping2.mp3",
-    "Question Mark.mp3",
-    "Swing.mp3",
-    "twang.mp3"
-  ],
-  calls: [
-    "2056.mp3",
-    "Annoying1.mp3",
-    "Annoying2.mp3",
-    "good morning.mp3",
-    "Handheld.mp3",
-    "morning birds.mp3",
-    "News.mp3",
-    "Passing Animals.mp3",
-    "temp ringtone 1.mp3",
-    "temp ringtone 2.mp3",
-    "temp ringtone 3.mp3",
-    "temp ringtone 4.mp3",
-    "temp ringtone 5.mp3",
-    "temp ringtone 6.mp3",
-    "temp ringtone 7.mp3",
-    "temp ringtone 8.mp3",
-    "temp ringtone 9.mp3",
-    "temp ringtone 10.mp3",
-    "temp ringtone 11.mp3",
-    "temp ringtone 12.mp3",
-    "temp ringtone 13.mp3",
-    "temp ringtone 14.mp3",
-    "temp ringtone 15.mp3",
-    "temp ringtone 16.mp3",
-    "temp ringtone 17.mp3",
-    "Warning.mp3",
-    "Wondering Waves.mp3",
-    "Y2K.mp3",
-    "You Free.mp3"
-  ]
+  pings: ["Default.mp3"],
+  calls: ["Default.mp3"]
 };
 
 let notifySoundTab = "pings";
@@ -306,6 +263,32 @@ function playNotifySoundPreview(row) {
   audio.play().catch(() => {});
 }
 
+let oneiraSoundMuteAll = false;
+let oneiraRingAudio = null;
+
+function playOneiraAlert() {
+  if (oneiraSoundMuteAll) return;
+  const audio = new Audio("sounds/alerts/Default.mp3");
+  audio.play().catch(() => {});
+}
+
+function startOneiraRingtone() {
+  if (oneiraSoundMuteAll) {
+    stopOneiraRingtone();
+    return;
+  }
+  if (oneiraRingAudio) return;
+  oneiraRingAudio = new Audio("sounds/ringtones/Default.mp3");
+  oneiraRingAudio.loop = true;
+  oneiraRingAudio.play().catch(() => {});
+}
+
+function stopOneiraRingtone() {
+  if (!oneiraRingAudio) return;
+  oneiraRingAudio.pause();
+  oneiraRingAudio = null;
+}
+
 function packNotifySoundFiles(kind, files, preferred) {
   const items = files.map((file) => ({
     id: notifySoundId(kind, file),
@@ -337,8 +320,8 @@ function copyNotifySoundPack(pack) {
 
 function blankNotifySoundState() {
   return {
-    pings: packNotifySoundFiles("pings", NOTIFY_SOUND_FILES.pings, "Ping.mp3"),
-    calls: packNotifySoundFiles("calls", NOTIFY_SOUND_FILES.calls, "News.mp3")
+    pings: packNotifySoundFiles("pings", NOTIFY_SOUND_FILES.pings, "Default.mp3"),
+    calls: packNotifySoundFiles("calls", NOTIFY_SOUND_FILES.calls, "Default.mp3")
   };
 }
 
@@ -422,7 +405,7 @@ function paintNotifySoundList() {
       openContextMenu(rect.left, rect.bottom + 4, null, [
         {
           label: "Rename",
-          disabled: row.file === "Ping.mp3" || row.file === "News.mp3",
+          disabled: row.file === "Default.mp3",
           onSelect: () => startNotifySoundRename(row, name)
         },
         {

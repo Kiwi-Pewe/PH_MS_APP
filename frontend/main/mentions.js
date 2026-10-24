@@ -368,6 +368,7 @@ function noteIncomingChannelMessage(channelId, serverId, mentioned, isOpen) {
     if (decision.mention) server.mention_count = (server.mention_count || 0) + 1;
   }
   paintServerNotices();
+  if (decision.mention && typeof playOneiraAlert === "function") playOneiraAlert();
 }
 
 function stampChannelView(channelId) {

@@ -244,6 +244,11 @@ function paintCallIncoming() {
     stack.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add("is-in"));
   });
+  if (ringing.length) {
+    if (typeof startOneiraRingtone === "function") startOneiraRingtone();
+  } else if (typeof stopOneiraRingtone === "function") {
+    stopOneiraRingtone();
+  }
 }
 
 function callStamp(raw) {

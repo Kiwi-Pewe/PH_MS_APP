@@ -426,6 +426,7 @@ function noteIncomingFeedAlert(alert) {
   if (feedView && feedView.classList.contains("active")) {
     paintFeedPosts({ preserveScroll: true });
   }
+  if (typeof playOneiraAlert === "function") playOneiraAlert();
 }
 
 function applyFeedAlertPrefsLocally() {

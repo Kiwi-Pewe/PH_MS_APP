@@ -160,26 +160,21 @@ function identityCoverScale(natW, natH, frameW, frameH, rotation) {
   return Math.max(frameW / boxW, frameH / boxH);
 }
 
-function identityBannerRatio() {
-  if (typeof IDENTITY_BANNER_COLS === "number" && typeof IDENTITY_BANNER_ROWS === "number" && IDENTITY_BANNER_ROWS) {
-    return IDENTITY_BANNER_COLS / IDENTITY_BANNER_ROWS;
+function identityBannerTileSize(data) {
+  const cols = typeof IDENTITY_BANNER_COLS === "number" ? IDENTITY_BANNER_COLS : 32;
+  const rows = typeof IDENTITY_BANNER_ROWS === "number" ? IDENTITY_BANNER_ROWS : 3;
+  if (data && Number(data.banner_w) > 0 && Number(data.banner_h) > 0) {
+    return { w: Number(data.banner_w), h: Number(data.banner_h) };
   }
-  return 32 / 3;
-}
-
-function identityBannerCoverFrame(hostW, hostH) {
-  const ratio = identityBannerRatio();
-  let coverW = hostW;
-  let coverH = hostW / ratio;
-  if (coverH < hostH) {
-    coverH = hostH;
-    coverW = hostH * ratio;
+  if (data && data.user) {
+    return { w: cols, h: rows };
   }
+  const tile = typeof findIdentityBoardTile === "function" ? findIdentityBoardTile("banner") : null;
+  const w = Number(tile && tile.w);
+  const h = Number(tile && tile.h);
   return {
-    w: coverW,
-    h: coverH,
-    x: (hostW - coverW) / 2,
-    y: (hostH - coverH) / 2
+    w: w > 0 ? w : cols,
+    h: h > 0 ? h : rows
   };
 }
 
@@ -246,12 +241,7 @@ function paintIdentityMedia(host, media, opts) {
       return;
     }
     if (!fw || !fh || !img.naturalWidth) return;
-    if (opts.circle) {
-      applyIdentityCropToImg(img, media.crop, fw, fh);
-      return;
-    }
-    const box = identityBannerCoverFrame(fw, fh);
-    applyIdentityCropToImg(img, media.crop, box.w, box.h, box.x, box.y);
+    applyIdentityCropToImg(img, media.crop, fw, fh);
   }
   img.addEventListener("load", layout);
   if (opts.attention && typeof bindAttentionGif === "function" && typeof isGifMedia === "function" && isGifMedia(media)) {
@@ -454,7 +444,15 @@ function findIdentityBoardTile(type) {
       if (tiles[j].type === type) return tiles[j];
     }
   }
-  return { id: "identity-" + type, type: type, props: {}, x: 0, y: 0, w: 4, h: 4 };
+  return {
+    id: "identity-" + type,
+    type: type,
+    props: {},
+    x: 0,
+    y: 0,
+    w: type === "banner" ? 32 : 4,
+    h: type === "banner" ? 3 : 4
+  };
 }
 
 function seedIdentityOptionsDraft(tile, draft) {
@@ -499,6 +497,10 @@ function fillIdentityImageOptions(box, kind, draft, onChange, hintEl) {
 
   const preview = document.createElement("div");
   preview.className = "identity-opt-preview" + (kind === "avatar" ? " is-circle" : " is-banner");
+  if (kind === "banner") {
+    const size = identityBannerTileSize();
+    preview.style.aspectRatio = size.w + " / " + size.h;
+  }
   function paintPreview() {
     preview.innerHTML = "";
     if (identityHasImage(draft)) paintIdentityMedia(preview, draft, { circle: kind === "avatar" });
@@ -667,8 +669,9 @@ function openIdentityPicker(kind, current, onPicked) {
 function openIdentityCropper(kind, media, onApply, onCancel) {
   const working = cloneIdentityMedia(media);
   working.crop = normalizeIdentityCrop(working.crop);
+  const bannerSize = identityBannerTileSize();
   const used = kind === "banner"
-    ? { w: 480, h: Math.round(480 * 3 / 32), circle: false, title: "Edit Banner" }
+    ? { w: 480, h: Math.max(8, Math.round(480 * bannerSize.h / bannerSize.w)), circle: false, title: "Edit Banner" }
     : { w: 248, h: 248, circle: true, title: "Edit Profile Picture" };
   const pad = kind === "banner" ? 32 : 16;
   const stageW = used.w + pad * 2;

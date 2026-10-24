@@ -3653,10 +3653,16 @@ function miniProfileBioTile() {
 function miniProfileDataFromOpenProfile() {
   const layout = profileDraft || profileSavedLayout || {};
   let banner = "#1e6b8a";
+  let bannerW = 32;
+  let bannerH = 3;
   (layout.pages || []).forEach((page) => {
+    if (page.id === "mini_profile") return;
     (page.tiles || []).forEach((tile) => {
       const props = tile.props || {};
-      if (tile.type === "banner" && props.color && banner === "#1e6b8a") banner = props.color;
+      if (tile.type !== "banner") return;
+      if (props.color && banner === "#1e6b8a") banner = props.color;
+      if (Number(tile.w) > 0) bannerW = Number(tile.w);
+      if (Number(tile.h) > 0) bannerH = Number(tile.h);
     });
   });
   const store = miniProfileStore(layout);
@@ -3672,6 +3678,8 @@ function miniProfileDataFromOpenProfile() {
       member_since: user.member_since || ""
     },
     banner_color: banner,
+    banner_w: bannerW,
+    banner_h: bannerH,
     identity: layout.identity || null,
     presence: "online",
     is_self: true,

@@ -208,8 +208,8 @@ function brightnessAdjustedColors(colors, brightness) {
   if (brightness === "light") {
     if (lightNative) return [bg, surface, accent, highlight];
     return [
-      retargetHex(bg, 0.86, 1.05, 0.16, 0.40, chroma),
-      retargetHex(surface, 0.93, 0.70, 0.08, 0.24, chroma),
+      retargetHex(bg, 0.78, 1.45, 0.32, 0.58, chroma),
+      retargetHex(surface, 0.87, 1.00, 0.18, 0.40, chroma),
       accent,
       highlight
     ];
@@ -249,10 +249,10 @@ function persistThemeTokens() {
   } catch (e) {}
 }
 
-function applyThemeTokens(colors) {
+function applyThemeTokens(colors, brightness) {
   const sat = themeSaturationAmount();
   const [bg, surface, accent, highlight] = colors.map(c => desaturateHex(c, sat));
-  const light = luminance(bg) >= 0.45;
+  const light = brightness === "light" || (brightness !== "dark" && luminance(bg) >= 0.45);
   const text = light ? "#1c1528" : "#ece7f7";
   const textDim = light ? "#6b627a" : "#a89bc4";
   const root = document.documentElement;
@@ -300,7 +300,8 @@ function applyAppearance(prefs) {
   prefs.theme = resolveThemeId(prefs.theme);
   appearancePrefs = prefs;
   if (prefs.theme && prefs.theme !== "custom") appearanceLastPreset = prefs.theme;
-  applyThemeTokens(brightnessAdjustedColors(nativeThemeColors(prefs), prefs.brightness === "light" ? "light" : "dark"));
+  const mode = prefs.brightness === "light" ? "light" : "dark";
+  applyThemeTokens(brightnessAdjustedColors(nativeThemeColors(prefs), mode), mode);
   applyAppearanceChrome(prefs);
   if (typeof applySearchLayout === "function") applySearchLayout();
 }

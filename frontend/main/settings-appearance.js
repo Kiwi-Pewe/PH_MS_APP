@@ -28,18 +28,31 @@ async function saveAppearanceSettings(next) {
   return data;
 }
 
-function appearanceSeg(options, selected, onPick) {
+function appearanceSeg(options, selected, onPick, disabled) {
   const wrap = document.createElement("div");
-  wrap.className = "appearance-seg";
+  wrap.className = "appearance-seg" + (disabled ? " is-disabled" : "");
   options.forEach(opt => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = opt.value === selected ? "is-on" : "";
     btn.textContent = opt.label;
-    btn.addEventListener("click", () => onPick(opt.value));
+    btn.disabled = !!disabled;
+    if (!disabled) btn.addEventListener("click", () => onPick(opt.value));
     wrap.appendChild(btn);
   });
   return wrap;
+}
+
+function lockThemeMode(on) {
+  const wrap = document.querySelector(".appearance-mode-seg");
+  const warn = document.querySelector(".appearance-mode-warn");
+  if (wrap) {
+    wrap.classList.toggle("is-disabled", on);
+    wrap.querySelectorAll("button").forEach((btn) => {
+      btn.disabled = on;
+    });
+  }
+  if (warn) warn.hidden = !on;
 }
 
 function themeTile(preset, selected, onPick, onRemove) {
@@ -155,18 +168,25 @@ function openPaletteDeleteSubmenu(preset, onConfirm) {
 }
 
 function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
+  const customOn = info.theme === "custom";
   const brightness = appearanceSeg(
     [
       { value: "dark", label: "Dark" },
       { value: "light", label: "Light" }
     ],
     info.brightness === "light" ? "light" : "dark",
-    (value) => persist({ brightness: value })
+    (value) => persist({ brightness: value }),
+    customOn
   );
+  brightness.classList.add("appearance-mode-seg");
+  const modeWarn = settingsNote("This option doesnt suppose custom pallets.");
+  modeWarn.classList.add("appearance-mode-warn");
+  modeWarn.hidden = !customOn;
   host.appendChild(settingsOpt(
-    "Brightness",
-    "Dark and Light shift the same palette darker or brighter. Accents stay put so the theme still reads as itself.",
-    brightness
+    "Theme Mode",
+    "Switch the theme between dark and light mode.",
+    brightness,
+    modeWarn
   ));
 
   const tabs = appearanceSeg(
@@ -211,6 +231,7 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
           color_text: working[4],
           palette_name: nameInput.value
         }, { save: save !== false, rebuild: false });
+        lockThemeMode(true);
       }));
     });
     const savedCount = appearancePresets(info).length;
@@ -253,7 +274,7 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
 
   const customPresets = appearancePresets(info);
   const pages = [THEME_PRESETS, customPresets];
-  const headings = ["Default Themes", "Custom Palettes"];
+  const headings = ["Preset Themes", "Saved Themes"];
   if (appearanceThemePage < 0 || appearanceThemePage >= pages.length) appearanceThemePage = 0;
   const heading = document.createElement("div");
   heading.className = "settings-opt-title";
@@ -291,12 +312,14 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
   }
   host.appendChild(grid);
   if (appearanceThemePage === 1 && !customPresets.length) {
-    host.appendChild(settingsNote("No custom palettes yet. Save one from Customize."));
+    const empty = settingsNote("You have no saved pallets. create some within the \"Customize\" tab.");
+    empty.classList.add("appearance-empty-note");
+    host.appendChild(empty);
   }
   const pager = appearanceSeg(
     [
-      { value: 0, label: "1" },
-      { value: 1, label: "2" }
+      { value: 0, label: "Preset Themes" },
+      { value: 1, label: "Saved Themes" }
     ],
     appearanceThemePage,
     (value) => {
@@ -311,12 +334,12 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
 function paintAppearanceMessages(host, info, persist) {
   host.appendChild(settingsOpt(
     "Chat bubbles",
-    "Draw a colored bubble around each message. Turn this off for a flat chat list.",
+    "Enable/Disable chat bubbles around messages.",
     settingsToggle(info.show_bubbles !== false, false, (on) => persist({ show_bubbles: on }))
   ));
   host.appendChild(settingsOpt(
-    "Your messages",
-    "Which side of the chat your own messages sit on. Other people stay on the left.",
+    "Message Display",
+    "Choose which side you want your messages to appear on.",
     appearanceSeg(
       [
         { value: "left", label: "Left" },
@@ -343,7 +366,7 @@ function paintAppearanceMessages(host, info, persist) {
   ));
   host.appendChild(settingsOpt(
     "Show reactions",
-    "Show emoji reactions on messages. Turning this off also hides Add Reaction.",
+    "Show emoji reactions on messages",
     settingsToggle(!!info.show_reactions, false, (on) => persist({ show_reactions: on }))
   ));
 }
@@ -351,7 +374,7 @@ function paintAppearanceMessages(host, info, persist) {
 function paintAppearanceChatBox(host, info, persist) {
   host.appendChild(settingsOpt(
     "Always show send button",
-    "Show a Send button on the message box. Enter still sends either way.",
+    "Show a Send button on the message box.",
     settingsToggle(!!info.show_send, false, (on) => persist({ show_send: on }))
   ));
 }
@@ -370,14 +393,8 @@ function paintAppearanceSearch(host, info, persist) {
 }
 
 function paintAppearanceStreamer(host) {
-  host.appendChild(settingsOpt(
-    "Enable Streamer Mode",
-    "A one-click hide for personal details while you're live.",
-    settingsToggle(false, true),
-    settingsLaterNote("live streaming")
-  ));
   [
-    ["Hide personal information", "Hide email, phone, and similar details in the client."],
+    ["Hide Identifiable information", "Hides all identifiable information."],
     ["Hide invite links", "Stop showing invite URLs while the mode is on."],
     ["Disable sounds", "Mute notification sounds while streaming."],
     ["Disable notifications", "Pause desktop toasts while streaming."]

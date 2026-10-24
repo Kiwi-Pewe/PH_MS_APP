@@ -216,9 +216,8 @@ function themeTextHex(prefs, adjustedBg, brightness) {
 
 function workingThemeColors(prefs) {
   const four = nativeThemeColors(prefs);
-  const mode = prefs.brightness === "light" ? "light" : "dark";
-  const lifted = brightnessAdjustedColors(four, mode);
-  return four.concat([themeTextHex(prefs, lifted[0], mode)]);
+  const nativeMode = luminance(four[0]) >= 0.45 ? "light" : "dark";
+  return four.concat([themeTextHex(prefs, four[0], nativeMode)]);
 }
 
 function appearanceColorsMatch(left, right) {
@@ -355,9 +354,15 @@ function applyAppearance(prefs) {
   prefs.theme = resolveThemeId(prefs.theme);
   appearancePrefs = prefs;
   if (prefs.theme && prefs.theme !== "custom") appearanceLastPreset = prefs.theme;
-  const mode = prefs.brightness === "light" ? "light" : "dark";
-  const four = brightnessAdjustedColors(nativeThemeColors(prefs), mode);
-  applyThemeTokens(four.concat([themeTextHex(prefs, four[0], mode)]), mode);
+  const four = nativeThemeColors(prefs);
+  if (prefs.theme === "custom") {
+    const tokenMode = luminance(four[0]) >= 0.45 ? "light" : "dark";
+    applyThemeTokens(four.concat([themeTextHex(prefs, four[0], tokenMode)]), tokenMode);
+  } else {
+    const mode = prefs.brightness === "light" ? "light" : "dark";
+    const adjusted = brightnessAdjustedColors(four, mode);
+    applyThemeTokens(adjusted.concat([themeTextHex(prefs, adjusted[0], mode)]), mode);
+  }
   applyAppearanceChrome(prefs);
   if (typeof applySearchLayout === "function") applySearchLayout();
 }

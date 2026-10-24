@@ -27,7 +27,6 @@ function syncProfileBoardScale() {
   const fit = document.getElementById("profile-board-fit");
   const board = document.getElementById("profile-board");
   if (!scroll || !board) return;
-  if (board.classList.contains("is-tile-dragging")) return;
   if (board.classList.contains("is-mini-profile-page")) {
     board.style.transform = "none";
     profileBoardScale = 1;

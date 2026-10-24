@@ -8488,8 +8488,12 @@ a.profile-link-row:hover { color: var(--accent); }
 .mini-profile-banner {
   position: relative;
   overflow: hidden;
-  height: calc(300px * 3 / 32);
+  height: 88px;
   border-radius: 8px 8px 0 0;
+}
+.mini-profile-banner-fit {
+  position: absolute;
+  overflow: hidden;
 }
 .mini-profile-identity {
   position: relative;

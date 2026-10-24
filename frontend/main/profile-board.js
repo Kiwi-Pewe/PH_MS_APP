@@ -7,12 +7,7 @@ const PROFILE_COLS = 32;
 const PROFILE_ROW_H = 36;
 const PROFILE_GAP = 0;
 const IDENTITY_BANNER_COLS = 32;
-const IDENTITY_BANNER_ROWS = 9;
-
-function bannerHeightForWidth(w) {
-  const cols = Number(w) || IDENTITY_BANNER_COLS;
-  return Math.max(1, Math.round(cols * IDENTITY_BANNER_ROWS / IDENTITY_BANNER_COLS));
-}
+const IDENTITY_BANNER_ROWS = 3;
 let profileBoardScale = 1;
 
 function profileCellSize() {
@@ -70,7 +65,7 @@ function bindProfileBoardScale() {
 }
 // Kiwi lists min/max as (Height, Width). Fields below are minH/minW, maxH/maxW.
 const PROFILE_TILE_TYPES = {
-  banner: { w: 32, h: 9, minW: 8, minH: 2, maxW: 32, maxH: 9, label: "Banner" },
+  banner: { w: 32, h: 3, minW: 6, minH: 3, maxW: 32, maxH: 5, label: "Banner" },
   avatar: { w: 4, h: 4, minW: 2, minH: 2, maxW: 4, maxH: 4, label: "Avatar" },
   display_name: { w: 5, h: 2, minW: 3, minH: 2, maxW: 5, maxH: 8, label: "Display name" },
   member_since: { w: 6, h: 2, minW: 4, minH: 2, maxW: 10, maxH: 3, label: "Member since" },
@@ -269,13 +264,8 @@ function profileTileBounds(type, tile) {
 function clampProfileTileSize(type, w, h, originX, tile) {
   const b = profileTileBounds(type, tile || { type, w, h });
   const maxW = originX == null ? b.maxW : Math.min(b.maxW, PROFILE_COLS - originX);
-  const nextW = Math.max(b.minW, Math.min(maxW, w));
-  if (type === "banner") {
-    const nextH = Math.max(b.minH, Math.min(b.maxH, bannerHeightForWidth(nextW)));
-    return { w: nextW, h: nextH };
-  }
   return {
-    w: nextW,
+    w: Math.max(b.minW, Math.min(maxW, w)),
     h: Math.max(b.minH, Math.min(b.maxH, h))
   };
 }
@@ -3735,19 +3725,7 @@ function renderProfileBoard() {
   const tiles = (page && page.tiles) || [];
   tiles.forEach((tile) => {
     if (tile.type !== "banner") return;
-    const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x, tile);
-    if (size.h === tile.h && size.w === tile.w) return;
-    const oldBottom = tile.y + tile.h;
-    const dh = size.h - tile.h;
-    tile.w = size.w;
-    tile.h = size.h;
-    if (dh > 0) {
-      tiles.forEach((other) => {
-        if (other.id === tile.id) return;
-        if (other.allow_overlap) return;
-        if (other.y >= oldBottom) other.y += dh;
-      });
-    }
+    if (tile.h > 5) tile.h = 3;
   });
   if (profileEditing && profileIsOwn) paintProfileGrid(board, page);
   if (!tiles.length) {

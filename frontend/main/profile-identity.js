@@ -164,7 +164,7 @@ function identityBannerRatio() {
   if (typeof IDENTITY_BANNER_COLS === "number" && typeof IDENTITY_BANNER_ROWS === "number" && IDENTITY_BANNER_ROWS) {
     return IDENTITY_BANNER_COLS / IDENTITY_BANNER_ROWS;
   }
-  return 32 / 9;
+  return 32 / 3;
 }
 
 function identityBannerCoverFrame(hostW, hostH) {
@@ -668,7 +668,7 @@ function openIdentityCropper(kind, media, onApply, onCancel) {
   const working = cloneIdentityMedia(media);
   working.crop = normalizeIdentityCrop(working.crop);
   const used = kind === "banner"
-    ? { w: 480, h: Math.round(480 * 9 / 32), circle: false, title: "Edit Banner" }
+    ? { w: 480, h: Math.round(480 * 3 / 32), circle: false, title: "Edit Banner" }
     : { w: 248, h: 248, circle: true, title: "Edit Profile Picture" };
   const pad = kind === "banner" ? 32 : 16;
   const stageW = used.w + pad * 2;

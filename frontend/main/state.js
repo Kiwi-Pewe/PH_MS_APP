@@ -237,6 +237,8 @@ let appearancePrefs = {
   color_surface: "",
   color_accent: "",
   color_highlight: "",
+  color_text: "",
+  presets: [],
   show_link_media: true,
   show_uploads: true,
   show_embeds: true,

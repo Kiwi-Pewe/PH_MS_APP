@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=414">
+<link rel="stylesheet" href="app.css?v=415">
 </head>
 <body>
 
@@ -2385,6 +2385,21 @@
     </div>
   </div>
 
+  <div id="palette-delete-overlay" hidden>
+    <div id="palette-delete-modal" class="palette-delete-modal" role="dialog" aria-modal="true" aria-labelledby="palette-delete-title">
+      <div class="palette-delete-header">
+        <span id="palette-delete-title" class="palette-delete-title">Delete Palette</span>
+      </div>
+      <div class="palette-delete-body">
+        <p id="palette-delete-copy" class="palette-delete-copy"></p>
+      </div>
+      <div class="palette-delete-footer">
+        <button type="button" class="ghost-btn" id="palette-delete-cancel">Cancel</button>
+        <button type="button" class="deny-btn" id="palette-delete-confirm">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <div id="notify-sound-overlay" hidden>
     <div id="notify-sound-modal" class="leave-party-modal notify-sound-modal" role="dialog" aria-modal="true" aria-labelledby="notify-sound-title">
       <div class="leave-party-header notify-sound-header">
@@ -2514,7 +2529,7 @@
   <div id="mention-picker-list"></div>
 </div>
 <script src="state.js?v=73"></script>
-<script src="appearance.js?v=12"></script>
+<script src="appearance.js?v=13"></script>
 <script src="accessibility.js?v=12"></script>
 <script src="gifs.js?v=4"></script>
 <script src="language-time.js?v=1"></script>
@@ -2570,7 +2585,7 @@
 <script src="app-shell.js?v=75"></script>
 <script src="communities.js?v=16"></script>
 <script src="feed.js?v=22"></script>
-<script src="settings.js?v=27"></script>
+<script src="settings.js?v=28"></script>
 <script src="server-settings.js?v=52"></script>
 <script src="server-listing.js?v=3"></script>
 <script src="server-roles.js?v=38"></script>
@@ -2581,7 +2596,7 @@
 <script src="feed-settings.js?v=5"></script>
 <script src="settings-messaging.js?v=8"></script>
 <script src="settings-notifications.js?v=13"></script>
-<script src="settings-appearance.js?v=9"></script>
+<script src="settings-appearance.js?v=10"></script>
 <script src="settings-voice.js?v=4"></script>
 <script src="settings-system.js?v=2"></script>
 <script src="settings-language.js?v=2"></script>

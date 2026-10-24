@@ -34,6 +34,8 @@ class UserInfo(Base):
     appearance_color_surface = Column(String, nullable= True)
     appearance_color_accent = Column(String, nullable= True)
     appearance_color_highlight = Column(String, nullable= True)
+    appearance_color_text = Column(String, nullable= True)
+    appearance_presets = Column(String, nullable= True)
     appearance_show_link_media = Column(Boolean, default= True)
     appearance_show_uploads = Column(Boolean, default= True)
     appearance_show_embeds = Column(Boolean, default= True)

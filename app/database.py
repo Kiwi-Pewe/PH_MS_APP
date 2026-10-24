@@ -120,6 +120,8 @@ def ensure_account_columns():
         ("users", "appearance_color_surface", "VARCHAR"),
         ("users", "appearance_color_accent", "VARCHAR"),
         ("users", "appearance_color_highlight", "VARCHAR"),
+        ("users", "appearance_color_text", "VARCHAR"),
+        ("users", "appearance_presets", "VARCHAR"),
         ("users", "appearance_show_link_media", "BOOLEAN"),
         ("users", "appearance_show_uploads", "BOOLEAN"),
         ("users", "appearance_show_embeds", "BOOLEAN"),
@@ -232,6 +234,11 @@ def ensure_account_columns():
             conn.rollback()
         try:
             conn.execute(text("UPDATE users SET appearance_search = 'auto' WHERE appearance_search IS NULL OR appearance_search = ''"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("UPDATE users SET appearance_presets = '[]' WHERE appearance_presets IS NULL OR appearance_presets = ''"))
             conn.commit()
         except Exception:
             conn.rollback()

@@ -26,6 +26,7 @@ const THEME_PRESETS = [
 ];
 
 const THEME_PRESETS_MORE = [];
+const APPEARANCE_PRESET_MAX = 18;
 
 function defaultAppearancePrefs() {
   return {
@@ -35,6 +36,8 @@ function defaultAppearancePrefs() {
     color_surface: "",
     color_accent: "",
     color_highlight: "",
+    color_text: "",
+    presets: [],
     show_link_media: true,
     show_uploads: true,
     show_embeds: true,
@@ -201,26 +204,74 @@ function nativeThemeColors(prefs) {
   ];
 }
 
+function derivedTextHex(bg, brightness) {
+  const light = brightness === "light" || (brightness !== "dark" && luminance(bg) >= 0.45);
+  return light ? "#1c1528" : "#ece7f7";
+}
+
+function themeTextHex(prefs, adjustedBg, brightness) {
+  if (prefs.theme === "custom" && appearanceHex(prefs.color_text)) return appearanceHex(prefs.color_text);
+  return derivedTextHex(adjustedBg, brightness);
+}
+
+function workingThemeColors(prefs) {
+  const four = nativeThemeColors(prefs);
+  const mode = prefs.brightness === "light" ? "light" : "dark";
+  const lifted = brightnessAdjustedColors(four, mode);
+  return four.concat([themeTextHex(prefs, lifted[0], mode)]);
+}
+
+function appearanceColorsMatch(left, right) {
+  if (!left || !right || left.length !== right.length) return false;
+  return left.every((hex, index) => appearanceHex(hex) === appearanceHex(right[index]));
+}
+
+function appearancePresets(prefs) {
+  return Array.isArray(prefs && prefs.presets) ? prefs.presets : [];
+}
+
+function matchingCustomPreset(prefs) {
+  const working = workingThemeColors(prefs);
+  return appearancePresets(prefs).find(row => appearanceColorsMatch(row.colors, working)) || null;
+}
+
+function appearancePaletteName(prefs) {
+  const typed = String(prefs.palette_name || "").trim();
+  if (typed) return typed;
+  const match = matchingCustomPreset(prefs);
+  if (match) return match.name;
+  if (prefs.theme === "custom") return "Custom";
+  return themePresetById(prefs.theme).name;
+}
+
+function newPaletteId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
 function brightnessAdjustedColors(colors, brightness) {
-  const [bg, surface, accent, highlight] = colors;
+  const bg = colors[0];
+  const surface = colors[1];
+  const accent = colors[2];
+  const highlight = colors[3];
+  const extra = colors.slice(4);
   const lightNative = luminance(bg) >= 0.55;
   const chroma = firstChroma(colors);
   if (brightness === "light") {
-    if (lightNative) return [bg, surface, accent, highlight];
+    if (lightNative) return [bg, surface, accent, highlight].concat(extra);
     return [
       retargetHex(bg, 0.78, 1.45, 0.32, 0.58, chroma),
       retargetHex(surface, 0.87, 1.00, 0.18, 0.40, chroma),
       accent,
       highlight
-    ];
+    ].concat(extra);
   }
-  if (!lightNative) return [bg, surface, accent, highlight];
+  if (!lightNative) return [bg, surface, accent, highlight].concat(extra);
   return [
     retargetHex(bg, 0.11, 1.15, 0.22, 0.48, chroma),
     retargetHex(surface, 0.18, 1.05, 0.16, 0.42, chroma),
     accent,
     highlight
-  ];
+  ].concat(extra);
 }
 
 const THEME_TOKEN_KEYS = [
@@ -251,10 +302,14 @@ function persistThemeTokens() {
 
 function applyThemeTokens(colors, brightness) {
   const sat = themeSaturationAmount();
-  const [bg, surface, accent, highlight] = colors.map(c => desaturateHex(c, sat));
+  const mapped = colors.map(c => desaturateHex(c, sat));
+  const bg = mapped[0];
+  const surface = mapped[1];
+  const accent = mapped[2];
+  const highlight = mapped[3];
   const light = brightness === "light" || (brightness !== "dark" && luminance(bg) >= 0.45);
-  const text = light ? "#1c1528" : "#ece7f7";
-  const textDim = light ? "#6b627a" : "#a89bc4";
+  const text = appearanceHex(mapped[4]) || (light ? "#1c1528" : "#ece7f7");
+  const textDim = mixHex(text, bg, light ? 0.38 : 0.32);
   const root = document.documentElement;
   const highContrast = typeof effectiveHighContrast === "function"
     && accessibilityPrefs
@@ -301,7 +356,8 @@ function applyAppearance(prefs) {
   appearancePrefs = prefs;
   if (prefs.theme && prefs.theme !== "custom") appearanceLastPreset = prefs.theme;
   const mode = prefs.brightness === "light" ? "light" : "dark";
-  applyThemeTokens(brightnessAdjustedColors(nativeThemeColors(prefs), mode), mode);
+  const four = brightnessAdjustedColors(nativeThemeColors(prefs), mode);
+  applyThemeTokens(four.concat([themeTextHex(prefs, four[0], mode)]), mode);
   applyAppearanceChrome(prefs);
   if (typeof applySearchLayout === "function") applySearchLayout();
 }

@@ -382,6 +382,7 @@ function showSettingsPane(pane) {
 
 function closeSettingsChrome() {
   if (typeof closeNotifySoundSubmenu === "function") closeNotifySoundSubmenu(true);
+  if (typeof closePaletteDeleteSubmenu === "function") closePaletteDeleteSubmenu();
   if (typeof stopVoiceMicTest === "function") stopVoiceMicTest();
   if (!isSettingsOpen) {
     const settingsSide = document.getElementById("settings-sidebar-view");

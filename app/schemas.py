@@ -84,6 +84,12 @@ class Notification_reaction_pref(BaseModel):
 class Feed_alert_prefs_in(BaseModel):
     prefs: dict[str, bool] = {}
 
+class Appearance_preset(BaseModel):
+    id: str = ""
+    name: str = ""
+    colors: list = []
+
+
 class Appearance_prefs(BaseModel):
     theme: str
     brightness: str
@@ -91,6 +97,8 @@ class Appearance_prefs(BaseModel):
     color_surface: str = ""
     color_accent: str = ""
     color_highlight: str = ""
+    color_text: str = ""
+    presets: list[Appearance_preset] | None = None
     show_link_media: bool = True
     show_uploads: bool = True
     show_embeds: bool = True

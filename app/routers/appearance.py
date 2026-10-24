@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import json
 import re
+import time
 from app.models import UserInfo
 from app.schemas import Appearance_prefs
 from app.database import get_db
@@ -18,6 +20,8 @@ BRIGHTNESS_IDS = {"dark", "light"}
 SEARCH_STYLES = {"compact", "fullscreen", "auto"}
 SELF_SIDES = {"right", "left"}
 HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
+PRESET_MAX = 18
+PRESET_NAME_MAX = 32
 
 THEME_ALIASES = {
     "ash": "beehive",
@@ -42,6 +46,54 @@ def clean_hex(value):
     return ""
 
 
+def new_preset_id():
+    return hex(int(time.time() * 1000))[2:] + hex(int(time.time() * 1000) % 4099)[2:]
+
+
+def parse_presets(raw):
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(data, list):
+        return []
+    try:
+        return clean_presets(data) or []
+    except HTTPException:
+        return []
+
+
+def clean_presets(rows):
+    if rows is None:
+        return None
+    if not isinstance(rows, list):
+        raise HTTPException(status_code=400, detail="Pick a valid palette list.")
+    if len(rows) > PRESET_MAX:
+        raise HTTPException(status_code=400, detail="You can save 18 palettes.")
+    out = []
+    seen = set()
+    for index, row in enumerate(rows):
+        if hasattr(row, "model_dump"):
+            row = row.model_dump()
+        if not isinstance(row, dict):
+            raise HTTPException(status_code=400, detail="Pick a valid palette list.")
+        pid = str(row.get("id") or "").strip()[:24]
+        if not pid or pid in seen:
+            pid = new_preset_id() + str(index)
+        name = str(row.get("name") or "").strip()[:PRESET_NAME_MAX] or ("Palette " + str(len(out) + 1))
+        colors = row.get("colors") or []
+        if not isinstance(colors, list):
+            raise HTTPException(status_code=400, detail="Each saved palette needs five colors.")
+        hexes = [clean_hex(item) for item in colors[:5]]
+        if len(hexes) < 5 or not all(hexes):
+            raise HTTPException(status_code=400, detail="Each saved palette needs five colors.")
+        seen.add(pid)
+        out.append({"id": pid, "name": name, "colors": hexes})
+    return out
+
+
 def appearance_payload(user):
     theme = (user.appearance_theme or "").strip()
     theme = resolve_theme_id(theme)
@@ -63,6 +115,8 @@ def appearance_payload(user):
         "color_surface": clean_hex(user.appearance_color_surface),
         "color_accent": clean_hex(user.appearance_color_accent),
         "color_highlight": clean_hex(user.appearance_color_highlight),
+        "color_text": clean_hex(user.appearance_color_text),
+        "presets": parse_presets(user.appearance_presets),
         "show_link_media": flag_on(user, "appearance_show_link_media", True),
         "show_uploads": flag_on(user, "appearance_show_uploads", True),
         "show_embeds": flag_on(user, "appearance_show_embeds", True),
@@ -98,15 +152,19 @@ def update_appearance_settings(prefs: Appearance_prefs, current_user: UserInfo =
         clean_hex(prefs.color_surface),
         clean_hex(prefs.color_accent),
         clean_hex(prefs.color_highlight),
+        clean_hex(prefs.color_text),
     ]
-    if theme == "custom" and not all(colors):
+    if theme == "custom" and not all(colors[:4]):
         raise HTTPException(status_code=400, detail="Custom themes need four colors.")
+    if prefs.presets is not None:
+        current_user.appearance_presets = json.dumps(clean_presets(prefs.presets))
     current_user.appearance_theme = theme
     current_user.appearance_brightness = brightness
     current_user.appearance_color_bg = colors[0] or None
     current_user.appearance_color_surface = colors[1] or None
     current_user.appearance_color_accent = colors[2] or None
     current_user.appearance_color_highlight = colors[3] or None
+    current_user.appearance_color_text = colors[4] or None
     current_user.appearance_show_link_media = bool(prefs.show_link_media)
     current_user.appearance_show_uploads = bool(prefs.show_uploads)
     current_user.appearance_show_embeds = bool(prefs.show_embeds)

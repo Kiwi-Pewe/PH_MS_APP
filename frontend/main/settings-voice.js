@@ -11,17 +11,6 @@ function voiceDisabledSelect(label, selected) {
   return settingsSelect([{ value: selected, label }], selected, true);
 }
 
-function voiceSlider() {
-  const input = document.createElement("input");
-  input.type = "range";
-  input.className = "settings-slider";
-  input.min = "0";
-  input.max = "100";
-  input.value = "80";
-  input.disabled = true;
-  return input;
-}
-
 function voiceLiveSlider(value, onInput) {
   const input = document.createElement("input");
   input.type = "range";
@@ -35,31 +24,13 @@ function voiceLiveSlider(value, onInput) {
 
 function voiceProcessToggle(key) {
   const on = typeof voiceProcess === "function" ? voiceProcess(key) : true;
-  const label = settingsToggle(on, (typeof voiceProfile === "function" ? voiceProfile() : "isolation") !== "custom");
+  const label = settingsToggle(on, false);
   const input = label.querySelector("input");
   input.addEventListener("change", () => {
-    if (input.disabled) return;
     localStorage.setItem(key, input.checked ? "1" : "0");
     if (typeof retargetVoiceMic === "function") retargetVoiceMic();
   });
   return label;
-}
-
-function voiceSetToggle(label, on, disabled) {
-  const input = label.querySelector("input");
-  if (!input) return;
-  input.checked = !!on;
-  input.disabled = !!disabled;
-  label.classList.toggle("is-disabled", !!disabled);
-}
-
-function voiceBgTile(label, on) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "video-bg-tile" + (on ? " is-on" : "");
-  btn.disabled = true;
-  btn.textContent = label;
-  return btn;
 }
 
 function paintVoiceSection(host) {
@@ -118,27 +89,6 @@ function paintVoiceSection(host) {
     test
   ));
 
-  const profile = typeof voiceProfile === "function" ? voiceProfile() : "isolation";
-  const custom = profile === "custom";
-  const profiles = document.createElement("div");
-  profiles.className = "settings-radio-list";
-  [
-    ["isolation", "Voice Isolation", "Cut background noise around your voice."],
-    ["studio", "Studio", "Open mic with no processing."],
-    ["custom", "Custom", "Choose echo, noise, and gain yourself."]
-  ].forEach((row) => {
-    profiles.appendChild(privacyRadio(row[0], profile, row[1], row[2], (value) => {
-      localStorage.setItem("oneira-voice-profile", value);
-      const locked = value !== "custom";
-      voiceSetToggle(echoToggle, typeof voiceProcess === "function" ? voiceProcess("oneira-voice-echo") : value !== "studio", locked);
-      voiceSetToggle(noiseToggle, typeof voiceProcess === "function" ? voiceProcess("oneira-voice-noise") : value !== "studio", locked);
-      voiceSetToggle(gainToggle, typeof voiceProcess === "function" ? voiceProcess("oneira-voice-auto-gain") : value !== "studio", locked);
-      if (typeof retargetVoiceMic === "function") retargetVoiceMic();
-    }));
-  });
-  host.appendChild(settingsOpt("Input Profile", "How the microphone is processed before it is sent.", null));
-  host.appendChild(profiles);
-
   const autoSensitivity = typeof voiceSensitivityAuto === "function" ? voiceSensitivityAuto() : true;
   const sensitivity = voiceLiveSlider(typeof voicePercent === "function" ? voicePercent("oneira-voice-sensitivity", 73) : 73, (value) => {
     localStorage.setItem("oneira-voice-sensitivity", String(value));
@@ -157,39 +107,19 @@ function paintVoiceSection(host) {
     "How loud you need to be before you show as talking. Higher picks up quieter speech.",
     sensitivity
   ));
-  const echoToggle = voiceProcessToggle("oneira-voice-echo");
-  const noiseToggle = voiceProcessToggle("oneira-voice-noise");
-  const gainToggle = voiceProcessToggle("oneira-voice-auto-gain");
   host.appendChild(settingsOpt(
     "Echo Cancellation",
     "Stop your speakers from feeding back into the mic.",
-    echoToggle
+    voiceProcessToggle("oneira-voice-echo")
   ));
   host.appendChild(settingsOpt(
     "Noise Suppression",
     "Reduce background noise from your mic.",
-    noiseToggle
-  ));
-  host.appendChild(settingsOpt(
-    "Automatic Gain Control",
-    "Keep your volume even if you move closer or farther from the mic.",
-    gainToggle
+    voiceProcessToggle("oneira-voice-noise")
   ));
   host.appendChild(settingsOpt(
     "Push to Talk",
     "Hold a key to open the mic. The key itself lives under System → Custom Keybinds.",
-    settingsToggle(false, true),
-    voiceLaterNote()
-  ));
-  host.appendChild(settingsOpt(
-    "Advanced Voice Activity",
-    "Finer control over when the mic opens and closes.",
-    settingsToggle(false, true),
-    voiceLaterNote()
-  ));
-  host.appendChild(settingsOpt(
-    "Bypass System Audio Input Processing",
-    "Use the raw mic instead of the OS processing chain.",
     settingsToggle(false, true),
     voiceLaterNote()
   ));
@@ -205,12 +135,6 @@ function paintCameraSection(host) {
     "Test Camera",
     "Preview the webcam feed.",
     test,
-    voiceLaterNote()
-  ));
-  host.appendChild(settingsOpt(
-    "Always preview camera",
-    "Show a preview whenever you turn the camera on.",
-    settingsToggle(false, true),
     voiceLaterNote()
   ));
   host.appendChild(settingsOpt(
@@ -239,18 +163,6 @@ function paintVideoSection(host) {
     voiceDisabledSelect("Auto", "auto"),
     voiceLaterNote()
   ));
-  const heading = document.createElement("div");
-  heading.className = "settings-opt-title";
-  heading.textContent = "Video Background";
-  heading.style.margin = "12px 0 8px";
-  host.appendChild(heading);
-  host.appendChild(settingsLaterNote("video backgrounds"));
-  const grid = document.createElement("div");
-  grid.className = "video-bg-grid";
-  ["None", "Blur", "Custom"].forEach((label, index) => {
-    grid.appendChild(voiceBgTile(label, index === 0));
-  });
-  host.appendChild(grid);
 }
 
 function paintStreamingSection(host) {
@@ -260,106 +172,9 @@ function paintStreamingSection(host) {
     settingsToggle(true, true),
     voiceLaterNote()
   ));
-  host.appendChild(settingsOpt(
-    "Stream Attenuation",
-    "Lower other sounds while someone is streaming.",
-    settingsToggle(true, true),
-    voiceLaterNote()
-  ));
-  host.appendChild(settingsOpt(
-    "Stream Attenuation Strength",
-    "How much to duck other audio during a stream.",
-    voiceSlider(),
-    voiceLaterNote()
-  ));
-}
-
-function paintVoiceSoundsSection(host) {
-  [
-    ["Deafen", "Played when you deafen."],
-    ["Undeafen", "Played when you undeafen."],
-    ["Mute", "Played when you mute."],
-    ["Unmute", "Played when you unmute."],
-    ["Camera On", "Played when you turn the camera on."],
-    ["Camera Off", "Played when you turn the camera off."],
-    ["Voice Disconnected", "Played when you leave a call."]
-  ].forEach(row => {
-    const desc = document.createElement("div");
-    desc.appendChild(document.createTextNode(row[1] + " "));
-    const preview = document.createElement("span");
-    preview.className = "settings-inline-link is-static";
-    preview.textContent = "Preview Sound";
-    desc.appendChild(preview);
-    host.appendChild(settingsOpt(row[0], desc, settingsToggle(true, true), voiceLaterNote("Voice sounds")));
-  });
-  const related = document.createElement("div");
-  related.className = "settings-related-wrap";
-  const relatedTitle = document.createElement("h3");
-  relatedTitle.className = "settings-subblock-title";
-  relatedTitle.textContent = "Related Settings";
-  related.appendChild(relatedTitle);
-  related.appendChild(settingsRelatedCard(
-    "Notifications",
-    "Enable/disable sounds for new messages and incoming calls.",
-    "notifications-sounds"
-  ));
-  host.appendChild(related);
-}
-
-function paintSoundboardSection(host) {
-  host.appendChild(settingsOpt(
-    "Soundboard Volume",
-    "How loud soundboard clips are for you.",
-    voiceSlider(),
-    voiceLaterNote()
-  ));
-  host.appendChild(settingsOpt(
-    "Entrance Sounds",
-    "A clip that plays when you join a voice channel.",
-    voiceDisabledSelect("None", "none"),
-    voiceLaterNote()
-  ));
-  host.appendChild(settingsOpt(
-    "Choose a Server",
-    "Entrance sounds are per-server.",
-    voiceDisabledSelect("All Servers", "all"),
-    voiceLaterNote()
-  ));
 }
 
 function paintVoiceAdvancedSection(host) {
-  host.appendChild(settingsOpt(
-    "Diagnostic Audio Recording",
-    "Saves a short clip of call audio for debugging.",
-    settingsToggle(false, true),
-    voiceLaterNote()
-  ));
-  host.appendChild(settingsOpt(
-    "Debug Logging",
-    "Writes voice logs you can send for support.",
-    settingsToggle(false, true),
-    voiceLaterNote()
-  ));
-  const upload = document.createElement("button");
-  upload.type = "button";
-  upload.className = "settings-row-btn";
-  upload.textContent = "Upload Logs";
-  upload.disabled = true;
-  const folder = document.createElement("button");
-  folder.type = "button";
-  folder.className = "settings-row-btn";
-  folder.textContent = "Show Folder";
-  folder.disabled = true;
-  const logBtns = document.createElement("div");
-  logBtns.className = "voice-advanced-actions";
-  logBtns.appendChild(upload);
-  logBtns.appendChild(folder);
-  host.appendChild(settingsOpt(
-    "Voice logs",
-    "Upload or open diagnostic files.",
-    logBtns,
-    voiceLaterNote()
-  ));
   const reset = document.createElement("button");
   reset.type = "button";
   reset.className = "settings-danger-btn";
@@ -395,8 +210,6 @@ function renderVoiceSettings(pane, jumpChildId) {
     ["camera", "Camera", paintCameraSection],
     ["video", "Video", paintVideoSection],
     ["streaming", "Streaming", paintStreamingSection],
-    ["voice-sounds", "Sounds", paintVoiceSoundsSection],
-    ["soundboard", "Soundboard", paintSoundboardSection],
     ["voice-advanced", "Advanced", paintVoiceAdvancedSection]
   ];
   sections.forEach(row => {

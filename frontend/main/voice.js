@@ -765,16 +765,8 @@ function voiceSpeakerVolume() {
   return voicePercent("oneira-voice-speaker-volume", 100) / 100;
 }
 
-function voiceProfile() {
-  const value = localStorage.getItem("oneira-voice-profile") || "isolation";
-  if (value === "studio" || value === "custom") return value;
-  return "isolation";
-}
-
 function voiceProcess(key) {
-  const profile = voiceProfile();
-  if (profile === "isolation") return true;
-  if (profile === "studio") return false;
+  if (key === "oneira-voice-auto-gain") return false;
   return localStorage.getItem(key) !== "0";
 }
 
@@ -831,7 +823,7 @@ function voiceCaptureConstraints(withDevice) {
   const audio = {
     echoCancellation: voiceProcess("oneira-voice-echo"),
     noiseSuppression: voiceProcess("oneira-voice-noise"),
-    autoGainControl: voiceProcess("oneira-voice-auto-gain")
+    autoGainControl: false
   };
   if (withDevice && voiceMicId()) audio.deviceId = { exact: voiceMicId() };
   return { audio: audio, video: false };
@@ -1045,10 +1037,8 @@ function resetVoiceSettings() {
     "oneira-voice-speaker",
     "oneira-voice-mic-volume",
     "oneira-voice-speaker-volume",
-    "oneira-voice-profile",
     "oneira-voice-echo",
     "oneira-voice-noise",
-    "oneira-voice-auto-gain",
     "oneira-voice-sensitivity-auto",
     "oneira-voice-sensitivity"
   ].forEach((key) => localStorage.removeItem(key));

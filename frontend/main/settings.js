@@ -67,8 +67,6 @@ const SETTINGS_GENERAL_CATALOG = [
           { id: "camera", label: "Camera" },
           { id: "video", label: "Video" },
           { id: "streaming", label: "Streaming" },
-          { id: "voice-sounds", label: "Sounds" },
-          { id: "soundboard", label: "Soundboard" },
           { id: "voice-advanced", label: "Advanced" }
         ]
       },

@@ -24,40 +24,10 @@ function overlaySelect(label, selected) {
 }
 
 function paintOverlayMain(host) {
-  const playing = document.createElement("div");
-  playing.className = "overlay-playing";
-  const tag = document.createElement("div");
-  tag.className = "overlay-playing-tag";
-  tag.textContent = "Currently Playing";
-  playing.appendChild(tag);
-  playing.appendChild(settingsGameRow({
-    name: "Not playing",
-    detail: "When a supported game is open, Overlay can sit on top of it.",
-    current: false,
-    empty: true,
-    on: false
-  }));
-  host.appendChild(playing);
   host.appendChild(overlayChevronToggle(
     "Enable Overlay",
     "Lighter, faster, and more customizable. Requires Borderless display setting.",
     true
-  ));
-  host.appendChild(overlayChevronToggle(
-    "Enable Legacy Overlay",
-    "Legacy Overlay available for all supported games.",
-    true
-  ));
-  const report = document.createElement("button");
-  report.type = "button";
-  report.className = "settings-row-btn";
-  report.textContent = "Report";
-  report.disabled = true;
-  host.appendChild(settingsOpt(
-    "Report a Problem",
-    "If Overlay isn't working as expected, let us know so we can fix it.",
-    report,
-    overlayLaterNote()
   ));
 }
 
@@ -74,12 +44,6 @@ function paintOverlayLock(host) {
   combo.appendChild(keys);
   combo.appendChild(edit);
   host.appendChild(settingsOpt("Toggle Overlay Lock", "", combo, overlayLaterNote()));
-  host.appendChild(settingsOpt(
-    "Use Compatibility Mode",
-    "Fixes issues with the overlay taking or losing focus during use. (Warning! This will reduce some functionality)",
-    settingsToggle(false, true),
-    overlayLaterNote()
-  ));
   host.appendChild(settingsOpt(
     "Enable overlay clickable regions",
     "Allows areas of the overlay (ie notifications) to be clickable while the overlay is locked.",

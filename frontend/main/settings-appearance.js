@@ -105,6 +105,15 @@ function appearanceColorRow(label, desc, value, onPick) {
   return row;
 }
 
+let appearanceThemePage = 0;
+
+function themePageForId(id) {
+  const want = id === "ash" ? "beehive" : id;
+  if (THEME_PRESETS.some(row => row.id === want)) return 0;
+  if (THEME_PRESETS_MORE.some(row => row.id === want)) return 1;
+  return 0;
+}
+
 function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
   const brightness = appearanceSeg(
     [
@@ -157,17 +166,33 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
     return;
   }
 
+  const pages = [THEME_PRESETS, THEME_PRESETS_MORE];
+  const headings = ["Default Themes", "More Themes"];
+  if (appearanceThemePage < 0 || appearanceThemePage >= pages.length) appearanceThemePage = 0;
   const heading = document.createElement("div");
   heading.className = "settings-opt-title";
-  heading.textContent = "Default Themes";
+  heading.textContent = headings[appearanceThemePage];
   heading.style.margin = "16px 0 10px";
   host.appendChild(heading);
   const grid = document.createElement("div");
   grid.className = "theme-grid";
-  THEME_PRESETS.forEach(preset => {
+  pages[appearanceThemePage].forEach(preset => {
     grid.appendChild(themeTile(preset, info.theme, (id) => persist({ theme: id })));
   });
   host.appendChild(grid);
+  const pager = appearanceSeg(
+    [
+      { value: 0, label: "1" },
+      { value: 1, label: "2" }
+    ],
+    appearanceThemePage,
+    (value) => {
+      appearanceThemePage = value;
+      setTab("themes");
+    }
+  );
+  pager.classList.add("theme-pager");
+  host.appendChild(pager);
 }
 
 function paintAppearanceMessages(host, info, persist) {
@@ -261,6 +286,7 @@ async function renderAppearanceSettings(pane, jumpChildId) {
     return;
   }
   applyAppearance(info);
+  appearanceThemePage = themePageForId(info.theme);
 
   const block = document.createElement("section");
   block.className = "settings-block has-sections";

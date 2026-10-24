@@ -15,13 +15,24 @@ const THEME_PRESETS = [
   { id: "ocean", name: "Ocean", colors: ["#061422", "#0c2a44", "#1e90ff", "#7ec8ff"] },
   { id: "ume", name: "Ume", colors: ["#1a1020", "#3a2048", "#f0a0c8", "#ffd0e4"] },
   { id: "copper", name: "Copper", colors: ["#1a100c", "#3a2418", "#d4783a", "#e8b080"] },
-  { id: "terminal", name: "Terminal", colors: ["#050805", "#101410", "#22c55e", "#86efac"] },
+  { id: "terminal", name: "Terminal", colors: ["#030504", "#0b100c", "#39ff14", "#b8ffb0"] },
   { id: "organs", name: "Organs", colors: ["#0c0808", "#2a1810", "#d4a574", "#c23b3b"] },
   { id: "lavender", name: "Lavender", colors: ["#f4f0fa", "#ffffff", "#b8a0d8", "#7c5cbf"] },
   { id: "gpt", name: "GPT", colors: ["#212121", "#2f2f2f", "#10a37f", "#ececec"] },
   { id: "claude", name: "Claude", colors: ["#1a1614", "#2a2420", "#d97757", "#c4a484"] },
   { id: "cute", name: "Cute", colors: ["#fff5f8", "#ffffff", "#ff8ab5", "#ffc0d4"] },
-  { id: "ash", name: "Ash", colors: ["#ececee", "#f7f7f8", "#f5c400", "#a8a8b0"] }
+  { id: "beehive", name: "Beehive", colors: ["#0a0804", "#1c1408", "#f0c014", "#c4892a"] },
+  { id: "frutiger-aero", name: "Frutiger Aero", colors: ["#e8f4f8", "#ffffff", "#2eb5c6", "#6dce7a"] }
+];
+
+const THEME_PRESETS_MORE = [
+  { id: "crimson", name: "Crimson", colors: ["#14060a", "#2a0c14", "#c41e3a", "#ff4d6d"] },
+  { id: "glacier", name: "Glacier", colors: ["#eef6fb", "#ffffff", "#5b8fa8", "#9ec4d4"] },
+  { id: "indigo", name: "Indigo", colors: ["#0b0a18", "#16142c", "#4f46e5", "#818cf8"] },
+  { id: "solar", name: "Solar", colors: ["#120e06", "#241c0c", "#f5b400", "#ffe08a"] },
+  { id: "noir", name: "Noir", colors: ["#080808", "#161616", "#e8e8e8", "#8a8a8a"] },
+  { id: "reef", name: "Reef", colors: ["#041614", "#0a2a28", "#14b8a6", "#fb7185"] },
+  { id: "matcha", name: "Matcha", colors: ["#14180e", "#243018", "#9caf4c", "#d4e07a"] }
 ];
 
 function defaultAppearancePrefs() {
@@ -103,8 +114,13 @@ function desaturateHex(hex, sat) {
   return rgbToHex(gray + (r - gray) * t, gray + (g - gray) * t, gray + (b - gray) * t);
 }
 
+function allThemePresets() {
+  return THEME_PRESETS.concat(THEME_PRESETS_MORE);
+}
+
 function themePresetById(id) {
-  return THEME_PRESETS.find(row => row.id === id) || THEME_PRESETS[0];
+  const want = id === "ash" ? "beehive" : id;
+  return allThemePresets().find(row => row.id === want) || THEME_PRESETS[0];
 }
 
 function nativeThemeColors(prefs) {
@@ -204,6 +220,7 @@ function rerenderOpenChats() {
 let appearanceLastPreset = "midnight-purple";
 
 function applyAppearance(prefs) {
+  if (prefs.theme === "ash") prefs.theme = "beehive";
   appearancePrefs = prefs;
   if (prefs.theme && prefs.theme !== "custom") appearanceLastPreset = prefs.theme;
   applyThemeTokens(brightnessAdjustedColors(nativeThemeColors(prefs), prefs.brightness === "light" ? "light" : "dark"));

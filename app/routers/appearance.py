@@ -12,7 +12,8 @@ router = APIRouter()
 THEME_IDS = {
     "midnight-purple", "light", "midnight", "paper", "cyberpunk", "retrowave",
     "forest", "ocean", "ume", "copper", "terminal", "organs", "lavender",
-    "gpt", "claude", "cute", "ash", "custom",
+    "gpt", "claude", "cute", "ash", "beehive", "frutiger-aero",
+    "crimson", "glacier", "indigo", "solar", "noir", "reef", "matcha", "custom",
 }
 BRIGHTNESS_IDS = {"dark", "light"}
 SEARCH_STYLES = {"compact", "fullscreen", "auto"}
@@ -29,6 +30,8 @@ def clean_hex(value):
 
 def appearance_payload(user):
     theme = (user.appearance_theme or "").strip()
+    if theme == "ash":
+        theme = "beehive"
     if theme not in THEME_IDS:
         theme = "midnight-purple"
     brightness = (user.appearance_brightness or "").strip()
@@ -66,6 +69,8 @@ def get_appearance_settings(current_user: UserInfo = Depends(get_current_user)):
 @router.post("/appearance_settings")
 def update_appearance_settings(prefs: Appearance_prefs, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
     theme = (prefs.theme or "").strip()
+    if theme == "ash":
+        theme = "beehive"
     if theme not in THEME_IDS:
         raise HTTPException(status_code=400, detail="Pick a valid theme.")
     brightness = (prefs.brightness or "").strip()

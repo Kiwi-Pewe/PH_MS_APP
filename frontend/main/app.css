@@ -1572,6 +1572,7 @@
 .appearance-seg button:hover { color: var(--text); background: var(--panel-alt); }
 .appearance-seg button.is-on { background: var(--accent); color: #fff; }
 .appearance-tabs { width: 100%; margin: 8px 0 4px; }
+.theme-pager { width: auto; min-width: 96px; margin: 16px auto 4px; }
 .theme-grid {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
 }

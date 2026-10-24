@@ -182,29 +182,16 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
 
   if (themeTab === "customize") {
     const working = workingThemeColors(info).slice();
-    const nameRow = document.createElement("label");
-    nameRow.className = "appearance-color-row";
-    const nameText = document.createElement("div");
-    nameText.className = "settings-opt-text";
-    const nameTitle = document.createElement("div");
-    nameTitle.className = "settings-opt-title";
-    nameTitle.textContent = "Palette name";
-    const nameDesc = document.createElement("div");
-    nameDesc.className = "settings-opt-desc";
-    nameDesc.textContent = "Used when you save this palette to Custom.";
-    nameText.appendChild(nameTitle);
-    nameText.appendChild(nameDesc);
     const nameInput = document.createElement("input");
     nameInput.type = "text";
-    nameInput.className = "appearance-name";
+    nameInput.className = "appearance-customize-bar";
     nameInput.maxLength = 32;
+    nameInput.placeholder = "Palette name";
     nameInput.value = appearancePaletteName(info);
     nameInput.addEventListener("input", () => {
       info.palette_name = nameInput.value;
     });
-    nameRow.appendChild(nameText);
-    nameRow.appendChild(nameInput);
-    host.appendChild(nameRow);
+    host.appendChild(nameInput);
     const slots = [
       ["Background", "Window, chat, and the darkest layer.", "color_bg"],
       ["Surface", "Panels, cards, and composer.", "color_surface"],
@@ -226,11 +213,10 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
         }, { save: save !== false, rebuild: false });
       }));
     });
-    host.appendChild(settingsNote("Status colors stay locked: green Active, orange Away, red DND, grey offline."));
     const savedCount = appearancePresets(info).length;
     const saveBtn = document.createElement("button");
     saveBtn.type = "button";
-    saveBtn.className = "pill-btn";
+    saveBtn.className = "appearance-customize-bar appearance-save-palette";
     saveBtn.textContent = "Save Palette";
     saveBtn.disabled = savedCount >= APPEARANCE_PRESET_MAX;
     saveBtn.addEventListener("click", () => {
@@ -261,13 +247,7 @@ function paintAppearanceTheme(host, info, persist, themeTab, setTab) {
         presets: nextPresets
       });
     });
-    host.appendChild(settingsOpt(
-      "Save Palette",
-      savedCount >= APPEARANCE_PRESET_MAX
-        ? "18 palettes saved. Remove one from Custom to save another."
-        : "Store this palette in Custom. You can keep up to 18.",
-      saveBtn
-    ));
+    host.appendChild(saveBtn);
     return;
   }
 

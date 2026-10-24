@@ -8488,7 +8488,7 @@ a.profile-link-row:hover { color: var(--accent); }
 .mini-profile-banner {
   position: relative;
   overflow: hidden;
-  height: 88px;
+  height: calc(300px * 9 / 32);
   border-radius: 8px 8px 0 0;
 }
 .mini-profile-identity {
@@ -9303,7 +9303,7 @@ body.is-mini-dragging {
 .identity-opt-preview.is-banner {
   width: 100%;
   height: auto;
-  aspect-ratio: 3 / 1;
+  aspect-ratio: 32 / 9;
   border-radius: 8px;
 }
 .identity-overlay {
@@ -9317,7 +9317,7 @@ body.is-mini-dragging {
 }
 .identity-picker,
 .identity-cropper {
-  width: min(520px, calc(100% - 32px));
+  width: min(600px, calc(100% - 32px));
   background: var(--panel);
   border: 1px solid var(--accent-submenu);
   border-radius: 10px;
@@ -9388,21 +9388,15 @@ body.is-mini-dragging {
   line-height: 1.4;
 }
 .identity-crop-stage {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 14px;
-}
-.identity-crop-frame {
   position: relative;
   overflow: hidden;
+  margin: 0 auto 14px;
   background: #111;
   cursor: grab;
   touch-action: none;
 }
-.identity-crop-frame.is-circle { border-radius: 50%; }
-.identity-crop-frame.is-banner { border-radius: 8px; }
-.identity-crop-frame:active { cursor: grabbing; }
-.identity-crop-frame img {
+.identity-crop-stage:active { cursor: grabbing; }
+.identity-crop-stage img {
   position: absolute;
   max-width: none;
   max-height: none;
@@ -9410,6 +9404,15 @@ body.is-mini-dragging {
   pointer-events: none;
   user-select: none;
 }
+.identity-crop-hole {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.55);
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+}
+.identity-crop-hole.is-circle { border-radius: 50%; }
+.identity-crop-hole.is-banner { border-radius: 8px; }
 .identity-crop-zoom {
   display: flex;
   align-items: center;

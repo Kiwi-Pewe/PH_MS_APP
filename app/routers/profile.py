@@ -199,7 +199,7 @@ def tile_bounds(kind, props=None):
             return (1, 1, 1, 8)
         return (1, 1, 8, 1)
     return {
-        "banner": (6, 3, 32, 5),
+        "banner": (8, 2, 32, 9),
         "avatar": (2, 2, 4, 4),
         "display_name": (3, 2, 5, 8),
         "member_since": (4, 2, 10, 3),
@@ -253,7 +253,7 @@ def tile_bounds(kind, props=None):
 
 def default_sizes(kind):
     return {
-        "banner": (32, 3),
+        "banner": (32, 9),
         "avatar": (4, 4),
         "display_name": (5, 2),
         "member_since": (6, 2),
@@ -327,11 +327,11 @@ def seed_layout():
 
 def default_profile_tiles(banner_hex):
     return [
-        {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 32, "h": 3, "props": {"color": banner_hex}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "avatar", "x": 14, "y": 3, "w": 4, "h": 4, "props": {}, "allow_overlap": True},
-        {"id": new_id("tile"), "type": "display_name", "x": 13, "y": 6, "w": 5, "h": 2, "props": {}, "allow_overlap": True},
-        {"id": new_id("tile"), "type": "local_time", "x": 13, "y": 10, "w": 6, "h": 2, "props": {}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "friends", "x": 26, "y": 10, "w": 6, "h": 11, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 32, "h": 9, "props": {"color": banner_hex}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "avatar", "x": 14, "y": 9, "w": 4, "h": 4, "props": {}, "allow_overlap": True},
+        {"id": new_id("tile"), "type": "display_name", "x": 13, "y": 12, "w": 5, "h": 2, "props": {}, "allow_overlap": True},
+        {"id": new_id("tile"), "type": "local_time", "x": 13, "y": 16, "w": 6, "h": 2, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "friends", "x": 26, "y": 16, "w": 6, "h": 11, "props": {}, "allow_overlap": False},
     ]
 
 
@@ -395,6 +395,14 @@ def clamp_int(value, lo, hi, fallback):
     if num > hi:
         return hi
     return num
+
+
+def banner_h_for_w(w):
+    try:
+        cols = int(w)
+    except (TypeError, ValueError):
+        cols = 32
+    return max(1, int(round(cols * 9 / 32)))
 
 
 def clean_hex(value, fallback):
@@ -1448,6 +1456,8 @@ def normalize_tile(raw, used_ids, banner_fallback):
     min_w, min_h, max_w, max_h = tile_bounds(kind, props)
     w = clamp_int(data.get("w"), min_w, min(max_w, GRID_COLS), default_w)
     h = clamp_int(data.get("h"), min_h, max_h, default_h)
+    if kind == "banner":
+        h = clamp_int(banner_h_for_w(w), min_h, max_h, default_h)
     x = clamp_int(data.get("x"), 0, GRID_COLS - 1, 0)
     y = clamp_int(data.get("y"), 0, 80, 0)
     if x + w > GRID_COLS:

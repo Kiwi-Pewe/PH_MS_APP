@@ -7,7 +7,6 @@
 const IDENTITY_RECENT_MAX = 6;
 const IDENTITY_ZOOM_MIN = 1;
 const IDENTITY_ZOOM_MAX = 3;
-const IDENTITY_BANNER_RATIO = 3;
 let ownIdentityCache = null;
 const identityFaceCache = {};
 
@@ -161,8 +160,15 @@ function identityCoverScale(natW, natH, frameW, frameH, rotation) {
   return Math.max(frameW / boxW, frameH / boxH);
 }
 
+function identityBannerRatio() {
+  if (typeof IDENTITY_BANNER_COLS === "number" && typeof IDENTITY_BANNER_ROWS === "number" && IDENTITY_BANNER_ROWS) {
+    return IDENTITY_BANNER_COLS / IDENTITY_BANNER_ROWS;
+  }
+  return 32 / 9;
+}
+
 function identityBannerCoverFrame(hostW, hostH) {
-  const ratio = IDENTITY_BANNER_RATIO;
+  const ratio = identityBannerRatio();
   let coverW = hostW;
   let coverH = hostW / ratio;
   if (coverH < hostH) {
@@ -661,35 +667,42 @@ function openIdentityPicker(kind, current, onPicked) {
 function openIdentityCropper(kind, media, onApply, onCancel) {
   const working = cloneIdentityMedia(media);
   working.crop = normalizeIdentityCrop(working.crop);
-  const frame = kind === "banner"
-    ? { w: 480, h: 160, circle: false, title: "Edit Banner" }
-    : { w: 256, h: 256, circle: true, title: "Edit Profile Picture" };
+  const used = kind === "banner"
+    ? { w: 480, h: Math.round(480 * 9 / 32), circle: false, title: "Edit Banner" }
+    : { w: 248, h: 248, circle: true, title: "Edit Profile Picture" };
+  const pad = kind === "banner" ? 32 : 16;
+  const stageW = used.w + pad * 2;
+  const stageH = used.h + pad * 2;
 
   const overlay = document.createElement("div");
   overlay.className = "identity-overlay";
   const box = document.createElement("div");
   box.className = "identity-cropper";
   const title = document.createElement("h3");
-  title.textContent = frame.title;
+  title.textContent = used.title;
   box.appendChild(title);
 
   const hint = document.createElement("div");
   hint.className = "identity-crop-hint";
-  hint.textContent = "Drag to reposition. Same crop is used everywhere; Mini Profile just scales it down.";
+  hint.textContent = "The bright area is what people see. Drag to move. Mini Profile uses the same crop, smaller.";
   box.appendChild(hint);
 
   const stage = document.createElement("div");
   stage.className = "identity-crop-stage";
-  const view = document.createElement("div");
-  view.className = "identity-crop-frame" + (frame.circle ? " is-circle" : " is-banner");
-  view.style.width = frame.w + "px";
-  view.style.height = frame.h + "px";
+  stage.style.width = stageW + "px";
+  stage.style.height = stageH + "px";
   const img = document.createElement("img");
   img.alt = "";
   img.draggable = false;
   img.src = identitySrc(working);
-  view.appendChild(img);
-  stage.appendChild(view);
+  const hole = document.createElement("div");
+  hole.className = "identity-crop-hole" + (used.circle ? " is-circle" : " is-banner");
+  hole.style.left = pad + "px";
+  hole.style.top = pad + "px";
+  hole.style.width = used.w + "px";
+  hole.style.height = used.h + "px";
+  stage.appendChild(img);
+  stage.appendChild(hole);
   box.appendChild(stage);
 
   const zoomRow = document.createElement("label");
@@ -727,7 +740,7 @@ function openIdentityCropper(kind, media, onApply, onCancel) {
 
   function layout() {
     if (!img.naturalWidth) return;
-    working.crop = applyIdentityCropToImg(img, working.crop, frame.w, frame.h);
+    working.crop = applyIdentityCropToImg(img, working.crop, used.w, used.h, pad, pad);
     zoom.value = String(working.crop.zoom);
   }
 
@@ -742,14 +755,14 @@ function openIdentityCropper(kind, media, onApply, onCancel) {
   });
 
   let drag = null;
-  view.addEventListener("pointerdown", (e) => {
+  stage.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    view.setPointerCapture(e.pointerId);
+    stage.setPointerCapture(e.pointerId);
     drag = { x: e.clientX, y: e.clientY, cropX: working.crop.x, cropY: working.crop.y };
   });
-  view.addEventListener("pointermove", (e) => {
+  stage.addEventListener("pointermove", (e) => {
     if (!drag || !img.naturalWidth) return;
-    const cover = identityCoverScale(img.naturalWidth, img.naturalHeight, frame.w, frame.h, working.crop.rotation);
+    const cover = identityCoverScale(img.naturalWidth, img.naturalHeight, used.w, used.h, working.crop.rotation);
     const scale = cover * working.crop.zoom;
     const rot = working.crop.rotation;
     const boxW = (rot % 180 === 0 ? img.naturalWidth : img.naturalHeight) * scale;
@@ -759,8 +772,8 @@ function openIdentityCropper(kind, media, onApply, onCancel) {
     layout();
   });
   function endDrag() { drag = null; }
-  view.addEventListener("pointerup", endDrag);
-  view.addEventListener("pointercancel", endDrag);
+  stage.addEventListener("pointerup", endDrag);
+  stage.addEventListener("pointercancel", endDrag);
 
   function close(ok) {
     overlay.remove();

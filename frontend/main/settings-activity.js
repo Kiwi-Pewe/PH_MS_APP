@@ -11,15 +11,9 @@ function activityLaterNote(subject) {
 function paintWhatActivity(host) {
   host.appendChild(settingsOpt(
     "Share my activity",
-    "Share activity information from games and connected apps I use, including when and how I engage.",
+    "Share Activity from Games and connected apps you use.",
     settingsToggle(false, true),
     activityLaterNote("Registered Games")
-  ));
-  host.appendChild(settingsOpt(
-    "Share when I come online",
-    "Allow friends to receive a push notification when you come online.",
-    settingsToggle(true, true),
-    activityLaterNote("online pings")
   ));
   const related = document.createElement("div");
   related.className = "settings-related-wrap";
@@ -33,94 +27,6 @@ function paintWhatActivity(host) {
     "registered-games"
   ));
   host.appendChild(related);
-}
-
-function paintActivityServerRow(server) {
-  const row = document.createElement("div");
-  row.className = "settings-activity-server is-later";
-  row.dataset.name = (server.name || "").toLowerCase();
-  const avatar = document.createElement("div");
-  avatar.className = "avatar-dot";
-  avatar.textContent = typeof serverAvatarLetters === "function" ? serverAvatarLetters(server.name) : (server.name || "?").slice(0, 1);
-  const copy = document.createElement("div");
-  copy.className = "settings-activity-server-copy";
-  const name = document.createElement("div");
-  name.className = "settings-opt-title";
-  name.textContent = server.name;
-  copy.appendChild(name);
-  row.appendChild(avatar);
-  row.appendChild(copy);
-  row.appendChild(settingsToggle(true, true));
-  return row;
-}
-
-function paintWhereActivity(host, servers) {
-  const title = document.createElement("div");
-  title.className = "settings-opt-title";
-  title.textContent = "Automatically share my activity when joining a server";
-  host.appendChild(title);
-  const always = document.createElement("div");
-  always.className = "settings-opt-desc";
-  always.textContent = "Your activity is always shared with your friends.";
-  always.style.marginBottom = "8px";
-  host.appendChild(always);
-  const radios = document.createElement("div");
-  radios.className = "settings-radio-list is-disabled";
-  [
-    ["all", "Share in all servers"],
-    ["small", "Share in servers with 200 or fewer members"],
-    ["none", "Do not share in any servers"]
-  ].forEach(row => {
-    const radio = privacyRadio(row[0], "all", row[1], "", () => {});
-    radio.disabled = true;
-    radios.appendChild(radio);
-  });
-  host.appendChild(radios);
-  host.appendChild(systemCallout(
-    "warn",
-    "Server settings ignored when not sharing",
-    ""
-  ));
-  host.appendChild(activityLaterNote("activity sharing"));
-
-  const search = document.createElement("input");
-  search.type = "search";
-  search.className = "settings-activity-search";
-  search.placeholder = "Search my servers";
-  search.autocomplete = "off";
-  host.appendChild(search);
-
-  const tools = document.createElement("div");
-  tools.className = "settings-activity-tools";
-  const order = settingsSelect(
-    [{ value: "custom", label: "Server Order" }],
-    "custom",
-    true
-  );
-  const allOn = document.createElement("span");
-  allOn.className = "settings-inline-link is-static";
-  allOn.textContent = "Toggle All On";
-  tools.appendChild(order);
-  tools.appendChild(allOn);
-  host.appendChild(tools);
-
-  const list = document.createElement("div");
-  list.className = "settings-activity-servers";
-  if (!servers.length) {
-    const empty = document.createElement("div");
-    empty.className = "settings-empty-card is-left";
-    empty.textContent = "You're not in any servers yet.";
-    list.appendChild(empty);
-  } else {
-    servers.forEach(server => list.appendChild(paintActivityServerRow(server)));
-  }
-  host.appendChild(list);
-  search.addEventListener("input", () => {
-    const q = search.value.trim().toLowerCase();
-    list.querySelectorAll(".settings-activity-server").forEach(row => {
-      row.hidden = !!(q && (row.dataset.name || "").indexOf(q) === -1);
-    });
-  });
 }
 
 function paintJoinGames(host) {
@@ -140,19 +46,10 @@ function paintJoinGames(host) {
     settingsToggle(false, true),
     activityLaterNote("Voice")
   ));
-  const perServer = document.createElement("p");
-  perServer.className = "settings-blurb";
-  perServer.textContent = "Looking for per-server controls? Navigate to the server, select the dropdown menu next to the server name, then select Privacy Settings. From there, you can toggle on or off Activity Joining for just that server.";
-  host.appendChild(perServer);
-  host.appendChild(activityLaterNote("server Privacy Settings"));
 }
 
-async function renderActivityPrivacySettings(pane, jumpChildId) {
+function renderActivityPrivacySettings(pane, jumpChildId) {
   pane.innerHTML = "";
-  if ((!serverList || !serverList.length) && typeof loadServers === "function") {
-    try { await loadServers(); } catch (e) { /* list stays empty */ }
-  }
-  const servers = (serverList || []).slice();
 
   const block = document.createElement("section");
   block.className = "settings-block has-sections";
@@ -164,7 +61,6 @@ async function renderActivityPrivacySettings(pane, jumpChildId) {
 
   const sections = [
     ["what-activity", "What Activity I Share", paintWhatActivity],
-    ["where-activity", "Where I Share Activity", (host) => paintWhereActivity(host, servers)],
     ["join-games", "Who Can Join My Games", paintJoinGames]
   ];
   sections.forEach(row => {

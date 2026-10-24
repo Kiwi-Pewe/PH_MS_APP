@@ -109,7 +109,6 @@ const SETTINGS_GENERAL_CATALOG = [
       ]},
       { id: "activity-privacy", label: "Activity Privacy", children: [
         { id: "what-activity", label: "What Activity I Share" },
-        { id: "where-activity", label: "Where I Share Activity" },
         { id: "join-games", label: "Who Can Join My Games" }
       ]},
       { id: "game-overlay", label: "Game Overlay", children: [

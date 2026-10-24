@@ -114,6 +114,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
                 message_kind="party",
                 message_id=msg.id,
                 emoji=emoji,
+                party_id=msg.party_id,
             )
         return {"id": msg.id, "reactions": reactions}
 
@@ -150,6 +151,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
                 message_id=msg.id,
                 emoji=emoji,
                 server_id=server.id,
+                channel_id=msg.channel_id,
             )
         return {"id": msg.id, "reactions": reactions}
 
@@ -191,6 +193,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
                 emoji=emoji,
                 server_id=server.id,
                 channel_id=post.channel_id,
+                post_id=msg.post_id,
             )
         return {"id": msg.id, "reactions": reactions}
 
@@ -305,6 +308,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
                 emoji=emoji,
                 server_id=server.id,
                 channel_id=channel.id,
+                post_id=comment.post_id,
             )
         return {"id": comment.id, "reactions": reactions}
 
@@ -346,6 +350,7 @@ async def react_message(target: React_message, database: Session = Depends(get_d
                 emoji=emoji,
                 server_id=server.id,
                 channel_id=channel.id,
+                item_id=comment.item_id,
             )
         return {"id": comment.id, "reactions": reactions}
 
@@ -386,6 +391,8 @@ async def react_message(target: React_message, database: Session = Depends(get_d
                 emoji=emoji,
                 server_id=server.id,
                 channel_id=event.channel_id,
+                event_id=event.id,
+                name=event.name or "Event",
             )
         return {"id": event.id, "reactions": reactions}
 

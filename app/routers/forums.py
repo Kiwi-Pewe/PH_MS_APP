@@ -403,6 +403,7 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
             message_id=new_message.id,
             server_id=server.id,
             channel_id=channel.id,
+            post_id=post_exist.id,
         )
     if post_exist.author_id and (not parent or post_exist.author_id != parent.author_id):
         await notify_activity_post_comment(

@@ -124,81 +124,118 @@ function formatFeedDuration(seconds) {
   return parts.join(", ");
 }
 
+function feedAlertContext(alert) {
+  if (alert && alert.target && typeof alert.target === "object") return alert.target;
+  try {
+    const raw = alert && alert.context;
+    const ctx = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return ctx && typeof ctx === "object" ? ctx : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function feedQuote(text) {
+  const value = String(text || "").trim();
+  return value ? ('"' + value + '"') : "";
+}
+
+function feedOwnerLabel(alert) {
+  const ctx = feedAlertContext(alert);
+  return (alert && (alert.owner_display_name || alert.owner_username)) || (ctx && ctx.owner_name) || "";
+}
+
+function feedEventName(alert) {
+  const ctx = feedAlertContext(alert);
+  return String((ctx && ctx.name) || "").trim();
+}
+
 function feedAlertBody(alert) {
   const family = feedFamilyOf(alert);
   const kind = String(alert && alert.alert_type || "").toLowerCase();
+  const who = feedSenderLabel(alert);
+  const ctx = feedAlertContext(alert);
+  const surface = String((ctx && ctx.kind) || "").toLowerCase();
   if (family === "moderation") {
-    const who = feedSenderLabel(alert);
     const verb = FEED_MOD_VERBS[kind] || "moderated you";
     const reason = String(alert && alert.reason || "").trim();
     const duration = formatFeedDuration(alert && alert.duration_seconds);
+    const server = feedQuote(feedSubjectLabel(alert));
     let text = who + " " + verb;
-    if (reason) text += " for: " + reason;
+    if (server) text += (kind === "timeout" ? " in " : " from ") + server;
+    if (reason) text += " for " + feedQuote(reason);
     if (duration) text += " for " + duration;
     return text + ".";
   }
   if (kind === "application_submitted") {
-    const server = String((alert && (alert.subject_name || alert.reason)) || "").trim() || "the server";
-    return "Your application was successfully submitted to " + server + ".";
+    const server = String((alert && (alert.subject_name || alert.reason)) || "").trim();
+    return server
+      ? ("Your application was successfully submitted to " + feedQuote(server) + ".")
+      : "Your application was successfully submitted.";
   }
   if (kind === "friend_accept") {
-    return feedSenderLabel(alert) + " accepted your friend request.";
+    return who + " accepted your friend request.";
   }
   if (kind === "friend_deny") {
-    return feedSenderLabel(alert) + " declined your friend request.";
+    return who + " declined your friend request.";
   }
   if (kind === "dm_request") {
-    return feedSenderLabel(alert) + " sent a request to open DMs with you.";
+    return who + " sent a request to open DMs with you.";
   }
   if (kind === "dm_request_accept") {
-    return feedSenderLabel(alert) + " accepted your DM Request";
+    return who + " accepted your DM request.";
   }
   if (kind === "feedback_status" || kind === "report_status") {
     const status = String(alert && alert.reason || "").trim() || "updated";
     const noun = kind === "report_status" ? "report" : "feedback";
-    return feedSenderLabel(alert) + " updated your " + noun + " to " + status + ".";
+    return who + " updated your " + noun + " to " + feedQuote(status) + ".";
   }
   if (kind === "reaction") {
     const emoji = String(alert && alert.reason || "").trim();
-    return emoji
-      ? (feedSenderLabel(alert) + " reacted " + emoji + " to your message.")
-      : (feedSenderLabel(alert) + " reacted to your message.");
+    const reacted = emoji ? ("reacted " + emoji + " to") : "reacted to";
+    if (surface === "announcement") return who + " " + reacted + " your announcement.";
+    if (surface === "forum_post") return who + " " + reacted + " your post.";
+    if (surface === "forum") return who + " " + reacted + " your comment.";
+    if (surface === "comment" || surface === "media_comment") return who + " " + reacted + " your comment.";
+    if (surface === "calendar_event") {
+      const eventName = feedEventName(alert);
+      return eventName
+        ? (who + " " + reacted + " " + feedQuote(eventName) + ".")
+        : (who + " " + reacted + " your event.");
+    }
+    if (surface === "party") return who + " " + reacted + " your message in a party.";
+    return who + " " + reacted + " your message.";
   }
   if (kind === "reply") {
-    return feedSenderLabel(alert) + " replied to your message.";
+    if (surface === "forum") return who + " replied to your comment.";
+    if (surface === "party") return who + " replied to your message in a party.";
+    return who + " replied to your message.";
   }
   if (kind === "post_comment") {
-    return feedSenderLabel(alert) + " commented on your post.";
+    if (surface === "media") return who + " commented on your media.";
+    if (surface === "forum_post") return who + " commented on your post.";
+    return who + " commented on your post.";
   }
   if (kind === "event_invite") {
-    let name = "an event";
-    try {
-      const raw = alert && alert.context;
-      const ctx = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (ctx && ctx.name) name = ctx.name;
-    } catch (err) {}
-    return feedSenderLabel(alert) + " invited you to " + name + ".";
+    const name = feedEventName(alert);
+    return name
+      ? (who + " invited you to " + feedQuote(name) + ".")
+      : (who + " invited you to an event.");
   }
   if (kind === "event_created") {
-    let name = "an event";
-    try {
-      const raw = alert && alert.context;
-      const ctx = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (ctx && ctx.name) name = ctx.name;
-    } catch (err) {}
-    return feedSenderLabel(alert) + " scheduled " + name + ".";
+    const name = feedEventName(alert);
+    return name
+      ? (who + " scheduled " + feedQuote(name) + ".")
+      : (who + " scheduled an event.");
   }
   if (kind === "widget_comment") {
-    let ownerId = null;
-    try {
-      const raw = alert && alert.context;
-      const ctx = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (ctx && ctx.owner_id != null) ownerId = Number(ctx.owner_id);
-    } catch (err) {}
+    const ownerId = alert && alert.owner_id != null ? Number(alert.owner_id) : (ctx.owner_id != null ? Number(ctx.owner_id) : null);
     if (ownerId != null && typeof myUserId !== "undefined" && Number(myUserId) === ownerId) {
-      return feedSenderLabel(alert) + " commented on your profile.";
+      return who + " commented on your profile.";
     }
-    return feedSenderLabel(alert) + " commented on a profile you're watching.";
+    const ownerName = feedOwnerLabel(alert);
+    if (ownerName) return who + " commented on " + feedQuote(ownerName) + "'s profile.";
+    return who + " commented on a profile you're watching.";
   }
   return String(alert && alert.context || "").trim();
 }
@@ -286,6 +323,10 @@ function buildMailAlertRow(alert) {
   if (line.textContent) row.appendChild(line);
   const actions = buildDmRequestActions(alert);
   if (actions) row.appendChild(actions);
+  if (feedAlertCanJump(alert)) {
+    row.classList.add("is-jumpable");
+    row.addEventListener("click", () => jumpFeedAlert(alert));
+  }
   return row;
 }
 
@@ -440,6 +481,168 @@ function applyFeedAlertPrefsLocally() {
   if (typeof loadFeedAlerts === "function") loadFeedAlerts();
 }
 
+function bindFeedUserChrome(el, alert) {
+  const userId = alert && alert.sender_id;
+  if (!el || !userId) return;
+  const name = feedSenderLabel(alert);
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(el, userId);
+  el.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof showProfileContextMenu === "function") {
+      showProfileContextMenu(e, userId, name, typeof myUserId !== "undefined" && Number(userId) === Number(myUserId));
+    }
+  });
+}
+
+function feedAlertCanJump(alert) {
+  if (!alert) return false;
+  const kind = String(alert.alert_type || "").toLowerCase();
+  const ctx = feedAlertContext(alert);
+  if (kind === "widget_comment") return alert.owner_id != null || ctx.owner_id != null;
+  if (kind === "friend_accept" || kind === "friend_deny" || kind === "dm_request" || kind === "dm_request_accept") return !!alert.sender_id;
+  if (kind === "feedback_status" || kind === "report_status") return true;
+  if (kind === "application_submitted" || feedFamilyOf(alert) === "moderation") return !!alert.server_id;
+  if (kind === "event_invite" || kind === "event_created") return !!(ctx.event_id || ctx.channel_id || alert.server_id);
+  if (kind === "reaction" || kind === "reply" || kind === "post_comment") {
+    return !!(ctx.message_id || ctx.post_id || ctx.item_id || ctx.event_id || ctx.channel_id || ctx.party_id || alert.sender_id || alert.server_id);
+  }
+  return false;
+}
+
+function feedFindChannel(channelId) {
+  if (!channelId || typeof currentServerData === "undefined" || !currentServerData) return null;
+  let found = null;
+  (currentServerData.categories || []).forEach((category) => {
+    (category.channels || []).forEach((channel) => {
+      if (Number(channel.id) === Number(channelId)) found = channel;
+    });
+  });
+  return found;
+}
+
+async function feedOpenServerChannel(serverId, channelId) {
+  if (channelId && typeof currentServerId !== "undefined" && String(currentServerId) === String(serverId)) {
+    if (typeof currentChannelId !== "undefined" && Number(currentChannelId) === Number(channelId)) return true;
+    const channel = feedFindChannel(channelId);
+    if (channel && typeof selectChannel === "function") {
+      await selectChannel(channel);
+      return true;
+    }
+  }
+  if (serverId && typeof openServer === "function") {
+    await openServer(serverId, null, channelId || undefined);
+    return true;
+  }
+  return false;
+}
+
+async function jumpFeedAlert(alert) {
+  if (!alert) return;
+  const kind = String(alert.alert_type || "").toLowerCase();
+  const ctx = feedAlertContext(alert);
+  const serverId = alert.server_id || null;
+  const channelId = ctx.channel_id || null;
+  const messageId = ctx.message_id || ctx.post_id || null;
+  const surface = String(ctx.kind || "").toLowerCase();
+  const ownerId = alert.owner_id != null ? alert.owner_id : ctx.owner_id;
+  if (kind === "widget_comment") {
+    if (ownerId != null && typeof openUserProfile === "function") openUserProfile(ownerId);
+    return;
+  }
+  if (kind === "friend_accept" || kind === "friend_deny") {
+    if (alert.sender_id && typeof openUserProfile === "function") openUserProfile(alert.sender_id);
+    return;
+  }
+  if (kind === "dm_request") {
+    if (alert.sender_id && typeof openUserProfile === "function") openUserProfile(alert.sender_id);
+    return;
+  }
+  if (kind === "dm_request_accept") {
+    if (alert.sender_id && typeof openDirectMessage === "function") {
+      openDirectMessage(alert.sender_id, feedSenderLabel(alert));
+    }
+    return;
+  }
+  if (kind === "feedback_status" || kind === "report_status") {
+    if (typeof openFeedbackCard === "function") openFeedbackCard();
+    return;
+  }
+  if (kind === "application_submitted" || feedFamilyOf(alert) === "moderation") {
+    if (serverId && typeof openServer === "function") openServer(serverId);
+    return;
+  }
+  if (kind === "event_invite" || kind === "event_created" || surface === "calendar_event") {
+    const eventId = ctx.event_id || ctx.message_id;
+    await feedOpenServerChannel(serverId, channelId);
+    if (eventId && typeof openEventPage === "function") {
+      openEventPage({ id: eventId, channel_id: channelId });
+    }
+    return;
+  }
+  if (surface === "dm" || (kind !== "post_comment" && !serverId && alert.sender_id && (kind === "reaction" || kind === "reply"))) {
+    if (typeof openDirectMessage === "function") {
+      await openDirectMessage(alert.sender_id, feedSenderLabel(alert));
+    }
+    if (messageId && typeof jumpToPinnedMessage === "function") {
+      jumpToPinnedMessage({ message_kind: "dm", message_id: messageId });
+    }
+    return;
+  }
+  if (surface === "party" || ctx.party_id) {
+    if (ctx.party_id && typeof openParty === "function") {
+      await openParty(ctx.party_id, "Party");
+    }
+    if (messageId && typeof jumpToPinnedMessage === "function") {
+      jumpToPinnedMessage({ message_kind: "party", message_id: messageId });
+    }
+    return;
+  }
+  await feedOpenServerChannel(serverId, channelId);
+  if (surface === "forum" || surface === "forum_post" || (kind === "post_comment" && surface === "forum_post")) {
+    const postId = surface === "forum" ? ctx.post_id : (ctx.post_id || messageId);
+    if (postId && typeof openForumPost === "function") {
+      await openForumPost({ id: postId, title: ctx.name || "Topic", body: "", attachment: null });
+    }
+    if (surface === "forum" && messageId && typeof jumpToPinnedMessage === "function") {
+      jumpToPinnedMessage({ message_kind: "forum", message_id: messageId, post_id: postId });
+    }
+    return;
+  }
+  if (surface === "announcement" || (kind === "post_comment" && surface === "announcement")) {
+    const postId = ctx.post_id || messageId;
+    if (postId && typeof jumpLoadAroundAnnouncement === "function") {
+      await jumpLoadAroundAnnouncement(postId);
+    }
+    return;
+  }
+  if (surface === "comment") {
+    const postId = ctx.post_id;
+    if (postId && typeof jumpLoadAroundAnnouncement === "function") {
+      await jumpLoadAroundAnnouncement(postId);
+    }
+    if (postId && messageId && typeof revealSearchComment === "function") {
+      await revealSearchComment(postId, messageId);
+    }
+    return;
+  }
+  if (surface === "media" || surface === "media_comment") {
+    const itemId = ctx.item_id || ctx.post_id;
+    const items = typeof currentMediaItems !== "undefined" ? currentMediaItems : [];
+    const item = items.find((entry) => Number(entry.id) === Number(itemId));
+    if (item && typeof openMediaItem === "function") openMediaItem(item);
+    if (surface === "media_comment" && messageId && typeof jumpToPinnedMessage === "function") {
+      jumpToPinnedMessage({ message_kind: "media_comment", message_id: messageId });
+    }
+    return;
+  }
+  if (surface === "channel" || kind === "reaction" || kind === "reply") {
+    if (messageId && typeof jumpToPinnedMessage === "function") {
+      jumpToPinnedMessage({ message_kind: "channel", message_id: messageId });
+    }
+  }
+}
+
 function showFeedAlertMenu(e, alert) {
   e.preventDefault();
   e.stopPropagation();
@@ -460,6 +663,14 @@ function buildFeedAlertCard(alert) {
   card.dataset.alertId = String(alert.id);
   card.dataset.alertFamily = family;
   card.addEventListener("contextmenu", (e) => showFeedAlertMenu(e, alert));
+  const canJump = feedAlertCanJump(alert);
+  if (canJump) {
+    card.classList.add("is-jumpable");
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".is-mini-profile-target, .feed-alert-actions, button, a")) return;
+      jumpFeedAlert(alert);
+    });
+  }
 
   const top = document.createElement("div");
   top.className = "announce-post-top";
@@ -478,6 +689,12 @@ function buildFeedAlertCard(alert) {
   role.textContent = FEED_FAMILY_LABELS[family] || family;
   meta.appendChild(name);
   meta.appendChild(role);
+
+  const isUserFace = (alert && alert.face_kind) !== "server" && family !== "moderation";
+  if (isUserFace && alert && alert.sender_id) {
+    bindFeedUserChrome(face, alert);
+    bindFeedUserChrome(name, alert);
+  }
 
   const chip = document.createElement("span");
   chip.className = "feed-family-chip is-" + family;

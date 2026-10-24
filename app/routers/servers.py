@@ -1278,6 +1278,7 @@ async def message_server_channel(server_msg: Server_message, database: Session =
             message_kind="channel",
             message_id=new_message.id,
             server_id=server.id,
+            channel_id=channel.id,
         )
     return new_message    
 

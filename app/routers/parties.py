@@ -269,6 +269,7 @@ async def message_party(party_msg: Party_message_schema, database: Session = Dep
             actor_id=current_user.id,
             message_kind="party",
             message_id=new_party_msg.id,
+            party_id=party_msg.party_id,
         )
 
     return new_party_msg

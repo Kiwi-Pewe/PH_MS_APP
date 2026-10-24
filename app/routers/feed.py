@@ -232,11 +232,22 @@ def migrate_moderation_row(database, row):
     return changed
 
 
-def serialize_feed_alert(row, sender=None, server=None):
+def pack_alert_context(fields):
+    data = {}
+    for key, value in (fields or {}).items():
+        if value is None or value == "":
+            continue
+        data[key] = value
+    return json.dumps(data) if data else None
+
+
+def serialize_feed_alert(row, sender=None, server=None, extra_users=None):
     family = normalize_alert_family(row.alert_family, row.alert_type)
     kind = (row.alert_type or "").strip().lower()
     from app.routers.servers import server_icon_url
     face_kind = "server" if family == "moderation" else "user"
+    ctx = parse_alert_context(row.context) or {}
+    extra_users = extra_users or {}
     payload = {
         "id": row.id,
         "alert_family": family,
@@ -254,6 +265,10 @@ def serialize_feed_alert(row, sender=None, server=None):
         "face_kind": face_kind,
         "subject_name": None,
         "subject_icon_url": None,
+        "owner_id": None,
+        "owner_username": None,
+        "owner_display_name": None,
+        "target": None,
     }
     if kind == "application_submitted":
         face_kind = "server"
@@ -268,6 +283,29 @@ def serialize_feed_alert(row, sender=None, server=None):
             payload["subject_icon_url"] = ""
     else:
         payload["subject_name"] = payload["sender_display_name"] or payload["sender_username"] or "Someone"
+    target = {}
+    for key in (
+        "kind", "message_id", "channel_id", "party_id", "post_id", "peer_id",
+        "item_id", "event_id", "comment_id", "owner_id", "name", "report_id",
+        "feedback_type",
+    ):
+        if ctx.get(key) is not None:
+            target[key] = ctx[key]
+    owner_id = ctx.get("owner_id")
+    if owner_id is not None:
+        try:
+            owner_id = int(owner_id)
+        except (TypeError, ValueError):
+            owner_id = None
+    if owner_id is not None:
+        owner = extra_users.get(owner_id)
+        payload["owner_id"] = owner_id
+        target["owner_id"] = owner_id
+        if owner:
+            payload["owner_username"] = owner.username
+            payload["owner_display_name"] = public_display_name(owner)
+            target["owner_name"] = public_display_name(owner) or owner.username
+    payload["target"] = target or None
     return payload
 
 
@@ -329,9 +367,23 @@ async def notify_feed_alert(
     )
     sender = database.query(UserInfo).filter(UserInfo.id == sender_id).first() if sender_id else None
     server = database.query(Servers).filter(Servers.id == server_id).first() if server_id else None
+    extra_users = {}
+    if sender:
+        extra_users[sender.id] = sender
+    ctx = parse_alert_context(row.context) or {}
+    owner_id = ctx.get("owner_id")
+    if owner_id is not None:
+        try:
+            owner_id = int(owner_id)
+        except (TypeError, ValueError):
+            owner_id = None
+    if owner_id and owner_id not in extra_users:
+        owner = database.query(UserInfo).filter(UserInfo.id == owner_id).first()
+        if owner:
+            extra_users[owner.id] = owner
     await notify_user(receiver_id, {
         "type": "feed_alert",
-        "alert": serialize_feed_alert(row, sender, server),
+        "alert": serialize_feed_alert(row, sender, server, extra_users),
     })
     return row
 
@@ -364,6 +416,8 @@ async def notify_activity_reply(
     message_id,
     server_id=None,
     channel_id=None,
+    party_id=None,
+    post_id=None,
 ):
     if not receiver_id or not actor_id or receiver_id == actor_id:
         return
@@ -376,7 +430,14 @@ async def notify_activity_reply(
         sender_id=actor_id,
         alert_family="activity",
         server_id=server_id,
-        context=json.dumps({"kind": message_kind, "message_id": message_id}),
+        context=pack_alert_context({
+            "kind": message_kind,
+            "message_id": message_id,
+            "channel_id": channel_id,
+            "party_id": party_id,
+            "post_id": post_id,
+            "peer_id": actor_id if message_kind == "dm" else None,
+        }),
     )
 
 
@@ -390,6 +451,11 @@ async def notify_activity_reaction(
     emoji,
     server_id=None,
     channel_id=None,
+    party_id=None,
+    post_id=None,
+    item_id=None,
+    event_id=None,
+    name=None,
 ):
     if not receiver_id or not actor_id or receiver_id == actor_id:
         return
@@ -406,7 +472,17 @@ async def notify_activity_reaction(
         alert_family="activity",
         server_id=server_id,
         reason=(emoji or "").strip() or None,
-        context=json.dumps({"kind": message_kind, "message_id": message_id}),
+        context=pack_alert_context({
+            "kind": message_kind,
+            "message_id": message_id,
+            "channel_id": channel_id,
+            "party_id": party_id,
+            "post_id": post_id,
+            "item_id": item_id,
+            "event_id": event_id,
+            "name": name,
+            "peer_id": actor_id if message_kind == "dm" else None,
+        }),
     )
 
 
@@ -431,7 +507,12 @@ async def notify_activity_post_comment(
         sender_id=actor_id,
         alert_family="activity",
         server_id=server_id,
-        context=json.dumps({"kind": post_kind, "post_id": post_id}),
+        context=pack_alert_context({
+            "kind": post_kind,
+            "post_id": post_id,
+            "channel_id": channel_id,
+            "item_id": post_id if post_kind == "media" else None,
+        }),
     )
 
 
@@ -466,17 +547,31 @@ def list_feed_alerts(
 
     sender_ids = {row.sender_id for row in rows if row.sender_id}
     server_ids = {row.server_id for row in rows if row.server_id}
+    owner_ids = set()
+    for row in rows:
+        ctx = parse_alert_context(row.context) or {}
+        owner_id = ctx.get("owner_id")
+        if owner_id is None:
+            continue
+        try:
+            owner_ids.add(int(owner_id))
+        except (TypeError, ValueError):
+            pass
     senders = {}
     servers = {}
-    if sender_ids:
-        for user in database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all():
-            senders[user.id] = user
+    extra_users = {}
+    load_ids = set(sender_ids) | owner_ids
+    if load_ids:
+        for user in database.query(UserInfo).filter(UserInfo.id.in_(load_ids)).all():
+            extra_users[user.id] = user
+            if user.id in sender_ids:
+                senders[user.id] = user
     if server_ids:
         for server in database.query(Servers).filter(Servers.id.in_(server_ids)).all():
             servers[server.id] = server
     return {
         "alerts": [
-            serialize_feed_alert(row, senders.get(row.sender_id), servers.get(row.server_id))
+            serialize_feed_alert(row, senders.get(row.sender_id), servers.get(row.server_id), extra_users)
             for row in rows
         ]
     }

@@ -682,7 +682,8 @@ function defaultProfileTileProps(type, existing) {
   }
   if (type === "comments") {
     return Object.assign({
-      friends_only: !!prev.friends_only
+      friends_only: !!prev.friends_only,
+      owner_can_post: !!prev.owner_can_post
     }, chrome);
   }
   if (type === "display_server") {

@@ -7,6 +7,7 @@
 const IDENTITY_RECENT_MAX = 6;
 const IDENTITY_ZOOM_MIN = 1;
 const IDENTITY_ZOOM_MAX = 3;
+const IDENTITY_BANNER_RATIO = 3;
 let ownIdentityCache = null;
 const identityFaceCache = {};
 
@@ -160,6 +161,22 @@ function identityCoverScale(natW, natH, frameW, frameH, rotation) {
   return Math.max(frameW / boxW, frameH / boxH);
 }
 
+function identityBannerCoverFrame(hostW, hostH) {
+  const ratio = IDENTITY_BANNER_RATIO;
+  let coverW = hostW;
+  let coverH = hostW / ratio;
+  if (coverH < hostH) {
+    coverH = hostH;
+    coverW = hostH * ratio;
+  }
+  return {
+    w: coverW,
+    h: coverH,
+    x: (hostW - coverW) / 2,
+    y: (hostH - coverH) / 2
+  };
+}
+
 function clampIdentityCrop(crop, natW, natH, frameW, frameH) {
   const next = normalizeIdentityCrop(crop);
   const rot = next.rotation;
@@ -177,7 +194,7 @@ function clampIdentityCrop(crop, natW, natH, frameW, frameH) {
   return next;
 }
 
-function applyIdentityCropToImg(img, crop, frameW, frameH) {
+function applyIdentityCropToImg(img, crop, frameW, frameH, originX, originY) {
   const natW = img.naturalWidth || 1;
   const natH = img.naturalHeight || 1;
   const next = clampIdentityCrop(crop, natW, natH, frameW, frameH);
@@ -186,10 +203,12 @@ function applyIdentityCropToImg(img, crop, frameW, frameH) {
   const rot = next.rotation;
   const boxW = (rot % 180 === 0 ? natW : natH) * scale;
   const boxH = (rot % 180 === 0 ? natH : natW) * scale;
+  const ox = originX || 0;
+  const oy = originY || 0;
   img.style.width = (natW * scale) + "px";
   img.style.height = (natH * scale) + "px";
-  img.style.left = (frameW / 2 + (0.5 - next.x) * boxW) + "px";
-  img.style.top = (frameH / 2 + (0.5 - next.y) * boxH) + "px";
+  img.style.left = (ox + frameW / 2 + (0.5 - next.x) * boxW) + "px";
+  img.style.top = (oy + frameH / 2 + (0.5 - next.y) * boxH) + "px";
   img.style.transformOrigin = "center center";
   img.style.transform = "translate(-50%, -50%) rotate(" + rot + "deg)";
   return next;
@@ -198,6 +217,10 @@ function applyIdentityCropToImg(img, crop, frameW, frameH) {
 function paintIdentityMedia(host, media, opts) {
   opts = opts || {};
   if (!host) return;
+  if (host._identityLayoutRO) {
+    host._identityLayoutRO.disconnect();
+    host._identityLayoutRO = null;
+  }
   const existing = host.querySelector(":scope > .identity-media");
   if (existing) existing.remove();
   if (!identityHasImage(media)) return;
@@ -217,7 +240,12 @@ function paintIdentityMedia(host, media, opts) {
       return;
     }
     if (!fw || !fh || !img.naturalWidth) return;
-    applyIdentityCropToImg(img, media.crop, fw, fh);
+    if (opts.circle) {
+      applyIdentityCropToImg(img, media.crop, fw, fh);
+      return;
+    }
+    const box = identityBannerCoverFrame(fw, fh);
+    applyIdentityCropToImg(img, media.crop, box.w, box.h, box.x, box.y);
   }
   img.addEventListener("load", layout);
   if (opts.attention && typeof bindAttentionGif === "function" && typeof isGifMedia === "function" && isGifMedia(media)) {
@@ -234,6 +262,10 @@ function paintIdentityMedia(host, media, opts) {
   layer.appendChild(img);
   host.appendChild(layer);
   if (opts.border !== false) applyIdentityBorder(host, media);
+  if (typeof ResizeObserver === "function") {
+    host._identityLayoutRO = new ResizeObserver(() => layout());
+    host._identityLayoutRO.observe(host);
+  }
   if (img.complete) layout();
   else requestAnimationFrame(layout);
 }

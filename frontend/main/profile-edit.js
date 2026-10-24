@@ -1519,9 +1519,10 @@ function fillGalleryOptions(box, draft, onChange, hintEl) {
 
 function fillCommentsOptions(box, draft, onChange, hintEl) {
   draft.friends_only = !!draft.friends_only;
+  draft.owner_can_post = !!draft.owner_can_post;
   const note = document.createElement("div");
   note.className = "settings-opt-desc";
-  note.textContent = "Visitors write here. You cannot comment on your own profile. Newest sits at the top, six per page.";
+  note.textContent = "Visitors write here. Newest sits at the top, six per page.";
   box.appendChild(note);
   const row = settingsOpt(
     "Friends only",
@@ -1533,6 +1534,16 @@ function fillCommentsOptions(box, draft, onChange, hintEl) {
   );
   profileOptHint(row, "Off: anyone who can see this profile can post. On: only friends.", hintEl);
   box.appendChild(row);
+  const ownRow = settingsOpt(
+    "Allow my comments",
+    "Lets you leave messages on your own profile.",
+    settingsToggle(draft.owner_can_post, false, (on) => {
+      draft.owner_can_post = on;
+      onChange();
+    })
+  );
+  profileOptHint(ownRow, "Off: only visitors can write. On: you get the composer too.", hintEl);
+  box.appendChild(ownRow);
 }
 
 function fillDisplayServerOptions(box, draft, onChange, hintEl) {

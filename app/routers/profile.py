@@ -1299,6 +1299,7 @@ def normalize_props(kind, props, banner_fallback):
     if kind == "comments":
         out = normalize_text_chrome(data, 14, True)
         out["friends_only"] = bool(data.get("friends_only"))
+        out["owner_can_post"] = bool(data.get("owner_can_post"))
         return out
     if kind == "display_server":
         return normalize_display_server_props(data)
@@ -1756,12 +1757,20 @@ def get_public_profile(user_id: int, current_user: UserInfo = Depends(get_curren
     return profile_payload(owner, public_pages(layout), False, friend_preview(database, owner.id))
 
 
-def comments_wall_friends_only(layout):
+def comments_wall_prop(layout, key):
     for page in (layout or {}).get("pages") or []:
         for tile in page.get("tiles") or []:
-            if tile.get("type") == "comments" and (tile.get("props") or {}).get("friends_only"):
+            if tile.get("type") == "comments" and (tile.get("props") or {}).get(key):
                 return True
     return False
+
+
+def comments_wall_friends_only(layout):
+    return comments_wall_prop(layout, "friends_only")
+
+
+def comments_wall_owner_can_post(layout):
+    return comments_wall_prop(layout, "owner_can_post")
 
 
 def users_are_blocked(database: Session, user_a, user_b):
@@ -1791,7 +1800,7 @@ def can_post_profile_comment(database: Session, viewer: UserInfo, owner: UserInf
     if not viewer or not owner:
         return False
     if viewer.id == owner.id:
-        return False
+        return comments_wall_owner_can_post(layout)
     if not can_see_full_profile(database, viewer, owner):
         return False
     if users_are_blocked(database, viewer.id, owner.id):
@@ -1925,14 +1934,16 @@ async def create_profile_comment(user_id: int, body: Profile_comment_in, current
     if not owner:
         raise HTTPException(status_code=404, detail="User not found.")
     layout = ensure_layout(owner, database)
-    if current_user.id == owner.id:
-        raise HTTPException(status_code=403, detail="You cannot comment on your own profile.")
-    if not can_see_full_profile(database, current_user, owner):
-        raise HTTPException(status_code=403, detail="You cannot see this profile.")
-    if users_are_blocked(database, current_user.id, owner.id):
+    if not can_post_profile_comment(database, current_user, owner, layout):
+        if current_user.id == owner.id:
+            raise HTTPException(status_code=403, detail="Turn on Allow my comments to write here.")
+        if not can_see_full_profile(database, current_user, owner):
+            raise HTTPException(status_code=403, detail="You cannot see this profile.")
+        if users_are_blocked(database, current_user.id, owner.id):
+            raise HTTPException(status_code=403, detail="You cannot comment here.")
+        if comments_wall_friends_only(layout) and not are_friends(database, current_user.id, owner.id):
+            raise HTTPException(status_code=403, detail="Only friends can comment here.")
         raise HTTPException(status_code=403, detail="You cannot comment here.")
-    if comments_wall_friends_only(layout) and not are_friends(database, current_user.id, owner.id):
-        raise HTTPException(status_code=403, detail="Only friends can comment here.")
     text = clip_text(body.content, PROFILE_COMMENT_MAX).strip()
     if not text:
         raise HTTPException(status_code=400, detail="Write a comment first.")

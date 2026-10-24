@@ -101,6 +101,7 @@ function mountProfileComments(host, tile) {
   let total = 0;
   let canPost = false;
   let isOwner = ownerId === myUserId;
+  const ownerComposer = !!(isOwner && tile && tile.props && tile.props.owner_can_post);
   let watching = false;
   let rows = [];
   let loading = false;
@@ -260,7 +261,7 @@ function mountProfileComments(host, tile) {
   }
 
   function paint() {
-    compose.hidden = !canPost;
+    compose.hidden = !(canPost || ownerComposer);
     notifyLabel.hidden = isOwner;
     notifyBox.checked = watching;
     paintPager(topPager);

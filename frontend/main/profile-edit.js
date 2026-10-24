@@ -1226,12 +1226,8 @@ function fillMusicOptions(box, draft, onChange, hintEl) {
       const choose = document.createElement("button");
       choose.type = "button";
       choose.className = "profile-link-add";
-      const status = document.createElement("div");
-      status.className = "profile-opt-image-name";
-      function paintStatus() {
-        const has = !!(track._file || track.key);
-        status.textContent = track._file ? track._file.name : (has ? (track.name || "Audio file") : "No file yet.");
-        choose.textContent = has ? "Replace file" : "Choose file";
+      function paintChoose() {
+        choose.textContent = (track._file || track.key) ? "Replace file" : "Choose file";
       }
       profileOptHint(choose, "Mp3 or mp4, max 20 MB. Mp4 is treated as audio here, not a video stage.", hintEl);
       choose.addEventListener("click", () => fileInput.click());
@@ -1256,14 +1252,13 @@ function fillMusicOptions(box, draft, onChange, hintEl) {
           track.name = file.name || "";
           nameInput.value = track.name;
         }
-        paintStatus();
+        paintChoose();
         onChange();
       });
       actions.appendChild(choose);
       card.appendChild(fileInput);
       card.appendChild(actions);
-      card.appendChild(status);
-      paintStatus();
+      paintChoose();
       list.appendChild(card);
     });
     add.hidden = draft.tracks.length >= MUSIC_TRACK_MAX;

@@ -119,8 +119,25 @@ function paintVoiceSection(host) {
   ));
   host.appendChild(settingsOpt(
     "Push to Talk",
-    "Hold a key to open the mic. The key itself lives under System → Custom Keybinds.",
+    "Hold a key to open the mic.",
     settingsToggle(false, true),
+    voiceLaterNote()
+  ));
+  const shortcut = document.createElement("div");
+  shortcut.className = "settings-keybind-combo";
+  const unset = document.createElement("span");
+  unset.textContent = "No Keybind Set";
+  const record = document.createElement("button");
+  record.type = "button";
+  record.className = "settings-row-btn";
+  record.textContent = "Record Keybind";
+  record.disabled = true;
+  shortcut.appendChild(unset);
+  shortcut.appendChild(record);
+  host.appendChild(settingsOpt(
+    "Push to Talk Shortcut",
+    "The key you hold to talk.",
+    shortcut,
     voiceLaterNote()
   ));
 }

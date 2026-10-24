@@ -86,10 +86,7 @@ const SETTINGS_GENERAL_CATALOG = [
         label: "System",
         children: [
           { id: "system-general", label: "General" },
-          { id: "custom-keybinds", label: "Custom Keybinds" },
-          { id: "default-keybinds", label: "Default Keybinds" },
-          { id: "system-helper", label: "System Helper" },
-          { id: "system-advanced", label: "Advanced" }
+          { id: "default-keybinds", label: "Default Keybinds" }
         ]
       },
       {

@@ -47,86 +47,11 @@ function paintSystemGeneral(host) {
     systemLaterNote()
   ));
   host.appendChild(settingsOpt(
-    "Start Oneira minimized",
-    "Start Oneira in the background, out of your way.",
-    settingsToggle(false, true),
-    systemLaterNote("desktop app")
-  ));
-  host.appendChild(settingsOpt(
     "Minimize Oneira to System Tray",
     "Clicking X minimizes Oneira instead of closing it completely.",
     settingsToggle(true, true),
     systemLaterNote()
   ));
-  host.appendChild(settingsOpt(
-    "Enable Hardware Acceleration",
-    "Uses your GPU to make Oneira run more smoothly. Turn this off if you're experiencing visual glitches like frame drops in games or performance problems.",
-    settingsToggle(true, true),
-    systemLaterNote()
-  ));
-}
-
-function paintSystemCustomKeybinds(host) {
-  const blurb = document.createElement("p");
-  blurb.className = "settings-blurb";
-  blurb.textContent = "Keybinds are custom keyboard shortcuts that let you perform specific actions in Oneira without needing to click through menus.";
-  host.appendChild(blurb);
-  const addRow = document.createElement("div");
-  addRow.className = "system-toolbar";
-  const add = document.createElement("button");
-  add.type = "button";
-  add.className = "settings-row-btn";
-  add.textContent = "+ Add a Keybind";
-  add.disabled = true;
-  addRow.appendChild(add);
-  host.appendChild(addRow);
-  host.appendChild(systemLaterNote("custom keybinds"));
-
-  host.appendChild(systemCallout(
-    "info",
-    "Keybinds are disabled while this page is visible.",
-    ""
-  ));
-  host.appendChild(systemCallout(
-    "warn",
-    "Due to system permissions, keybinds won't work in certain games.",
-    "To enable, install Oneira System Helper.",
-    "Install"
-  ));
-
-  const labels = document.createElement("div");
-  labels.className = "settings-keybind-labels";
-  const actionLabel = document.createElement("div");
-  actionLabel.className = "settings-opt-title";
-  actionLabel.textContent = "Keybind Action";
-  const bindLabel = document.createElement("div");
-  bindLabel.className = "settings-opt-title";
-  bindLabel.textContent = "Keybind";
-  labels.appendChild(actionLabel);
-  labels.appendChild(bindLabel);
-  host.appendChild(labels);
-
-  const row = document.createElement("div");
-  row.className = "settings-keybind-row is-later";
-  row.appendChild(settingsSelect(
-    [{ value: "none", label: "Select an action" }],
-    "none",
-    true
-  ));
-  const combo = document.createElement("div");
-  combo.className = "settings-keybind-combo";
-  const unset = document.createElement("span");
-  unset.textContent = "No Keybind Set";
-  const record = document.createElement("button");
-  record.type = "button";
-  record.className = "settings-row-btn";
-  record.textContent = "Record Keybind";
-  record.disabled = true;
-  combo.appendChild(unset);
-  combo.appendChild(record);
-  row.appendChild(combo);
-  row.appendChild(settingsToggle(true, true));
-  host.appendChild(row);
 }
 
 function paintSystemDefaultKeybinds(host) {
@@ -135,42 +60,6 @@ function paintSystemDefaultKeybinds(host) {
   blurb.textContent = "Built-in shortcuts that let you move around Oneira from the keyboard.";
   host.appendChild(blurb);
   host.appendChild(systemLaterNote("default keybinds"));
-}
-
-function paintSystemHelper(host) {
-  const learn = document.createElement("div");
-  const desc = document.createElement("span");
-  desc.textContent = "Improves Oneira's functionality across games and apps. Helps ensure things like keybinds and other features work reliably. ";
-  const link = document.createElement("span");
-  link.className = "settings-inline-link is-static";
-  link.textContent = "Learn more";
-  learn.appendChild(desc);
-  learn.appendChild(link);
-  const install = document.createElement("button");
-  install.type = "button";
-  install.className = "settings-row-btn";
-  install.textContent = "Install";
-  install.disabled = true;
-  host.appendChild(settingsOpt(
-    "Oneira System Helper",
-    learn,
-    install,
-    systemLaterNote("desktop app")
-  ));
-}
-
-function paintSystemAdvanced(host) {
-  const capture = document.createElement("button");
-  capture.type = "button";
-  capture.className = "settings-row-btn";
-  capture.textContent = "Capture";
-  capture.disabled = true;
-  host.appendChild(settingsOpt(
-    "Capture Performance Trace",
-    "Record 30 seconds of performance data and save it to a file you can attach to a support ticket.",
-    capture,
-    systemLaterNote("performance diagnostics")
-  ));
 }
 
 function renderSystemSettings(pane, jumpChildId) {
@@ -185,10 +74,7 @@ function renderSystemSettings(pane, jumpChildId) {
 
   const sections = [
     ["system-general", "General", paintSystemGeneral],
-    ["custom-keybinds", "Custom Keybinds", paintSystemCustomKeybinds],
-    ["default-keybinds", "Default Keybinds", paintSystemDefaultKeybinds],
-    ["system-helper", "System Helper", paintSystemHelper],
-    ["system-advanced", "Advanced", paintSystemAdvanced]
+    ["default-keybinds", "Default Keybinds", paintSystemDefaultKeybinds]
   ];
   sections.forEach(row => {
     const sub = document.createElement("div");

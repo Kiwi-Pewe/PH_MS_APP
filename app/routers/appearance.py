@@ -13,7 +13,7 @@ THEME_IDS = {
     "midnight-purple", "light", "midnight", "paper", "cyberpunk", "retrowave",
     "forest", "ocean", "ume", "copper", "terminal", "organs", "lavender",
     "gpt", "claude", "cute", "ash", "beehive", "frutiger-aero",
-    "crimson", "glacier", "indigo", "solar", "noir", "reef", "matcha", "custom",
+    "crimson", "glacier", "solar", "noir", "reef", "matcha", "custom",
 }
 BRIGHTNESS_IDS = {"dark", "light"}
 SEARCH_STYLES = {"compact", "fullscreen", "auto"}
@@ -32,6 +32,10 @@ def appearance_payload(user):
     theme = (user.appearance_theme or "").strip()
     if theme == "ash":
         theme = "beehive"
+    if theme == "organs":
+        theme = "crimson"
+    if theme == "indigo":
+        theme = "midnight-purple"
     if theme not in THEME_IDS:
         theme = "midnight-purple"
     brightness = (user.appearance_brightness or "").strip()
@@ -71,6 +75,10 @@ def update_appearance_settings(prefs: Appearance_prefs, current_user: UserInfo =
     theme = (prefs.theme or "").strip()
     if theme == "ash":
         theme = "beehive"
+    if theme == "organs":
+        theme = "crimson"
+    if theme == "indigo":
+        theme = "midnight-purple"
     if theme not in THEME_IDS:
         raise HTTPException(status_code=400, detail="Pick a valid theme.")
     brightness = (prefs.brightness or "").strip()

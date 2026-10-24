@@ -108,7 +108,7 @@ function appearanceColorRow(label, desc, value, onPick) {
 let appearanceThemePage = 0;
 
 function themePageForId(id) {
-  const want = id === "ash" ? "beehive" : id;
+  const want = resolveThemeId(id);
   if (THEME_PRESETS.some(row => row.id === want)) return 0;
   if (THEME_PRESETS_MORE.some(row => row.id === want)) return 1;
   return 0;

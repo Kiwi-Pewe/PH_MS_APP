@@ -6853,6 +6853,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .settings-form .settings-check input { width: auto; margin: 0; }
 .settings-form input[type="color"] { width: 48px; height: 32px; padding: 2px; }
 .profile-friend-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; min-width: 0; }
+.profile-friend-row.is-mini-profile-target { cursor: pointer; }
 .profile-friend-row .avatar-dot {
   width: var(--profile-friend-icon, 28px);
   height: var(--profile-friend-icon, 28px);

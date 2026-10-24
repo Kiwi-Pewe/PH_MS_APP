@@ -1927,10 +1927,21 @@ function paintProfileFriends(host) {
     name.textContent = shown;
     row.appendChild(dot);
     row.appendChild(name);
-    row.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (person.id && typeof openUserProfile === "function") openUserProfile(person.id);
-    });
+    if (!profileEditing && person.id) {
+      row.classList.add("is-mini-profile-target");
+      row.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof openMiniProfile === "function") openMiniProfile(person.id, row);
+      });
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof showProfileContextMenu === "function") {
+          showProfileContextMenu(e, person.id, person.username || person.display_name, person.id === myUserId);
+        }
+      });
+    }
     host.appendChild(row);
   });
 }

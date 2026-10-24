@@ -8491,10 +8491,6 @@ a.profile-link-row:hover { color: var(--accent); }
   height: 88px;
   border-radius: 8px 8px 0 0;
 }
-.mini-profile-banner-fit {
-  position: absolute;
-  overflow: hidden;
-}
 .mini-profile-identity {
   position: relative;
   padding: 0 16px 12px;
@@ -9306,8 +9302,7 @@ body.is-mini-dragging {
 }
 .identity-opt-preview.is-banner {
   width: 100%;
-  height: auto;
-  aspect-ratio: 32 / 3;
+  height: 72px;
   border-radius: 8px;
 }
 .identity-overlay {
@@ -9321,7 +9316,7 @@ body.is-mini-dragging {
 }
 .identity-picker,
 .identity-cropper {
-  width: min(760px, calc(100% - 32px));
+  width: min(600px, calc(100% - 32px));
   background: var(--panel);
   border: 1px solid var(--accent-submenu);
   border-radius: 10px;

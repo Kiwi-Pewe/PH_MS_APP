@@ -348,31 +348,7 @@ function paintMiniProfileInto(card, data, opts) {
   banner.style.background = data.banner_color || "#1e6b8a";
   const ident = data.identity || {};
   const bannerMedia = ident.banner || (editing && typeof getIdentityMedia === "function" ? getIdentityMedia("banner") : null);
-  const hasBanner = typeof identityHasImage === "function" && identityHasImage(bannerMedia);
-  if (hasBanner && typeof paintIdentityMedia === "function") {
-    const size = typeof identityBannerTileSize === "function" ? identityBannerTileSize(data) : { w: 32, h: 3 };
-    const boxW = 300;
-    const boxH = 88;
-    const fitH = boxW * size.h / size.w;
-    const fitW = boxH * size.w / size.h;
-    const inner = document.createElement("div");
-    inner.className = "mini-profile-banner-fit";
-    if (fitH <= boxH) {
-      inner.style.width = boxW + "px";
-      inner.style.height = fitH + "px";
-      inner.style.left = "0";
-      inner.style.top = ((boxH - fitH) / 2) + "px";
-    } else {
-      inner.style.width = fitW + "px";
-      inner.style.height = boxH + "px";
-      inner.style.left = ((boxW - fitW) / 2) + "px";
-      inner.style.top = "0";
-    }
-    banner.appendChild(inner);
-    paintIdentityMedia(inner, bannerMedia, { border: false, attention: "profile", attentionHost: inner });
-  } else if (typeof paintIdentityMedia === "function") {
-    paintIdentityMedia(banner, bannerMedia, { border: false, attention: "profile", attentionHost: banner });
-  }
+  if (typeof paintIdentityMedia === "function") paintIdentityMedia(banner, bannerMedia, { border: false, attention: "profile", attentionHost: banner });
   if (typeof applyIdentityBorder === "function") applyIdentityBorder(banner, bannerMedia);
   bindMiniProfileEditTarget(banner, "banner", editing);
   card.appendChild(banner);

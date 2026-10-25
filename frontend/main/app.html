@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=438">
+<link rel="stylesheet" href="app.css?v=439">
 </head>
 <body>
 
@@ -2083,6 +2083,28 @@
     </div>
   </div>
 
+  <div id="community-post-overlay" hidden>
+    <div id="community-post-card" class="community-post-card" role="dialog" aria-modal="true" aria-labelledby="community-post-card-title">
+      <div class="community-post-card-header">
+        <span id="community-post-card-title" class="community-post-card-title">Post</span>
+      </div>
+      <div class="community-post-card-body">
+        <div id="community-post-detail"></div>
+        <div class="community-post-thread">
+          <div id="community-post-comments"></div>
+          <p id="community-post-comments-empty" class="community-list-end">There's no comments yet.</p>
+        </div>
+        <div class="community-post-comment-composer">
+          <input type="text" id="community-post-comment-input" placeholder="Add a comment" autocomplete="off" spellcheck="false">
+          <button type="button" class="pill-btn" id="community-post-comment-send">Post</button>
+        </div>
+      </div>
+      <div class="community-post-card-footer">
+        <button type="button" class="ghost-btn" id="community-post-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div id="leave-party-overlay" hidden>
     <div id="leave-party-modal" class="leave-party-modal" role="dialog" aria-modal="true" aria-labelledby="leave-party-title">
       <div class="leave-party-header">
@@ -2692,7 +2714,7 @@
     </div>
 <script src="boot.js?v=147"></script>
 <script src="app-shell.js?v=75"></script>
-<script src="communities.js?v=21"></script>
+<script src="communities.js?v=22"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=52"></script>

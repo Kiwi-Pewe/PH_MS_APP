@@ -38,6 +38,7 @@ const COMMUNITY_ROW_PANES = {
 
 let communityRow = "servers";
 let communityDraftPosts = [];
+let communityOpenPost = null;
 let communityComposeTopics = [];
 let communityComposeTags = [];
 let communityComposePics = [];
@@ -92,6 +93,48 @@ const COMMUNITY_PLACEHOLDER_POSTS = [
   { code: "w6c1r5t9am", name: "Nova", handle: "nova", color: "#57f287", time: "yesterday", body: "dropped a longer clip. still stitching the last two minutes.", media: true, hashtags: ["wip"], topics: ["music"], replies: 5, reposts: 3, likes: 33, lenses: ["following", "timeline", "explore"] }
 ];
 
+const COMMUNITY_POST_COMMENTS = {
+  "aj2f7saw06": [
+    { name: "Mira", handle: "mira", color: "#eb459e", time: "12m", body: "the three lenses thing finally clicked." },
+    { name: "Reed", handle: "reed", color: "#fee75c", time: "9m", body: "permalink in the context menu is the right call. less noise on the card." }
+  ],
+  "c9w5r7j2la": [
+    { name: "Ash", handle: "ash", color: "#ed4245", time: "6m", body: "send the mix." },
+    { name: "Wren", handle: "wren", color: "#1abc9c", time: "4m", body: "got something with no vocal and a mean kick. dropping it in dms." },
+    { name: "Kite", handle: "kite", color: "#3498db", time: "1m", body: "this is the one." }
+  ],
+  "d2h8m4q6ye": [
+    { name: "Sol", handle: "sol", color: "#e67e22", time: "10m", body: "i can fill a slot after 8." },
+    { name: "Piper", handle: "piper", color: "#2ecc71", time: "3m", body: "voice on, i am rust." }
+  ],
+  "b3p6t1x8kd": [
+    { name: "Nova", handle: "nova", color: "#57f287", time: "2m", body: "gm" },
+    { name: "Jules", handle: "jules", color: "#9b59b6", time: "1m", body: "gm" }
+  ],
+  "h7a3l6r9qi": [
+    { name: "Mira", handle: "mira", color: "#eb459e", time: "40m", body: "character sheet is in your dms. full color, no mechs." },
+    { name: "Vex", handle: "vex", color: "#8e44ad", time: "22m", body: "saving a slot for next week if this one fills." }
+  ],
+  "j8c6w1t4pn": [
+    { name: "Reed", handle: "reed", color: "#fee75c", time: "1h", body: "pasta water until it looks wrong is the whole craft." }
+  ],
+  "l5q3y9h1vc": [
+    { name: "Ash", handle: "ash", color: "#ed4245", time: "2h", body: "rooms are walk-in. servers are the real thing. needed that spelled out." },
+    { name: "Kite", handle: "kite", color: "#3498db", time: "1h", body: "bookmarking this for the next person who asks." },
+    { name: "Sol", handle: "sol", color: "#e67e22", time: "50m", body: "still going to mix them up once." }
+  ],
+  "t2k8f4m7xj": [
+    { name: "Wren", handle: "wren", color: "#1abc9c", time: "8h", body: "called out." },
+    { name: "Nova", handle: "nova", color: "#57f287", time: "7h", body: "and i will still boot the fireplace loop after work." }
+  ],
+  "v4n7h2s8zl": [
+    { name: "Piper", handle: "piper", color: "#2ecc71", time: "yesterday", body: "this should live at the top of Explore for a week." }
+  ],
+  "w6c1r5t9am": [
+    { name: "Jules", handle: "jules", color: "#9b59b6", time: "16h", body: "the last two minutes are the whole reason to wait." }
+  ]
+};
+
 function communityPostCode() {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   let out = "";
@@ -133,7 +176,10 @@ function showCommunityRow(id) {
   if (paneRooms) paneRooms.hidden = pane !== "rooms";
   if (paneGarter) paneGarter.hidden = pane !== "garterphone";
   if (paneSettings) paneSettings.hidden = pane !== "settings";
-  if (pane !== "posts") closeCommunityCompose();
+  if (pane !== "posts") {
+    closeCommunityCompose();
+    closeCommunityPost();
+  }
   if (pane === "posts") paintCommunityPosts();
   if (pane === "rooms") paintCommunityRooms();
   if (pane === "settings") paintCommunitySettings();
@@ -195,12 +241,30 @@ function paintCommunityPostBody(host, post) {
   });
 }
 
-function paintCommunityPostCard(post) {
+function communityPostLink(post) {
+  const handle = post && post.mine
+    ? (myUsername || (post && post.handle) || "you")
+    : ((post && post.handle) || "user");
+  const code = (post && post.code) || communityPostCode();
+  const origin = (window.location && window.location.origin) || "https://oneira.cc";
+  return origin + "/posts/" + handle + "/" + code;
+}
+
+function communityPostComments(post) {
+  if (!post) return [];
+  if (Array.isArray(post.comments)) return post.comments;
+  const seed = COMMUNITY_POST_COMMENTS[post.code];
+  post.comments = seed ? seed.map((row) => Object.assign({}, row)) : [];
+  return post.comments;
+}
+
+function paintCommunityPostCard(post, opts) {
   const mine = !!post.mine;
   const name = mine ? (myDisplayName || myUsername || post.name || "You") : (post.name || "User");
   const handle = mine ? (myUsername || post.handle || "you") : (post.handle || "user");
+  opts = opts || {};
   const card = document.createElement("article");
-  card.className = "community-post";
+  card.className = "community-post" + (opts.detail ? " is-detail" : "");
   const head = document.createElement("div");
   head.className = "community-post-head";
   const who = document.createElement("div");
@@ -276,10 +340,6 @@ function paintCommunityPostCard(post) {
     song.textContent = post.music;
     mid.appendChild(song);
   }
-  const link = document.createElement("div");
-  link.className = "community-post-link";
-  link.textContent = "oneira.cc/posts/" + handle + "/" + (post.code || communityPostCode());
-  mid.appendChild(link);
   const foot = document.createElement("div");
   foot.className = "community-post-foot";
   [
@@ -299,6 +359,10 @@ function paintCommunityPostCard(post) {
     paint();
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (key === "replies" && !opts.detail) {
+        openCommunityPost(post);
+        return;
+      }
       post[key] = (Number(post[key]) || 0) + 1;
       paint();
     });
@@ -307,7 +371,136 @@ function paintCommunityPostCard(post) {
   card.appendChild(head);
   card.appendChild(mid);
   card.appendChild(foot);
+  if (!opts.detail) {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("button, .md-explicit, .md-explicit-media, .community-post-face.is-mine, .community-post-name.is-mine")) return;
+      openCommunityPost(post);
+    });
+    card.addEventListener("contextmenu", (e) => openCommunityPostMenu(e, post));
+  }
   return card;
+}
+
+function openCommunityPostMenu(e, post) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof openContextMenu !== "function") return;
+  const name = post && post.mine
+    ? (myDisplayName || myUsername || post.name || "You")
+    : ((post && post.name) || "User");
+  const handle = post && post.mine
+    ? (myUsername || post.handle || "you")
+    : ((post && post.handle) || "user");
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: communityLetter(name),
+    title: name,
+    subtitle: "@" + handle
+  }, [
+    {
+      label: "Copy Post Link",
+      onSelect: () => {
+        const text = communityPostLink(post);
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
+      }
+    },
+    { label: "Report", disabled: true, danger: true }
+  ]);
+}
+
+function paintCommunityPostComment(row) {
+  const mine = !!row.mine;
+  const name = mine ? (myDisplayName || myUsername || row.name || "You") : (row.name || "User");
+  const el = document.createElement("div");
+  el.className = "community-post-comment";
+  const face = document.createElement("div");
+  face.className = "community-post-face" + (mine ? " is-mine" : "");
+  face.style.background = row.color || "#5865f2";
+  face.textContent = communityLetter(name);
+  if (mine && myUserId && typeof openMiniProfile === "function") {
+    face.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openMiniProfile(myUserId, face);
+    });
+  }
+  const main = document.createElement("div");
+  main.className = "community-post-comment-main";
+  const by = document.createElement("div");
+  by.className = "community-post-by";
+  const nameEl = document.createElement("span");
+  nameEl.className = "community-post-name" + (mine ? " is-mine" : "");
+  nameEl.textContent = name;
+  if (mine && myUserId && typeof openMiniProfile === "function") {
+    nameEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openMiniProfile(myUserId, nameEl);
+    });
+  }
+  const timeEl = document.createElement("span");
+  timeEl.className = "community-post-time";
+  timeEl.textContent = row.time || "";
+  by.appendChild(nameEl);
+  if (row.time) by.appendChild(timeEl);
+  const body = document.createElement("div");
+  body.className = "community-post-comment-body";
+  body.textContent = row.body || "";
+  main.appendChild(by);
+  main.appendChild(body);
+  el.appendChild(face);
+  el.appendChild(main);
+  return el;
+}
+
+function paintCommunityPostThread() {
+  const host = document.getElementById("community-post-comments");
+  const empty = document.getElementById("community-post-comments-empty");
+  if (!host) return;
+  host.replaceChildren();
+  const rows = communityPostComments(communityOpenPost);
+  rows.forEach((row) => host.appendChild(paintCommunityPostComment(row)));
+  if (empty) empty.hidden = rows.length > 0;
+}
+
+function openCommunityPost(post) {
+  if (!post) return;
+  communityOpenPost = post;
+  const overlay = document.getElementById("community-post-overlay");
+  const detail = document.getElementById("community-post-detail");
+  if (!overlay || !detail) return;
+  detail.replaceChildren(paintCommunityPostCard(post, { detail: true }));
+  paintCommunityPostThread();
+  const input = document.getElementById("community-post-comment-input");
+  if (input) input.value = "";
+  overlay.hidden = false;
+}
+
+function closeCommunityPost() {
+  const overlay = document.getElementById("community-post-overlay");
+  if (!overlay || overlay.hidden) return;
+  overlay.hidden = true;
+  communityOpenPost = null;
+  const detail = document.getElementById("community-post-detail");
+  if (detail) detail.replaceChildren();
+  const host = document.getElementById("community-post-comments");
+  if (host) host.replaceChildren();
+}
+
+function submitCommunityPostComment() {
+  if (!communityOpenPost) return;
+  const input = document.getElementById("community-post-comment-input");
+  const body = input ? String(input.value || "").trim() : "";
+  if (!body) return;
+  const rows = communityPostComments(communityOpenPost);
+  rows.push({
+    mine: true,
+    color: "#5865f2",
+    time: "now",
+    body: body
+  });
+  communityOpenPost.replies = (Number(communityOpenPost.replies) || 0) + 1;
+  if (input) input.value = "";
+  paintCommunityPostThread();
+  const detail = document.getElementById("community-post-detail");
+  if (detail) detail.replaceChildren(paintCommunityPostCard(communityOpenPost, { detail: true }));
 }
 
 function resetCommunityCompose() {
@@ -687,6 +880,7 @@ function closeCommunitiesChrome() {
   closeCommunityListing();
   closeCommunityFilterPicker();
   closeCommunityCompose();
+  closeCommunityPost();
   isCommunitiesOpen = false;
 }
 
@@ -1512,6 +1706,19 @@ document.getElementById("community-compose-music-input").addEventListener("chang
   addCommunityComposeFiles(communityComposeMusic, e.target.files, 1);
   e.target.value = "";
 });
+document.getElementById("community-post-cancel").addEventListener("click", () => closeCommunityPost());
+document.getElementById("community-post-overlay").addEventListener("mousedown", (e) => {
+  if (e.target && e.target.id === "community-post-overlay") closeCommunityPost();
+});
+document.getElementById("community-post-comment-send").addEventListener("click", () => submitCommunityPostComment());
+const communityPostCommentInput = document.getElementById("community-post-comment-input");
+if (communityPostCommentInput) {
+  communityPostCommentInput.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    submitCommunityPostComment();
+  });
+}
 document.getElementById("community-room-create").addEventListener("click", () => createCommunityRoom());
 const communityRoomName = document.getElementById("community-room-name");
 if (communityRoomName) {
@@ -1527,6 +1734,11 @@ document.getElementById("community-garter-start").addEventListener("click", () =
 });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
+  const postView = document.getElementById("community-post-overlay");
+  if (postView && !postView.hidden) {
+    closeCommunityPost();
+    return;
+  }
   const compose = document.getElementById("community-compose-overlay");
   if (compose && !compose.hidden) {
     closeCommunityCompose();

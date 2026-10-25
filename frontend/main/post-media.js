@@ -175,7 +175,8 @@ function paintPostComposerStrip(kind) {
         paintPostComposerStrip(kind);
       });
     }
-    strip.insertBefore(thumb, addBtn);
+    if (kind === "community") strip.appendChild(thumb);
+    else strip.insertBefore(thumb, addBtn);
   });
   strip.classList.toggle("has-files", items.length > 0);
   strip.classList.toggle("is-full", items.length >= POST_MEDIA_MAX);

@@ -12833,26 +12833,43 @@ button.voice-more-row:disabled,
   font-weight: 600;
 }
 .community-topic-input:focus { outline: none; }
-.community-compose-shell { position: relative; }
-.community-compose-shell .announce-composer-body-input {
-  min-height: calc(1.4em * 5);
-  max-height: calc(1.4em * 10);
+.community-compose-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px;
+  gap: 8px;
+  align-items: start;
 }
-.community-compose-shell .composer-highlight,
-.community-compose-shell .composer-field textarea {
-  padding: 8px 72px 40px 8px;
+.community-compose-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--panel);
 }
-.community-compose-media {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
+.community-compose-main:focus-within { border-color: var(--accent-submenu); }
+.community-compose-text.announce-composer-editing-body {
+  border: 0;
+  border-radius: 0;
+  padding: 8px 10px;
+}
+.community-compose-text.announce-composer-editing-body:focus-within { border-color: transparent; }
+.community-compose-text .composer-highlight,
+.community-compose-text .composer-field textarea {
+  padding: 0;
+  scrollbar-gutter: auto;
+}
+.community-compose-opts {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 36px;
+  padding: 2px 6px;
+  border-top: 1px solid var(--border);
+  background: var(--rail);
 }
 .community-compose-emoji {
-  position: absolute;
-  left: 6px;
-  bottom: 4px;
-  z-index: 2;
   background: transparent;
   color: var(--text-dim);
   font-size: 18px;
@@ -12866,7 +12883,30 @@ button.voice-more-row:disabled,
 }
 .community-compose-emoji:hover {
   color: var(--text);
-  background: var(--rail);
+  background: var(--panel);
+}
+.community-compose-attach {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.community-compose-attach .announce-composer-image-add {
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+.community-compose-attach .announce-composer-image-add:hover {
+  border-color: var(--text-dim);
+}
+.community-compose-attach.is-full .announce-composer-image-add { display: none; }
+.community-compose-attach .announce-composer-image-thumb {
+  border: 1px solid var(--border);
+  margin-right: 0;
+  transition: none;
+}
+.community-compose-attach .announce-composer-image-clear {
+  background: #ed4245;
+  color: #fff;
 }
 #community-compose-count {
   font-size: 12px;

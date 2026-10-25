@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=442">
+<link rel="stylesheet" href="app.css?v=443">
 </head>
 <body>
 
@@ -2037,12 +2037,19 @@
           <span class="community-topic-rule"></span>
           <div id="community-compose-topics" class="community-topic-pills"></div>
         </div>
-        <div class="community-compose-shell announce-composer-editing-body">
-          <div class="composer-field">
-            <div class="composer-highlight" id="community-compose-highlight" aria-hidden="true"></div>
-            <textarea id="community-compose-input" class="announce-composer-body-input" rows="5" maxlength="1500" placeholder="Write a post" wrap="soft"></textarea>
+        <div class="community-compose-shell">
+          <div class="community-compose-main">
+            <div class="community-compose-text announce-composer-editing-body">
+              <div class="composer-field">
+                <div class="composer-highlight" id="community-compose-highlight" aria-hidden="true"></div>
+                <textarea id="community-compose-input" class="announce-composer-body-input" rows="3" maxlength="1500" placeholder="Write a post" wrap="soft"></textarea>
+              </div>
+            </div>
+            <div class="community-compose-opts">
+              <button type="button" class="composer-icon-btn community-compose-emoji" id="community-compose-emoji-btn" title="Emoji">🙂</button>
+            </div>
           </div>
-          <div class="announce-composer-media-strip community-compose-media" id="community-compose-media-strip">
+          <div class="community-compose-attach" id="community-compose-media-strip">
             <button type="button" class="announce-composer-image-btn announce-composer-image-add" id="community-compose-image-btn" title="Add image, video, or music">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="3" y="6" width="14" height="12" rx="2"></rect>
@@ -2052,7 +2059,6 @@
               </svg>
             </button>
           </div>
-          <button type="button" class="composer-icon-btn community-compose-emoji" id="community-compose-emoji-btn" title="Emoji">🙂</button>
         </div>
         <div id="community-compose-count">0/1500</div>
       </div>
@@ -2641,7 +2647,7 @@
 <script src="language-time.js?v=1"></script>
 <script src="util.js?v=53"></script>
 <script src="media.js?v=62"></script>
-<script src="post-media.js?v=59"></script>
+<script src="post-media.js?v=60"></script>
     <div id="voice-share-overlay" hidden>
       <div id="voice-share-card" role="dialog" aria-label="Share your screen">
         <div class="voice-share-tabs" role="tablist">

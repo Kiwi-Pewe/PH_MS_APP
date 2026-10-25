@@ -9,13 +9,15 @@ const postMediaPending = {
   announce: { files: [] },
   forum: { files: [] },
   announceEdit: { files: [] },
-  forumEdit: { files: [] }
+  forumEdit: { files: [] },
+  community: { files: [] }
 };
 const POST_MEDIA_HOSTS = {
   announce: { addId: "announce-composer-image-btn", stripId: "announce-composer-media-strip" },
   forum: { addId: "forum-composer-image-btn", stripId: "forum-composer-media-strip" },
   announceEdit: { addId: "announce-edit-image-btn", stripId: "announce-edit-media-strip" },
-  forumEdit: { addId: "forum-edit-image-btn", stripId: "forum-edit-media-strip" }
+  forumEdit: { addId: "forum-edit-image-btn", stripId: "forum-edit-media-strip" },
+  community: { addId: "community-compose-image-btn", stripId: "community-compose-media-strip" }
 };
 const postMediaInputs = {};
 
@@ -37,6 +39,26 @@ function clearPostMedia(kind) {
   paintPostComposerStrip(kind);
 }
 
+function postMediaAcceptAttr(kind) {
+  const base = typeof MEDIA_ACCEPT === "string" ? MEDIA_ACCEPT : "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm";
+  if (kind === "community") return base + ",audio/mpeg,.mp3";
+  return base;
+}
+
+function postMediaIsAudioFile(file) {
+  const name = ((file && file.name) || "").toLowerCase();
+  const type = ((file && file.type) || "").toLowerCase();
+  return name.endsWith(".mp3") || type === "audio/mpeg" || type === "audio/mp3";
+}
+
+function postMediaRejectReason(kind, file) {
+  if (kind === "community" && postMediaIsAudioFile(file)) {
+    if (file && file.size > (typeof maxUploadBytes === "function" ? maxUploadBytes() : 20 * 1024 * 1024)) return "File is over 20 MB.";
+    return "";
+  }
+  return typeof rejectReason === "function" ? rejectReason(file) : "";
+}
+
 function addPostMediaFiles(kind, fileList) {
   const slot = postMediaPending[kind];
   const incoming = [...fileList];
@@ -45,7 +67,7 @@ function addPostMediaFiles(kind, fileList) {
       window.alert("Up to 4 files on a post.");
       break;
     }
-    const reason = typeof rejectReason === "function" ? rejectReason(file) : "";
+    const reason = postMediaRejectReason(kind, file);
     if (reason) {
       window.alert(reason);
       continue;
@@ -69,7 +91,13 @@ function removePostMediaAt(kind, index) {
 }
 
 function postMediaItemMime(item) {
-  if (item.file && typeof fileMime === "function") return fileMime(item.file);
+  if (item.file) {
+    if (typeof fileMime === "function") {
+      const mime = fileMime(item.file);
+      if (mime) return mime;
+    }
+    if (postMediaIsAudioFile(item.file)) return "audio/mpeg";
+  }
   return ((item.existing && item.existing.mime) || "").toLowerCase();
 }
 
@@ -79,6 +107,7 @@ function postMediaItemExplicit(item) {
 
 function postMediaItemKind(item) {
   const mime = postMediaItemMime(item);
+  if (mime.startsWith("audio/") || (item.existing && item.existing.kind === "audio")) return "audio";
   if (mime.startsWith("video/") || (item.existing && item.existing.kind === "video")) return "video";
   return "image";
 }
@@ -106,6 +135,11 @@ function paintPostComposerStrip(kind) {
       vid.muted = true;
       vid.playsInline = true;
       thumb.appendChild(vid);
+    } else if (mime.startsWith("audio/")) {
+      const note = document.createElement("span");
+      note.className = "announce-composer-audio-label";
+      note.textContent = postMediaItemName(item).replace(/\.[^.]+$/, "") || "Audio";
+      thumb.appendChild(note);
     } else {
       const img = document.createElement("img");
       img.src = item.previewUrl;
@@ -146,14 +180,16 @@ function paintPostComposerStrip(kind) {
   strip.classList.toggle("has-files", items.length > 0);
   strip.classList.toggle("is-full", items.length >= POST_MEDIA_MAX);
   addBtn.disabled = items.length >= POST_MEDIA_MAX;
-  addBtn.title = items.length >= POST_MEDIA_MAX ? "Maximum of 4 files" : "Add image or video";
+  addBtn.title = items.length >= POST_MEDIA_MAX
+    ? "Maximum of 4 files"
+    : (kind === "community" ? "Add image, video, or music" : "Add image or video");
 }
 
 function ensurePostMediaInput(kind) {
   if (postMediaInputs[kind]) return postMediaInputs[kind];
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = typeof MEDIA_ACCEPT === "string" ? MEDIA_ACCEPT : "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm";
+  input.accept = postMediaAcceptAttr(kind);
   input.multiple = true;
   input.setAttribute("hidden", "");
   input.style.display = "none";
@@ -183,9 +219,9 @@ function bindPostComposerMedia(kind, buttonId) {
   bindPostMediaButton(kind, document.getElementById(buttonId));
 }
 
-async function uploadPendingPostFile(file) {
-  const mime = fileMime(file);
-  const reason = typeof rejectReason === "function" ? rejectReason(file) : "";
+async function uploadPendingPostFile(file, kind) {
+  const mime = (typeof fileMime === "function" && fileMime(file)) || (postMediaIsAudioFile(file) ? "audio/mpeg" : "");
+  const reason = postMediaRejectReason(kind, file);
   if (reason) throw new Error(reason);
   let intentRes;
   try {
@@ -224,7 +260,7 @@ async function uploadPendingPostFile(file) {
   };
 }
 
-async function uploadPendingPostFiles(items) {
+async function uploadPendingPostFiles(items, kind) {
   const uploaded = [];
   for (const item of items) {
     if (item.existing) {
@@ -236,7 +272,7 @@ async function uploadPendingPostFiles(items) {
         explicit: postMediaItemExplicit(item)
       });
     } else {
-      const payload = await uploadPendingPostFile(item.file);
+      const payload = await uploadPendingPostFile(item.file, kind);
       payload.explicit = !!item.explicit;
       uploaded.push(payload);
     }
@@ -246,6 +282,7 @@ async function uploadPendingPostFiles(items) {
 
 function appendPostMediaItem(host, data) {
   const mime = (data.mime || "").toLowerCase();
+  if (mime.startsWith("audio/") || data.kind === "audio") return;
   let mediaEl;
   if (mime.startsWith("video/") || data.kind === "video") {
     const vid = document.createElement("video");
@@ -323,3 +360,4 @@ function buildForumThumb(attachment) {
 
 bindPostComposerMedia("announce", "announce-composer-image-btn");
 bindPostComposerMedia("forum", "forum-composer-image-btn");
+bindPostComposerMedia("community", "community-compose-image-btn");

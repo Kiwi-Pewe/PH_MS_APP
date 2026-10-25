@@ -39,11 +39,9 @@ const COMMUNITY_ROW_PANES = {
 let communityRow = "servers";
 let communityDraftPosts = [];
 let communityOpenPost = null;
+const COMMUNITY_TOPIC_MAX = 4;
 let communityComposeTopics = [];
-let communityComposeTags = [];
-let communityComposePics = [];
-let communityComposeVideos = [];
-let communityComposeMusic = [];
+let communityComposeTopicDraft = null;
 let communityRoomSeq = 7;
 let communityMuteWords = [
   { word: "spoilers", mode: "hide" },
@@ -214,6 +212,42 @@ function communityPostBodyText(post) {
   return text;
 }
 
+function wrapCommunityHashtags(host) {
+  if (!host) return;
+  const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => {
+    const parent = node.parentElement;
+    if (parent && parent.closest("a, code, .md-code, .md-codeblock, .community-post-hash")) return;
+    const text = node.nodeValue || "";
+    if (!/#([A-Za-z0-9_]+)/.test(text)) return;
+    const frag = document.createDocumentFragment();
+    text.split(/(#[A-Za-z0-9_]+)/g).forEach((part) => {
+      if (!part) return;
+      if (/^#[A-Za-z0-9_]+$/.test(part)) {
+        const mark = document.createElement("span");
+        mark.className = "community-post-hash";
+        mark.textContent = part;
+        frag.appendChild(mark);
+      } else {
+        frag.appendChild(document.createTextNode(part));
+      }
+    });
+    node.parentNode.replaceChild(frag, node);
+  });
+}
+
+function communityHashtagsFromBody(text) {
+  const out = [];
+  const re = /#([A-Za-z0-9_]+)/g;
+  let match;
+  while ((match = re.exec(String(text || "")))) {
+    if (!out.some((tag) => tag.toLowerCase() === match[1].toLowerCase())) out.push(match[1]);
+  }
+  return out;
+}
+
 function paintCommunityPostBody(host, post) {
   const text = communityPostBodyText(post);
   if (post.explicit) {
@@ -225,6 +259,11 @@ function paintCommunityPostBody(host, post) {
       cover.classList.toggle("is-open");
     });
     host.appendChild(cover);
+    return;
+  }
+  if (typeof mdAppend === "function") {
+    mdAppend(host, text, {});
+    wrapCommunityHashtags(host);
     return;
   }
   const parts = text.split(/(#[A-Za-z0-9_]+)/g);
@@ -341,7 +380,11 @@ function fillCommunityPostMid(host, post) {
   body.className = "community-post-body";
   paintCommunityPostBody(body, post);
   host.appendChild(body);
-  if (post && post.media) {
+  const visual = (post && post.attachments || []).filter((row) => row && row.url && row.kind !== "audio");
+  if (visual.length && typeof buildPostMedia === "function") {
+    const media = buildPostMedia(visual);
+    if (media) host.appendChild(media);
+  } else if (post && post.media) {
     const media = document.createElement("div");
     media.className = "community-post-media" + (post.explicit ? " md-explicit-media" : "");
     const label = document.createElement("span");
@@ -356,7 +399,15 @@ function fillCommunityPostMid(host, post) {
     }
     host.appendChild(media);
   }
-  if (post && post.music) {
+  const tracks = (post && post.tracks && post.tracks.length)
+    ? post.tracks
+    : (post && post.attachments || []).filter((row) => row && row.kind === "audio" && row.url);
+  if (tracks.length && typeof mountOneiraMusicPlayer === "function") {
+    const player = document.createElement("div");
+    player.className = "community-post-music";
+    host.appendChild(player);
+    mountOneiraMusicPlayer(player, { tracks });
+  } else if (post && post.music) {
     const song = document.createElement("div");
     song.className = "community-post-media";
     song.textContent = post.music;
@@ -417,7 +468,7 @@ function paintCommunityPostCard(post) {
   card.appendChild(mid);
   card.appendChild(foot);
   card.addEventListener("click", (e) => {
-    if (e.target.closest("button, .md-explicit, .md-explicit-media, .community-post-face.is-mine, .community-post-name.is-mine")) return;
+    if (e.target.closest("button, .md-explicit, .md-explicit-media, .post-media, .oneira-music, .community-post-music, .community-post-face.is-mine, .community-post-name.is-mine")) return;
     openCommunityPost(post);
   });
   card.addEventListener("contextmenu", (e) => openCommunityPostMenu(e, post));
@@ -557,26 +608,16 @@ function submitCommunityPostComment() {
 
 function resetCommunityCompose() {
   communityComposeTopics = [];
-  communityComposeTags = [];
-  communityComposePics = [];
-  communityComposeVideos = [];
-  communityComposeMusic = [];
+  communityComposeTopicDraft = null;
   const input = document.getElementById("community-compose-input");
   if (input) {
     input.value = "";
     input.style.height = "";
   }
-  const topic = document.getElementById("community-compose-topic");
-  if (topic) topic.value = "";
-  const tag = document.getElementById("community-compose-tag");
-  if (tag) tag.value = "";
-  ["community-compose-pic-input", "community-compose-video-input", "community-compose-music-input"].forEach((id) => {
-    const field = document.getElementById(id);
-    if (field) field.value = "";
-  });
-  paintCommunityComposeChips();
-  paintCommunityComposeFiles();
+  if (typeof clearPostMedia === "function") clearPostMedia("community");
+  paintCommunityComposeTopics();
   syncCommunityCompose();
+  if (typeof refreshComposerMentions === "function" && input) refreshComposerMentions(input);
 }
 
 function openCommunityCompose() {
@@ -588,6 +629,7 @@ function openCommunityCompose() {
   if (input) {
     input.focus();
     if (typeof autoGrowPostBodyInput === "function") autoGrowPostBodyInput(input);
+    if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   }
 }
 
@@ -595,74 +637,114 @@ function closeCommunityCompose() {
   const overlay = document.getElementById("community-compose-overlay");
   if (!overlay || overlay.hidden) return;
   overlay.hidden = true;
+  if (typeof closeEmojiPicker === "function") closeEmojiPicker();
   resetCommunityCompose();
 }
 
-function communityComposeAddWord(list, raw, kind) {
-  let word = String(raw || "").trim();
-  if (!word) return;
-  if (kind === "tag") word = word.replace(/^#+/, "");
-  word = word.replace(/\s+/g, kind === "tag" ? "" : " ");
-  if (!word) return;
+function communityComposeTopicText(raw) {
+  let word = String(raw || "").trim().replace(/\s+/g, " ");
+  if (word.length > 40) word = word.slice(0, 40);
+  return word;
+}
+
+function communityComposeSaveTopic(raw, index) {
+  const word = communityComposeTopicText(raw);
+  if (!word) return false;
   const key = word.toLowerCase();
-  if (list.some((item) => item.toLowerCase() === key)) return;
-  list.push(word);
+  const taken = communityComposeTopics.some((item, i) => i !== index && item.toLowerCase() === key);
+  if (taken) return false;
+  if (index == null) {
+    if (communityComposeTopics.length >= COMMUNITY_TOPIC_MAX) return false;
+    communityComposeTopics.push(word);
+  } else {
+    communityComposeTopics[index] = word;
+  }
+  return true;
 }
 
-function paintCommunityComposeChips() {
-  const topics = document.getElementById("community-compose-topics");
-  const tags = document.getElementById("community-compose-tags");
-  const fill = (host, rows, list, prefix) => {
-    if (!host) return;
-    host.replaceChildren();
-    rows.forEach((word, index) => {
-      const pill = document.createElement("button");
-      pill.type = "button";
-      pill.className = "community-tag is-on";
-      pill.textContent = prefix + word;
-      pill.addEventListener("click", () => {
-        list.splice(index, 1);
-        paintCommunityComposeChips();
-      });
-      host.appendChild(pill);
+function paintCommunityComposeTopics() {
+  const host = document.getElementById("community-compose-topics");
+  if (!host) return;
+  host.replaceChildren();
+  const draft = communityComposeTopicDraft;
+  communityComposeTopics.forEach((word, index) => {
+    if (draft && draft.mode === "edit" && draft.index === index) {
+      host.appendChild(communityComposeTopicField(word, index));
+      return;
+    }
+    const pill = document.createElement("span");
+    pill.className = "community-tag is-on";
+    pill.textContent = word;
+    pill.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof openContextMenu !== "function") return;
+      openContextMenu(e.clientX, e.clientY, null, [
+        {
+          label: "Edit",
+          onSelect: () => {
+            communityComposeTopicDraft = { mode: "edit", index };
+            paintCommunityComposeTopics();
+          }
+        },
+        {
+          label: "Remove",
+          onSelect: () => {
+            communityComposeTopics.splice(index, 1);
+            communityComposeTopicDraft = null;
+            paintCommunityComposeTopics();
+          }
+        }
+      ]);
     });
-  };
-  fill(topics, communityComposeTopics, communityComposeTopics, "");
-  fill(tags, communityComposeTags, communityComposeTags, "#");
-}
-
-function paintCommunityComposeFiles() {
-  const paint = (id, rows, list) => {
-    const host = document.getElementById(id);
-    if (!host) return;
-    host.replaceChildren();
-    rows.forEach((name, index) => {
-      const pill = document.createElement("button");
-      pill.type = "button";
-      pill.className = "community-tag is-on";
-      pill.textContent = name;
-      pill.addEventListener("click", () => {
-        list.splice(index, 1);
-        paintCommunityComposeFiles();
-      });
-      host.appendChild(pill);
-    });
-  };
-  paint("community-compose-pics", communityComposePics, communityComposePics);
-  paint("community-compose-videos", communityComposeVideos, communityComposeVideos);
-  paint("community-compose-music", communityComposeMusic, communityComposeMusic);
-}
-
-function addCommunityComposeFiles(list, fileList, cap) {
-  const incoming = fileList ? Array.from(fileList) : [];
-  incoming.forEach((file) => {
-    if (list.length >= cap) return;
-    const name = file && file.name ? file.name : "";
-    if (!name) return;
-    if (list.indexOf(name) >= 0) return;
-    list.push(name);
+    host.appendChild(pill);
   });
-  paintCommunityComposeFiles();
+  if (draft && draft.mode === "add") {
+    host.appendChild(communityComposeTopicField("", null));
+    return;
+  }
+  if (communityComposeTopics.length >= COMMUNITY_TOPIC_MAX) return;
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "community-topic-add";
+  add.title = "Add a topic";
+  add.textContent = "+";
+  add.addEventListener("click", (e) => {
+    e.stopPropagation();
+    communityComposeTopicDraft = { mode: "add" };
+    paintCommunityComposeTopics();
+  });
+  host.appendChild(add);
+}
+
+function communityComposeTopicField(value, index) {
+  const field = document.createElement("input");
+  field.type = "text";
+  field.className = "community-topic-input";
+  field.maxLength = 40;
+  field.value = value || "";
+  field.autocomplete = "off";
+  field.spellcheck = false;
+  let done = false;
+  const finish = (save) => {
+    if (done) return;
+    done = true;
+    if (save) communityComposeSaveTopic(field.value, index);
+    communityComposeTopicDraft = null;
+    paintCommunityComposeTopics();
+  };
+  field.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      finish(false);
+    }
+  });
+  field.addEventListener("blur", () => finish(!!String(field.value || "").trim()));
+  queueMicrotask(() => field.focus());
+  return field;
 }
 
 function syncCommunityCompose() {
@@ -675,11 +757,26 @@ function syncCommunityCompose() {
   if (submit) submit.disabled = !body || n > 1500;
 }
 
+function communityComposeKeepItem(item) {
+  if (!item || !item.file) return null;
+  const kind = typeof postMediaItemKind === "function" ? postMediaItemKind(item) : "image";
+  return {
+    kind,
+    mime: typeof postMediaItemMime === "function" ? postMediaItemMime(item) : "",
+    name: typeof postMediaItemName === "function" ? postMediaItemName(item) : (item.file.name || ""),
+    url: URL.createObjectURL(item.file),
+    explicit: typeof postMediaItemExplicit === "function" ? postMediaItemExplicit(item) : false
+  };
+}
+
 function submitCommunityPost() {
   const input = document.getElementById("community-compose-input");
   const body = input ? String(input.value || "").trim() : "";
   if (!body || body.length > 1500) return;
-  const music = communityComposeMusic[0] || "";
+  const pending = (typeof postMediaPending !== "undefined" && postMediaPending.community && postMediaPending.community.files) || [];
+  const attachments = pending.map(communityComposeKeepItem).filter(Boolean);
+  const tracks = attachments.filter((row) => row.kind === "audio").map((row) => ({ url: row.url, name: row.name }));
+  const visual = attachments.filter((row) => row.kind !== "audio");
   communityDraftPosts.unshift({
     code: communityPostCode(),
     mine: true,
@@ -687,10 +784,11 @@ function submitCommunityPost() {
     time: "now",
     body: body.slice(0, 1500),
     topics: communityComposeTopics.slice(),
-    hashtags: communityComposeTags.slice(),
-    media: communityComposePics.length > 0 || communityComposeVideos.length > 0,
-    video: communityComposeVideos.length > 0,
-    music: music,
+    hashtags: communityHashtagsFromBody(body),
+    attachments,
+    tracks,
+    media: visual.length > 0,
+    video: visual.some((row) => row.kind === "video"),
     replies: 0,
     reposts: 0,
     likes: 0,
@@ -1704,60 +1802,7 @@ if (communityComposeInput) {
     if (typeof autoGrowPostBodyInput === "function") autoGrowPostBodyInput(communityComposeInput);
   });
 }
-document.getElementById("community-compose-topic-add").addEventListener("click", () => {
-  const field = document.getElementById("community-compose-topic");
-  communityComposeAddWord(communityComposeTopics, field && field.value, "topic");
-  if (field) field.value = "";
-  paintCommunityComposeChips();
-});
-document.getElementById("community-compose-tag-add").addEventListener("click", () => {
-  const field = document.getElementById("community-compose-tag");
-  communityComposeAddWord(communityComposeTags, field && field.value, "tag");
-  if (field) field.value = "";
-  paintCommunityComposeChips();
-});
-["community-compose-topic", "community-compose-tag"].forEach((id) => {
-  const field = document.getElementById(id);
-  if (!field) return;
-  field.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    if (id === "community-compose-topic") {
-      communityComposeAddWord(communityComposeTopics, field.value, "topic");
-      field.value = "";
-    } else {
-      communityComposeAddWord(communityComposeTags, field.value, "tag");
-      field.value = "";
-    }
-    paintCommunityComposeChips();
-  });
-});
-document.getElementById("community-compose-pic-btn").addEventListener("click", () => {
-  const field = document.getElementById("community-compose-pic-input");
-  if (field) field.click();
-});
-document.getElementById("community-compose-video-btn").addEventListener("click", () => {
-  const field = document.getElementById("community-compose-video-input");
-  if (field) field.click();
-});
-document.getElementById("community-compose-music-btn").addEventListener("click", () => {
-  const field = document.getElementById("community-compose-music-input");
-  if (field) field.click();
-});
-document.getElementById("community-compose-pic-input").addEventListener("change", (e) => {
-  addCommunityComposeFiles(communityComposePics, e.target.files, 4);
-  e.target.value = "";
-});
-document.getElementById("community-compose-video-input").addEventListener("change", (e) => {
-  communityComposeVideos = [];
-  addCommunityComposeFiles(communityComposeVideos, e.target.files, 1);
-  e.target.value = "";
-});
-document.getElementById("community-compose-music-input").addEventListener("change", (e) => {
-  communityComposeMusic = [];
-  addCommunityComposeFiles(communityComposeMusic, e.target.files, 1);
-  e.target.value = "";
-});
+paintCommunityComposeTopics();
 document.getElementById("community-post-overlay").addEventListener("mousedown", (e) => {
   if (e.target && e.target.id === "community-post-overlay") closeCommunityPost();
 });

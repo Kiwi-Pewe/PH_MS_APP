@@ -671,6 +671,7 @@ function hideMentionPicker() {
 
 function mentionPickerHost(input) {
   return input.closest(".announce-composer-editing-body")
+    || input.closest(".community-compose-shell")
     || input.closest(".announce-comment-composer")
     || input.closest(".announce-composer-editing")
     || input.closest("#composer, #channel-composer, .edit-composer");
@@ -968,6 +969,7 @@ bindMentionComposer(document.getElementById("composer-input"));
 bindMentionComposer(document.getElementById("channel-composer-input"));
 bindMentionComposer(document.getElementById("announcement-body-input"));
 bindMentionComposer(document.getElementById("forum-body-input"));
+bindMentionComposer(document.getElementById("community-compose-input"));
 bindMentionComposer(document.getElementById("voice-chat-input"));
 bindMentionComposer(document.getElementById("event-page-input"));
 document.addEventListener("click", (e) => {

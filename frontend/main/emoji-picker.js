@@ -615,6 +615,10 @@ document.getElementById("forum-composer-emoji-btn").addEventListener("click", (e
   e.stopPropagation();
   openEmojiPicker(e.currentTarget, document.getElementById("forum-body-input"), e.clientX, e.clientY);
 });
+document.getElementById("community-compose-emoji-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  openEmojiPicker(e.currentTarget, document.getElementById("community-compose-input"), e.clientX, e.clientY);
+});
 
 document.getElementById("emoji-picker").addEventListener("click", (e) => e.stopPropagation());
 document.addEventListener("click", () => closeEmojiPicker());

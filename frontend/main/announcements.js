@@ -95,25 +95,6 @@ function paintAnnounceNotifyAll() {
   if (input && !allowed) input.checked = false;
 }
 
-function wrapAnnouncementSelection(marker) {
-  const input = document.getElementById("announcement-body-input");
-  if (!input) return;
-  const start = input.selectionStart;
-  const end = input.selectionEnd;
-  const value = input.value;
-  const selected = value.slice(start, end);
-  const next = value.slice(0, start) + marker + selected + marker + value.slice(end);
-  input.value = next;
-  const cursor = start + marker.length + selected.length + marker.length;
-  input.setSelectionRange(selected ? cursor : start + marker.length, selected ? cursor : start + marker.length);
-  input.focus();
-  input.dispatchEvent(new Event("input"));
-}
-
-document.querySelectorAll("[data-announce-wrap]").forEach((btn) => {
-  btn.addEventListener("click", () => wrapAnnouncementSelection(btn.getAttribute("data-announce-wrap") || ""));
-});
-
 function showAnnounceComposerEditing() {
   if (typeof canCreateAnnouncements === "function" && !canCreateAnnouncements()) return;
   document.getElementById("announcement-title-input").value = "";

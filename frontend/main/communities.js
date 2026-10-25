@@ -104,6 +104,12 @@ function communityRowTitle(id) {
   return "Following";
 }
 
+function communityRowHelp(id) {
+  if (id === "timeline") return "Public posts in topics you follow.";
+  if (id === "explore") return "Posts from anyone, newest first.";
+  return "Your posts and posts from people you follow, on any topic.";
+}
+
 function showCommunityRow(id) {
   if (!COMMUNITY_ROW_PANES[id]) id = "servers";
   communityRow = id;
@@ -134,6 +140,8 @@ function showCommunityRow(id) {
 function paintCommunityPosts() {
   const title = document.getElementById("community-post-title");
   if (title) title.textContent = communityRowTitle(communityRow);
+  const help = document.getElementById("community-post-help");
+  if (help) help.textContent = communityRowHelp(communityRow);
   const list = document.getElementById("community-post-list");
   if (!list) return;
   list.replaceChildren();
@@ -272,7 +280,10 @@ function submitCommunityPost() {
     likes: 0,
     lenses: COMMUNITY_POST_ROWS.slice()
   });
-  if (input) input.value = "";
+  if (input) {
+    input.value = "";
+    input.style.height = "";
+  }
   syncCommunityPostCount();
   paintCommunityPosts();
 }
@@ -1275,7 +1286,10 @@ document.getElementById("community-sidebar-view").addEventListener("click", (e) 
 });
 const communityPostInput = document.getElementById("community-post-input");
 if (communityPostInput) {
-  communityPostInput.addEventListener("input", () => syncCommunityPostCount());
+  communityPostInput.addEventListener("input", () => {
+    syncCommunityPostCount();
+    if (typeof autoGrowPostBodyInput === "function") autoGrowPostBodyInput(communityPostInput);
+  });
 }
 document.getElementById("community-post-submit").addEventListener("click", () => submitCommunityPost());
 document.getElementById("community-room-create").addEventListener("click", () => createCommunityRoom());

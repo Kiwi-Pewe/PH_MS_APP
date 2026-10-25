@@ -12697,55 +12697,27 @@ button.voice-more-row:disabled,
   padding: 0;
   box-sizing: border-box;
 }
-.community-post-head {
-  flex: 0 0 auto;
-  width: 720px;
-  max-width: calc(100% - 80px);
-  margin: 0 auto;
-  padding: 16px 0 8px;
-}
 .community-post-composer {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
   width: 720px;
   max-width: calc(100% - 80px);
-  margin: 0 auto;
-  padding: 8px 0 14px;
-  border-bottom: 1px solid var(--border);
-}
-#community-post-input {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  background: var(--rail);
+  margin: 12px auto 8px;
+  padding: 10px 14px;
+  background: var(--panel-alt);
   border: 1px solid var(--border);
   border-radius: 8px;
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-  line-height: 1.45;
-  padding: 10px 12px;
-  resize: none;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  min-height: calc(1.45em * 8 + 20px);
-  max-height: 280px;
-  overflow: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  box-sizing: border-box;
 }
-#community-post-input::-webkit-scrollbar { width: 8px; height: 8px; }
-#community-post-input::-webkit-scrollbar-track,
-#community-post-input::-webkit-scrollbar-corner { background: transparent; }
-#community-post-input::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-#community-post-input:focus { outline: none; border-color: var(--text-dim); }
 .community-post-composer-foot {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 #community-post-count {
   font-size: 12px;

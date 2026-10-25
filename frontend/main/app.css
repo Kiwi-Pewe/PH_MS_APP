@@ -4456,9 +4456,6 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 .announce-composer-tools {
   display: flex; align-items: center; gap: 4px; min-width: 0;
 }
-.announce-format-btn { font-size: 15px; font-weight: 700; }
-.announce-format-btn.is-italic { font-style: italic; font-weight: 600; }
-.announce-format-btn.is-underline { text-decoration: underline; font-weight: 600; }
 .announce-notify-all {
   display: flex; align-items: center; gap: 8px;
   margin-left: 8px; color: var(--text-dim); font-size: 13px; white-space: nowrap;
@@ -12837,13 +12834,13 @@ button.voice-more-row:disabled,
 }
 .community-topic-input:focus { outline: none; }
 .community-compose-shell { position: relative; }
-.community-compose-shell .composer-field {
-  padding-right: 64px;
-  padding-bottom: 36px;
-}
 .community-compose-shell .announce-composer-body-input {
   min-height: calc(1.4em * 5);
   max-height: calc(1.4em * 10);
+}
+.community-compose-shell .composer-highlight,
+.community-compose-shell .composer-field textarea {
+  padding: 8px 72px 40px 8px;
 }
 .community-compose-media {
   position: absolute;

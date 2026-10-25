@@ -407,22 +407,36 @@ function mdLeaf(el, text, options) {
   else el.appendChild(document.createTextNode(source));
 }
 
+function mdAppendHashText(el, text) {
+  String(text || "").split(/(#[A-Za-z0-9_]+)/g).forEach((part) => {
+    if (!part) return;
+    if (/^#[A-Za-z0-9_]+$/.test(part)) {
+      const mark = document.createElement("span");
+      mark.className = "community-post-hash";
+      mark.textContent = part;
+      el.appendChild(mark);
+    } else {
+      el.appendChild(document.createTextNode(part));
+    }
+  });
+}
+
 function mdComposerLeaf(el, text, options) {
   const names = typeof validComposerMentionNames === "function" ? validComposerMentionNames(!!(options && options.allowRoles)) : [];
   if (!names.length) {
-    el.appendChild(document.createTextNode(text));
+    mdAppendHashText(el, text);
     return;
   }
   const pattern = new RegExp("@(?:" + names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")\\b", "gi");
   let last = 0;
   let match;
   while ((match = pattern.exec(text))) {
-    if (match.index > last) el.appendChild(document.createTextNode(text.slice(last, match.index)));
+    if (match.index > last) mdAppendHashText(el, text.slice(last, match.index));
     const chip = document.createElement("span");
     chip.className = "composer-mention";
     chip.textContent = match[0];
     el.appendChild(chip);
     last = match.index + match[0].length;
   }
-  if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+  if (last < text.length) mdAppendHashText(el, text.slice(last));
 }

@@ -258,22 +258,27 @@ function communityPostComments(post) {
   return post.comments;
 }
 
-function paintCommunityPostCard(post, opts) {
-  const mine = !!post.mine;
-  const name = mine ? (myDisplayName || myUsername || post.name || "You") : (post.name || "User");
-  const handle = mine ? (myUsername || post.handle || "you") : (post.handle || "user");
+function communityPostPerson(post) {
+  const mine = !!(post && post.mine);
+  return {
+    mine,
+    name: mine ? (myDisplayName || myUsername || (post && post.name) || "You") : ((post && post.name) || "User"),
+    handle: mine ? (myUsername || (post && post.handle) || "you") : ((post && post.handle) || "user")
+  };
+}
+
+function fillCommunityPostHead(host, post, opts) {
+  if (!host) return;
   opts = opts || {};
-  const card = document.createElement("article");
-  card.className = "community-post" + (opts.detail ? " is-detail" : "");
-  const head = document.createElement("div");
-  head.className = "community-post-head";
+  const person = communityPostPerson(post);
+  host.replaceChildren();
   const who = document.createElement("div");
   who.className = "community-post-who";
   const face = document.createElement("div");
-  face.className = "community-post-face" + (mine ? " is-mine" : "");
-  face.style.background = post.color || "#5865f2";
-  face.textContent = communityLetter(name);
-  if (mine && myUserId && typeof openMiniProfile === "function") {
+  face.className = "community-post-face" + (person.mine ? " is-mine" : "");
+  face.style.background = (post && post.color) || "#5865f2";
+  face.textContent = communityLetter(person.name);
+  if (person.mine && myUserId && typeof openMiniProfile === "function") {
     face.addEventListener("click", (e) => {
       e.stopPropagation();
       openMiniProfile(myUserId, face);
@@ -282,27 +287,41 @@ function paintCommunityPostCard(post, opts) {
   const by = document.createElement("div");
   by.className = "community-post-by";
   const nameEl = document.createElement("span");
-  nameEl.className = "community-post-name" + (mine ? " is-mine" : "");
-  nameEl.textContent = name;
-  if (mine && myUserId && typeof openMiniProfile === "function") {
+  nameEl.className = "community-post-name" + (person.mine ? " is-mine" : "");
+  nameEl.textContent = person.name;
+  if (person.mine && myUserId && typeof openMiniProfile === "function") {
     nameEl.addEventListener("click", (e) => {
       e.stopPropagation();
       openMiniProfile(myUserId, nameEl);
     });
   }
-  const handleEl = document.createElement("span");
-  handleEl.className = "community-post-handle";
-  handleEl.textContent = "@" + handle;
   const timeEl = document.createElement("span");
   timeEl.className = "community-post-time";
-  timeEl.textContent = post.time || "";
+  timeEl.textContent = (post && post.time) || "";
   by.appendChild(nameEl);
-  by.appendChild(handleEl);
-  if (post.time) by.appendChild(timeEl);
+  if (!opts.detail) {
+    const handleEl = document.createElement("span");
+    handleEl.className = "community-post-handle";
+    handleEl.textContent = "@" + person.handle;
+    by.appendChild(handleEl);
+  }
+  if (post && post.time) by.appendChild(timeEl);
   who.appendChild(face);
   who.appendChild(by);
-  head.appendChild(who);
-  if (post.topics && post.topics.length) {
+  if (opts.detail) {
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "icon-btn";
+    close.title = "Close";
+    close.textContent = "\u00d7";
+    close.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeCommunityPost();
+    });
+    who.appendChild(close);
+  }
+  host.appendChild(who);
+  if (post && post.topics && post.topics.length) {
     const row = document.createElement("div");
     row.className = "community-post-pills";
     post.topics.forEach((topic) => {
@@ -311,15 +330,18 @@ function paintCommunityPostCard(post, opts) {
       pill.textContent = topic;
       row.appendChild(pill);
     });
-    head.appendChild(row);
+    host.appendChild(row);
   }
-  const mid = document.createElement("div");
-  mid.className = "community-post-mid";
+}
+
+function fillCommunityPostMid(host, post) {
+  if (!host) return;
+  host.replaceChildren();
   const body = document.createElement("div");
   body.className = "community-post-body";
   paintCommunityPostBody(body, post);
-  mid.appendChild(body);
-  if (post.media) {
+  host.appendChild(body);
+  if (post && post.media) {
     const media = document.createElement("div");
     media.className = "community-post-media" + (post.explicit ? " md-explicit-media" : "");
     const label = document.createElement("span");
@@ -332,52 +354,73 @@ function paintCommunityPostCard(post, opts) {
         media.classList.toggle("is-open");
       });
     }
-    mid.appendChild(media);
+    host.appendChild(media);
   }
-  if (post.music) {
+  if (post && post.music) {
     const song = document.createElement("div");
     song.className = "community-post-media";
     song.textContent = post.music;
-    mid.appendChild(song);
+    host.appendChild(song);
   }
-  const foot = document.createElement("div");
-  foot.className = "community-post-foot";
+}
+
+function fillCommunityPostActs(host, post, opts) {
+  if (!host) return;
+  opts = opts || {};
+  host.replaceChildren();
   [
-    ["replies", "Reply", post.replies],
-    ["reposts", "Repost", post.reposts],
-    ["likes", "Like", post.likes],
-    ["dislikes", "Dislike", post.dislikes]
+    ["replies", "Reply", post && post.replies],
+    ["reposts", "Repost", post && post.reposts],
+    ["likes", "Like", post && post.likes],
+    ["dislikes", "Dislike", post && post.dislikes]
   ].forEach((item) => {
     const key = item[0];
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "community-post-act";
     const paint = () => {
-      const n = Number(post[key]) || 0;
+      const n = Number(post && post[key]) || 0;
       btn.textContent = item[1] + (n ? " " + n : "");
     };
     paint();
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (key === "replies" && !opts.detail) {
-        openCommunityPost(post);
+      if (key === "replies") {
+        if (opts.detail) {
+          const input = document.getElementById("community-post-comment-input");
+          if (input) input.focus();
+        } else {
+          openCommunityPost(post);
+        }
         return;
       }
       post[key] = (Number(post[key]) || 0) + 1;
       paint();
     });
-    foot.appendChild(btn);
+    host.appendChild(btn);
   });
+}
+
+function paintCommunityPostCard(post) {
+  const card = document.createElement("article");
+  card.className = "community-post";
+  const head = document.createElement("div");
+  head.className = "community-post-head";
+  fillCommunityPostHead(head, post);
+  const mid = document.createElement("div");
+  mid.className = "community-post-mid";
+  fillCommunityPostMid(mid, post);
+  const foot = document.createElement("div");
+  foot.className = "community-post-foot";
+  fillCommunityPostActs(foot, post);
   card.appendChild(head);
   card.appendChild(mid);
   card.appendChild(foot);
-  if (!opts.detail) {
-    card.addEventListener("click", (e) => {
-      if (e.target.closest("button, .md-explicit, .md-explicit-media, .community-post-face.is-mine, .community-post-name.is-mine")) return;
-      openCommunityPost(post);
-    });
-    card.addEventListener("contextmenu", (e) => openCommunityPostMenu(e, post));
-  }
+  card.addEventListener("click", (e) => {
+    if (e.target.closest("button, .md-explicit, .md-explicit-media, .community-post-face.is-mine, .community-post-name.is-mine")) return;
+    openCommunityPost(post);
+  });
+  card.addEventListener("contextmenu", (e) => openCommunityPostMenu(e, post));
   return card;
 }
 
@@ -460,14 +503,20 @@ function paintCommunityPostThread() {
   if (empty) empty.hidden = rows.length > 0;
 }
 
+function fillCommunityPostView() {
+  if (!communityOpenPost) return;
+  fillCommunityPostHead(document.getElementById("community-post-view-head"), communityOpenPost, { detail: true });
+  fillCommunityPostMid(document.getElementById("community-post-view-mid"), communityOpenPost);
+  fillCommunityPostActs(document.getElementById("community-post-view-acts"), communityOpenPost, { detail: true });
+  paintCommunityPostThread();
+}
+
 function openCommunityPost(post) {
   if (!post) return;
   communityOpenPost = post;
   const overlay = document.getElementById("community-post-overlay");
-  const detail = document.getElementById("community-post-detail");
-  if (!overlay || !detail) return;
-  detail.replaceChildren(paintCommunityPostCard(post, { detail: true }));
-  paintCommunityPostThread();
+  if (!overlay) return;
+  fillCommunityPostView();
   const input = document.getElementById("community-post-comment-input");
   if (input) input.value = "";
   overlay.hidden = false;
@@ -478,8 +527,12 @@ function closeCommunityPost() {
   if (!overlay || overlay.hidden) return;
   overlay.hidden = true;
   communityOpenPost = null;
-  const detail = document.getElementById("community-post-detail");
-  if (detail) detail.replaceChildren();
+  const head = document.getElementById("community-post-view-head");
+  if (head) head.replaceChildren();
+  const mid = document.getElementById("community-post-view-mid");
+  if (mid) mid.replaceChildren();
+  const acts = document.getElementById("community-post-view-acts");
+  if (acts) acts.replaceChildren();
   const host = document.getElementById("community-post-comments");
   if (host) host.replaceChildren();
 }
@@ -498,9 +551,8 @@ function submitCommunityPostComment() {
   });
   communityOpenPost.replies = (Number(communityOpenPost.replies) || 0) + 1;
   if (input) input.value = "";
+  fillCommunityPostActs(document.getElementById("community-post-view-acts"), communityOpenPost, { detail: true });
   paintCommunityPostThread();
-  const detail = document.getElementById("community-post-detail");
-  if (detail) detail.replaceChildren(paintCommunityPostCard(communityOpenPost, { detail: true }));
 }
 
 function resetCommunityCompose() {
@@ -1706,7 +1758,6 @@ document.getElementById("community-compose-music-input").addEventListener("chang
   addCommunityComposeFiles(communityComposeMusic, e.target.files, 1);
   e.target.value = "";
 });
-document.getElementById("community-post-cancel").addEventListener("click", () => closeCommunityPost());
 document.getElementById("community-post-overlay").addEventListener("mousedown", (e) => {
   if (e.target && e.target.id === "community-post-overlay") closeCommunityPost();
 });

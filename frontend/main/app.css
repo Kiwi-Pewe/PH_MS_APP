@@ -13004,12 +13004,16 @@ button.voice-more-row:disabled,
 .community-post-card .community-post-mid::-webkit-scrollbar-corner { background: transparent; }
 .community-post-card .community-post-mid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .community-post-foot-thread {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
   flex-direction: column;
+  flex-wrap: nowrap;
   align-items: stretch;
+  justify-content: flex-start;
+  align-content: flex-start;
   gap: 12px;
+  padding: 12px 16px 28px;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -13033,6 +13037,11 @@ button.voice-more-row:disabled,
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+#community-post-comments:empty { display: none; }
+#community-post-comments-empty {
+  margin: 0;
+  padding-bottom: 8px;
 }
 .community-post-comment {
   display: flex;

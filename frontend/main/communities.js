@@ -108,7 +108,7 @@ function showCommunityRow(id) {
   if (!COMMUNITY_ROW_PANES[id]) id = "servers";
   communityRow = id;
   if (typeof closeCommunityFilterPicker === "function") closeCommunityFilterPicker();
-  document.querySelectorAll("#community-nav [data-community-row]").forEach((btn) => {
+  document.querySelectorAll("#community-sidebar-view [data-community-row]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-community-row") === id);
   });
   const pane = COMMUNITY_ROW_PANES[id];
@@ -1266,9 +1266,10 @@ document.getElementById("community-search").addEventListener("input", () => {
   window.clearTimeout(communitySearchTimer);
   communitySearchTimer = window.setTimeout(() => loadCommunityPage(1), 250);
 });
-document.getElementById("community-nav").addEventListener("click", (e) => {
+document.getElementById("community-sidebar-view").addEventListener("click", (e) => {
+  const host = document.getElementById("community-sidebar-view");
   const btn = e.target.closest("[data-community-row]");
-  if (!btn || !document.getElementById("community-nav").contains(btn)) return;
+  if (!btn || !host || !host.contains(btn)) return;
   const id = btn.getAttribute("data-community-row");
   if (id) showCommunityRow(id);
 });

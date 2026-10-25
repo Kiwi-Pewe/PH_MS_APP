@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=435">
+<link rel="stylesheet" href="app.css?v=436">
 </head>
 <body>
 
@@ -927,103 +927,104 @@
 
       <div class="main-view" id="view-community">
         <div id="community-pane-servers" class="community-pane">
-          <div class="community-toolbar">
-            <input type="search" id="community-search" class="community-search" placeholder="Search name, tags, type, or timezone" autocomplete="off" spellcheck="false">
-          </div>
-          <div class="community-filter-row">
-            <button type="button" class="ghost-btn" id="community-filter-btn">Filter</button>
-            <div id="community-filter-panel" class="community-filter-panel" hidden>
-              <div class="community-filter-chunk" data-filter-kind="type">
-                <span class="community-filter-label">Type:</span>
-                <button type="button" class="community-tag community-filter-add" data-filter-add="type">+</button>
-                <div id="community-filter-type-picks" class="community-filter-picks"></div>
-              </div>
-              <span class="community-filter-pipe" aria-hidden="true">|</span>
-              <div class="community-filter-chunk" data-filter-kind="tags">
-                <span class="community-filter-label">Tags:</span>
-                <button type="button" class="community-tag community-filter-add" data-filter-add="tags">+</button>
-                <div id="community-filter-tag-picks" class="community-filter-picks"></div>
-              </div>
-              <span class="community-filter-pipe" aria-hidden="true">|</span>
-              <div class="community-filter-chunk" data-filter-kind="timezone">
-                <span class="community-filter-label">Timezones:</span>
-                <button type="button" class="community-tag community-filter-add" data-filter-add="timezone">+</button>
-                <div id="community-filter-zone-picks" class="community-filter-picks"></div>
-              </div>
-            </div>
-          </div>
-          <div id="community-filter-picker" class="community-filter-picker" hidden>
-            <div class="community-filter-picker-head">
-              <input type="search" id="community-filter-picker-search" class="community-search" placeholder="Search" autocomplete="off" spellcheck="false">
-              <span id="community-filter-picker-count">0/1</span>
-            </div>
-            <div id="community-filter-picker-pills" class="community-filter-picker-pills"></div>
-          </div>
-          <div class="community-list-head">
+          <div class="community-band-title">
             <h2 class="community-list-title">Public Servers</h2>
             <p class="community-list-help">All servers with the discoverable setting turned on will appear here for you to join.</p>
           </div>
-          <div class="community-list-divider"></div>
-          <div id="community-grid-scroll">
-            <div id="community-grid"></div>
-            <div class="community-list-divider"></div>
-            <p id="community-list-end" class="community-list-end" hidden>You have reached the end of the list.</p>
-            <div id="community-pager" class="community-pager"></div>
+          <div class="community-band-body">
+            <div class="community-toolbar">
+              <input type="search" id="community-search" class="community-search" placeholder="Search name, tags, type, or timezone" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="community-filter-row">
+              <button type="button" class="ghost-btn" id="community-filter-btn">Filter</button>
+              <div id="community-filter-panel" class="community-filter-panel" hidden>
+                <div class="community-filter-chunk" data-filter-kind="type">
+                  <span class="community-filter-label">Type:</span>
+                  <button type="button" class="community-tag community-filter-add" data-filter-add="type">+</button>
+                  <div id="community-filter-type-picks" class="community-filter-picks"></div>
+                </div>
+                <span class="community-filter-pipe" aria-hidden="true">|</span>
+                <div class="community-filter-chunk" data-filter-kind="tags">
+                  <span class="community-filter-label">Tags:</span>
+                  <button type="button" class="community-tag community-filter-add" data-filter-add="tags">+</button>
+                  <div id="community-filter-tag-picks" class="community-filter-picks"></div>
+                </div>
+                <span class="community-filter-pipe" aria-hidden="true">|</span>
+                <div class="community-filter-chunk" data-filter-kind="timezone">
+                  <span class="community-filter-label">Timezones:</span>
+                  <button type="button" class="community-tag community-filter-add" data-filter-add="timezone">+</button>
+                  <div id="community-filter-zone-picks" class="community-filter-picks"></div>
+                </div>
+              </div>
+            </div>
+            <div id="community-grid-scroll">
+              <div id="community-grid"></div>
+              <div class="community-list-divider"></div>
+              <p id="community-list-end" class="community-list-end" hidden>You have reached the end of the list.</p>
+              <div id="community-pager" class="community-pager"></div>
+            </div>
           </div>
         </div>
         <div id="community-pane-posts" class="community-pane" hidden>
-          <div class="community-list-head">
+          <div class="community-band-title">
             <h2 class="community-list-title" id="community-post-title">Following</h2>
             <p class="community-list-help" id="community-post-help">Your posts and posts from people you follow, on any topic.</p>
           </div>
-          <div class="community-list-divider"></div>
-          <div class="community-post-composer">
-            <div class="announce-composer-editing-body">
-              <textarea id="community-post-input" class="announce-composer-body-input" rows="3" maxlength="1500" placeholder="Write a post" wrap="soft"></textarea>
+          <div class="community-band-body">
+            <div class="community-post-composer">
+              <div class="announce-composer-editing-body">
+                <textarea id="community-post-input" class="announce-composer-body-input" rows="3" maxlength="1500" placeholder="Write a post" wrap="soft"></textarea>
+              </div>
+              <div class="community-post-composer-foot">
+                <span id="community-post-count">0/1500</span>
+                <button type="button" class="pill-btn" id="community-post-submit">Post</button>
+              </div>
             </div>
-            <div class="community-post-composer-foot">
-              <span id="community-post-count">0/1500</span>
-              <button type="button" class="pill-btn" id="community-post-submit">Post</button>
-            </div>
-          </div>
-          <div id="community-post-scroll">
             <div id="community-post-list"></div>
+            <p class="community-list-end">You have reached the end of the list.</p>
           </div>
         </div>
         <div id="community-pane-rooms" class="community-pane" hidden>
-          <div class="community-list-head">
+          <div class="community-band-title">
             <h2 class="community-list-title">Rooms</h2>
             <p class="community-list-help">Walk-in chat rooms. Not a server. Not a party. Anyone can create one. Rooms wipe after 48 hours idle.</p>
           </div>
-          <div class="community-list-divider"></div>
-          <div class="community-pane-toolbar">
-            <input type="text" id="community-room-name" class="community-search" placeholder="Room name" maxlength="80" autocomplete="off" spellcheck="false">
-            <button type="button" class="pill-btn" id="community-room-create">Create Room</button>
-          </div>
-          <div id="community-rooms-scroll">
+          <div class="community-band-body">
+            <div class="community-pane-toolbar">
+              <input type="text" id="community-room-name" class="community-search" placeholder="Room name" maxlength="80" autocomplete="off" spellcheck="false">
+              <button type="button" class="pill-btn" id="community-room-create">Create Room</button>
+            </div>
             <div id="community-rooms-list"></div>
+            <p class="community-list-end">You have reached the end of the list.</p>
           </div>
         </div>
         <div id="community-pane-garterphone" class="community-pane" hidden>
-          <div class="community-list-head">
+          <div class="community-band-title">
             <h2 class="community-list-title">GarterPhone</h2>
             <p class="community-list-help">Random 1:1 chat with a stranger. Not a DM. Either person can end it. Friend requests here need both people to agree.</p>
           </div>
-          <div class="community-list-divider"></div>
-          <div class="community-garter-body">
-            <button type="button" class="pill-btn" id="community-garter-start">Find someone</button>
-            <p class="community-list-help" id="community-garter-status">You will be paired with a stranger. Either of you can end it.</p>
+          <div class="community-band-body">
+            <div class="community-garter-body">
+              <button type="button" class="pill-btn" id="community-garter-start">Find someone</button>
+              <p class="community-list-help" id="community-garter-status">You will be paired with a stranger. Either of you can end it.</p>
+            </div>
           </div>
         </div>
         <div id="community-pane-settings" class="community-pane" hidden>
-          <div class="community-list-head">
+          <div class="community-band-title">
             <h2 class="community-list-title">Settings</h2>
             <p class="community-list-help">How posts look for you. Blacklisted words and topics can be hidden or covered as explicit.</p>
           </div>
-          <div class="community-list-divider"></div>
-          <div id="community-settings-scroll">
+          <div class="community-band-body">
             <div id="community-settings-body"></div>
           </div>
+        </div>
+        <div id="community-filter-picker" class="community-filter-picker" hidden>
+          <div class="community-filter-picker-head">
+            <input type="search" id="community-filter-picker-search" class="community-search" placeholder="Search" autocomplete="off" spellcheck="false">
+            <span id="community-filter-picker-count">0/1</span>
+          </div>
+          <div id="community-filter-picker-pills" class="community-filter-picker-pills"></div>
         </div>
       </div>
 

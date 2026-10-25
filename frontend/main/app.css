@@ -12011,13 +12011,13 @@ button.voice-more-row:disabled,
   width: 100%;
   box-sizing: border-box;
 }
-#view-community { min-height: 0; }
+#view-community { min-height: 0; padding: 16px 20px; }
 .community-toolbar {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 40px 8px;
+  padding: 0 0 10px;
 }
 .community-search {
   flex: 1 1 auto;
@@ -12036,7 +12036,7 @@ button.voice-more-row:disabled,
   align-items: flex-start;
   gap: 10px;
   flex-wrap: wrap;
-  padding: 0 40px 8px;
+  padding: 0 0 12px;
 }
 .community-filter-panel {
   display: flex;
@@ -12101,10 +12101,13 @@ button.voice-more-row:disabled,
   gap: 6px;
   margin-top: 10px;
 }
-.community-list-head {
+.community-list-head,
+.community-band-title {
   flex: 0 0 auto;
-  padding: 8px 40px 10px;
+  padding: 16px 24px;
   text-align: center;
+  background: var(--rail);
+  border-bottom: 1px solid var(--border);
 }
 .community-list-title {
   margin: 0 0 6px;
@@ -12121,18 +12124,14 @@ button.voice-more-row:disabled,
 .community-list-divider {
   flex: 0 0 auto;
   height: 0;
-  margin: 0 40px;
+  margin: 20px 0 0;
   border: 0;
   border-top: 1px solid var(--border);
 }
 #community-grid-scroll {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow-y: auto;
-  padding: 16px 40px 16px;
-}
-#community-grid-scroll .community-list-divider {
-  margin: 20px 0 0;
+  padding: 0;
 }
 .community-list-end {
   margin: 14px 0 0;
@@ -12684,16 +12683,35 @@ button.voice-more-row:disabled,
   min-height: 0;
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--panel);
 }
 .community-pane[hidden] { display: none; }
+.community-band-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 24px 24px;
+  background: var(--panel);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.community-band-body::-webkit-scrollbar { width: 8px; }
+.community-band-body::-webkit-scrollbar-track,
+.community-band-body::-webkit-scrollbar-corner { background: transparent; }
+.community-band-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .community-pane-toolbar {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 10px;
   width: 720px;
-  max-width: calc(100% - 80px);
-  margin: 12px auto 0;
+  max-width: 100%;
+  margin: 0 auto 16px;
   padding: 0;
   box-sizing: border-box;
 }
@@ -12702,8 +12720,8 @@ button.voice-more-row:disabled,
   display: flex;
   flex-direction: column;
   width: 720px;
-  max-width: calc(100% - 80px);
-  margin: 12px auto 8px;
+  max-width: 100%;
+  margin: 0 auto 16px;
   padding: 10px 14px;
   background: var(--panel-alt);
   border: 1px solid var(--border);
@@ -12724,28 +12742,6 @@ button.voice-more-row:disabled,
   font-weight: 600;
   color: var(--text-dim);
 }
-#community-post-scroll,
-#community-rooms-scroll,
-#community-settings-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px 40px 24px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-#community-post-scroll::-webkit-scrollbar,
-#community-rooms-scroll::-webkit-scrollbar,
-#community-settings-scroll::-webkit-scrollbar { width: 8px; }
-#community-post-scroll::-webkit-scrollbar-track,
-#community-rooms-scroll::-webkit-scrollbar-track,
-#community-settings-scroll::-webkit-scrollbar-track,
-#community-post-scroll::-webkit-scrollbar-corner,
-#community-rooms-scroll::-webkit-scrollbar-corner,
-#community-settings-scroll::-webkit-scrollbar-corner { background: transparent; }
-#community-post-scroll::-webkit-scrollbar-thumb,
-#community-rooms-scroll::-webkit-scrollbar-thumb,
-#community-settings-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 #community-post-list,
 #community-rooms-list,
 #community-settings-body {
@@ -12880,7 +12876,7 @@ button.voice-more-row:disabled,
   align-items: center;
   justify-content: center;
   gap: 14px;
-  padding: 40px;
+  padding: 24px 0 40px;
   text-align: center;
 }
 .community-settings-block {

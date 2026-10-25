@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=436">
+<link rel="stylesheet" href="app.css?v=437">
 </head>
 <body>
 
@@ -971,15 +971,7 @@
             <p class="community-list-help" id="community-post-help">Your posts and posts from people you follow, on any topic.</p>
           </div>
           <div class="community-band-body">
-            <div class="community-post-composer">
-              <div class="announce-composer-editing-body">
-                <textarea id="community-post-input" class="announce-composer-body-input" rows="3" maxlength="1500" placeholder="Write a post" wrap="soft"></textarea>
-              </div>
-              <div class="community-post-composer-foot">
-                <span id="community-post-count">0/1500</span>
-                <button type="button" class="pill-btn" id="community-post-submit">Post</button>
-              </div>
-            </div>
+            <button type="button" class="community-create-post" id="community-create-post">Create a post</button>
             <div id="community-post-list"></div>
             <p class="community-list-end">You have reached the end of the list.</p>
           </div>
@@ -2037,6 +2029,60 @@
     </div>
   </div>
 
+  <div id="community-compose-overlay" hidden>
+    <div id="community-compose-card" class="community-compose-card" role="dialog" aria-modal="true" aria-labelledby="community-compose-title">
+      <div class="community-compose-header">
+        <span id="community-compose-title" class="community-compose-title">Create a post</span>
+      </div>
+      <div class="community-compose-body">
+        <textarea id="community-compose-input" rows="5" maxlength="1500" placeholder="Write a post" wrap="soft"></textarea>
+        <div id="community-compose-count">0/1500</div>
+        <div class="community-compose-block">
+          <div class="community-compose-label">Topics</div>
+          <div class="community-compose-add">
+            <input type="text" id="community-compose-topic" class="community-search" maxlength="40" placeholder="Add a topic" autocomplete="off" spellcheck="false">
+            <button type="button" class="ghost-btn" id="community-compose-topic-add">Add</button>
+          </div>
+          <div id="community-compose-topics" class="community-post-pills"></div>
+        </div>
+        <div class="community-compose-block">
+          <div class="community-compose-label">Hashtags</div>
+          <div class="community-compose-add">
+            <input type="text" id="community-compose-tag" class="community-search" maxlength="40" placeholder="Add a hashtag" autocomplete="off" spellcheck="false">
+            <button type="button" class="ghost-btn" id="community-compose-tag-add">Add</button>
+          </div>
+          <div id="community-compose-tags" class="community-post-pills"></div>
+        </div>
+        <div class="community-compose-block">
+          <div class="community-compose-label">Pictures</div>
+          <button type="button" class="ghost-btn" id="community-compose-pic-btn">Add pictures</button>
+          <input type="file" id="community-compose-pic-input" accept="image/*" multiple hidden>
+          <div id="community-compose-pics" class="community-post-pills"></div>
+        </div>
+        <div class="community-compose-block">
+          <div class="community-compose-label">Videos</div>
+          <button type="button" class="ghost-btn" id="community-compose-video-btn">Add a video</button>
+          <input type="file" id="community-compose-video-input" accept="video/*" hidden>
+          <div id="community-compose-videos" class="community-post-pills"></div>
+        </div>
+        <div class="community-compose-block">
+          <div class="community-compose-label">Music</div>
+          <button type="button" class="ghost-btn" id="community-compose-music-btn">Add music</button>
+          <input type="file" id="community-compose-music-input" accept="audio/*" hidden>
+          <div id="community-compose-music" class="community-post-pills"></div>
+        </div>
+        <div class="community-compose-tools">
+          <button type="button" class="ghost-btn is-later" disabled>GIF</button>
+          <button type="button" class="ghost-btn is-later" disabled>Emoji</button>
+        </div>
+      </div>
+      <div class="community-compose-footer">
+        <button type="button" class="ghost-btn" id="community-compose-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="community-compose-submit" disabled>Post</button>
+      </div>
+    </div>
+  </div>
+
   <div id="leave-party-overlay" hidden>
     <div id="leave-party-modal" class="leave-party-modal" role="dialog" aria-modal="true" aria-labelledby="leave-party-title">
       <div class="leave-party-header">
@@ -2646,7 +2692,7 @@
     </div>
 <script src="boot.js?v=147"></script>
 <script src="app-shell.js?v=75"></script>
-<script src="communities.js?v=19"></script>
+<script src="communities.js?v=20"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=52"></script>

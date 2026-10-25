@@ -12719,23 +12719,24 @@ button.voice-more-row:disabled,
   flex: 0 0 auto;
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 720px;
   max-width: 100%;
   margin: 0 auto 16px;
   min-height: 40px;
   padding: 8px 14px;
   box-sizing: border-box;
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
+  background: var(--accent);
+  border: 0;
   border-radius: 8px;
-  color: var(--text-dim);
+  color: #fff;
   font-size: 14px;
   font-weight: 600;
-  text-align: left;
+  text-align: center;
 }
 .community-create-post:hover {
-  border-color: var(--text-dim);
-  color: var(--text);
+  background: var(--accent-hover);
+  color: #fff;
 }
 #community-compose-overlay {
   position: fixed;
@@ -12860,8 +12861,9 @@ button.voice-more-row:disabled,
 }
 .community-post {
   display: flex;
-  gap: 12px;
-  padding: 14px 16px;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--panel-alt);
@@ -12869,6 +12871,21 @@ button.voice-more-row:disabled,
 .community-post:hover {
   outline: 2px solid var(--accent);
   outline-offset: 0;
+}
+.community-post-head {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--rail);
+  border-bottom: 1px solid var(--border);
+}
+.community-post-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 .community-post-face {
   flex: 0 0 auto;
@@ -12885,14 +12902,9 @@ button.voice-more-row:disabled,
 }
 .community-post-face.is-mine,
 .community-post-name.is-mine { cursor: pointer; }
-.community-post-main {
+.community-post-by {
   flex: 1 1 auto;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.community-post-by {
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -12908,12 +12920,34 @@ button.voice-more-row:disabled,
   font-size: 13px;
   color: var(--text-dim);
 }
+.community-post-mid {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--panel-alt);
+}
 .community-post-body {
   font-size: 15px;
   line-height: 1.5;
   color: var(--text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.community-post-hash {
+  color: var(--accent);
+  font-weight: 700;
+}
+.community-post-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--rail);
+  border-top: 1px solid var(--border);
 }
 .community-post-media {
   position: relative;
@@ -12937,10 +12971,6 @@ button.voice-more-row:disabled,
 .community-post-link {
   font-size: 12px;
   color: var(--text-dim);
-}
-.community-post-actions {
-  display: flex;
-  gap: 16px;
 }
 .community-post-act {
   background: transparent;

@@ -25,6 +25,424 @@ const COMMUNITY_TYPE_PILLS = [
   ["other", "Other"]
 ];
 
+const COMMUNITY_POST_ROWS = ["following", "timeline", "explore"];
+const COMMUNITY_ROW_PANES = {
+  following: "posts",
+  timeline: "posts",
+  explore: "posts",
+  rooms: "rooms",
+  garterphone: "garterphone",
+  servers: "servers",
+  settings: "settings"
+};
+
+let communityRow = "servers";
+let communityDraftPosts = [];
+let communityRoomSeq = 7;
+let communityMuteWords = [
+  { word: "spoilers", mode: "hide" },
+  { word: "nsfw", mode: "cover" },
+  { word: "politics", mode: "hide" }
+];
+let communityMuteTopics = [
+  { word: "horror", mode: "cover" },
+  { word: "gambling", mode: "hide" }
+];
+
+const COMMUNITY_PLACEHOLDER_ROOMS = [
+  { id: "r1", name: "Late Night Vent", topics: ["vent", "advice"], n: 12, joined: false },
+  { id: "r2", name: "Pixel Art Drop", topics: ["art"], n: 3, joined: false },
+  { id: "r3", name: "Music Share", topics: ["music"], n: 15, joined: false },
+  { id: "r4", name: "Co-op LFG", topics: ["games"], n: 8, joined: false },
+  { id: "r5", name: "Study With Me", topics: ["study"], n: 1, joined: false },
+  { id: "r6", name: "After Dark Chat", topics: ["nsfw"], n: 14, joined: false }
+];
+let communityRooms = COMMUNITY_PLACEHOLDER_ROOMS.map((row) => Object.assign({}, row, { topics: row.topics.slice() }));
+
+const COMMUNITY_PLACEHOLDER_POSTS = [
+  { code: "k7m2q9w4xp", name: "You", handle: "you", mine: true, color: "#5865f2", time: "2m", body: "checking how a short post sits at the top of Following.", replies: 0, reposts: 0, likes: 2, lenses: ["following", "explore"] },
+  { code: "aj2f7saw06", name: "You", handle: "you", mine: true, color: "#5865f2", time: "18m", body: "longer one for wrap testing.\n\ncomposer lives on Following, Timeline, and Explore. one post, three lenses. permalink shape is oneira.cc/posts/name/code.", hashtags: ["oneira"], topics: ["design"], replies: 4, reposts: 1, likes: 11, lenses: ["following", "timeline", "explore"] },
+  { code: "n4c8h2v0qm", name: "You", handle: "you", mine: true, color: "#5865f2", time: "yesterday", body: "image post from me so we can line up the media box with the name row.", media: true, replies: 1, reposts: 0, likes: 6, lenses: ["following", "explore"] },
+  { code: "b3p6t1x8kd", name: "Mira", handle: "mira", color: "#eb459e", time: "4m", body: "gm", replies: 12, reposts: 2, likes: 48, lenses: ["following", "explore"] },
+  { code: "c9w5r7j2la", name: "Nova", handle: "nova", color: "#57f287", time: "9m", body: "new mix is mostly night drives and rain samples. if you have a track that belongs next to that, drop it.\n\nstill looking for something with a heavy low end and almost no vocal.", hashtags: ["music", "nowplaying"], topics: ["music"], replies: 7, reposts: 3, likes: 29, lenses: ["following", "timeline", "explore"] },
+  { code: "d2h8m4q6ye", name: "Reed", handle: "reed", color: "#fee75c", time: "21m", body: "anyone up for a short co-op later. two slots. voice optional.", hashtags: ["lfg"], topics: ["games"], replies: 15, reposts: 0, likes: 8, lenses: ["timeline", "explore"] },
+  { code: "e6k1n9s3wf", name: "Ash", handle: "ash", color: "#ed4245", time: "36m", body: "the sky from the roof an hour ago.", media: true, replies: 3, reposts: 6, likes: 41, lenses: ["following", "explore"] },
+  { code: "f8t4p2c7ub", name: "Jules", handle: "jules", color: "#9b59b6", time: "51m", body: "explicit cover test. click the grey bar to open the text, click again to close it.", explicit: true, replies: 2, reposts: 0, likes: 5, lenses: ["timeline", "explore"] },
+  { code: "g1y5v8h3zd", name: "Kite", handle: "kite", color: "#3498db", time: "1h", body: "this layout is growing on me.", replies: 0, reposts: 14, likes: 122, lenses: ["following", "explore"] },
+  { code: "h7a3l6r9qi", name: "Wren", handle: "wren", color: "#1abc9c", time: "1h", body: "commission slot open this week. characters only, no mechs.", media: true, hashtags: ["art", "commissions"], topics: ["art"], replies: 9, reposts: 4, likes: 67, lenses: ["following", "timeline", "explore"] },
+  { code: "i4s9d2m5ok", name: "Sol", handle: "sol", color: "#e67e22", time: "2h", body: "explore-only stranger post. should not show on Following if we slice this right.", replies: 1, reposts: 0, likes: 3, lenses: ["explore"] },
+  { code: "j8c6w1t4pn", name: "Piper", handle: "piper", color: "#2ecc71", time: "2h", body: "quick sauce:\n- butter\n- garlic\n- tomato paste\n- pasta water until it looks wrong, then it looks right", topics: ["food"], replies: 6, reposts: 8, likes: 54, lenses: ["following", "timeline", "explore"] },
+  { code: "k2n7f5b8xg", name: "Vex", handle: "vex", color: "#8e44ad", time: "3h", body: "do not read this if you have not finished the new episode.", explicit: true, topics: ["horror"], replies: 11, reposts: 2, likes: 19, lenses: ["timeline", "explore"] },
+  { code: "l5q3y9h1vc", name: "Mira", handle: "mira", color: "#eb459e", time: "3h", body: "wait, we can actually sit and talk in here without a server?", replies: 28, reposts: 5, likes: 73, lenses: ["following", "explore"] },
+  { code: "m9p4k7s2wd", name: "Nova", handle: "nova", color: "#57f287", time: "4h", body: "hashtag pile for spacing.", hashtags: ["night", "rain", "drive", "mix"], replies: 0, reposts: 1, likes: 9, lenses: ["following", "timeline", "explore"] },
+  { code: "n6t8a1r5je", name: "Reed", handle: "reed", color: "#fee75c", time: "5h", body: "long wrap. the feed column should hold a paragraph without shoving the action row off the card or clipping the permalink. if this line keeps going it is because we need to see five-plus lines of body before a scroll appears on the composer, not on the post itself. posts can be long. the card grows.", topics: ["design"], replies: 2, reposts: 0, likes: 4, lenses: ["timeline", "explore"] },
+  { code: "o3h2c9v6lf", name: "Ash", handle: "ash", color: "#ed4245", time: "6h", body: "need a second monitor recommendation that is not a curved gaming slab.", replies: 17, reposts: 1, likes: 13, lenses: ["following", "explore"] },
+  { code: "p7w5m4d8qb", name: "Jules", handle: "jules", color: "#9b59b6", time: "7h", body: "one line from someone you do not follow.", replies: 0, reposts: 0, likes: 1, lenses: ["explore"] },
+  { code: "q1z6s3n9tk", name: "Kite", handle: "kite", color: "#3498db", time: "8h", body: "photo behind an explicit cover.", media: true, explicit: true, topics: ["nsfw"], replies: 4, reposts: 2, likes: 16, lenses: ["timeline", "explore"] },
+  { code: "r8e4b7y2uh", name: "Wren", handle: "wren", color: "#1abc9c", time: "9h", body: "saving this layout before it changes.", replies: 0, reposts: 0, likes: 7, lenses: ["following", "explore"] },
+  { code: "s5l9p1c6wi", name: "Sol", handle: "sol", color: "#e67e22", time: "11h", body: "library until midnight. headphones on, chat off.", topics: ["study"], replies: 3, reposts: 0, likes: 22, lenses: ["timeline", "explore"] },
+  { code: "t2k8f4m7xj", name: "Piper", handle: "piper", color: "#2ecc71", time: "14h", body: "unpopular: most \"cozy\" games are just menus with extra steps and a fireplace loop. still playing them.", hashtags: ["games"], replies: 31, reposts: 9, likes: 88, lenses: ["explore"] },
+  { code: "u9d3w6q1yk", name: "Vex", handle: "vex", color: "#8e44ad", time: "16h", body: "two tags, no topic, following slice.", hashtags: ["late", "chat"], replies: 1, reposts: 0, likes: 4, lenses: ["following", "explore"] },
+  { code: "v4n7h2s8zl", name: "Mira", handle: "mira", color: "#eb459e", time: "yesterday", body: "if you are new here: Rooms are walk-in. Servers are the real communities. do not mix those up.", topics: ["advice"], replies: 8, reposts: 12, likes: 95, lenses: ["timeline", "explore"] },
+  { code: "w6c1r5t9am", name: "Nova", handle: "nova", color: "#57f287", time: "yesterday", body: "dropped a longer clip. still stitching the last two minutes.", media: true, hashtags: ["wip"], topics: ["music"], replies: 5, reposts: 3, likes: 33, lenses: ["following", "timeline", "explore"] }
+];
+
+function communityPostCode() {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  for (let i = 0; i < 10; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+function communityRowTitle(id) {
+  if (id === "timeline") return "Timeline";
+  if (id === "explore") return "Explore";
+  if (id === "rooms") return "Rooms";
+  if (id === "garterphone") return "GarterPhone";
+  if (id === "settings") return "Settings";
+  if (id === "servers") return "Servers";
+  return "Following";
+}
+
+function showCommunityRow(id) {
+  if (!COMMUNITY_ROW_PANES[id]) id = "servers";
+  communityRow = id;
+  if (typeof closeCommunityFilterPicker === "function") closeCommunityFilterPicker();
+  document.querySelectorAll("#community-nav [data-community-row]").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-community-row") === id);
+  });
+  const pane = COMMUNITY_ROW_PANES[id];
+  const paneServers = document.getElementById("community-pane-servers");
+  const panePosts = document.getElementById("community-pane-posts");
+  const paneRooms = document.getElementById("community-pane-rooms");
+  const paneGarter = document.getElementById("community-pane-garterphone");
+  const paneSettings = document.getElementById("community-pane-settings");
+  if (paneServers) paneServers.hidden = pane !== "servers";
+  if (panePosts) panePosts.hidden = pane !== "posts";
+  if (paneRooms) paneRooms.hidden = pane !== "rooms";
+  if (paneGarter) paneGarter.hidden = pane !== "garterphone";
+  if (paneSettings) paneSettings.hidden = pane !== "settings";
+  if (pane === "posts") paintCommunityPosts();
+  if (pane === "rooms") paintCommunityRooms();
+  if (pane === "settings") paintCommunitySettings();
+  if (pane === "garterphone") {
+    const status = document.getElementById("community-garter-status");
+    if (status) status.textContent = "You will be paired with a stranger. Either of you can end it.";
+  }
+}
+
+function paintCommunityPosts() {
+  const title = document.getElementById("community-post-title");
+  if (title) title.textContent = communityRowTitle(communityRow);
+  const list = document.getElementById("community-post-list");
+  if (!list) return;
+  list.replaceChildren();
+  const rows = communityDraftPosts.concat(COMMUNITY_PLACEHOLDER_POSTS).filter((post) => {
+    return !post.lenses || post.lenses.indexOf(communityRow) >= 0;
+  });
+  rows.forEach((post) => list.appendChild(paintCommunityPostCard(post)));
+}
+
+function paintCommunityPostCard(post) {
+  const mine = !!post.mine;
+  const name = mine ? (myDisplayName || myUsername || post.name || "You") : (post.name || "User");
+  const handle = mine ? (myUsername || post.handle || "you") : (post.handle || "user");
+  const card = document.createElement("article");
+  card.className = "community-post";
+  const face = document.createElement("div");
+  face.className = "community-post-face" + (mine ? " is-mine" : "");
+  face.style.background = post.color || "#5865f2";
+  face.textContent = communityLetter(name);
+  if (mine && myUserId && typeof openMiniProfile === "function") {
+    face.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openMiniProfile(myUserId, face);
+    });
+  }
+  const main = document.createElement("div");
+  main.className = "community-post-main";
+  const by = document.createElement("div");
+  by.className = "community-post-by";
+  const nameEl = document.createElement("span");
+  nameEl.className = "community-post-name" + (mine ? " is-mine" : "");
+  nameEl.textContent = name;
+  if (mine && myUserId && typeof openMiniProfile === "function") {
+    nameEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openMiniProfile(myUserId, nameEl);
+    });
+  }
+  const handleEl = document.createElement("span");
+  handleEl.className = "community-post-handle";
+  handleEl.textContent = "@" + handle;
+  const timeEl = document.createElement("span");
+  timeEl.className = "community-post-time";
+  timeEl.textContent = post.time || "";
+  by.appendChild(nameEl);
+  by.appendChild(handleEl);
+  if (post.time) by.appendChild(timeEl);
+  const body = document.createElement("div");
+  body.className = "community-post-body";
+  if (post.explicit) {
+    const cover = document.createElement("span");
+    cover.className = "md-explicit";
+    cover.textContent = post.body || "";
+    cover.addEventListener("click", (e) => {
+      e.stopPropagation();
+      cover.classList.toggle("is-open");
+    });
+    body.appendChild(cover);
+  } else {
+    body.textContent = post.body || "";
+  }
+  main.appendChild(by);
+  main.appendChild(body);
+  if (post.media) {
+    const media = document.createElement("div");
+    media.className = "community-post-media" + (post.explicit ? " md-explicit-media" : "");
+    const label = document.createElement("span");
+    if (post.explicit) label.className = "md-explicit-media-label";
+    label.textContent = post.explicit ? "Explicit image" : "Image";
+    media.appendChild(label);
+    if (post.explicit) {
+      media.addEventListener("click", (e) => {
+        e.stopPropagation();
+        media.classList.toggle("is-open");
+      });
+    }
+    main.appendChild(media);
+  }
+  const pills = [].concat(post.topics || [], (post.hashtags || []).map((tag) => "#" + tag));
+  if (pills.length) {
+    const row = document.createElement("div");
+    row.className = "community-post-pills";
+    pills.forEach((label) => {
+      const pill = document.createElement("span");
+      pill.className = "community-tag";
+      pill.textContent = label;
+      row.appendChild(pill);
+    });
+    main.appendChild(row);
+  }
+  const link = document.createElement("div");
+  link.className = "community-post-link";
+  link.textContent = "oneira.cc/posts/" + handle + "/" + (post.code || communityPostCode());
+  main.appendChild(link);
+  const actions = document.createElement("div");
+  actions.className = "community-post-actions";
+  [
+    ["replies", "Reply", post.replies],
+    ["reposts", "Repost", post.reposts],
+    ["likes", "Like", post.likes]
+  ].forEach((item) => {
+    const key = item[0];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "community-post-act";
+    const paint = () => {
+      const n = Number(post[key]) || 0;
+      btn.textContent = item[1] + (n ? " " + n : "");
+    };
+    paint();
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      post[key] = (Number(post[key]) || 0) + 1;
+      paint();
+    });
+    actions.appendChild(btn);
+  });
+  main.appendChild(actions);
+  card.appendChild(face);
+  card.appendChild(main);
+  return card;
+}
+
+function submitCommunityPost() {
+  const input = document.getElementById("community-post-input");
+  const body = input ? String(input.value || "").trim() : "";
+  if (!body) return;
+  communityDraftPosts.unshift({
+    code: communityPostCode(),
+    mine: true,
+    color: "#5865f2",
+    time: "now",
+    body: body.slice(0, 1500),
+    replies: 0,
+    reposts: 0,
+    likes: 0,
+    lenses: COMMUNITY_POST_ROWS.slice()
+  });
+  if (input) input.value = "";
+  syncCommunityPostCount();
+  paintCommunityPosts();
+}
+
+function syncCommunityPostCount() {
+  const input = document.getElementById("community-post-input");
+  const count = document.getElementById("community-post-count");
+  if (!count) return;
+  const n = input ? String(input.value || "").length : 0;
+  count.textContent = n + "/1500";
+}
+
+function paintCommunityRooms() {
+  const list = document.getElementById("community-rooms-list");
+  if (!list) return;
+  list.replaceChildren();
+  communityRooms.forEach((row) => {
+    const card = document.createElement("article");
+    card.className = "community-room";
+    const main = document.createElement("div");
+    main.className = "community-room-main";
+    const name = document.createElement("div");
+    name.className = "community-room-name";
+    name.textContent = row.name;
+    const meta = document.createElement("div");
+    meta.className = "community-room-meta";
+    const bits = [];
+    if (row.topics && row.topics.length) bits.push(row.topics.join(" · "));
+    bits.push(row.n + "/15");
+    meta.textContent = bits.join(" · ");
+    main.appendChild(name);
+    if (row.topics && row.topics.length) {
+      const pills = document.createElement("div");
+      pills.className = "community-post-pills";
+      row.topics.forEach((topic) => {
+        const pill = document.createElement("span");
+        pill.className = "community-tag";
+        pill.textContent = topic;
+        pills.appendChild(pill);
+      });
+      main.appendChild(pills);
+    }
+    main.appendChild(meta);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = row.joined ? "ghost-btn" : "pill-btn";
+    const full = row.n >= 15 && !row.joined;
+    btn.disabled = full;
+    btn.textContent = full ? "Full" : (row.joined ? "Leave" : "Join");
+    btn.addEventListener("click", () => {
+      if (row.joined) {
+        row.joined = false;
+        row.n = Math.max(0, (Number(row.n) || 1) - 1);
+      } else {
+        if (row.n >= 15) return;
+        row.joined = true;
+        row.n = Math.min(15, (Number(row.n) || 0) + 1);
+      }
+      paintCommunityRooms();
+    });
+    card.appendChild(main);
+    card.appendChild(btn);
+    list.appendChild(card);
+  });
+}
+
+function createCommunityRoom() {
+  const input = document.getElementById("community-room-name");
+  const name = input ? String(input.value || "").trim() : "";
+  if (!name) return;
+  communityRoomSeq += 1;
+  communityRooms.unshift({
+    id: "r" + communityRoomSeq,
+    name: name.slice(0, 80),
+    topics: [],
+    n: 1,
+    joined: true,
+    owned: true
+  });
+  if (input) input.value = "";
+  paintCommunityRooms();
+}
+
+function paintCommunitySettings() {
+  const host = document.getElementById("community-settings-body");
+  if (!host) return;
+  host.replaceChildren();
+  host.appendChild(paintCommunityMuteBlock("Words", communityMuteWords, "words"));
+  host.appendChild(paintCommunityMuteBlock("Topics", communityMuteTopics, "topics"));
+}
+
+function paintCommunityMuteBlock(title, rows, kind) {
+  const block = document.createElement("section");
+  block.className = "community-settings-block";
+  const head = document.createElement("h3");
+  head.className = "community-settings-title";
+  head.textContent = title;
+  const help = document.createElement("p");
+  help.className = "community-list-help";
+  help.textContent = kind === "topics"
+    ? "Posts in these topics can be hidden or covered."
+    : "Posts that contain these words can be hidden or covered.";
+  const add = document.createElement("div");
+  add.className = "community-pane-toolbar";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "community-search";
+  input.maxLength = 40;
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.placeholder = kind === "topics" ? "Add a topic" : "Add a word";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "pill-btn";
+  btn.textContent = "Add";
+  btn.addEventListener("click", () => {
+    const word = String(input.value || "").trim().toLowerCase();
+    if (!word) return;
+    if (rows.some((row) => row.word === word)) {
+      input.value = "";
+      return;
+    }
+    rows.push({ word: word, mode: "hide" });
+    input.value = "";
+    paintCommunitySettings();
+  });
+  add.appendChild(input);
+  add.appendChild(btn);
+  block.appendChild(head);
+  block.appendChild(help);
+  block.appendChild(add);
+  rows.forEach((row, index) => {
+    const line = document.createElement("div");
+    line.className = "community-mute-row";
+    const label = document.createElement("span");
+    label.className = "community-tag is-on";
+    label.textContent = row.word;
+    const hideBtn = document.createElement("button");
+    hideBtn.type = "button";
+    hideBtn.className = "ghost-btn" + (row.mode === "hide" ? " is-active" : "");
+    hideBtn.textContent = "Hide";
+    hideBtn.addEventListener("click", () => {
+      row.mode = "hide";
+      paintCommunitySettings();
+    });
+    const coverBtn = document.createElement("button");
+    coverBtn.type = "button";
+    coverBtn.className = "ghost-btn" + (row.mode === "cover" ? " is-active" : "");
+    coverBtn.textContent = "Cover";
+    coverBtn.addEventListener("click", () => {
+      row.mode = "cover";
+      paintCommunitySettings();
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost-btn";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", () => {
+      rows.splice(index, 1);
+      paintCommunitySettings();
+    });
+    line.appendChild(label);
+    line.appendChild(hideBtn);
+    line.appendChild(coverBtn);
+    line.appendChild(remove);
+    block.appendChild(line);
+  });
+  return block;
+}
+
 function communityLetter(name) {
   if (typeof avatarLetter === "function") return avatarLetter(name);
   return String(name || "?").slice(0, 1).toUpperCase();
@@ -649,6 +1067,7 @@ async function openCommunities() {
   currentServerOwnerId = null;
   currentChannelId = null;
   if (typeof setAppAddress === "function") setAppAddress("/community");
+  showCommunityRow("servers");
   const search = document.getElementById("community-search");
   if (search && search.value !== communityQuery) search.value = communityQuery;
   await loadCommunityPage(communityPage);
@@ -846,6 +1265,30 @@ document.getElementById("community-search").addEventListener("input", () => {
   communityQuery = search ? String(search.value || "").trim() : "";
   window.clearTimeout(communitySearchTimer);
   communitySearchTimer = window.setTimeout(() => loadCommunityPage(1), 250);
+});
+document.getElementById("community-nav").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-community-row]");
+  if (!btn || !document.getElementById("community-nav").contains(btn)) return;
+  const id = btn.getAttribute("data-community-row");
+  if (id) showCommunityRow(id);
+});
+const communityPostInput = document.getElementById("community-post-input");
+if (communityPostInput) {
+  communityPostInput.addEventListener("input", () => syncCommunityPostCount());
+}
+document.getElementById("community-post-submit").addEventListener("click", () => submitCommunityPost());
+document.getElementById("community-room-create").addEventListener("click", () => createCommunityRoom());
+const communityRoomName = document.getElementById("community-room-name");
+if (communityRoomName) {
+  communityRoomName.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    createCommunityRoom();
+  });
+}
+document.getElementById("community-garter-start").addEventListener("click", () => {
+  const status = document.getElementById("community-garter-status");
+  if (status) status.textContent = "No one is available right now.";
 });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;

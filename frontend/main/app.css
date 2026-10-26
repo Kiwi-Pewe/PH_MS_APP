@@ -12941,7 +12941,14 @@ button.voice-more-row:disabled,
   opacity: 0.45;
   cursor: default;
 }
-#community-post-list,
+#community-post-list {
+  width: 648px;
+  max-width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 #community-rooms-list,
 #community-settings-body {
   width: 720px;

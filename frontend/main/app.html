@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=447">
+<link rel="stylesheet" href="app.css?v=448">
 </head>
 <body>
 
@@ -154,12 +154,14 @@
 
       <div id="community-sidebar-view" style="display:none;">
         <div id="community-nav">
+          <div class="community-nav-label">Communities</div>
           <button class="nav-item" type="button" data-community-row="following">Following</button>
           <button class="nav-item" type="button" data-community-row="timeline">Timeline</button>
           <button class="nav-item" type="button" data-community-row="explore">Explore</button>
           <button class="nav-item" type="button" data-community-row="rooms">Rooms</button>
           <button class="nav-item" type="button" data-community-row="garterphone">GarterPhone</button>
           <button class="nav-item active" type="button" data-community-row="servers">Servers</button>
+          <div id="community-nav-rooms" hidden></div>
         </div>
         <div id="community-nav-foot">
           <div class="settings-nav-divider"></div>
@@ -988,6 +990,20 @@
             <div id="community-rooms-list"></div>
             <p class="community-list-end">You have reached the end of the list.</p>
           </div>
+        </div>
+        <div id="community-pane-room-chat" class="community-pane community-room-chat" hidden>
+          <div class="community-room-chat-main">
+            <div class="community-room-chat-head" id="community-room-chat-title">Room</div>
+            <div class="community-room-chat-log" id="community-room-chat-log"></div>
+            <div class="community-room-chat-compose">
+              <input type="text" id="community-room-chat-input" placeholder="Message" maxlength="2000" autocomplete="off" spellcheck="false">
+              <button type="button" class="pill-btn" id="community-room-chat-send">Send</button>
+            </div>
+          </div>
+          <aside class="community-room-chat-members">
+            <div class="community-nav-label">Members</div>
+            <div id="community-room-chat-member-list"></div>
+          </aside>
         </div>
         <div id="community-pane-garterphone" class="community-pane" hidden>
           <div class="community-band-title">
@@ -2697,7 +2713,7 @@
     </div>
 <script src="boot.js?v=147"></script>
 <script src="app-shell.js?v=75"></script>
-<script src="communities.js?v=26"></script>
+<script src="communities.js?v=27"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=52"></script>

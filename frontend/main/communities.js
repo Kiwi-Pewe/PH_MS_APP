@@ -43,6 +43,7 @@ const COMMUNITY_TOPIC_MAX = 4;
 let communityComposeTopics = [];
 let communityComposeTopicDraft = null;
 let communityRoomSeq = 7;
+let communityOpenRoom = null;
 let communityMuteWords = [
   { word: "spoilers", mode: "hide" },
   { word: "nsfw", mode: "cover" },
@@ -169,11 +170,15 @@ function showCommunityRow(id) {
   const paneRooms = document.getElementById("community-pane-rooms");
   const paneGarter = document.getElementById("community-pane-garterphone");
   const paneSettings = document.getElementById("community-pane-settings");
+  communityOpenRoom = null;
+  const paneChat = document.getElementById("community-pane-room-chat");
   if (paneServers) paneServers.hidden = pane !== "servers";
   if (panePosts) panePosts.hidden = pane !== "posts";
   if (paneRooms) paneRooms.hidden = pane !== "rooms";
   if (paneGarter) paneGarter.hidden = pane !== "garterphone";
   if (paneSettings) paneSettings.hidden = pane !== "settings";
+  if (paneChat) paneChat.hidden = true;
+  paintCommunityRoomNav();
   if (pane !== "posts") {
     closeCommunityCompose();
     closeCommunityPost();
@@ -836,20 +841,30 @@ function paintCommunityRooms() {
   if (!list) return;
   list.replaceChildren();
   const query = communityRoomSearchText();
-  const rows = communityRooms.filter((row) => communityRoomMatches(row, query));
+  const rows = communityRooms.filter((row) => !row.hidden && communityRoomMatches(row, query));
   rows.forEach((row) => {
     const card = document.createElement("article");
     card.className = "community-room";
     const head = document.createElement("div");
     head.className = "community-room-head";
+    const title = document.createElement("div");
+    title.className = "community-room-title";
     const name = document.createElement("div");
     name.className = "community-room-name";
     name.textContent = row.name || "Room";
     const by = document.createElement("div");
     by.className = "community-room-by";
     by.textContent = "By: " + (row.handle || "user");
-    head.appendChild(name);
-    head.appendChild(by);
+    title.appendChild(name);
+    title.appendChild(by);
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "icon-btn community-room-more";
+    more.title = "More";
+    more.innerHTML = "&#8942;";
+    more.addEventListener("click", (e) => openCommunityRoomMenu(e, row));
+    head.appendChild(title);
+    head.appendChild(more);
     const mid = document.createElement("div");
     mid.className = "community-room-mid";
     const about = document.createElement("div");
@@ -876,15 +891,8 @@ function paintCommunityRooms() {
     btn.disabled = full;
     btn.textContent = full ? "Full" : (row.joined ? "Leave" : "Join");
     btn.addEventListener("click", () => {
-      if (row.joined) {
-        row.joined = false;
-        row.n = Math.max(0, (Number(row.n) || 1) - 1);
-      } else {
-        if (row.n >= 15) return;
-        row.joined = true;
-        row.n = Math.min(15, (Number(row.n) || 0) + 1);
-      }
-      paintCommunityRooms();
+      if (row.joined) leaveCommunityRoom(row);
+      else joinCommunityRoom(row);
     });
     foot.appendChild(pills);
     foot.appendChild(meta);
@@ -894,6 +902,195 @@ function paintCommunityRooms() {
     card.appendChild(foot);
     list.appendChild(card);
   });
+}
+
+function communityRoomMine(row) {
+  return !!(row && (row.owned || (myUsername && row.handle === myUsername)));
+}
+
+function joinCommunityRoom(row) {
+  if (!row || row.joined || row.n >= 15) return;
+  row.joined = true;
+  row.n = Math.min(15, (Number(row.n) || 0) + 1);
+  paintCommunityRooms();
+  paintCommunityRoomNav();
+}
+
+function leaveCommunityRoom(row) {
+  if (!row || !row.joined) return;
+  row.joined = false;
+  row.n = Math.max(0, (Number(row.n) || 1) - 1);
+  if (communityOpenRoom === row.id) showCommunityRow("rooms");
+  else {
+    paintCommunityRooms();
+    paintCommunityRoomNav();
+  }
+}
+
+function closeCommunityRoom(row) {
+  if (!row || !communityRoomMine(row)) return;
+  const at = communityRooms.indexOf(row);
+  if (at >= 0) communityRooms.splice(at, 1);
+  if (communityOpenRoom === row.id) showCommunityRow("rooms");
+  else {
+    paintCommunityRooms();
+    paintCommunityRoomNav();
+  }
+}
+
+function openCommunityRoomMenu(e, row) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof openContextMenu !== "function") return;
+  const rows = [];
+  if (communityRoomMine(row)) {
+    rows.push({ label: "Edit", disabled: true });
+    rows.push({
+      label: "Close",
+      danger: true,
+      onSelect: () => closeCommunityRoom(row)
+    });
+  }
+  rows.push({
+    label: row.hidden ? "Unhide" : "Hide",
+    onSelect: () => {
+      row.hidden = !row.hidden;
+      paintCommunityRooms();
+    }
+  });
+  rows.push({ label: "Report", disabled: true, danger: true });
+  openContextMenu(e.clientX, e.clientY, null, rows);
+}
+
+function paintCommunityRoomNav() {
+  const host = document.getElementById("community-nav-rooms");
+  if (!host) return;
+  const joined = communityRooms.filter((row) => row.joined);
+  host.replaceChildren();
+  host.hidden = joined.length === 0;
+  if (!joined.length) return;
+  const label = document.createElement("div");
+  label.className = "community-nav-label";
+  label.textContent = "Rooms";
+  host.appendChild(label);
+  joined.forEach((row) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "nav-item" + (communityOpenRoom === row.id ? " active" : "");
+    btn.setAttribute("data-community-room", row.id);
+    btn.textContent = row.name || "Room";
+    host.appendChild(btn);
+  });
+}
+
+function communityRoomLines(row) {
+  if (!row.lines) {
+    row.lines = [{
+      name: row.handle || "user",
+      body: "Room is open. Chat only.",
+      time: "now"
+    }];
+  }
+  return row.lines;
+}
+
+function communityRoomMembers(row) {
+  const pool = [
+    { name: "Mira", handle: "mira" },
+    { name: "Nova", handle: "nova" },
+    { name: "Reed", handle: "reed" },
+    { name: "Wren", handle: "wren" },
+    { name: "Sol", handle: "sol" },
+    { name: "Piper", handle: "piper" },
+    { name: "Vex", handle: "vex" },
+    { name: "Ash", handle: "ash" },
+    { name: "Jules", handle: "jules" },
+    { name: "Kite", handle: "kite" },
+    { name: "Quinn", handle: "quinn" },
+    { name: "Lane", handle: "lane" },
+    { name: "Rio", handle: "rio" },
+    { name: "Noa", handle: "noa" }
+  ];
+  const you = { name: myDisplayName || myUsername || "You", handle: myUsername || "you", mine: true };
+  const count = Math.max(1, Math.min(15, Number(row && row.n) || 1));
+  const others = pool.filter((person) => person.handle !== you.handle).slice(0, count - 1);
+  return [you].concat(others);
+}
+
+function paintCommunityRoomChat() {
+  const row = communityRooms.find((item) => item.id === communityOpenRoom);
+  const title = document.getElementById("community-room-chat-title");
+  const log = document.getElementById("community-room-chat-log");
+  const members = document.getElementById("community-room-chat-member-list");
+  if (title) title.textContent = row ? (row.name || "Room") : "Room";
+  if (log) {
+    log.replaceChildren();
+    if (row) {
+      communityRoomLines(row).forEach((line) => {
+        const item = document.createElement("div");
+        item.className = "community-room-line";
+        const who = document.createElement("span");
+        who.className = "community-room-line-name";
+        who.textContent = line.mine ? (myDisplayName || myUsername || "You") : (line.name || "User");
+        const body = document.createElement("span");
+        body.className = "community-room-line-body";
+        body.textContent = line.body || "";
+        item.appendChild(who);
+        item.appendChild(body);
+        log.appendChild(item);
+      });
+      log.scrollTop = log.scrollHeight;
+    }
+  }
+  if (members) {
+    members.replaceChildren();
+    if (row) {
+      communityRoomMembers(row).forEach((person) => {
+        const item = document.createElement("div");
+        item.className = "community-room-member";
+        const face = document.createElement("div");
+        face.className = "community-post-face";
+        face.textContent = communityLetter(person.name);
+        const name = document.createElement("span");
+        name.textContent = person.mine ? (person.name + " (you)") : person.name;
+        item.appendChild(face);
+        item.appendChild(name);
+        members.appendChild(item);
+      });
+    }
+  }
+}
+
+function openCommunityRoomChat(id) {
+  const row = communityRooms.find((item) => item.id === id && item.joined);
+  if (!row) return;
+  communityOpenRoom = row.id;
+  communityRow = "";
+  document.querySelectorAll("#community-sidebar-view [data-community-row]").forEach((btn) => {
+    btn.classList.remove("active");
+  });
+  ["community-pane-servers", "community-pane-posts", "community-pane-rooms", "community-pane-garterphone", "community-pane-settings"].forEach((paneId) => {
+    const pane = document.getElementById(paneId);
+    if (pane) pane.hidden = true;
+  });
+  const chat = document.getElementById("community-pane-room-chat");
+  if (chat) chat.hidden = false;
+  closeCommunityCompose();
+  closeCommunityPost();
+  paintCommunityRoomNav();
+  paintCommunityRoomChat();
+  const input = document.getElementById("community-room-chat-input");
+  if (input) input.focus();
+}
+
+function sendCommunityRoomLine() {
+  const row = communityRooms.find((item) => item.id === communityOpenRoom);
+  const input = document.getElementById("community-room-chat-input");
+  const body = input ? String(input.value || "").trim() : "";
+  if (!row || !body) return;
+  communityRoomLines(row).push({ mine: true, body: body, time: "now" });
+  if (input) input.value = "";
+  paintCommunityRoomChat();
 }
 
 function createCommunityRoom() {
@@ -910,6 +1107,7 @@ function createCommunityRoom() {
     owned: true
   });
   paintCommunityRooms();
+  paintCommunityRoomNav();
 }
 
 function paintCommunitySettings() {
@@ -1826,8 +2024,14 @@ document.getElementById("community-search").addEventListener("input", () => {
 });
 document.getElementById("community-sidebar-view").addEventListener("click", (e) => {
   const host = document.getElementById("community-sidebar-view");
+  if (!host || !host.contains(e.target)) return;
+  const roomBtn = e.target.closest("[data-community-room]");
+  if (roomBtn) {
+    openCommunityRoomChat(roomBtn.getAttribute("data-community-room"));
+    return;
+  }
   const btn = e.target.closest("[data-community-row]");
-  if (!btn || !host || !host.contains(btn)) return;
+  if (!btn) return;
   const id = btn.getAttribute("data-community-row");
   if (id) showCommunityRow(id);
 });
@@ -1858,6 +2062,15 @@ if (communityPostCommentInput) {
   });
 }
 document.getElementById("community-room-create").addEventListener("click", () => createCommunityRoom());
+document.getElementById("community-room-chat-send").addEventListener("click", () => sendCommunityRoomLine());
+const communityRoomChatInput = document.getElementById("community-room-chat-input");
+if (communityRoomChatInput) {
+  communityRoomChatInput.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    sendCommunityRoomLine();
+  });
+}
 const communityRoomSearch = document.getElementById("community-room-search");
 if (communityRoomSearch) {
   communityRoomSearch.addEventListener("input", () => paintCommunityRooms());

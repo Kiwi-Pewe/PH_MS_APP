@@ -3616,9 +3616,11 @@ html.no-chat-bubbles .msg-cluster { margin-bottom: calc(var(--cluster-gap, 20px)
    (#chat-messages.self-right / a future .self-left) so the eventual
    settings toggle only ever has to flip one class, not rewrite layout. */
 #chat-messages.self-right .msg-cluster.self,
-#channel-messages.self-right .msg-cluster.self { flex-direction: row-reverse; }
+#channel-messages.self-right .msg-cluster.self,
+#community-room-chat-log.self-right .msg-cluster.self { flex-direction: row-reverse; }
 #chat-messages:not(.self-right) .msg-cluster.self,
-#channel-messages:not(.self-right) .msg-cluster.self { flex-direction: row; }
+#channel-messages:not(.self-right) .msg-cluster.self,
+#community-room-chat-log:not(.self-right) .msg-cluster.self { flex-direction: row; }
 
 .cluster-avatar {
   position: relative;
@@ -3632,9 +3634,11 @@ html.no-chat-bubbles .msg-cluster { margin-bottom: calc(var(--cluster-gap, 20px)
 
 .cluster-body { display: flex; flex-direction: column; min-width: 0; max-width: 70%; }
 #chat-messages.self-right .msg-cluster.self .cluster-body,
-#channel-messages.self-right .msg-cluster.self .cluster-body { align-items: flex-end; }
+#channel-messages.self-right .msg-cluster.self .cluster-body,
+#community-room-chat-log.self-right .msg-cluster.self .cluster-body { align-items: flex-end; }
 #chat-messages:not(.self-right) .msg-cluster.self .cluster-body,
-#channel-messages:not(.self-right) .msg-cluster.self .cluster-body { align-items: flex-start; }
+#channel-messages:not(.self-right) .msg-cluster.self .cluster-body,
+#community-room-chat-log:not(.self-right) .msg-cluster.self .cluster-body { align-items: flex-start; }
 .msg-cluster.other .cluster-body { align-items: flex-start; }
 
 .cluster-header { display: flex; align-items: baseline; gap: 7px; margin-bottom: 4px; font-size: calc(13px * var(--message-scale)); }
@@ -3673,9 +3677,11 @@ html.no-chat-bubbles .msg-cluster { margin-bottom: calc(var(--cluster-gap, 20px)
    both at once instead of needing a second toggle. */
 .msg-cluster.other .bubble-line { text-align: left; }
 #chat-messages.self-right .msg-cluster.self .bubble-line,
-#channel-messages.self-right .msg-cluster.self .bubble-line { text-align: right; }
+#channel-messages.self-right .msg-cluster.self .bubble-line,
+#community-room-chat-log.self-right .msg-cluster.self .bubble-line { text-align: right; }
 #chat-messages:not(.self-right) .msg-cluster.self .bubble-line,
-#channel-messages:not(.self-right) .msg-cluster.self .bubble-line { text-align: left; }
+#channel-messages:not(.self-right) .msg-cluster.self .bubble-line,
+#community-room-chat-log:not(.self-right) .msg-cluster.self .bubble-line { text-align: left; }
 
 .edited-tag {
   font-size: 11px; font-weight: 400; font-style: italic;
@@ -12007,12 +12013,12 @@ button.voice-more-row:disabled,
 #community-nav::-webkit-scrollbar-corner { background: transparent; }
 #community-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .community-nav-label {
-  padding: 12px 8px 4px;
-  font-size: 12px;
+  padding: 14px 10px 6px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: var(--text);
 }
 #community-nav-rooms[hidden] { display: none; }
 #community-nav-foot {
@@ -12025,6 +12031,7 @@ button.voice-more-row:disabled,
   box-sizing: border-box;
 }
 #view-community { min-height: 0; padding: 16px 20px; }
+#view-community:has(#community-pane-room-chat:not([hidden])) { padding: 0; }
 .community-toolbar {
   flex: 0 0 auto;
   display: flex;
@@ -13313,56 +13320,27 @@ button.voice-more-row:disabled,
   white-space: nowrap;
 }
 .community-room-chat {
-  flex-direction: row;
+  flex-direction: column;
   border: 0;
+  border-radius: 0;
   background: transparent;
 }
-.community-room-chat-main {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--panel);
-}
-.community-room-chat-head {
-  flex: 0 0 auto;
-  padding: 14px 16px;
-  background: var(--rail);
-  border-bottom: 1px solid var(--border);
-  font-size: 16px;
-  font-weight: 800;
-}
-.community-room-chat-log {
+.community-room-chat-head { flex: 0 0 auto; }
+.community-room-chat-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
-.community-room-chat-log::-webkit-scrollbar { width: 8px; }
-.community-room-chat-log::-webkit-scrollbar-track,
-.community-room-chat-log::-webkit-scrollbar-corner { background: transparent; }
-.community-room-chat-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-.community-room-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 14px;
-  line-height: 1.45;
-}
-.community-room-line-name { font-weight: 700; }
-.community-room-line-body {
-  color: var(--text);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
+.community-room-chat-body::-webkit-scrollbar { width: 8px; }
+.community-room-chat-body::-webkit-scrollbar-track,
+.community-room-chat-body::-webkit-scrollbar-corner { background: transparent; }
+.community-room-chat-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+#community-room-chat-log { margin-top: auto; }
 .community-room-chat-compose {
   flex: 0 0 auto;
   display: flex;
@@ -13383,35 +13361,6 @@ button.voice-more-row:disabled,
   font-size: 13px;
 }
 #community-room-chat-input:focus { outline: none; border-color: var(--accent); }
-.community-room-chat-members {
-  flex: 0 0 220px;
-  min-height: 0;
-  margin-left: 12px;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--rail);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-.community-room-chat-members::-webkit-scrollbar { width: 8px; }
-.community-room-chat-members::-webkit-scrollbar-track,
-.community-room-chat-members::-webkit-scrollbar-corner { background: transparent; }
-.community-room-chat-members::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-.community-room-member {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 4px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.community-room-member .community-post-face {
-  width: 28px;
-  height: 28px;
-  font-size: 12px;
-}
 .community-garter-body {
   flex: 1 1 auto;
   display: flex;

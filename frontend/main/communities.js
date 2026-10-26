@@ -178,6 +178,7 @@ function showCommunityRow(id) {
   if (paneGarter) paneGarter.hidden = pane !== "garterphone";
   if (paneSettings) paneSettings.hidden = pane !== "settings";
   if (paneChat) paneChat.hidden = true;
+  if (typeof hideMemberList === "function") hideMemberList();
   paintCommunityRoomNav();
   if (pane !== "posts") {
     closeCommunityCompose();
@@ -988,7 +989,7 @@ function communityRoomLines(row) {
     row.lines = [{
       name: row.handle || "user",
       body: "Room is open. Chat only.",
-      time: "now"
+      at: new Date()
     }];
   }
   return row.lines;
@@ -1011,54 +1012,61 @@ function communityRoomMembers(row) {
     { name: "Rio", handle: "rio" },
     { name: "Noa", handle: "noa" }
   ];
-  const you = { name: myDisplayName || myUsername || "You", handle: myUsername || "you", mine: true };
+  const you = {
+    id: myUserId || "",
+    username: myUsername || "you",
+    display_name: myDisplayName || myUsername || "You",
+    status: "online",
+    mine: true
+  };
   const count = Math.max(1, Math.min(15, Number(row && row.n) || 1));
-  const others = pool.filter((person) => person.handle !== you.handle).slice(0, count - 1);
+  const others = pool.filter((person) => person.handle !== you.username).slice(0, count - 1).map((person) => ({
+    id: "",
+    username: person.handle,
+    display_name: person.name,
+    status: "online"
+  }));
   return [you].concat(others);
+}
+
+function communityRoomMessage(line) {
+  const mine = !!line.mine;
+  return {
+    isMine: mine,
+    username: mine ? (myUsername || "you") : (line.name || "user"),
+    nickname: mine ? (myDisplayName || myUsername || "You") : (line.name || "user"),
+    senderId: mine ? (myUserId || "") : "",
+    content: line.body || "",
+    time: line.at instanceof Date ? line.at : new Date(),
+    chatKind: "party",
+    reactions: [],
+    edited: false
+  };
+}
+
+function paintCommunityRoomMembers(row) {
+  if (typeof showMemberListPanel !== "function" || typeof renderMemberList !== "function") return;
+  memberListScope = "room";
+  memberListScopeId = row ? row.id : null;
+  memberList = row ? communityRoomMembers(row) : [];
+  showMemberListPanel();
+  renderMemberList();
 }
 
 function paintCommunityRoomChat() {
   const row = communityRooms.find((item) => item.id === communityOpenRoom);
   const title = document.getElementById("community-room-chat-title");
   const log = document.getElementById("community-room-chat-log");
-  const members = document.getElementById("community-room-chat-member-list");
+  const body = log && log.parentElement;
   if (title) title.textContent = row ? (row.name || "Room") : "Room";
   if (log) {
     log.replaceChildren();
-    if (row) {
-      communityRoomLines(row).forEach((line) => {
-        const item = document.createElement("div");
-        item.className = "community-room-line";
-        const who = document.createElement("span");
-        who.className = "community-room-line-name";
-        who.textContent = line.mine ? (myDisplayName || myUsername || "You") : (line.name || "User");
-        const body = document.createElement("span");
-        body.className = "community-room-line-body";
-        body.textContent = line.body || "";
-        item.appendChild(who);
-        item.appendChild(body);
-        log.appendChild(item);
-      });
-      log.scrollTop = log.scrollHeight;
+    if (row && typeof startNewCluster === "function") {
+      communityRoomLines(row).forEach((line) => startNewCluster(log, communityRoomMessage(line)));
     }
   }
-  if (members) {
-    members.replaceChildren();
-    if (row) {
-      communityRoomMembers(row).forEach((person) => {
-        const item = document.createElement("div");
-        item.className = "community-room-member";
-        const face = document.createElement("div");
-        face.className = "community-post-face";
-        face.textContent = communityLetter(person.name);
-        const name = document.createElement("span");
-        name.textContent = person.mine ? (person.name + " (you)") : person.name;
-        item.appendChild(face);
-        item.appendChild(name);
-        members.appendChild(item);
-      });
-    }
-  }
+  if (body) body.scrollTop = body.scrollHeight;
+  if (row) paintCommunityRoomMembers(row);
 }
 
 function openCommunityRoomChat(id) {
@@ -1088,7 +1096,7 @@ function sendCommunityRoomLine() {
   const input = document.getElementById("community-room-chat-input");
   const body = input ? String(input.value || "").trim() : "";
   if (!row || !body) return;
-  communityRoomLines(row).push({ mine: true, body: body, time: "now" });
+  communityRoomLines(row).push({ mine: true, name: myUsername || "you", body: body, at: new Date() });
   if (input) input.value = "";
   paintCommunityRoomChat();
 }
@@ -1271,6 +1279,8 @@ function closeCommunitiesChrome() {
   closeCommunityFilterPicker();
   closeCommunityCompose();
   closeCommunityPost();
+  communityOpenRoom = null;
+  if (typeof hideMemberList === "function") hideMemberList();
   isCommunitiesOpen = false;
 }
 

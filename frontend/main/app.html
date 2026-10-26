@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=448">
+<link rel="stylesheet" href="app.css?v=449">
 </head>
 <body>
 
@@ -992,18 +992,16 @@
           </div>
         </div>
         <div id="community-pane-room-chat" class="community-pane community-room-chat" hidden>
-          <div class="community-room-chat-main">
-            <div class="community-room-chat-head" id="community-room-chat-title">Room</div>
-            <div class="community-room-chat-log" id="community-room-chat-log"></div>
-            <div class="community-room-chat-compose">
-              <input type="text" id="community-room-chat-input" placeholder="Message" maxlength="2000" autocomplete="off" spellcheck="false">
-              <button type="button" class="pill-btn" id="community-room-chat-send">Send</button>
-            </div>
+          <div class="view-header community-room-chat-head">
+            <span id="community-room-chat-title">Room</span>
           </div>
-          <aside class="community-room-chat-members">
-            <div class="community-nav-label">Members</div>
-            <div id="community-room-chat-member-list"></div>
-          </aside>
+          <div class="community-room-chat-body">
+            <div id="community-room-chat-log" class="self-right"></div>
+          </div>
+          <div class="community-room-chat-compose">
+            <input type="text" id="community-room-chat-input" placeholder="Message" maxlength="2000" autocomplete="off" spellcheck="false">
+            <button type="button" class="pill-btn" id="community-room-chat-send">Send</button>
+          </div>
         </div>
         <div id="community-pane-garterphone" class="community-pane" hidden>
           <div class="community-band-title">
@@ -2713,7 +2711,7 @@
     </div>
 <script src="boot.js?v=147"></script>
 <script src="app-shell.js?v=75"></script>
-<script src="communities.js?v=27"></script>
+<script src="communities.js?v=28"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=52"></script>

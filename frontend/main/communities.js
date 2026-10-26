@@ -323,8 +323,8 @@ function fillCommunityPostHead(host, post, opts) {
       openMiniProfile(myUserId, face);
     });
   }
-  const by = document.createElement("div");
-  by.className = "community-post-by";
+  const names = document.createElement("div");
+  names.className = "community-post-names";
   const nameEl = document.createElement("span");
   nameEl.className = "community-post-name" + (person.mine ? " is-mine" : "");
   nameEl.textContent = person.name;
@@ -334,31 +334,30 @@ function fillCommunityPostHead(host, post, opts) {
       openMiniProfile(myUserId, nameEl);
     });
   }
-  const timeEl = document.createElement("span");
-  timeEl.className = "community-post-time";
-  timeEl.textContent = (post && post.time) || "";
-  by.appendChild(nameEl);
-  if (!opts.detail) {
-    const handleEl = document.createElement("span");
-    handleEl.className = "community-post-handle";
-    handleEl.textContent = "@" + person.handle;
-    by.appendChild(handleEl);
-  }
-  if (post && post.time) by.appendChild(timeEl);
+  const handleEl = document.createElement("span");
+  handleEl.className = "community-post-handle";
+  handleEl.textContent = "@" + person.handle;
+  names.appendChild(nameEl);
+  names.appendChild(handleEl);
   who.appendChild(face);
-  who.appendChild(by);
-  if (opts.detail) {
-    const close = document.createElement("button");
-    close.type = "button";
-    close.className = "icon-btn";
-    close.title = "Close";
-    close.textContent = "\u00d7";
-    close.addEventListener("click", (e) => {
-      e.stopPropagation();
-      closeCommunityPost();
-    });
-    who.appendChild(close);
+  who.appendChild(names);
+  if (post && post.time) {
+    const rule = document.createElement("span");
+    rule.className = "community-post-rule";
+    rule.textContent = "|";
+    const timeEl = document.createElement("span");
+    timeEl.className = "community-post-time";
+    timeEl.textContent = post.time;
+    who.appendChild(rule);
+    who.appendChild(timeEl);
   }
+  const more = document.createElement("button");
+  more.type = "button";
+  more.className = "icon-btn community-post-more";
+  more.title = "More";
+  more.innerHTML = "&#8942;";
+  more.addEventListener("click", (e) => openCommunityPostMenu(e, post));
+  who.appendChild(more);
   host.appendChild(who);
   if (post && post.topics && post.topics.length) {
     const row = document.createElement("div");
@@ -383,7 +382,10 @@ function fillCommunityPostMid(host, post) {
   const visual = (post && post.attachments || []).filter((row) => row && row.url && row.kind !== "audio");
   if (visual.length && typeof buildPostMedia === "function") {
     const media = buildPostMedia(visual);
-    if (media) host.appendChild(media);
+    if (media) {
+      media.classList.add("community-post-visual");
+      host.appendChild(media);
+    }
   } else if (post && post.media) {
     const media = document.createElement("div");
     media.className = "community-post-media" + (post.explicit ? " md-explicit-media" : "");
@@ -475,30 +477,45 @@ function paintCommunityPostCard(post) {
   return card;
 }
 
+function deleteCommunityPost(post) {
+  if (!post) return;
+  const draftAt = communityDraftPosts.indexOf(post);
+  if (draftAt >= 0) communityDraftPosts.splice(draftAt, 1);
+  const seedAt = COMMUNITY_PLACEHOLDER_POSTS.indexOf(post);
+  if (seedAt >= 0) COMMUNITY_PLACEHOLDER_POSTS.splice(seedAt, 1);
+  if (communityOpenPost === post) closeCommunityPost();
+  paintCommunityPosts();
+}
+
 function openCommunityPostMenu(e, post) {
   e.preventDefault();
   e.stopPropagation();
   if (typeof openContextMenu !== "function") return;
-  const name = post && post.mine
-    ? (myDisplayName || myUsername || post.name || "You")
-    : ((post && post.name) || "User");
-  const handle = post && post.mine
-    ? (myUsername || post.handle || "you")
-    : ((post && post.handle) || "user");
+  const person = communityPostPerson(post);
+  const rows = [];
+  if (person.mine) {
+    rows.push({ label: "Edit", disabled: true });
+    rows.push({
+      label: "Delete",
+      danger: true,
+      onSelect: () => deleteCommunityPost(post)
+    });
+  } else {
+    rows.push({ label: "Follow", disabled: true });
+  }
+  rows.push({
+    label: "Copy Post Link",
+    onSelect: () => {
+      const text = communityPostLink(post);
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
+    }
+  });
+  rows.push({ label: "Report", disabled: true, danger: true });
   openContextMenu(e.clientX, e.clientY, {
-    avatarText: communityLetter(name),
-    title: name,
-    subtitle: "@" + handle
-  }, [
-    {
-      label: "Copy Post Link",
-      onSelect: () => {
-        const text = communityPostLink(post);
-        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
-      }
-    },
-    { label: "Report", disabled: true, danger: true }
-  ]);
+    avatarText: communityLetter(person.name),
+    title: person.name,
+    subtitle: "@" + person.handle
+  }, rows);
 }
 
 function paintCommunityPostComment(row) {

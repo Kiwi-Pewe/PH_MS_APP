@@ -54,12 +54,12 @@ let communityMuteTopics = [
 ];
 
 const COMMUNITY_PLACEHOLDER_ROOMS = [
-  { id: "r1", name: "Late Night Vent", topics: ["vent", "advice"], n: 12, joined: false },
-  { id: "r2", name: "Pixel Art Drop", topics: ["art"], n: 3, joined: false },
-  { id: "r3", name: "Music Share", topics: ["music"], n: 15, joined: false },
-  { id: "r4", name: "Co-op LFG", topics: ["games"], n: 8, joined: false },
-  { id: "r5", name: "Study With Me", topics: ["study"], n: 1, joined: false },
-  { id: "r6", name: "After Dark Chat", topics: ["nsfw"], n: 14, joined: false }
+  { id: "r1", name: "Late Night Vent", handle: "mira", about: "Quiet space to talk through the day. No advice unless someone asks.", topics: ["vent", "advice"], n: 12, joined: false },
+  { id: "r2", name: "Pixel Art Drop", handle: "wren", about: "WIPs, palettes, and finish-this-sprite energy. Characters only.", topics: ["art"], n: 3, joined: false },
+  { id: "r3", name: "Music Share", handle: "nova", about: "Night drives, rain samples, and anything with a heavy low end.", topics: ["music"], n: 15, joined: false },
+  { id: "r4", name: "Co-op LFG", handle: "reed", about: "Short sessions. Two slots. Voice optional.", topics: ["games"], n: 8, joined: false },
+  { id: "r5", name: "Study With Me", handle: "sol", about: "Cam optional. Phones down. We check in on the hour.", topics: ["study"], n: 1, joined: false },
+  { id: "r6", name: "After Dark Chat", handle: "vex", about: "18+. Keep it in the room. Don't leak people.", topics: ["nsfw"], n: 14, joined: false }
 ];
 let communityRooms = COMMUNITY_PLACEHOLDER_ROOMS.map((row) => Object.assign({}, row, { topics: row.topics.slice() }));
 
@@ -816,37 +816,59 @@ function submitCommunityPost() {
   paintCommunityPosts();
 }
 
+function communityRoomSearchText() {
+  const input = document.getElementById("community-room-search");
+  return input ? String(input.value || "").trim().toLowerCase() : "";
+}
+
+function communityRoomMatches(row, query) {
+  if (!query) return true;
+  const name = String((row && row.name) || "").toLowerCase();
+  if (name.indexOf(query) >= 0) return true;
+  const tags = (row && row.topics) || [];
+  return tags.some((topic) => String(topic || "").toLowerCase().indexOf(query) >= 0);
+}
+
 function paintCommunityRooms() {
+  const create = document.getElementById("community-room-create");
+  if (create) create.disabled = communityRooms.some((row) => row.owned);
   const list = document.getElementById("community-rooms-list");
   if (!list) return;
   list.replaceChildren();
-  communityRooms.forEach((row) => {
+  const query = communityRoomSearchText();
+  const rows = communityRooms.filter((row) => communityRoomMatches(row, query));
+  rows.forEach((row) => {
     const card = document.createElement("article");
     card.className = "community-room";
-    const main = document.createElement("div");
-    main.className = "community-room-main";
+    const head = document.createElement("div");
+    head.className = "community-room-head";
     const name = document.createElement("div");
     name.className = "community-room-name";
-    name.textContent = row.name;
+    name.textContent = row.name || "Room";
+    const by = document.createElement("div");
+    by.className = "community-room-by";
+    by.textContent = "By: " + (row.handle || "user");
+    head.appendChild(name);
+    head.appendChild(by);
+    const mid = document.createElement("div");
+    mid.className = "community-room-mid";
+    const about = document.createElement("div");
+    about.className = "community-room-about" + (row.about ? "" : " is-empty");
+    about.textContent = row.about || "No description.";
+    mid.appendChild(about);
+    const foot = document.createElement("div");
+    foot.className = "community-room-foot";
+    const pills = document.createElement("div");
+    pills.className = "community-post-pills";
+    (row.topics || []).forEach((topic) => {
+      const pill = document.createElement("span");
+      pill.className = "community-tag";
+      pill.textContent = topic;
+      pills.appendChild(pill);
+    });
     const meta = document.createElement("div");
     meta.className = "community-room-meta";
-    const bits = [];
-    if (row.topics && row.topics.length) bits.push(row.topics.join(" · "));
-    bits.push(row.n + "/15");
-    meta.textContent = bits.join(" · ");
-    main.appendChild(name);
-    if (row.topics && row.topics.length) {
-      const pills = document.createElement("div");
-      pills.className = "community-post-pills";
-      row.topics.forEach((topic) => {
-        const pill = document.createElement("span");
-        pill.className = "community-tag";
-        pill.textContent = topic;
-        pills.appendChild(pill);
-      });
-      main.appendChild(pills);
-    }
-    main.appendChild(meta);
+    meta.textContent = (Number(row.n) || 0) + "/15";
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = row.joined ? "ghost-btn" : "pill-btn";
@@ -864,26 +886,29 @@ function paintCommunityRooms() {
       }
       paintCommunityRooms();
     });
-    card.appendChild(main);
-    card.appendChild(btn);
+    foot.appendChild(pills);
+    foot.appendChild(meta);
+    foot.appendChild(btn);
+    card.appendChild(head);
+    card.appendChild(mid);
+    card.appendChild(foot);
     list.appendChild(card);
   });
 }
 
 function createCommunityRoom() {
-  const input = document.getElementById("community-room-name");
-  const name = input ? String(input.value || "").trim() : "";
-  if (!name) return;
+  if (communityRooms.some((row) => row.owned)) return;
   communityRoomSeq += 1;
   communityRooms.unshift({
     id: "r" + communityRoomSeq,
-    name: name.slice(0, 80),
+    name: "New Room",
+    handle: myUsername || "you",
+    about: "",
     topics: [],
     n: 1,
     joined: true,
     owned: true
   });
-  if (input) input.value = "";
   paintCommunityRooms();
 }
 
@@ -1833,13 +1858,9 @@ if (communityPostCommentInput) {
   });
 }
 document.getElementById("community-room-create").addEventListener("click", () => createCommunityRoom());
-const communityRoomName = document.getElementById("community-room-name");
-if (communityRoomName) {
-  communityRoomName.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    createCommunityRoom();
-  });
+const communityRoomSearch = document.getElementById("community-room-search");
+if (communityRoomSearch) {
+  communityRoomSearch.addEventListener("input", () => paintCommunityRooms());
 }
 document.getElementById("community-garter-start").addEventListener("click", () => {
   const status = document.getElementById("community-garter-status");

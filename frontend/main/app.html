@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=446">
+<link rel="stylesheet" href="app.css?v=447">
 </head>
 <body>
 
@@ -978,12 +978,13 @@
           <div class="community-band-title">
             <h2 class="community-list-title">Rooms</h2>
             <p class="community-list-help">Walk-in chat rooms. Not a server. Not a party. Anyone can create one. Rooms wipe after 48 hours idle.</p>
-          </div>
-          <div class="community-band-body">
+            <div class="community-list-divider"></div>
             <div class="community-pane-toolbar">
-              <input type="text" id="community-room-name" class="community-search" placeholder="Room name" maxlength="80" autocomplete="off" spellcheck="false">
+              <input type="search" id="community-room-search" class="community-search" placeholder="Search rooms" maxlength="80" autocomplete="off" spellcheck="false">
               <button type="button" class="pill-btn" id="community-room-create">Create Room</button>
             </div>
+          </div>
+          <div class="community-band-body">
             <div id="community-rooms-list"></div>
             <p class="community-list-end">You have reached the end of the list.</p>
           </div>
@@ -2696,7 +2697,7 @@
     </div>
 <script src="boot.js?v=147"></script>
 <script src="app-shell.js?v=75"></script>
-<script src="communities.js?v=25"></script>
+<script src="communities.js?v=26"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=52"></script>

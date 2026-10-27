@@ -12020,6 +12020,7 @@ button.voice-more-row:disabled,
   text-transform: uppercase;
   color: var(--text);
 }
+#community-nav .nav-item { padding-left: 26px; }
 #community-nav-rooms[hidden] { display: none; }
 #community-nav-foot {
   flex: 0 0 auto;
@@ -12978,6 +12979,7 @@ button.voice-more-row:disabled,
   flex-direction: column;
   gap: 12px;
 }
+#community-post-list > .community-list-help { text-align: center; }
 #community-rooms-list,
 #community-settings-body {
   width: 720px;

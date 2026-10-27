@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=449">
+<link rel="stylesheet" href="app.css?v=450">
 </head>
 <body>
 
@@ -983,7 +983,7 @@
             <div class="community-list-divider"></div>
             <div class="community-pane-toolbar">
               <input type="search" id="community-room-search" class="community-search" placeholder="Search rooms" maxlength="80" autocomplete="off" spellcheck="false">
-              <button type="button" class="pill-btn" id="community-room-create">Create Room</button>
+              <button type="button" class="pill-btn" id="community-room-create" disabled>Create Room</button>
             </div>
           </div>
           <div class="community-band-body">
@@ -1010,7 +1010,7 @@
           </div>
           <div class="community-band-body">
             <div class="community-garter-body">
-              <button type="button" class="pill-btn" id="community-garter-start">Find someone</button>
+              <button type="button" class="pill-btn" id="community-garter-start" disabled>Find someone</button>
               <p class="community-list-help" id="community-garter-status">You will be paired with a stranger. Either of you can end it.</p>
             </div>
           </div>
@@ -2663,7 +2663,7 @@
 <script src="language-time.js?v=1"></script>
 <script src="util.js?v=53"></script>
 <script src="media.js?v=62"></script>
-<script src="post-media.js?v=60"></script>
+<script src="post-media.js?v=61"></script>
     <div id="voice-share-overlay" hidden>
       <div id="voice-share-card" role="dialog" aria-label="Share your screen">
         <div class="voice-share-tabs" role="tablist">
@@ -2709,12 +2709,13 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=147"></script>
-<script src="app-shell.js?v=75"></script>
-<script src="communities.js?v=28"></script>
+<script src="boot.js?v=148"></script>
+<script src="app-shell.js?v=76"></script>
+<script src="communities.js?v=29"></script>
+<script src="community-posts.js?v=1"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
-<script src="server-settings.js?v=52"></script>
+<script src="server-settings.js?v=53"></script>
 <script src="server-listing.js?v=3"></script>
 <script src="server-roles.js?v=38"></script>
 <script src="server-moderation.js?v=6"></script>

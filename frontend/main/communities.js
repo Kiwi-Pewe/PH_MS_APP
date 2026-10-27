@@ -37,108 +37,23 @@ const COMMUNITY_ROW_PANES = {
 };
 
 let communityRow = "servers";
-let communityDraftPosts = [];
 let communityOpenPost = null;
 const COMMUNITY_TOPIC_MAX = 4;
 let communityComposeTopics = [];
 let communityComposeTopicDraft = null;
-let communityRoomSeq = 7;
 let communityOpenRoom = null;
-let communityMuteWords = [
-  { word: "spoilers", mode: "hide" },
-  { word: "nsfw", mode: "cover" },
-  { word: "politics", mode: "hide" }
-];
-let communityMuteTopics = [
-  { word: "horror", mode: "cover" },
-  { word: "gambling", mode: "hide" }
-];
+let communityMuteWords = [];
+let communityMuteTopics = [];
+let communityRooms = [];
 
-const COMMUNITY_PLACEHOLDER_ROOMS = [
-  { id: "r1", name: "Late Night Vent", handle: "mira", about: "Quiet space to talk through the day. No advice unless someone asks.", topics: ["vent", "advice"], n: 12, joined: false },
-  { id: "r2", name: "Pixel Art Drop", handle: "wren", about: "WIPs, palettes, and finish-this-sprite energy. Characters only.", topics: ["art"], n: 3, joined: false },
-  { id: "r3", name: "Music Share", handle: "nova", about: "Night drives, rain samples, and anything with a heavy low end.", topics: ["music"], n: 15, joined: false },
-  { id: "r4", name: "Co-op LFG", handle: "reed", about: "Short sessions. Two slots. Voice optional.", topics: ["games"], n: 8, joined: false },
-  { id: "r5", name: "Study With Me", handle: "sol", about: "Cam optional. Phones down. We check in on the hour.", topics: ["study"], n: 1, joined: false },
-  { id: "r6", name: "After Dark Chat", handle: "vex", about: "18+. Keep it in the room. Don't leak people.", topics: ["nsfw"], n: 14, joined: false }
-];
-let communityRooms = COMMUNITY_PLACEHOLDER_ROOMS.map((row) => Object.assign({}, row, { topics: row.topics.slice() }));
-
-const COMMUNITY_PLACEHOLDER_POSTS = [
-  { code: "k7m2q9w4xp", name: "You", handle: "you", mine: true, color: "#5865f2", time: "2m", body: "checking how a short post sits at the top of Following.", replies: 0, reposts: 0, likes: 2, lenses: ["following", "explore"] },
-  { code: "aj2f7saw06", name: "You", handle: "you", mine: true, color: "#5865f2", time: "18m", body: "longer one for wrap testing.\n\ncomposer lives on Following, Timeline, and Explore. one post, three lenses. permalink shape is oneira.cc/posts/name/code.", hashtags: ["oneira"], topics: ["design"], replies: 4, reposts: 1, likes: 11, lenses: ["following", "timeline", "explore"] },
-  { code: "n4c8h2v0qm", name: "You", handle: "you", mine: true, color: "#5865f2", time: "yesterday", body: "image post from me so we can line up the media box with the name row.", media: true, replies: 1, reposts: 0, likes: 6, lenses: ["following", "explore"] },
-  { code: "b3p6t1x8kd", name: "Mira", handle: "mira", color: "#eb459e", time: "4m", body: "gm", replies: 12, reposts: 2, likes: 48, dislikes: 6, lenses: ["following", "explore"] },
-  { code: "c9w5r7j2la", name: "Nova", handle: "nova", color: "#57f287", time: "9m", body: "new mix is mostly night drives and rain samples. if you have a track that belongs next to that, drop it.\n\nstill looking for something with a heavy low end and almost no vocal.", hashtags: ["music", "nowplaying"], topics: ["music"], replies: 7, reposts: 3, likes: 29, lenses: ["following", "timeline", "explore"] },
-  { code: "d2h8m4q6ye", name: "Reed", handle: "reed", color: "#fee75c", time: "21m", body: "anyone up for a short co-op later. two slots. voice optional.", hashtags: ["lfg"], topics: ["games"], replies: 15, reposts: 0, likes: 8, lenses: ["timeline", "explore"] },
-  { code: "e6k1n9s3wf", name: "Ash", handle: "ash", color: "#ed4245", time: "36m", body: "the sky from the roof an hour ago.", media: true, replies: 3, reposts: 6, likes: 41, lenses: ["following", "explore"] },
-  { code: "f8t4p2c7ub", name: "Jules", handle: "jules", color: "#9b59b6", time: "51m", body: "explicit cover test. click the grey bar to open the text, click again to close it.", explicit: true, replies: 2, reposts: 0, likes: 5, lenses: ["timeline", "explore"] },
-  { code: "g1y5v8h3zd", name: "Kite", handle: "kite", color: "#3498db", time: "1h", body: "this layout is growing on me.", replies: 0, reposts: 14, likes: 122, dislikes: 4, lenses: ["following", "explore"] },
-  { code: "h7a3l6r9qi", name: "Wren", handle: "wren", color: "#1abc9c", time: "1h", body: "commission slot open this week. characters only, no mechs.", media: true, hashtags: ["art", "commissions"], topics: ["art"], replies: 9, reposts: 4, likes: 67, lenses: ["following", "timeline", "explore"] },
-  { code: "i4s9d2m5ok", name: "Sol", handle: "sol", color: "#e67e22", time: "2h", body: "explore-only stranger post. should not show on Following if we slice this right.", replies: 1, reposts: 0, likes: 3, lenses: ["explore"] },
-  { code: "j8c6w1t4pn", name: "Piper", handle: "piper", color: "#2ecc71", time: "2h", body: "quick sauce:\n- butter\n- garlic\n- tomato paste\n- pasta water until it looks wrong, then it looks right", topics: ["food"], replies: 6, reposts: 8, likes: 54, lenses: ["following", "timeline", "explore"] },
-  { code: "k2n7f5b8xg", name: "Vex", handle: "vex", color: "#8e44ad", time: "3h", body: "do not read this if you have not finished the new episode.", explicit: true, topics: ["horror"], replies: 11, reposts: 2, likes: 19, lenses: ["timeline", "explore"] },
-  { code: "l5q3y9h1vc", name: "Mira", handle: "mira", color: "#eb459e", time: "3h", body: "wait, we can actually sit and talk in here without a server?", replies: 28, reposts: 5, likes: 73, lenses: ["following", "explore"] },
-  { code: "m9p4k7s2wd", name: "Nova", handle: "nova", color: "#57f287", time: "4h", body: "hashtag pile for spacing.", hashtags: ["night", "rain", "drive", "mix"], replies: 0, reposts: 1, likes: 9, lenses: ["following", "timeline", "explore"] },
-  { code: "n6t8a1r5je", name: "Reed", handle: "reed", color: "#fee75c", time: "5h", body: "long wrap. the feed column should hold a paragraph without shoving the action row off the card or clipping the permalink. if this line keeps going it is because we need to see five-plus lines of body before a scroll appears on the composer, not on the post itself. posts can be long. the card grows.", topics: ["design"], replies: 2, reposts: 0, likes: 4, lenses: ["timeline", "explore"] },
-  { code: "o3h2c9v6lf", name: "Ash", handle: "ash", color: "#ed4245", time: "6h", body: "need a second monitor recommendation that is not a curved gaming slab.", replies: 17, reposts: 1, likes: 13, lenses: ["following", "explore"] },
-  { code: "p7w5m4d8qb", name: "Jules", handle: "jules", color: "#9b59b6", time: "7h", body: "one line from someone you do not follow.", replies: 0, reposts: 0, likes: 1, lenses: ["explore"] },
-  { code: "q1z6s3n9tk", name: "Kite", handle: "kite", color: "#3498db", time: "8h", body: "photo behind an explicit cover.", media: true, explicit: true, topics: ["nsfw"], replies: 4, reposts: 2, likes: 16, lenses: ["timeline", "explore"] },
-  { code: "r8e4b7y2uh", name: "Wren", handle: "wren", color: "#1abc9c", time: "9h", body: "saving this layout before it changes.", replies: 0, reposts: 0, likes: 7, lenses: ["following", "explore"] },
-  { code: "s5l9p1c6wi", name: "Sol", handle: "sol", color: "#e67e22", time: "11h", body: "library until midnight. headphones on, chat off.", topics: ["study"], replies: 3, reposts: 0, likes: 22, lenses: ["timeline", "explore"] },
-  { code: "t2k8f4m7xj", name: "Piper", handle: "piper", color: "#2ecc71", time: "14h", body: "unpopular: most \"cozy\" games are just menus with extra steps and a fireplace loop. still playing them.", hashtags: ["games"], replies: 31, reposts: 9, likes: 88, dislikes: 21, lenses: ["explore"] },
-  { code: "u9d3w6q1yk", name: "Vex", handle: "vex", color: "#8e44ad", time: "16h", body: "two tags, no topic, following slice.", hashtags: ["late", "chat"], replies: 1, reposts: 0, likes: 4, lenses: ["following", "explore"] },
-  { code: "v4n7h2s8zl", name: "Mira", handle: "mira", color: "#eb459e", time: "yesterday", body: "if you are new here: Rooms are walk-in. Servers are the real communities. do not mix those up.", topics: ["advice"], replies: 8, reposts: 12, likes: 95, lenses: ["timeline", "explore"] },
-  { code: "w6c1r5t9am", name: "Nova", handle: "nova", color: "#57f287", time: "yesterday", body: "dropped a longer clip. still stitching the last two minutes.", media: true, hashtags: ["wip"], topics: ["music"], replies: 5, reposts: 3, likes: 33, lenses: ["following", "timeline", "explore"] }
-];
-
-const COMMUNITY_POST_COMMENTS = {
-  "aj2f7saw06": [
-    { name: "Mira", handle: "mira", color: "#eb459e", time: "12m", body: "the three lenses thing finally clicked." },
-    { name: "Reed", handle: "reed", color: "#fee75c", time: "9m", body: "permalink in the context menu is the right call. less noise on the card." }
-  ],
-  "c9w5r7j2la": [
-    { name: "Ash", handle: "ash", color: "#ed4245", time: "6m", body: "send the mix." },
-    { name: "Wren", handle: "wren", color: "#1abc9c", time: "4m", body: "got something with no vocal and a mean kick. dropping it in dms." },
-    { name: "Kite", handle: "kite", color: "#3498db", time: "1m", body: "this is the one." }
-  ],
-  "d2h8m4q6ye": [
-    { name: "Sol", handle: "sol", color: "#e67e22", time: "10m", body: "i can fill a slot after 8." },
-    { name: "Piper", handle: "piper", color: "#2ecc71", time: "3m", body: "voice on, i am rust." }
-  ],
-  "b3p6t1x8kd": [
-    { name: "Nova", handle: "nova", color: "#57f287", time: "2m", body: "gm" },
-    { name: "Jules", handle: "jules", color: "#9b59b6", time: "1m", body: "gm" }
-  ],
-  "h7a3l6r9qi": [
-    { name: "Mira", handle: "mira", color: "#eb459e", time: "40m", body: "character sheet is in your dms. full color, no mechs." },
-    { name: "Vex", handle: "vex", color: "#8e44ad", time: "22m", body: "saving a slot for next week if this one fills." }
-  ],
-  "j8c6w1t4pn": [
-    { name: "Reed", handle: "reed", color: "#fee75c", time: "1h", body: "pasta water until it looks wrong is the whole craft." }
-  ],
-  "l5q3y9h1vc": [
-    { name: "Ash", handle: "ash", color: "#ed4245", time: "2h", body: "rooms are walk-in. servers are the real thing. needed that spelled out." },
-    { name: "Kite", handle: "kite", color: "#3498db", time: "1h", body: "bookmarking this for the next person who asks." },
-    { name: "Sol", handle: "sol", color: "#e67e22", time: "50m", body: "still going to mix them up once." }
-  ],
-  "t2k8f4m7xj": [
-    { name: "Wren", handle: "wren", color: "#1abc9c", time: "8h", body: "called out." },
-    { name: "Nova", handle: "nova", color: "#57f287", time: "7h", body: "and i will still boot the fireplace loop after work." }
-  ],
-  "v4n7h2s8zl": [
-    { name: "Piper", handle: "piper", color: "#2ecc71", time: "yesterday", body: "this should live at the top of Explore for a week." }
-  ],
-  "w6c1r5t9am": [
-    { name: "Jules", handle: "jules", color: "#9b59b6", time: "16h", body: "the last two minutes are the whole reason to wait." }
-  ]
-};
-
-function communityPostCode() {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let out = "";
-  for (let i = 0; i < 10; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  return out;
+function communityEmojiCount(text) {
+  let count = 0;
+  for (const ch of String(text || "")) {
+    const code = ch.codePointAt(0);
+    if (code === 0x200d || code === 0xfe0f || (code >= 0x1f3fb && code <= 0x1f3ff)) continue;
+    if ((code >= 0x1f300 && code <= 0x1faff) || (code >= 0x2600 && code <= 0x27bf) || (code >= 0x1f1e6 && code <= 0x1f1ff)) count += 1;
+  }
+  return count;
 }
 
 function communityRowTitle(id) {
@@ -184,7 +99,10 @@ function showCommunityRow(id) {
     closeCommunityCompose();
     closeCommunityPost();
   }
-  if (pane === "posts") paintCommunityPosts();
+  if (pane === "posts") {
+    paintCommunityPosts();
+    if (typeof loadCommunityPosts === "function") loadCommunityPosts(communityRow, true);
+  }
   if (pane === "rooms") paintCommunityRooms();
   if (pane === "settings") paintCommunitySettings();
   if (pane === "garterphone") {
@@ -201,9 +119,14 @@ function paintCommunityPosts() {
   const list = document.getElementById("community-post-list");
   if (!list) return;
   list.replaceChildren();
-  const rows = communityDraftPosts.concat(COMMUNITY_PLACEHOLDER_POSTS).filter((post) => {
-    return !post.lenses || post.lenses.indexOf(communityRow) >= 0;
-  });
+  const rows = (typeof communityPostRows !== "undefined" && communityPostRows) || [];
+  if (!rows.length) {
+    const empty = document.createElement("p");
+    empty.className = "community-list-help";
+    empty.textContent = "No posts yet.";
+    list.appendChild(empty);
+    return;
+  }
   rows.forEach((post) => list.appendChild(paintCommunityPostCard(post)));
 }
 
@@ -287,29 +210,22 @@ function paintCommunityPostBody(host, post) {
 }
 
 function communityPostLink(post) {
-  const handle = post && post.mine
-    ? (myUsername || (post && post.handle) || "you")
-    : ((post && post.handle) || "user");
-  const code = (post && post.code) || communityPostCode();
+  const person = communityPostPerson(post);
+  const code = (post && post.code) || "";
   const origin = (window.location && window.location.origin) || "https://oneira.cc";
-  return origin + "/posts/" + handle + "/" + code;
+  return origin + "/posts/" + encodeURIComponent(person.handle) + "/" + code;
 }
 
 function communityPostComments(post) {
-  if (!post) return [];
-  if (Array.isArray(post.comments)) return post.comments;
-  const seed = COMMUNITY_POST_COMMENTS[post.code];
-  post.comments = seed ? seed.map((row) => Object.assign({}, row)) : [];
+  if (!post || !Array.isArray(post.comments)) return [];
   return post.comments;
 }
 
 function communityPostPerson(post) {
-  const mine = !!(post && post.mine);
-  return {
-    mine,
-    name: mine ? (myDisplayName || myUsername || (post && post.name) || "You") : ((post && post.name) || "User"),
-    handle: mine ? (myUsername || (post && post.handle) || "you") : ((post && post.handle) || "user")
-  };
+  const mine = !!(post && (post.mine || (myUserId && post.author_id === myUserId)));
+  const handle = (post && (post.username || post.handle)) || (mine ? (myUsername || "you") : "user");
+  const name = (post && (post.display_name || post.name || post.username || post.handle)) || (mine ? (myDisplayName || myUsername || "You") : "User");
+  return { mine, name, handle };
 }
 
 function fillCommunityPostHead(host, post, opts) {
@@ -320,24 +236,24 @@ function fillCommunityPostHead(host, post, opts) {
   const who = document.createElement("div");
   who.className = "community-post-who";
   const face = document.createElement("div");
-  face.className = "community-post-face" + (person.mine ? " is-mine" : "");
-  face.style.background = (post && post.color) || "#5865f2";
-  face.textContent = communityLetter(person.name);
-  if (person.mine && myUserId && typeof openMiniProfile === "function") {
+  face.className = "community-post-face" + (post && post.author_id ? " is-person" : "");
+  if (typeof paintUserFace === "function") paintUserFace(face, post, { userId: post && post.author_id, name: person.name });
+  else face.textContent = communityLetter(person.name);
+  if (post && post.author_id && typeof openMiniProfile === "function") {
     face.addEventListener("click", (e) => {
       e.stopPropagation();
-      openMiniProfile(myUserId, face);
+      openMiniProfile(post.author_id, face);
     });
   }
   const names = document.createElement("div");
   names.className = "community-post-names";
   const nameEl = document.createElement("span");
-  nameEl.className = "community-post-name" + (person.mine ? " is-mine" : "");
+  nameEl.className = "community-post-name" + (post && post.author_id ? " is-person" : "");
   nameEl.textContent = person.name;
-  if (person.mine && myUserId && typeof openMiniProfile === "function") {
+  if (post && post.author_id && typeof openMiniProfile === "function") {
     nameEl.addEventListener("click", (e) => {
       e.stopPropagation();
-      openMiniProfile(myUserId, nameEl);
+      openMiniProfile(post.author_id, nameEl);
     });
   }
   const handleEl = document.createElement("span");
@@ -442,19 +358,15 @@ function fillCommunityPostActs(host, post, opts) {
       btn.textContent = item[1] + (n ? " " + n : "");
     };
     paint();
-    btn.addEventListener("click", (e) => {
+    if (key !== "replies") btn.disabled = true;
+    else btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (key === "replies") {
-        if (opts.detail) {
-          const input = document.getElementById("community-post-comment-input");
-          if (input) input.focus();
-        } else {
-          openCommunityPost(post);
-        }
-        return;
+      if (opts.detail) {
+        const input = document.getElementById("community-post-comment-input");
+        if (input) input.focus();
+      } else {
+        openCommunityPost(post);
       }
-      post[key] = (Number(post[key]) || 0) + 1;
-      paint();
     });
     host.appendChild(btn);
   });
@@ -476,7 +388,7 @@ function paintCommunityPostCard(post) {
   card.appendChild(mid);
   card.appendChild(foot);
   card.addEventListener("click", (e) => {
-    if (e.target.closest("button, .md-explicit, .md-explicit-media, .post-media, .oneira-music, .community-post-music, .community-post-face.is-mine, .community-post-name.is-mine")) return;
+    if (e.target.closest("button, .md-explicit, .md-explicit-media, .post-media, .oneira-music, .community-post-music, .community-post-face, .community-post-name")) return;
     openCommunityPost(post);
   });
   card.addEventListener("contextmenu", (e) => openCommunityPostMenu(e, post));
@@ -484,13 +396,7 @@ function paintCommunityPostCard(post) {
 }
 
 function deleteCommunityPost(post) {
-  if (!post) return;
-  const draftAt = communityDraftPosts.indexOf(post);
-  if (draftAt >= 0) communityDraftPosts.splice(draftAt, 1);
-  const seedAt = COMMUNITY_PLACEHOLDER_POSTS.indexOf(post);
-  if (seedAt >= 0) COMMUNITY_PLACEHOLDER_POSTS.splice(seedAt, 1);
-  if (communityOpenPost === post) closeCommunityPost();
-  paintCommunityPosts();
+  if (typeof removeCommunityPost === "function") removeCommunityPost(post);
 }
 
 function openCommunityPostMenu(e, post) {
@@ -525,18 +431,17 @@ function openCommunityPostMenu(e, post) {
 }
 
 function paintCommunityPostComment(row) {
-  const mine = !!row.mine;
-  const name = mine ? (myDisplayName || myUsername || row.name || "You") : (row.name || "User");
+  const person = communityPostPerson(row);
   const el = document.createElement("div");
   el.className = "community-post-comment";
   const face = document.createElement("div");
-  face.className = "community-post-face" + (mine ? " is-mine" : "");
-  face.style.background = row.color || "#5865f2";
-  face.textContent = communityLetter(name);
-  if (mine && myUserId && typeof openMiniProfile === "function") {
+  face.className = "community-post-face" + (row && row.author_id ? " is-person" : "");
+  if (typeof paintUserFace === "function") paintUserFace(face, row, { userId: row && row.author_id, name: person.name });
+  else face.textContent = communityLetter(person.name);
+  if (row && row.author_id && typeof openMiniProfile === "function") {
     face.addEventListener("click", (e) => {
       e.stopPropagation();
-      openMiniProfile(myUserId, face);
+      openMiniProfile(row.author_id, face);
     });
   }
   const main = document.createElement("div");
@@ -544,12 +449,12 @@ function paintCommunityPostComment(row) {
   const by = document.createElement("div");
   by.className = "community-post-by";
   const nameEl = document.createElement("span");
-  nameEl.className = "community-post-name" + (mine ? " is-mine" : "");
-  nameEl.textContent = name;
-  if (mine && myUserId && typeof openMiniProfile === "function") {
+  nameEl.className = "community-post-name" + (row && row.author_id ? " is-person" : "");
+  nameEl.textContent = person.name;
+  if (row && row.author_id && typeof openMiniProfile === "function") {
     nameEl.addEventListener("click", (e) => {
       e.stopPropagation();
-      openMiniProfile(myUserId, nameEl);
+      openMiniProfile(row.author_id, nameEl);
     });
   }
   const timeEl = document.createElement("span");
@@ -594,6 +499,8 @@ function openCommunityPost(post) {
   const input = document.getElementById("community-post-comment-input");
   if (input) input.value = "";
   overlay.hidden = false;
+  if (typeof syncAppAddress === "function") syncAppAddress();
+  if (post.code && typeof loadCommunityPostDetail === "function") loadCommunityPostDetail(post.code);
 }
 
 function closeCommunityPost() {
@@ -609,24 +516,11 @@ function closeCommunityPost() {
   if (acts) acts.replaceChildren();
   const host = document.getElementById("community-post-comments");
   if (host) host.replaceChildren();
+  if (typeof syncAppAddress === "function") syncAppAddress();
 }
 
 function submitCommunityPostComment() {
-  if (!communityOpenPost) return;
-  const input = document.getElementById("community-post-comment-input");
-  const body = input ? String(input.value || "").trim() : "";
-  if (!body) return;
-  const rows = communityPostComments(communityOpenPost);
-  rows.push({
-    mine: true,
-    color: "#5865f2",
-    time: "now",
-    body: body
-  });
-  communityOpenPost.replies = (Number(communityOpenPost.replies) || 0) + 1;
-  if (input) input.value = "";
-  fillCommunityPostActs(document.getElementById("community-post-view-acts"), communityOpenPost, { detail: true });
-  paintCommunityPostThread();
+  if (typeof saveCommunityComment === "function") saveCommunityComment();
 }
 
 function resetCommunityCompose() {
@@ -774,52 +668,16 @@ function syncCommunityCompose() {
   const input = document.getElementById("community-compose-input");
   const count = document.getElementById("community-compose-count");
   const submit = document.getElementById("community-compose-submit");
-  const n = input ? String(input.value || "").length : 0;
-  if (count) count.textContent = n + "/1500";
-  const body = input ? String(input.value || "").trim() : "";
-  if (submit) submit.disabled = !body || n > 1500;
-}
-
-function communityComposeKeepItem(item) {
-  if (!item || !item.file) return null;
-  const kind = typeof postMediaItemKind === "function" ? postMediaItemKind(item) : "image";
-  return {
-    kind,
-    mime: typeof postMediaItemMime === "function" ? postMediaItemMime(item) : "",
-    name: typeof postMediaItemName === "function" ? postMediaItemName(item) : (item.file.name || ""),
-    url: URL.createObjectURL(item.file),
-    explicit: typeof postMediaItemExplicit === "function" ? postMediaItemExplicit(item) : false
-  };
+  const raw = input ? String(input.value || "") : "";
+  const n = raw.length;
+  const emoji = communityEmojiCount(raw);
+  if (count) count.textContent = emoji > 50 ? (emoji + "/50 emoji") : (n + "/1500");
+  const body = raw.trim();
+  if (submit) submit.disabled = !body || n > 1500 || emoji > 50;
 }
 
 function submitCommunityPost() {
-  const input = document.getElementById("community-compose-input");
-  const body = input ? String(input.value || "").trim() : "";
-  if (!body || body.length > 1500) return;
-  const pending = (typeof postMediaPending !== "undefined" && postMediaPending.community && postMediaPending.community.files) || [];
-  const attachments = pending.map(communityComposeKeepItem).filter(Boolean);
-  const tracks = attachments.filter((row) => row.kind === "audio").map((row) => ({ url: row.url, name: row.name }));
-  const visual = attachments.filter((row) => row.kind !== "audio");
-  communityDraftPosts.unshift({
-    code: communityPostCode(),
-    mine: true,
-    color: "#5865f2",
-    time: "now",
-    body: body.slice(0, 1500),
-    topics: communityComposeTopics.slice(),
-    hashtags: communityHashtagsFromBody(body),
-    attachments,
-    tracks,
-    media: visual.length > 0,
-    video: visual.some((row) => row.kind === "video"),
-    replies: 0,
-    reposts: 0,
-    likes: 0,
-    dislikes: 0,
-    lenses: COMMUNITY_POST_ROWS.slice()
-  });
-  closeCommunityCompose();
-  paintCommunityPosts();
+  if (typeof saveCommunityPost === "function") saveCommunityPost();
 }
 
 function communityRoomSearchText() {
@@ -837,7 +695,7 @@ function communityRoomMatches(row, query) {
 
 function paintCommunityRooms() {
   const create = document.getElementById("community-room-create");
-  if (create) create.disabled = communityRooms.some((row) => row.owned);
+  if (create) create.disabled = true;
   const list = document.getElementById("community-rooms-list");
   if (!list) return;
   list.replaceChildren();
@@ -985,48 +843,17 @@ function paintCommunityRoomNav() {
 }
 
 function communityRoomLines(row) {
-  if (!row.lines) {
-    row.lines = [{
-      name: row.handle || "user",
-      body: "Room is open. Chat only.",
-      at: new Date()
-    }];
-  }
-  return row.lines;
+  return (row && row.lines) || [];
 }
 
-function communityRoomMembers(row) {
-  const pool = [
-    { name: "Mira", handle: "mira" },
-    { name: "Nova", handle: "nova" },
-    { name: "Reed", handle: "reed" },
-    { name: "Wren", handle: "wren" },
-    { name: "Sol", handle: "sol" },
-    { name: "Piper", handle: "piper" },
-    { name: "Vex", handle: "vex" },
-    { name: "Ash", handle: "ash" },
-    { name: "Jules", handle: "jules" },
-    { name: "Kite", handle: "kite" },
-    { name: "Quinn", handle: "quinn" },
-    { name: "Lane", handle: "lane" },
-    { name: "Rio", handle: "rio" },
-    { name: "Noa", handle: "noa" }
-  ];
-  const you = {
+function communityRoomMembers() {
+  return [{
     id: myUserId || "",
     username: myUsername || "you",
     display_name: myDisplayName || myUsername || "You",
     status: "online",
     mine: true
-  };
-  const count = Math.max(1, Math.min(15, Number(row && row.n) || 1));
-  const others = pool.filter((person) => person.handle !== you.username).slice(0, count - 1).map((person) => ({
-    id: "",
-    username: person.handle,
-    display_name: person.name,
-    status: "online"
-  }));
-  return [you].concat(others);
+  }];
 }
 
 function communityRoomMessage(line) {
@@ -1102,20 +929,7 @@ function sendCommunityRoomLine() {
 }
 
 function createCommunityRoom() {
-  if (communityRooms.some((row) => row.owned)) return;
-  communityRoomSeq += 1;
-  communityRooms.unshift({
-    id: "r" + communityRoomSeq,
-    name: "New Room",
-    handle: myUsername || "you",
-    about: "",
-    topics: [],
-    n: 1,
-    joined: true,
-    owned: true
-  });
-  paintCommunityRooms();
-  paintCommunityRoomNav();
+  return;
 }
 
 function paintCommunitySettings() {
@@ -1146,10 +960,12 @@ function paintCommunityMuteBlock(title, rows, kind) {
   input.autocomplete = "off";
   input.spellcheck = false;
   input.placeholder = kind === "topics" ? "Add a topic" : "Add a word";
+  input.disabled = true;
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "pill-btn";
   btn.textContent = "Add";
+  btn.disabled = true;
   btn.addEventListener("click", () => {
     const word = String(input.value || "").trim().toLowerCase();
     if (!word) return;
@@ -2085,10 +1901,6 @@ const communityRoomSearch = document.getElementById("community-room-search");
 if (communityRoomSearch) {
   communityRoomSearch.addEventListener("input", () => paintCommunityRooms());
 }
-document.getElementById("community-garter-start").addEventListener("click", () => {
-  const status = document.getElementById("community-garter-status");
-  if (status) status.textContent = "No one is available right now.";
-});
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   const postView = document.getElementById("community-post-overlay");

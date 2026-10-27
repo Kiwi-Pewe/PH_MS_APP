@@ -218,7 +218,7 @@ SERVER_PRIVACY_DEFAULT = "private"
 RESERVED_SERVER_SLUGS = {
     "main", "app", "login", "invite", "admin", "shared", "accessibility",
     "index", "api", "cdn", "settings", "profile", "communities", "community", "games",
-    "announcements", "feedback", "messages", "home", "server", "servers",
+    "announcements", "feedback", "messages", "home", "server", "servers", "posts",
     "about", "help", "support", "legal", "terms", "privacy", "status",
     "blog", "docs", "static", "assets", "oneira", "www", "mail",
 }

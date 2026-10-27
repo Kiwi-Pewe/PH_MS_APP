@@ -736,6 +736,30 @@ class Account_connection(Base):
         UniqueConstraint("provider", "external_id", name="uq_account_connection_provider_external"),
     )
 
+class Community_post(Base):
+    __tablename__ = "community_posts"
+    id = Column(Integer, primary_key=True)
+    code = Column(String(10), unique=True, nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    body = Column(String, nullable=False)
+    topics = Column(String, nullable=True)
+    attachments = Column(String, nullable=True)
+    parent_id = Column(Integer, ForeignKey("community_posts.id"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class Community_edge(Base):
+    __tablename__ = "community_edges"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    kind = Column(String, nullable=False)
+    target_id = Column(Integer, nullable=False, default=0)
+    label = Column(String, nullable=False, default="")
+    mode = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("user_id", "kind", "target_id", "label", name="uq_community_edge"),)
+
+
 class Connection_nonce(Base):
     __tablename__ = "connection_nonces"
     nonce = Column(String, primary_key=True)
@@ -754,4 +778,11 @@ Index(
     Feed_alert.receiver_id,
     Feed_alert.created_at,
     Feed_alert.id,
+)
+
+Index(
+    "ix_community_post_feed",
+    Community_post.parent_id,
+    Community_post.created_at,
+    Community_post.id,
 )

@@ -13044,7 +13044,11 @@ button.voice-more-row:disabled,
   user-select: none;
 }
 .community-post-face.is-mine,
-.community-post-name.is-mine { cursor: pointer; }
+.community-post-name.is-mine,
+.community-post-face.is-person,
+.community-post-name.is-person { cursor: pointer; }
+.community-post-face { overflow: hidden; }
+.community-post-act:disabled { opacity: 0.45; }
 .community-post-by {
   flex: 1 1 auto;
   min-width: 0;

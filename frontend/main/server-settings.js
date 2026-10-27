@@ -760,7 +760,7 @@ const RESERVED_SERVER_SLUGS = {
   main: true, app: true, login: true, invite: true, admin: true, shared: true,
   accessibility: true, index: true, api: true, cdn: true, settings: true,
   profile: true, communities: true, community: true, games: true, announcements: true,
-  feedback: true, messages: true, home: true, server: true, servers: true,
+  feedback: true, messages: true, home: true, server: true, servers: true, posts: true,
   about: true, help: true, support: true, legal: true, terms: true,
   privacy: true, status: true, blog: true, docs: true, static: true,
   assets: true, oneira: true, www: true, mail: true

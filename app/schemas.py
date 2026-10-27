@@ -196,6 +196,16 @@ class Admin_delete(BaseModel):
     username: str = ""
 
 
+class Community_post_create(BaseModel):
+    body: str = ""
+    topics: list[str] = []
+    attachments: list[Attachment_in] = []
+
+
+class Community_comment_create(BaseModel):
+    body: str = ""
+
+
 class Feedback_submit(BaseModel):
     feedback_type: str
     report: str

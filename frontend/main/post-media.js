@@ -233,7 +233,8 @@ async function uploadPendingPostFile(file, kind) {
       body: JSON.stringify({
         content_type: mime,
         size: file.size,
-        filename: file.name || ""
+        filename: file.name || "",
+        purpose: (kind === "community" && postMediaIsAudioFile(file)) ? "profile" : "chat"
       })
     });
   } catch (e) {

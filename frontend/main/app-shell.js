@@ -242,6 +242,11 @@ function syncAppAddress() {
     return;
   }
   if (typeof isCommunitiesOpen !== "undefined" && isCommunitiesOpen) {
+    if (typeof communityOpenPost !== "undefined" && communityOpenPost && communityOpenPost.code && typeof communityPostPerson === "function") {
+      const person = communityPostPerson(communityOpenPost);
+      setAppAddress("/posts/" + encodeURIComponent(person.handle) + "/" + communityOpenPost.code);
+      return;
+    }
     setAppAddress("/community");
     return;
   }
@@ -272,6 +277,11 @@ async function applyAppAddress() {
     }
     if (parts[0] === "community") {
       if (typeof openCommunities === "function") await openCommunities();
+      return;
+    }
+    if (parts[0] === "posts" && parts[1] && parts[2]) {
+      if (typeof openCommunities === "function") await openCommunities();
+      if (typeof openCommunityPostByCode === "function") await openCommunityPostByCode(decodeURIComponent(parts[2]));
       return;
     }
     if (parts[0] === "profile" && parts[1]) {

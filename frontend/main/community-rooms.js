@@ -221,6 +221,38 @@ async function saveCommunityRoomLeave(row) {
   }
 }
 
+function dropCommunityRoom(id) {
+  const index = communityRooms.findIndex((item) => String(item.id) === String(id));
+  if (index >= 0) communityRooms.splice(index, 1);
+  if (String(communityOpenRoom) === String(id) && typeof showCommunityRow === "function") showCommunityRow("rooms");
+  else {
+    if (typeof paintCommunityRooms === "function") paintCommunityRooms();
+    if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
+  }
+}
+
+async function saveCommunityRoomClose(row) {
+  if (!row || !row.id || communityRoomBusy) return;
+  communityRoomBusy = true;
+  try {
+    const response = await fetch(`https://${serverAddress}/community_rooms/${row.id}`, {
+      method: "DELETE",
+      credentials: "include"
+    });
+    if (!response.ok && response.status !== 404) return;
+    dropCommunityRoom(row.id);
+  } catch (e) {
+    return;
+  } finally {
+    communityRoomBusy = false;
+  }
+}
+
+function applyCommunityRoomClosed(data) {
+  if (!data) return;
+  dropCommunityRoom(data.room_id);
+}
+
 async function sendCommunityRoomMessage() {
   const input = document.getElementById("composer-input");
   const content = input ? input.value.trim() : "";

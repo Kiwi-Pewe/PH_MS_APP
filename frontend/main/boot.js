@@ -243,6 +243,10 @@ function connectSocket() {
       if (typeof applyCommunityRoomRoster === "function") applyCommunityRoomRoster(data);
     }
 
+    if (data.type === "room_closed") {
+      if (typeof applyCommunityRoomClosed === "function") applyCommunityRoomClosed(data);
+    }
+
     if (data.type === "channel_message") {
       if (typeof isUserBlocked === "function" && isUserBlocked(data.sender_id)) return;
       const isOpen = currentChannelId === data.channel_id;

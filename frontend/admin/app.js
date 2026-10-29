@@ -202,6 +202,21 @@ function formatDate(raw) {
 }
 
 function reportLocation(row) {
+  const view = (row.context_view || "").toLowerCase();
+  if (view === "room") {
+    const parts = ["Room"];
+    if (row.server_name) parts.push(row.server_name);
+    if (row.channel_id) parts.push("id " + row.channel_id);
+    if (row.channel_name) parts.push(row.channel_name);
+    return parts.join(" · ");
+  }
+  if (view === "post") {
+    const parts = ["Post"];
+    if (row.channel_name) parts.push(row.channel_name);
+    else if (row.server_id) parts.push(row.server_id);
+    if (row.server_name) parts.push("By " + row.server_name);
+    return parts.join(" · ");
+  }
   const parts = [];
   if (row.context_view) parts.push(row.context_view);
   if (row.server_name) parts.push(row.server_name);

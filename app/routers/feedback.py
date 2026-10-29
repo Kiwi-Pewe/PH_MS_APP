@@ -25,7 +25,7 @@ FEEDBACK_TYPES = {
 FEEDBACK_TEXT_MIN = 10
 FEEDBACK_TEXT_MAX = 1500
 FEEDBACK_FILE_MAX = 3
-CONTEXT_VIEWS = ("home", "server", "profile", "settings")
+CONTEXT_VIEWS = ("home", "server", "profile", "settings", "room", "post")
 
 
 def clean_feedback_text(value):

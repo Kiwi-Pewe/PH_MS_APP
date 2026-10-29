@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Community_room, Community_room_member, Community_room_message, UserInfo
+from app.models import Community_room, Community_room_member, Community_room_message, Message_mention, UserInfo
 from app.privacy import drop_blocked_rows
 from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.mentions import (
@@ -234,6 +234,45 @@ def update_community_room(
     database.commit()
     database.refresh(room)
     return pack_community_rooms(database, [room], current_user.id)[0]
+
+
+@router.delete("/community_rooms/{room_id}")
+async def delete_community_room(
+    room_id: int,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    room = room_or_404(database, room_id)
+    if room.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Room not found.")
+    member_ids = [
+        row.user_id for row in database.query(Community_room_member).filter(
+            Community_room_member.room_id == room.id
+        ).all()
+    ]
+    message_ids = [
+        row[0] for row in database.query(Community_room_message.id).filter(
+            Community_room_message.room_id == room.id
+        ).all()
+    ]
+    if message_ids:
+        database.query(Message_mention).filter(
+            Message_mention.kind == "room",
+            Message_mention.message_id.in_(message_ids),
+        ).delete(synchronize_session=False)
+    database.query(Community_room_message).filter(
+        Community_room_message.room_id == room.id
+    ).delete(synchronize_session=False)
+    database.query(Community_room_member).filter(
+        Community_room_member.room_id == room.id
+    ).delete(synchronize_session=False)
+    database.delete(room)
+    database.commit()
+    for user_id in member_ids:
+        if user_id == current_user.id:
+            continue
+        await notify_user(user_id, {"type": "room_closed", "room_id": room.id})
+    return {"ok": True}
 
 
 def room_or_404(database, room_id):

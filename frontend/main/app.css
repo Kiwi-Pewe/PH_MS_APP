@@ -13390,7 +13390,10 @@ button.voice-more-row:disabled,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-#community-room-exit { flex: 0 0 auto; }
+#community-room-exit {
+  flex: 0 0 auto;
+  height: 30px;
+}
 .community-room-chat-body {
   flex: 1 1 auto;
   min-height: 0;

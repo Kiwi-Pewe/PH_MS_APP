@@ -14,6 +14,7 @@ const FEEDBACK_TYPES = [
 
 let feedbackOverlay = null;
 let feedbackFiles = [];
+let feedbackPreset = null;
 
 function feedbackTextLength(value) {
   return String(value || "").replace(/\r\n/g, "\n").trim().length;
@@ -39,6 +40,7 @@ function clearFeedbackFiles() {
 }
 
 function closeFeedbackCard() {
+  feedbackPreset = null;
   clearFeedbackFiles();
   if (feedbackOverlay) feedbackOverlay.remove();
   feedbackOverlay = null;
@@ -47,6 +49,7 @@ function closeFeedbackCard() {
 }
 
 function feedbackContext() {
+  if (feedbackPreset && feedbackPreset.context) return feedbackPreset.context;
   const profileOn = document.getElementById("view-profile") && document.getElementById("view-profile").classList.contains("active");
   let view = "home";
   if (typeof isSettingsOpen !== "undefined" && isSettingsOpen) view = "settings";
@@ -106,11 +109,14 @@ async function uploadFeedbackFile(file) {
   };
 }
 
-function openFeedbackCard() {
+function openFeedbackCard(preset) {
   if (feedbackOverlay) {
+    const again = preset || null;
     closeFeedbackCard();
-    return;
+    if (!again) return;
+    preset = again;
   }
+  feedbackPreset = preset || null;
   const tab = document.getElementById("feedback-tab");
   if (tab) tab.classList.add("active");
 
@@ -336,6 +342,7 @@ function openFeedbackCard() {
   overlay.appendChild(box);
   document.body.appendChild(overlay);
   feedbackOverlay = overlay;
+  if (feedbackPreset && feedbackPreset.type) typeSelect.value = feedbackPreset.type;
   paintStrip();
   growFeedbackBody();
   refreshHint();

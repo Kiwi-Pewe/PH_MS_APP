@@ -346,6 +346,8 @@ def admin_feedback(
             Feedback_report.feedback_type.ilike(needle),
             Feedback_report.status.ilike(needle),
             Feedback_report.server_name.ilike(needle),
+            Feedback_report.server_id.ilike(needle),
+            Feedback_report.channel_name.ilike(needle),
             cast(Feedback_report.id, String).ilike(needle),
         ))
     columns = {

@@ -460,7 +460,11 @@ function openCommunityPostMenu(e, post) {
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
     }
   });
-  rows.push({ label: "Report", disabled: true, danger: true });
+  rows.push({
+    label: "Report",
+    danger: true,
+    onSelect: () => openCommunityReport(communityPostReportContext(post))
+  });
   openContextMenu(e.clientX, e.clientY, {
     avatarText: communityLetter(person.name),
     title: person.name,
@@ -856,22 +860,65 @@ function leaveCommunityRoom(row) {
 }
 
 function closeCommunityRoom(row) {
-  if (!row || !communityRoomMine(row)) return;
-  const at = communityRooms.indexOf(row);
-  if (at >= 0) communityRooms.splice(at, 1);
-  if (String(communityOpenRoom) === String(row.id)) showCommunityRow("rooms");
-  else {
-    paintCommunityRooms();
-    paintCommunityRoomNav();
-  }
+  if (typeof saveCommunityRoomClose === "function") saveCommunityRoomClose(row);
+}
+
+function communityRoomReportContext(row) {
+  return {
+    context_view: "room",
+    server_id: "",
+    server_name: (row && row.name) || "",
+    channel_id: row && row.id ? Number(row.id) : null,
+    channel_name: row && row.handle ? ("By " + row.handle) : "",
+    channel_type: ""
+  };
+}
+
+function communityPostReportContext(post) {
+  const person = communityPostPerson(post);
+  const code = (post && post.code) || "";
+  const path = "/posts/" + encodeURIComponent(person.handle) + "/" + code;
+  const link = communityPostLink(post);
+  return {
+    context_view: "post",
+    server_id: code,
+    server_name: person.handle || "",
+    channel_id: post && post.id ? Number(post.id) : null,
+    channel_name: link.length <= 80 ? link : path,
+    channel_type: ""
+  };
+}
+
+function openCommunityReport(context) {
+  if (typeof openFeedbackCard === "function") openFeedbackCard({ type: "report", context: context });
+}
+
+function communityRoomMenuSubtitle(row) {
+  const by = row && row.handle ? ("By " + row.handle) : "";
+  const count = (Number(row && row.n) || 0) + "/15";
+  return by ? (by + " · " + count) : count;
 }
 
 function openCommunityRoomMenu(e, row) {
   e.preventDefault();
   e.stopPropagation();
   if (typeof openContextMenu !== "function") return;
-  const rows = [];
+  const rows = [
+    {
+      label: row.hidden ? "Unhide" : "Hide",
+      onSelect: () => {
+        row.hidden = !row.hidden;
+        paintCommunityRooms();
+      }
+    },
+    {
+      label: "Report",
+      danger: true,
+      onSelect: () => openCommunityReport(communityRoomReportContext(row))
+    }
+  ];
   if (communityRoomMine(row)) {
+    rows.push({ separator: true });
     rows.push({
       label: "Edit",
       onSelect: () => openCommunityRoomCompose(row)
@@ -882,15 +929,11 @@ function openCommunityRoomMenu(e, row) {
       onSelect: () => closeCommunityRoom(row)
     });
   }
-  rows.push({
-    label: row.hidden ? "Unhide" : "Hide",
-    onSelect: () => {
-      row.hidden = !row.hidden;
-      paintCommunityRooms();
-    }
-  });
-  rows.push({ label: "Report", disabled: true, danger: true });
-  openContextMenu(e.clientX, e.clientY, null, rows);
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: communityLetter(row && row.name),
+    title: (row && row.name) || "Room",
+    subtitle: communityRoomMenuSubtitle(row)
+  }, rows);
 }
 
 function paintCommunityRoomNav() {

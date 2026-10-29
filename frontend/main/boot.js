@@ -129,6 +129,7 @@ function connectSocket() {
       const row = currentMessages.find(m => m.tempId === data.temp_id)
         || currentChannelMessages.find(m => m.tempId === data.temp_id);
       if (row) row.id = data.id;
+      if (typeof ackCommunityRoomMessage === "function") ackCommunityRoomMessage(data.temp_id, data.id);
     }
 
     if (data.type === "error" && data.temp_id) {
@@ -139,6 +140,7 @@ function connectSocket() {
       currentMessages = currentMessages.filter((row) => row.tempId !== tempId);
       if (channelHit && typeof renderChannelMessages === "function") renderChannelMessages();
       if (dmHit && typeof renderMessages === "function") renderMessages();
+      if (typeof dropCommunityRoomTemp === "function") dropCommunityRoomTemp(tempId);
       window.alert(data.detail || "Could not send.");
     }
 
@@ -231,6 +233,14 @@ function connectSocket() {
         renderMessages();
         if (typeof clearRemoteTyper === "function") clearRemoteTyper(data.sender_id);
       }
+    }
+
+    if (data.type === "room_message") {
+      if (typeof applyCommunityRoomMessage === "function") applyCommunityRoomMessage(data);
+    }
+
+    if (data.type === "room_roster") {
+      if (typeof applyCommunityRoomRoster === "function") applyCommunityRoomRoster(data);
     }
 
     if (data.type === "channel_message") {

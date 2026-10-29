@@ -465,6 +465,16 @@ def apply_party_mentions(database, message, member_ids, reply_author_id=None):
     write_mentions(database, "party", message.id, targets, party_id= message.party_id)
     return content, list(targets)
 
+def apply_room_mentions(database, message, member_ids, reply_author_id=None):
+    members = member_records(database, member_ids)
+    content, pinged = tokenize_mentions(message.content, members)
+    online_ids = [uid for uid in member_ids if uid in active_connections]
+    targets = expand_pinged(pinged, member_ids, online_ids)
+    add_reply_ping(targets, reply_author_id, message.author_id)
+    message.content = content
+    write_mentions(database, "room", message.id, targets)
+    return content, list(targets)
+
 def apply_server_text_mentions(database, text, kind, message_id, server, channel_id, seed=False, sender_id=None, reply_author_id=None):
     member_ids = [row.user_id for row in database.query(Server_members).filter(Server_members.server_id == server.id).all()]
     members = member_records(database, member_ids)

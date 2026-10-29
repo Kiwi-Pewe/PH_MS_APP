@@ -19,6 +19,7 @@ function switchMainView(viewName) {
   }
   document.querySelectorAll(".main-view").forEach(v => v.classList.remove("active"));
   document.getElementById(`view-${viewName}`).classList.add("active");
+  if (viewName !== "community" && typeof restoreCommunityRoomComposer === "function") restoreCommunityRoomComposer();
   updateHomeBadge();
   if (typeof publishViewerFocus === "function") publishViewerFocus();
   if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();

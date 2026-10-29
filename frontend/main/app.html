@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=455">
+<link rel="stylesheet" href="app.css?v=456">
 </head>
 <body>
 
@@ -999,14 +999,12 @@
         <div id="community-pane-room-chat" class="community-pane community-room-chat" hidden>
           <div class="view-header community-room-chat-head">
             <span id="community-room-chat-title">Room</span>
+            <button type="button" class="call-leave" id="community-room-exit">Exit Room</button>
           </div>
           <div class="community-room-chat-body">
             <div id="community-room-chat-log" class="self-right"></div>
           </div>
-          <div class="community-room-chat-compose">
-            <input type="text" id="community-room-chat-input" placeholder="Message" maxlength="2000" autocomplete="off" spellcheck="false">
-            <button type="button" class="pill-btn" id="community-room-chat-send">Send</button>
-          </div>
+          <div id="community-room-chat-compose"></div>
         </div>
         <div id="community-pane-garterphone" class="community-pane" hidden>
           <div class="community-band-title">
@@ -2105,6 +2103,7 @@
           <div id="community-room-topics" class="community-topic-pills"></div>
         </div>
         <input type="text" id="community-room-name" class="community-search" placeholder="Room name" maxlength="80" autocomplete="off" spellcheck="false">
+        <textarea id="community-room-about" class="community-search community-room-about" placeholder="Description" maxlength="500" rows="5" wrap="soft"></textarea>
         <p id="community-room-status" class="community-list-help" hidden></p>
       </div>
       <div class="community-compose-footer">
@@ -2738,11 +2737,11 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=148"></script>
-<script src="app-shell.js?v=76"></script>
-<script src="communities.js?v=34"></script>
+<script src="boot.js?v=149"></script>
+<script src="app-shell.js?v=77"></script>
+<script src="communities.js?v=35"></script>
 <script src="community-posts.js?v=2"></script>
-<script src="community-rooms.js?v=2"></script>
+<script src="community-rooms.js?v=3"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=53"></script>
@@ -2773,12 +2772,12 @@
 <script src="profile.js?v=24"></script>
 <script src="profile-identity.js?v=19"></script>
 <script src="profile-edit.js?v=101"></script>
-<script src="context-menus.js?v=105"></script>
+<script src="context-menus.js?v=106"></script>
 <script src="conversations.js?v=75"></script>
 <script src="chat-render.js?v=74"></script>
 <script src="chat-history.js?v=52"></script>
-<script src="chat-compose.js?v=64"></script>
-<script src="typing.js?v=2"></script>
+<script src="chat-compose.js?v=65"></script>
+<script src="typing.js?v=3"></script>
 <script src="emoji-data.js?v=1"></script>
 <script src="emoji-picker.js?v=58"></script>
 <script src="online-toast.js?v=1"></script>
@@ -2796,7 +2795,7 @@
 <script src="server-notify.js?v=6"></script>
 <script src="markdown.js?v=8"></script>
 <script src="embeds.js?v=48"></script>
-<script src="mentions.js?v=23"></script>
+<script src="mentions.js?v=24"></script>
 <script src="explicit-channel.js?v=1"></script>
 <script src="servers.js?v=136"></script>
 <script src="voice.js?v=25"></script>

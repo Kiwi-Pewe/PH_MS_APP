@@ -208,6 +208,7 @@ class Community_comment_create(BaseModel):
 
 class Community_room_create(BaseModel):
     name: str = ""
+    about: str = ""
     topics: list[str] = []
 
 

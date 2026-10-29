@@ -675,6 +675,27 @@ def ensure_community_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE community_rooms ADD COLUMN about VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        for column, coltype in (
+            ("attachment", "VARCHAR"),
+            ("reply_to_id", "INTEGER"),
+        ):
+            try:
+                conn.execute(text(f"ALTER TABLE community_room_messages ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_community_room_message ON community_room_messages (room_id, created_at, id)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_load_indexes():

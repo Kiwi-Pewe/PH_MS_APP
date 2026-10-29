@@ -25,7 +25,7 @@ from app.routers.deletion import sweep_pending_deletes
 from app.routers.typing import relay_typing
 from app.routers.profile import STATUS_MAX, clip_text, public_avatar, public_display_name
 from app.routers.community_posts import router as community_posts_router
-from app.routers.community_rooms import router as community_rooms_router
+from app.routers.community_rooms import router as community_rooms_router, save_community_room_message, fanout_room_message
 
 import asyncio
 
@@ -216,6 +216,26 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                             "reply_to": reply_to,
                             "avatar": public_avatar(current_user)
                         }, member.user_id)
+            elif data["type"] == "room_message":
+                try:
+                    room_message = save_community_room_message(
+                        database,
+                        current_user,
+                        data.get("room_id"),
+                        data.get("content") or "",
+                        ws_attachment(data),
+                        data.get("reply_to_id"),
+                    )
+                except HTTPException as e:
+                    await socket.send_json({"type": "error", "detail": e.detail, "temp_id": data.get("temp_id")})
+                    continue
+                await socket.send_json({
+                    "type": "message_ack",
+                    "kind": "room",
+                    "id": room_message.id,
+                    "temp_id": data.get("temp_id"),
+                })
+                await fanout_room_message(database, room_message, current_user)
             elif data["type"] == "leave_party":
                     
                 try:

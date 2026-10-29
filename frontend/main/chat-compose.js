@@ -34,7 +34,7 @@ function paintPendingReply() {
   const homeName = document.getElementById("composer-reply-name");
   const channelBar = document.getElementById("channel-composer-reply-bar");
   const channelName = document.getElementById("channel-composer-reply-name");
-  const homeActive = !!(pendingReply && (pendingReply.chatKind === "dm" || pendingReply.chatKind === "party"));
+  const homeActive = !!(pendingReply && (pendingReply.chatKind === "dm" || pendingReply.chatKind === "party" || pendingReply.chatKind === "room"));
   const channelActive = !!(pendingReply && (pendingReply.chatKind === "channel" || pendingReply.chatKind === "forum"));
   if (homeBar) {
     homeBar.hidden = !homeActive;
@@ -158,6 +158,10 @@ function paintSlowmodeIndicator() {
 }
 
 async function sendChatMessage() {
+  if (typeof communityRoomComposerOpen === "function" && communityRoomComposerOpen()) {
+    if (typeof sendCommunityRoomMessage === "function") return sendCommunityRoomMessage();
+    return;
+  }
   const input = document.getElementById("composer-input");
   const content = input.value.trim();
   if ((!content && !pendingAttach) || openChatId === null || !ws) return;

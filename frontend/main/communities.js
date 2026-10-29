@@ -45,6 +45,10 @@ let communityComposeTopicDraft = null;
 let communityRoomTopics = [];
 let communityRoomTopicDraft = null;
 let communityOpenRoom = null;
+let communityRoomMessages = [];
+let communityRoomMemberRows = [];
+let communityRoomLoadGen = 0;
+let communityComposerHold = null;
 let communityMuteWords = [];
 let communityMuteTopics = [];
 let communityRooms = [];
@@ -103,6 +107,10 @@ function showCommunityRow(id) {
   const paneGarter = document.getElementById("community-pane-garterphone");
   const paneSettings = document.getElementById("community-pane-settings");
   communityOpenRoom = null;
+  communityRoomMessages = [];
+  communityRoomMemberRows = [];
+  communityRoomLoadGen += 1;
+  restoreCommunityRoomComposer();
   const paneChat = document.getElementById("community-pane-room-chat");
   if (paneServers) paneServers.hidden = pane !== "servers";
   if (panePosts) panePosts.hidden = pane !== "posts";
@@ -839,29 +847,18 @@ function communityRoomMine(row) {
 }
 
 function joinCommunityRoom(row) {
-  if (!row || row.joined || row.n >= 15) return;
-  row.joined = true;
-  row.n = Math.min(15, (Number(row.n) || 0) + 1);
-  paintCommunityRooms();
-  paintCommunityRoomNav();
+  if (typeof saveCommunityRoomJoin === "function") saveCommunityRoomJoin(row);
 }
 
 function leaveCommunityRoom(row) {
-  if (!row || !row.joined) return;
-  row.joined = false;
-  row.n = Math.max(0, (Number(row.n) || 1) - 1);
-  if (communityOpenRoom === row.id) showCommunityRow("rooms");
-  else {
-    paintCommunityRooms();
-    paintCommunityRoomNav();
-  }
+  if (typeof saveCommunityRoomLeave === "function") saveCommunityRoomLeave(row);
 }
 
 function closeCommunityRoom(row) {
   if (!row || !communityRoomMine(row)) return;
   const at = communityRooms.indexOf(row);
   if (at >= 0) communityRooms.splice(at, 1);
-  if (communityOpenRoom === row.id) showCommunityRow("rooms");
+  if (String(communityOpenRoom) === String(row.id)) showCommunityRow("rooms");
   else {
     paintCommunityRooms();
     paintCommunityRoomNav();
@@ -913,55 +910,67 @@ function paintCommunityRoomNav() {
   });
 }
 
-function communityRoomLines(row) {
-  return (row && row.lines) || [];
+function communityRoomComposerOpen() {
+  const pane = document.getElementById("community-pane-room-chat");
+  const composer = document.getElementById("composer");
+  return !!(pane && !pane.hidden && composer && pane.contains(composer) && communityOpenRoom);
 }
 
-function communityRoomMembers() {
-  return [{
-    id: myUserId || "",
-    username: myUsername || "you",
-    display_name: myDisplayName || myUsername || "You",
-    status: "online",
-    mine: true
-  }];
+function mountCommunityRoomComposer() {
+  const composer = document.getElementById("composer");
+  const slot = document.getElementById("community-room-chat-compose");
+  const home = document.getElementById("view-chat");
+  if (!composer || !slot || !home) return;
+  const input = document.getElementById("composer-input");
+  if (home.contains(composer)) {
+    communityComposerHold = {
+      disabled: !!(input && input.disabled),
+      placeholder: input ? input.placeholder : "Type a message"
+    };
+  }
+  if (!slot.contains(composer)) slot.appendChild(composer);
+  if (typeof clearPendingAttach === "function") clearPendingAttach();
+  if (typeof clearPendingReply === "function") clearPendingReply();
+  if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
+  if (input) input.value = "";
+  if (typeof enableComposer === "function") enableComposer();
+  if (typeof autoGrowComposer === "function") autoGrowComposer();
 }
 
-function communityRoomMessage(line) {
-  const mine = !!line.mine;
-  return {
-    isMine: mine,
-    username: mine ? (myUsername || "you") : (line.name || "user"),
-    nickname: mine ? (myDisplayName || myUsername || "You") : (line.name || "user"),
-    senderId: mine ? (myUserId || "") : "",
-    content: line.body || "",
-    time: line.at instanceof Date ? line.at : new Date(),
-    chatKind: "party",
-    reactions: [],
-    edited: false
-  };
+function restoreCommunityRoomComposer() {
+  const composer = document.getElementById("composer");
+  const home = document.getElementById("view-chat");
+  if (!composer || !home || home.contains(composer)) return;
+  if (typeof clearPendingAttach === "function") clearPendingAttach();
+  if (typeof clearPendingReply === "function") clearPendingReply();
+  if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
+  const input = document.getElementById("composer-input");
+  if (input) input.value = "";
+  home.appendChild(composer);
+  if (typeof autoGrowComposer === "function") autoGrowComposer();
+  const hold = communityComposerHold;
+  communityComposerHold = null;
+  if (hold && hold.disabled && typeof disableComposer === "function") disableComposer(hold.placeholder || "Type a message");
 }
 
 function paintCommunityRoomMembers(row) {
   if (typeof showMemberListPanel !== "function" || typeof renderMemberList !== "function") return;
   memberListScope = "room";
   memberListScopeId = row ? row.id : null;
-  memberList = row ? communityRoomMembers(row) : [];
+  memberList = communityRoomMemberRows.slice();
   showMemberListPanel();
   renderMemberList();
 }
 
 function paintCommunityRoomChat() {
-  const row = communityRooms.find((item) => item.id === communityOpenRoom);
+  const row = communityRoomById(communityOpenRoom);
   const title = document.getElementById("community-room-chat-title");
   const log = document.getElementById("community-room-chat-log");
   const body = log && log.parentElement;
   if (title) title.textContent = row ? (row.name || "Room") : "Room";
-  if (log) {
+  if (log && typeof renderClusteredMessages === "function") {
     log.replaceChildren();
-    if (row && typeof startNewCluster === "function") {
-      communityRoomLines(row).forEach((line) => startNewCluster(log, communityRoomMessage(line)));
-    }
+    renderClusteredMessages(log, communityRoomMessages);
   }
   if (body) body.scrollTop = body.scrollHeight;
   if (row) paintCommunityRoomMembers(row);
@@ -972,6 +981,8 @@ function openCommunityRoomChat(id) {
   if (!row || !row.joined) return;
   communityOpenRoom = row.id;
   communityRow = "";
+  communityRoomMessages = [];
+  communityRoomMemberRows = [];
   document.querySelectorAll("#community-sidebar-view [data-community-row]").forEach((btn) => {
     btn.classList.remove("active");
   });
@@ -985,19 +996,9 @@ function openCommunityRoomChat(id) {
   closeCommunityRoomCompose();
   closeCommunityPost();
   paintCommunityRoomNav();
+  mountCommunityRoomComposer();
   paintCommunityRoomChat();
-  const input = document.getElementById("community-room-chat-input");
-  if (input) input.focus();
-}
-
-function sendCommunityRoomLine() {
-  const row = communityRooms.find((item) => item.id === communityOpenRoom);
-  const input = document.getElementById("community-room-chat-input");
-  const body = input ? String(input.value || "").trim() : "";
-  if (!row || !body) return;
-  communityRoomLines(row).push({ mine: true, name: myUsername || "you", body: body, at: new Date() });
-  if (input) input.value = "";
-  paintCommunityRoomChat();
+  if (typeof loadCommunityRoomChat === "function") loadCommunityRoomChat(row.id);
 }
 
 function syncCommunityRoomCompose() {
@@ -1012,6 +1013,8 @@ function resetCommunityRoomCompose() {
   communityRoomTopicDraft = null;
   const input = document.getElementById("community-room-name");
   if (input) input.value = "";
+  const about = document.getElementById("community-room-about");
+  if (about) about.value = "";
   const status = document.getElementById("community-room-status");
   if (status) {
     status.hidden = true;
@@ -2012,13 +2015,12 @@ if (communityRoomName) {
     if (typeof saveCommunityRoom === "function") saveCommunityRoom();
   });
 }
-document.getElementById("community-room-chat-send").addEventListener("click", () => sendCommunityRoomLine());
-const communityRoomChatInput = document.getElementById("community-room-chat-input");
-if (communityRoomChatInput) {
-  communityRoomChatInput.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    sendCommunityRoomLine();
+const communityRoomExit = document.getElementById("community-room-exit");
+if (communityRoomExit) {
+  communityRoomExit.addEventListener("click", () => {
+    const row = communityRoomById(communityOpenRoom);
+    if (row) leaveCommunityRoom(row);
+    else showCommunityRow("rooms");
   });
 }
 const communityRoomSearch = document.getElementById("community-room-search");

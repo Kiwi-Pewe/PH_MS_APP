@@ -775,6 +775,7 @@ class Community_room(Base):
     id = Column(Integer, primary_key=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
+    about = Column(String, nullable=True)
     topics = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     active_at = Column(DateTime, server_default=func.now())
@@ -794,7 +795,9 @@ class Community_room_message(Base):
     id = Column(Integer, primary_key=True)
     room_id = Column(Integer, ForeignKey("community_rooms.id"), nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    body = Column(String, nullable=False)
+    content = Column("body", String, nullable=False)
+    attachment = Column(String, nullable=True)
+    reply_to_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
 

@@ -4,7 +4,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from app.models import (
-    UserInfo, Block_user, Friend_request, Party_members,
+    UserInfo, Block_user, Friend_request, Party_members, Community_room_member,
     Servers, Server_members, Server_categories, Server_channels, Forum_post,
 )
 from app.routers.realtime import party_broadcast, server_broadcast, notify_user
@@ -63,6 +63,24 @@ async def relay_typing(data, current_user: UserInfo, database: Session):
         if not in_party:
             return
         await party_broadcast(party_id, _payload(current_user, "party", active, party_id=party_id), database, exclude_user_id=current_user.id)
+        return
+
+    if kind == "room":
+        room_id = _as_int(data.get("room_id"))
+        if not room_id:
+            return
+        in_room = database.query(Community_room_member).filter(
+            Community_room_member.room_id == room_id,
+            Community_room_member.user_id == current_user.id,
+        ).first()
+        if not in_room:
+            return
+        payload = _payload(current_user, "room", active, room_id=room_id)
+        members = database.query(Community_room_member).filter(Community_room_member.room_id == room_id).all()
+        for member in members:
+            if member.user_id == current_user.id:
+                continue
+            await notify_user(member.user_id, payload)
         return
 
     if kind == "channel":

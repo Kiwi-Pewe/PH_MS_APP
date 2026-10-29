@@ -13,6 +13,9 @@ let typingIdleTimer = null;
 let typingExpiryTimer = null;
 
 function currentTypingScope() {
+  if (typeof communityRoomComposerOpen === "function" && communityRoomComposerOpen()) {
+    return { kind: "room", room_id: communityOpenRoom };
+  }
   const chatView = document.getElementById("view-chat");
   if (chatView && chatView.classList.contains("active") && openChatId !== null) {
     if (openChatType === "dm") return { kind: "dm", receiver_id: openChatId };
@@ -36,6 +39,9 @@ function typingEventTargetsOpenChat(data) {
   if (data.kind === "party") {
     return openChatType === "party" && openChatId === data.party_id;
   }
+  if (data.kind === "room") {
+    return typeof communityRoomComposerOpen === "function" && communityRoomComposerOpen() && String(communityOpenRoom) === String(data.room_id);
+  }
   if (data.kind === "channel") {
     return openForumPostId === null && currentChannelType === "text" && currentChannelId === data.channel_id;
   }
@@ -50,6 +56,7 @@ function sendTypingPayload(scope, active) {
   const payload = { type: "typing", active: !!active, kind: scope.kind };
   if (scope.kind === "dm") payload.receiver_id = scope.receiver_id;
   if (scope.kind === "party") payload.party_id = scope.party_id;
+  if (scope.kind === "room") payload.room_id = scope.room_id;
   if (scope.kind === "channel") payload.channel_id = scope.channel_id;
   if (scope.kind === "forum") payload.post_id = scope.post_id;
   ws.send(JSON.stringify(payload));
@@ -110,7 +117,7 @@ function paintTypingIndicator() {
   const scope = currentTypingScope();
   const home = document.getElementById("composer-typing");
   const channel = document.getElementById("channel-composer-typing");
-  const homeOn = !!(label && scope && (scope.kind === "dm" || scope.kind === "party"));
+  const homeOn = !!(label && scope && (scope.kind === "dm" || scope.kind === "party" || scope.kind === "room"));
   const channelOn = !!(label && scope && (scope.kind === "channel" || scope.kind === "forum"));
   if (home) {
     home.hidden = !homeOn;

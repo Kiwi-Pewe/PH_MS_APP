@@ -506,7 +506,10 @@ function composerAllowsMentions(input) {
   if (input.id === "channel-composer-input") {
     return currentChannelType !== "voice" && currentChannelType !== "doc";
   }
-  if (input.id === "composer-input") return openChatType === "party";
+  if (input.id === "composer-input") {
+    if (typeof communityRoomComposerOpen === "function" && communityRoomComposerOpen()) return true;
+    return openChatType === "party";
+  }
   if (input.id === "announcement-body-input" || input.id === "forum-body-input" || input.id === "doc-channel-body" || input.id === "doc-channel-title") return true;
   if (input.id === "announce-edit-body-input" || input.id === "forum-edit-body-input") return true;
   if (input.classList && input.classList.contains("announce-comment-input")) return true;

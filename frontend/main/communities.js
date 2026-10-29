@@ -374,7 +374,13 @@ function fillCommunityPostActs(host, post, opts) {
       btn.textContent = item[1] + (n ? " " + n : "");
     };
     paint();
-    if (key !== "replies") btn.disabled = true;
+    if (key === "likes" || key === "dislikes") {
+      btn.classList.toggle("is-on", !!(post && (key === "likes" ? post.liked : post.disliked)));
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (typeof voteCommunityPost === "function") voteCommunityPost(post, key === "likes" ? "like" : "dislike");
+      });
+    } else if (key !== "replies") btn.disabled = true;
     else btn.addEventListener("click", (e) => {
       e.stopPropagation();
       if (opts.detail) {

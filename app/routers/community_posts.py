@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Community_comment, Community_post, UserInfo
+from app.models import Community_comment, Community_edge, Community_post, UserInfo
 from app.privacy import drop_blocked_rows
 from app.r2 import (
     ALLOWED_MIME,
@@ -148,7 +148,7 @@ def author_map(database, user_ids):
     }
 
 
-def pack_community_post(row, people, viewer_id, replies=0, comments=None):
+def pack_community_post(row, people, viewer_id, replies=0, comments=None, vote=None):
     person = people.get(row.author_id) or {}
     topics = []
     if row.topics:
@@ -174,6 +174,8 @@ def pack_community_post(row, people, viewer_id, replies=0, comments=None):
         "reposts": 0,
         "likes": int(row.likes or 0),
         "dislikes": int(row.dislikes or 0),
+        "liked": bool(vote and vote.get("liked")),
+        "disliked": bool(vote and vote.get("disliked")),
         "comments": comments or [],
     }
 
@@ -215,6 +217,55 @@ def root_by_code(database, code):
     return row
 
 
+def votes_for(database, user_id, post_ids):
+    ids = [item for item in post_ids if item]
+    found = {item: {"liked": False, "disliked": False} for item in ids}
+    if not ids or not user_id:
+        return found
+    rows = database.query(Community_edge).filter(
+        Community_edge.user_id == user_id,
+        Community_edge.target_id.in_(ids),
+        Community_edge.kind.in_(("like", "dislike")),
+    ).all()
+    for edge in rows:
+        slot = found.get(edge.target_id)
+        if not slot:
+            continue
+        if edge.kind == "like":
+            slot["liked"] = True
+        elif edge.kind == "dislike":
+            slot["disliked"] = True
+    return found
+
+
+def shift_community_vote(row, kind, delta):
+    if kind == "like":
+        row.likes = max(0, int(row.likes or 0) + delta)
+    else:
+        row.dislikes = max(0, int(row.dislikes or 0) + delta)
+
+
+def apply_community_vote(database, row, user_id, kind):
+    other = "dislike" if kind == "like" else "like"
+    edges = database.query(Community_edge).filter(
+        Community_edge.user_id == user_id,
+        Community_edge.target_id == row.id,
+        Community_edge.kind.in_(("like", "dislike")),
+    ).all()
+    have = {edge.kind: edge for edge in edges}
+    if kind in have:
+        database.delete(have[kind])
+        shift_community_vote(row, kind, -1)
+    else:
+        if other in have:
+            database.delete(have[other])
+            shift_community_vote(row, other, -1)
+        database.add(Community_edge(user_id=user_id, kind=kind, target_id=row.id, label=""))
+        shift_community_vote(row, kind, 1)
+    database.commit()
+    database.refresh(row)
+
+
 def pack_with_comments(database, row, viewer_id):
     children = drop_blocked_rows(
         database,
@@ -224,7 +275,8 @@ def pack_with_comments(database, row, viewer_id):
     )
     people = author_map(database, [row.author_id] + [child.author_id for child in children])
     comments = [pack_community_comment(child, people, viewer_id) for child in children]
-    return pack_community_post(row, people, viewer_id, replies=len(children), comments=comments)
+    vote = votes_for(database, viewer_id, [row.id]).get(row.id)
+    return pack_community_post(row, people, viewer_id, replies=len(children), comments=comments, vote=vote)
 
 
 @router.get("/community_posts")
@@ -251,7 +303,8 @@ def list_community_posts(
     )
     counts = comment_counts(database, [row.id for row in rows])
     people = author_map(database, [row.author_id for row in rows])
-    posts = [pack_community_post(row, people, current_user.id, counts.get(row.id, 0)) for row in rows]
+    votes = votes_for(database, current_user.id, [row.id for row in rows])
+    posts = [pack_community_post(row, people, current_user.id, counts.get(row.id, 0), vote=votes.get(row.id)) for row in rows]
     return {"posts": posts, "as_of": as_of.isoformat()}
 
 
@@ -324,7 +377,38 @@ def delete_community_post(
     children = database.query(Community_comment).filter(Community_comment.post_id == row.id).all()
     for child in children:
         database.delete(child)
+    database.query(Community_edge).filter(
+        Community_edge.target_id == row.id,
+        Community_edge.kind.in_(("like", "dislike")),
+    ).delete(synchronize_session=False)
     delete_attachment(row.attachments)
     database.delete(row)
     database.commit()
     return {"ok": True}
+
+
+def cast_community_vote(code, kind, database, current_user):
+    row = root_by_code(database, code)
+    hidden = drop_blocked_rows(database, current_user.id, [row], "author_id")
+    if not hidden:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    apply_community_vote(database, row, current_user.id, kind)
+    return pack_with_comments(database, row, current_user.id)
+
+
+@router.post("/community_posts/{code}/like")
+def like_community_post(
+    code: str,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    return cast_community_vote(code, "like", database, current_user)
+
+
+@router.post("/community_posts/{code}/dislike")
+def dislike_community_post(
+    code: str,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    return cast_community_vote(code, "dislike", database, current_user)

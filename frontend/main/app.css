@@ -13271,6 +13271,7 @@ button.voice-more-row:disabled,
   padding: 0;
 }
 .community-post-act:hover { color: var(--text); }
+.community-post-act.is-on { color: var(--accent); }
 .community-room {
   display: flex;
   flex-direction: column;

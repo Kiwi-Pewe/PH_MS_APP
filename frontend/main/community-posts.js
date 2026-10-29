@@ -156,3 +156,28 @@ async function saveCommunityComment() {
   if (typeof fillCommunityPostView === "function") fillCommunityPostView();
   if (typeof COMMUNITY_POST_ROWS !== "undefined" && COMMUNITY_POST_ROWS.indexOf(communityRow) >= 0 && typeof paintCommunityPosts === "function") paintCommunityPosts();
 }
+
+async function voteCommunityPost(post, kind) {
+  if (!post || !post.code || (kind !== "like" && kind !== "dislike") || post._voting) return;
+  post._voting = true;
+  try {
+    const response = await fetch(`https://${serverAddress}/community_posts/${encodeURIComponent(post.code)}/${kind}`, {
+      method: "POST",
+      credentials: "include"
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data) return;
+    const ready = communityPostReady(data);
+    const index = communityPostRows.findIndex((row) => row.code === post.code);
+    if (index >= 0) communityPostRows[index] = ready;
+    if (communityOpenPost && communityOpenPost.code === post.code) {
+      communityOpenPost = ready;
+      if (typeof fillCommunityPostView === "function") fillCommunityPostView();
+    }
+    if (typeof paintCommunityPosts === "function") paintCommunityPosts();
+  } catch (e) {
+    return;
+  } finally {
+    post._voting = false;
+  }
+}

@@ -770,6 +770,34 @@ class Community_edge(Base):
     __table_args__ = (UniqueConstraint("user_id", "kind", "target_id", "label", name="uq_community_edge"),)
 
 
+class Community_room(Base):
+    __tablename__ = "community_rooms"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    topics = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    active_at = Column(DateTime, server_default=func.now())
+
+
+class Community_room_member(Base):
+    __tablename__ = "community_room_members"
+    id = Column(Integer, primary_key=True)
+    room_id = Column(Integer, ForeignKey("community_rooms.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    joined_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("room_id", "user_id", name="uq_community_room_member"),)
+
+
+class Community_room_message(Base):
+    __tablename__ = "community_room_messages"
+    id = Column(Integer, primary_key=True)
+    room_id = Column(Integer, ForeignKey("community_rooms.id"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    body = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class Connection_nonce(Base):
     __tablename__ = "connection_nonces"
     nonce = Column(String, primary_key=True)
@@ -794,4 +822,11 @@ Index(
     "ix_community_post_feed",
     Community_post.created_at,
     Community_post.id,
+)
+
+Index(
+    "ix_community_room_message",
+    Community_room_message.room_id,
+    Community_room_message.created_at,
+    Community_room_message.id,
 )

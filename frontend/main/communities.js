@@ -121,7 +121,10 @@ function showCommunityRow(id) {
     paintCommunityPosts();
     if (typeof loadCommunityPosts === "function") loadCommunityPosts(communityRow, true);
   }
-  if (pane === "rooms") paintCommunityRooms();
+  if (pane === "rooms") {
+    paintCommunityRooms();
+    if (typeof loadCommunityRooms === "function") loadCommunityRooms();
+  }
   if (pane === "settings") paintCommunitySettings();
   if (pane === "garterphone") {
     const status = document.getElementById("community-garter-status");
@@ -992,12 +995,25 @@ function sendCommunityRoomLine() {
   paintCommunityRoomChat();
 }
 
+function syncCommunityRoomCompose() {
+  const input = document.getElementById("community-room-name");
+  const submit = document.getElementById("community-room-submit");
+  const name = input ? String(input.value || "").trim() : "";
+  if (submit) submit.disabled = !name || name.length > 80;
+}
+
 function resetCommunityRoomCompose() {
   communityRoomTopics = [];
   communityRoomTopicDraft = null;
   const input = document.getElementById("community-room-name");
   if (input) input.value = "";
+  const status = document.getElementById("community-room-status");
+  if (status) {
+    status.hidden = true;
+    status.textContent = "";
+  }
   paintCommunityRoomTopics();
+  syncCommunityRoomCompose();
 }
 
 function openCommunityRoomCompose() {
@@ -1976,9 +1992,21 @@ if (communityPostCommentInput) {
 }
 document.getElementById("community-room-create").addEventListener("click", () => openCommunityRoomCompose());
 document.getElementById("community-room-cancel").addEventListener("click", () => closeCommunityRoomCompose());
+document.getElementById("community-room-submit").addEventListener("click", () => {
+  if (typeof saveCommunityRoom === "function") saveCommunityRoom();
+});
 document.getElementById("community-room-overlay").addEventListener("mousedown", (e) => {
   if (e.target && e.target.id === "community-room-overlay") closeCommunityRoomCompose();
 });
+const communityRoomName = document.getElementById("community-room-name");
+if (communityRoomName) {
+  communityRoomName.addEventListener("input", () => syncCommunityRoomCompose());
+  communityRoomName.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (typeof saveCommunityRoom === "function") saveCommunityRoom();
+  });
+}
 document.getElementById("community-room-chat-send").addEventListener("click", () => sendCommunityRoomLine());
 const communityRoomChatInput = document.getElementById("community-room-chat-input");
 if (communityRoomChatInput) {

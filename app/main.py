@@ -25,6 +25,7 @@ from app.routers.deletion import sweep_pending_deletes
 from app.routers.typing import relay_typing
 from app.routers.profile import STATUS_MAX, clip_text, public_avatar, public_display_name
 from app.routers.community_posts import router as community_posts_router
+from app.routers.community_rooms import router as community_rooms_router
 import asyncio
 
 def ws_attachment(data):
@@ -84,6 +85,7 @@ app.include_router(parties.router)
 app.include_router(servers.router)
 app.include_router(communities.router)
 app.include_router(community_posts_router)
+app.include_router(community_rooms_router)
 app.include_router(roles.router)
 app.include_router(mini_profiles.router)
 app.include_router(moderation.router)

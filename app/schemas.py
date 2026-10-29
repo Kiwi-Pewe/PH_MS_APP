@@ -206,6 +206,11 @@ class Community_comment_create(BaseModel):
     body: str = ""
 
 
+class Community_room_create(BaseModel):
+    name: str = ""
+    topics: list[str] = []
+
+
 class Feedback_submit(BaseModel):
     feedback_type: str
     report: str

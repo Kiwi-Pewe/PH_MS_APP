@@ -744,7 +744,17 @@ class Community_post(Base):
     body = Column(String, nullable=False)
     topics = Column(String, nullable=True)
     attachments = Column(String, nullable=True)
-    parent_id = Column(Integer, ForeignKey("community_posts.id"), nullable=True)
+    likes = Column(Integer, nullable=False, default=0, server_default="0")
+    dislikes = Column(Integer, nullable=False, default=0, server_default="0")
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class Community_comment(Base):
+    __tablename__ = "community_comments"
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey("community_posts.id"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    body = Column(String, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
 
@@ -782,7 +792,6 @@ Index(
 
 Index(
     "ix_community_post_feed",
-    Community_post.parent_id,
     Community_post.created_at,
     Community_post.id,
 )

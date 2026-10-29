@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Community_post, UserInfo
+from app.models import Community_comment, Community_post, UserInfo
 from app.privacy import drop_blocked_rows
 from app.r2 import (
     ALLOWED_MIME,
@@ -172,33 +172,44 @@ def pack_community_post(row, people, viewer_id, replies=0, comments=None):
         "created_at": created,
         "replies": int(replies or 0),
         "reposts": 0,
-        "likes": 0,
-        "dislikes": 0,
+        "likes": int(row.likes or 0),
+        "dislikes": int(row.dislikes or 0),
         "comments": comments or [],
     }
 
 
-def reply_counts(database, parent_ids):
-    ids = [item for item in parent_ids if item]
+def comment_counts(database, post_ids):
+    ids = [item for item in post_ids if item]
     if not ids:
         return {}
     rows = (
-        database.query(Community_post.parent_id, func.count(Community_post.id))
-        .filter(Community_post.parent_id.in_(ids))
-        .group_by(Community_post.parent_id)
+        database.query(Community_comment.post_id, func.count(Community_comment.id))
+        .filter(Community_comment.post_id.in_(ids))
+        .group_by(Community_comment.post_id)
         .all()
     )
-    return {parent_id: count for parent_id, count in rows}
+    return {post_id: count for post_id, count in rows}
+
+
+def pack_community_comment(row, people, viewer_id):
+    person = people.get(row.author_id) or {}
+    created = row.created_at.isoformat() if row.created_at else ""
+    return {
+        "author_id": row.author_id,
+        "username": person.get("username") or "",
+        "display_name": person.get("display_name") or person.get("username") or "",
+        "avatar": person.get("avatar"),
+        "mine": row.author_id == viewer_id,
+        "body": row.body or "",
+        "created_at": created,
+    }
 
 
 def root_by_code(database, code):
     text = (code or "").strip()
     if len(text) != 10 or any(ch not in COMMUNITY_CODE_ALPHABET for ch in text):
         raise HTTPException(status_code=404, detail="Post not found.")
-    row = database.query(Community_post).filter(
-        Community_post.code == text,
-        Community_post.parent_id.is_(None),
-    ).first()
+    row = database.query(Community_post).filter(Community_post.code == text).first()
     if not row:
         raise HTTPException(status_code=404, detail="Post not found.")
     return row
@@ -208,11 +219,11 @@ def pack_with_comments(database, row, viewer_id):
     children = drop_blocked_rows(
         database,
         viewer_id,
-        database.query(Community_post).filter(Community_post.parent_id == row.id).order_by(Community_post.created_at.asc(), Community_post.id.asc()).all(),
+        database.query(Community_comment).filter(Community_comment.post_id == row.id).order_by(Community_comment.created_at.asc(), Community_comment.id.asc()).all(),
         "author_id",
     )
     people = author_map(database, [row.author_id] + [child.author_id for child in children])
-    comments = [pack_community_post(child, people, viewer_id) for child in children]
+    comments = [pack_community_comment(child, people, viewer_id) for child in children]
     return pack_community_post(row, people, viewer_id, replies=len(children), comments=comments)
 
 
@@ -229,10 +240,7 @@ def list_community_posts(
     as_of = community_stamp(before)
     if kind == "timeline":
         return {"posts": [], "as_of": as_of.isoformat()}
-    query = database.query(Community_post).filter(
-        Community_post.parent_id.is_(None),
-        Community_post.created_at <= as_of,
-    )
+    query = database.query(Community_post).filter(Community_post.created_at <= as_of)
     if kind == "following":
         query = query.filter(Community_post.author_id == current_user.id)
     rows = drop_blocked_rows(
@@ -241,7 +249,7 @@ def list_community_posts(
         query.order_by(Community_post.created_at.desc(), Community_post.id.desc()).limit(COMMUNITY_POST_PAGE).all(),
         "author_id",
     )
-    counts = reply_counts(database, [row.id for row in rows])
+    counts = comment_counts(database, [row.id for row in rows])
     people = author_map(database, [row.author_id for row in rows])
     posts = [pack_community_post(row, people, current_user.id, counts.get(row.id, 0)) for row in rows]
     return {"posts": posts, "as_of": as_of.isoformat()}
@@ -275,7 +283,6 @@ def create_community_post(
         body=text,
         topics=json.dumps(topics) if topics else None,
         attachments=attachments,
-        parent_id=None,
     )
     database.add(row)
     database.commit()
@@ -295,11 +302,10 @@ def create_community_comment(
     if not hidden:
         raise HTTPException(status_code=404, detail="Post not found.")
     text = clean_community_body(body.body)
-    row = Community_post(
-        code=new_community_code(database),
+    row = Community_comment(
+        post_id=parent.id,
         author_id=current_user.id,
         body=text,
-        parent_id=parent.id,
     )
     database.add(row)
     database.commit()
@@ -315,9 +321,8 @@ def delete_community_post(
     row = root_by_code(database, code)
     if row.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only delete your own post.")
-    children = database.query(Community_post).filter(Community_post.parent_id == row.id).all()
+    children = database.query(Community_comment).filter(Community_comment.post_id == row.id).all()
     for child in children:
-        delete_attachment(child.attachments)
         database.delete(child)
     delete_attachment(row.attachments)
     database.delete(row)

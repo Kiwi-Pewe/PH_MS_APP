@@ -627,6 +627,56 @@ def ensure_dm_request_columns():
             conn.rollback()
 
 
+def ensure_community_columns():
+    with engine.connect() as conn:
+        for column, coltype in (
+            ("likes", "INTEGER DEFAULT 0"),
+            ("dislikes", "INTEGER DEFAULT 0"),
+        ):
+            try:
+                conn.execute(text(f"ALTER TABLE community_posts ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS community_comments ("
+                "id INTEGER PRIMARY KEY, "
+                "post_id INTEGER NOT NULL, "
+                "author_id INTEGER NOT NULL, "
+                "body VARCHAR NOT NULL, "
+                "created_at DATETIME)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        columns = [row[1] for row in conn.execute(text("PRAGMA table_info(community_posts)")).fetchall()]
+        if "parent_id" in columns:
+            try:
+                conn.execute(text(
+                    "INSERT INTO community_comments (post_id, author_id, body, created_at) "
+                    "SELECT parent_id, author_id, body, created_at FROM community_posts "
+                    "WHERE parent_id IS NOT NULL"
+                ))
+                conn.execute(text("DELETE FROM community_posts WHERE parent_id IS NOT NULL"))
+                conn.execute(text("DROP INDEX IF EXISTS ix_community_post_feed"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+            try:
+                conn.execute(text("ALTER TABLE community_posts DROP COLUMN parent_id"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_community_post_feed ON community_posts (created_at, id)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_load_indexes():
     statements = (
         "CREATE INDEX IF NOT EXISTS ix_channel_messages_channel_id ON channel_messages (channel_id, id)",

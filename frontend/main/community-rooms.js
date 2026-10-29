@@ -28,33 +28,57 @@ async function loadCommunityRooms() {
   if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
 }
 
+function showCommunityRoomSaveError(message) {
+  const blocked = message === "Room name cannnot but used.";
+  const block = document.getElementById("community-room-block");
+  const status = document.getElementById("community-room-status");
+  if (block) {
+    block.hidden = !blocked;
+    block.textContent = blocked ? message : "";
+  }
+  if (status) {
+    status.hidden = blocked || !message;
+    status.textContent = blocked ? "" : (message || "");
+  }
+}
+
 async function saveCommunityRoom() {
   const input = document.getElementById("community-room-name");
   const submit = document.getElementById("community-room-submit");
-  const status = document.getElementById("community-room-status");
   const name = input ? String(input.value || "").trim() : "";
-  if (!name) return;
+  if (!name || name.length > 15) return;
+  const editing = typeof communityRoomEditing !== "undefined" ? communityRoomEditing : null;
   if (submit) submit.disabled = true;
-  if (status) status.hidden = true;
+  showCommunityRoomSaveError("");
   try {
-    const response = await fetch(`https://${serverAddress}/community_rooms`, {
-      method: "POST",
+    const response = await fetch(`https://${serverAddress}/community_rooms${editing ? "/" + editing : ""}`, {
+      method: editing ? "PATCH" : "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: name.slice(0, 80),
+        name: name.slice(0, 15),
         about: (document.getElementById("community-room-about") ? document.getElementById("community-room-about").value : "").slice(0, 500),
         topics: (typeof communityRoomTopics !== "undefined" ? communityRoomTopics : []).slice(0, 3)
       })
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(communityRoomErrorText(data, "Could not create that room."));
+    if (!response.ok) throw new Error(communityRoomErrorText(data, editing ? "Could not save that room." : "Could not create that room."));
     const room = communityRoomReady(data);
-    room.joined = true;
-    room.owned = true;
+    if (!editing) {
+      room.joined = true;
+      room.owned = true;
+    }
     const index = communityRooms.findIndex((row) => String(row.id) === String(room.id));
     if (index >= 0) communityRooms[index] = room;
     else communityRooms.unshift(room);
+    if (editing) {
+      if (typeof closeCommunityRoomCompose === "function") closeCommunityRoomCompose();
+      if (typeof paintCommunityRooms === "function") paintCommunityRooms();
+      if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
+      const title = document.getElementById("community-room-chat-title");
+      if (title && String(communityOpenRoom) === String(room.id)) title.textContent = room.name || "Room";
+      return;
+    }
     if (typeof openCommunityRoomChat === "function") openCommunityRoomChat(room.id);
     else {
       if (typeof closeCommunityRoomCompose === "function") closeCommunityRoomCompose();
@@ -62,10 +86,7 @@ async function saveCommunityRoom() {
       if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
     }
   } catch (e) {
-    if (status) {
-      status.hidden = false;
-      status.textContent = e.message || "Could not create that room.";
-    }
+    showCommunityRoomSaveError(e.message || "Could not create that room.");
     if (typeof syncCommunityRoomCompose === "function") syncCommunityRoomCompose();
   }
 }

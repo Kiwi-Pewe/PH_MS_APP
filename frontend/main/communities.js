@@ -44,6 +44,7 @@ let communityComposeTopics = [];
 let communityComposeTopicDraft = null;
 let communityRoomTopics = [];
 let communityRoomTopicDraft = null;
+let communityRoomEditing = null;
 let communityOpenRoom = null;
 let communityRoomMessages = [];
 let communityRoomMemberRows = [];
@@ -871,7 +872,10 @@ function openCommunityRoomMenu(e, row) {
   if (typeof openContextMenu !== "function") return;
   const rows = [];
   if (communityRoomMine(row)) {
-    rows.push({ label: "Edit", disabled: true });
+    rows.push({
+      label: "Edit",
+      onSelect: () => openCommunityRoomCompose(row)
+    });
     rows.push({
       label: "Close",
       danger: true,
@@ -906,6 +910,7 @@ function paintCommunityRoomNav() {
     btn.className = "nav-item" + (String(communityOpenRoom) === String(row.id) ? " active" : "");
     btn.setAttribute("data-community-room", row.id);
     btn.textContent = row.name || "Room";
+    btn.addEventListener("contextmenu", (e) => openCommunityRoomMenu(e, row));
     host.appendChild(btn);
   });
 }
@@ -1005,10 +1010,25 @@ function syncCommunityRoomCompose() {
   const input = document.getElementById("community-room-name");
   const submit = document.getElementById("community-room-submit");
   const name = input ? String(input.value || "").trim() : "";
-  if (submit) submit.disabled = !name || name.length > 80;
+  if (submit) submit.disabled = !name || name.length > 15;
+}
+
+function setCommunityRoomComposeMode(editing) {
+  const title = document.getElementById("community-room-title");
+  const submit = document.getElementById("community-room-submit");
+  if (title) title.textContent = editing ? "Edit Room" : "Create Room";
+  if (submit) submit.textContent = editing ? "Save" : "Create Room";
+}
+
+function clearCommunityRoomBlock() {
+  const block = document.getElementById("community-room-block");
+  if (!block) return;
+  block.hidden = true;
+  block.textContent = "";
 }
 
 function resetCommunityRoomCompose() {
+  communityRoomEditing = null;
   communityRoomTopics = [];
   communityRoomTopicDraft = null;
   const input = document.getElementById("community-room-name");
@@ -1020,16 +1040,29 @@ function resetCommunityRoomCompose() {
     status.hidden = true;
     status.textContent = "";
   }
+  clearCommunityRoomBlock();
+  setCommunityRoomComposeMode(false);
   paintCommunityRoomTopics();
   syncCommunityRoomCompose();
 }
 
-function openCommunityRoomCompose() {
+function openCommunityRoomCompose(row) {
   const overlay = document.getElementById("community-room-overlay");
   if (!overlay) return;
   closeCommunityCompose();
   closeCommunityPost();
   resetCommunityRoomCompose();
+  if (row) {
+    communityRoomEditing = row.id;
+    const input = document.getElementById("community-room-name");
+    if (input) input.value = row.name || "";
+    const about = document.getElementById("community-room-about");
+    if (about) about.value = row.about || "";
+    communityRoomTopics = (row.topics || []).slice(0, COMMUNITY_ROOM_TOPIC_MAX);
+    setCommunityRoomComposeMode(true);
+    paintCommunityRoomTopics();
+    syncCommunityRoomCompose();
+  }
   overlay.hidden = false;
   const input = document.getElementById("community-room-name");
   if (input) input.focus();
@@ -2008,7 +2041,10 @@ document.getElementById("community-room-overlay").addEventListener("mousedown", 
 });
 const communityRoomName = document.getElementById("community-room-name");
 if (communityRoomName) {
-  communityRoomName.addEventListener("input", () => syncCommunityRoomCompose());
+  communityRoomName.addEventListener("input", () => {
+    clearCommunityRoomBlock();
+    syncCommunityRoomCompose();
+  });
   communityRoomName.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();

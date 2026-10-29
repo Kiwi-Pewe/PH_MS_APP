@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=456">
+<link rel="stylesheet" href="app.css?v=457">
 </head>
 <body>
 
@@ -2102,12 +2102,13 @@
           <span class="community-topic-rule"></span>
           <div id="community-room-topics" class="community-topic-pills"></div>
         </div>
-        <input type="text" id="community-room-name" class="community-search" placeholder="Room name" maxlength="80" autocomplete="off" spellcheck="false">
+        <input type="text" id="community-room-name" class="community-search" placeholder="Room name" maxlength="15" autocomplete="off" spellcheck="false">
         <textarea id="community-room-about" class="community-search community-room-about" placeholder="Description" maxlength="500" rows="5" wrap="soft"></textarea>
         <p id="community-room-status" class="community-list-help" hidden></p>
       </div>
       <div class="community-compose-footer">
         <button type="button" class="ghost-btn" id="community-room-cancel">Cancel</button>
+        <p id="community-room-block" class="community-room-block" hidden></p>
         <button type="button" class="pill-btn" id="community-room-submit" disabled>Create Room</button>
       </div>
     </div>
@@ -2739,9 +2740,9 @@
     </div>
 <script src="boot.js?v=149"></script>
 <script src="app-shell.js?v=77"></script>
-<script src="communities.js?v=35"></script>
+<script src="communities.js?v=36"></script>
 <script src="community-posts.js?v=2"></script>
-<script src="community-rooms.js?v=3"></script>
+<script src="community-rooms.js?v=4"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=53"></script>

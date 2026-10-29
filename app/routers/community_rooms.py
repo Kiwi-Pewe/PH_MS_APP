@@ -26,7 +26,9 @@ from app.site_moderation import mask_message_payloads
 
 router = APIRouter()
 
-COMMUNITY_ROOM_NAME_MAX = 80
+COMMUNITY_ROOM_NAME_MAX = 15
+COMMUNITY_ROOM_OWN_MAX = 3
+ROOM_NAME_BLOCKED = "Room name cannnot but used."
 COMMUNITY_ROOM_ABOUT_MAX = 500
 COMMUNITY_ROOM_TOPIC_MAX = 3
 COMMUNITY_ROOM_TOPIC_LEN = 40
@@ -39,10 +41,46 @@ def clean_room_name(value):
     if not name:
         raise HTTPException(status_code=400, detail="Name the room.")
     if len(name) > COMMUNITY_ROOM_NAME_MAX:
-        name = name[:COMMUNITY_ROOM_NAME_MAX].rstrip()
-    if not name:
-        raise HTTPException(status_code=400, detail="Name the room.")
+        raise HTTPException(status_code=400, detail="Room names can be 15 characters.")
     return name
+
+
+def room_name_blocklist(database):
+    try:
+        words = load_room_name_blocklist(database)
+    except Exception:
+        return []
+    if not words:
+        return []
+    cleaned = []
+    for item in words:
+        word = " ".join(str(item or "").split()).casefold()
+        if word:
+            cleaned.append(word)
+    return cleaned
+
+
+def load_room_name_blocklist(database):
+    return []
+
+
+def room_name_is_blocked(name, database, words=None):
+    source = room_name_blocklist(database) if words is None else words
+    if not source:
+        return False
+    folded = " ".join(str(name or "").split()).casefold()
+    if not folded:
+        return False
+    for item in source:
+        word = " ".join(str(item or "").split()).casefold()
+        if word and word in folded:
+            return True
+    return False
+
+
+def raise_if_room_name_blocked(name, database):
+    if room_name_is_blocked(name, database):
+        raise HTTPException(status_code=400, detail=ROOM_NAME_BLOCKED)
 
 
 def clean_room_about(value):
@@ -157,10 +195,11 @@ def create_community_room(
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
-    owned = database.query(Community_room.id).filter(Community_room.owner_id == current_user.id).first()
-    if owned:
-        raise HTTPException(status_code=400, detail="You already have a room.")
+    owned = database.query(func.count(Community_room.id)).filter(Community_room.owner_id == current_user.id).scalar() or 0
+    if owned >= COMMUNITY_ROOM_OWN_MAX:
+        raise HTTPException(status_code=400, detail="You can only own 3 rooms.")
     name = clean_room_name(body.name)
+    raise_if_room_name_blocked(name, database)
     topics = clean_room_topics(body.topics)
     row = Community_room(
         owner_id=current_user.id,
@@ -174,6 +213,27 @@ def create_community_room(
     database.commit()
     database.refresh(row)
     return pack_community_rooms(database, [row], current_user.id)[0]
+
+
+@router.patch("/community_rooms/{room_id}")
+def update_community_room(
+    room_id: int,
+    body: Community_room_create,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    room = room_or_404(database, room_id)
+    if room.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Room not found.")
+    name = clean_room_name(body.name)
+    raise_if_room_name_blocked(name, database)
+    room.name = name
+    room.about = clean_room_about(body.about)
+    topics = clean_room_topics(body.topics)
+    room.topics = json.dumps(topics) if topics else None
+    database.commit()
+    database.refresh(room)
+    return pack_community_rooms(database, [room], current_user.id)[0]
 
 
 def room_or_404(database, room_id):

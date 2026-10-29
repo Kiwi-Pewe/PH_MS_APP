@@ -829,6 +829,11 @@ function paintCommunityRooms() {
   });
 }
 
+function communityRoomById(id) {
+  const key = String(id);
+  return communityRooms.find((item) => item && String(item.id) === key) || null;
+}
+
 function communityRoomMine(row) {
   return !!(row && (row.owned || (myUsername && row.handle === myUsername)));
 }
@@ -901,7 +906,7 @@ function paintCommunityRoomNav() {
   joined.forEach((row) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "nav-item" + (communityOpenRoom === row.id ? " active" : "");
+    btn.className = "nav-item" + (String(communityOpenRoom) === String(row.id) ? " active" : "");
     btn.setAttribute("data-community-room", row.id);
     btn.textContent = row.name || "Room";
     host.appendChild(btn);
@@ -963,8 +968,8 @@ function paintCommunityRoomChat() {
 }
 
 function openCommunityRoomChat(id) {
-  const row = communityRooms.find((item) => item.id === id && item.joined);
-  if (!row) return;
+  const row = communityRoomById(id);
+  if (!row || !row.joined) return;
   communityOpenRoom = row.id;
   communityRow = "";
   document.querySelectorAll("#community-sidebar-view [data-community-row]").forEach((btn) => {

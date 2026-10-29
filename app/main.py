@@ -26,6 +26,7 @@ from app.routers.typing import relay_typing
 from app.routers.profile import STATUS_MAX, clip_text, public_avatar, public_display_name
 from app.routers.community_posts import router as community_posts_router
 from app.routers.community_rooms import router as community_rooms_router
+
 import asyncio
 
 def ws_attachment(data):

@@ -47,12 +47,17 @@ async function saveCommunityRoom() {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(communityRoomErrorText(data, "Could not create that room."));
     const room = communityRoomReady(data);
-    const index = communityRooms.findIndex((row) => row.id === room.id);
+    room.joined = true;
+    room.owned = true;
+    const index = communityRooms.findIndex((row) => String(row.id) === String(room.id));
     if (index >= 0) communityRooms[index] = room;
     else communityRooms.unshift(room);
-    if (typeof closeCommunityRoomCompose === "function") closeCommunityRoomCompose();
-    if (typeof paintCommunityRooms === "function") paintCommunityRooms();
-    if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
+    if (typeof openCommunityRoomChat === "function") openCommunityRoomChat(room.id);
+    else {
+      if (typeof closeCommunityRoomCompose === "function") closeCommunityRoomCompose();
+      if (typeof paintCommunityRooms === "function") paintCommunityRooms();
+      if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
+    }
   } catch (e) {
     if (status) {
       status.hidden = false;

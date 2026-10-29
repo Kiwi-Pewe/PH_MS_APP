@@ -12815,6 +12815,10 @@ button.voice-more-row:disabled,
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
+.community-compose-body > .community-list-divider {
+  width: 100%;
+  margin: 0;
+}
 .community-compose-body > .community-search {
   width: 100%;
   flex: 0 0 auto;

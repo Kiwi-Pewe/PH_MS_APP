@@ -12769,7 +12769,8 @@ button.voice-more-row:disabled,
   background: var(--accent-hover);
   color: #fff;
 }
-#community-compose-overlay {
+#community-compose-overlay,
+#community-room-overlay {
   position: fixed;
   inset: 0;
   z-index: 950;
@@ -12778,7 +12779,8 @@ button.voice-more-row:disabled,
   justify-content: center;
   background: rgba(0, 0, 0, 0.6);
 }
-#community-compose-overlay[hidden] { display: none; }
+#community-compose-overlay[hidden],
+#community-room-overlay[hidden] { display: none; }
 .community-compose-card {
   width: 600px;
   max-width: calc(100vw - 32px);
@@ -12812,6 +12814,11 @@ button.voice-more-row:disabled,
   padding: 16px 18px;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+}
+.community-compose-body > .community-search {
+  width: 100%;
+  flex: 0 0 auto;
+  box-sizing: border-box;
 }
 .community-compose-body::-webkit-scrollbar { width: 8px; }
 .community-compose-body::-webkit-scrollbar-track,

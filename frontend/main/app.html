@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=453">
+<link rel="stylesheet" href="app.css?v=454">
 </head>
 <body>
 
@@ -983,11 +983,11 @@
         <div id="community-pane-rooms" class="community-pane" hidden>
           <div class="community-band-title">
             <h2 class="community-list-title">Rooms</h2>
-            <p class="community-list-help">Walk-in chat rooms. Not a server. Not a party. Anyone can create one. Rooms wipe after 48 hours idle.</p>
+            <p class="community-list-help">Open Chat rooms for up to 15 people.</p>
             <div class="community-list-divider"></div>
             <div class="community-pane-toolbar">
               <input type="search" id="community-room-search" class="community-search" placeholder="Search rooms" maxlength="80" autocomplete="off" spellcheck="false">
-              <button type="button" class="pill-btn" id="community-room-create" disabled>Create Room</button>
+              <button type="button" class="pill-btn" id="community-room-create">Create Room</button>
             </div>
           </div>
           <div class="community-band-body">
@@ -2090,6 +2090,27 @@
     </div>
   </div>
 
+  <div id="community-room-overlay" hidden>
+    <div id="community-room-card" class="community-compose-card" role="dialog" aria-modal="true" aria-labelledby="community-room-title">
+      <div class="community-compose-header">
+        <span id="community-room-title" class="community-compose-title">Create Room</span>
+      </div>
+      <div class="community-compose-body">
+        <p class="community-list-help">all created rooms are public spaces, and should be treated as such. never give out any personal/account information, you do not know/trust. These rooms are not made to last forever, so all rooms will be automatically closed after 48 hours of inactivity.</p>
+        <div class="community-topic-row">
+          <span class="community-topic-label">Topics</span>
+          <span class="community-topic-rule"></span>
+          <div id="community-room-topics" class="community-topic-pills"></div>
+        </div>
+        <input type="text" id="community-room-name" class="community-search" placeholder="Room name" maxlength="80" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="community-compose-footer">
+        <button type="button" class="ghost-btn" id="community-room-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="community-room-submit" disabled>Create Room</button>
+      </div>
+    </div>
+  </div>
+
   <div id="community-post-overlay" hidden>
     <article id="community-post-card" class="community-post community-post-card is-detail" role="dialog" aria-modal="true" aria-label="Post">
       <div class="community-post-head" id="community-post-view-head"></div>
@@ -2716,7 +2737,7 @@
     </div>
 <script src="boot.js?v=148"></script>
 <script src="app-shell.js?v=76"></script>
-<script src="communities.js?v=31"></script>
+<script src="communities.js?v=32"></script>
 <script src="community-posts.js?v=2"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>

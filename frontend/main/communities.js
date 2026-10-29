@@ -39,8 +39,11 @@ const COMMUNITY_ROW_PANES = {
 let communityRow = "servers";
 let communityOpenPost = null;
 const COMMUNITY_TOPIC_MAX = 4;
+const COMMUNITY_ROOM_TOPIC_MAX = 3;
 let communityComposeTopics = [];
 let communityComposeTopicDraft = null;
+let communityRoomTopics = [];
+let communityRoomTopicDraft = null;
 let communityOpenRoom = null;
 let communityMuteWords = [];
 let communityMuteTopics = [];
@@ -113,6 +116,7 @@ function showCommunityRow(id) {
     closeCommunityCompose();
     closeCommunityPost();
   }
+  closeCommunityRoomCompose();
   if (pane === "posts") {
     paintCommunityPosts();
     if (typeof loadCommunityPosts === "function") loadCommunityPosts(communityRow, true);
@@ -586,77 +590,22 @@ function communityComposeTopicText(raw) {
   return word;
 }
 
-function communityComposeSaveTopic(raw, index) {
+function communitySaveTopicList(topics, max, raw, index) {
   const word = communityComposeTopicText(raw);
   if (!word) return false;
   const key = word.toLowerCase();
-  const taken = communityComposeTopics.some((item, i) => i !== index && item.toLowerCase() === key);
+  const taken = topics.some((item, i) => i !== index && item.toLowerCase() === key);
   if (taken) return false;
   if (index == null) {
-    if (communityComposeTopics.length >= COMMUNITY_TOPIC_MAX) return false;
-    communityComposeTopics.push(word);
+    if (topics.length >= max) return false;
+    topics.push(word);
   } else {
-    communityComposeTopics[index] = word;
+    topics[index] = word;
   }
   return true;
 }
 
-function paintCommunityComposeTopics() {
-  const host = document.getElementById("community-compose-topics");
-  if (!host) return;
-  host.replaceChildren();
-  const draft = communityComposeTopicDraft;
-  communityComposeTopics.forEach((word, index) => {
-    if (draft && draft.mode === "edit" && draft.index === index) {
-      host.appendChild(communityComposeTopicField(word, index));
-      return;
-    }
-    const pill = document.createElement("span");
-    pill.className = "community-tag is-on";
-    pill.textContent = word;
-    pill.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (typeof openContextMenu !== "function") return;
-      openContextMenu(e.clientX, e.clientY, null, [
-        {
-          label: "Edit",
-          onSelect: () => {
-            communityComposeTopicDraft = { mode: "edit", index };
-            paintCommunityComposeTopics();
-          }
-        },
-        {
-          label: "Remove",
-          onSelect: () => {
-            communityComposeTopics.splice(index, 1);
-            communityComposeTopicDraft = null;
-            paintCommunityComposeTopics();
-          }
-        }
-      ]);
-    });
-    host.appendChild(pill);
-  });
-  if (draft && draft.mode === "add") {
-    host.appendChild(communityComposeTopicField("", null));
-    return;
-  }
-  if (communityComposeTopics.length >= COMMUNITY_TOPIC_MAX) return;
-  const add = document.createElement("button");
-  add.type = "button";
-  add.className = "community-topic-add";
-  add.title = "Add a topic";
-  add.textContent = "+";
-  add.addEventListener("click", (e) => {
-    e.stopPropagation();
-    communityComposeTopicDraft = { mode: "add" };
-    paintCommunityComposeTopics();
-  });
-  host.appendChild(add);
-}
-
-function communityComposeTopicField(value, index) {
+function communityTopicField(value, index, hooks) {
   const field = document.createElement("input");
   field.type = "text";
   field.className = "community-topic-input";
@@ -668,9 +617,9 @@ function communityComposeTopicField(value, index) {
   const finish = (save) => {
     if (done) return;
     done = true;
-    if (save) communityComposeSaveTopic(field.value, index);
-    communityComposeTopicDraft = null;
-    paintCommunityComposeTopics();
+    if (save) hooks.save(field.value, index);
+    hooks.clearDraft();
+    hooks.repaint();
   };
   field.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -678,12 +627,106 @@ function communityComposeTopicField(value, index) {
       finish(true);
     } else if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       finish(false);
     }
   });
   field.addEventListener("blur", () => finish(!!String(field.value || "").trim()));
   queueMicrotask(() => field.focus());
   return field;
+}
+
+function paintCommunityTopicList(host, topics, draft, max, hooks) {
+  if (!host) return;
+  host.replaceChildren();
+  topics.forEach((word, index) => {
+    if (draft && draft.mode === "edit" && draft.index === index) {
+      host.appendChild(communityTopicField(word, index, hooks));
+      return;
+    }
+    const pill = document.createElement("span");
+    pill.className = "community-tag is-on";
+    pill.textContent = word;
+    pill.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof openContextMenu !== "function") return;
+      openContextMenu(e.clientX, e.clientY, null, [
+        { label: "Edit", onSelect: () => hooks.edit(index) },
+        { label: "Remove", onSelect: () => hooks.remove(index) }
+      ]);
+    });
+    host.appendChild(pill);
+  });
+  if (draft && draft.mode === "add") {
+    host.appendChild(communityTopicField("", null, hooks));
+    return;
+  }
+  if (topics.length >= max) return;
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "community-topic-add";
+  add.title = "Add a topic";
+  add.textContent = "+";
+  add.addEventListener("click", (e) => {
+    e.stopPropagation();
+    hooks.add();
+  });
+  host.appendChild(add);
+}
+
+function paintCommunityComposeTopics() {
+  paintCommunityTopicList(
+    document.getElementById("community-compose-topics"),
+    communityComposeTopics,
+    communityComposeTopicDraft,
+    COMMUNITY_TOPIC_MAX,
+    {
+      save: (raw, index) => communitySaveTopicList(communityComposeTopics, COMMUNITY_TOPIC_MAX, raw, index),
+      edit: (index) => {
+        communityComposeTopicDraft = { mode: "edit", index };
+        paintCommunityComposeTopics();
+      },
+      remove: (index) => {
+        communityComposeTopics.splice(index, 1);
+        communityComposeTopicDraft = null;
+        paintCommunityComposeTopics();
+      },
+      add: () => {
+        communityComposeTopicDraft = { mode: "add" };
+        paintCommunityComposeTopics();
+      },
+      clearDraft: () => { communityComposeTopicDraft = null; },
+      repaint: paintCommunityComposeTopics
+    }
+  );
+}
+
+function paintCommunityRoomTopics() {
+  paintCommunityTopicList(
+    document.getElementById("community-room-topics"),
+    communityRoomTopics,
+    communityRoomTopicDraft,
+    COMMUNITY_ROOM_TOPIC_MAX,
+    {
+      save: (raw, index) => communitySaveTopicList(communityRoomTopics, COMMUNITY_ROOM_TOPIC_MAX, raw, index),
+      edit: (index) => {
+        communityRoomTopicDraft = { mode: "edit", index };
+        paintCommunityRoomTopics();
+      },
+      remove: (index) => {
+        communityRoomTopics.splice(index, 1);
+        communityRoomTopicDraft = null;
+        paintCommunityRoomTopics();
+      },
+      add: () => {
+        communityRoomTopicDraft = { mode: "add" };
+        paintCommunityRoomTopics();
+      },
+      clearDraft: () => { communityRoomTopicDraft = null; },
+      repaint: paintCommunityRoomTopics
+    }
+  );
 }
 
 function syncCommunityCompose() {
@@ -716,8 +759,6 @@ function communityRoomMatches(row, query) {
 }
 
 function paintCommunityRooms() {
-  const create = document.getElementById("community-room-create");
-  if (create) create.disabled = true;
   const list = document.getElementById("community-rooms-list");
   if (!list) return;
   list.replaceChildren();
@@ -933,6 +974,7 @@ function openCommunityRoomChat(id) {
   const chat = document.getElementById("community-pane-room-chat");
   if (chat) chat.hidden = false;
   closeCommunityCompose();
+  closeCommunityRoomCompose();
   closeCommunityPost();
   paintCommunityRoomNav();
   paintCommunityRoomChat();
@@ -950,8 +992,30 @@ function sendCommunityRoomLine() {
   paintCommunityRoomChat();
 }
 
-function createCommunityRoom() {
-  return;
+function resetCommunityRoomCompose() {
+  communityRoomTopics = [];
+  communityRoomTopicDraft = null;
+  const input = document.getElementById("community-room-name");
+  if (input) input.value = "";
+  paintCommunityRoomTopics();
+}
+
+function openCommunityRoomCompose() {
+  const overlay = document.getElementById("community-room-overlay");
+  if (!overlay) return;
+  closeCommunityCompose();
+  closeCommunityPost();
+  resetCommunityRoomCompose();
+  overlay.hidden = false;
+  const input = document.getElementById("community-room-name");
+  if (input) input.focus();
+}
+
+function closeCommunityRoomCompose() {
+  const overlay = document.getElementById("community-room-overlay");
+  if (!overlay || overlay.hidden) return;
+  overlay.hidden = true;
+  resetCommunityRoomCompose();
 }
 
 function paintCommunitySettings() {
@@ -1116,6 +1180,7 @@ function closeCommunitiesChrome() {
   closeCommunityListing();
   closeCommunityFilterPicker();
   closeCommunityCompose();
+  closeCommunityRoomCompose();
   closeCommunityPost();
   communityOpenRoom = null;
   if (typeof hideMemberList === "function") hideMemberList();
@@ -1909,7 +1974,11 @@ if (communityPostCommentInput) {
     submitCommunityPostComment();
   });
 }
-document.getElementById("community-room-create").addEventListener("click", () => createCommunityRoom());
+document.getElementById("community-room-create").addEventListener("click", () => openCommunityRoomCompose());
+document.getElementById("community-room-cancel").addEventListener("click", () => closeCommunityRoomCompose());
+document.getElementById("community-room-overlay").addEventListener("mousedown", (e) => {
+  if (e.target && e.target.id === "community-room-overlay") closeCommunityRoomCompose();
+});
 document.getElementById("community-room-chat-send").addEventListener("click", () => sendCommunityRoomLine());
 const communityRoomChatInput = document.getElementById("community-room-chat-input");
 if (communityRoomChatInput) {
@@ -1937,6 +2006,11 @@ document.addEventListener("keydown", (e) => {
   const compose = document.getElementById("community-compose-overlay");
   if (compose && !compose.hidden) {
     closeCommunityCompose();
+    return;
+  }
+  const roomCompose = document.getElementById("community-room-overlay");
+  if (roomCompose && !roomCompose.hidden) {
+    closeCommunityRoomCompose();
     return;
   }
   const apply = document.getElementById("community-apply-overlay");

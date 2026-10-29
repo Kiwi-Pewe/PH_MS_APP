@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=451">
+<link rel="stylesheet" href="app.css?v=452">
 </head>
 <body>
 
@@ -967,9 +967,12 @@
         <div id="community-pane-posts" class="community-pane" hidden>
           <div class="community-band-title">
             <h2 class="community-list-title" id="community-post-title">Following</h2>
-            <p class="community-list-help" id="community-post-help">Your posts and posts from people you follow, on any topic.</p>
+            <p class="community-list-help" id="community-post-help">This page contains your own posts, as well as people you follow</p>
             <div class="community-list-divider"></div>
-            <button type="button" class="community-create-post" id="community-create-post">Create a post</button>
+            <div class="community-pane-toolbar">
+              <input type="search" id="community-post-search" class="community-search" placeholder="Search posts" maxlength="80" autocomplete="off" spellcheck="false">
+              <button type="button" class="community-create-post" id="community-create-post">Create a post</button>
+            </div>
           </div>
           <div class="community-band-body">
             <div id="community-post-list"></div>
@@ -2713,7 +2716,7 @@
     </div>
 <script src="boot.js?v=148"></script>
 <script src="app-shell.js?v=76"></script>
-<script src="communities.js?v=29"></script>
+<script src="communities.js?v=30"></script>
 <script src="community-posts.js?v=1"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>

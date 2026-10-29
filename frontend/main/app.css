@@ -12742,6 +12742,10 @@ button.voice-more-row:disabled,
   width: 100%;
   margin: 12px 0;
 }
+.community-pane-toolbar .community-create-post {
+  width: auto;
+  margin: 0;
+}
 .community-create-post {
   flex: 0 0 auto;
   display: flex;
@@ -12889,6 +12893,16 @@ button.voice-more-row:disabled,
 .community-compose-text .composer-field textarea {
   padding: 0;
   scrollbar-gutter: auto;
+  box-sizing: border-box;
+}
+.community-compose-text .composer-field textarea {
+  width: 100%;
+}
+.community-compose-text .composer-highlight {
+  overflow: hidden;
+}
+.community-compose-text .composer-highlight .community-post-hash {
+  font-weight: inherit;
 }
 .community-compose-opts {
   display: flex;
@@ -13033,6 +13047,7 @@ button.voice-more-row:disabled,
 }
 .community-post-more { margin-left: auto; }
 .community-post-face {
+  position: relative;
   flex: 0 0 auto;
   width: 40px;
   height: 40px;
@@ -13044,6 +13059,7 @@ button.voice-more-row:disabled,
   color: #fff;
   font-size: 16px;
   user-select: none;
+  background: #3b3e4a;
 }
 .community-post-face.is-mine,
 .community-post-name.is-mine,

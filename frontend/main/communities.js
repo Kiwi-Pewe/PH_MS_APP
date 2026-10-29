@@ -68,8 +68,22 @@ function communityRowTitle(id) {
 
 function communityRowHelp(id) {
   if (id === "timeline") return "Public posts in topics you follow.";
-  if (id === "explore") return "Posts from anyone, newest first.";
-  return "Your posts and posts from people you follow, on any topic.";
+  if (id === "explore") return "All Posts from all user";
+  return "This page contains your own posts, as well as people you follow";
+}
+
+function communityPostSearchText() {
+  const input = document.getElementById("community-post-search");
+  return input ? String(input.value || "").trim().toLowerCase() : "";
+}
+
+function communityPostMatches(post, query) {
+  if (!query) return true;
+  const person = communityPostPerson(post);
+  const fields = [person.name, person.handle, post && post.body];
+  if (fields.some((field) => String(field || "").toLowerCase().indexOf(query) >= 0)) return true;
+  const tags = (post && post.topics) || [];
+  return tags.some((topic) => String(topic || "").toLowerCase().indexOf(query) >= 0);
 }
 
 function showCommunityRow(id) {
@@ -119,11 +133,13 @@ function paintCommunityPosts() {
   const list = document.getElementById("community-post-list");
   if (!list) return;
   list.replaceChildren();
-  const rows = (typeof communityPostRows !== "undefined" && communityPostRows) || [];
+  const query = communityPostSearchText();
+  const loaded = (typeof communityPostRows !== "undefined" && communityPostRows) || [];
+  const rows = loaded.filter((post) => communityPostMatches(post, query));
   if (!rows.length) {
     const empty = document.createElement("p");
     empty.className = "community-list-help";
-    empty.textContent = "No posts yet.";
+    empty.textContent = loaded.length ? "No posts match." : "No posts yet.";
     list.appendChild(empty);
     return;
   }
@@ -1900,6 +1916,10 @@ if (communityRoomChatInput) {
 const communityRoomSearch = document.getElementById("community-room-search");
 if (communityRoomSearch) {
   communityRoomSearch.addEventListener("input", () => paintCommunityRooms());
+}
+const communityPostSearch = document.getElementById("community-post-search");
+if (communityPostSearch) {
+  communityPostSearch.addEventListener("input", () => paintCommunityPosts());
 }
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;

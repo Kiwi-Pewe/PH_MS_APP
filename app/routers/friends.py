@@ -106,7 +106,7 @@ async def add_user(friends: Friend_user, database: Session = Depends(get_db), cu
     database.commit()
     database.refresh(add_friend)
 
-    await notify_user(friend_exists.id, {"type": "friend_request", "sender_id": current_user.id, "username": current_user.username, "avatar": public_avatar(current_user)})
+    await notify_user(friend_exists.id, {"type": "friend_request", "sender_id": current_user.id, "username": current_user.username, "display_name": public_display_name(current_user), "avatar": public_avatar(current_user)})
     return
 
 @router.get("/get_friends")

@@ -2038,17 +2038,29 @@ html.chat-compact .msg-cluster.self .reaction-pill.mine {
   background: var(--panel);
 }
 html.chat-compact #chat-messages.self-right .msg-cluster.self,
-html.chat-compact #channel-messages.self-right .msg-cluster.self { flex-direction: row; }
+html.chat-compact #channel-messages.self-right .msg-cluster.self,
+html.chat-compact #community-room-chat-log.self-right .msg-cluster.self,
+html.chat-compact #community-phone-log.self-right .msg-cluster.self { flex-direction: row; }
 html.chat-compact #chat-messages.self-right .msg-cluster.self .cluster-body,
-html.chat-compact #channel-messages.self-right .msg-cluster.self .cluster-body { align-items: flex-start; }
+html.chat-compact #channel-messages.self-right .msg-cluster.self .cluster-body,
+html.chat-compact #community-room-chat-log.self-right .msg-cluster.self .cluster-body,
+html.chat-compact #community-phone-log.self-right .msg-cluster.self .cluster-body { align-items: flex-start; }
 html.chat-compact #chat-messages.self-right .msg-cluster.self .bubble-line,
 html.chat-compact #channel-messages.self-right .msg-cluster.self .bubble-line,
+html.chat-compact #community-room-chat-log.self-right .msg-cluster.self .bubble-line,
+html.chat-compact #community-phone-log.self-right .msg-cluster.self .bubble-line,
 html.chat-compact #chat-messages.self-right .msg-cluster.self .msg-media,
 html.chat-compact #channel-messages.self-right .msg-cluster.self .msg-media,
+html.chat-compact #community-room-chat-log.self-right .msg-cluster.self .msg-media,
+html.chat-compact #community-phone-log.self-right .msg-cluster.self .msg-media,
 html.chat-compact #chat-messages.self-right .msg-cluster.self .link-embed,
 html.chat-compact #channel-messages.self-right .msg-cluster.self .link-embed,
+html.chat-compact #community-room-chat-log.self-right .msg-cluster.self .link-embed,
+html.chat-compact #community-phone-log.self-right .msg-cluster.self .link-embed,
 html.chat-compact #chat-messages.self-right .msg-cluster.self .invite-card,
-html.chat-compact #channel-messages.self-right .msg-cluster.self .invite-card { text-align: left; align-self: flex-start; }
+html.chat-compact #channel-messages.self-right .msg-cluster.self .invite-card,
+html.chat-compact #community-room-chat-log.self-right .msg-cluster.self .invite-card,
+html.chat-compact #community-phone-log.self-right .msg-cluster.self .invite-card { text-align: left; align-self: flex-start; }
 
 html.legacy-chat-input .composer-highlight { display: none !important; }
 html.legacy-chat-input .composer-field textarea,
@@ -2328,9 +2340,13 @@ html.legacy-chat-input #mention-picker { display: none !important; }
 }
 .msg-media img { cursor: pointer; }
 #chat-messages.self-right .msg-cluster.self .msg-media,
-#channel-messages.self-right .msg-cluster.self .msg-media { align-self: flex-end; }
+#channel-messages.self-right .msg-cluster.self .msg-media,
+#community-room-chat-log.self-right .msg-cluster.self .msg-media,
+#community-phone-log.self-right .msg-cluster.self .msg-media { align-self: flex-end; }
 #chat-messages:not(.self-right) .msg-cluster.self .msg-media,
-#channel-messages:not(.self-right) .msg-cluster.self .msg-media { align-self: flex-start; }
+#channel-messages:not(.self-right) .msg-cluster.self .msg-media,
+#community-room-chat-log:not(.self-right) .msg-cluster.self .msg-media,
+#community-phone-log:not(.self-right) .msg-cluster.self .msg-media { align-self: flex-start; }
 #composer .box, #channel-composer .box { display: flex; align-items: flex-end; gap: 6px; background: transparent; border: none; border-radius: 0; padding: 6px; }
 .composer-card {
   background: var(--panel-alt);
@@ -3618,10 +3634,12 @@ html.no-chat-bubbles .msg-cluster { margin-bottom: calc(var(--cluster-gap, 20px)
    settings toggle only ever has to flip one class, not rewrite layout. */
 #chat-messages.self-right .msg-cluster.self,
 #channel-messages.self-right .msg-cluster.self,
-#community-room-chat-log.self-right .msg-cluster.self { flex-direction: row-reverse; }
+#community-room-chat-log.self-right .msg-cluster.self,
+#community-phone-log.self-right .msg-cluster.self { flex-direction: row-reverse; }
 #chat-messages:not(.self-right) .msg-cluster.self,
 #channel-messages:not(.self-right) .msg-cluster.self,
-#community-room-chat-log:not(.self-right) .msg-cluster.self { flex-direction: row; }
+#community-room-chat-log:not(.self-right) .msg-cluster.self,
+#community-phone-log:not(.self-right) .msg-cluster.self { flex-direction: row; }
 
 .cluster-avatar {
   position: relative;
@@ -3636,10 +3654,12 @@ html.no-chat-bubbles .msg-cluster { margin-bottom: calc(var(--cluster-gap, 20px)
 .cluster-body { display: flex; flex-direction: column; min-width: 0; max-width: 70%; }
 #chat-messages.self-right .msg-cluster.self .cluster-body,
 #channel-messages.self-right .msg-cluster.self .cluster-body,
-#community-room-chat-log.self-right .msg-cluster.self .cluster-body { align-items: flex-end; }
+#community-room-chat-log.self-right .msg-cluster.self .cluster-body,
+#community-phone-log.self-right .msg-cluster.self .cluster-body { align-items: flex-end; }
 #chat-messages:not(.self-right) .msg-cluster.self .cluster-body,
 #channel-messages:not(.self-right) .msg-cluster.self .cluster-body,
-#community-room-chat-log:not(.self-right) .msg-cluster.self .cluster-body { align-items: flex-start; }
+#community-room-chat-log:not(.self-right) .msg-cluster.self .cluster-body,
+#community-phone-log:not(.self-right) .msg-cluster.self .cluster-body { align-items: flex-start; }
 .msg-cluster.other .cluster-body { align-items: flex-start; }
 
 .cluster-header { display: flex; align-items: baseline; gap: 7px; margin-bottom: 4px; font-size: calc(13px * var(--message-scale)); }
@@ -3679,10 +3699,12 @@ html.no-chat-bubbles .msg-cluster { margin-bottom: calc(var(--cluster-gap, 20px)
 .msg-cluster.other .bubble-line { text-align: left; }
 #chat-messages.self-right .msg-cluster.self .bubble-line,
 #channel-messages.self-right .msg-cluster.self .bubble-line,
-#community-room-chat-log.self-right .msg-cluster.self .bubble-line { text-align: right; }
+#community-room-chat-log.self-right .msg-cluster.self .bubble-line,
+#community-phone-log.self-right .msg-cluster.self .bubble-line { text-align: right; }
 #chat-messages:not(.self-right) .msg-cluster.self .bubble-line,
 #channel-messages:not(.self-right) .msg-cluster.self .bubble-line,
-#community-room-chat-log:not(.self-right) .msg-cluster.self .bubble-line { text-align: left; }
+#community-room-chat-log:not(.self-right) .msg-cluster.self .bubble-line,
+#community-phone-log:not(.self-right) .msg-cluster.self .bubble-line { text-align: left; }
 
 .edited-tag {
   font-size: 11px; font-weight: 400; font-style: italic;
@@ -5673,12 +5695,20 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
    future "my messages on the left" setting only flips that one class. */
 #chat-messages.self-right .msg-cluster.self .link-embed,
 #channel-messages.self-right .msg-cluster.self .link-embed,
+#community-room-chat-log.self-right .msg-cluster.self .link-embed,
+#community-phone-log.self-right .msg-cluster.self .link-embed,
 #chat-messages.self-right .msg-cluster.self .invite-card,
-#channel-messages.self-right .msg-cluster.self .invite-card { align-self: flex-end; }
+#channel-messages.self-right .msg-cluster.self .invite-card,
+#community-room-chat-log.self-right .msg-cluster.self .invite-card,
+#community-phone-log.self-right .msg-cluster.self .invite-card { align-self: flex-end; }
 #chat-messages:not(.self-right) .msg-cluster.self .link-embed,
 #channel-messages:not(.self-right) .msg-cluster.self .link-embed,
+#community-room-chat-log:not(.self-right) .msg-cluster.self .link-embed,
+#community-phone-log:not(.self-right) .msg-cluster.self .link-embed,
 #chat-messages:not(.self-right) .msg-cluster.self .invite-card,
-#channel-messages:not(.self-right) .msg-cluster.self .invite-card { align-self: flex-start; }
+#channel-messages:not(.self-right) .msg-cluster.self .invite-card,
+#community-room-chat-log:not(.self-right) .msg-cluster.self .invite-card,
+#community-phone-log:not(.self-right) .msg-cluster.self .invite-card { align-self: flex-start; }
 .msg-cluster.other .link-embed,
 .msg-cluster.other .invite-card { align-self: flex-start; }
 .link-embed-hide {
@@ -13396,16 +13426,21 @@ button.voice-more-row:disabled,
   flex: 0 0 auto;
   height: 30px;
 }
-.community-phone-title {
-  background: transparent;
-  border: 0;
-  color: inherit;
-  font: inherit;
-  font-weight: 700;
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
+#community-phone-title { cursor: pointer; }
+.community-phone-friend {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  max-width: 46%;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
 }
+.community-phone-friend[hidden] { display: none; }
 .community-phone-warn {
   margin: 0;
   color: var(--danger);

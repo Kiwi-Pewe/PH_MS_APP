@@ -435,9 +435,12 @@ async function addFriendFromContextMenu(username) {
     });
     if (!response.ok) {
       console.error(`Failed to add friend: ${response.status}`);
+      return false;
     }
+    return true;
   } catch (e) {
     console.error("Failed to add friend, network error:", e);
+    return false;
   }
 }
 

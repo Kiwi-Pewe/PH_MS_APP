@@ -124,7 +124,10 @@ function connectSocket() {
   ws.onmessage = (event) => {
     let data;
     try { data = JSON.parse(event.data); } catch (e) { return; }
-    if (data.type === "friend_request") refreshFriendsView();
+    if (data.type === "friend_request") {
+      refreshFriendsView();
+      if (typeof noteCommunityPhoneFriendRequest === "function") noteCommunityPhoneFriendRequest(data);
+    }
 
     if (data.type === "message_ack" && data.temp_id) {
       const row = currentMessages.find(m => m.tempId === data.temp_id)
@@ -251,7 +254,7 @@ function connectSocket() {
     }
 
     if (data.type === "phone_matched") {
-      if (typeof loadCommunityPhone === "function") loadCommunityPhone();
+      if (typeof loadCommunityPhone === "function") loadCommunityPhone({ alert: true });
     }
 
     if (data.type === "phone_message") {

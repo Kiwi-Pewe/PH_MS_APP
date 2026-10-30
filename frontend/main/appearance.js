@@ -337,7 +337,7 @@ function applyAppearanceChrome(prefs) {
   document.documentElement.classList.toggle("hide-reactions", !prefs.show_reactions);
   document.documentElement.classList.toggle("no-chat-bubbles", !prefs.show_bubbles);
   const selfRight = prefs.self_side !== "left";
-  ["chat-messages", "channel-messages"].forEach(id => {
+  ["chat-messages", "channel-messages", "community-room-chat-log", "community-phone-log"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("self-right", selfRight);
   });

@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=459">
+<link rel="stylesheet" href="app.css?v=460">
 </head>
 <body>
 
@@ -1020,9 +1020,17 @@
           </div>
         </div>
         <div id="community-pane-phone-chat" class="community-pane community-room-chat" hidden>
-          <div class="view-header community-room-chat-head">
-            <button type="button" id="community-phone-title" class="community-phone-title">Phone a User</button>
-            <button type="button" class="call-leave" id="community-phone-end">End Chat</button>
+          <div class="view-header">
+            <div class="header-title-group">
+              <div class="header-title-stack">
+                <span id="community-phone-title">Phone a User</span>
+                <span id="community-phone-desc" class="header-description" hidden></span>
+              </div>
+            </div>
+            <p class="community-phone-friend" id="community-phone-friend" hidden></p>
+            <div class="header-actions">
+              <button type="button" class="call-leave" id="community-phone-end">End Chat</button>
+            </div>
           </div>
           <div class="community-room-chat-body">
             <div id="community-phone-log" class="self-right"></div>
@@ -2697,7 +2705,7 @@
   <div id="mention-picker-list"></div>
 </div>
 <script src="state.js?v=73"></script>
-<script src="appearance.js?v=14"></script>
+<script src="appearance.js?v=15"></script>
 <script src="accessibility.js?v=12"></script>
 <script src="gifs.js?v=4"></script>
 <script src="language-time.js?v=1"></script>
@@ -2749,12 +2757,12 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=151"></script>
+<script src="boot.js?v=152"></script>
 <script src="app-shell.js?v=77"></script>
 <script src="communities.js?v=38"></script>
 <script src="community-posts.js?v=2"></script>
 <script src="community-rooms.js?v=5"></script>
-<script src="community-phone.js?v=1"></script>
+<script src="community-phone.js?v=2"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=53"></script>
@@ -2785,7 +2793,7 @@
 <script src="profile.js?v=24"></script>
 <script src="profile-identity.js?v=19"></script>
 <script src="profile-edit.js?v=101"></script>
-<script src="context-menus.js?v=107"></script>
+<script src="context-menus.js?v=108"></script>
 <script src="conversations.js?v=75"></script>
 <script src="chat-render.js?v=74"></script>
 <script src="chat-history.js?v=52"></script>

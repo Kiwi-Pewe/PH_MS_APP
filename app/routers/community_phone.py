@@ -10,6 +10,7 @@ from app.models import (
     Community_phone_message,
     Community_phone_notice,
     Community_phone_wait,
+    Friend_request,
     Message,
     UserInfo,
 )
@@ -131,6 +132,26 @@ async def push_phone_ends(events):
         await notify_user(event["user_id"], {"type": "phone_ended", "warning": event["warning"]})
 
 
+def phone_friend_note(database, me, other):
+    if not other:
+        return ""
+    incoming = database.query(Friend_request).filter(
+        Friend_request.user_1 == other.id,
+        Friend_request.user_2 == me.id,
+        Friend_request.pending == True,
+    ).first()
+    if incoming:
+        return public_display_name(other) + " has sent a friend request."
+    outgoing = database.query(Friend_request).filter(
+        Friend_request.user_1 == me.id,
+        Friend_request.user_2 == other.id,
+        Friend_request.pending == True,
+    ).first()
+    if outgoing:
+        return "Friend request sent."
+    return ""
+
+
 def partner_pack(user):
     if not user:
         return None
@@ -192,6 +213,7 @@ def pack_phone_state(database, user):
         "id": call.id,
         "active_at": str(call.active_at),
         "partner": partner_pack(other),
+        "friend_note": phone_friend_note(database, user, other),
         "messages": [pack_phone_message(database, row, user.id) for row in rows],
     }
     return payload

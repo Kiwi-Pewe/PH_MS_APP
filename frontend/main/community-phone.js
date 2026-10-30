@@ -3,6 +3,7 @@ let communityPhoneMessages = [];
 let communityPhoneWaiting = false;
 let communityPhoneWarning = "";
 let communityPhoneUnread = 0;
+let communityPhoneFriendNote = "";
 let communityPhoneBusy = false;
 let communityPhoneTimer = 0;
 let communityPhoneGen = 0;
@@ -69,10 +70,37 @@ function mapCommunityPhoneMessage(msg) {
   };
 }
 
+function paintCommunityPhoneFriend() {
+  const el = document.getElementById("community-phone-friend");
+  if (!el) return;
+  el.textContent = communityPhoneFriendNote || "";
+  el.hidden = !communityPhoneFriendNote;
+}
+
+function setCommunityPhoneFriendNote(text) {
+  communityPhoneFriendNote = text || "";
+  paintCommunityPhoneFriend();
+}
+
+function playCommunityPhoneAlert() {
+  const partner = communityPhoneCall && communityPhoneCall.partner;
+  if (partner && typeof isConversationMuted === "function" && isConversationMuted("dm", partner.id)) return;
+  if (typeof playOneiraAlert === "function") playOneiraAlert();
+}
+
+function noteCommunityPhoneFriendRequest(data) {
+  const partner = communityPhoneCall && communityPhoneCall.partner;
+  if (!partner || !data || Number(data.sender_id) !== Number(partner.id)) return;
+  const name = data.display_name || data.username || partner.display_name || partner.username || "Someone";
+  setCommunityPhoneFriendNote(name + " has sent a friend request.");
+  playCommunityPhoneAlert();
+}
+
 function paintCommunityPhoneChat() {
   const title = document.getElementById("community-phone-title");
   const partner = communityPhoneCall && communityPhoneCall.partner;
   if (title) title.textContent = partner ? (partner.display_name || partner.username || "Phone a User") : "Phone a User";
+  paintCommunityPhoneFriend();
   const log = document.getElementById("community-phone-log");
   const body = log && log.parentElement;
   if (log && typeof renderClusteredMessages === "function") {
@@ -142,12 +170,15 @@ function armCommunityPhoneTimer(data) {
   }, delay);
 }
 
-function applyCommunityPhoneState(data) {
+function applyCommunityPhoneState(data, opts) {
+  const wasOnScreen = communityPhoneOnScreen();
+  const previousUnread = communityPhoneUnread;
   const body = data || {};
   communityPhoneWaiting = !!body.waiting;
   communityPhoneWarning = body.call ? "" : (body.warning || "");
   communityPhoneUnread = Number(body.unread) || 0;
   communityPhoneCall = body.call || null;
+  communityPhoneFriendNote = (body.call && body.call.friend_note) || "";
   communityPhoneMessages = communityPhoneCall && Array.isArray(communityPhoneCall.messages)
     ? communityPhoneCall.messages.map(mapCommunityPhoneMessage)
     : [];
@@ -157,17 +188,19 @@ function applyCommunityPhoneState(data) {
   } else {
     paintCommunityPhoneBadge();
     paintCommunityPhoneLanding();
+    paintCommunityPhoneFriend();
   }
+  if (opts && opts.alert && communityPhoneUnread > previousUnread && !wasOnScreen) playCommunityPhoneAlert();
 }
 
-async function loadCommunityPhone() {
+async function loadCommunityPhone(opts) {
   const token = ++communityPhoneGen;
   try {
     const response = await fetch(`https://${serverAddress}/community_phone`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
     if (token !== communityPhoneGen) return;
-    applyCommunityPhoneState(data);
+    applyCommunityPhoneState(data, opts);
   } catch (e) {
     return;
   }
@@ -228,6 +261,7 @@ function applyCommunityPhoneEnded(data) {
   communityPhoneMessages = [];
   communityPhoneWaiting = false;
   communityPhoneUnread = 0;
+  communityPhoneFriendNote = "";
   communityPhoneWarning = (data && data.warning) || communityPhoneWarning;
   if (communityPhoneOnScreen() || (typeof communityRow !== "undefined" && communityRow === "garterphone")) showCommunityPhone();
   else {
@@ -242,6 +276,7 @@ function applyCommunityPhoneMessage(data) {
   if (!communityPhoneOnScreen()) {
     if (data.unread != null) communityPhoneUnread = Number(data.unread) || communityPhoneUnread;
     paintCommunityPhoneBadge();
+    if (Number(data.sender_id) !== Number(myUserId)) playCommunityPhoneAlert();
     return;
   }
   if (data.id && communityPhoneMessages.some((row) => row.id === data.id)) return;
@@ -270,13 +305,27 @@ function dropCommunityPhoneTemp(tempId) {
 
 function takeCommunityPhoneDm(partner, ping) {
   if (!partner || !partner.id) return;
+  const looking = communityPhoneOnScreen();
   communityPhoneCall = null;
   communityPhoneMessages = [];
   communityPhoneWaiting = false;
   communityPhoneUnread = 0;
   communityPhoneWarning = "";
-  if (communityPhoneOnScreen() && typeof openDirectMessage === "function") {
+  communityPhoneFriendNote = "";
+  if (looking && typeof openDirectMessage === "function") {
+    if (typeof selectRailIcon === "function") selectRailIcon("home");
+    currentServerId = null;
+    currentServerOwnerId = null;
+    currentServerPerms = {};
+    currentServerHighestRole = null;
+    currentServerTimeoutUntil = null;
+    currentChannelId = null;
+    currentChannelType = null;
+    currentChannelName = null;
+    if (typeof showPlaceSidebar === "function") showPlaceSidebar("home");
+    if (typeof setTopbarTab === "function") setTopbarTab("messages");
     openDirectMessage(partner.id, partner.username);
+    if (typeof syncAppAddress === "function") syncAppAddress();
     return;
   }
   if (ping && typeof bumpConversation === "function") {
@@ -306,6 +355,13 @@ async function openCommunityPhoneMenu(e) {
   ];
   if (typeof friendMenuOption === "function") {
     const friend = friendMenuOption(partner.id, partner.username, relation);
+    if (friend && friend.label === "Add Friend" && !relation.pending_in && !friend.disabled && friend.onSelect) {
+      const send = friend.onSelect;
+      friend.onSelect = async () => {
+        const ok = await send();
+        if (ok) setCommunityPhoneFriendNote("Friend request sent.");
+      };
+    }
     if (friend) rows.push(friend);
   }
   rows.push({

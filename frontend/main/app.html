@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=463">
+<link rel="stylesheet" href="app.css?v=464">
 </head>
 <body>
 
@@ -165,7 +165,7 @@
         </div>
         <div id="community-nav-foot">
           <div class="settings-nav-divider"></div>
-          <button class="nav-item" type="button" data-community-row="settings">Settings</button>
+          <button class="nav-item" type="button" id="community-settings-open">Settings</button>
         </div>
       </div>
 
@@ -1051,15 +1051,6 @@
             <div id="community-phone-log" class="self-right"></div>
           </div>
           <div id="community-phone-compose"></div>
-        </div>
-        <div id="community-pane-settings" class="community-pane" hidden>
-          <div class="community-band-title">
-            <h2 class="community-list-title">Settings</h2>
-            <p class="community-list-help">How posts look for you. Blacklisted words and topics can be hidden or covered as explicit.</p>
-          </div>
-          <div class="community-band-body">
-            <div id="community-settings-body"></div>
-          </div>
         </div>
         <div id="community-filter-picker" class="community-filter-picker" hidden>
           <div class="community-filter-picker-head">
@@ -2148,6 +2139,25 @@
     </div>
   </div>
 
+  <div id="community-settings-overlay" hidden>
+    <div id="community-settings-card" role="dialog" aria-modal="true" aria-labelledby="community-settings-heading">
+      <div id="community-settings-top">
+        <span id="community-settings-heading">Settings</span>
+        <button type="button" class="icon-btn" id="community-settings-close" title="Close" aria-label="Close">&times;</button>
+      </div>
+      <nav id="community-settings-nav">
+        <button type="button" class="settings-nav-item active" data-community-settings="posts">Post settings</button>
+        <button type="button" class="settings-nav-item" data-community-settings="rooms">Room settings</button>
+        <button type="button" class="settings-nav-item" data-community-settings="phone">Phone Settings</button>
+        <button type="button" class="settings-nav-item" data-community-settings="finder">Server Finder settings</button>
+      </nav>
+      <div id="community-settings-main">
+        <h2 id="community-settings-page-title">Post settings</h2>
+        <div id="community-settings-page"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="community-post-overlay" hidden>
     <article id="community-post-card" class="community-post community-post-card is-detail" role="dialog" aria-modal="true" aria-label="Post">
       <div class="community-post-head" id="community-post-view-head"></div>
@@ -2774,10 +2784,11 @@
     </div>
 <script src="boot.js?v=152"></script>
 <script src="app-shell.js?v=77"></script>
-<script src="communities.js?v=40"></script>
+<script src="communities.js?v=41"></script>
 <script src="community-posts.js?v=3"></script>
 <script src="community-rooms.js?v=6"></script>
 <script src="community-search.js?v=2"></script>
+<script src="community-settings.js?v=1"></script>
 <script src="community-phone.js?v=3"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>

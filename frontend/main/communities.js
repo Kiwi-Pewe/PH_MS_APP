@@ -32,8 +32,7 @@ const COMMUNITY_ROW_PANES = {
   explore: "posts",
   rooms: "rooms",
   garterphone: "garterphone",
-  servers: "servers",
-  settings: "settings"
+  servers: "servers"
 };
 
 let communityRow = "servers";
@@ -50,8 +49,6 @@ let communityRoomMessages = [];
 let communityRoomMemberRows = [];
 let communityRoomLoadGen = 0;
 let communityComposerHold = null;
-let communityMuteWords = [];
-let communityMuteTopics = [];
 let communityRooms = [];
 
 function communityEmojiCount(text) {
@@ -69,7 +66,6 @@ function communityRowTitle(id) {
   if (id === "explore") return "Explore";
   if (id === "rooms") return "Rooms";
   if (id === "garterphone") return "Phone a User";
-  if (id === "settings") return "Settings";
   if (id === "servers") return "Servers";
   return "Following";
 }
@@ -93,7 +89,6 @@ function showCommunityRow(id) {
   const panePosts = document.getElementById("community-pane-posts");
   const paneRooms = document.getElementById("community-pane-rooms");
   const paneGarter = document.getElementById("community-pane-garterphone");
-  const paneSettings = document.getElementById("community-pane-settings");
   communityOpenRoom = null;
   communityRoomMessages = [];
   communityRoomMemberRows = [];
@@ -104,7 +99,6 @@ function showCommunityRow(id) {
   if (panePosts) panePosts.hidden = pane !== "posts";
   if (paneRooms) paneRooms.hidden = pane !== "rooms";
   if (paneGarter) paneGarter.hidden = pane !== "garterphone";
-  if (paneSettings) paneSettings.hidden = pane !== "settings";
   if (paneChat) paneChat.hidden = true;
   const panePhone = document.getElementById("community-pane-phone-chat");
   if (panePhone) panePhone.hidden = true;
@@ -123,7 +117,6 @@ function showCommunityRow(id) {
     paintCommunityRooms();
     if (typeof loadCommunityRooms === "function") loadCommunityRooms();
   }
-  if (pane === "settings") paintCommunitySettings();
   if (pane === "garterphone") {
     if (typeof showCommunityPhone === "function") showCommunityPhone();
     if (typeof loadCommunityPhone === "function") loadCommunityPhone();
@@ -1017,7 +1010,7 @@ function openCommunityRoomChat(id) {
   document.querySelectorAll("#community-sidebar-view [data-community-row]").forEach((btn) => {
     btn.classList.remove("active");
   });
-  ["community-pane-servers", "community-pane-posts", "community-pane-rooms", "community-pane-garterphone", "community-pane-settings", "community-pane-phone-chat"].forEach((paneId) => {
+  ["community-pane-servers", "community-pane-posts", "community-pane-rooms", "community-pane-garterphone", "community-pane-phone-chat"].forEach((paneId) => {
     const pane = document.getElementById(paneId);
     if (pane) pane.hidden = true;
   });
@@ -1101,95 +1094,6 @@ function closeCommunityRoomCompose() {
   resetCommunityRoomCompose();
 }
 
-function paintCommunitySettings() {
-  const host = document.getElementById("community-settings-body");
-  if (!host) return;
-  host.replaceChildren();
-  host.appendChild(paintCommunityMuteBlock("Words", communityMuteWords, "words"));
-  host.appendChild(paintCommunityMuteBlock("Topics", communityMuteTopics, "topics"));
-}
-
-function paintCommunityMuteBlock(title, rows, kind) {
-  const block = document.createElement("section");
-  block.className = "community-settings-block";
-  const head = document.createElement("h3");
-  head.className = "community-settings-title";
-  head.textContent = title;
-  const help = document.createElement("p");
-  help.className = "community-list-help";
-  help.textContent = kind === "topics"
-    ? "Posts in these topics can be hidden or covered."
-    : "Posts that contain these words can be hidden or covered.";
-  const add = document.createElement("div");
-  add.className = "community-pane-toolbar";
-  const input = document.createElement("input");
-  input.type = "text";
-  input.className = "community-search";
-  input.maxLength = 40;
-  input.autocomplete = "off";
-  input.spellcheck = false;
-  input.placeholder = kind === "topics" ? "Add a topic" : "Add a word";
-  input.disabled = true;
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "pill-btn";
-  btn.textContent = "Add";
-  btn.disabled = true;
-  btn.addEventListener("click", () => {
-    const word = String(input.value || "").trim().toLowerCase();
-    if (!word) return;
-    if (rows.some((row) => row.word === word)) {
-      input.value = "";
-      return;
-    }
-    rows.push({ word: word, mode: "hide" });
-    input.value = "";
-    paintCommunitySettings();
-  });
-  add.appendChild(input);
-  add.appendChild(btn);
-  block.appendChild(head);
-  block.appendChild(help);
-  block.appendChild(add);
-  rows.forEach((row, index) => {
-    const line = document.createElement("div");
-    line.className = "community-mute-row";
-    const label = document.createElement("span");
-    label.className = "community-tag is-on";
-    label.textContent = row.word;
-    const hideBtn = document.createElement("button");
-    hideBtn.type = "button";
-    hideBtn.className = "ghost-btn" + (row.mode === "hide" ? " is-active" : "");
-    hideBtn.textContent = "Hide";
-    hideBtn.addEventListener("click", () => {
-      row.mode = "hide";
-      paintCommunitySettings();
-    });
-    const coverBtn = document.createElement("button");
-    coverBtn.type = "button";
-    coverBtn.className = "ghost-btn" + (row.mode === "cover" ? " is-active" : "");
-    coverBtn.textContent = "Cover";
-    coverBtn.addEventListener("click", () => {
-      row.mode = "cover";
-      paintCommunitySettings();
-    });
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "ghost-btn";
-    remove.textContent = "Remove";
-    remove.addEventListener("click", () => {
-      rows.splice(index, 1);
-      paintCommunitySettings();
-    });
-    line.appendChild(label);
-    line.appendChild(hideBtn);
-    line.appendChild(coverBtn);
-    line.appendChild(remove);
-    block.appendChild(line);
-  });
-  return block;
-}
-
 function communityLetter(name) {
   if (typeof avatarLetter === "function") return avatarLetter(name);
   return String(name || "?").slice(0, 1).toUpperCase();
@@ -1266,6 +1170,7 @@ function closeCommunitiesChrome() {
   closeCommunityCompose();
   closeCommunityRoomCompose();
   closeCommunityPost();
+  if (typeof closeCommunitySettings === "function") closeCommunitySettings();
   communityOpenRoom = null;
   if (typeof hideMemberList === "function") hideMemberList();
   isCommunitiesOpen = false;

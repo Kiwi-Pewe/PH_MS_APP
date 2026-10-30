@@ -80,20 +80,6 @@ function communityRowHelp(id) {
   return "This page contains your own posts, as well as people you follow";
 }
 
-function communityPostSearchText() {
-  const input = document.getElementById("community-post-search");
-  return input ? String(input.value || "").trim().toLowerCase() : "";
-}
-
-function communityPostMatches(post, query) {
-  if (!query) return true;
-  const person = communityPostPerson(post);
-  const fields = [person.name, person.handle, post && post.body];
-  if (fields.some((field) => String(field || "").toLowerCase().indexOf(query) >= 0)) return true;
-  const tags = (post && post.topics) || [];
-  return tags.some((topic) => String(topic || "").toLowerCase().indexOf(query) >= 0);
-}
-
 function showCommunityRow(id) {
   if (id !== "garterphone" && typeof dismissCommunityPhoneWarning === "function") dismissCommunityPhoneWarning();
   if (!COMMUNITY_ROW_PANES[id]) id = "servers";
@@ -152,17 +138,15 @@ function paintCommunityPosts() {
   const list = document.getElementById("community-post-list");
   if (!list) return;
   list.replaceChildren();
-  const query = communityPostSearchText();
   const loaded = (typeof communityPostRows !== "undefined" && communityPostRows) || [];
-  const rows = loaded.filter((post) => communityPostMatches(post, query));
-  if (!rows.length) {
+  if (!loaded.length) {
     const empty = document.createElement("p");
     empty.className = "community-list-help";
-    empty.textContent = loaded.length ? "No posts match." : "No posts yet.";
+    empty.textContent = (typeof communitySearchRan === "function" && communitySearchRan("post")) ? "No posts match." : "No posts yet.";
     list.appendChild(empty);
     return;
   }
-  rows.forEach((post) => list.appendChild(paintCommunityPostCard(post)));
+  loaded.forEach((post) => list.appendChild(paintCommunityPostCard(post)));
 }
 
 function communityPostBodyText(post) {
@@ -764,25 +748,20 @@ function submitCommunityPost() {
   if (typeof saveCommunityPost === "function") saveCommunityPost();
 }
 
-function communityRoomSearchText() {
-  const input = document.getElementById("community-room-search");
-  return input ? String(input.value || "").trim().toLowerCase() : "";
-}
-
-function communityRoomMatches(row, query) {
-  if (!query) return true;
-  const name = String((row && row.name) || "").toLowerCase();
-  if (name.indexOf(query) >= 0) return true;
-  const tags = (row && row.topics) || [];
-  return tags.some((topic) => String(topic || "").toLowerCase().indexOf(query) >= 0);
-}
-
 function paintCommunityRooms() {
   const list = document.getElementById("community-rooms-list");
   if (!list) return;
   list.replaceChildren();
-  const query = communityRoomSearchText();
-  const rows = communityRooms.filter((row) => !row.hidden && communityRoomMatches(row, query));
+  const rows = communityRooms.filter((row) => !row.hidden);
+  if (!rows.length) {
+    if (typeof communitySearchRan === "function" && communitySearchRan("room")) {
+      const empty = document.createElement("p");
+      empty.className = "community-list-help";
+      empty.textContent = "No rooms match.";
+      list.appendChild(empty);
+    }
+    return;
+  }
   rows.forEach((row) => {
     const card = document.createElement("article");
     card.className = "community-room";
@@ -2107,14 +2086,6 @@ if (communityRoomExit) {
     if (row) leaveCommunityRoom(row);
     else showCommunityRow("rooms");
   });
-}
-const communityRoomSearch = document.getElementById("community-room-search");
-if (communityRoomSearch) {
-  communityRoomSearch.addEventListener("input", () => paintCommunityRooms());
-}
-const communityPostSearch = document.getElementById("community-post-search");
-if (communityPostSearch) {
-  communityPostSearch.addEventListener("input", () => paintCommunityPosts());
 }
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;

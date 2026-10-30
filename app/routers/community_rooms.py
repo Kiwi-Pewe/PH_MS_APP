@@ -1,14 +1,23 @@
 import json
+import re
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import Community_room, Community_room_member, Community_room_message, Message_mention, UserInfo
-from app.privacy import drop_blocked_rows
+from app.privacy import blocked_user_ids, drop_blocked_rows
+from app.routers.community_posts import (
+    community_has_match,
+    community_mentions_any,
+    community_search_on,
+    community_search_account,
+    community_search_has,
+    community_topic_hit,
+)
 from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.mentions import (
     accepted_reply_parent,
@@ -175,8 +184,29 @@ def pack_community_rooms(database, rows, viewer_id):
     return [pack_community_room(row, viewer_id, people, counts, joined) for row in rows]
 
 
+def community_room_text_hit(row, messages, needle, blocked):
+    query = str(needle or "").strip().lower()
+    if not query:
+        return True
+    fields = [row.name or "", row.about or ""]
+    fields.extend(room_topics(row.topics))
+    if any(query in str(field).lower() for field in fields):
+        return True
+    for message in messages:
+        if message.author_id in blocked:
+            continue
+        if query in str(message.content or "").lower():
+            return True
+    return False
+
+
 @router.get("/community_rooms")
 def list_community_rooms(
+    q: str = "",
+    author: str = "",
+    mentions: str = "",
+    topic: str = "",
+    has: list[str] = Query(default=[]),
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
@@ -186,7 +216,43 @@ def list_community_rooms(
         database.query(Community_room).order_by(Community_room.created_at.desc(), Community_room.id.desc()).all(),
         "owner_id",
     )
-    return {"rooms": pack_community_rooms(database, rows, current_user.id)}
+    kinds = community_search_has(has)
+    if not community_search_on(q, author, mentions, topic, kinds):
+        return {"rooms": pack_community_rooms(database, rows, current_user.id)}
+    author_name = str(author or "").strip()
+    mention_name = str(mentions or "").strip()
+    author_account = community_search_account(database, author_name) if author_name else None
+    mention_account = community_search_account(database, mention_name) if mention_name else None
+    if (author_name and author_account is None) or (mention_name and mention_account is None):
+        return {"rooms": []}
+    if author_account is not None:
+        rows = [row for row in rows if row.owner_id == author_account.id]
+    blocked = blocked_user_ids(database, current_user.id)
+    messages_by_room = {}
+    if rows and (str(q or "").strip() or mention_account is not None or kinds):
+        found = database.query(Community_room_message).filter(
+            Community_room_message.room_id.in_([row.id for row in rows])
+        ).all()
+        for message in found:
+            messages_by_room.setdefault(message.room_id, []).append(message)
+    kept = []
+    for row in rows:
+        messages = messages_by_room.get(row.id, [])
+        visible = [message for message in messages if message.author_id not in blocked]
+        if not community_topic_hit(row.topics, topic):
+            continue
+        if not community_has_match(
+            [row.about] + [message.content for message in visible],
+            [message.attachment for message in visible],
+            kinds,
+        ):
+            continue
+        if not community_mentions_any([row.about] + [message.content for message in visible], mention_account):
+            continue
+        if not community_room_text_hit(row, messages, q, blocked):
+            continue
+        kept.append(row)
+    return {"rooms": pack_community_rooms(database, kept, current_user.id)}
 
 
 @router.post("/community_rooms")

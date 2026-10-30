@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=461">
+<link rel="stylesheet" href="app.css?v=462">
 </head>
 <body>
 
@@ -970,7 +970,11 @@
             <p class="community-list-help" id="community-post-help">This page contains your own posts, as well as people you follow</p>
             <div class="community-list-divider"></div>
             <div class="community-pane-toolbar">
-              <input type="search" id="community-post-search" class="community-search" placeholder="Search posts" maxlength="80" autocomplete="off" spellcheck="false">
+              <div class="community-search-shell" id="community-post-search-shell">
+                <div class="community-search-chips" id="community-post-search-chips"></div>
+                <input type="search" id="community-post-search" class="community-search" placeholder="Search posts" maxlength="80" autocomplete="off" spellcheck="false">
+                <div class="search-dropdown" id="community-post-search-menu" hidden></div>
+              </div>
               <button type="button" class="community-create-post" id="community-create-post">Create a post</button>
             </div>
           </div>
@@ -986,7 +990,11 @@
             <p class="community-list-help">Open Chat rooms for up to 15 people.</p>
             <div class="community-list-divider"></div>
             <div class="community-pane-toolbar">
-              <input type="search" id="community-room-search" class="community-search" placeholder="Search rooms" maxlength="80" autocomplete="off" spellcheck="false">
+              <div class="community-search-shell" id="community-room-search-shell">
+                <div class="community-search-chips" id="community-room-search-chips"></div>
+                <input type="search" id="community-room-search" class="community-search" placeholder="Search rooms" maxlength="80" autocomplete="off" spellcheck="false">
+                <div class="search-dropdown" id="community-room-search-menu" hidden></div>
+              </div>
               <button type="button" class="pill-btn" id="community-room-create">Create Room</button>
             </div>
           </div>
@@ -2766,9 +2774,10 @@
     </div>
 <script src="boot.js?v=152"></script>
 <script src="app-shell.js?v=77"></script>
-<script src="communities.js?v=39"></script>
-<script src="community-posts.js?v=2"></script>
-<script src="community-rooms.js?v=5"></script>
+<script src="communities.js?v=40"></script>
+<script src="community-posts.js?v=3"></script>
+<script src="community-rooms.js?v=6"></script>
+<script src="community-search.js?v=1"></script>
 <script src="community-phone.js?v=3"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>

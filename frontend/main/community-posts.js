@@ -32,6 +32,14 @@ async function loadCommunityPosts(lens, fresh) {
   const params = new URLSearchParams();
   params.set("lens", lens || "explore");
   if (communityLensStamp) params.set("before", communityLensStamp);
+  const search = typeof communitySearchParams === "function" ? communitySearchParams("post") : null;
+  if (search) {
+    if (search.q) params.set("q", search.q);
+    if (search.author) params.set("author", search.author);
+    if (search.mentions) params.set("mentions", search.mentions);
+    if (search.topic) params.set("topic", search.topic);
+    (search.has || []).forEach((item) => params.append("has", item));
+  }
   let response;
   try {
     response = await fetch(`https://${serverAddress}/community_posts?${params.toString()}`, { credentials: "include" });
@@ -103,7 +111,7 @@ async function saveCommunityPost() {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(communityErrorText(data, "Could not post."));
     const post = communityPostReady(data);
-    if (communityRow === "explore" || communityRow === "following") communityPostRows.unshift(post);
+    if ((communityRow === "explore" || communityRow === "following") && !(typeof communitySearchRan === "function" && communitySearchRan("post"))) communityPostRows.unshift(post);
     if (typeof closeCommunityCompose === "function") closeCommunityCompose();
     if (typeof paintCommunityPosts === "function") paintCommunityPosts();
   } catch (e) {

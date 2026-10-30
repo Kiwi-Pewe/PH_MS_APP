@@ -15,15 +15,33 @@ function communityRoomErrorText(data, fallback) {
 }
 
 async function loadCommunityRooms() {
+  const params = new URLSearchParams();
+  const search = typeof communitySearchParams === "function" ? communitySearchParams("room") : null;
+  if (search) {
+    if (search.q) params.set("q", search.q);
+    if (search.author) params.set("author", search.author);
+    if (search.mentions) params.set("mentions", search.mentions);
+    if (search.topic) params.set("topic", search.topic);
+    (search.has || []).forEach((item) => params.append("has", item));
+  }
+  const query = params.toString();
   let response;
   try {
-    response = await fetch(`https://${serverAddress}/community_rooms`, { credentials: "include" });
+    response = await fetch(`https://${serverAddress}/community_rooms${query ? "?" + query : ""}`, { credentials: "include" });
   } catch (e) {
     return;
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) return;
-  communityRooms = (data.rooms || []).map(communityRoomReady);
+  const hidden = {};
+  (communityRooms || []).forEach((row) => {
+    if (row && row.hidden) hidden[String(row.id)] = true;
+  });
+  communityRooms = (data.rooms || []).map((row) => {
+    const ready = communityRoomReady(row);
+    if (hidden[String(ready.id)]) ready.hidden = true;
+    return ready;
+  });
   if (typeof paintCommunityRooms === "function") paintCommunityRooms();
   if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
 }

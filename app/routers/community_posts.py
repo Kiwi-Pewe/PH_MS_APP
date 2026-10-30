@@ -1,15 +1,16 @@
 import json
 import random
+import re
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import Community_comment, Community_edge, Community_post, UserInfo
-from app.privacy import drop_blocked_rows
+from app.privacy import blocked_user_ids, drop_blocked_rows
 from app.r2 import (
     ALLOWED_MIME,
     PROFILE_MUSIC_KEY_RE,
@@ -279,10 +280,122 @@ def pack_with_comments(database, row, viewer_id):
     return pack_community_post(row, people, viewer_id, replies=len(children), comments=comments, vote=vote)
 
 
+COMMUNITY_SEARCH_HAS = ("image", "video", "sound", "file", "link")
+COMMUNITY_LINK_RE = re.compile(r"https?://", re.I)
+
+
+def community_search_has(raw):
+    wanted = []
+    for item in raw or []:
+        kind = str(item or "").strip().lower()
+        if kind in COMMUNITY_SEARCH_HAS and kind not in wanted:
+            wanted.append(kind)
+    return wanted
+
+
+def community_search_account(database, name):
+    handle = str(name or "").strip()
+    if not handle:
+        return None
+    return database.query(UserInfo).filter(func.lower(UserInfo.username) == handle.lower()).first()
+
+
+def community_attachment_kinds(raw):
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if isinstance(parsed, dict):
+        parsed = [parsed]
+    if not isinstance(parsed, list):
+        return []
+    kinds = []
+    for item in parsed:
+        if isinstance(item, dict) and item.get("kind"):
+            kinds.append(str(item.get("kind")))
+    return kinds
+
+
+def community_has_match(texts, raws, kinds):
+    if not kinds:
+        return True
+    stored = []
+    for raw in raws or []:
+        stored.extend(community_attachment_kinds(raw))
+    blob = "\n".join(str(text or "") for text in (texts or []))
+    for kind in kinds:
+        if kind == "link":
+            if not COMMUNITY_LINK_RE.search(blob):
+                return False
+        elif kind == "file":
+            if not stored:
+                return False
+        elif kind == "sound":
+            if "audio" not in stored:
+                return False
+        elif kind not in stored:
+            return False
+    return True
+
+
+def community_mention_hit(text, account):
+    body = str(text or "")
+    token = "<@" + str(int(account.id)) + ">"
+    if token in body:
+        return True
+    pattern = r"@" + re.escape(account.username or "") + r"\b"
+    return bool(re.search(pattern, body, flags=re.I))
+
+
+def community_mentions_any(texts, account):
+    if account is None:
+        return True
+    return any(community_mention_hit(text, account) for text in (texts or []))
+
+
+def community_topic_hit(raw, topic):
+    want = str(topic or "").strip().lower()
+    if not want:
+        return True
+    try:
+        parsed = json.loads(raw) if raw else []
+    except (TypeError, ValueError):
+        parsed = []
+    if not isinstance(parsed, list):
+        return False
+    return any(str(item or "").strip().lower() == want for item in parsed)
+
+
+def community_post_text_hit(row, account, needle):
+    from app.routers.profile import public_display_name
+    query = str(needle or "").strip().lower()
+    if not query:
+        return True
+    fields = [row.body or "", account.username or "", public_display_name(account) or ""]
+    try:
+        parsed = json.loads(row.topics) if row.topics else []
+    except (TypeError, ValueError):
+        parsed = []
+    if isinstance(parsed, list):
+        fields.extend(str(item or "") for item in parsed)
+    return any(query in str(field).lower() for field in fields)
+
+
+def community_search_on(q, author, mentions, topic, kinds):
+    return bool(str(q or "").strip() or str(author or "").strip() or str(mentions or "").strip() or str(topic or "").strip() or kinds)
+
+
 @router.get("/community_posts")
 def list_community_posts(
     lens: str = "explore",
     before: str = "",
+    q: str = "",
+    author: str = "",
+    mentions: str = "",
+    topic: str = "",
+    has: list[str] = Query(default=[]),
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
@@ -292,15 +405,47 @@ def list_community_posts(
     as_of = community_stamp(before)
     if kind == "timeline":
         return {"posts": [], "as_of": as_of.isoformat()}
-    query = database.query(Community_post).filter(Community_post.created_at <= as_of)
-    if kind == "following":
-        query = query.filter(Community_post.author_id == current_user.id)
-    rows = drop_blocked_rows(
-        database,
-        current_user.id,
-        query.order_by(Community_post.created_at.desc(), Community_post.id.desc()).limit(COMMUNITY_POST_PAGE).all(),
-        "author_id",
-    )
+    kinds = community_search_has(has)
+    searching = community_search_on(q, author, mentions, topic, kinds)
+    if searching:
+        author_name = str(author or "").strip()
+        mention_name = str(mentions or "").strip()
+        author_account = community_search_account(database, author_name) if author_name else None
+        mention_account = community_search_account(database, mention_name) if mention_name else None
+        if (author_name and author_account is None) or (mention_name and mention_account is None):
+            return {"posts": [], "as_of": as_of.isoformat()}
+        query = database.query(Community_post, UserInfo).join(UserInfo, UserInfo.id == Community_post.author_id)
+        query = query.filter(Community_post.created_at <= as_of)
+        if kind == "following":
+            query = query.filter(Community_post.author_id == current_user.id)
+        if author_account is not None:
+            query = query.filter(Community_post.author_id == author_account.id)
+        blocked = blocked_user_ids(database, current_user.id)
+        rows = []
+        for row, account in query.order_by(Community_post.created_at.desc(), Community_post.id.desc()).yield_per(40):
+            if row.author_id in blocked:
+                continue
+            if not community_topic_hit(row.topics, topic):
+                continue
+            if not community_has_match([row.body], [row.attachments], kinds):
+                continue
+            if not community_mentions_any([row.body], mention_account):
+                continue
+            if not community_post_text_hit(row, account, q):
+                continue
+            rows.append(row)
+            if len(rows) >= COMMUNITY_POST_PAGE:
+                break
+    else:
+        query = database.query(Community_post).filter(Community_post.created_at <= as_of)
+        if kind == "following":
+            query = query.filter(Community_post.author_id == current_user.id)
+        rows = drop_blocked_rows(
+            database,
+            current_user.id,
+            query.order_by(Community_post.created_at.desc(), Community_post.id.desc()).limit(COMMUNITY_POST_PAGE).all(),
+            "author_id",
+        )
     counts = comment_counts(database, [row.id for row in rows])
     people = author_map(database, [row.author_id for row in rows])
     votes = votes_for(database, current_user.id, [row.id for row in rows])

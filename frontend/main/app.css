@@ -12803,6 +12803,11 @@ button.voice-more-row:disabled,
 }
 .community-search-shell .community-search:focus { border-color: transparent; }
 .community-search-shell .search-dropdown { left: 0; right: 0; width: auto; }
+.community-search-shell .search-dropdown-heading {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  padding-bottom: 8px;
+}
 .community-search-shell .search-dropdown[hidden] { display: none; }
 .community-pane .community-list-divider {
   width: 100%;

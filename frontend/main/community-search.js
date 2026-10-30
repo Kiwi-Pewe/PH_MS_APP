@@ -1,13 +1,16 @@
 const COMMUNITY_SEARCH_HAS = ["image", "video", "sound", "file", "link"];
-const COMMUNITY_SEARCH_FILTERS = [
-  { key: "author", label: "From", detail: "Only this account" },
-  { key: "has", label: "has", detail: "A type of content" },
-  { key: "mentions", label: "mentions", detail: "Mentions this account" },
-  { key: "topic", label: "topic", detail: "Exact topic" },
-];
+
+function communitySearchFilters(kind) {
+  const noun = kind === "room" ? "rooms" : "posts";
+  return [
+    { key: "author", label: "From", detail: "Only " + noun + " from a specific account" },
+    { key: "has", label: "Has", detail: "Only " + noun + " containing specific content" },
+    { key: "topic", label: "Topic", detail: "Only " + noun + " related to this topic." },
+  ];
+}
 
 function communitySearchBlank() {
-  return { pending: "", author: "", mentions: "", topic: "", has: [], submitted: null };
+  return { pending: "", author: "", topic: "", has: [], submitted: null };
 }
 
 const communitySearchState = {
@@ -35,16 +38,19 @@ function communitySearchNodes(kind) {
   };
 }
 
+function communitySearchLabel(item) {
+  const name = String(item || "");
+  return name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
+}
+
 function communitySearchChipList(state) {
   const chips = [];
-  if (state.author) chips.push({ id: "author", label: "from: " + state.author });
-  (state.has || []).forEach((item) => chips.push({ id: "has:" + item, label: "has: " + item }));
-  if (state.mentions) chips.push({ id: "mentions", label: "mentions: " + state.mentions });
-  if (state.topic) chips.push({ id: "topic", label: "topic: " + state.topic });
-  if (state.pending === "author") chips.push({ id: "pending", label: "from:" });
-  else if (state.pending === "has") chips.push({ id: "pending", label: "has:" });
-  else if (state.pending === "mentions") chips.push({ id: "pending", label: "mentions:" });
-  else if (state.pending === "topic") chips.push({ id: "pending", label: "topic:" });
+  if (state.author) chips.push({ id: "author", label: "From: " + state.author });
+  (state.has || []).forEach((item) => chips.push({ id: "has:" + item, label: "Has: " + communitySearchLabel(item) }));
+  if (state.topic) chips.push({ id: "topic", label: "Topic: " + state.topic });
+  if (state.pending === "author") chips.push({ id: "pending", label: "From:" });
+  else if (state.pending === "has") chips.push({ id: "pending", label: "Has:" });
+  else if (state.pending === "topic") chips.push({ id: "pending", label: "Topic:" });
   return chips;
 }
 
@@ -73,10 +79,11 @@ function communitySearchFillMenu(kind) {
   if (!state || !nodes.menu) return;
   nodes.menu.replaceChildren();
   const text = nodes.input ? String(nodes.input.value || "").trim() : "";
+  if (text) return;
   if (state.pending === "has") {
     COMMUNITY_SEARCH_HAS.forEach((item) => {
       if ((state.has || []).indexOf(item) >= 0) return;
-      nodes.menu.appendChild(communitySearchOption(item, "", () => {
+      nodes.menu.appendChild(communitySearchOption(communitySearchLabel(item), "", () => {
         if (state.has.indexOf(item) < 0) state.has.push(item);
         state.pending = "";
         if (nodes.input) nodes.input.value = "";
@@ -84,13 +91,6 @@ function communitySearchFillMenu(kind) {
         communitySearchMenu(kind, true);
       }));
     });
-    return;
-  }
-  if (state.pending && text) {
-    const label = state.pending === "author" ? "from" : state.pending;
-    nodes.menu.appendChild(communitySearchOption(label + ": " + text, "Add this filter", () => {
-      communitySearchCommitPending(kind);
-    }));
     return;
   }
   if (state.pending) {
@@ -104,7 +104,7 @@ function communitySearchFillMenu(kind) {
   head.className = "search-dropdown-heading";
   head.textContent = "Filters";
   nodes.menu.appendChild(head);
-  COMMUNITY_SEARCH_FILTERS.forEach((filter) => {
+  communitySearchFilters(kind).forEach((filter) => {
     nodes.menu.appendChild(communitySearchOption(filter.label, filter.detail, () => communitySearchPick(kind, filter.key)));
   });
 }
@@ -112,7 +112,8 @@ function communitySearchFillMenu(kind) {
 function communitySearchMenu(kind, open) {
   const nodes = communitySearchNodes(kind);
   if (!nodes.menu) return;
-  if (!open) {
+  const typing = nodes.input && String(nodes.input.value || "").length;
+  if (!open || typing) {
     nodes.menu.hidden = true;
     nodes.menu.replaceChildren();
     return;
@@ -138,9 +139,8 @@ function communitySearchPaint(kind) {
   if (nodes.input) {
     const hints = {
       author: "Account name",
-      mentions: "Account name",
       topic: "Topic",
-      has: "image, video, sound, file, or link",
+      has: "Image, Video, Sound, File, or Link",
     };
     nodes.input.placeholder = state.pending ? (hints[state.pending] || "") : (kind === "room" ? "Search rooms" : "Search posts");
   }
@@ -152,7 +152,6 @@ function communitySearchRemove(kind, id) {
   if (!state) return;
   if (id === "pending") state.pending = "";
   else if (id === "author") state.author = "";
-  else if (id === "mentions") state.mentions = "";
   else if (id === "topic") state.topic = "";
   else if (String(id).indexOf("has:") === 0) state.has = (state.has || []).filter((item) => item !== String(id).slice(4));
   communitySearchPaint(kind);
@@ -179,7 +178,6 @@ function communitySearchCommitPending(kind) {
     if (COMMUNITY_SEARCH_HAS.indexOf(item) < 0) return true;
     if (state.has.indexOf(item) < 0) state.has.push(item);
   } else if (state.pending === "author") state.author = text;
-  else if (state.pending === "mentions") state.mentions = text;
   else if (state.pending === "topic") state.topic = text;
   state.pending = "";
   if (nodes.input) nodes.input.value = "";
@@ -206,12 +204,11 @@ function communitySearchEnter(kind) {
     return;
   }
   const text = nodes.input ? String(nodes.input.value || "").trim() : "";
-  if (!text && !state.author && !state.mentions && !state.topic && !(state.has || []).length) state.submitted = null;
+  if (!text && !state.author && !state.topic && !(state.has || []).length) state.submitted = null;
   else {
     state.submitted = {
       q: text,
       author: state.author,
-      mentions: state.mentions,
       topic: state.topic,
       has: (state.has || []).slice(),
     };
@@ -246,7 +243,6 @@ function communitySearchKey(kind, e) {
     e.preventDefault();
     if (state.pending) state.pending = "";
     else if (state.topic) state.topic = "";
-    else if (state.mentions) state.mentions = "";
     else if ((state.has || []).length) state.has.pop();
     else if (state.author) state.author = "";
     communitySearchPaint(kind);
@@ -257,9 +253,7 @@ function bindCommunitySearch(kind) {
   const nodes = communitySearchNodes(kind);
   if (!nodes.input) return;
   nodes.input.addEventListener("focus", () => communitySearchMenu(kind, true));
-  nodes.input.addEventListener("input", () => {
-    if (nodes.menu && !nodes.menu.hidden) communitySearchFillMenu(kind);
-  });
+  nodes.input.addEventListener("input", () => communitySearchMenu(kind, !String(nodes.input.value || "").length));
   nodes.input.addEventListener("keydown", (e) => communitySearchKey(kind, e));
 }
 

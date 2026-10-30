@@ -7,6 +7,8 @@ let communityPhoneFriendNote = "";
 let communityPhoneBusy = false;
 let communityPhoneTimer = 0;
 let communityPhoneGen = 0;
+let communityPhoneDismissing = false;
+let communityPhoneWarningCleared = false;
 
 function communityPhoneOnScreen() {
   if (typeof isCommunitiesOpen === "undefined" || !isCommunitiesOpen) return false;
@@ -41,14 +43,39 @@ function paintCommunityPhoneBadge() {
 function paintCommunityPhoneLanding() {
   const warn = document.getElementById("community-phone-warn");
   const start = document.getElementById("community-garter-start");
+  const cancel = document.getElementById("community-phone-cancel");
+  const wait = document.getElementById("community-phone-wait");
+  const searching = !!communityPhoneWaiting;
   if (warn) {
     warn.hidden = !communityPhoneWarning;
     warn.textContent = communityPhoneWarning || "";
   }
   if (start) {
-    start.disabled = communityPhoneWaiting || communityPhoneBusy;
-    start.textContent = communityPhoneWaiting ? "Finding someone" : "Find someone";
+    start.disabled = searching || communityPhoneBusy;
+    start.textContent = searching ? "Finding someone" : "Find someone";
   }
+  if (cancel) {
+    cancel.hidden = !searching;
+    cancel.disabled = communityPhoneBusy;
+  }
+  if (wait) wait.hidden = !searching;
+}
+
+function dismissCommunityPhoneWarning() {
+  const landing = document.getElementById("community-pane-garterphone");
+  const looking = typeof isCommunitiesOpen !== "undefined" && isCommunitiesOpen && landing && !landing.hidden;
+  if (!looking || !communityPhoneWarning || communityPhoneDismissing) return;
+  communityPhoneDismissing = true;
+  communityPhoneWarningCleared = true;
+  communityPhoneWarning = "";
+  paintCommunityPhoneLanding();
+  fetch(`https://${serverAddress}/community_phone/dismiss`, { method: "POST", credentials: "include" })
+    .then((response) => response.ok ? response.json() : null)
+    .then((data) => {
+      if (data) applyCommunityPhoneState(data);
+    })
+    .catch(() => {})
+    .finally(() => { communityPhoneDismissing = false; });
 }
 
 function mapCommunityPhoneMessage(msg) {
@@ -176,6 +203,7 @@ function applyCommunityPhoneState(data, opts) {
   const body = data || {};
   communityPhoneWaiting = !!body.waiting;
   communityPhoneWarning = body.call ? "" : (body.warning || "");
+  if (communityPhoneWarningCleared && !body.call) communityPhoneWarning = "";
   communityPhoneUnread = Number(body.unread) || 0;
   communityPhoneCall = body.call || null;
   communityPhoneFriendNote = (body.call && body.call.friend_note) || "";
@@ -219,6 +247,7 @@ async function seeCommunityPhone() {
 
 async function startCommunityPhone() {
   if (communityPhoneBusy || communityPhoneWaiting || communityPhoneCall) return;
+  communityPhoneWarningCleared = false;
   communityPhoneBusy = true;
   paintCommunityPhoneLanding();
   try {
@@ -237,6 +266,25 @@ async function startCommunityPhone() {
   }
 }
 
+async function cancelCommunityPhone() {
+  if (communityPhoneBusy || !communityPhoneWaiting || communityPhoneCall) return;
+  communityPhoneBusy = true;
+  paintCommunityPhoneLanding();
+  try {
+    const response = await fetch(`https://${serverAddress}/community_phone/cancel`, {
+      method: "POST",
+      credentials: "include"
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return;
+    applyCommunityPhoneState(data);
+  } catch (e) {
+    return;
+  } finally {
+    communityPhoneBusy = false;
+    paintCommunityPhoneLanding();
+  }
+}
 async function endCommunityPhone() {
   if (communityPhoneBusy || !communityPhoneCall) return;
   communityPhoneBusy = true;
@@ -257,6 +305,7 @@ async function endCommunityPhone() {
 }
 
 function applyCommunityPhoneEnded(data) {
+  communityPhoneWarningCleared = false;
   communityPhoneCall = null;
   communityPhoneMessages = [];
   communityPhoneWaiting = false;
@@ -429,6 +478,8 @@ async function sendCommunityPhoneMessage() {
 
 const communityPhoneStart = document.getElementById("community-garter-start");
 if (communityPhoneStart) communityPhoneStart.addEventListener("click", () => startCommunityPhone());
+const communityPhoneCancel = document.getElementById("community-phone-cancel");
+if (communityPhoneCancel) communityPhoneCancel.addEventListener("click", () => cancelCommunityPhone());
 const communityPhoneEnd = document.getElementById("community-phone-end");
 if (communityPhoneEnd) communityPhoneEnd.addEventListener("click", () => endCommunityPhone());
 const communityPhoneTitle = document.getElementById("community-phone-title");

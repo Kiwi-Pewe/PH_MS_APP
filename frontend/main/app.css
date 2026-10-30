@@ -13448,6 +13448,37 @@ button.voice-more-row:disabled,
   text-align: center;
 }
 .community-phone-warn[hidden] { display: none; }
+.community-phone-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.community-phone-actions .ghost-btn:disabled { opacity: 0.55; cursor: default; }
+.community-phone-actions .ghost-btn[hidden],
+.community-phone-wait[hidden] { display: none; }
+.community-phone-wait {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 10px;
+}
+.community-phone-wait span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text);
+  opacity: 0.2;
+  animation: community-phone-breath 1.8s ease-in-out infinite;
+}
+.community-phone-wait span:nth-child(2) { animation-delay: 0.6s; }
+.community-phone-wait span:nth-child(3) { animation-delay: 1.2s; }
+@keyframes community-phone-breath {
+  0% { opacity: 0.2; }
+  33% { opacity: 1; }
+  66%, 100% { opacity: 0.2; }
+}
 .community-room-chat-body {
   flex: 1 1 auto;
   min-height: 0;

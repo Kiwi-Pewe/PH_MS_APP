@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=460">
+<link rel="stylesheet" href="app.css?v=461">
 </head>
 <body>
 
@@ -1009,13 +1009,20 @@
         <div id="community-pane-garterphone" class="community-pane" hidden>
           <div class="community-band-title">
             <h2 class="community-list-title">Phone a User</h2>
-            <p class="community-list-help">A one to one chat with a stranger. Voice and video unlock after you are both friends.</p>
+            <p class="community-list-help">A way to connect with a random user who is also using this page for a 1 on 1 chat.</p>
           </div>
           <div class="community-band-body">
             <div class="community-garter-body">
               <p class="community-phone-warn" id="community-phone-warn" hidden></p>
-              <button type="button" class="pill-btn" id="community-garter-start">Find someone</button>
-              <p class="community-list-help" id="community-garter-status">You will be paired with a stranger. Either of you can end it.</p>
+              <div class="community-phone-actions">
+                <button type="button" class="pill-btn" id="community-garter-start">Find someone</button>
+                <button type="button" class="ghost-btn" id="community-phone-cancel" hidden>Cancel</button>
+              </div>
+              <div class="community-phone-wait" id="community-phone-wait" hidden>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
             </div>
           </div>
         </div>
@@ -2759,10 +2766,10 @@
     </div>
 <script src="boot.js?v=152"></script>
 <script src="app-shell.js?v=77"></script>
-<script src="communities.js?v=38"></script>
+<script src="communities.js?v=39"></script>
 <script src="community-posts.js?v=2"></script>
 <script src="community-rooms.js?v=5"></script>
-<script src="community-phone.js?v=2"></script>
+<script src="community-phone.js?v=3"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=53"></script>

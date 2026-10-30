@@ -349,6 +349,22 @@ async def find_community_phone(database: Session = Depends(get_db), current_user
     return pack_phone_state(database, current_user)
 
 
+@router.post("/community_phone/cancel")
+async def cancel_community_phone(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    if active_phone_call(database, current_user.id):
+        return pack_phone_state(database, current_user)
+    database.query(Community_phone_wait).filter(Community_phone_wait.user_id == current_user.id).delete(synchronize_session=False)
+    database.commit()
+    return pack_phone_state(database, current_user)
+
+
+@router.post("/community_phone/dismiss")
+def dismiss_community_phone(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    clear_phone_notice(database, current_user.id)
+    database.commit()
+    return pack_phone_state(database, current_user)
+
+
 @router.post("/community_phone/end")
 async def end_community_phone(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     call = active_phone_call(database, current_user.id)

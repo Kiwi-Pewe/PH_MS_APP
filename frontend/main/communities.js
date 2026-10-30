@@ -95,6 +95,7 @@ function communityPostMatches(post, query) {
 }
 
 function showCommunityRow(id) {
+  if (id !== "garterphone" && typeof dismissCommunityPhoneWarning === "function") dismissCommunityPhoneWarning();
   if (!COMMUNITY_ROW_PANES[id]) id = "servers";
   communityRow = id;
   if (typeof closeCommunityFilterPicker === "function") closeCommunityFilterPicker();
@@ -1029,6 +1030,7 @@ function paintCommunityRoomChat() {
 function openCommunityRoomChat(id) {
   const row = communityRoomById(id);
   if (!row || !row.joined) return;
+  if (typeof dismissCommunityPhoneWarning === "function") dismissCommunityPhoneWarning();
   communityOpenRoom = row.id;
   communityRow = "";
   communityRoomMessages = [];
@@ -1278,6 +1280,7 @@ function closeCommunityListing() {
 }
 
 function closeCommunitiesChrome() {
+  if (typeof dismissCommunityPhoneWarning === "function") dismissCommunityPhoneWarning();
   closeCommunityApply();
   closeCommunityListing();
   closeCommunityFilterPicker();

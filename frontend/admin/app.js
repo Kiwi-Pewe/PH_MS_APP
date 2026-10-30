@@ -210,6 +210,12 @@ function reportLocation(row) {
     if (row.channel_name) parts.push(row.channel_name);
     return parts.join(" · ");
   }
+  if (view === "phone") {
+    const parts = ["Phone a User"];
+    if (row.server_name) parts.push(row.server_name);
+    if (row.channel_name) parts.push(row.channel_name);
+    return parts.join(" · ");
+  }
   if (view === "post") {
     const parts = ["Post"];
     if (row.channel_name) parts.push(row.channel_name);

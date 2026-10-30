@@ -304,10 +304,12 @@ def recover_account_login(account: Account_recover_login, request: Request, resp
     return begin_recovery_session(database, existing_user, request, response)
 
 @router.post("/logout")
-def logout_account(response:Response, session_id: str = Cookie(None), database: Session = Depends(get_db)):
+async def logout_account(response:Response, session_id: str = Cookie(None), database: Session = Depends(get_db)):
 
     existing_session = database.query(Active_Sessions).filter(Active_Sessions.session_id == session_id).first()
     if existing_session:
+        from app.routers.community_phone import end_phone_for_logout
+        await end_phone_for_logout(database, existing_session.account_id)
         database.delete(existing_session)
         database.commit()
         response.delete_cookie(key="session_id", samesite="none", secure=True, path="/")

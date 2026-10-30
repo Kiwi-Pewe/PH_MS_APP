@@ -801,6 +801,43 @@ class Community_room_message(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class Community_phone_wait(Base):
+    __tablename__ = "community_phone_waits"
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    started_at = Column(DateTime, nullable=False)
+
+
+class Community_phone_call(Base):
+    __tablename__ = "community_phone_calls"
+    id = Column(Integer, primary_key=True)
+    user_a = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_b = Column(Integer, ForeignKey("users.id"), nullable=False)
+    started_at = Column(DateTime, nullable=False)
+    active_at = Column(DateTime, nullable=False)
+    status = Column(String, nullable=False)
+    ping_a = Column(Boolean, default=True)
+    ping_b = Column(Boolean, default=True)
+    unread_a = Column(Integer, default=0)
+    unread_b = Column(Integer, default=0)
+
+
+class Community_phone_message(Base):
+    __tablename__ = "community_phone_messages"
+    id = Column(Integer, primary_key=True)
+    call_id = Column(Integer, ForeignKey("community_phone_calls.id"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(String, nullable=False)
+    attachment = Column(String, nullable=True)
+    reply_to_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+
+
+class Community_phone_notice(Base):
+    __tablename__ = "community_phone_notices"
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    text = Column(String, nullable=False)
+
+
 class Connection_nonce(Base):
     __tablename__ = "connection_nonces"
     nonce = Column(String, primary_key=True)

@@ -145,12 +145,12 @@ function canReplyMessage(msg) {
   if (msg.chatKind === "channel") {
     return typeof canSendMessages !== "function" || canSendMessages();
   }
-  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "room";
+  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "room" || msg.chatKind === "phone";
 }
 
 function canEditMessage(msg) {
   if (!msg || !msg.id || !msg.isMine) return false;
-  if (msg.chatKind === "room") return false;
+  if (msg.chatKind === "room" || msg.chatKind === "phone") return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
   if (msg.chatKind === "forum" && openForumPostLocked) return false;
@@ -159,7 +159,7 @@ function canEditMessage(msg) {
 
 function canDeleteMessage(msg) {
   if (!msg || !msg.id || msg.senderId === null || msg.senderId === undefined) return false;
-  if (msg.chatKind === "room") return false;
+  if (msg.chatKind === "room" || msg.chatKind === "phone") return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
   if (msg.permaban) {

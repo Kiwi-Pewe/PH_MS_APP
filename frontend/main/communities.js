@@ -68,7 +68,7 @@ function communityRowTitle(id) {
   if (id === "timeline") return "Timeline";
   if (id === "explore") return "Explore";
   if (id === "rooms") return "Rooms";
-  if (id === "garterphone") return "GarterPhone";
+  if (id === "garterphone") return "Phone a User";
   if (id === "settings") return "Settings";
   if (id === "servers") return "Servers";
   return "Following";
@@ -119,6 +119,8 @@ function showCommunityRow(id) {
   if (paneGarter) paneGarter.hidden = pane !== "garterphone";
   if (paneSettings) paneSettings.hidden = pane !== "settings";
   if (paneChat) paneChat.hidden = true;
+  const panePhone = document.getElementById("community-pane-phone-chat");
+  if (panePhone) panePhone.hidden = true;
   if (typeof hideMemberList === "function") hideMemberList();
   paintCommunityRoomNav();
   if (pane !== "posts") {
@@ -136,9 +138,9 @@ function showCommunityRow(id) {
   }
   if (pane === "settings") paintCommunitySettings();
   if (pane === "garterphone") {
-    const status = document.getElementById("community-garter-status");
-    if (status) status.textContent = "You will be paired with a stranger. Either of you can end it.";
-  }
+    if (typeof showCommunityPhone === "function") showCommunityPhone();
+    if (typeof loadCommunityPhone === "function") loadCommunityPhone();
+  } else if (typeof paintCommunityPhoneBadge === "function") paintCommunityPhoneBadge();
 }
 
 function paintCommunityPosts() {
@@ -1034,7 +1036,7 @@ function openCommunityRoomChat(id) {
   document.querySelectorAll("#community-sidebar-view [data-community-row]").forEach((btn) => {
     btn.classList.remove("active");
   });
-  ["community-pane-servers", "community-pane-posts", "community-pane-rooms", "community-pane-garterphone", "community-pane-settings"].forEach((paneId) => {
+  ["community-pane-servers", "community-pane-posts", "community-pane-rooms", "community-pane-garterphone", "community-pane-settings", "community-pane-phone-chat"].forEach((paneId) => {
     const pane = document.getElementById(paneId);
     if (pane) pane.hidden = true;
   });
@@ -1285,6 +1287,7 @@ function closeCommunitiesChrome() {
   communityOpenRoom = null;
   if (typeof hideMemberList === "function") hideMemberList();
   isCommunitiesOpen = false;
+  if (typeof paintCommunityPhoneBadge === "function") paintCommunityPhoneBadge();
 }
 
 function paintCommunityTags(host, tags) {

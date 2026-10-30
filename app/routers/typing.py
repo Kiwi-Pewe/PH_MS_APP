@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 from app.models import (
     UserInfo, Block_user, Friend_request, Party_members, Community_room_member,
+    Community_phone_call,
     Servers, Server_members, Server_categories, Server_channels, Forum_post,
 )
 from app.routers.realtime import party_broadcast, server_broadcast, notify_user
@@ -50,6 +51,20 @@ async def relay_typing(data, current_user: UserInfo, database: Session):
         if not friendship or friendship.pending == True:
             return
         await notify_user(receiver_id, _payload(current_user, "dm", active, receiver_id=receiver_id))
+        return
+
+    if kind == "phone":
+        call_id = _as_int(data.get("call_id"))
+        if not call_id:
+            return
+        call = database.query(Community_phone_call).filter(
+            Community_phone_call.id == call_id,
+            Community_phone_call.status == "active",
+        ).first()
+        if not call or current_user.id not in (call.user_a, call.user_b):
+            return
+        other_id = call.user_b if call.user_a == current_user.id else call.user_a
+        await notify_user(other_id, _payload(current_user, "phone", active, call_id=call_id))
         return
 
     if kind == "party":

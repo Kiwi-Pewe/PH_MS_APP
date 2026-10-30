@@ -26,6 +26,7 @@ from app.routers.typing import relay_typing
 from app.routers.profile import STATUS_MAX, clip_text, public_avatar, public_display_name
 from app.routers.community_posts import router as community_posts_router
 from app.routers.community_rooms import router as community_rooms_router, save_community_room_message, fanout_room_message
+from app.routers.community_phone import router as community_phone_router, save_community_phone_message, fanout_phone_message
 
 import asyncio
 
@@ -87,6 +88,7 @@ app.include_router(servers.router)
 app.include_router(communities.router)
 app.include_router(community_posts_router)
 app.include_router(community_rooms_router)
+app.include_router(community_phone_router)
 app.include_router(roles.router)
 app.include_router(mini_profiles.router)
 app.include_router(moderation.router)
@@ -236,6 +238,25 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     "temp_id": data.get("temp_id"),
                 })
                 await fanout_room_message(database, room_message, current_user)
+            elif data["type"] == "phone_message":
+                try:
+                    phone_message = save_community_phone_message(
+                        database,
+                        current_user,
+                        data.get("content") or "",
+                        ws_attachment(data),
+                        data.get("reply_to_id"),
+                    )
+                except HTTPException as e:
+                    await socket.send_json({"type": "error", "detail": e.detail, "temp_id": data.get("temp_id")})
+                    continue
+                await socket.send_json({
+                    "type": "message_ack",
+                    "kind": "phone",
+                    "id": phone_message.id,
+                    "temp_id": data.get("temp_id"),
+                })
+                await fanout_phone_message(database, phone_message, current_user)
             elif data["type"] == "leave_party":
                     
                 try:

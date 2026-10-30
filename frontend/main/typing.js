@@ -13,6 +13,9 @@ let typingIdleTimer = null;
 let typingExpiryTimer = null;
 
 function currentTypingScope() {
+  if (typeof communityPhoneComposerOpen === "function" && communityPhoneComposerOpen()) {
+    return { kind: "phone", call_id: communityPhoneCall && communityPhoneCall.id };
+  }
   if (typeof communityRoomComposerOpen === "function" && communityRoomComposerOpen()) {
     return { kind: "room", room_id: communityOpenRoom };
   }
@@ -39,6 +42,9 @@ function typingEventTargetsOpenChat(data) {
   if (data.kind === "party") {
     return openChatType === "party" && openChatId === data.party_id;
   }
+  if (data.kind === "phone") {
+    return typeof communityPhoneComposerOpen === "function" && communityPhoneComposerOpen() && communityPhoneCall && String(communityPhoneCall.id) === String(data.call_id);
+  }
   if (data.kind === "room") {
     return typeof communityRoomComposerOpen === "function" && communityRoomComposerOpen() && String(communityOpenRoom) === String(data.room_id);
   }
@@ -56,6 +62,7 @@ function sendTypingPayload(scope, active) {
   const payload = { type: "typing", active: !!active, kind: scope.kind };
   if (scope.kind === "dm") payload.receiver_id = scope.receiver_id;
   if (scope.kind === "party") payload.party_id = scope.party_id;
+  if (scope.kind === "phone") payload.call_id = scope.call_id;
   if (scope.kind === "room") payload.room_id = scope.room_id;
   if (scope.kind === "channel") payload.channel_id = scope.channel_id;
   if (scope.kind === "forum") payload.post_id = scope.post_id;
@@ -117,7 +124,7 @@ function paintTypingIndicator() {
   const scope = currentTypingScope();
   const home = document.getElementById("composer-typing");
   const channel = document.getElementById("channel-composer-typing");
-  const homeOn = !!(label && scope && (scope.kind === "dm" || scope.kind === "party" || scope.kind === "room"));
+  const homeOn = !!(label && scope && (scope.kind === "dm" || scope.kind === "party" || scope.kind === "room" || scope.kind === "phone"));
   const channelOn = !!(label && scope && (scope.kind === "channel" || scope.kind === "forum"));
   if (home) {
     home.hidden = !homeOn;

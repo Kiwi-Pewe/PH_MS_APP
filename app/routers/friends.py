@@ -72,6 +72,8 @@ async def add_user(friends: Friend_user, database: Session = Depends(get_db), cu
     if reversed_pending and reversed_pending.pending == True:
         reversed_pending.pending = False
         database.commit()
+        from app.routers.community_phone import transfer_phone_chat
+        await transfer_phone_chat(database, current_user, friend_exists)
         await notify_feed_alert(
             database,
             receiver_id=friend_exists.id,

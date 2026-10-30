@@ -32,6 +32,7 @@ window.addEventListener("load", () => {
         enterApp();
       }
       connectSocket();
+      if (typeof loadCommunityPhone === "function") loadCommunityPhone();
     })
     .catch(() => {
       const path = window.location.pathname || "";
@@ -130,6 +131,7 @@ function connectSocket() {
         || currentChannelMessages.find(m => m.tempId === data.temp_id);
       if (row) row.id = data.id;
       if (typeof ackCommunityRoomMessage === "function") ackCommunityRoomMessage(data.temp_id, data.id);
+      if (typeof ackCommunityPhoneMessage === "function") ackCommunityPhoneMessage(data.temp_id, data.id);
     }
 
     if (data.type === "error" && data.temp_id) {
@@ -141,6 +143,7 @@ function connectSocket() {
       if (channelHit && typeof renderChannelMessages === "function") renderChannelMessages();
       if (dmHit && typeof renderMessages === "function") renderMessages();
       if (typeof dropCommunityRoomTemp === "function") dropCommunityRoomTemp(tempId);
+      if (typeof dropCommunityPhoneTemp === "function") dropCommunityPhoneTemp(tempId);
       window.alert(data.detail || "Could not send.");
     }
 
@@ -245,6 +248,28 @@ function connectSocket() {
 
     if (data.type === "room_closed") {
       if (typeof applyCommunityRoomClosed === "function") applyCommunityRoomClosed(data);
+    }
+
+    if (data.type === "phone_matched") {
+      if (typeof loadCommunityPhone === "function") loadCommunityPhone();
+    }
+
+    if (data.type === "phone_message") {
+      if (typeof applyCommunityPhoneMessage === "function") applyCommunityPhoneMessage(data);
+    }
+
+    if (data.type === "phone_ended") {
+      if (typeof applyCommunityPhoneEnded === "function") applyCommunityPhoneEnded(data);
+    }
+
+    if (data.type === "phone_open") {
+      if (typeof takeCommunityPhoneDm === "function") takeCommunityPhoneDm(data.partner, false);
+      if (typeof loadCommunityPhone === "function") loadCommunityPhone();
+    }
+
+    if (data.type === "phone_moved") {
+      if (typeof takeCommunityPhoneDm === "function") takeCommunityPhoneDm(data.partner, true);
+      if (typeof loadCommunityPhone === "function") loadCommunityPhone();
     }
 
     if (data.type === "channel_message") {

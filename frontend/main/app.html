@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=458">
+<link rel="stylesheet" href="app.css?v=459">
 </head>
 <body>
 
@@ -40,7 +40,7 @@
       <button class="tab active" data-tab="messages">Messages</button>
       <button class="tab" data-tab="profile">Profile</button>
       <button class="tab" data-tab="settings">Settings</button>
-      <button class="tab" data-tab="communities" type="button">Communities</button>
+      <button class="tab" data-tab="communities" type="button" id="communities-tab">Communities<span class="mail-badge" id="community-phone-tab-badge" hidden></span></button>
       <button class="tab is-later" type="button" disabled>Games</button>
       <button class="tab is-later" type="button" disabled>Announcements</button>
     </div>
@@ -159,7 +159,7 @@
           <button class="nav-item" type="button" data-community-row="timeline">Timeline</button>
           <button class="nav-item" type="button" data-community-row="explore">Explore</button>
           <button class="nav-item" type="button" data-community-row="rooms">Rooms</button>
-          <button class="nav-item" type="button" data-community-row="garterphone">GarterPhone</button>
+          <button class="nav-item" type="button" data-community-row="garterphone">Phone a User<span class="pending-badge" id="community-phone-nav-badge">0</span></button>
           <button class="nav-item active" type="button" data-community-row="servers">Servers</button>
           <div id="community-nav-rooms" hidden></div>
         </div>
@@ -1008,15 +1008,26 @@
         </div>
         <div id="community-pane-garterphone" class="community-pane" hidden>
           <div class="community-band-title">
-            <h2 class="community-list-title">GarterPhone</h2>
-            <p class="community-list-help">Random 1:1 chat with a stranger. Not a DM. Either person can end it. Friend requests here need both people to agree.</p>
+            <h2 class="community-list-title">Phone a User</h2>
+            <p class="community-list-help">A one to one chat with a stranger. Voice and video unlock after you are both friends.</p>
           </div>
           <div class="community-band-body">
             <div class="community-garter-body">
-              <button type="button" class="pill-btn" id="community-garter-start" disabled>Find someone</button>
+              <p class="community-phone-warn" id="community-phone-warn" hidden></p>
+              <button type="button" class="pill-btn" id="community-garter-start">Find someone</button>
               <p class="community-list-help" id="community-garter-status">You will be paired with a stranger. Either of you can end it.</p>
             </div>
           </div>
+        </div>
+        <div id="community-pane-phone-chat" class="community-pane community-room-chat" hidden>
+          <div class="view-header community-room-chat-head">
+            <button type="button" id="community-phone-title" class="community-phone-title">Phone a User</button>
+            <button type="button" class="call-leave" id="community-phone-end">End Chat</button>
+          </div>
+          <div class="community-room-chat-body">
+            <div id="community-phone-log" class="self-right"></div>
+          </div>
+          <div id="community-phone-compose"></div>
         </div>
         <div id="community-pane-settings" class="community-pane" hidden>
           <div class="community-band-title">
@@ -2738,11 +2749,12 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=150"></script>
+<script src="boot.js?v=151"></script>
 <script src="app-shell.js?v=77"></script>
-<script src="communities.js?v=37"></script>
+<script src="communities.js?v=38"></script>
 <script src="community-posts.js?v=2"></script>
 <script src="community-rooms.js?v=5"></script>
+<script src="community-phone.js?v=1"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=53"></script>
@@ -2773,12 +2785,12 @@
 <script src="profile.js?v=24"></script>
 <script src="profile-identity.js?v=19"></script>
 <script src="profile-edit.js?v=101"></script>
-<script src="context-menus.js?v=106"></script>
+<script src="context-menus.js?v=107"></script>
 <script src="conversations.js?v=75"></script>
 <script src="chat-render.js?v=74"></script>
 <script src="chat-history.js?v=52"></script>
-<script src="chat-compose.js?v=65"></script>
-<script src="typing.js?v=3"></script>
+<script src="chat-compose.js?v=66"></script>
+<script src="typing.js?v=4"></script>
 <script src="emoji-data.js?v=1"></script>
 <script src="emoji-picker.js?v=58"></script>
 <script src="online-toast.js?v=1"></script>

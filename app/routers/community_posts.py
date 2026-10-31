@@ -286,7 +286,7 @@ def clean_filter_label(value):
 
 
 def load_post_filters(database, user_id):
-    found = {"words": [], "topics": [], "comment_sort": "oldest", "search_blacklist": False}
+    found = {"words": [], "topics": [], "comment_sort": "oldest", "search_blacklist": False, "blacklist_hide": False}
     if not user_id:
         return found
     rows = database.query(Community_edge).filter(
@@ -303,6 +303,8 @@ def load_post_filters(database, user_id):
                 found["comment_sort"] = edge.mode
             elif edge.label == "search_blacklist":
                 found["search_blacklist"] = edge.mode == "on"
+            elif edge.label == "blacklist_hide":
+                found["blacklist_hide"] = edge.mode == "on"
     return found
 
 
@@ -530,12 +532,23 @@ def list_community_posts(
             query = query.filter(Community_post.author_id == current_user.id)
         else:
             query = query.filter(Community_post.followers_only.is_(False))
-        rows = drop_blocked_rows(
-            database,
-            current_user.id,
-            query.order_by(Community_post.created_at.desc(), Community_post.id.desc()).limit(COMMUNITY_POST_PAGE).all(),
-            "author_id",
-        )
+        ordered = query.order_by(Community_post.created_at.desc(), Community_post.id.desc())
+        if filters["blacklist_hide"] and (filters["words"] or filters["topics"]):
+            blocked = blocked_user_ids(database, current_user.id)
+            rows = []
+            for row in ordered.yield_per(40):
+                if row.author_id in blocked or post_row_blacklisted(row, current_user.id, filters):
+                    continue
+                rows.append(row)
+                if len(rows) >= COMMUNITY_POST_PAGE:
+                    break
+        else:
+            rows = drop_blocked_rows(
+                database,
+                current_user.id,
+                ordered.limit(COMMUNITY_POST_PAGE).all(),
+                "author_id",
+            )
     counts = comment_counts(database, [row.id for row in rows])
     people = author_map(database, [row.author_id for row in rows])
     votes = votes_for(database, current_user.id, [row.id for row in rows])
@@ -741,5 +754,7 @@ def update_community_post_settings(
         save_post_pref(database, current_user.id, "comment_sort", sort)
     if body.search_blacklist is not None:
         save_post_pref(database, current_user.id, "search_blacklist", "on" if body.search_blacklist else "off")
+    if body.blacklist_hide is not None:
+        save_post_pref(database, current_user.id, "blacklist_hide", "on" if body.blacklist_hide else "off")
     database.commit()
     return load_post_filters(database, current_user.id)

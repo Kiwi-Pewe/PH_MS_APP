@@ -212,6 +212,7 @@ class Community_filter_entry(BaseModel):
 class Community_post_prefs(BaseModel):
     comment_sort: str | None = None
     search_blacklist: bool | None = None
+    blacklist_hide: bool | None = None
 
 
 class Community_comment_create(BaseModel):

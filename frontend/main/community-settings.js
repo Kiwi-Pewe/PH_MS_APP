@@ -6,7 +6,7 @@ const COMMUNITY_SETTINGS_SECTIONS = {
 };
 
 let communitySettingsSection = "posts";
-let communityPostPrefs = { words: [], topics: [], comment_sort: "oldest", search_blacklist: false };
+let communityPostPrefs = { words: [], topics: [], comment_sort: "oldest", search_blacklist: false, blacklist_hide: false };
 let communityPostPrefsLoaded = false;
 let communityPostPrefsStatus = "";
 
@@ -20,7 +20,8 @@ function applyCommunityPostPrefs(data) {
     words: Array.isArray(data.words) ? data.words : [],
     topics: Array.isArray(data.topics) ? data.topics : [],
     comment_sort: data.comment_sort === "newest" ? "newest" : "oldest",
-    search_blacklist: !!data.search_blacklist
+    search_blacklist: !!data.search_blacklist,
+    blacklist_hide: !!data.blacklist_hide
   };
   communityPostPrefsLoaded = true;
 }
@@ -146,6 +147,11 @@ function paintCommunityPostSettings() {
   block.appendChild(blurb);
   block.appendChild(paintCommunityFilterList("word", "Words", "Covers any post or comment that contains one of these words.", "Add a word"));
   block.appendChild(paintCommunityFilterList("topic", "Topics", "Covers any post that has one of these topics.", "Add a topic"));
+  block.appendChild(settingsOpt(
+    "Hide blacklisted posts",
+    "Posts that match your blacklist are removed from your post lists instead of being covered.",
+    settingsToggle(communityPostPrefs.blacklist_hide, false, (on) => saveCommunityPostPrefs("PATCH", "", { blacklist_hide: on }))
+  ));
   if (communityPostPrefsStatus) {
     const status = document.createElement("div");
     status.className = "settings-form-status";

@@ -746,6 +746,8 @@ class Community_post(Base):
     attachments = Column(String, nullable=True)
     likes = Column(Integer, nullable=False, default=0, server_default="0")
     dislikes = Column(Integer, nullable=False, default=0, server_default="0")
+    explicit = Column(Boolean, nullable=False, default=False, server_default="0")
+    followers_only = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(DateTime, server_default=func.now())
 
 

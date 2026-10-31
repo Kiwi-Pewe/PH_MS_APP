@@ -23,7 +23,7 @@ from app.r2 import (
     still_url_for,
     store_attachment,
 )
-from app.schemas import Community_comment_create, Community_post_create
+from app.schemas import Community_comment_create, Community_filter_entry, Community_post_create, Community_post_prefs
 
 router = APIRouter()
 
@@ -175,6 +175,9 @@ def pack_community_post(row, people, viewer_id, replies=0, comments=None, vote=N
         "reposts": 0,
         "likes": int(row.likes or 0),
         "dislikes": int(row.dislikes or 0),
+        "explicit": bool(row.explicit),
+        "followers_only": bool(row.followers_only),
+        "covered": False,
         "liked": bool(vote and vote.get("liked")),
         "disliked": bool(vote and vote.get("disliked")),
         "comments": comments or [],
@@ -204,6 +207,7 @@ def pack_community_comment(row, people, viewer_id):
         "avatar": person.get("avatar"),
         "mine": row.author_id == viewer_id,
         "body": row.body or "",
+        "covered": False,
         "created_at": created,
     }
 
@@ -267,6 +271,84 @@ def apply_community_vote(database, row, user_id, kind):
     database.refresh(row)
 
 
+COMMUNITY_FILTER_KINDS = {"word": "mute_word", "topic": "mute_topic"}
+COMMUNITY_FILTER_MAX = 100
+COMMUNITY_FILTER_LEN = 40
+COMMUNITY_PREF_KIND = "post_pref"
+COMMUNITY_COMMENT_SORTS = ("oldest", "newest")
+
+
+def clean_filter_label(value):
+    word = " ".join(str(value or "").split()).lower()
+    if len(word) > COMMUNITY_FILTER_LEN:
+        word = word[:COMMUNITY_FILTER_LEN].rstrip()
+    return word
+
+
+def load_post_filters(database, user_id):
+    found = {"words": [], "topics": [], "comment_sort": "oldest", "search_blacklist": False}
+    if not user_id:
+        return found
+    rows = database.query(Community_edge).filter(
+        Community_edge.user_id == user_id,
+        Community_edge.kind.in_(("mute_word", "mute_topic", COMMUNITY_PREF_KIND)),
+    ).order_by(Community_edge.created_at.asc(), Community_edge.id.asc()).all()
+    for edge in rows:
+        if edge.kind == "mute_word" and edge.label:
+            found["words"].append(edge.label)
+        elif edge.kind == "mute_topic" and edge.label:
+            found["topics"].append(edge.label)
+        elif edge.kind == COMMUNITY_PREF_KIND:
+            if edge.label == "comment_sort" and edge.mode in COMMUNITY_COMMENT_SORTS:
+                found["comment_sort"] = edge.mode
+            elif edge.label == "search_blacklist":
+                found["search_blacklist"] = edge.mode == "on"
+    return found
+
+
+def filter_word_hit(text, words):
+    body = str(text or "")
+    if not body or not words:
+        return False
+    for word in words:
+        if re.search(r"(?<!\w)" + re.escape(word) + r"(?!\w)", body, flags=re.I):
+            return True
+    return False
+
+
+def filter_topic_hit(raw_topics, topics):
+    if not topics:
+        return False
+    wanted = set(topics)
+    if isinstance(raw_topics, str):
+        try:
+            parsed = json.loads(raw_topics) if raw_topics else []
+        except (TypeError, ValueError):
+            parsed = []
+    else:
+        parsed = raw_topics or []
+    if not isinstance(parsed, list):
+        return False
+    return any(" ".join(str(item or "").split()).lower() in wanted for item in parsed)
+
+
+def post_row_blacklisted(row, viewer_id, filters):
+    if not filters or row.author_id == viewer_id:
+        return False
+    return filter_word_hit(row.body, filters["words"]) or filter_topic_hit(row.topics, filters["topics"])
+
+
+def cover_packed_post(packed, viewer_id, filters):
+    if not filters:
+        return packed
+    if packed.get("author_id") != viewer_id:
+        packed["covered"] = filter_word_hit(packed.get("body"), filters["words"]) or filter_topic_hit(packed.get("topics"), filters["topics"])
+    for comment in packed.get("comments") or []:
+        if comment.get("author_id") != viewer_id:
+            comment["covered"] = filter_word_hit(comment.get("body"), filters["words"])
+    return packed
+
+
 def pack_with_comments(database, row, viewer_id):
     children = drop_blocked_rows(
         database,
@@ -277,7 +359,8 @@ def pack_with_comments(database, row, viewer_id):
     people = author_map(database, [row.author_id] + [child.author_id for child in children])
     comments = [pack_community_comment(child, people, viewer_id) for child in children]
     vote = votes_for(database, viewer_id, [row.id]).get(row.id)
-    return pack_community_post(row, people, viewer_id, replies=len(children), comments=comments, vote=vote)
+    packed = pack_community_post(row, people, viewer_id, replies=len(children), comments=comments, vote=vote)
+    return cover_packed_post(packed, viewer_id, load_post_filters(database, viewer_id))
 
 
 COMMUNITY_SEARCH_HAS = ("image", "video", "sound", "file", "link")
@@ -407,6 +490,7 @@ def list_community_posts(
         return {"posts": [], "as_of": as_of.isoformat()}
     kinds = community_search_has(has)
     searching = community_search_on(q, author, mentions, topic, kinds)
+    filters = load_post_filters(database, current_user.id)
     if searching:
         author_name = str(author or "").strip()
         mention_name = str(mentions or "").strip()
@@ -418,12 +502,16 @@ def list_community_posts(
         query = query.filter(Community_post.created_at <= as_of)
         if kind == "following":
             query = query.filter(Community_post.author_id == current_user.id)
+        else:
+            query = query.filter(Community_post.followers_only.is_(False))
         if author_account is not None:
             query = query.filter(Community_post.author_id == author_account.id)
         blocked = blocked_user_ids(database, current_user.id)
         rows = []
         for row, account in query.order_by(Community_post.created_at.desc(), Community_post.id.desc()).yield_per(40):
             if row.author_id in blocked:
+                continue
+            if not filters["search_blacklist"] and post_row_blacklisted(row, current_user.id, filters):
                 continue
             if not community_topic_hit(row.topics, topic):
                 continue
@@ -440,6 +528,8 @@ def list_community_posts(
         query = database.query(Community_post).filter(Community_post.created_at <= as_of)
         if kind == "following":
             query = query.filter(Community_post.author_id == current_user.id)
+        else:
+            query = query.filter(Community_post.followers_only.is_(False))
         rows = drop_blocked_rows(
             database,
             current_user.id,
@@ -449,7 +539,10 @@ def list_community_posts(
     counts = comment_counts(database, [row.id for row in rows])
     people = author_map(database, [row.author_id for row in rows])
     votes = votes_for(database, current_user.id, [row.id for row in rows])
-    posts = [pack_community_post(row, people, current_user.id, counts.get(row.id, 0), vote=votes.get(row.id)) for row in rows]
+    posts = [
+        cover_packed_post(pack_community_post(row, people, current_user.id, counts.get(row.id, 0), vote=votes.get(row.id)), current_user.id, filters)
+        for row in rows
+    ]
     return {"posts": posts, "as_of": as_of.isoformat()}
 
 
@@ -481,6 +574,8 @@ def create_community_post(
         body=text,
         topics=json.dumps(topics) if topics else None,
         attachments=attachments,
+        explicit=bool(body.explicit),
+        followers_only=bool(body.followers_only),
     )
     database.add(row)
     database.commit()
@@ -557,3 +652,94 @@ def dislike_community_post(
     current_user: UserInfo = Depends(get_current_user),
 ):
     return cast_community_vote(code, "dislike", database, current_user)
+
+
+def filter_edge_kind(kind):
+    edge_kind = COMMUNITY_FILTER_KINDS.get(str(kind or "").strip().lower())
+    if not edge_kind:
+        raise HTTPException(status_code=400, detail="Unknown list.")
+    return edge_kind
+
+
+@router.get("/community_post_settings")
+def get_community_post_settings(
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    return load_post_filters(database, current_user.id)
+
+
+@router.post("/community_post_settings/filters")
+def add_community_post_filter(
+    body: Community_filter_entry,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    edge_kind = filter_edge_kind(body.kind)
+    label = clean_filter_label(body.label)
+    if not label:
+        raise HTTPException(status_code=400, detail="Type something first.")
+    existing = database.query(Community_edge).filter(
+        Community_edge.user_id == current_user.id,
+        Community_edge.kind == edge_kind,
+        Community_edge.target_id == 0,
+        Community_edge.label == label,
+    ).first()
+    if not existing:
+        count = database.query(func.count(Community_edge.id)).filter(
+            Community_edge.user_id == current_user.id,
+            Community_edge.kind == edge_kind,
+        ).scalar() or 0
+        if count >= COMMUNITY_FILTER_MAX:
+            raise HTTPException(status_code=400, detail="This list is full.")
+        database.add(Community_edge(user_id=current_user.id, kind=edge_kind, target_id=0, label=label))
+        database.commit()
+    return load_post_filters(database, current_user.id)
+
+
+@router.delete("/community_post_settings/filters")
+def remove_community_post_filter(
+    body: Community_filter_entry,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    edge_kind = filter_edge_kind(body.kind)
+    label = clean_filter_label(body.label)
+    database.query(Community_edge).filter(
+        Community_edge.user_id == current_user.id,
+        Community_edge.kind == edge_kind,
+        Community_edge.target_id == 0,
+        Community_edge.label == label,
+    ).delete(synchronize_session=False)
+    database.commit()
+    return load_post_filters(database, current_user.id)
+
+
+def save_post_pref(database, user_id, label, mode):
+    edge = database.query(Community_edge).filter(
+        Community_edge.user_id == user_id,
+        Community_edge.kind == COMMUNITY_PREF_KIND,
+        Community_edge.target_id == 0,
+        Community_edge.label == label,
+    ).first()
+    if edge:
+        edge.mode = mode
+    else:
+        database.add(Community_edge(user_id=user_id, kind=COMMUNITY_PREF_KIND, target_id=0, label=label, mode=mode))
+
+
+@router.patch("/community_post_settings")
+def update_community_post_settings(
+    body: Community_post_prefs,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    if body.comment_sort is not None:
+        sort = str(body.comment_sort).strip().lower()
+        if sort not in COMMUNITY_COMMENT_SORTS:
+            raise HTTPException(status_code=400, detail="Unknown sort.")
+        save_post_pref(database, current_user.id, "comment_sort", sort)
+    if body.search_blacklist is not None:
+        save_post_pref(database, current_user.id, "search_blacklist", "on" if body.search_blacklist else "off")
+    database.commit()
+    return load_post_filters(database, current_user.id)

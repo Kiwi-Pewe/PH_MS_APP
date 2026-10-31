@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=464">
+<link rel="stylesheet" href="app.css?v=465">
 </head>
 <body>
 
@@ -2105,6 +2105,28 @@
           </div>
         </div>
         <div id="community-compose-count">0/1500</div>
+        <div class="community-compose-flags">
+          <label class="community-compose-flag">
+            <span class="toggle-switch">
+              <input type="checkbox" id="community-compose-explicit">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </span>
+            <span class="community-compose-flag-copy">
+              <span class="community-compose-flag-title">Explicit</span>
+              <span class="community-compose-flag-desc">Covers the whole post for everyone until they click it.</span>
+            </span>
+          </label>
+          <label class="community-compose-flag">
+            <span class="toggle-switch">
+              <input type="checkbox" id="community-compose-followers">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </span>
+            <span class="community-compose-flag-copy">
+              <span class="community-compose-flag-title">Followers only</span>
+              <span class="community-compose-flag-desc">Keeps this post out of Explore.</span>
+            </span>
+          </label>
+        </div>
       </div>
       <div class="community-compose-footer">
         <button type="button" class="ghost-btn" id="community-compose-cancel">Cancel</button>
@@ -2784,11 +2806,11 @@
     </div>
 <script src="boot.js?v=152"></script>
 <script src="app-shell.js?v=77"></script>
-<script src="communities.js?v=41"></script>
-<script src="community-posts.js?v=3"></script>
+<script src="communities.js?v=42"></script>
+<script src="community-posts.js?v=4"></script>
 <script src="community-rooms.js?v=6"></script>
 <script src="community-search.js?v=2"></script>
-<script src="community-settings.js?v=1"></script>
+<script src="community-settings.js?v=2"></script>
 <script src="community-phone.js?v=3"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>

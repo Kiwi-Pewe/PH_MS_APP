@@ -632,6 +632,8 @@ def ensure_community_columns():
         for column, coltype in (
             ("likes", "INTEGER DEFAULT 0"),
             ("dislikes", "INTEGER DEFAULT 0"),
+            ("explicit", "BOOLEAN NOT NULL DEFAULT 0"),
+            ("followers_only", "BOOLEAN NOT NULL DEFAULT 0"),
         ):
             try:
                 conn.execute(text(f"ALTER TABLE community_posts ADD COLUMN {column} {coltype}"))

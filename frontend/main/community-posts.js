@@ -28,6 +28,7 @@ function communityPostReady(row) {
 
 async function loadCommunityPosts(lens, fresh) {
   const gen = ++communityPostGen;
+  if (typeof communityPostPrefsLoaded !== "undefined" && !communityPostPrefsLoaded && typeof loadCommunityPostPrefs === "function") loadCommunityPostPrefs();
   if (fresh) communityLensStamp = "";
   const params = new URLSearchParams();
   params.set("lens", lens || "explore");
@@ -98,6 +99,8 @@ async function saveCommunityPost() {
   try {
     const pending = (typeof postMediaPending !== "undefined" && postMediaPending.community && postMediaPending.community.files) || [];
     const attachments = typeof uploadPendingPostFiles === "function" ? await uploadPendingPostFiles(pending, "community") : [];
+    const explicitBox = document.getElementById("community-compose-explicit");
+    const followersBox = document.getElementById("community-compose-followers");
     const response = await fetch(`https://${serverAddress}/community_posts`, {
       method: "POST",
       credentials: "include",
@@ -105,13 +108,17 @@ async function saveCommunityPost() {
       body: JSON.stringify({
         body: body.slice(0, 1500),
         topics: (typeof communityComposeTopics !== "undefined" ? communityComposeTopics : []).slice(),
-        attachments
+        attachments,
+        explicit: !!(explicitBox && explicitBox.checked),
+        followers_only: !!(followersBox && followersBox.checked)
       })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(communityErrorText(data, "Could not post."));
     const post = communityPostReady(data);
-    if ((communityRow === "explore" || communityRow === "following") && !(typeof communitySearchRan === "function" && communitySearchRan("post"))) communityPostRows.unshift(post);
+    const searching = typeof communitySearchRan === "function" && communitySearchRan("post");
+    const fits = communityRow === "following" || (communityRow === "explore" && !post.followers_only);
+    if (fits && !searching) communityPostRows.unshift(post);
     if (typeof closeCommunityCompose === "function") closeCommunityCompose();
     if (typeof paintCommunityPosts === "function") paintCommunityPosts();
   } catch (e) {

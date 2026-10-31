@@ -200,6 +200,18 @@ class Community_post_create(BaseModel):
     body: str = ""
     topics: list[str] = []
     attachments: list[Attachment_in] = []
+    explicit: bool = False
+    followers_only: bool = False
+
+
+class Community_filter_entry(BaseModel):
+    kind: str = ""
+    label: str = ""
+
+
+class Community_post_prefs(BaseModel):
+    comment_sort: str | None = None
+    search_blacklist: bool | None = None
 
 
 class Community_comment_create(BaseModel):

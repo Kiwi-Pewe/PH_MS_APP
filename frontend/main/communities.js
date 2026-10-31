@@ -191,17 +191,6 @@ function communityHashtagsFromBody(text) {
 
 function paintCommunityPostBody(host, post) {
   const text = communityPostBodyText(post);
-  if (post.explicit) {
-    const cover = document.createElement("span");
-    cover.className = "md-explicit";
-    cover.textContent = text;
-    cover.addEventListener("click", (e) => {
-      e.stopPropagation();
-      cover.classList.toggle("is-open");
-    });
-    host.appendChild(cover);
-    return;
-  }
   if (typeof mdAppend === "function") {
     mdAppend(host, text, {});
     wrapCommunityHashtags(host);
@@ -306,9 +295,38 @@ function fillCommunityPostHead(host, post, opts) {
   }
 }
 
+const communityPostRevealed = new Set();
+
+function communityPostCovered(post) {
+  return !!(post && (post.explicit || post.covered) && !communityPostRevealed.has(post.code));
+}
+
 function fillCommunityPostMid(host, post) {
   if (!host) return;
   host.replaceChildren();
+  if (!communityPostCovered(post)) {
+    fillCommunityPostContent(host, post);
+    return;
+  }
+  const cover = document.createElement("div");
+  cover.className = "community-post-cover";
+  const inner = document.createElement("div");
+  inner.className = "community-post-cover-inner";
+  fillCommunityPostContent(inner, post);
+  const label = document.createElement("span");
+  label.className = "community-post-cover-label";
+  label.textContent = "Explicit post";
+  cover.appendChild(inner);
+  cover.appendChild(label);
+  cover.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (post && post.code) communityPostRevealed.add(post.code);
+    fillCommunityPostMid(host, post);
+  });
+  host.appendChild(cover);
+}
+
+function fillCommunityPostContent(host, post) {
   const body = document.createElement("div");
   body.className = "community-post-body";
   paintCommunityPostBody(body, post);
@@ -322,17 +340,10 @@ function fillCommunityPostMid(host, post) {
     }
   } else if (post && post.media) {
     const media = document.createElement("div");
-    media.className = "community-post-media" + (post.explicit ? " md-explicit-media" : "");
+    media.className = "community-post-media";
     const label = document.createElement("span");
-    if (post.explicit) label.className = "md-explicit-media-label";
-    label.textContent = post.explicit ? "Explicit image" : (post.video ? "Video" : "Image");
+    label.textContent = post.video ? "Video" : "Image";
     media.appendChild(label);
-    if (post.explicit) {
-      media.addEventListener("click", (e) => {
-        e.stopPropagation();
-        media.classList.toggle("is-open");
-      });
-    }
     host.appendChild(media);
   }
   const tracks = (post && post.tracks && post.tracks.length)
@@ -406,7 +417,7 @@ function paintCommunityPostCard(post) {
   card.appendChild(mid);
   card.appendChild(foot);
   card.addEventListener("click", (e) => {
-    if (e.target.closest("button, .md-explicit, .md-explicit-media, .post-media, .oneira-music, .community-post-music, .community-post-face, .community-post-name")) return;
+    if (e.target.closest("button, .md-explicit, .md-explicit-media, .community-post-cover, .post-media, .oneira-music, .community-post-music, .community-post-face, .community-post-name")) return;
     openCommunityPost(post);
   });
   card.addEventListener("contextmenu", (e) => openCommunityPostMenu(e, post));
@@ -486,7 +497,18 @@ function paintCommunityPostComment(row) {
   if (row.time) by.appendChild(timeEl);
   const body = document.createElement("div");
   body.className = "community-post-comment-body";
-  body.textContent = row.body || "";
+  if (row.covered) {
+    const cover = document.createElement("span");
+    cover.className = "md-explicit";
+    cover.textContent = row.body || "";
+    cover.addEventListener("click", (e) => {
+      e.stopPropagation();
+      cover.classList.add("is-open");
+    });
+    body.appendChild(cover);
+  } else {
+    body.textContent = row.body || "";
+  }
   main.appendChild(by);
   main.appendChild(body);
   el.appendChild(face);
@@ -499,7 +521,8 @@ function paintCommunityPostThread() {
   const empty = document.getElementById("community-post-comments-empty");
   if (!host) return;
   host.replaceChildren();
-  const rows = communityPostComments(communityOpenPost);
+  const rows = communityPostComments(communityOpenPost).slice();
+  if (typeof communityCommentSort === "function" && communityCommentSort() === "newest") rows.reverse();
   rows.forEach((row) => host.appendChild(paintCommunityPostComment(row)));
   if (empty) empty.hidden = rows.length > 0;
 }
@@ -554,6 +577,10 @@ function resetCommunityCompose() {
     input.style.height = "";
   }
   if (typeof clearPostMedia === "function") clearPostMedia("community");
+  ["community-compose-explicit", "community-compose-followers"].forEach((id) => {
+    const box = document.getElementById(id);
+    if (box) box.checked = false;
+  });
   paintCommunityComposeTopics();
   syncCommunityCompose();
   if (typeof refreshComposerMentions === "function" && input) refreshComposerMentions(input);

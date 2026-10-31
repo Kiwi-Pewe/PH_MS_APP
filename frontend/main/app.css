@@ -13512,6 +13512,50 @@ button.voice-more-row:disabled,
   pointer-events: none;
 }
 .community-phone-friend[hidden] { display: none; }
+.community-phone-friend:not([hidden]) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.community-phone-friend button { height: 26px; padding: 0 10px; font-size: 12px; }
+#community-phone-title.is-hidden-caller { cursor: default; }
+.community-phone-starter {
+  margin: 12px auto 4px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.community-phone-starter[hidden] { display: none; }
+.community-phone-landing .community-phone-space { flex: 1 1 0; min-height: 0; }
+.community-phone-landing .community-garter-body { flex: 0 0 auto; padding: 0; }
+.community-phone-topics-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.community-phone-topics {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+}
+.community-phone-topics .community-filter-pills { justify-content: center; margin-top: 0; }
+.community-phone-topics .community-filter-pill:disabled { opacity: 0.55; cursor: default; pointer-events: none; }
+.community-phone-topics .community-filter-pills[hidden] { display: none; }
+.community-phone-topics .community-search { width: 100%; box-sizing: border-box; }
+.community-phone-topics .community-search:disabled { opacity: 0.55; cursor: default; }
+.community-phone-topic-status {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+}
+.community-phone-topic-status[hidden] { display: none; }
+.community-phone-topic-help { margin: 0; text-align: center; }
 .community-phone-warn {
   margin: 0;
   color: var(--danger);

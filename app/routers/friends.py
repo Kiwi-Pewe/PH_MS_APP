@@ -111,7 +111,11 @@ async def add_user(friends: Friend_user, database: Session = Depends(get_db), cu
 
 @router.get("/get_friends")
 def get_friends(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    pending_requests = database.query(Friend_request).filter(Friend_request.user_2 == current_user.id, Friend_request.pending == True).all()
+    pending_requests = database.query(Friend_request).filter(
+        Friend_request.user_2 == current_user.id,
+        Friend_request.pending == True,
+        Friend_request.from_phone.is_(False),
+    ).all()
     accepted_friends = database.query(Friend_request).filter(or_(Friend_request.user_1 == current_user.id, Friend_request.user_2 == current_user.id), Friend_request.pending == False).all()
     other_ids = []
     for entry in pending_requests:

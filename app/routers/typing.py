@@ -63,8 +63,13 @@ async def relay_typing(data, current_user: UserInfo, database: Session):
         ).first()
         if not call or current_user.id not in (call.user_a, call.user_b):
             return
+        from app.routers.community_phone import PHONE_CALLER, PHONE_HIDDEN_ID, phone_shown
         other_id = call.user_b if call.user_a == current_user.id else call.user_a
-        await notify_user(other_id, _payload(current_user, "phone", active, call_id=call_id))
+        payload = _payload(current_user, "phone", active, call_id=call_id)
+        if not phone_shown(database, current_user.id):
+            payload["user_id"] = PHONE_HIDDEN_ID
+            payload["username"] = PHONE_CALLER
+        await notify_user(other_id, payload)
         return
 
     if kind == "party":

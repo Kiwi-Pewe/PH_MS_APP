@@ -580,6 +580,14 @@ function buildSystemDivider(msg) {
   return divider;
 }
 
+function showClusterProfileMenu(e, msg) {
+  if (msg.chatKind === "phone" && !msg.isMine && typeof openCommunityPhoneMenu === "function") {
+    openCommunityPhoneMenu(e);
+    return;
+  }
+  showProfileContextMenu(e, msg.senderId, msg.username, msg.isMine, msg.chatKind === "party");
+}
+
 function startNewCluster(wrap, msg) {
   if (isCallMessage(msg)) {
     wrap.appendChild(buildCallLine(msg));
@@ -593,7 +601,7 @@ function startNewCluster(wrap, msg) {
   avatar.className = "cluster-avatar";
   if (typeof paintUserFace === "function") paintUserFace(avatar, msg, { name: msg.username, userId: msg.senderId });
   else avatar.textContent = avatarLetter(msg.username);
-  avatar.addEventListener("contextmenu", (e) => showProfileContextMenu(e, msg.senderId, msg.username, msg.isMine, msg.chatKind === "party"));
+  avatar.addEventListener("contextmenu", (e) => showClusterProfileMenu(e, msg));
   if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(avatar, msg.senderId);
 
   const body = document.createElement("div");
@@ -607,7 +615,7 @@ function startNewCluster(wrap, msg) {
   if ((msg.chatKind === "channel" || msg.chatKind === "forum") && typeof applyServerNameColor === "function") {
     applyServerNameColor(name, msg.senderId, msg.nameRole);
   }
-  name.addEventListener("contextmenu", (e) => showProfileContextMenu(e, msg.senderId, msg.username, msg.isMine, msg.chatKind === "party"));
+  name.addEventListener("contextmenu", (e) => showClusterProfileMenu(e, msg));
   if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(name, msg.senderId);
   const time = document.createElement("span");
   time.className = "cluster-time";

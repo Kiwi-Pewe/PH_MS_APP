@@ -9,6 +9,48 @@ let communityPhoneTimer = 0;
 let communityPhoneGen = 0;
 let communityPhoneDismissing = false;
 let communityPhoneWarningCleared = false;
+let communityPhoneTopics = [];
+let communityPhoneTopicStatus = "";
+let communityPhoneWidenTimer = 0;
+let communityPhoneSelfEnded = false;
+let communityPhonePrefs = communityPhonePrefsDefault();
+
+function communityPhonePrefsDefault() {
+  return {
+    words: [],
+    show_profile: false,
+    allow_friend: true,
+    match_sound: true,
+    message_sound: "all",
+    unread_count: true,
+    cover_media: false,
+    confirm_end: false,
+    auto_find: false
+  };
+}
+
+function applyCommunityPhonePrefs(data) {
+  if (!data || typeof data !== "object") return;
+  const base = communityPhonePrefsDefault();
+  const next = {};
+  Object.keys(base).forEach((key) => {
+    next[key] = data[key] === undefined ? base[key] : data[key];
+  });
+  next.words = Array.isArray(next.words) ? next.words : [];
+  communityPhonePrefs = next;
+}
+
+function communityPhoneWordHit(text) {
+  const body = String(text || "");
+  if (!body || !communityPhonePrefs.words.length) return false;
+  const escape = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return communityPhonePrefs.words.some((word) => new RegExp("(?<!\\w)" + escape(word) + "(?!\\w)", "i").test(body));
+}
+
+function communityPhonePartnerHidden() {
+  const partner = communityPhoneCall && communityPhoneCall.partner;
+  return !partner || !!partner.hidden || !(Number(partner.id) > 0);
+}
 
 function communityPhoneOnScreen() {
   if (typeof isCommunitiesOpen === "undefined" || !isCommunitiesOpen) return false;
@@ -30,11 +72,11 @@ function paintCommunityPhoneBadge() {
   const onPhone = communityPhoneOnScreen();
   const inCommunities = typeof isCommunitiesOpen !== "undefined" && isCommunitiesOpen;
   if (tab) {
-    tab.hidden = !(n && !inCommunities);
+    tab.hidden = !(n && !inCommunities && communityPhonePrefs.unread_count);
     tab.textContent = n ? String(n) : "";
   }
   if (row) {
-    const show = !!(n && inCommunities && !onPhone);
+    const show = !!(n && inCommunities && !onPhone && communityPhonePrefs.unread_count);
     row.style.display = show ? "flex" : "none";
     row.textContent = n ? String(n) : "";
   }
@@ -59,6 +101,78 @@ function paintCommunityPhoneLanding() {
     cancel.disabled = communityPhoneBusy;
   }
   if (wait) wait.hidden = !searching;
+  paintCommunityPhoneTopics();
+}
+
+function paintCommunityPhoneTopics() {
+  const pills = document.getElementById("community-phone-topic-pills");
+  const input = document.getElementById("community-phone-topic-input");
+  const status = document.getElementById("community-phone-topic-status");
+  const locked = !!(communityPhoneWaiting || communityPhoneCall || communityPhoneBusy);
+  const full = communityPhoneTopics.length >= 5;
+  if (input) {
+    input.disabled = locked || full;
+    input.placeholder = full ? "5 of 5 topics chosen" : "Add a topic";
+  }
+  if (status) {
+    status.hidden = !communityPhoneTopicStatus;
+    status.textContent = communityPhoneTopicStatus;
+  }
+  if (!pills) return;
+  pills.replaceChildren();
+  pills.hidden = !communityPhoneTopics.length;
+  communityPhoneTopics.forEach((topic) => {
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "community-tag is-on community-filter-pill";
+    pill.title = "Remove";
+    pill.disabled = locked;
+    pill.textContent = topic + " ×";
+    pill.addEventListener("click", () => saveCommunityPhoneTopic("DELETE", topic));
+    pills.appendChild(pill);
+  });
+}
+
+async function saveCommunityPhoneTopic(method, label) {
+  const text = String(label || "").trim();
+  if (!text || communityPhoneWaiting || communityPhoneCall) return;
+  communityPhoneTopicStatus = "";
+  try {
+    const response = await fetch(`https://${serverAddress}/community_phone/topics`, {
+      method,
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: text })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof communityErrorText === "function" ? communityErrorText(data, "Could not save that topic.") : "Could not save that topic.");
+    applyCommunityPhoneState(data);
+    const input = document.getElementById("community-phone-topic-input");
+    if (input && method === "POST") input.value = "";
+  } catch (e) {
+    communityPhoneTopicStatus = e.message || "Could not save that topic.";
+  }
+  paintCommunityPhoneTopics();
+}
+
+function armCommunityPhoneWiden(data) {
+  if (communityPhoneWidenTimer) clearTimeout(communityPhoneWidenTimer);
+  communityPhoneWidenTimer = 0;
+  if (!data || !data.waiting || !data.started_at) return;
+  const at = Date.parse(String(data.started_at).replace(" ", "T").replace(/\.\d+/, ""));
+  if (Number.isNaN(at)) return;
+  const delay = Math.max(500, at + 60 * 1000 - Date.now() + 500);
+  communityPhoneWidenTimer = setTimeout(async () => {
+    communityPhoneWidenTimer = 0;
+    if (!communityPhoneWaiting || communityPhoneCall) return;
+    try {
+      const response = await fetch(`https://${serverAddress}/community_phone/widen`, { method: "POST", credentials: "include" });
+      if (!response.ok) return;
+      applyCommunityPhoneState(await response.json());
+    } catch (e) {
+      return;
+    }
+  }, delay);
 }
 
 function dismissCommunityPhoneWarning() {
@@ -79,13 +193,13 @@ function dismissCommunityPhoneWarning() {
 }
 
 function mapCommunityPhoneMessage(msg) {
-  return {
+  const mapped = {
     id: msg.id,
     tempId: msg.temp_id || msg.tempId,
     chatKind: "phone",
-    isMine: msg.sender_id === myUserId || msg.username === myUsername,
+    isMine: typeof msg.mine === "boolean" ? msg.mine : (msg.sender_id === myUserId || (!!msg.username && msg.username === myUsername)),
     senderId: msg.sender_id,
-    username: msg.username || "",
+    username: msg.username || (Number(msg.sender_id) < 0 ? (msg.display_name || "Caller") : ""),
     nickname: msg.display_name || msg.nickname || msg.username || "",
     content: msg.content || "",
     attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : (msg.attachment || null),
@@ -95,38 +209,86 @@ function mapCommunityPhoneMessage(msg) {
     avatar: msg.avatar || null,
     replyTo: msg.reply_to || msg.replyTo || null
   };
+  if (!mapped.isMine) {
+    if (mapped.content && communityPhoneWordHit(mapped.content) && mapped.content.indexOf("||") < 0) {
+      mapped.content = "||" + mapped.content + "||";
+    }
+    if (communityPhonePrefs.cover_media && mapped.attachment && typeof mapped.attachment === "object") {
+      mapped.attachment = Object.assign({}, mapped.attachment, { explicit: true });
+    }
+  }
+  return mapped;
 }
 
 function paintCommunityPhoneFriend() {
   const el = document.getElementById("community-phone-friend");
   if (!el) return;
-  el.textContent = communityPhoneFriendNote || "";
+  el.replaceChildren();
   el.hidden = !communityPhoneFriendNote;
+  if (!communityPhoneFriendNote) return;
+  const text = document.createElement("span");
+  text.textContent = communityPhoneFriendNote;
+  el.appendChild(text);
+  if (!communityPhoneCall || communityPhoneCall.friend_state !== "in") return;
+  const accept = document.createElement("button");
+  accept.type = "button";
+  accept.className = "pill-btn";
+  accept.textContent = "Accept";
+  accept.addEventListener("click", () => saveCommunityPhoneFriend("/friend/accept"));
+  const decline = document.createElement("button");
+  decline.type = "button";
+  decline.className = "ghost-btn";
+  decline.textContent = "Decline";
+  decline.addEventListener("click", () => saveCommunityPhoneFriend("/friend/decline"));
+  el.appendChild(decline);
+  el.appendChild(accept);
 }
 
-function setCommunityPhoneFriendNote(text) {
-  communityPhoneFriendNote = text || "";
-  paintCommunityPhoneFriend();
+async function saveCommunityPhoneFriend(path) {
+  if (communityPhoneBusy) return false;
+  communityPhoneBusy = true;
+  try {
+    const response = await fetch(`https://${serverAddress}/community_phone${path}`, { method: "POST", credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      window.alert(typeof communityErrorText === "function" ? communityErrorText(data, "Could not do that.") : "Could not do that.");
+      return false;
+    }
+    applyCommunityPhoneState(data);
+    return true;
+  } catch (e) {
+    return false;
+  } finally {
+    communityPhoneBusy = false;
+  }
 }
 
-function playCommunityPhoneAlert() {
+function applyCommunityPhoneFriend(data) {
+  loadCommunityPhone();
+  if (data && data.incoming) playCommunityPhoneAlert("friend");
+}
+
+function playCommunityPhoneAlert(kind) {
+  if (kind === "match" && !communityPhonePrefs.match_sound) return;
+  if (kind === "message" && communityPhonePrefs.message_sound === "off") return;
   const partner = communityPhoneCall && communityPhoneCall.partner;
-  if (partner && typeof isConversationMuted === "function" && isConversationMuted("dm", partner.id)) return;
+  if (partner && Number(partner.id) > 0 && typeof isConversationMuted === "function" && isConversationMuted("dm", partner.id)) return;
   if (typeof playOneiraAlert === "function") playOneiraAlert();
-}
-
-function noteCommunityPhoneFriendRequest(data) {
-  const partner = communityPhoneCall && communityPhoneCall.partner;
-  if (!partner || !data || Number(data.sender_id) !== Number(partner.id)) return;
-  const name = data.display_name || data.username || partner.display_name || partner.username || "Someone";
-  setCommunityPhoneFriendNote(name + " has sent a friend request.");
-  playCommunityPhoneAlert();
 }
 
 function paintCommunityPhoneChat() {
   const title = document.getElementById("community-phone-title");
   const partner = communityPhoneCall && communityPhoneCall.partner;
-  if (title) title.textContent = partner ? (partner.display_name || partner.username || "Phone a User") : "Phone a User";
+  if (title) {
+    title.textContent = partner ? (partner.display_name || partner.username || "Caller") : "Phone a User";
+    title.classList.toggle("is-hidden-caller", communityPhonePartnerHidden());
+  }
+  const starter = document.getElementById("community-phone-starter");
+  const shared = (communityPhoneCall && communityPhoneCall.shared_topics) || [];
+  if (starter) {
+    starter.hidden = !shared.length;
+    starter.textContent = shared.length ? "You both like: " + shared.join(", ") : "";
+  }
   paintCommunityPhoneFriend();
   const log = document.getElementById("community-phone-log");
   const body = log && log.parentElement;
@@ -198,9 +360,10 @@ function armCommunityPhoneTimer(data) {
 }
 
 function applyCommunityPhoneState(data, opts) {
-  const wasOnScreen = communityPhoneOnScreen();
-  const previousUnread = communityPhoneUnread;
+  const hadCall = !!communityPhoneCall;
   const body = data || {};
+  if (Array.isArray(body.topics)) communityPhoneTopics = body.topics;
+  if (body.prefs) applyCommunityPhonePrefs(body.prefs);
   communityPhoneWaiting = !!body.waiting;
   communityPhoneWarning = body.call ? "" : (body.warning || "");
   if (communityPhoneWarningCleared && !body.call) communityPhoneWarning = "";
@@ -211,6 +374,7 @@ function applyCommunityPhoneState(data, opts) {
     ? communityPhoneCall.messages.map(mapCommunityPhoneMessage)
     : [];
   armCommunityPhoneTimer(body);
+  armCommunityPhoneWiden(body);
   if (communityPhoneOnScreen() || (typeof communityRow !== "undefined" && communityRow === "garterphone" && typeof isCommunitiesOpen !== "undefined" && isCommunitiesOpen)) {
     showCommunityPhone();
   } else {
@@ -218,7 +382,7 @@ function applyCommunityPhoneState(data, opts) {
     paintCommunityPhoneLanding();
     paintCommunityPhoneFriend();
   }
-  if (opts && opts.alert && communityPhoneUnread > previousUnread && !wasOnScreen) playCommunityPhoneAlert();
+  if (opts && opts.alert && communityPhoneCall && !hadCall) playCommunityPhoneAlert("match");
 }
 
 async function loadCommunityPhone(opts) {
@@ -285,8 +449,19 @@ async function cancelCommunityPhone() {
     paintCommunityPhoneLanding();
   }
 }
-async function endCommunityPhone() {
+function endCommunityPhone() {
   if (communityPhoneBusy || !communityPhoneCall) return;
+  if (communityPhonePrefs.confirm_end && typeof showPartyConfirmCard === "function") {
+    pendingLeaveParty = { kind: "room", run: () => runEndCommunityPhone() };
+    showPartyConfirmCard("End Chat", "Are you sure you want to end this chat?", "End Chat");
+    return;
+  }
+  runEndCommunityPhone();
+}
+
+async function runEndCommunityPhone() {
+  if (communityPhoneBusy || !communityPhoneCall) return;
+  communityPhoneSelfEnded = true;
   communityPhoneBusy = true;
   try {
     const response = await fetch(`https://${serverAddress}/community_phone/end`, {
@@ -305,6 +480,9 @@ async function endCommunityPhone() {
 }
 
 function applyCommunityPhoneEnded(data) {
+  const hadCall = !!communityPhoneCall;
+  const selfEnded = communityPhoneSelfEnded;
+  communityPhoneSelfEnded = false;
   communityPhoneWarningCleared = false;
   communityPhoneCall = null;
   communityPhoneMessages = [];
@@ -317,6 +495,10 @@ function applyCommunityPhoneEnded(data) {
     paintCommunityPhoneBadge();
     paintCommunityPhoneLanding();
   }
+  if (hadCall && !selfEnded && communityPhonePrefs.auto_find) {
+    startCommunityPhone();
+    return;
+  }
   loadCommunityPhone();
 }
 
@@ -325,7 +507,7 @@ function applyCommunityPhoneMessage(data) {
   if (!communityPhoneOnScreen()) {
     if (data.unread != null) communityPhoneUnread = Number(data.unread) || communityPhoneUnread;
     paintCommunityPhoneBadge();
-    if (Number(data.sender_id) !== Number(myUserId)) playCommunityPhoneAlert();
+    if (data.mine !== true && Number(data.sender_id) !== Number(myUserId)) playCommunityPhoneAlert("message");
     return;
   }
   if (data.id && communityPhoneMessages.some((row) => row.id === data.id)) return;
@@ -383,36 +565,59 @@ function takeCommunityPhoneDm(partner, ping) {
 }
 
 function communityPhoneReportContext(partner) {
+  const hidden = communityPhonePartnerHidden();
   return {
     context_view: "phone",
     server_id: "",
     server_name: partner ? (partner.display_name || partner.username || "") : "",
-    channel_id: partner && partner.id ? Number(partner.id) : null,
-    channel_name: partner && partner.username ? ("@" + partner.username) : "",
+    channel_id: !hidden && partner && partner.id ? Number(partner.id) : null,
+    channel_name: !hidden && partner && partner.username ? ("@" + partner.username) : "",
     channel_type: ""
   };
 }
 
-async function openCommunityPhoneMenu(e) {
+function communityPhoneFriendRow() {
+  const state = communityPhoneCall && communityPhoneCall.friend_state;
+  if (state === "in") return { label: "Accept Friend Request", onSelect: () => saveCommunityPhoneFriend("/friend/accept") };
+  if (state === "out") return { label: "Friend Request Sent", disabled: true };
+  return { label: "Add Friend", onSelect: () => saveCommunityPhoneFriend("/friend") };
+}
+
+function blockCommunityPhonePartner() {
+  const run = async () => {
+    if (communityPhoneBusy || !communityPhoneCall) return;
+    communityPhoneSelfEnded = true;
+    communityPhoneBusy = true;
+    try {
+      const response = await fetch(`https://${serverAddress}/community_phone/block`, { method: "POST", credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) applyCommunityPhoneState(data);
+    } catch (e) {
+      return;
+    } finally {
+      communityPhoneBusy = false;
+      paintCommunityPhoneLanding();
+    }
+  };
+  if (typeof showPartyConfirmCard !== "function") {
+    run();
+    return;
+  }
+  pendingLeaveParty = { kind: "room", run };
+  showPartyConfirmCard("Block", "Blocking ends this chat, and the two of you will never be paired again.", "Block");
+}
+
+function openCommunityPhoneMenu(e) {
   e.preventDefault();
   e.stopPropagation();
   const partner = communityPhoneCall && communityPhoneCall.partner;
   if (!partner || typeof openContextMenu !== "function") return;
-  const relation = typeof fetchRelationship === "function" ? await fetchRelationship(partner.id) : {};
-  const rows = [
-    { label: "Profile", onSelect: () => { if (typeof openUserProfile === "function") openUserProfile(partner.id); } }
-  ];
-  if (typeof friendMenuOption === "function") {
-    const friend = friendMenuOption(partner.id, partner.username, relation);
-    if (friend && friend.label === "Add Friend" && !relation.pending_in && !friend.disabled && friend.onSelect) {
-      const send = friend.onSelect;
-      friend.onSelect = async () => {
-        const ok = await send();
-        if (ok) setCommunityPhoneFriendNote("Friend request sent.");
-      };
-    }
-    if (friend) rows.push(friend);
-  }
+  const hidden = communityPhonePartnerHidden();
+  const rows = [];
+  if (!hidden) rows.push({ label: "Profile", onSelect: () => { if (typeof openUserProfile === "function") openUserProfile(partner.id); } });
+  rows.push(communityPhoneFriendRow());
+  rows.push({ separator: true });
+  rows.push({ label: "Block", danger: true, onSelect: () => blockCommunityPhonePartner() });
   rows.push({
     label: "Report",
     danger: true,
@@ -420,9 +625,9 @@ async function openCommunityPhoneMenu(e) {
   });
   openContextMenu(e.clientX, e.clientY, {
     avatarText: typeof communityLetter === "function" ? communityLetter(partner.display_name || partner.username) : "?",
-    title: partner.display_name || partner.username,
-    subtitle: "@" + (partner.username || ""),
-    userId: partner.id
+    title: partner.display_name || partner.username || "Caller",
+    subtitle: hidden ? "" : "@" + (partner.username || ""),
+    userId: hidden ? null : partner.id
   }, rows);
 }
 
@@ -486,7 +691,15 @@ const communityPhoneTitle = document.getElementById("community-phone-title");
 if (communityPhoneTitle) {
   communityPhoneTitle.addEventListener("click", () => {
     const partner = communityPhoneCall && communityPhoneCall.partner;
-    if (partner && typeof openMiniProfile === "function") openMiniProfile(partner.id, communityPhoneTitle);
+    if (partner && !communityPhonePartnerHidden() && typeof openMiniProfile === "function") openMiniProfile(partner.id, communityPhoneTitle);
   });
   communityPhoneTitle.addEventListener("contextmenu", (e) => openCommunityPhoneMenu(e));
+}
+const communityPhoneTopicInput = document.getElementById("community-phone-topic-input");
+if (communityPhoneTopicInput) {
+  communityPhoneTopicInput.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    saveCommunityPhoneTopic("POST", communityPhoneTopicInput.value);
+  });
 }

@@ -261,6 +261,10 @@ function connectSocket() {
       if (typeof applyCommunityPhoneMessage === "function") applyCommunityPhoneMessage(data);
     }
 
+    if (data.type === "phone_friend") {
+      if (typeof applyCommunityPhoneFriend === "function") applyCommunityPhoneFriend(data);
+    }
+
     if (data.type === "phone_ended") {
       if (typeof applyCommunityPhoneEnded === "function") applyCommunityPhoneEnded(data);
     }

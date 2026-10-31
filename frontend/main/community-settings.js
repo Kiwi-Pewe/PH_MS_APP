@@ -195,6 +195,11 @@ function showCommunitySettingsSection(id) {
     paintCommunityRoomSettings();
     loadCommunityRoomPrefs();
   }
+  if (id === "phone" && typeof paintCommunityPhoneSettings === "function") {
+    communityPhonePrefsStatus = "";
+    paintCommunityPhoneSettings();
+    loadCommunityPhonePrefs();
+  }
 }
 
 function openCommunitySettings() {

@@ -92,6 +92,7 @@ class Friend_request(Base):
     user_2 = Column(Integer, ForeignKey("users.id"))
     date_created = Column(DateTime, server_default= func.now())
     pending = Column(Boolean)
+    from_phone = Column(Boolean, nullable=False, default=False, server_default="0")
 
 class Block_user(Base):
     __tablename__ = "blocked"

@@ -92,6 +92,14 @@ def submit_feedback(body: Feedback_submit, database: Session = Depends(get_db), 
     view = (body.context_view or "").strip().lower()
     if view not in CONTEXT_VIEWS:
         view = "home"
+    if view == "phone":
+        from app.routers.community_phone import active_phone_call, phone_other_id
+        call = active_phone_call(database, current_user.id)
+        partner = database.query(UserInfo).filter(UserInfo.id == phone_other_id(call, current_user.id)).first() if call else None
+        if partner:
+            body.server_name = public_display_name(partner)
+            body.channel_id = partner.id
+            body.channel_name = "@" + (partner.username or "")
     row = Feedback_report(
         user_id=current_user.id,
         username=current_user.username,

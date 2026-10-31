@@ -232,6 +232,21 @@ class Community_room_hide(BaseModel):
     hidden: bool = True
 
 
+class Community_phone_prefs(BaseModel):
+    show_profile: bool | None = None
+    allow_friend: bool | None = None
+    match_sound: bool | None = None
+    message_sound: str | None = None
+    unread_count: bool | None = None
+    cover_media: bool | None = None
+    confirm_end: bool | None = None
+    auto_find: bool | None = None
+
+
+class Community_phone_topic(BaseModel):
+    label: str = ""
+
+
 class Community_comment_create(BaseModel):
     body: str = ""
 

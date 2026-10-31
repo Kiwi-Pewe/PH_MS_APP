@@ -1861,7 +1861,7 @@ async function fetchMiniProfile(userId) {
 }
 
 async function openMiniProfile(userId, anchorEl) {
-  if (!userId) return;
+  if (!userId || Number(userId) < 0) return;
   bindMiniProfileChrome();
   closeMiniProfileRolePicker();
   if (typeof closeContextMenu === "function") closeContextMenu();

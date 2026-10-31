@@ -592,6 +592,7 @@ def ensure_conversation_mute_columns():
             ("conversations", "muted_until_user_1", "DATETIME"),
             ("conversations", "muted_until_user_2", "DATETIME"),
             ("party_members", "muted_until", "DATETIME"),
+            ("friend", "from_phone", "BOOLEAN NOT NULL DEFAULT 0"),
         ):
             try:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))

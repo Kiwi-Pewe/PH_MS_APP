@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=467">
+<link rel="stylesheet" href="app.css?v=468">
 </head>
 <body>
 
@@ -1020,7 +1020,8 @@
             <h2 class="community-list-title">Phone a User</h2>
             <p class="community-list-help">A way to connect with a random user who is also using this page for a 1 on 1 chat.</p>
           </div>
-          <div class="community-band-body">
+          <div class="community-band-body community-phone-landing">
+            <div class="community-phone-space"></div>
             <div class="community-garter-body">
               <p class="community-phone-warn" id="community-phone-warn" hidden></p>
               <div class="community-phone-actions">
@@ -1031,6 +1032,14 @@
                 <span></span>
                 <span></span>
                 <span></span>
+              </div>
+            </div>
+            <div class="community-phone-space community-phone-topics-slot">
+              <div class="community-phone-topics">
+                <div class="community-filter-pills" id="community-phone-topic-pills" hidden></div>
+                <input type="text" class="community-search" id="community-phone-topic-input" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Add a topic">
+                <p class="community-phone-topic-status" id="community-phone-topic-status" hidden></p>
+                <p class="community-list-help community-phone-topic-help">Choose up to 5 topics you like to possibly get paired with someone who has the same topics.</p>
               </div>
             </div>
           </div>
@@ -1049,6 +1058,7 @@
             </div>
           </div>
           <div class="community-room-chat-body">
+            <p class="community-phone-starter" id="community-phone-starter" hidden></p>
             <div id="community-phone-log" class="self-right"></div>
           </div>
           <div id="community-phone-compose"></div>
@@ -2806,15 +2816,16 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=152"></script>
+<script src="boot.js?v=153"></script>
 <script src="app-shell.js?v=77"></script>
 <script src="communities.js?v=43"></script>
 <script src="community-posts.js?v=4"></script>
 <script src="community-rooms.js?v=7"></script>
 <script src="community-search.js?v=2"></script>
-<script src="community-settings.js?v=5"></script>
+<script src="community-settings.js?v=6"></script>
 <script src="community-room-settings.js?v=2"></script>
-<script src="community-phone.js?v=3"></script>
+<script src="community-phone.js?v=4"></script>
+<script src="community-phone-settings.js?v=1"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
 <script src="server-settings.js?v=53"></script>
@@ -2847,7 +2858,7 @@
 <script src="profile-edit.js?v=101"></script>
 <script src="context-menus.js?v=109"></script>
 <script src="conversations.js?v=76"></script>
-<script src="chat-render.js?v=74"></script>
+<script src="chat-render.js?v=75"></script>
 <script src="chat-history.js?v=52"></script>
 <script src="chat-compose.js?v=66"></script>
 <script src="typing.js?v=4"></script>
@@ -2879,7 +2890,7 @@
 <script src="pins.js?v=4"></script>
 <script src="search.js?v=10"></script>
 <script src="members.js?v=27"></script>
-<script src="mini-profile.js?v=41"></script>
+<script src="mini-profile.js?v=42"></script>
 <script src="server-modals.js?v=48"></script>
 <script src="announcements.js?v=72"></script>
 <script src="channel-follows.js?v=2"></script>

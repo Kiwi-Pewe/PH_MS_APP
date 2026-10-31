@@ -1,3 +1,4 @@
+from datetime import datetime
 from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,7 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Channel_messages, Server_categories, Server_channels, Server_members, Server_votes, Servers, UserInfo
+from app.models import Channel_messages, Community_edge, Server_categories, Server_channels, Server_members, Server_votes, Servers, UserInfo
+from app.routers.community_posts import COMMUNITY_FILTER_MAX, clean_filter_label, filter_word_hit
+from app.schemas import Community_filter_entry, Community_finder_hide, Community_finder_prefs
 from app.routers.deletion import write_audit_log
 from app.routers.moderation import active_ban
 from app.routers.realtime import presence_status, serialize_member, server_broadcast
@@ -18,6 +21,17 @@ from app.routers.servers import clean_server_tag, parse_application_form, parse_
 router = APIRouter()
 
 COMMUNITY_PAGE = 24
+FINDER_FILTER_KINDS = {"word": "finder_word", "tag": "finder_tag"}
+FINDER_PREF_KIND = "finder_pref"
+FINDER_HIDDEN_KIND = "finder_hidden"
+FINDER_SORTS = ("active", "newest", "score", "online")
+FINDER_EXPLICIT = ("nothing", "cover", "hide")
+FINDER_PREF_FLAGS = {
+    "blacklist_hide": False,
+    "hide_joined": False,
+    "hide_apply": False,
+    "confirm_join": True,
+}
 
 
 class Community_join_in(BaseModel):
@@ -128,7 +142,7 @@ def votes_for_server(database, server_id, user_id):
     return votes_for_servers(database, [server_id], user_id).get(server_id) or empty_vote_pack()
 
 
-def community_row(server, online, joined, votes=None):
+def community_row(server, online, joined, votes=None, covered=False, cover_reason=""):
     pack = votes or empty_vote_pack()
     return {
         "id": server.id,
@@ -145,9 +159,137 @@ def community_row(server, online, joined, votes=None):
         "applications_enabled": bool(getattr(server, "applications_enabled", False)),
         "explicit": bool(getattr(server, "explicit", False)),
         "application_form": parse_application_form(getattr(server, "application_form", None)),
+        "covered": bool(covered),
+        "cover_reason": cover_reason or "",
         **pack,
         **server_banner_fields(server),
     }
+
+
+def load_finder_prefs(database, user_id):
+    found = {"words": [], "tags": [], "explicit": "nothing", "sort": "active", "hidden": []}
+    found.update(FINDER_PREF_FLAGS)
+    if not user_id:
+        return found
+    rows = database.query(Community_edge).filter(
+        Community_edge.user_id == user_id,
+        Community_edge.kind.in_(("finder_word", "finder_tag", FINDER_PREF_KIND, FINDER_HIDDEN_KIND)),
+    ).order_by(Community_edge.created_at.asc(), Community_edge.id.asc()).all()
+    hidden_ids = []
+    for edge in rows:
+        if edge.kind == "finder_word" and edge.label:
+            found["words"].append(edge.label)
+        elif edge.kind == "finder_tag" and edge.label:
+            found["tags"].append(edge.label)
+        elif edge.kind == FINDER_HIDDEN_KIND and edge.label:
+            hidden_ids.append(edge.label)
+        elif edge.kind == FINDER_PREF_KIND:
+            if edge.label == "sort" and edge.mode in FINDER_SORTS:
+                found["sort"] = edge.mode
+            elif edge.label == "explicit" and edge.mode in FINDER_EXPLICIT:
+                found["explicit"] = edge.mode
+            elif edge.label in FINDER_PREF_FLAGS:
+                found[edge.label] = edge.mode == "on"
+    if hidden_ids:
+        servers = database.query(Servers).filter(Servers.id.in_(hidden_ids)).all()
+        names = {server.id: server.name or "Server" for server in servers}
+        found["hidden"] = [{"id": server_id, "name": names[server_id]} for server_id in hidden_ids if server_id in names]
+    return found
+
+
+def finder_filter_kind(kind):
+    edge_kind = FINDER_FILTER_KINDS.get(str(kind or "").strip().lower())
+    if not edge_kind:
+        raise HTTPException(status_code=400, detail="Unknown list.")
+    return edge_kind
+
+
+def finder_filter_label(kind, value):
+    if kind == "finder_tag":
+        label = clean_server_tag(value)
+        if not label:
+            raise HTTPException(status_code=400, detail="That is not a tag.")
+        return label
+    label = clean_filter_label(value)
+    if not label:
+        raise HTTPException(status_code=400, detail="Type something first.")
+    return label
+
+
+def finder_edge(database, user_id, kind, label, target_id=0):
+    return database.query(Community_edge).filter(
+        Community_edge.user_id == user_id,
+        Community_edge.kind == kind,
+        Community_edge.target_id == target_id,
+        Community_edge.label == label,
+    ).first()
+
+
+def save_finder_pref(database, user_id, label, mode):
+    edge = finder_edge(database, user_id, FINDER_PREF_KIND, label)
+    if edge:
+        edge.mode = mode
+    else:
+        database.add(Community_edge(user_id=user_id, kind=FINDER_PREF_KIND, target_id=0, label=label, mode=mode))
+
+
+def finder_tag_hit(server, tags):
+    if not tags:
+        return False
+    wanted = set(tags)
+    return any(str(item or "").strip().lower() in wanted for item in server_listing_tags(server))
+
+
+def finder_blacklisted(server, viewer_id, prefs):
+    if not server or server.owner_id == viewer_id:
+        return False
+    if filter_word_hit((server.name or "") + " " + (getattr(server, "about", None) or ""), prefs.get("words") or []):
+        return True
+    return finder_tag_hit(server, prefs.get("tags") or [])
+
+
+def finder_cover_reason(server, viewer_id, prefs):
+    if finder_blacklisted(server, viewer_id, prefs) and not prefs.get("blacklist_hide"):
+        return "blacklist"
+    if prefs.get("explicit") == "cover" and bool(getattr(server, "explicit", False)) and server.owner_id != viewer_id:
+        return "explicit"
+    return ""
+
+
+def finder_last_map(database):
+    rows = (
+        database.query(
+            Server_categories.server_id,
+            func.max(Channel_messages.timestamp),
+        )
+        .join(Server_channels, Server_channels.category_id == Server_categories.id)
+        .join(Channel_messages, Channel_messages.channel_id == Server_channels.id)
+        .group_by(Server_categories.server_id)
+        .all()
+    )
+    return {server_id: last_at for server_id, last_at in rows}
+
+
+def finder_online_map(database, server_ids):
+    counts = {sid: 0 for sid in server_ids}
+    if not server_ids:
+        return counts
+    members = database.query(Server_members.server_id, Server_members.user_id).filter(
+        Server_members.server_id.in_(server_ids)
+    ).all()
+    for sid, uid in members:
+        if presence_status(uid) == "online":
+            counts[sid] = counts.get(sid, 0) + 1
+    return counts
+
+
+def finder_joined_ids(database, user_id, server_ids=None):
+    query = database.query(Server_members.server_id).filter(Server_members.user_id == user_id)
+    if server_ids is not None:
+        if not server_ids:
+            return set()
+        query = query.filter(Server_members.server_id.in_(server_ids))
+    return {sid for (sid,) in query.all()}
 
 
 @router.get("/community_servers")
@@ -180,43 +322,54 @@ def community_servers(
     zone = (timezone or "").strip()
     if zone:
         query = query.filter(Servers.timezone == zone)
-    total = query.count()
-    last_msg = (
-        database.query(
-            Server_categories.server_id.label("server_id"),
-            func.max(Channel_messages.timestamp).label("last_at"),
-        )
-        .join(Server_channels, Server_channels.category_id == Server_categories.id)
-        .join(Channel_messages, Channel_messages.channel_id == Server_channels.id)
-        .group_by(Server_categories.server_id)
-        .subquery()
-    )
-    query = query.outerjoin(last_msg, last_msg.c.server_id == Servers.id)
+    prefs = load_finder_prefs(database, current_user.id)
+    hidden_ids = [item["id"] for item in prefs["hidden"]]
+    if hidden_ids:
+        query = query.filter(~Servers.id.in_(hidden_ids))
+    if prefs["hide_apply"]:
+        query = query.filter(Servers.applications_enabled.is_(False))
+    if prefs["explicit"] == "hide":
+        query = query.filter(or_(Servers.explicit.is_(False), Servers.owner_id == current_user.id))
+    if prefs["hide_joined"]:
+        mine = finder_joined_ids(database, current_user.id)
+        if mine:
+            query = query.filter(~Servers.id.in_(mine))
+    rows = query.all()
+    if prefs["blacklist_hide"] and (prefs["words"] or prefs["tags"]):
+        rows = [server for server in rows if not finder_blacklisted(server, current_user.id, prefs)]
+    ids = [server.id for server in rows]
+    last_map = finder_last_map(database) if prefs["sort"] == "active" else {}
+    votes = votes_for_servers(database, ids, current_user.id) if ids else {}
+    online = finder_online_map(database, ids)
+    joined = finder_joined_ids(database, current_user.id, ids)
+    empty = datetime.min
+    if prefs["sort"] == "newest":
+        rows.sort(key=lambda server: (server.created_at or empty, server.id), reverse=True)
+    elif prefs["sort"] == "score":
+        rows.sort(key=lambda server: (int((votes.get(server.id) or empty_vote_pack())["votes"]), server.id), reverse=True)
+    elif prefs["sort"] == "online":
+        rows.sort(key=lambda server: (int(online.get(server.id, 0)), server.id), reverse=True)
+    else:
+        rows.sort(key=lambda server: (last_map.get(server.id) or server.created_at or empty, server.id), reverse=True)
+    total = len(rows)
     pages = ceil(total / COMMUNITY_PAGE) if total else 0
     if pages and page > pages:
         page = pages
-    rows = (
-        query
-        .order_by(func.coalesce(last_msg.c.last_at, Servers.created_at).desc(), Servers.id.desc())
-        .offset((page - 1) * COMMUNITY_PAGE)
-        .limit(COMMUNITY_PAGE)
-        .all()
-    )
-    ids = [server.id for server in rows]
-    online = {sid: 0 for sid in ids}
-    joined = set()
-    if ids:
-        members = database.query(Server_members.server_id, Server_members.user_id).filter(
-            Server_members.server_id.in_(ids)
-        ).all()
-        for sid, uid in members:
-            if presence_status(uid) == "online":
-                online[sid] = online.get(sid, 0) + 1
-            if uid == current_user.id:
-                joined.add(sid)
-    votes = votes_for_servers(database, ids, current_user.id)
+    start = (page - 1) * COMMUNITY_PAGE
+    page_rows = rows[start:start + COMMUNITY_PAGE]
+    packed = []
+    for server in page_rows:
+        reason = finder_cover_reason(server, current_user.id, prefs)
+        packed.append(community_row(
+            server,
+            online.get(server.id, 0),
+            server.id in joined,
+            votes.get(server.id),
+            bool(reason),
+            reason,
+        ))
     return {
-        "servers": [community_row(server, online.get(server.id, 0), server.id in joined, votes.get(server.id)) for server in rows],
+        "servers": packed,
         "page": page,
         "pages": pages,
         "total": total,
@@ -375,3 +528,93 @@ def community_vote(
         database.add(Server_votes(server_id=server.id, user_id=current_user.id, value=next_vote))
     database.commit()
     return {"ok": True, "id": server.id, **votes_for_server(database, server.id, current_user.id)}
+
+
+@router.get("/community_finder_settings")
+def get_community_finder_settings(
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    return load_finder_prefs(database, current_user.id)
+
+
+@router.patch("/community_finder_settings")
+def update_community_finder_settings(
+    body: Community_finder_prefs,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    if body.sort is not None:
+        sort = str(body.sort).strip().lower()
+        if sort not in FINDER_SORTS:
+            raise HTTPException(status_code=400, detail="Unknown sort.")
+        save_finder_pref(database, current_user.id, "sort", sort)
+    if body.explicit is not None:
+        explicit = str(body.explicit).strip().lower()
+        if explicit not in FINDER_EXPLICIT:
+            raise HTTPException(status_code=400, detail="Unknown explicit setting.")
+        save_finder_pref(database, current_user.id, "explicit", explicit)
+    for label in FINDER_PREF_FLAGS:
+        value = getattr(body, label, None)
+        if value is not None:
+            save_finder_pref(database, current_user.id, label, "on" if value else "off")
+    database.commit()
+    return load_finder_prefs(database, current_user.id)
+
+
+@router.post("/community_finder_settings/filters")
+def add_community_finder_filter(
+    body: Community_filter_entry,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    edge_kind = finder_filter_kind(body.kind)
+    label = finder_filter_label(edge_kind, body.label)
+    if not finder_edge(database, current_user.id, edge_kind, label):
+        count = database.query(func.count(Community_edge.id)).filter(
+            Community_edge.user_id == current_user.id,
+            Community_edge.kind == edge_kind,
+        ).scalar() or 0
+        if count >= COMMUNITY_FILTER_MAX:
+            raise HTTPException(status_code=400, detail="This list is full.")
+        database.add(Community_edge(user_id=current_user.id, kind=edge_kind, target_id=0, label=label))
+        database.commit()
+    return load_finder_prefs(database, current_user.id)
+
+
+@router.delete("/community_finder_settings/filters")
+def remove_community_finder_filter(
+    body: Community_filter_entry,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    edge_kind = finder_filter_kind(body.kind)
+    label = finder_filter_label(edge_kind, body.label)
+    database.query(Community_edge).filter(
+        Community_edge.user_id == current_user.id,
+        Community_edge.kind == edge_kind,
+        Community_edge.target_id == 0,
+        Community_edge.label == label,
+    ).delete(synchronize_session=False)
+    database.commit()
+    return load_finder_prefs(database, current_user.id)
+
+
+@router.post("/community_servers/{server_id}/hide")
+def hide_community_server(
+    server_id: str,
+    body: Community_finder_hide,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    edge = finder_edge(database, current_user.id, FINDER_HIDDEN_KIND, server_id)
+    if body.hidden:
+        server = database.query(Servers).filter(Servers.id == server_id).first()
+        if not listed_server(server):
+            raise HTTPException(status_code=404, detail="Server not found")
+        if not edge:
+            database.add(Community_edge(user_id=current_user.id, kind=FINDER_HIDDEN_KIND, target_id=0, label=server_id))
+    elif edge:
+        database.delete(edge)
+    database.commit()
+    return load_finder_prefs(database, current_user.id)

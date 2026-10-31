@@ -111,7 +111,7 @@ function paintCommunityFilterList(kind, title, desc, placeholder, rows, save) {
   if (!rows.length) {
     const empty = document.createElement("div");
     empty.className = "settings-opt-desc";
-    empty.textContent = kind === "topic" ? "No blacklisted topics." : "No blacklisted words.";
+    empty.textContent = kind === "topic" ? "No blacklisted topics." : (kind === "tag" ? "No blacklisted tags." : "No blacklisted words.");
     pills.appendChild(empty);
   }
   rows.forEach((label) => {
@@ -199,6 +199,11 @@ function showCommunitySettingsSection(id) {
     communityPhonePrefsStatus = "";
     paintCommunityPhoneSettings();
     loadCommunityPhonePrefs();
+  }
+  if (id === "finder" && typeof paintCommunityFinderSettings === "function") {
+    communityFinderPrefsStatus = "";
+    paintCommunityFinderSettings();
+    loadCommunityFinderPrefs();
   }
 }
 

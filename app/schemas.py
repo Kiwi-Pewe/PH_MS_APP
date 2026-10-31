@@ -247,6 +247,19 @@ class Community_phone_topic(BaseModel):
     label: str = ""
 
 
+class Community_finder_prefs(BaseModel):
+    blacklist_hide: bool | None = None
+    explicit: str | None = None
+    hide_joined: bool | None = None
+    hide_apply: bool | None = None
+    sort: str | None = None
+    confirm_join: bool | None = None
+
+
+class Community_finder_hide(BaseModel):
+    hidden: bool = True
+
+
 class Community_comment_create(BaseModel):
     body: str = ""
 

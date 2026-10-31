@@ -50,6 +50,7 @@ let communityRoomMemberRows = [];
 let communityRoomLoadGen = 0;
 let communityComposerHold = null;
 let communityRooms = [];
+let communityFinderRows = [];
 
 function communityEmojiCount(text) {
   let count = 0;
@@ -1570,6 +1571,12 @@ function openCommunityCardMenu(e, row) {
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
       }
     },
+    {
+      label: "Hide",
+      onSelect: () => {
+        if (typeof hideCommunityFinderRow === "function") hideCommunityFinderRow(row, true);
+      }
+    },
     { label: "Report", disabled: true, danger: true }
   ]);
 }
@@ -1591,6 +1598,15 @@ async function joinCommunityServer(row) {
     openCommunityApply(row);
     return;
   }
+  if (typeof confirmCommunityFinderJoin === "function") {
+    confirmCommunityFinderJoin(row, () => finishCommunityFinderJoin(row));
+    return;
+  }
+  finishCommunityFinderJoin(row);
+}
+
+async function finishCommunityFinderJoin(row) {
+  if (!row || !row.id || communityJoinBusy) return;
   communityJoinBusy = true;
   try {
     const response = await fetch(`https://${serverAddress}/join_community`, {
@@ -1688,10 +1704,29 @@ function paintCommunityCard(row) {
   });
   foot.appendChild(join);
   foot.addEventListener("click", (e) => e.stopPropagation());
-  card.appendChild(head);
-  card.appendChild(body);
-  card.appendChild(foot);
-  card.addEventListener("click", () => openCommunityListing(row));
+  if (typeof communityFinderCovered === "function" && communityFinderCovered(row)) {
+    card.classList.add("is-covered");
+    const cover = document.createElement("div");
+    cover.className = "community-post-cover community-card-cover";
+    const label = document.createElement("span");
+    label.className = "community-post-cover-label";
+    label.textContent = row.cover_reason === "explicit" ? "Explicit server" : "Blacklisted server";
+    cover.appendChild(label);
+    cover.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      revealCommunityFinder(row);
+    });
+    card.appendChild(head);
+    card.appendChild(body);
+    card.appendChild(foot);
+    card.appendChild(cover);
+  } else {
+    card.appendChild(head);
+    card.appendChild(body);
+    card.appendChild(foot);
+    card.addEventListener("click", () => openCommunityListing(row));
+  }
   card.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     openCommunityCardMenu(e, row);
@@ -1737,6 +1772,7 @@ function paintCommunityPager() {
 function paintCommunityGrid(rows) {
   const grid = document.getElementById("community-grid");
   if (!grid) return;
+  communityFinderRows = Array.isArray(rows) ? rows : [];
   grid.replaceChildren();
   if (!rows.length) {
     const empty = document.createElement("div");
@@ -1753,6 +1789,7 @@ function paintCommunityGrid(rows) {
 
 async function loadCommunityPage(page) {
   if (!isCommunitiesOpen) return;
+  if (typeof ensureCommunityFinderPrefs === "function") await ensureCommunityFinderPrefs();
   communityPage = Math.max(1, Number(page) || 1);
   const token = ++communityFetchGen;
   const qs = new URLSearchParams();

@@ -13613,6 +13613,11 @@ button.voice-more-row:disabled,
 }
 #community-settings-nav .settings-nav-item.active { background: var(--panel-alt); color: var(--text); }
 #community-settings-main {
+  --settings-page-title: 24px;
+  --settings-section-title: 20px;
+  --settings-opt-title: 16px;
+  --settings-opt-desc: 12px;
+  --settings-note: 12px;
   min-height: 0;
   overflow-y: auto;
   display: flex;

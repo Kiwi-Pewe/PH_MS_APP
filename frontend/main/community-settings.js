@@ -132,6 +132,8 @@ function paintCommunityPostSettings() {
   const page = document.getElementById("community-settings-page");
   if (!page || communitySettingsSection !== "posts") return;
   page.replaceChildren();
+  const section = document.createElement("section");
+  section.className = "settings-block has-sections";
   const block = document.createElement("div");
   block.className = "settings-subblock";
   const head = document.createElement("div");
@@ -150,7 +152,7 @@ function paintCommunityPostSettings() {
     status.textContent = communityPostPrefsStatus;
     block.appendChild(status);
   }
-  page.appendChild(block);
+  section.appendChild(block);
   const more = document.createElement("div");
   more.className = "settings-subblock";
   const moreHead = document.createElement("div");
@@ -168,7 +170,8 @@ function paintCommunityPostSettings() {
     "Posts that match your blacklist appear in your post search results, still covered.",
     settingsToggle(communityPostPrefs.search_blacklist, false, (on) => saveCommunityPostPrefs("PATCH", "", { search_blacklist: on }))
   ));
-  page.appendChild(more);
+  section.appendChild(more);
+  page.appendChild(section);
 }
 
 function showCommunitySettingsSection(id) {

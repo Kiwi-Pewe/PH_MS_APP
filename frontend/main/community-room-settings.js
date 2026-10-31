@@ -351,12 +351,6 @@ function paintCommunityRoomSettings() {
   chat.appendChild(communityRoomPrefToggle("allow_mentions", "Allow mentions in rooms", "Lets people in your rooms mention you."));
   chat.appendChild(communityRoomPrefToggle("show_members", "Show member list when opening a room", "Opens the member list beside the chat when you open a room."));
   chat.appendChild(communityRoomPrefToggle("confirm_leave", "Confirm before leaving a room", "Asks you to confirm before you leave a room."));
-  chat.appendChild(settingsOpt(
-    "Leave rooms automatically",
-    "Leaves rooms you have not opened in 48 hours.",
-    settingsToggle(false, true, null),
-    settingsLaterNote("the room activity sweeper")
-  ));
   section.appendChild(chat);
   page.appendChild(section);
 }

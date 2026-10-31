@@ -70,7 +70,11 @@ function paintCommunityPhoneSettings() {
   }
   section.appendChild(black);
   const privacy = communityPhoneSubblock("Privacy");
-  privacy.appendChild(communityPhonePrefToggle("show_profile", "Show my profile to matches", "When off, your match sees you as Caller with the default picture. Your name, username, picture, and profile stay hidden until you both accept each other as friends."));
+  privacy.appendChild(settingsOpt(
+    "Hide my profile from matches",
+    "When on, your match sees you as \"Caller\" with a default picture. Your name, username, profile picture, and profile stay hidden until you both accept each other as friends.",
+    settingsToggle(!communityPhonePrefs.show_profile, false, (on) => saveCommunityPhonePrefs("PATCH", "", { show_profile: !on }))
+  ));
   privacy.appendChild(communityPhonePrefToggle("allow_friend", "Allow friend requests from matches", "Lets the person you are paired with send you a friend request."));
   section.appendChild(privacy);
   const chat = communityPhoneSubblock("Chat");

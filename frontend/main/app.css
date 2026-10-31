@@ -13453,7 +13453,39 @@ button.voice-more-row:disabled,
   border-radius: 0;
   background: transparent;
 }
-.community-room-chat-head { flex: 0 0 auto; }
+.community-room-chat-head { flex: 0 0 auto; gap: 8px; }
+#community-room-members-btn { flex: 0 0 auto; margin-left: auto; }
+#community-room-members-btn.active { color: var(--text); }
+.community-nav-room {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.community-nav-room-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.community-nav-room.is-unread { color: var(--text); font-weight: 700; }
+.community-nav-room.is-muted { opacity: 0.5; }
+.community-nav-room-badge {
+  flex: 0 0 auto;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.community-room > .community-room-cover { border-radius: 0; }
 #community-room-chat-title {
   min-width: 0;
   overflow: hidden;

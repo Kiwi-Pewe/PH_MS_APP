@@ -64,6 +64,10 @@ function localMuteState(duration) {
 }
 
 async function muteConversation(type, id, duration) {
+  if (type === "room") {
+    if (typeof muteCommunityRoom === "function") muteCommunityRoom(id, duration);
+    return;
+  }
   const guess = localMuteState(duration);
   applyConversationMute(type, id, guess.muted, guess.muted_until);
   const path = type === "party"

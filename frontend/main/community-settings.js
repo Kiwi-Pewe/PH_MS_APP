@@ -66,7 +66,7 @@ async function saveCommunityPostPrefs(method, path, payload) {
   refreshCommunityPostsAfterPrefs();
 }
 
-function paintCommunityFilterList(kind, title, desc, placeholder) {
+function paintCommunityFilterList(kind, title, desc, placeholder, rows, save) {
   const wrap = document.createElement("div");
   wrap.className = "settings-opt community-filter-list";
   const text = document.createElement("div");
@@ -95,7 +95,7 @@ function paintCommunityFilterList(kind, title, desc, placeholder) {
   const submit = () => {
     const label = String(input.value || "").trim();
     if (!label) return;
-    saveCommunityPostPrefs("POST", "/filters", { kind, label });
+    save("POST", "/filters", { kind, label });
   };
   btn.addEventListener("click", submit);
   input.addEventListener("keydown", (e) => {
@@ -106,7 +106,6 @@ function paintCommunityFilterList(kind, title, desc, placeholder) {
   add.appendChild(input);
   add.appendChild(btn);
   text.appendChild(add);
-  const rows = kind === "topic" ? communityPostPrefs.topics : communityPostPrefs.words;
   const pills = document.createElement("div");
   pills.className = "community-filter-pills";
   if (!rows.length) {
@@ -121,7 +120,7 @@ function paintCommunityFilterList(kind, title, desc, placeholder) {
     pill.className = "community-tag is-on community-filter-pill";
     pill.title = "Remove";
     pill.textContent = label + " ×";
-    pill.addEventListener("click", () => saveCommunityPostPrefs("DELETE", "/filters", { kind, label }));
+    pill.addEventListener("click", () => save("DELETE", "/filters", { kind, label }));
     pills.appendChild(pill);
   });
   text.appendChild(pills);
@@ -145,8 +144,8 @@ function paintCommunityPostSettings() {
   blurb.textContent = "Posts from other people that match your blacklist are covered as explicit on your screen until you click them.";
   block.appendChild(head);
   block.appendChild(blurb);
-  block.appendChild(paintCommunityFilterList("word", "Words", "Covers any post or comment that contains one of these words.", "Add a word"));
-  block.appendChild(paintCommunityFilterList("topic", "Topics", "Covers any post that has one of these topics.", "Add a topic"));
+  block.appendChild(paintCommunityFilterList("word", "Words", "Covers any post or comment that contains one of these words.", "Add a word", communityPostPrefs.words, saveCommunityPostPrefs));
+  block.appendChild(paintCommunityFilterList("topic", "Topics", "Covers any post that has one of these topics.", "Add a topic", communityPostPrefs.topics, saveCommunityPostPrefs));
   block.appendChild(settingsOpt(
     "Hide blacklisted posts",
     "Posts that match your blacklist are removed from your post lists instead of being covered.",
@@ -191,6 +190,11 @@ function showCommunitySettingsSection(id) {
   const page = document.getElementById("community-settings-page");
   if (page) page.replaceChildren();
   if (id === "posts") paintCommunityPostSettings();
+  if (id === "rooms" && typeof paintCommunityRoomSettings === "function") {
+    communityRoomPrefsStatus = "";
+    paintCommunityRoomSettings();
+    loadCommunityRoomPrefs();
+  }
 }
 
 function openCommunitySettings() {

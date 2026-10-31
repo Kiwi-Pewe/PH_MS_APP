@@ -975,6 +975,10 @@ function confirmLeaveParty() {
   const pending = pendingLeaveParty;
   closeLeavePartyConfirm();
   if (!pending) return;
+  if (pending.kind === "room") {
+    if (typeof pending.run === "function") pending.run();
+    return;
+  }
   if (pending.kind === "kick") {
     kickPartyMember(pending.id, pending.userId, pending.username);
     return;

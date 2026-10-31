@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Community_room, Community_room_member, Community_room_message, Message_mention, UserInfo
+from app.models import Community_edge, Community_room, Community_room_member, Community_room_message, Message_mention, UserInfo
 from app.privacy import blocked_user_ids, drop_blocked_rows
 from app.routers.community_posts import (
+    COMMUNITY_FILTER_MAX,
+    clean_filter_label,
     community_has_match,
     community_mentions_any,
     community_search_on,
@@ -18,6 +20,7 @@ from app.routers.community_posts import (
     community_search_has,
     community_topic_hit,
 )
+from app.routers.messages import mute_is_active, mute_public, mute_until_for
 from app.r2 import attachment_public, require_message_body, store_attachment
 from app.routers.mentions import (
     accepted_reply_parent,
@@ -30,7 +33,7 @@ from app.routers.mentions import (
 )
 from app.routers.profile import avatar_lookup, public_avatar
 from app.routers.realtime import notify_user, serialize_member
-from app.schemas import Community_room_create
+from app.schemas import Community_filter_entry, Community_room_create, Community_room_hide, Community_room_prefs, Conversation_mute_in
 from app.site_moderation import mask_message_payloads
 
 router = APIRouter()
@@ -43,6 +46,24 @@ COMMUNITY_ROOM_TOPIC_MAX = 3
 COMMUNITY_ROOM_TOPIC_LEN = 40
 COMMUNITY_ROOM_CAP = 15
 COMMUNITY_ROOM_PAGE = 25
+COMMUNITY_ROOM_JOIN_MAX = 5
+ROOM_JOIN_FULL = "You can only be in 5 rooms at once."
+ROOM_FILTER_KINDS = {"word": "room_word", "topic": "room_topic"}
+ROOM_PREF_KIND = "room_pref"
+ROOM_HIDDEN_KIND = "room_hidden"
+ROOM_MUTE_KIND = "room_mute"
+ROOM_SORTS = ("newest", "active", "most", "fewest")
+ROOM_SOUNDS = ("all", "mentions", "off")
+ROOM_PREF_FLAGS = {
+    "blacklist_hide": False,
+    "hide_full": False,
+    "hide_joined": False,
+    "unread_counts": False,
+    "cover_media": False,
+    "allow_mentions": True,
+    "show_members": True,
+    "confirm_leave": False,
+}
 
 
 def clean_room_name(value):
@@ -173,6 +194,8 @@ def pack_community_room(row, viewer_id, people, counts, joined):
         "owned": row.owner_id == viewer_id,
         "joined": row.id in joined,
         "n": int(counts.get(row.id, 0)),
+        "created_at": str(row.created_at) if row.created_at else "",
+        "active_at": str(row.active_at) if row.active_at else "",
     }
 
 
@@ -264,6 +287,8 @@ def create_community_room(
     owned = database.query(func.count(Community_room.id)).filter(Community_room.owner_id == current_user.id).scalar() or 0
     if owned >= COMMUNITY_ROOM_OWN_MAX:
         raise HTTPException(status_code=400, detail="You can only own 3 rooms.")
+    if joined_room_total(database, current_user.id) >= COMMUNITY_ROOM_JOIN_MAX:
+        raise HTTPException(status_code=400, detail=ROOM_JOIN_FULL)
     name = clean_room_name(body.name)
     raise_if_room_name_blocked(name, database)
     topics = clean_room_topics(body.topics)
@@ -332,6 +357,10 @@ async def delete_community_room(
     database.query(Community_room_member).filter(
         Community_room_member.room_id == room.id
     ).delete(synchronize_session=False)
+    database.query(Community_edge).filter(
+        Community_edge.kind.in_((ROOM_HIDDEN_KIND, ROOM_MUTE_KIND)),
+        Community_edge.target_id == room.id,
+    ).delete(synchronize_session=False)
     database.delete(room)
     database.commit()
     for user_id in member_ids:
@@ -353,6 +382,12 @@ def room_member(database, room_id, user_id):
         Community_room_member.room_id == room_id,
         Community_room_member.user_id == user_id,
     ).first()
+
+
+def joined_room_total(database, user_id):
+    return database.query(func.count(Community_room_member.id)).filter(
+        Community_room_member.user_id == user_id
+    ).scalar() or 0
 
 
 def room_member_count(database, room_id):
@@ -449,6 +484,8 @@ async def join_community_room(
         return pack_community_rooms(database, [room], current_user.id)[0]
     if room_member_count(database, room.id) >= COMMUNITY_ROOM_CAP:
         raise HTTPException(status_code=400, detail="That room is full.")
+    if joined_room_total(database, current_user.id) >= COMMUNITY_ROOM_JOIN_MAX:
+        raise HTTPException(status_code=400, detail=ROOM_JOIN_FULL)
     database.add(Community_room_member(room_id=room.id, user_id=current_user.id))
     room.active_at = datetime.utcnow()
     database.commit()
@@ -507,11 +544,13 @@ def save_community_room_message(database, current_user, room_id, content, attach
             Community_room_member.room_id == room.id
         ).all()
     ]
+    quiet = room_mention_opt_outs(database, member_ids)
+    reply_author_id = parent.author_id if parent else None
     apply_room_mentions(
         database,
         message,
-        member_ids,
-        reply_author_id=parent.author_id if parent else None,
+        [uid for uid in member_ids if uid not in quiet],
+        reply_author_id=None if reply_author_id in quiet else reply_author_id,
     )
     room.active_at = datetime.utcnow()
     database.commit()
@@ -547,3 +586,196 @@ async def fanout_room_message(database, message, current_user):
         payload = dict(base)
         payload["mentioned"] = member.user_id in pinged
         await notify_user(member.user_id, payload)
+
+
+def room_mention_opt_outs(database, member_ids):
+    ids = [item for item in member_ids if item]
+    if not ids:
+        return set()
+    rows = database.query(Community_edge.user_id).filter(
+        Community_edge.user_id.in_(ids),
+        Community_edge.kind == ROOM_PREF_KIND,
+        Community_edge.target_id == 0,
+        Community_edge.label == "allow_mentions",
+        Community_edge.mode == "off",
+    ).all()
+    return {user_id for (user_id,) in rows}
+
+
+def room_mute_until(mode):
+    try:
+        return datetime.fromisoformat(str(mode or ""))
+    except ValueError:
+        return None
+
+
+def load_room_prefs(database, user_id):
+    found = {"words": [], "topics": [], "sort": "newest", "sound": "mentions", "hidden": [], "muted": {}}
+    found.update(ROOM_PREF_FLAGS)
+    if not user_id:
+        return found
+    rows = database.query(Community_edge).filter(
+        Community_edge.user_id == user_id,
+        Community_edge.kind.in_(("room_word", "room_topic", ROOM_PREF_KIND, ROOM_HIDDEN_KIND, ROOM_MUTE_KIND)),
+    ).order_by(Community_edge.created_at.asc(), Community_edge.id.asc()).all()
+    hidden_ids = []
+    for edge in rows:
+        if edge.kind == "room_word" and edge.label:
+            found["words"].append(edge.label)
+        elif edge.kind == "room_topic" and edge.label:
+            found["topics"].append(edge.label)
+        elif edge.kind == ROOM_HIDDEN_KIND and edge.target_id:
+            hidden_ids.append(edge.target_id)
+        elif edge.kind == ROOM_MUTE_KIND and edge.target_id:
+            until = room_mute_until(edge.mode)
+            if mute_is_active(until):
+                found["muted"][str(edge.target_id)] = mute_public(until)["muted_until"]
+        elif edge.kind == ROOM_PREF_KIND:
+            if edge.label == "sort" and edge.mode in ROOM_SORTS:
+                found["sort"] = edge.mode
+            elif edge.label == "sound" and edge.mode in ROOM_SOUNDS:
+                found["sound"] = edge.mode
+            elif edge.label in ROOM_PREF_FLAGS:
+                found[edge.label] = edge.mode == "on"
+    if hidden_ids:
+        rooms = database.query(Community_room).filter(Community_room.id.in_(hidden_ids)).all()
+        names = {room.id: room.name or "Room" for room in rooms}
+        found["hidden"] = [{"id": room_id, "name": names[room_id]} for room_id in hidden_ids if room_id in names]
+    return found
+
+
+def room_filter_kind(kind):
+    edge_kind = ROOM_FILTER_KINDS.get(str(kind or "").strip().lower())
+    if not edge_kind:
+        raise HTTPException(status_code=400, detail="Unknown list.")
+    return edge_kind
+
+
+def room_edge(database, user_id, kind, target_id, label=""):
+    return database.query(Community_edge).filter(
+        Community_edge.user_id == user_id,
+        Community_edge.kind == kind,
+        Community_edge.target_id == target_id,
+        Community_edge.label == label,
+    ).first()
+
+
+def save_room_pref(database, user_id, label, mode):
+    edge = room_edge(database, user_id, ROOM_PREF_KIND, 0, label)
+    if edge:
+        edge.mode = mode
+    else:
+        database.add(Community_edge(user_id=user_id, kind=ROOM_PREF_KIND, target_id=0, label=label, mode=mode))
+
+
+@router.get("/community_room_settings")
+def get_community_room_settings(
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    return load_room_prefs(database, current_user.id)
+
+
+@router.patch("/community_room_settings")
+def update_community_room_settings(
+    body: Community_room_prefs,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    if body.sort is not None:
+        sort = str(body.sort).strip().lower()
+        if sort not in ROOM_SORTS:
+            raise HTTPException(status_code=400, detail="Unknown sort.")
+        save_room_pref(database, current_user.id, "sort", sort)
+    if body.sound is not None:
+        sound = str(body.sound).strip().lower()
+        if sound not in ROOM_SOUNDS:
+            raise HTTPException(status_code=400, detail="Unknown sound setting.")
+        save_room_pref(database, current_user.id, "sound", sound)
+    for label in ROOM_PREF_FLAGS:
+        value = getattr(body, label, None)
+        if value is not None:
+            save_room_pref(database, current_user.id, label, "on" if value else "off")
+    database.commit()
+    return load_room_prefs(database, current_user.id)
+
+
+@router.post("/community_room_settings/filters")
+def add_community_room_filter(
+    body: Community_filter_entry,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    edge_kind = room_filter_kind(body.kind)
+    label = clean_filter_label(body.label)
+    if not label:
+        raise HTTPException(status_code=400, detail="Type something first.")
+    if not room_edge(database, current_user.id, edge_kind, 0, label):
+        count = database.query(func.count(Community_edge.id)).filter(
+            Community_edge.user_id == current_user.id,
+            Community_edge.kind == edge_kind,
+        ).scalar() or 0
+        if count >= COMMUNITY_FILTER_MAX:
+            raise HTTPException(status_code=400, detail="This list is full.")
+        database.add(Community_edge(user_id=current_user.id, kind=edge_kind, target_id=0, label=label))
+        database.commit()
+    return load_room_prefs(database, current_user.id)
+
+
+@router.delete("/community_room_settings/filters")
+def remove_community_room_filter(
+    body: Community_filter_entry,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    edge_kind = room_filter_kind(body.kind)
+    label = clean_filter_label(body.label)
+    database.query(Community_edge).filter(
+        Community_edge.user_id == current_user.id,
+        Community_edge.kind == edge_kind,
+        Community_edge.target_id == 0,
+        Community_edge.label == label,
+    ).delete(synchronize_session=False)
+    database.commit()
+    return load_room_prefs(database, current_user.id)
+
+
+@router.post("/community_rooms/{room_id}/hide")
+def hide_community_room(
+    room_id: int,
+    body: Community_room_hide,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    edge = room_edge(database, current_user.id, ROOM_HIDDEN_KIND, room_id)
+    if body.hidden:
+        room_or_404(database, room_id)
+        if not edge:
+            database.add(Community_edge(user_id=current_user.id, kind=ROOM_HIDDEN_KIND, target_id=room_id, label=""))
+    elif edge:
+        database.delete(edge)
+    database.commit()
+    return load_room_prefs(database, current_user.id)
+
+
+@router.post("/community_rooms/{room_id}/mute")
+def mute_community_room(
+    room_id: int,
+    body: Conversation_mute_in,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    room = room_or_404(database, room_id)
+    if not room_member(database, room.id, current_user.id):
+        raise HTTPException(status_code=404, detail="Room not found.")
+    until = mute_until_for(body.duration)
+    edge = room_edge(database, current_user.id, ROOM_MUTE_KIND, room.id)
+    if until is None:
+        if edge:
+            database.delete(edge)
+    elif edge:
+        edge.mode = until.isoformat()
+    else:
+        database.add(Community_edge(user_id=current_user.id, kind=ROOM_MUTE_KIND, target_id=room.id, label="", mode=until.isoformat()))
+    database.commit()
+    return mute_public(until)

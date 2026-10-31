@@ -215,6 +215,23 @@ class Community_post_prefs(BaseModel):
     blacklist_hide: bool | None = None
 
 
+class Community_room_prefs(BaseModel):
+    blacklist_hide: bool | None = None
+    sort: str | None = None
+    hide_full: bool | None = None
+    hide_joined: bool | None = None
+    sound: str | None = None
+    unread_counts: bool | None = None
+    cover_media: bool | None = None
+    allow_mentions: bool | None = None
+    show_members: bool | None = None
+    confirm_leave: bool | None = None
+
+
+class Community_room_hide(BaseModel):
+    hidden: bool = True
+
+
 class Community_comment_create(BaseModel):
     body: str = ""
 

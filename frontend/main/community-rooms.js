@@ -25,6 +25,7 @@ async function loadCommunityRooms() {
     (search.has || []).forEach((item) => params.append("has", item));
   }
   const query = params.toString();
+  if (typeof ensureCommunityRoomPrefs === "function") await ensureCommunityRoomPrefs();
   let response;
   try {
     response = await fetch(`https://${serverAddress}/community_rooms${query ? "?" + query : ""}`, { credentials: "include" });
@@ -33,15 +34,8 @@ async function loadCommunityRooms() {
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) return;
-  const hidden = {};
-  (communityRooms || []).forEach((row) => {
-    if (row && row.hidden) hidden[String(row.id)] = true;
-  });
-  communityRooms = (data.rooms || []).map((row) => {
-    const ready = communityRoomReady(row);
-    if (hidden[String(ready.id)]) ready.hidden = true;
-    return ready;
-  });
+  communityRooms = (data.rooms || []).map(communityRoomReady);
+  if (typeof syncCommunityRoomHidden === "function") syncCommunityRoomHidden();
   if (typeof paintCommunityRooms === "function") paintCommunityRooms();
   if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
 }
@@ -128,7 +122,7 @@ function mapCommunityRoomMessage(msg) {
     mentioned: !!msg.mentioned
   };
   if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);
-  return mapped;
+  return typeof communityRoomMessageView === "function" ? communityRoomMessageView(mapped) : mapped;
 }
 
 function applyCommunityRoomRoster(data) {
@@ -144,8 +138,12 @@ function applyCommunityRoomRoster(data) {
 }
 
 function applyCommunityRoomMessage(data) {
-  if (!data || String(communityOpenRoom) !== String(data.room_id)) return;
+  if (!data) return;
   if (data.sender_id && typeof isUserBlocked === "function" && isUserBlocked(data.sender_id)) return;
+  if (String(communityOpenRoom) !== String(data.room_id)) {
+    if (typeof noteCommunityRoomUnread === "function") noteCommunityRoomUnread(data);
+    return;
+  }
   if (data.id && communityRoomMessages.some((row) => row.id === data.id)) return;
   communityRoomMessages.push(mapCommunityRoomMessage(data));
   if (typeof paintCommunityRoomChat === "function") paintCommunityRoomChat();
@@ -191,6 +189,7 @@ async function loadCommunityRoomChat(id) {
 
 async function saveCommunityRoomJoin(row) {
   if (!row || row.joined || row.n >= 15 || communityRoomBusy) return;
+  if (typeof communityRoomJoinCapped === "function" && communityRoomJoinCapped(row)) return;
   communityRoomBusy = true;
   try {
     const response = await fetch(`https://${serverAddress}/community_rooms/${row.id}/join`, {
@@ -203,6 +202,7 @@ async function saveCommunityRoomJoin(row) {
     next.joined = true;
     const index = communityRooms.findIndex((item) => String(item.id) === String(next.id));
     if (index >= 0) communityRooms[index] = next;
+    if (typeof syncCommunityRoomHidden === "function") syncCommunityRoomHidden();
     if (typeof paintCommunityRooms === "function") paintCommunityRooms();
     if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
   } catch (e) {
@@ -227,6 +227,8 @@ async function saveCommunityRoomLeave(row) {
     next.joined = false;
     const index = communityRooms.findIndex((item) => String(item.id) === String(row.id));
     if (index >= 0) communityRooms[index] = next;
+    if (typeof syncCommunityRoomHidden === "function") syncCommunityRoomHidden();
+    if (typeof clearCommunityRoomUnread === "function") clearCommunityRoomUnread(row.id);
     if (open && typeof showCommunityRow === "function") showCommunityRow("rooms");
     else {
       if (typeof paintCommunityRooms === "function") paintCommunityRooms();

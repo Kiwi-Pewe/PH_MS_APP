@@ -414,6 +414,7 @@ async def join_community(
         ))
     write_audit_log(database, server.id, current_user.id, "member_joined", "member", current_user.id, {
         "username": current_user.username,
+        "source": "community",
     })
     database.commit()
     await server_broadcast(

@@ -209,7 +209,11 @@ function buildServerRosterActions(member) {
 }
 
 function rosterJoinMethod(member) {
-  return member && member.is_owner ? "Owner" : "Invite";
+  if (member && member.is_owner) return "Owner";
+  if (member && member.join_method === "community") return "Community";
+  const code = String((member && member.join_invite_code) || "").trim();
+  if (code) return code;
+  return "Invite";
 }
 
 function paintServerMembersTable() {

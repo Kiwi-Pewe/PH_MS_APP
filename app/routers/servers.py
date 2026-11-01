@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
-from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Server_channel_role_perms, Server_category_role_perms, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow
+from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Server_channel_role_perms, Server_category_role_perms, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow, Audit_log
 from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_tags_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_application_form_update, Server_members_channel_list_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
 from app.database import get_db
 from app.auth import get_current_user
@@ -1213,6 +1213,38 @@ def get_server_members(server_id: str, database: Session = Depends(get_db), curr
     return server_members_payload(database, server, server_id)
 
 
+def join_methods_by_user(database, server_id, user_ids):
+    packed = {}
+    if not user_ids:
+        return packed
+    rows = database.query(Audit_log).filter(
+        Audit_log.server_id == server_id,
+        Audit_log.action == "member_joined",
+        Audit_log.target_id.in_(user_ids),
+    ).order_by(Audit_log.id.desc()).all()
+    for row in rows:
+        uid = row.target_id
+        if uid in packed:
+            continue
+        detail = {}
+        if row.detail:
+            try:
+                parsed = json.loads(row.detail)
+                if isinstance(parsed, dict):
+                    detail = parsed
+            except (TypeError, ValueError):
+                detail = {}
+        code = str(detail.get("invite_code") or "").strip()
+        source = str(detail.get("source") or "").strip().lower()
+        if code:
+            packed[uid] = {"join_method": "invite", "join_invite_code": code}
+        elif source == "community":
+            packed[uid] = {"join_method": "community"}
+        else:
+            packed[uid] = {"join_method": "invite"}
+    return packed
+
+
 @router.get("/server_settings_members/{server_id}")
 def server_settings_members(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server = require_server_member(database, server_id, current_user.id)
@@ -1238,6 +1270,7 @@ def server_settings_members(server_id: str, database: Session = Depends(get_db),
         ).filter(Active_Sessions.account_id.in_(user_ids)).group_by(Active_Sessions.account_id).all()
         for account_id, stamp in seen_rows:
             last_seen[account_id] = iso_dt(stamp)
+    join_map = join_methods_by_user(database, server_id, user_ids)
 
     members = []
     for row in memberships:
@@ -1259,6 +1292,10 @@ def server_settings_members(server_id: str, database: Session = Depends(get_db),
         payload["created_at"] = iso_dt(getattr(account, "created_at", None)) if getattr(account, "created_at", None) else None
         payload["roles"] = roles_by_user.get(account.id) or []
         payload["last_active"] = last_seen.get(account.id)
+        joined = join_map.get(account.id) or {}
+        payload["join_method"] = joined.get("join_method") or "invite"
+        if joined.get("join_invite_code"):
+            payload["join_invite_code"] = joined["join_invite_code"]
         members.append(payload)
     return {"server_id": server_id, "members": members}
 

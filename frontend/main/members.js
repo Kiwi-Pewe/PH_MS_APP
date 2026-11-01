@@ -509,6 +509,7 @@ function nameRoleForUser(userId, fallback) {
 function applyServerNameColor(el, userId, fallbackRole) {
   if (!el) return;
   if (userId != null) el.dataset.nameUser = String(userId);
+  const offlineHost = el.closest(".member-row.offline, .server-section-members-row.is-offline");
   const existing = el.querySelector(":scope > .name-color-dot");
   if (existing) existing.remove();
   el.classList.remove("has-name-color-dot");
@@ -518,6 +519,7 @@ function applyServerNameColor(el, userId, fallbackRole) {
   el.style.backgroundClip = "";
   el.style.webkitTextFillColor = "";
   el.classList.remove("has-text-gradient");
+  if (offlineHost) return;
   const pref = nameColorPref();
   if (pref === "off") return;
   const role = nameRoleForUser(userId, fallbackRole);

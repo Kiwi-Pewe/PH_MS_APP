@@ -67,23 +67,109 @@ function serverSectionMembersDisplayName(member) {
   return String((member && (member.display_name || member.username)) || "").trim();
 }
 
+function serverSectionMembersAppearsOnline(member) {
+  return typeof memberAppearsOnline === "function"
+    ? memberAppearsOnline(member.status)
+    : member.status === "online" || member.status === "away" || member.status === "dnd";
+}
+
+function serverSectionMembersByName(a, b) {
+  return serverSectionMembersDisplayName(a).localeCompare(
+    serverSectionMembersDisplayName(b),
+    undefined,
+    { sensitivity: "base" }
+  ) || String(a.username || "").localeCompare(String(b.username || ""), undefined, { sensitivity: "base" });
+}
+
+function serverSectionMembersGroups(members) {
+  const online = [];
+  const offline = [];
+  members.forEach((member) => {
+    if (serverSectionMembersAppearsOnline(member)) online.push(member);
+    else offline.push(member);
+  });
+  online.sort(serverSectionMembersByName);
+  offline.sort(serverSectionMembersByName);
+  const groups = new Map();
+  const leftover = [];
+  online.forEach((member) => {
+    const hoist = member.hoist_role;
+    if (hoist && hoist.id != null) {
+      const key = String(hoist.id);
+      if (!groups.has(key)) groups.set(key, { role: hoist, members: [] });
+      groups.get(key).members.push(member);
+    } else leftover.push(member);
+  });
+  const packed = Array.from(groups.values())
+    .sort((a, b) => (a.role.position || 0) - (b.role.position || 0) || (a.role.id - b.role.id))
+    .map((group) => ({
+      key: "hoist-" + group.role.id,
+      label: group.role.name || "Role",
+      color: group.role.color,
+      members: group.members
+    }));
+  if (leftover.length) packed.push({ key: "online", label: "Online", color: "", members: leftover });
+  if (offline.length) packed.push({ key: "offline", label: "Offline", color: "", members: offline });
+  return packed;
+}
+
+function buildServerSectionMemberCard(member) {
+  const row = document.createElement("div");
+  const isOnline = serverSectionMembersAppearsOnline(member);
+  const status = isOnline ? (member.status || "online") : "offline";
+  row.className = "server-section-members-row" + (isOnline ? "" : " is-offline");
+  row.dataset.memberId = String(member.id);
+
+  const face = document.createElement("div");
+  face.className = "avatar-dot";
+  const pip = document.createElement("div");
+  pip.className = "status-dot status-" + status;
+  face.appendChild(pip);
+  row.appendChild(face);
+  if (typeof paintUserFace === "function") {
+    paintUserFace(face, member, { name: member.username, userId: member.id });
+  }
+
+  const text = document.createElement("div");
+  text.className = "server-section-members-text";
+  const display = document.createElement("div");
+  display.className = "server-section-members-display";
+  display.textContent = serverSectionMembersDisplayName(member) || member.username || "";
+  if (isOnline && typeof applyServerNameColor === "function") {
+    applyServerNameColor(display, member.id, member.name_role);
+  }
+  text.appendChild(display);
+  const username = String(member.username || "").trim();
+  if (username) {
+    const account = document.createElement("div");
+    account.className = "server-section-members-username";
+    account.textContent = username;
+    text.appendChild(account);
+  }
+  const typed = String(
+    (member && member.status_line)
+    || (typeof userStatusLine === "function" ? userStatusLine(member.id) : "")
+    || ""
+  ).trim();
+  if (typed) {
+    const line = document.createElement("div");
+    line.className = "server-section-members-status";
+    line.textContent = typed;
+    text.appendChild(line);
+  }
+  row.appendChild(text);
+
+  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(row, member.id);
+  row.addEventListener("contextmenu", (e) => {
+    if (typeof showMemberContextMenu === "function") showMemberContextMenu(e, member);
+  });
+  return row;
+}
+
 function paintServerSectionMembersList() {
   const body = document.getElementById("server-members-section-list");
   if (!body || !serverMembersSectionOpen()) return;
   const rows = serverSectionMembersSource();
-  const online = typeof memberAppearsOnline === "function"
-    ? (member) => memberAppearsOnline(member.status)
-    : (member) => member.status === "online" || member.status === "away" || member.status === "dnd";
-  rows.sort((a, b) => {
-    const ao = online(a) ? 0 : 1;
-    const bo = online(b) ? 0 : 1;
-    if (ao !== bo) return ao - bo;
-    return serverSectionMembersDisplayName(a).localeCompare(
-      serverSectionMembersDisplayName(b),
-      undefined,
-      { sensitivity: "base" }
-    ) || String(a.username || "").localeCompare(String(b.username || ""), undefined, { sensitivity: "base" });
-  });
   body.innerHTML = "";
   if (!rows.length) {
     const empty = document.createElement("p");
@@ -92,54 +178,16 @@ function paintServerSectionMembersList() {
     body.appendChild(empty);
     return;
   }
-  rows.forEach((member) => {
-    const row = document.createElement("div");
-    const isOnline = online(member);
-    const status = isOnline ? (member.status || "online") : "offline";
-    row.className = "server-section-members-row" + (isOnline ? "" : " is-offline");
-    row.dataset.memberId = String(member.id);
-
-    const face = document.createElement("div");
-    face.className = "avatar-dot";
-    const pip = document.createElement("div");
-    pip.className = "status-dot status-" + status;
-    face.appendChild(pip);
-    row.appendChild(face);
-    if (typeof paintUserFace === "function") {
-      paintUserFace(face, member, { name: member.username, userId: member.id });
-    }
-
-    const text = document.createElement("div");
-    text.className = "server-section-members-text";
-    const display = document.createElement("div");
-    display.className = "server-section-members-display";
-    display.textContent = serverSectionMembersDisplayName(member) || member.username || "";
-    text.appendChild(display);
-    const username = String(member.username || "").trim();
-    if (username) {
-      const account = document.createElement("div");
-      account.className = "server-section-members-username";
-      account.textContent = username;
-      text.appendChild(account);
-    }
-    const typed = String(
-      (member && member.status_line)
-      || (typeof userStatusLine === "function" ? userStatusLine(member.id) : "")
-      || ""
-    ).trim();
-    if (typed) {
-      const line = document.createElement("div");
-      line.className = "server-section-members-status";
-      line.textContent = typed;
-      text.appendChild(line);
-    }
-    row.appendChild(text);
-
-    if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(row, member.id);
-    row.addEventListener("contextmenu", (e) => {
-      if (typeof showMemberContextMenu === "function") showMemberContextMenu(e, member);
-    });
-    body.appendChild(row);
+  serverSectionMembersGroups(rows).forEach((group) => {
+    const wrap = document.createElement("section");
+    wrap.className = "server-section-members-group";
+    const label = document.createElement("div");
+    label.className = "server-section-members-group-label";
+    label.textContent = group.label + " — " + group.members.length;
+    if (group.color) label.style.color = group.color;
+    wrap.appendChild(label);
+    group.members.forEach((member) => wrap.appendChild(buildServerSectionMemberCard(member)));
+    body.appendChild(wrap);
   });
 }
 

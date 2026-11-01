@@ -502,6 +502,12 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "server_members_channel_list_updated") {
+      if (typeof applyServerMembersChannelList === "function") {
+        applyServerMembersChannelList(data.server_id, data.show_members_in_channel_list);
+      }
+    }
+
     if (data.type === "server_privacy_updated") {
       if (typeof applyServerPrivacy === "function") {
         applyServerPrivacy(data.server_id, {

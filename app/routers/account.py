@@ -386,10 +386,6 @@ def get_account_settings(current_user: UserInfo = Depends(get_current_user), dat
     return {
         "username": current_user.username,
         "display_name": public_display_name(current_user),
-        "email": current_user.email or "",
-        "email_masked": mask_email(current_user.email) if current_user.email else "",
-        "phone": current_user.phone or "",
-        "phone_masked": mask_phone(current_user.phone) if current_user.phone else "",
         "mfa_enabled": bool(current_user.mfa_enabled),
         "device_count": device_count,
         "current_session_id": session_id,
@@ -419,6 +415,7 @@ def update_account_display_name(edit: Account_field_edit, current_user: UserInfo
 
 @router.post("/account_email")
 def update_account_email(edit: Account_field_edit, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    raise HTTPException(status_code=404, detail="Not found")
     require_password(current_user, edit.password)
     email = clean_email(edit.value)
     if email:
@@ -431,6 +428,7 @@ def update_account_email(edit: Account_field_edit, current_user: UserInfo = Depe
 
 @router.post("/account_phone")
 def update_account_phone(edit: Account_field_edit, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    raise HTTPException(status_code=404, detail="Not found")
     require_password(current_user, edit.password)
     current_user.phone = clean_phone(edit.value)
     database.commit()

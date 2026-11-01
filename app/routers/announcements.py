@@ -662,8 +662,20 @@ def save_announcement_channel_settings(body: Announcement_channel_settings, data
     blog_enabled = bool(body.blog_enabled) and announce_public
     if (announce_public or blog_enabled) and not blog_privacy_ok(server):
         raise HTTPException(status_code=400, detail="Blogs are available on Default and Open entry servers.")
+    previous_public = bool(getattr(channel, "announce_public", False))
+    previous_blog = bool(getattr(channel, "blog_enabled", False))
     channel.announce_public = announce_public
     channel.blog_enabled = blog_enabled
+    changes = []
+    if previous_public != announce_public:
+        changes.append({"key": "public", "from": "Yes" if previous_public else "No", "to": "Yes" if announce_public else "No"})
+    if previous_blog != blog_enabled:
+        changes.append({"key": "blog", "from": "Yes" if previous_blog else "No", "to": "Yes" if blog_enabled else "No"})
+    if changes:
+        write_audit_log(database, server.id, current_user.id, "update_channel", "channel", channel.id, {
+            "name": channel.name,
+            "changes": changes,
+        })
     database.commit()
     return {"channel_id": channel.id, "announce_public": bool(channel.announce_public), "blog_enabled": bool(channel.blog_enabled)}
 

@@ -572,8 +572,13 @@ async function openServerOverview(preload) {
   const voiceView = document.getElementById("voice-view");
   if (voiceView) voiceView.style.display = "none";
   const overview = document.getElementById("server-overview");
-  const row = document.getElementById("server-section-overview");
-  if (row) row.classList.add("active");
+  if (typeof markServerSectionActive === "function") markServerSectionActive("server-section-overview");
+  else {
+    const row = document.getElementById("server-section-overview");
+    if (row) row.classList.add("active");
+    const membersRow = document.getElementById("server-section-members");
+    if (membersRow) membersRow.classList.remove("active");
+  }
   if (overview) overview.style.display = "flex";
   const title = document.getElementById("channel-header-title");
   if (title) title.textContent = "Overview";

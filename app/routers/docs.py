@@ -57,6 +57,8 @@ def load_doc_context(channel_id, database, current_user, require_view=True):
     channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
     if not channel or channel.channel_type != "doc":
         raise HTTPException(status_code=404, detail="channel not found")
+    if require_view:
+        raise HTTPException(status_code=404, detail="channel not found")
     category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
     server = database.query(Servers).filter(Servers.id == category.server_id).first()
     member = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()

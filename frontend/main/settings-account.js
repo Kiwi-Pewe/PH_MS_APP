@@ -305,26 +305,6 @@ async function renderAccountSettings(pane, jumpChildId) {
       jumpToSettings("account-info");
     });
   }));
-  infoWrap.appendChild(settingsRow("Email", maskedFieldNode(info, "email", accountEmailRevealed, (v) => { accountEmailRevealed = v; }), info.email ? "Edit" : "Add", () => {
-    openSettingsForm(info.email ? "Change email" : "Add email", [
-      { name: "value", label: "Email", value: info.email || "", type: "email" },
-      { name: "password", label: "Current password", type: "password", autocomplete: "current-password" }
-    ], "Save", async (values) => {
-      const data = await postAccount("/account_email", { value: values.value, password: values.password });
-      accountSettingsCache = Object.assign({}, info, data);
-      jumpToSettings("account-info");
-    });
-  }));
-  infoWrap.appendChild(settingsRow("Phone Number", maskedFieldNode(info, "phone", accountPhoneRevealed, (v) => { accountPhoneRevealed = v; }), info.phone ? "Edit" : "Add", () => {
-    openSettingsForm(info.phone ? "Change phone number" : "Add phone number", [
-      { name: "value", label: "Phone number", value: info.phone || "" },
-      { name: "password", label: "Current password", type: "password", autocomplete: "current-password" }
-    ], "Save", async (values) => {
-      const data = await postAccount("/account_phone", { value: values.value, password: values.password });
-      accountSettingsCache = Object.assign({}, info, data);
-      jumpToSettings("account-info");
-    });
-  }));
   block.appendChild(infoWrap);
 
   const sec = document.createElement("div");

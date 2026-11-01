@@ -336,6 +336,7 @@ async function loadServerMembersPage(force) {
       if (typeof rememberIdentityFace === "function") rememberIdentityFace(member.id, member && member.avatar);
     });
     paintServerMembersTable();
+    if (typeof paintServerMembersChannelListToggle === "function") paintServerMembersChannelListToggle();
   } catch (e) {
     setServerMembersStatus(e.message || "Could not load members.");
     serverRosterMembers = [];
@@ -729,17 +730,36 @@ function paintServerMemberModView() {
   const roleRow = document.createElement("div");
   roleRow.className = "member-mod-roles";
   const visible = serverRosterVisibleRoles(member);
-  visible.forEach((role) => roleRow.appendChild(buildServerRosterRolePill(role)));
+  const canManage = typeof canServerPerm === "function" && canServerPerm("manage_roles");
+  const editingSelf = String(member.id) === String(typeof myUserId !== "undefined" ? myUserId : "");
+  const isOwner = typeof currentServerOwnerId !== "undefined" && String(currentServerOwnerId) === String(typeof myUserId !== "undefined" ? myUserId : "");
+  const canEditRoles = canManage && (isOwner || !editingSelf);
+  visible.forEach((role) => {
+    const wrap = document.createElement("span");
+    wrap.className = "member-mod-role";
+    wrap.appendChild(buildServerRosterRolePill(role));
+    if (canEditRoles) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "member-mod-role-remove";
+      remove.textContent = "\u00d7";
+      remove.title = "Remove " + (role.name || "role");
+      remove.setAttribute("aria-label", "Remove " + (role.name || "role"));
+      remove.disabled = memberModBusy;
+      remove.addEventListener("click", () => setMemberModRole(member, role.id, false));
+      wrap.appendChild(remove);
+    }
+    roleRow.appendChild(wrap);
+  });
   const add = document.createElement("button");
   add.type = "button";
   add.className = "member-mod-add";
   add.textContent = "+";
   add.title = "Add role";
   add.setAttribute("aria-label", "Add role");
-  const canManage = typeof canServerPerm === "function" && canServerPerm("manage_roles");
-  add.disabled = !canManage || memberModBusy;
+  add.disabled = !canEditRoles || memberModBusy;
   add.addEventListener("click", () => {
-    if (!canManage) return;
+    if (!canEditRoles) return;
     memberModRolePick = !memberModRolePick;
     paintServerMemberModView();
   });
@@ -751,7 +771,7 @@ function paintServerMemberModView() {
     none.textContent = "No roles.";
     roleSection.appendChild(none);
   }
-  if (memberModRolePick && canManage) {
+  if (memberModRolePick && canEditRoles) {
     const held = new Set(visible.map((role) => String(role.id)));
     const openRoles = memberModRoles.filter((role) => !role.is_members && !held.has(String(role.id)));
     const pick = document.createElement("div");
@@ -766,7 +786,7 @@ function paintServerMemberModView() {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.textContent = role.name || "Role";
-        btn.addEventListener("click", () => assignMemberModRole(member, role.id));
+        btn.addEventListener("click", () => setMemberModRole(member, role.id, true));
         pick.appendChild(btn);
       });
     }
@@ -856,7 +876,7 @@ async function openServerMemberModView(member) {
   }
 }
 
-async function assignMemberModRole(member, roleId) {
+async function setMemberModRole(member, roleId, assigned) {
   if (!member || !currentServerId || memberModBusy) return;
   memberModBusy = true;
   paintServerMemberModView();
@@ -869,11 +889,11 @@ async function assignMemberModRole(member, roleId) {
         server_id: currentServerId,
         user_id: member.id,
         role_id: roleId,
-        assigned: true
+        assigned: !!assigned
       })
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not add that role.");
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : (assigned ? "Could not add that role." : "Could not remove that role."));
     patchServerRosterRoles(
       currentServerId,
       member.id,
@@ -885,9 +905,9 @@ async function assignMemberModRole(member, roleId) {
     if (typeof applyMemberRolesUpdated === "function") {
       applyMemberRolesUpdated(currentServerId, member.id, data.hoist_role || null, data.name_role || null);
     }
-    memberModRolePick = false;
+    if (assigned) memberModRolePick = false;
   } catch (e) {
-    window.alert(e.message || "Could not add that role.");
+    window.alert(e.message || (assigned ? "Could not add that role." : "Could not remove that role."));
   } finally {
     memberModBusy = false;
     if (memberModUserId) paintServerMemberModView();
@@ -905,6 +925,28 @@ function setServerRosterSort(key) {
   paintServerMembersTable();
 }
 
+function serverRosterSortOptions() {
+  return [
+    { key: "name", label: "Name" },
+    { key: "joined", label: "Member since" },
+    { key: "account", label: "Joined Oneira" },
+    { key: "method", label: "Join Method" },
+    { key: "roles", label: "Roles" }
+  ];
+}
+
+function openServerMembersSortMenu(e) {
+  const btn = document.getElementById("server-members-sort-btn");
+  if (!btn || typeof openContextMenu !== "function") return;
+  const rect = btn.getBoundingClientRect();
+  const x = e && e.clientX != null ? e.clientX : rect.left;
+  const y = e && e.clientY != null ? e.clientY : rect.bottom + 4;
+  openContextMenu(x, y, null, serverRosterSortOptions().map((row) => ({
+    label: (row.key === serverRosterSortKey ? "\u2713 " : "") + row.label,
+    onSelect: () => setServerRosterSort(row.key)
+  })));
+}
+
 (function bindServerMembersChrome() {
   const search = document.getElementById("server-members-search");
   if (search) {
@@ -916,6 +958,8 @@ function setServerRosterSort(key) {
   document.querySelectorAll(".server-members-sort-head").forEach((btn) => {
     btn.addEventListener("click", () => setServerRosterSort(btn.getAttribute("data-sort")));
   });
+  const sortBtn = document.getElementById("server-members-sort-btn");
+  if (sortBtn) sortBtn.addEventListener("click", openServerMembersSortMenu);
   const selectAll = document.getElementById("server-members-select-all");
   if (selectAll) {
     selectAll.addEventListener("change", () => {

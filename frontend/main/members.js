@@ -80,6 +80,7 @@ function applyServerMembers(serverId, members, opts) {
   });
   showMemberListPanel();
   if (!opts.keepRows) renderMemberList();
+  if (typeof paintServerSectionMembersList === "function") paintServerSectionMembersList();
   if (typeof refreshServerNameColors === "function") refreshServerNameColors();
   if (typeof refreshComposerMentions === "function") {
     const input = typeof activeMentionComposer === "function" ? activeMentionComposer() : null;
@@ -581,6 +582,7 @@ function applyPresence(userId, status) {
     miniProfileData.presence = status;
     paintMiniProfilePresence(status);
   }
+  if (typeof paintServerSectionMembersList === "function") paintServerSectionMembersList();
 }
 
 function applyMemberJoined(scope, scopeId, member) {
@@ -588,6 +590,7 @@ function applyMemberJoined(scope, scopeId, member) {
   if (!member || memberList.some(m => m.id === member.id)) return;
   memberList.push(member);
   placeMemberRow(member);
+  if (typeof paintServerSectionMembersList === "function") paintServerSectionMembersList();
 }
 
 function memberVisibleName(member) {
@@ -749,6 +752,7 @@ function applyMemberLeft(scope, scopeId, userId) {
   if (memberListScope !== scope || String(memberListScopeId) !== String(scopeId)) return;
   memberList = memberList.filter(m => m.id !== userId);
   removePlacedMemberRow(userId);
+  if (typeof paintServerSectionMembersList === "function") paintServerSectionMembersList();
 }
 
 function applyRemovedFromParty(data) {

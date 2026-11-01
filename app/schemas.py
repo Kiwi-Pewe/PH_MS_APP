@@ -384,6 +384,10 @@ class Server_application_form_update(BaseModel):
     server_id: str
     questions: list[dict] = []
 
+class Server_members_channel_list_update(BaseModel):
+    server_id: str
+    show_members_in_channel_list: bool = False
+
 class Server_notify_prefs_update(BaseModel):
     server_id: str
     muted: bool | None = None

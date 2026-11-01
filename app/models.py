@@ -172,6 +172,7 @@ class Servers(Base):
     tags = Column(String)
     applications_enabled = Column(Boolean, default=False)
     application_form = Column(String)
+    show_members_in_channel_list = Column(Boolean, default=False)
 
 class Server_votes(Base):
     __tablename__ = "server_votes"

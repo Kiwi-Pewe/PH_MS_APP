@@ -5,6 +5,7 @@
 // ==================================================================
 
 let serverInvitesList = [];
+let channelInvitesList = [];
 let serverInvitesLoadedFor = null;
 let serverInvitesBusy = false;
 let inviteStaffBusy = false;
@@ -178,6 +179,7 @@ function refreshServerInvitesPage() {
 }
 
 function paintChannelInvitesTable(invites) {
+  channelInvitesList = invites || [];
   const body = document.getElementById("channel-settings-invites-body");
   if (!body) return;
   body.innerHTML = "";
@@ -190,6 +192,7 @@ function paintChannelInvitesTable(invites) {
     td.textContent = "No active invite links for this channel.";
     tr.appendChild(td);
     body.appendChild(tr);
+    paintInvitePauseAll();
     return;
   }
   invites.forEach((invite) => {
@@ -216,6 +219,7 @@ function paintChannelInvitesTable(invites) {
     if (invite.paused) tr.classList.add("is-paused");
     body.appendChild(tr);
   });
+  paintInvitePauseAll();
 }
 
 async function loadChannelInvitesPage() {
@@ -233,6 +237,7 @@ async function loadChannelInvitesPage() {
   }
   if (!currentServerId || !channelId) {
     paintChannelInvitesTable([]);
+    paintInvitePauseAll();
     return;
   }
   try {
@@ -285,22 +290,59 @@ function appendInviteStaff(tr, invite) {
   tr.appendChild(td);
 }
 
-function inviteStillValid(invite) {
-  if (!invite || invite.paused) return false;
+function inviteNotExpired(invite) {
+  if (!invite) return false;
   if (Number(invite.max_age) === 0 || !invite.expires_at) return true;
   return formatInviteExpires(invite.expires_at) !== "Expired";
 }
 
-function pausableInvites() {
-  return serverInvitesList.filter((invite) => inviteStillValid(invite) && inviteStaffAllowed(invite));
+function inviteStillValid(invite) {
+  return !!(invite && !invite.paused && inviteNotExpired(invite));
+}
+
+function invitePauseTargets(list) {
+  const allowed = (list || []).filter((invite) => inviteStaffAllowed(invite));
+  return {
+    pause: allowed.filter((invite) => inviteStillValid(invite)),
+    unpause: allowed.filter((invite) => invite.paused && inviteNotExpired(invite))
+  };
+}
+
+function paintOneInvitePauseAll(btn, list) {
+  if (!btn) return;
+  const targets = invitePauseTargets(list);
+  if (!inviteStaffBusy && targets.pause.length) {
+    btn.disabled = false;
+    btn.textContent = "Pause Invites";
+    btn.dataset.mode = "pause";
+    btn.title = "Pause every valid invite";
+    return;
+  }
+  if (!inviteStaffBusy && targets.unpause.length) {
+    btn.disabled = false;
+    btn.textContent = "Unpause Invites";
+    btn.dataset.mode = "unpause";
+    btn.title = "Unpause every paused invite";
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = "Pause Invites";
+  btn.dataset.mode = "pause";
+  btn.title = "No valid invites to pause";
 }
 
 function paintInvitePauseAll() {
-  const pause = document.getElementById("server-invites-pause");
-  if (!pause) return;
-  const ready = !inviteStaffBusy && pausableInvites().length > 0;
-  pause.disabled = !ready;
-  pause.title = ready ? "Pause every valid invite" : "No valid invites to pause";
+  paintOneInvitePauseAll(document.getElementById("server-invites-pause"), serverInvitesList);
+  paintOneInvitePauseAll(document.getElementById("channel-settings-invites-pause"), channelInvitesList);
+}
+
+function clickInvitePauseAll(btn, list) {
+  const targets = invitePauseTargets(list);
+  if (btn && btn.dataset.mode === "unpause") {
+    staffInviteMany("pause_server_invite", targets.unpause);
+    return;
+  }
+  staffInviteMany("pause_server_invite", targets.pause);
 }
 
 async function postInviteStaff(path, code) {
@@ -380,7 +422,9 @@ function openServerInvitesCreate() {
   const create = document.getElementById("server-invites-create");
   if (create) create.addEventListener("click", openServerInvitesCreate);
   const pauseAll = document.getElementById("server-invites-pause");
-  if (pauseAll) pauseAll.addEventListener("click", () => staffInviteMany("pause_server_invite", pausableInvites()));
+  if (pauseAll) pauseAll.addEventListener("click", () => clickInvitePauseAll(pauseAll, serverInvitesList));
+  const channelPause = document.getElementById("channel-settings-invites-pause");
+  if (channelPause) channelPause.addEventListener("click", () => clickInvitePauseAll(channelPause, channelInvitesList));
   const channelCreate = document.getElementById("channel-settings-invites-create");
   if (channelCreate) channelCreate.addEventListener("click", openChannelInvitesCreate);
 })();

@@ -159,6 +159,7 @@ async function submitCreateChannel() {
   const selected = document.querySelector('input[name="channel-type"]:checked');
   const name = document.getElementById("channel-name-input").value.trim();
   if (!selected || !name) return;
+  if (selected.value === "doc") return;
   const isPrivate = document.getElementById("channel-private-toggle").checked;
 
   try {

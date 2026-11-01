@@ -469,6 +469,7 @@ function applyUserStatusLine(userId, status) {
       if (row && typeof paintMemberStatusLine === "function") paintMemberStatusLine(row, member);
     });
   }
+  if (typeof paintServerSectionMembersList === "function") paintServerSectionMembersList();
   if (typeof conversationList !== "undefined" && Array.isArray(conversationList)) {
     let changed = false;
     conversationList.forEach((convo) => {
@@ -814,6 +815,7 @@ function showCategoryContextMenu(e, category) {
 }
 
 function showChannelContextMenu(e, channel) {
+  if (channel && channel.channel_type === "doc") return;
   e.preventDefault();
   e.stopPropagation();
   const x = e.clientX;

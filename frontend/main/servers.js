@@ -334,6 +334,8 @@ function applyServerContents(serverId, data, opts) {
     banner_color: data.banner_color || (listed && listed.banner_color) || ""
   });
   if (data.categories && !opts.keepSidebar) renderServerSidebar(data);
+  if (typeof paintServerSectionMembersRow === "function") paintServerSectionMembersRow();
+  if (typeof paintServerMembersChannelListToggle === "function") paintServerMembersChannelListToggle();
 }
 
 function mapChannelHistory(messages) {
@@ -675,6 +677,12 @@ function noteChannelOpened(channel, explicitBlocked) {
 
 async function selectChannel(channel, rowEl, opts) {
   opts = opts || {};
+  if (channel && channel.channel_type === "doc") {
+    const next = firstVisibleSidebarChannel();
+    if (next && next !== channel) await selectChannel(next, null, opts);
+    else showNoChannelSelected();
+    return;
+  }
   const keepPlace = !!opts.keepPlace;
   const heldToken = opts.token || (keepPlace ? currentPlaceToken() : null);
   const explicitReturnId = currentChannelId;
@@ -802,8 +810,15 @@ async function selectChannel(channel, rowEl, opts) {
   if (typeof hideScheduleChrome === "function") hideScheduleChrome();
   const overview = document.getElementById("server-overview");
   if (overview) overview.style.display = "none";
-  const overviewRow = document.getElementById("server-section-overview");
-  if (overviewRow) overviewRow.classList.remove("active");
+  const membersSection = document.getElementById("server-members-section");
+  if (membersSection) membersSection.style.display = "none";
+  if (typeof markServerSectionActive === "function") markServerSectionActive("");
+  else {
+    const overviewRow = document.getElementById("server-section-overview");
+    if (overviewRow) overviewRow.classList.remove("active");
+    const membersRow = document.getElementById("server-section-members");
+    if (membersRow) membersRow.classList.remove("active");
+  }
 
   if (explicitBlocked) {
     channelBody.style.display = "none";
@@ -1050,6 +1065,9 @@ function showNoChannelSelected() {
   if (typeof hideScheduleChrome === "function") hideScheduleChrome();
   const schedulePanel = document.getElementById("schedule-view");
   if (schedulePanel) schedulePanel.style.display = "none";
+  const membersSection = document.getElementById("server-members-section");
+  if (membersSection) membersSection.style.display = "none";
+  if (typeof markServerSectionActive === "function") markServerSectionActive("");
   const voicePanel = document.getElementById("voice-view");
   if (voicePanel) voicePanel.style.display = "none";
   if (typeof closeVoiceStage === "function") closeVoiceStage();
@@ -1068,6 +1086,7 @@ function showNoChannelSelected() {
 
 function channelVisibleInSidebar(channel) {
   if (!channel) return false;
+  if (channel.channel_type === "doc") return false;
   if (currentServerOwnerId === myUserId) return true;
   const perms = channel.permissions || {};
   if (channel.channel_type === "announcements") {
@@ -1082,10 +1101,6 @@ function channelVisibleInSidebar(channel) {
     if (Object.prototype.hasOwnProperty.call(perms, "read_messages")) return !!perms.read_messages;
     if (channel.can_read != null) return !!channel.can_read;
     return typeof canServerPerm !== "function" || canServerPerm("read_messages");
-  }
-  if (channel.channel_type === "doc") {
-    if (Object.prototype.hasOwnProperty.call(perms, "view_wallpaper")) return !!perms.view_wallpaper;
-    return typeof canServerPerm !== "function" || canServerPerm("view_wallpaper");
   }
   if (channel.channel_type === "docs") {
     if (Object.prototype.hasOwnProperty.call(perms, "view_docs")) return !!perms.view_docs;
@@ -1196,7 +1211,7 @@ function applyChannelsReordered(channels) {
 }
 
 function hideChannelSurfaces() {
-  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "event-page", "channel-body", "channel-composer", "server-overview"].forEach((id) => {
+  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "event-page", "channel-body", "channel-composer", "server-overview", "server-members-section"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });

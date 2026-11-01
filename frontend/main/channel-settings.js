@@ -304,12 +304,12 @@ const CHANNEL_SETTINGS_PERM_COPY = {
 
 function channelSettingsPermGroupIds(kind, channelType) {
   if (kind === "category") {
-    return ["general", "chat", "announcements", "forums", "wallpaper", "docs", "media", "voice", "lists"];
+    return ["general", "chat", "announcements", "forums", "docs", "media", "voice", "lists"];
   }
   const type = String(channelType || "text").toLowerCase();
   if (type === "announcements") return ["general", "announcements"];
   if (type === "forums") return ["general", "forums"];
-  if (type === "doc") return ["general", "wallpaper"];
+  if (type === "doc") return ["general"];
   if (type === "voice") return ["general", "voice"];
   if (type === "media") return ["general", "media"];
   if (type === "lists") return ["general", "lists"];
@@ -355,6 +355,7 @@ function channelSettingsPermGroups() {
   const type = String(channelSettingsTarget && channelSettingsTarget.channel_type || "text").toLowerCase();
   const needPinInject = type === "announcements" || type === "forums";
   return groups.map((group) => {
+    if (group.hidden) return null;
     const key = channelSettingsPermGroupKey(group.title);
     if (!wanted.includes(key)) return null;
     const sourceRows = key === "general"
@@ -1537,6 +1538,7 @@ function openChannelSettings(kind, target) {
 }
 
 function openChannelSettingsForChannel(channel) {
+  if (channel && channel.channel_type === "doc") return;
   openChannelSettings("channel", channel);
 }
 

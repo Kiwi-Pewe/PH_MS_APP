@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Server_channel_role_perms, Server_category_role_perms, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_tags_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_application_form_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_tags_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_application_form_update, Server_members_channel_list_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, still_url_for, store_attachment
@@ -626,6 +626,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "highest_role": actor_highest_role(database, server, current_user.id),
         "timeout_until": iso_dt(timeout_until_for(in_server)),
         "last_channel_id": getattr(in_server, "last_channel_id", None),
+        "show_members_in_channel_list": bool(getattr(server, "show_members_in_channel_list", False)),
         **server_privacy_fields(server),
         **server_banner_fields(server)
     }
@@ -1054,6 +1055,34 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
     return {"ok": True, **fields}
 
 
+@router.post("/update_server_members_channel_list")
+async def update_server_members_channel_list(body: Server_members_channel_list_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
+    shown = bool(body.show_members_in_channel_list)
+    previous = bool(getattr(server, "show_members_in_channel_list", False))
+    server.show_members_in_channel_list = shown
+    if previous != shown:
+        write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
+            "name": "Show Members In Channel List",
+            "field": "Show Members In Channel List",
+            "from": "On" if previous else "Off",
+            "to": "On" if shown else "Off",
+        })
+    database.commit()
+    await server_broadcast(
+        server_id=server.id,
+        payload={
+            "type": "server_members_channel_list_updated",
+            "server_id": server.id,
+            "show_members_in_channel_list": shown,
+        },
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "show_members_in_channel_list": shown}
+
+
 @router.post("/update_server_application")
 async def update_server_application(body: Server_application_form_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server = require_server_member(database, body.server_id, current_user.id)
@@ -1390,6 +1419,8 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
         raise HTTPException (status_code= 404, detail= "Category not found")
     server = database.query(Servers).filter(Servers.id == category.server_id).first()
     require_server_perm(database, server, current_user.id, "manage_channels", "You do not have permission to manage channels.")
+    if (channel_info.channel_type or "").lower() == "doc":
+        raise HTTPException(status_code=404, detail="Channel type not found")
 
     highest_position = database.query(func.max(Server_channels.position)).filter(Server_channels.category_id == channel_info.category_id).scalar()
 

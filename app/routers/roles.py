@@ -859,7 +859,7 @@ def channel_type_visible(permissions, channel_type):
     if channel_type == "text":
         return bool(permissions.get("read_messages"))
     if channel_type == "doc":
-        return bool(permissions.get("view_wallpaper"))
+        return False
     if channel_type == "docs":
         return bool(permissions.get("view_docs"))
     if channel_type == "media":
@@ -1121,12 +1121,13 @@ async def save_server_roles(body: Server_roles_save, database: Session = Depends
             })
             saved.append({"client_id": item.client_id or "", "role": row})
 
-    write_audit_log(database, server.id, current_user.id, "roles_modified", "roles", members_row.id if members_row else 0, {
-        "updated_ids": [item["role"].id for item in saved if item["role"].id not in created_ids],
-        "created_ids": created_ids,
-        "roles": audit_roles,
-        "order_changed": order_changed,
-    })
+    if audit_roles or order_changed:
+        write_audit_log(database, server.id, current_user.id, "roles_modified", "roles", members_row.id if members_row else 0, {
+            "updated_ids": [item["role"].id for item in saved if item["role"].id not in created_ids],
+            "created_ids": created_ids,
+            "roles": audit_roles,
+            "order_changed": order_changed,
+        })
     database.commit()
     payload_roles = list_server_roles(database, server.id)
     await server_broadcast(

@@ -105,6 +105,7 @@ const SERVER_ROLE_PERMS = [
   },
   {
     title: "Wallpaper permissions",
+    hidden: true,
     rows: [
       { id: "view_wallpaper", title: "View wallpaper", desc: "Allows you to view wallpaper channels." },
       { id: "create_wallpaper", title: "Create wallpaper", desc: "Allows you to create wallpaper pages." },
@@ -621,6 +622,7 @@ function roleOptRow(title, desc, control, later) {
 function livePermIds() {
   const ids = [];
   SERVER_ROLE_PERMS.forEach((group) => {
+    if (group.hidden) return;
     group.rows.forEach((row) => {
       if (!row.later) ids.push(row.id);
     });
@@ -1118,6 +1120,7 @@ function paintServerRolesEditor() {
   host.appendChild(bulkField);
 
   SERVER_ROLE_PERMS.forEach((group) => {
+    if (group.hidden) return;
     const block = document.createElement("div");
     block.className = "server-roles-group";
     const heading = document.createElement("div");

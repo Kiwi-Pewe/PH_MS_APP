@@ -1418,24 +1418,30 @@ function paintCommunityApply(row) {
     host.appendChild(empty);
     return;
   }
-  questions.forEach((question) => {
+  questions.forEach((question, index) => {
     const card = document.createElement("div");
-    card.className = "community-apply-question";
+    card.className = "application-question";
     card.setAttribute("data-question-id", question.id || "");
     card.setAttribute("data-question-type", question.type || "");
     const prompt = document.createElement("div");
-    prompt.className = "community-apply-prompt";
-    prompt.textContent = question.prompt || "";
+    prompt.className = "application-question-title";
+    prompt.textContent = (index + 1) + ". " + (question.prompt || "Question");
     card.appendChild(prompt);
     if (question.type === "multi" || question.type === "choice") {
       const options = document.createElement("div");
-      options.className = "community-apply-options";
+      options.className = "application-question-options";
       (question.options || []).forEach((option) => {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "community-tag" + (question.type === "choice" ? " community-apply-choice" : "");
+        btn.className = "application-choice" + (question.type === "choice" ? " is-choice" : "");
         btn.setAttribute("data-apply-option", option);
-        btn.textContent = option;
+        const mark = document.createElement("span");
+        mark.className = "application-choice-mark";
+        const label = document.createElement("span");
+        label.className = "application-choice-label";
+        label.textContent = option;
+        btn.appendChild(mark);
+        btn.appendChild(label);
         btn.addEventListener("click", () => {
           if (question.type === "choice") {
             options.querySelectorAll("[data-apply-option]").forEach((item) => item.classList.toggle("is-on", item === btn));
@@ -1456,12 +1462,12 @@ function paintCommunityApply(row) {
       input.placeholder = typeof myUsername === "string" ? myUsername : "Username";
       card.appendChild(input);
     } else {
-      const area = document.createElement("textarea");
-      area.className = "server-settings-input server-settings-textarea";
-      area.rows = 5;
-      area.setAttribute("data-apply-value", "");
-      area.placeholder = "Write your answer";
-      card.appendChild(area);
+      const input = document.createElement("input");
+      input.className = "server-settings-input";
+      input.type = "text";
+      input.setAttribute("data-apply-value", "");
+      input.placeholder = "Write your answer";
+      card.appendChild(input);
     }
     host.appendChild(card);
   });
@@ -1480,7 +1486,7 @@ function collectCommunityApplyAnswers() {
   const host = document.getElementById("community-apply-questions");
   const answers = [];
   if (!host) return answers;
-  host.querySelectorAll(".community-apply-question").forEach((card) => {
+  host.querySelectorAll(".application-question").forEach((card) => {
     const id = card.getAttribute("data-question-id") || "";
     const type = card.getAttribute("data-question-type") || "";
     if (type === "multi") {

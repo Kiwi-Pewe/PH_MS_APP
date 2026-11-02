@@ -229,15 +229,15 @@ function paintEditApplication() {
     });
     top.appendChild(select);
     top.appendChild(remove);
-    const prompt = document.createElement("textarea");
-    prompt.className = "server-settings-input server-settings-textarea edit-application-prompt";
+    const prompt = document.createElement("input");
+    prompt.className = "server-settings-input edit-application-prompt";
+    prompt.type = "text";
     prompt.setAttribute("data-application-prompt", "");
-    prompt.rows = 5;
     prompt.maxLength = 200;
-    prompt.placeholder = question.type === "signature" ? "Type your username to submit." : "Ask a question";
+    prompt.placeholder = "Ask a question";
     prompt.value = question.prompt || "";
     card.appendChild(top);
-    card.appendChild(prompt);
+    if (question.type !== "signature") card.appendChild(prompt);
     if (question.type === "multi" || question.type === "choice") {
       const options = document.createElement("div");
       options.className = "edit-application-options";
@@ -331,7 +331,9 @@ function collectApplicationQuestions() {
   for (let i = 0; i < questions.length; i += 1) {
     const item = questions[i];
     const type = String(item.type || "").toLowerCase();
-    const prompt = String(item.prompt || "").trim();
+    const prompt = type === "signature"
+      ? (String(item.prompt || "").trim() || "Type your username to submit.")
+      : String(item.prompt || "").trim();
     if (!prompt) return { error: "Each question needs a prompt." };
     if (type === "multi" || type === "choice") {
       const options = (item.options || []).map((option) => String(option || "").trim()).filter(Boolean);

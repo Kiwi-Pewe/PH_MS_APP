@@ -668,6 +668,18 @@ async def review_server_application(
     row.status = "accepted" if body.accepted else "denied"
     row.reviewed_at = datetime.utcnow()
     row.reviewer_id = current_user.id
+    write_audit_log(
+        database,
+        server.id,
+        current_user.id,
+        "application_accepted" if body.accepted else "application_denied",
+        "member",
+        applicant.id,
+        {
+            "username": applicant.username,
+            "decision": "accepted" if body.accepted else "denied",
+        },
+    )
     joined = False
     if body.accepted:
         joined = add_community_member(database, server, applicant)

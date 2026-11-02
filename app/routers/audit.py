@@ -61,6 +61,8 @@ ACTION_LABELS = {
     "voice_undeafen": "Member Server Undeafened",
     "voice_disconnect": "Member Disconnected",
     "voice_move": "Member Moved",
+    "application_accepted": "Application Accepted",
+    "application_denied": "Application Denied",
 }
 
 
@@ -78,7 +80,7 @@ def parse_detail(raw):
 
 def detail_summary(action, target_type, detail):
     d = detail or {}
-    if action in ("kick_member", "ban_member", "unban_member", "timeout_member", "timeout_clear", "member_joined", "member_left", "voice_mute", "voice_unmute", "voice_deafen", "voice_undeafen"):
+    if action in ("kick_member", "ban_member", "unban_member", "timeout_member", "timeout_clear", "member_joined", "member_left", "voice_mute", "voice_unmute", "voice_deafen", "voice_undeafen", "application_accepted", "application_denied"):
         name = d.get("username") or ""
         reason = (d.get("reason") or "").strip()
         bits = [name] if name else []

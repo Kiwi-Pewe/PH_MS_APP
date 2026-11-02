@@ -177,8 +177,13 @@ function auditEntryFields(row) {
     voice_undeafen: true,
     voice_disconnect: true,
     voice_move: true,
+    application_accepted: true,
+    application_denied: true,
   };
   if (memberActions[action]) push("Member", detail.username);
+  if (action === "application_accepted" || action === "application_denied") {
+    push("Decision", action === "application_accepted" ? "Accepted" : "Denied");
+  }
   if (action === "role_member_updated") {
     push("Role", detail.role_name);
     push("Change", detail.assigned ? "Assigned" : "Removed");

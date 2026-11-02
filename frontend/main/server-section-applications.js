@@ -46,22 +46,26 @@ function applicationSubmittedLabel(ts) {
 
 function closeServerApplicationCard() {
   const overlay = document.getElementById("server-application-overlay");
-  if (overlay) overlay.style.display = "none";
+  if (overlay) overlay.hidden = true;
   serverSectionApplicationOpenId = null;
   serverSectionApplicationsBusy = false;
+}
+
+function applicationOptionPicked(question, option) {
+  const answer = question && question.answer;
+  if (Array.isArray(answer)) return answer.indexOf(option) !== -1;
+  return String(answer || "") === String(option);
 }
 
 function paintServerApplicationCard(row) {
   const title = document.getElementById("server-application-title");
   const body = document.getElementById("server-application-body");
   const err = document.getElementById("server-application-error");
-  const footer = document.getElementById("server-application-footer");
-  const cancel = document.getElementById("server-application-cancel");
   const deny = document.getElementById("server-application-deny");
   const accept = document.getElementById("server-application-accept");
   if (!body || !row) return;
-  const display = String(row.display_name || row.username || "Application").trim();
-  if (title) title.textContent = display;
+  const username = String(row.username || "member").trim();
+  if (title) title.textContent = username + "'s Application";
   if (err) {
     err.hidden = true;
     err.textContent = "";
@@ -71,34 +75,46 @@ function paintServerApplicationCard(row) {
   const questions = row.questions || [];
   if (!questions.length) {
     const empty = document.createElement("p");
-    empty.className = "moderation-copy";
+    empty.className = "server-settings-help";
     empty.textContent = "No answers were saved.";
     body.appendChild(empty);
   } else {
-    questions.forEach((question) => {
+    questions.forEach((question, index) => {
       const block = document.createElement("div");
-      block.className = "server-application-question";
+      block.className = "application-question";
       const prompt = document.createElement("div");
-      prompt.className = "server-modal-label";
-      prompt.textContent = question.prompt || "Question";
-      const answer = document.createElement("p");
-      answer.className = "server-application-answer";
-      answer.textContent = applicationAnswerText(question.answer) || "—";
+      prompt.className = "application-question-title";
+      prompt.textContent = (index + 1) + ". " + (question.prompt || "Question");
       block.appendChild(prompt);
-      block.appendChild(answer);
+      if (question.type === "multi" || question.type === "choice") {
+        const options = document.createElement("div");
+        options.className = "application-question-options";
+        (question.options || []).forEach((option) => {
+          const line = document.createElement("div");
+          line.className = "application-choice is-static"
+            + (question.type === "choice" ? " is-choice" : "")
+            + (applicationOptionPicked(question, option) ? " is-on" : "");
+          const mark = document.createElement("span");
+          mark.className = "application-choice-mark";
+          const label = document.createElement("span");
+          label.className = "application-choice-label";
+          label.textContent = option;
+          line.appendChild(mark);
+          line.appendChild(label);
+          options.appendChild(line);
+        });
+        block.appendChild(options);
+      } else {
+        const answer = document.createElement("p");
+        answer.className = "application-question-answer";
+        answer.textContent = applicationAnswerText(question.answer) || "—";
+        block.appendChild(answer);
+      }
       body.appendChild(block);
     });
   }
-  if (footer) footer.classList.toggle("is-pending", pending);
-  if (cancel) cancel.hidden = pending;
-  if (deny) {
-    deny.hidden = !pending;
-    deny.disabled = serverSectionApplicationsBusy;
-  }
-  if (accept) {
-    accept.hidden = !pending;
-    accept.disabled = serverSectionApplicationsBusy;
-  }
+  if (deny) deny.disabled = serverSectionApplicationsBusy || !pending;
+  if (accept) accept.disabled = serverSectionApplicationsBusy || !pending;
 }
 
 function openServerApplicationCard(row) {
@@ -107,7 +123,16 @@ function openServerApplicationCard(row) {
   if (!overlay) return;
   serverSectionApplicationOpenId = row.id;
   paintServerApplicationCard(row);
-  overlay.style.display = "flex";
+  overlay.hidden = false;
+}
+
+function applicationFirstSnippet(row) {
+  const question = ((row && row.questions) || [])[0];
+  if (!question) return "";
+  const prompt = String(question.prompt || "Question").trim();
+  const answer = applicationAnswerText(question.answer);
+  if (!answer) return prompt;
+  return prompt + " — " + answer;
 }
 
 function buildServerSectionApplicationCard(row) {
@@ -115,9 +140,12 @@ function buildServerSectionApplicationCard(row) {
   card.type = "button";
   card.className = "server-section-applications-row";
   card.dataset.applicationId = String(row.id);
+
+  const user = document.createElement("div");
+  user.className = "server-section-applications-user";
   const face = document.createElement("div");
   face.className = "avatar-dot";
-  card.appendChild(face);
+  user.appendChild(face);
   const text = document.createElement("div");
   text.className = "server-section-applications-text";
   const display = document.createElement("div");
@@ -129,18 +157,25 @@ function buildServerSectionApplicationCard(row) {
   const when = document.createElement("div");
   when.className = "server-section-applications-time";
   when.textContent = applicationSubmittedLabel(row.submitted_at);
-  const preview = document.createElement("div");
-  preview.className = "server-section-applications-preview";
-  preview.textContent = row.preview || "";
   text.appendChild(display);
-  if (row.username && row.display_name && row.username !== row.display_name) text.appendChild(account);
+  text.appendChild(account);
   text.appendChild(when);
-  if (row.preview) text.appendChild(preview);
-  card.appendChild(text);
+  user.appendChild(text);
+  card.appendChild(user);
+
+  const snippet = document.createElement("div");
+  snippet.className = "server-section-applications-snippet";
+  const snippetText = document.createElement("div");
+  snippetText.className = "server-section-applications-snippet-text";
+  snippetText.textContent = applicationFirstSnippet(row) || "—";
+  snippet.appendChild(snippetText);
+  card.appendChild(snippet);
+
   const status = document.createElement("div");
   status.className = "server-section-applications-status is-" + (row.status || "pending");
   status.textContent = applicationStatusLabel(row.status);
   card.appendChild(status);
+
   if (typeof paintUserFace === "function") {
     paintUserFace(face, row, { name: row.username, userId: row.user_id });
   }
@@ -152,9 +187,10 @@ function paintServerSectionApplicationsList() {
   const body = document.getElementById("server-applications-section-list");
   if (!body || !serverApplicationsSectionOpen()) return;
   body.innerHTML = "";
+  body.classList.toggle("is-empty", !serverSectionApplications.length);
   if (!serverSectionApplications.length) {
     const empty = document.createElement("p");
-    empty.className = "server-settings-help";
+    empty.className = "server-applications-empty";
     empty.textContent = "No applications.";
     body.appendChild(empty);
     return;
@@ -274,8 +310,10 @@ async function reviewServerSectionApplication(accepted) {
     }
   } finally {
     serverSectionApplicationsBusy = false;
-    if (deny) deny.disabled = false;
-    if (accept) accept.disabled = false;
+    const open = serverSectionApplications.find((row) => row.id === serverSectionApplicationOpenId);
+    const pending = !!(open && open.status === "pending");
+    if (deny) deny.disabled = !pending;
+    if (accept) accept.disabled = !pending;
   }
 }
 
@@ -294,12 +332,10 @@ async function reviewServerSectionApplication(accepted) {
     });
   }
   const close = document.getElementById("server-application-close");
-  const cancel = document.getElementById("server-application-cancel");
   const overlay = document.getElementById("server-application-overlay");
   const deny = document.getElementById("server-application-deny");
   const accept = document.getElementById("server-application-accept");
   if (close) close.addEventListener("click", closeServerApplicationCard);
-  if (cancel) cancel.addEventListener("click", closeServerApplicationCard);
   if (overlay) {
     overlay.addEventListener("click", (e) => {
       if (e.target.id === "server-application-overlay") closeServerApplicationCard();
@@ -310,6 +346,6 @@ async function reviewServerSectionApplication(accepted) {
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     if (document.querySelector(".context-menu")) return;
-    if (overlay && overlay.style.display === "flex") closeServerApplicationCard();
+    if (overlay && !overlay.hidden) closeServerApplicationCard();
   });
 })();

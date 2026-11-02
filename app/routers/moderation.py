@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, or_
 from datetime import datetime, timedelta
 from app.models import UserInfo, Servers, Server_members, Server_categories, Server_channels, Server_role_members, Server_roles, Channel_messages, Server_bans, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Media_item, Audit_log
-from app.schemas import Server_moderation_in, Server_bulk_kick_in, Server_unban_in
+from app.schemas import Server_moderation_in, Server_bulk_kick_in, Server_bulk_ban_in, Server_unban_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.routers.deletion import write_audit_log
@@ -312,6 +312,46 @@ async def bulk_kick_server_members(body: Server_bulk_kick_in, database: Session 
         )
         kicked.append(uid)
     return {"ok": True, "kicked": kicked, "count": len(kicked)}
+
+
+@router.post("/bulk_ban_server_members")
+async def bulk_ban_server_members(body: Server_bulk_ban_in, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "ban_members", "You do not have permission to ban members.")
+    ids = []
+    seen = set()
+    for uid in body.user_ids or []:
+        try:
+            uid = int(uid)
+        except (TypeError, ValueError):
+            continue
+        if uid in seen:
+            continue
+        seen.add(uid)
+        ids.append(uid)
+    if not ids:
+        raise HTTPException(status_code=400, detail="Select at least one member.")
+    if len(ids) > 50:
+        raise HTTPException(status_code=400, detail="Ban at most 50 members at a time.")
+    reason = clean_reason(body.reason)
+    banned = []
+    for uid in ids:
+        membership = database.query(Server_members).filter(
+            Server_members.server_id == server.id,
+            Server_members.user_id == uid,
+        ).first()
+        if not membership:
+            continue
+        if not can_moderate_target(database, server, current_user.id, uid):
+            continue
+        target = database.query(UserInfo).filter(UserInfo.id == uid).first()
+        if not target:
+            continue
+        await remove_member(
+            database, server, target, membership, current_user, "ban", reason, None, duration_seconds=None,
+        )
+        banned.append(uid)
+    return {"ok": True, "banned": banned, "count": len(banned)}
 
 
 def can_open_server_bans(database, server, user_id):

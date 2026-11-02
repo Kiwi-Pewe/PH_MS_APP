@@ -56,8 +56,8 @@ const SERVER_ROLE_PERMS = [
       { id: "view_applications", title: "View applications", desc: "Allows you to view server and game applications.", later: "Communities" },
       { id: "approve_applications", title: "Approve applications", desc: "Allows you to approve server and game applications.", later: "Communities" },
       { id: "edit_applications", title: "Edit applications", desc: "Allows you to edit the server and game applications, and toggle accepting applications.", later: "Communities" },
-      { id: "lfm_interest", title: "Indicate Find Players interest", desc: "Allows you to indicate interest in a player instead of an upvote.", later: "Communities" },
-      { id: "lfm_status", title: "Modify Find Players status", desc: "Allows you to modify the Find Player status for the server listing card.", later: "Communities" }
+      { id: "lfm_interest", title: "Indicate Find Players interest", desc: "Allows you to indicate interest in a player instead of an upvote.", hidden: true },
+      { id: "lfm_status", title: "Modify Find Players status", desc: "Allows you to modify the Find Player status for the server listing card.", hidden: true }
     ]
   },
   {
@@ -624,7 +624,8 @@ function livePermIds() {
   SERVER_ROLE_PERMS.forEach((group) => {
     if (group.hidden) return;
     group.rows.forEach((row) => {
-      if (!row.later) ids.push(row.id);
+      if (row.hidden || row.later) return;
+      ids.push(row.id);
     });
   });
   return ids;
@@ -1128,6 +1129,7 @@ function paintServerRolesEditor() {
     heading.textContent = group.title;
     block.appendChild(heading);
     group.rows.forEach((row) => {
+      if (row.hidden) return;
       block.appendChild(roleOptRow(
         row.title,
         row.desc,

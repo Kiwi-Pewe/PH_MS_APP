@@ -114,6 +114,15 @@ function kickableRosterMembers(rows) {
   return rows.filter((member) => typeof canActOnMember === "function" && canActOnMember(member, "kick_members"));
 }
 
+function bannableRosterMembers(rows) {
+  return rows.filter((member) => typeof canActOnMember === "function" && canActOnMember(member, "ban_members"));
+}
+
+function selectableRosterMembers(rows) {
+  return rows.filter((member) => typeof canActOnMember === "function"
+    && (canActOnMember(member, "kick_members") || canActOnMember(member, "ban_members")));
+}
+
 function paintServerRosterSortHeads() {
   document.querySelectorAll(".server-members-sort-head").forEach((btn) => {
     const key = btn.getAttribute("data-sort");
@@ -127,22 +136,30 @@ function paintServerRosterSortHeads() {
 
 function paintServerRosterSelection() {
   const bulk = document.getElementById("server-members-bulk-kick");
+  const bulkBan = document.getElementById("server-members-bulk-ban");
   const selectAll = document.getElementById("server-members-select-all");
   const visible = filteredServerRoster();
-  const kickable = kickableRosterMembers(visible);
-  const selectedKickable = kickable.filter((m) => serverRosterSelected.has(String(m.id)));
+  const selectable = selectableRosterMembers(visible);
+  const selectedKickable = kickableRosterMembers(visible).filter((m) => serverRosterSelected.has(String(m.id)));
+  const selectedBannable = bannableRosterMembers(visible).filter((m) => serverRosterSelected.has(String(m.id)));
   if (bulk) {
     const count = selectedKickable.length;
     bulk.hidden = count === 0 || !(typeof canServerPerm === "function" && canServerPerm("kick_members"));
     bulk.textContent = count <= 1 ? "Kick selected" : ("Kick " + count);
     bulk.disabled = serverRosterBusy || count === 0;
   }
+  if (bulkBan) {
+    const count = selectedBannable.length;
+    bulkBan.hidden = count === 0 || !(typeof canServerPerm === "function" && canServerPerm("ban_members"));
+    bulkBan.textContent = count <= 1 ? "Ban selected" : ("Ban " + count);
+    bulkBan.disabled = serverRosterBusy || count === 0;
+  }
   if (selectAll) {
-    const allIds = kickable.map((m) => String(m.id));
+    const allIds = selectable.map((m) => String(m.id));
     const allOn = allIds.length > 0 && allIds.every((id) => serverRosterSelected.has(id));
     selectAll.checked = allOn;
     selectAll.indeterminate = !allOn && allIds.some((id) => serverRosterSelected.has(id));
-    selectAll.disabled = kickable.length === 0 || serverRosterBusy;
+    selectAll.disabled = selectable.length === 0 || serverRosterBusy;
   }
 }
 
@@ -235,8 +252,9 @@ function paintServerMembersTable() {
 
     const checkTd = document.createElement("td");
     checkTd.className = "server-members-col-check";
-    const canKick = typeof canActOnMember === "function" && canActOnMember(member, "kick_members");
-    if (canKick) {
+    const canSelect = typeof canActOnMember === "function"
+      && (canActOnMember(member, "kick_members") || canActOnMember(member, "ban_members"));
+    if (canSelect) {
       const box = document.createElement("input");
       box.type = "checkbox";
       box.checked = serverRosterSelected.has(String(member.id));
@@ -395,6 +413,13 @@ function openServerRosterBulkKick() {
     .filter((m) => serverRosterSelected.has(String(m.id)));
   if (!selected.length) return;
   if (typeof openBulkKickModal === "function") openBulkKickModal(selected);
+}
+
+function openServerRosterBulkBan() {
+  const selected = bannableRosterMembers(filteredServerRoster())
+    .filter((m) => serverRosterSelected.has(String(m.id)));
+  if (!selected.length) return;
+  if (typeof openBulkBanModal === "function") openBulkBanModal(selected);
 }
 
 const MOD_VIEW_NOTABLE = [
@@ -799,10 +824,6 @@ function paintServerMemberModView() {
   body.appendChild(roleSection);
 
   const account = memberModSection("Account");
-  const verify = document.createElement("div");
-  verify.className = "member-mod-row is-disabled";
-  verify.textContent = "Passed Verification Level";
-  account.appendChild(verify);
   account.appendChild(memberModStatRow("Joined Oneira", formatRosterStamp(member.created_at)));
   account.appendChild(memberModStatRow("Server Join Date", formatRosterStamp(member.joined_at)));
   account.appendChild(memberModStatRow("Join Method", rosterJoinMethod(member)));
@@ -967,14 +988,16 @@ function openServerMembersSortMenu(e) {
   const selectAll = document.getElementById("server-members-select-all");
   if (selectAll) {
     selectAll.addEventListener("change", () => {
-      const kickable = kickableRosterMembers(filteredServerRoster());
-      if (selectAll.checked) kickable.forEach((m) => serverRosterSelected.add(String(m.id)));
-      else kickable.forEach((m) => serverRosterSelected.delete(String(m.id)));
+      const selectable = selectableRosterMembers(filteredServerRoster());
+      if (selectAll.checked) selectable.forEach((m) => serverRosterSelected.add(String(m.id)));
+      else selectable.forEach((m) => serverRosterSelected.delete(String(m.id)));
       paintServerMembersTable();
     });
   }
   const bulk = document.getElementById("server-members-bulk-kick");
   if (bulk) bulk.addEventListener("click", openServerRosterBulkKick);
+  const bulkBan = document.getElementById("server-members-bulk-ban");
+  if (bulkBan) bulkBan.addEventListener("click", openServerRosterBulkBan);
   const prune = document.getElementById("server-members-prune-btn");
   if (prune) prune.addEventListener("click", openMemberPrune);
   const pruneClose = document.getElementById("member-prune-close");
@@ -1002,8 +1025,10 @@ function openServerMembersSortMenu(e) {
     if (document.querySelector(".context-menu")) return;
     const moderation = document.getElementById("moderation-overlay");
     const bulkOverlay = document.getElementById("bulk-kick-overlay");
+    const bulkBanOverlay = document.getElementById("bulk-ban-overlay");
     if (moderation && moderation.style.display === "flex") return;
     if (bulkOverlay && bulkOverlay.style.display === "flex") return;
+    if (bulkBanOverlay && bulkBanOverlay.style.display === "flex") return;
     const mod = document.getElementById("member-mod-overlay");
     const pruneCard = document.getElementById("member-prune-overlay");
     if (mod && mod.style.display === "flex") closeServerMemberModView();

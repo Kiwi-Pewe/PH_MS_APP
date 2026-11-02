@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from math import ceil
 
@@ -8,14 +9,15 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Channel_messages, Community_edge, Server_categories, Server_channels, Server_members, Server_votes, Servers, UserInfo
+from app.models import Channel_messages, Community_edge, Server_applications, Server_categories, Server_channels, Server_members, Server_votes, Servers, UserInfo
 from app.routers.community_posts import COMMUNITY_FILTER_MAX, clean_filter_label, filter_word_hit
 from app.schemas import Community_filter_entry, Community_finder_hide, Community_finder_prefs
 from app.routers.deletion import write_audit_log
-from app.routers.moderation import active_ban
-from app.routers.realtime import presence_status, serialize_member, server_broadcast
-from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user
+from app.routers.moderation import active_ban, iso_dt
+from app.routers.realtime import notify_user, presence_status, serialize_member, server_broadcast
+from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user, require_server_member, require_server_perm
 from app.routers.feed import notify_feed_alert
+from app.routers.profile import public_avatar, public_display_name
 from app.routers.servers import clean_server_tag, parse_application_form, parse_server_tags, server_banner_fields, server_icon_still_url, server_icon_url, server_listing_tags, server_url_slug
 
 router = APIRouter()
@@ -46,6 +48,12 @@ class Community_vote_in(BaseModel):
 class Community_apply_in(BaseModel):
     server_id: str
     answers: list[dict] = []
+
+
+class Server_application_review_in(BaseModel):
+    server_id: str
+    application_id: int
+    accepted: bool
 
 
 def listed_server(server):
@@ -99,6 +107,144 @@ def first_server_channel(database, server_id):
     return database.query(Server_channels).filter(
         Server_channels.category_id == category.id
     ).order_by(Server_channels.position).first()
+
+
+def pack_application_answers(answers):
+    packed = {}
+    if not isinstance(answers, list):
+        return packed
+    for item in answers:
+        if not isinstance(item, dict):
+            continue
+        qid = str(item.get("id") or "").strip()
+        if not qid:
+            continue
+        if "values" in item:
+            values = item.get("values") if isinstance(item.get("values"), list) else []
+            packed[qid] = [str(value or "").strip() for value in values if str(value or "").strip()]
+        else:
+            packed[qid] = str(item.get("value") or "").strip()
+    return packed
+
+
+def application_snapshot(form, packed):
+    items = []
+    for question in form.get("questions") or []:
+        qid = str(question.get("id") or "")
+        kind = str(question.get("type") or "")
+        got = packed.get(qid)
+        if kind == "multi":
+            answer = got if isinstance(got, list) else ([got] if got else [])
+        else:
+            answer = got[0] if isinstance(got, list) and got else (got or "")
+        items.append({
+            "id": qid,
+            "type": kind,
+            "prompt": question.get("prompt") or "",
+            "options": question.get("options") or [],
+            "answer": answer,
+        })
+    return json.dumps({"version": form.get("version") or 1, "questions": items})
+
+
+def parse_application_snapshot(raw):
+    if isinstance(raw, dict):
+        data = raw
+    else:
+        text = (raw or "").strip() if isinstance(raw, str) else ""
+        if not text:
+            return {"version": 1, "questions": []}
+        try:
+            loaded = json.loads(text)
+            data = loaded if isinstance(loaded, dict) else {}
+        except (TypeError, ValueError):
+            data = {}
+    questions = data.get("questions") if isinstance(data.get("questions"), list) else []
+    return {"version": data.get("version") or 1, "questions": questions}
+
+
+def application_preview(snapshot):
+    bits = []
+    for question in snapshot.get("questions") or []:
+        answer = question.get("answer")
+        if isinstance(answer, list):
+            text = ", ".join(str(item) for item in answer if str(item or "").strip())
+        else:
+            text = str(answer or "").strip()
+        if text:
+            bits.append(text)
+    return " · ".join(bits)
+
+
+def add_community_member(database, server, user):
+    already = database.query(Server_members).filter(
+        Server_members.server_id == server.id,
+        Server_members.user_id == user.id,
+    ).first()
+    if already:
+        return False
+    highest_position = database.query(func.max(Server_members.position)).filter(
+        Server_members.user_id == user.id
+    ).scalar()
+    database.add(Server_members(
+        server_id=server.id,
+        user_id=user.id,
+        position=100 if highest_position is None else highest_position + 100,
+        notify_level="all",
+    ))
+    assign_members_role(database, server.id, user.id)
+    channel = first_server_channel(database, server.id)
+    if channel:
+        database.add(Channel_messages(
+            sender_id=None,
+            channel_id=channel.id,
+            content=f"{user.username} has joined the server",
+        ))
+    write_audit_log(database, server.id, user.id, "member_joined", "member", user.id, {
+        "username": user.username,
+        "source": "community",
+    })
+    return True
+
+
+async def broadcast_community_join(database, server, user):
+    await server_broadcast(
+        server_id=server.id,
+        payload={
+            "type": "member_joined",
+            "scope": "server",
+            "scope_id": server.id,
+            "member": serialize_member(
+                user,
+                user.id == server.owner_id,
+                hoist_role_for_user(database, server.id, user.id),
+                name_color_role_for_user(database, server.id, user.id),
+            ),
+        },
+        database=database,
+        exclude_user_id=user.id,
+    )
+
+
+def serialize_server_application(database, row):
+    user = database.query(UserInfo).filter(UserInfo.id == row.user_id).first()
+    snapshot = parse_application_snapshot(row.answers)
+    status = str(row.status or "pending").strip().lower()
+    if status not in ("pending", "accepted", "denied"):
+        status = "pending"
+    payload = {
+        "id": row.id,
+        "server_id": row.server_id,
+        "user_id": row.user_id,
+        "submitted_at": iso_dt(row.submitted_at),
+        "status": status,
+        "preview": application_preview(snapshot),
+        "questions": snapshot.get("questions") or [],
+        "username": user.username if user else "",
+        "display_name": public_display_name(user) if user else "",
+        "avatar": public_avatar(user) if user else {},
+    }
+    return payload
 
 
 def empty_vote_pack():
@@ -394,62 +540,16 @@ async def join_community(
     ).first()
     if is_member:
         return {"ok": True, "id": server.id, "joined": True}
-    highest_position = database.query(func.max(Server_members.position)).filter(
-        Server_members.user_id == current_user.id
-    ).scalar()
-    new_member = Server_members(
-        server_id=server.id,
-        user_id=current_user.id,
-        position=100 if highest_position is None else highest_position + 100,
-        notify_level="all",
-    )
-    database.add(new_member)
-    assign_members_role(database, server.id, current_user.id)
-    channel = first_server_channel(database, server.id)
-    if channel:
-        database.add(Channel_messages(
-            sender_id=None,
-            channel_id=channel.id,
-            content=f"{current_user.username} has joined the server",
-        ))
-    write_audit_log(database, server.id, current_user.id, "member_joined", "member", current_user.id, {
-        "username": current_user.username,
-        "source": "community",
-    })
+    added = add_community_member(database, server, current_user)
+    if not added:
+        return {"ok": True, "id": server.id, "joined": True}
     database.commit()
-    await server_broadcast(
-        server_id=server.id,
-        payload={
-            "type": "member_joined",
-            "scope": "server",
-            "scope_id": server.id,
-            "member": serialize_member(
-                current_user,
-                current_user.id == server.owner_id,
-                hoist_role_for_user(database, server.id, current_user.id),
-                name_color_role_for_user(database, server.id, current_user.id),
-            ),
-        },
-        database=database,
-        exclude_user_id=current_user.id,
-    )
+    await broadcast_community_join(database, server, current_user)
     return {"ok": True, "id": server.id, "joined": True}
 
 
 def validate_application_answers(form, answers, username):
-    packed = {}
-    if isinstance(answers, list):
-        for item in answers:
-            if not isinstance(item, dict):
-                continue
-            qid = str(item.get("id") or "").strip()
-            if not qid:
-                continue
-            if "values" in item:
-                values = item.get("values") if isinstance(item.get("values"), list) else []
-                packed[qid] = [str(value or "").strip() for value in values if str(value or "").strip()]
-            else:
-                packed[qid] = str(item.get("value") or "").strip()
+    packed = pack_application_answers(answers)
     for question in form.get("questions") or []:
         qid = str(question.get("id") or "")
         kind = str(question.get("type") or "")
@@ -471,6 +571,7 @@ def validate_application_answers(form, answers, username):
             value = got[0] if isinstance(got, list) and got else got
             if str(value or "").strip().lower() != str(username or "").strip().lower():
                 raise HTTPException(status_code=400, detail="Type your username to submit.")
+    return packed
 
 
 @router.post("/apply_community")
@@ -491,7 +592,24 @@ async def apply_community(
     if is_member:
         return {"ok": True, "id": server.id, "joined": True}
     form = parse_application_form(getattr(server, "application_form", None))
-    validate_application_answers(form, body.answers, current_user.username)
+    packed = validate_application_answers(form, body.answers, current_user.username)
+    snapshot = application_snapshot(form, packed)
+    pending = database.query(Server_applications).filter(
+        Server_applications.server_id == server.id,
+        Server_applications.user_id == current_user.id,
+        Server_applications.status == "pending",
+    ).first()
+    if pending:
+        pending.answers = snapshot
+        pending.submitted_at = datetime.utcnow()
+    else:
+        database.add(Server_applications(
+            server_id=server.id,
+            user_id=current_user.id,
+            submitted_at=datetime.utcnow(),
+            status="pending",
+            answers=snapshot,
+        ))
     await notify_feed_alert(
         database,
         receiver_id=current_user.id,
@@ -502,7 +620,72 @@ async def apply_community(
         reason=server.name or "Server",
         force=True,
     )
+    database.commit()
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_application_updated", "server_id": server.id},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
     return {"ok": True, "id": server.id, "applied": True}
+
+
+@router.get("/server_applications/{server_id}")
+def list_server_applications(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to view applications.")
+    rows = database.query(Server_applications).filter(
+        Server_applications.server_id == server.id,
+    ).order_by(
+        case((Server_applications.status == "pending", 0), else_=1),
+        Server_applications.submitted_at.desc(),
+        Server_applications.id.desc(),
+    ).all()
+    return {"ok": True, "applications": [serialize_server_application(database, row) for row in rows]}
+
+
+@router.post("/review_server_application")
+async def review_server_application(
+    body: Server_application_review_in,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to review applications.")
+    row = database.query(Server_applications).filter(
+        Server_applications.id == body.application_id,
+        Server_applications.server_id == server.id,
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    if str(row.status or "") != "pending":
+        raise HTTPException(status_code=400, detail="That application was already reviewed.")
+    applicant = database.query(UserInfo).filter(UserInfo.id == row.user_id).first()
+    if not applicant:
+        raise HTTPException(status_code=404, detail="Applicant not found.")
+    if body.accepted and active_ban(database, server.id, applicant.id):
+        raise HTTPException(status_code=400, detail="That user is banned from this server.")
+    row.status = "accepted" if body.accepted else "denied"
+    row.reviewed_at = datetime.utcnow()
+    row.reviewer_id = current_user.id
+    joined = False
+    if body.accepted:
+        joined = add_community_member(database, server, applicant)
+    database.commit()
+    if body.accepted and joined:
+        await broadcast_community_join(database, server, applicant)
+        await notify_user(applicant.id, {
+            "type": "application_accepted",
+            "server_id": server.id,
+            "server_name": server.name or "Server",
+        })
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_application_updated", "server_id": server.id},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "application": serialize_server_application(database, row)}
 
 
 @router.post("/community_vote")

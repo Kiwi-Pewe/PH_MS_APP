@@ -64,6 +64,7 @@ function applyServerPrivacy(serverId, fields) {
     if (fields.applications_enabled != null) currentServerData.applications_enabled = !!fields.applications_enabled;
     if (fields.application_form != null) currentServerData.application_form = parseApplicationForm(fields.application_form);
     if (typeof paintServerPrivacyPage === "function") paintServerPrivacyPage();
+    if (typeof paintServerSectionApplicationsRow === "function") paintServerSectionApplicationsRow();
   }
 }
 

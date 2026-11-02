@@ -67,6 +67,31 @@ def moderation_for(server_id, user_id):
     return voice_moderation.get(moderation_key(server_id, user_id)) or {"muted": False, "deafened": False}
 
 
+def hydrate_voice_moderation(server_id, user_id, membership):
+    if is_call_server(server_id) or not membership:
+        return
+    muted = bool(getattr(membership, "server_muted", False))
+    deafened = bool(getattr(membership, "server_deafened", False))
+    key = moderation_key(server_id, user_id)
+    if muted or deafened:
+        voice_moderation[key] = {"muted": muted, "deafened": deafened}
+    else:
+        voice_moderation.pop(key, None)
+
+
+def store_voice_moderation(membership, server_id, user_id, state):
+    muted = bool(state["muted"])
+    deafened = bool(state["deafened"])
+    if membership is not None:
+        membership.server_muted = muted
+        membership.server_deafened = deafened
+    key = moderation_key(server_id, user_id)
+    if muted or deafened:
+        voice_moderation[key] = {"muted": muted, "deafened": deafened}
+    else:
+        voice_moderation.pop(key, None)
+
+
 def stamp_voice_moderation(server_id, person):
     if is_call_server(server_id):
         person["server_muted"] = False
@@ -346,6 +371,7 @@ async def join_voice(body: Voice_join, database: Session = Depends(get_db), curr
     rooms = voice_rooms.setdefault(server.id, {})
     people = rooms.setdefault(channel.id, [])
     person = voice_person(current_user)
+    hydrate_voice_moderation(server.id, current_user.id, membership)
     stamp_voice_moderation(server.id, person)
     people.append(person)
     touched = set(left)
@@ -426,6 +452,11 @@ async def voice_moderate(body: Voice_moderate, database: Session = Depends(get_d
         database.commit()
         await fanout_voice(database, server.id)
         return {"ok": True, "channel_id": dest.id}
+    membership = database.query(Server_members).filter(
+        Server_members.server_id == server.id,
+        Server_members.user_id == body.user_id,
+    ).first()
+    hydrate_voice_moderation(server.id, body.user_id, membership)
     state = dict(moderation_for(server.id, body.user_id))
     if body.muted is not None:
         if not perms.get("mute_members"):
@@ -443,11 +474,7 @@ async def voice_moderate(body: Voice_moderate, database: Session = Depends(get_d
         write_audit_log(database, server.id, current_user.id, "voice_undeafen" if not state["deafened"] else "voice_deafen", "member", body.user_id, {
             "username": username,
         })
-    key = moderation_key(server.id, body.user_id)
-    if state["muted"] or state["deafened"]:
-        voice_moderation[key] = state
-    else:
-        voice_moderation.pop(key, None)
+    store_voice_moderation(membership, server.id, body.user_id, state)
     for people in (voice_rooms.get(server.id) or {}).values():
         for person in people:
             if person["user_id"] == body.user_id:

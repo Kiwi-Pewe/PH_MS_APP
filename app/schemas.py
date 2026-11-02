@@ -517,6 +517,11 @@ class Server_bulk_kick_in(BaseModel):
     reason: str = ""
     seconds: int = 0
 
+class Server_bulk_ban_in(BaseModel):
+    server_id: str
+    user_ids: list[int]
+    reason: str = ""
+
 class Category_create(BaseModel):
     server_id: str
     name: str

@@ -568,6 +568,8 @@ def ensure_moderation_columns():
         ("server_members", "last_channel_id", "INTEGER"),
         ("server_members", "suppress_roles", "BOOLEAN DEFAULT 0"),
         ("server_members", "mute_events", "BOOLEAN DEFAULT 0"),
+        ("server_members", "server_muted", "BOOLEAN DEFAULT 0"),
+        ("server_members", "server_deafened", "BOOLEAN DEFAULT 0"),
         ("server_notifications", "notify_level", "VARCHAR"),
         ("server_notifications", "suppress_roles", "BOOLEAN DEFAULT 0"),
         ("server_notifications", "mute_events", "BOOLEAN DEFAULT 0"),
@@ -700,6 +702,28 @@ def ensure_community_columns():
         try:
             conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_community_room_message ON community_room_messages (room_id, created_at, id)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS server_applications ("
+                "id INTEGER PRIMARY KEY, "
+                "server_id VARCHAR(10) NOT NULL, "
+                "user_id INTEGER NOT NULL, "
+                "submitted_at DATETIME, "
+                "status VARCHAR, "
+                "answers VARCHAR, "
+                "reviewed_at DATETIME, "
+                "reviewer_id INTEGER)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_server_applications_server ON server_applications (server_id, submitted_at)"
             ))
             conn.commit()
         except Exception:

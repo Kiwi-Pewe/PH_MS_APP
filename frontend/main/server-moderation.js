@@ -391,3 +391,110 @@ document.getElementById("bulk-kick-overlay").addEventListener("click", (e) => {
   if (e.target.id === "bulk-kick-overlay") closeBulkKickModal();
 });
 document.getElementById("bulk-kick-confirm").addEventListener("click", confirmBulkKick);
+
+let bulkBanDraft = null;
+
+function closeBulkBanModal() {
+  const overlay = document.getElementById("bulk-ban-overlay");
+  if (overlay) overlay.style.display = "none";
+  bulkBanDraft = null;
+}
+
+function openBulkBanModal(members) {
+  if (!currentServerId || !members || !members.length) return;
+  const overlay = document.getElementById("bulk-ban-overlay");
+  const title = document.getElementById("bulk-ban-title");
+  const body = document.getElementById("bulk-ban-body");
+  const confirm = document.getElementById("bulk-ban-confirm");
+  const err = document.getElementById("bulk-ban-error");
+  const serverName = currentServerSettingsName ? currentServerSettingsName() : "";
+  if (!overlay || !title || !body || !confirm) return;
+
+  bulkBanDraft = {
+    members: members.slice(0, 50),
+    reason: ""
+  };
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+
+  function paint() {
+    body.innerHTML = "";
+    const count = bulkBanDraft.members.length;
+    title.textContent = "Ban " + count + (count === 1 ? " member" : " members");
+    const copy = document.createElement("p");
+    copy.className = "moderation-copy";
+    copy.textContent = "Ban " + count + (count === 1 ? " member" : " members")
+      + " from " + (serverName || "this server") + "? They cannot rejoin until the ban is lifted.";
+    body.appendChild(copy);
+
+    const reasonLabel = document.createElement("label");
+    reasonLabel.className = "server-modal-label";
+    reasonLabel.setAttribute("for", "bulk-ban-reason");
+    reasonLabel.textContent = "Reason";
+    const reason = document.createElement("textarea");
+    reason.id = "bulk-ban-reason";
+    reason.className = "moderation-reason";
+    reason.maxLength = 200;
+    reason.rows = 5;
+    reason.placeholder = "Optional";
+    reason.value = bulkBanDraft.reason;
+    reason.addEventListener("input", () => { bulkBanDraft.reason = reason.value; });
+    body.appendChild(reasonLabel);
+    body.appendChild(reason);
+    confirm.className = "deny-btn";
+    confirm.textContent = "Ban " + count;
+  }
+
+  paint();
+  overlay.style.display = "flex";
+  const reasonEl = document.getElementById("bulk-ban-reason");
+  if (reasonEl) reasonEl.focus();
+}
+
+async function confirmBulkBan() {
+  if (!bulkBanDraft || !currentServerId) return;
+  const confirm = document.getElementById("bulk-ban-confirm");
+  const err = document.getElementById("bulk-ban-error");
+  if (confirm) confirm.disabled = true;
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  try {
+    const ids = bulkBanDraft.members.map((m) => m.id);
+    const response = await fetch(`https://${serverAddress}/bulk_ban_server_members`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        server_id: currentServerId,
+        user_ids: ids,
+        reason: bulkBanDraft.reason || ""
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not ban those members.");
+    (data.banned || ids).forEach((uid) => {
+      if (typeof applyMemberLeft === "function") applyMemberLeft("server", currentServerId, uid);
+      if (typeof removeServerRosterMember === "function") removeServerRosterMember(currentServerId, uid);
+    });
+    if (typeof serverBansLoadedFor !== "undefined") serverBansLoadedFor = null;
+    closeBulkBanModal();
+  } catch (e) {
+    if (err) {
+      err.hidden = false;
+      err.textContent = e.message || "Could not ban those members.";
+    }
+  } finally {
+    if (confirm) confirm.disabled = false;
+  }
+}
+
+document.getElementById("bulk-ban-close").addEventListener("click", closeBulkBanModal);
+document.getElementById("bulk-ban-cancel").addEventListener("click", closeBulkBanModal);
+document.getElementById("bulk-ban-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "bulk-ban-overlay") closeBulkBanModal();
+});
+document.getElementById("bulk-ban-confirm").addEventListener("click", confirmBulkBan);

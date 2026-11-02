@@ -182,6 +182,17 @@ class Server_votes(Base):
     value = Column(Integer)
     __table_args__ = (UniqueConstraint("server_id", "user_id", name="uq_server_vote"),)
 
+class Server_applications(Base):
+    __tablename__ = "server_applications"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    submitted_at = Column(DateTime, server_default=func.now())
+    status = Column(String, default="pending")
+    answers = Column(String)
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
 class Server_members(Base):
     __tablename__ = "server_members"
     id = Column(Integer, primary_key=True)
@@ -198,6 +209,8 @@ class Server_members(Base):
     notify_level = Column(String, nullable=True)
     nickname = Column(String, nullable=True)
     last_channel_id = Column(Integer, nullable=True)
+    server_muted = Column(Boolean, default=False)
+    server_deafened = Column(Boolean, default=False)
 
 class Server_notifications(Base):
     __tablename__ = "server_notifications"

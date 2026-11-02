@@ -358,9 +358,10 @@ function channelSettingsPermGroups() {
     if (group.hidden) return null;
     const key = channelSettingsPermGroupKey(group.title);
     if (!wanted.includes(key)) return null;
-    const sourceRows = key === "general"
+    const sourceRows = (key === "general"
       ? (group.rows || []).filter((row) => CHANNEL_SETTINGS_GENERAL_IDS.includes(row.id))
-      : (group.rows || []).slice();
+      : (group.rows || []).slice()
+    ).filter((row) => !row.hidden);
     if (needPinInject && (key === "announcements" || key === "forums")) {
       if (!sourceRows.some((row) => row.id === "pin_messages")) {
         sourceRows.push({

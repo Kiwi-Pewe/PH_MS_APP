@@ -336,6 +336,7 @@ function applyServerContents(serverId, data, opts) {
   if (data.categories && !opts.keepSidebar) renderServerSidebar(data);
   if (typeof paintServerSectionMembersRow === "function") paintServerSectionMembersRow();
   if (typeof paintServerMembersChannelListToggle === "function") paintServerMembersChannelListToggle();
+  if (typeof paintServerSectionApplicationsRow === "function") paintServerSectionApplicationsRow();
 }
 
 function mapChannelHistory(messages) {
@@ -812,12 +813,16 @@ async function selectChannel(channel, rowEl, opts) {
   if (overview) overview.style.display = "none";
   const membersSection = document.getElementById("server-members-section");
   if (membersSection) membersSection.style.display = "none";
+  const applicationsSection = document.getElementById("server-applications-section");
+  if (applicationsSection) applicationsSection.style.display = "none";
   if (typeof markServerSectionActive === "function") markServerSectionActive("");
   else {
     const overviewRow = document.getElementById("server-section-overview");
     if (overviewRow) overviewRow.classList.remove("active");
     const membersRow = document.getElementById("server-section-members");
     if (membersRow) membersRow.classList.remove("active");
+    const applicationsRow = document.getElementById("server-section-applications");
+    if (applicationsRow) applicationsRow.classList.remove("active");
   }
 
   if (explicitBlocked) {
@@ -1067,6 +1072,8 @@ function showNoChannelSelected() {
   if (schedulePanel) schedulePanel.style.display = "none";
   const membersSection = document.getElementById("server-members-section");
   if (membersSection) membersSection.style.display = "none";
+  const applicationsSection = document.getElementById("server-applications-section");
+  if (applicationsSection) applicationsSection.style.display = "none";
   if (typeof markServerSectionActive === "function") markServerSectionActive("");
   const voicePanel = document.getElementById("voice-view");
   if (voicePanel) voicePanel.style.display = "none";
@@ -1211,7 +1218,7 @@ function applyChannelsReordered(channels) {
 }
 
 function hideChannelSurfaces() {
-  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "event-page", "channel-body", "channel-composer", "server-overview", "server-members-section"].forEach((id) => {
+  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "event-page", "channel-body", "channel-composer", "server-overview", "server-members-section", "server-applications-section"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });

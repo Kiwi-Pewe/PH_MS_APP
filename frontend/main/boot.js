@@ -508,6 +508,14 @@ function connectSocket() {
       }
     }
 
+    if (data.type === "server_application_updated") {
+      if (typeof applyServerApplicationEvent === "function") applyServerApplicationEvent(data);
+    }
+
+    if (data.type === "application_accepted") {
+      if (typeof loadServers === "function") loadServers();
+    }
+
     if (data.type === "server_privacy_updated") {
       if (typeof applyServerPrivacy === "function") {
         applyServerPrivacy(data.server_id, {

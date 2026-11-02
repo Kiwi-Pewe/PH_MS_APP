@@ -23,6 +23,7 @@ from app.routers.servers import clean_server_tag, parse_application_form, parse_
 router = APIRouter()
 
 COMMUNITY_PAGE = 24
+APPLICATION_PAGE = 25
 FINDER_FILTER_KINDS = {"word": "finder_word", "tag": "finder_tag"}
 FINDER_PREF_KIND = "finder_pref"
 FINDER_HIDDEN_KIND = "finder_hidden"
@@ -631,17 +632,37 @@ async def apply_community(
 
 
 @router.get("/server_applications/{server_id}")
-def list_server_applications(server_id: str, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+def list_server_applications(
+    server_id: str,
+    group: str = "pending",
+    offset: int = 0,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
     server = require_server_member(database, server_id, current_user.id)
     require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to view applications.")
-    rows = database.query(Server_applications).filter(
-        Server_applications.server_id == server.id,
-    ).order_by(
-        case((Server_applications.status == "pending", 0), else_=1),
-        Server_applications.submitted_at.desc(),
-        Server_applications.id.desc(),
-    ).all()
-    return {"ok": True, "applications": [serialize_server_application(database, row) for row in rows]}
+    kind = "reviewed" if str(group or "").strip().lower() == "reviewed" else "pending"
+    start = offset if isinstance(offset, int) and offset > 0 else 0
+    query = database.query(Server_applications).filter(Server_applications.server_id == server.id)
+    if kind == "reviewed":
+        query = query.filter(Server_applications.status.in_(("accepted", "denied"))).order_by(
+            Server_applications.reviewed_at.desc(),
+            Server_applications.id.desc(),
+        )
+    else:
+        query = query.filter(Server_applications.status == "pending").order_by(
+            Server_applications.submitted_at.desc(),
+            Server_applications.id.desc(),
+        )
+    rows = query.offset(start).limit(APPLICATION_PAGE + 1).all()
+    has_more = len(rows) > APPLICATION_PAGE
+    rows = rows[:APPLICATION_PAGE]
+    return {
+        "ok": True,
+        "group": kind,
+        "applications": [serialize_server_application(database, row) for row in rows],
+        "has_more": has_more,
+    }
 
 
 @router.post("/review_server_application")

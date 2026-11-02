@@ -4604,9 +4604,43 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   align-self: center;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
 }
 #server-applications-section-list[hidden] { display: none; }
+.server-applications-pending-empty {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.server-applications-pending-empty[hidden] { display: none; }
+#server-applications-pending,
+#server-applications-reviewed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+#server-applications-pending[hidden],
+#server-applications-reviewed[hidden] { display: none; }
+#server-applications-pending-more,
+#server-applications-reviewed-more {
+  display: block;
+  align-self: center;
+  margin: 12px auto 0;
+}
+#server-applications-pending-more[hidden],
+#server-applications-reviewed-more[hidden] { display: none; }
+#server-applications-reviewed-rule {
+  width: 100%;
+  height: 0;
+  margin: 16px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+#server-applications-reviewed-rule[hidden] { display: none; }
+#server-applications-reviewed { margin-top: 16px; }
 .server-section-applications-row {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(0, 1.5fr) 112px;

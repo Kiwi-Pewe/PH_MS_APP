@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=478">
+<link rel="stylesheet" href="app.css?v=479">
 </head>
 <body>
 
@@ -762,9 +762,16 @@
 
         <div id="server-applications-section" style="display:none;">
           <div id="server-applications-section-empty" class="centered-empty-state" hidden>
-            <p>No applications.</p>
+            <p>No pending applications.</p>
           </div>
-          <div id="server-applications-section-list" hidden></div>
+          <div id="server-applications-section-list" hidden>
+            <p id="server-applications-pending-empty" class="server-applications-pending-empty" hidden>No pending applications.</p>
+            <div id="server-applications-pending"></div>
+            <button type="button" id="server-applications-pending-more" class="ghost-btn" hidden>Load More</button>
+            <div id="server-applications-reviewed-rule" hidden></div>
+            <div id="server-applications-reviewed"></div>
+            <button type="button" id="server-applications-reviewed-more" class="ghost-btn" hidden>Load More</button>
+          </div>
         </div>
 
         <div id="server-overview" style="display:none;">
@@ -2954,7 +2961,7 @@
 <script src="calendar-event.js?v=8"></script>
 <script src="overview.js?v=7"></script>
 <script src="server-section-members.js?v=2"></script>
-<script src="server-section-applications.js?v=4"></script>
+<script src="server-section-applications.js?v=5"></script>
 <script src="schedule.js?v=10"></script>
 <script src="doc-channel.js?v=14"></script>
 <script src="media-channel.js?v=6"></script>

@@ -1,7 +1,12 @@
-let serverSectionApplications = [];
+let serverSectionPending = [];
+let serverSectionReviewed = [];
+let serverSectionPendingMore = false;
+let serverSectionReviewedMore = false;
 let serverSectionApplicationsLoadedFor = null;
 let serverSectionApplicationOpenId = null;
 let serverSectionApplicationsBusy = false;
+let serverSectionPendingLoading = false;
+let serverSectionReviewedLoading = false;
 
 function serverShowsApplicationsSection() {
   if (!(currentServerData && currentServerData.applications_enabled)) return false;
@@ -42,6 +47,18 @@ function applicationAnswerText(answer) {
 function applicationSubmittedLabel(ts) {
   if (typeof formatRosterAge === "function") return formatRosterAge(ts);
   return ts || "—";
+}
+
+function serverSectionApplicationById(id) {
+  return serverSectionPending.concat(serverSectionReviewed).find((row) => row.id === id) || null;
+}
+
+function resetServerSectionApplicationLists() {
+  serverSectionPending = [];
+  serverSectionReviewed = [];
+  serverSectionPendingMore = false;
+  serverSectionReviewedMore = false;
+  serverSectionApplicationsLoadedFor = null;
 }
 
 function closeServerApplicationCard() {
@@ -187,14 +204,57 @@ function paintServerSectionApplicationsList() {
   const section = document.getElementById("server-applications-section");
   const body = document.getElementById("server-applications-section-list");
   const empty = document.getElementById("server-applications-section-empty");
+  const pendingEmpty = document.getElementById("server-applications-pending-empty");
+  const pendingHost = document.getElementById("server-applications-pending");
+  const pendingMore = document.getElementById("server-applications-pending-more");
+  const rule = document.getElementById("server-applications-reviewed-rule");
+  const reviewedHost = document.getElementById("server-applications-reviewed");
+  const reviewedMore = document.getElementById("server-applications-reviewed-more");
   if (!body || !serverApplicationsSectionOpen()) return;
-  body.innerHTML = "";
-  const none = !serverSectionApplications.length;
-  if (section) section.classList.toggle("is-empty", none);
-  if (empty) empty.hidden = !none;
-  body.hidden = none;
-  if (none) return;
-  serverSectionApplications.forEach((row) => body.appendChild(buildServerSectionApplicationCard(row)));
+  const noPending = !serverSectionPending.length;
+  const noReviewed = !serverSectionReviewed.length;
+  const barren = noPending && noReviewed && !serverSectionPendingMore && !serverSectionReviewedMore;
+  if (section) section.classList.toggle("is-empty", barren);
+  if (empty) empty.hidden = !barren;
+  body.hidden = barren;
+  if (barren) return;
+  if (pendingEmpty) pendingEmpty.hidden = !noPending || serverSectionPendingMore;
+  if (pendingHost) {
+    pendingHost.hidden = noPending;
+    pendingHost.innerHTML = "";
+    serverSectionPending.forEach((row) => pendingHost.appendChild(buildServerSectionApplicationCard(row)));
+  }
+  if (pendingMore) {
+    pendingMore.hidden = !serverSectionPendingMore;
+    pendingMore.disabled = serverSectionPendingLoading;
+  }
+  if (rule) rule.hidden = noReviewed;
+  if (reviewedHost) {
+    reviewedHost.hidden = noReviewed;
+    reviewedHost.innerHTML = "";
+    serverSectionReviewed.forEach((row) => reviewedHost.appendChild(buildServerSectionApplicationCard(row)));
+  }
+  if (reviewedMore) {
+    reviewedMore.hidden = !serverSectionReviewedMore;
+    reviewedMore.disabled = serverSectionReviewedLoading;
+  }
+}
+
+function refreshOpenApplicationCard() {
+  if (!serverSectionApplicationOpenId) return;
+  const open = serverSectionApplicationById(serverSectionApplicationOpenId);
+  if (open) paintServerApplicationCard(open);
+  else closeServerApplicationCard();
+}
+
+async function fetchServerSectionApplications(group, offset) {
+  const response = await fetch(
+    `https://${serverAddress}/server_applications/${encodeURIComponent(currentServerId)}?group=${encodeURIComponent(group)}&offset=${offset}`,
+    { credentials: "include" }
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not load applications.");
+  return data;
 }
 
 async function loadServerSectionApplications(force) {
@@ -204,21 +264,50 @@ async function loadServerSectionApplications(force) {
     return;
   }
   try {
-    const response = await fetch(
-      `https://${serverAddress}/server_applications/${encodeURIComponent(currentServerId)}`,
-      { credentials: "include" }
-    );
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !serverApplicationsSectionOpen()) return;
-    serverSectionApplications = data.applications || [];
+    const packs = await Promise.all([
+      fetchServerSectionApplications("pending", 0),
+      fetchServerSectionApplications("reviewed", 0)
+    ]);
+    if (!serverApplicationsSectionOpen()) return;
+    serverSectionPending = packs[0].applications || [];
+    serverSectionPendingMore = !!packs[0].has_more;
+    serverSectionReviewed = packs[1].applications || [];
+    serverSectionReviewedMore = !!packs[1].has_more;
     serverSectionApplicationsLoadedFor = currentServerId;
     paintServerSectionApplicationsList();
-    if (serverSectionApplicationOpenId) {
-      const open = serverSectionApplications.find((row) => row.id === serverSectionApplicationOpenId);
-      if (open) paintServerApplicationCard(open);
-      else closeServerApplicationCard();
-    }
+    refreshOpenApplicationCard();
   } catch (e) {}
+}
+
+async function loadMoreServerSectionApplications(group) {
+  if (!currentServerId || !serverShowsApplicationsSection() || !serverApplicationsSectionOpen()) return;
+  const pending = group === "pending";
+  if (pending) {
+    if (!serverSectionPendingMore || serverSectionPendingLoading) return;
+    serverSectionPendingLoading = true;
+  } else {
+    if (!serverSectionReviewedMore || serverSectionReviewedLoading) return;
+    serverSectionReviewedLoading = true;
+  }
+  paintServerSectionApplicationsList();
+  try {
+    const offset = pending ? serverSectionPending.length : serverSectionReviewed.length;
+    const data = await fetchServerSectionApplications(pending ? "pending" : "reviewed", offset);
+    if (!serverApplicationsSectionOpen()) return;
+    const rows = data.applications || [];
+    if (pending) {
+      serverSectionPending = serverSectionPending.concat(rows);
+      serverSectionPendingMore = !!data.has_more;
+    } else {
+      serverSectionReviewed = serverSectionReviewed.concat(rows);
+      serverSectionReviewedMore = !!data.has_more;
+    }
+  } catch (e) {
+  } finally {
+    if (pending) serverSectionPendingLoading = false;
+    else serverSectionReviewedLoading = false;
+    paintServerSectionApplicationsList();
+  }
 }
 
 async function openServerApplicationsSection() {
@@ -260,6 +349,7 @@ async function openServerApplicationsSection() {
   const title = document.getElementById("channel-header-title");
   if (title) title.textContent = "Applications";
   if (typeof setHeaderDescription === "function") setHeaderDescription("channel-header-desc", "");
+  if (serverSectionApplicationsLoadedFor !== currentServerId) resetServerSectionApplicationLists();
   paintServerSectionApplicationsList();
   await loadServerSectionApplications(true);
 }
@@ -296,9 +386,13 @@ async function reviewServerSectionApplication(accepted) {
     if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not review that application.");
     const next = data.application;
     if (next) {
-      serverSectionApplications = serverSectionApplications.map((row) => row.id === next.id ? next : row);
+      serverSectionPending = serverSectionPending.filter((row) => row.id !== next.id);
+      serverSectionReviewed = [next].concat(serverSectionReviewed.filter((row) => row.id !== next.id));
       paintServerSectionApplicationsList();
       paintServerApplicationCard(next);
+      if (!serverSectionPending.length && serverSectionPendingMore) {
+        await loadMoreServerSectionApplications("pending");
+      }
     } else {
       await loadServerSectionApplications(true);
     }
@@ -309,7 +403,7 @@ async function reviewServerSectionApplication(accepted) {
     }
   } finally {
     serverSectionApplicationsBusy = false;
-    const open = serverSectionApplications.find((row) => row.id === serverSectionApplicationOpenId);
+    const open = serverSectionApplicationById(serverSectionApplicationOpenId);
     const pending = !!(open && open.status === "pending");
     if (deny) deny.disabled = !pending;
     if (accept) accept.disabled = !pending;
@@ -342,6 +436,10 @@ async function reviewServerSectionApplication(accepted) {
   }
   if (deny) deny.addEventListener("click", () => reviewServerSectionApplication(false));
   if (accept) accept.addEventListener("click", () => reviewServerSectionApplication(true));
+  const pendingMore = document.getElementById("server-applications-pending-more");
+  const reviewedMore = document.getElementById("server-applications-reviewed-more");
+  if (pendingMore) pendingMore.addEventListener("click", () => loadMoreServerSectionApplications("pending"));
+  if (reviewedMore) reviewedMore.addEventListener("click", () => loadMoreServerSectionApplications("reviewed"));
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     if (document.querySelector(".context-menu")) return;

@@ -57,6 +57,11 @@ class Server_application_review_in(BaseModel):
     accepted: bool
 
 
+class Server_application_discard_in(BaseModel):
+    server_id: str
+    application_id: int
+
+
 def listed_server(server):
     return bool(server and getattr(server, "discoverable", False))
 
@@ -719,6 +724,34 @@ async def review_server_application(
         exclude_user_id=current_user.id,
     )
     return {"ok": True, "application": serialize_server_application(database, row)}
+
+
+@router.post("/discard_server_application")
+async def discard_server_application(
+    body: Server_application_discard_in,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to review applications.")
+    row = database.query(Server_applications).filter(
+        Server_applications.id == body.application_id,
+        Server_applications.server_id == server.id,
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    if str(row.status or "") == "pending":
+        raise HTTPException(status_code=400, detail="That application is still pending.")
+    application_id = row.id
+    database.delete(row)
+    database.commit()
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_application_updated", "server_id": server.id},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "id": application_id}
 
 
 @router.post("/community_vote")

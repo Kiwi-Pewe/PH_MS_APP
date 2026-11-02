@@ -4726,6 +4726,10 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
 }
 #server-application-error { margin: 12px 0 0; }
 #server-application-error[hidden] { display: none; }
+#server-application-deny[hidden],
+#server-application-accept[hidden],
+#server-application-done[hidden],
+#server-application-discard[hidden] { display: none; }
 #server-overview::-webkit-scrollbar { width: 8px; }
 #server-overview::-webkit-scrollbar-track { background: transparent; }
 #server-overview::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }

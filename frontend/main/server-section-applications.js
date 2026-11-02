@@ -74,12 +74,35 @@ function applicationOptionPicked(question, option) {
   return String(answer || "") === String(option);
 }
 
+function paintServerApplicationFooter(row) {
+  const deny = document.getElementById("server-application-deny");
+  const accept = document.getElementById("server-application-accept");
+  const done = document.getElementById("server-application-done");
+  const discard = document.getElementById("server-application-discard");
+  const pending = !!(row && row.status === "pending");
+  const busy = serverSectionApplicationsBusy;
+  if (deny) {
+    deny.hidden = !pending;
+    deny.disabled = busy || !pending;
+  }
+  if (accept) {
+    accept.hidden = !pending;
+    accept.disabled = busy || !pending;
+  }
+  if (done) {
+    done.hidden = pending;
+    done.disabled = busy;
+  }
+  if (discard) {
+    discard.hidden = pending;
+    discard.disabled = busy;
+  }
+}
+
 function paintServerApplicationCard(row) {
   const title = document.getElementById("server-application-title");
   const body = document.getElementById("server-application-body");
   const err = document.getElementById("server-application-error");
-  const deny = document.getElementById("server-application-deny");
-  const accept = document.getElementById("server-application-accept");
   if (!body || !row) return;
   const username = String(row.username || "member").trim();
   if (title) title.textContent = username + "'s Application";
@@ -88,7 +111,6 @@ function paintServerApplicationCard(row) {
     err.textContent = "";
   }
   body.innerHTML = "";
-  const pending = row.status === "pending";
   const questions = row.questions || [];
   if (!questions.length) {
     const empty = document.createElement("p");
@@ -130,8 +152,7 @@ function paintServerApplicationCard(row) {
       body.appendChild(block);
     });
   }
-  if (deny) deny.disabled = serverSectionApplicationsBusy || !pending;
-  if (accept) accept.disabled = serverSectionApplicationsBusy || !pending;
+  paintServerApplicationFooter(row);
 }
 
 function openServerApplicationCard(row) {
@@ -362,11 +383,8 @@ function applyServerApplicationEvent(data) {
 async function reviewServerSectionApplication(accepted) {
   if (!currentServerId || !serverSectionApplicationOpenId || serverSectionApplicationsBusy) return;
   const err = document.getElementById("server-application-error");
-  const deny = document.getElementById("server-application-deny");
-  const accept = document.getElementById("server-application-accept");
   serverSectionApplicationsBusy = true;
-  if (deny) deny.disabled = true;
-  if (accept) accept.disabled = true;
+  paintServerApplicationFooter(serverSectionApplicationById(serverSectionApplicationOpenId));
   if (err) {
     err.hidden = true;
     err.textContent = "";
@@ -403,10 +421,49 @@ async function reviewServerSectionApplication(accepted) {
     }
   } finally {
     serverSectionApplicationsBusy = false;
-    const open = serverSectionApplicationById(serverSectionApplicationOpenId);
-    const pending = !!(open && open.status === "pending");
-    if (deny) deny.disabled = !pending;
-    if (accept) accept.disabled = !pending;
+    paintServerApplicationFooter(serverSectionApplicationById(serverSectionApplicationOpenId));
+  }
+}
+
+async function discardServerSectionApplication() {
+  if (!currentServerId || !serverSectionApplicationOpenId || serverSectionApplicationsBusy) return;
+  const open = serverSectionApplicationById(serverSectionApplicationOpenId);
+  if (!open || open.status === "pending") return;
+  const err = document.getElementById("server-application-error");
+  serverSectionApplicationsBusy = true;
+  paintServerApplicationFooter(open);
+  if (err) {
+    err.hidden = true;
+    err.textContent = "";
+  }
+  try {
+    const response = await fetch(`https://${serverAddress}/discard_server_application`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        server_id: currentServerId,
+        application_id: serverSectionApplicationOpenId
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not discard that application.");
+    const dropped = serverSectionApplicationOpenId;
+    serverSectionPending = serverSectionPending.filter((row) => row.id !== dropped);
+    serverSectionReviewed = serverSectionReviewed.filter((row) => row.id !== dropped);
+    closeServerApplicationCard();
+    paintServerSectionApplicationsList();
+    if (!serverSectionReviewed.length && serverSectionReviewedMore) {
+      await loadMoreServerSectionApplications("reviewed");
+    }
+  } catch (e) {
+    if (err) {
+      err.hidden = false;
+      err.textContent = e.message || "Could not discard that application.";
+    }
+  } finally {
+    serverSectionApplicationsBusy = false;
+    paintServerApplicationFooter(serverSectionApplicationById(serverSectionApplicationOpenId));
   }
 }
 
@@ -428,7 +485,10 @@ async function reviewServerSectionApplication(accepted) {
   const overlay = document.getElementById("server-application-overlay");
   const deny = document.getElementById("server-application-deny");
   const accept = document.getElementById("server-application-accept");
+  const done = document.getElementById("server-application-done");
+  const discard = document.getElementById("server-application-discard");
   if (close) close.addEventListener("click", closeServerApplicationCard);
+  if (done) done.addEventListener("click", closeServerApplicationCard);
   if (overlay) {
     overlay.addEventListener("click", (e) => {
       if (e.target.id === "server-application-overlay") closeServerApplicationCard();
@@ -436,6 +496,7 @@ async function reviewServerSectionApplication(accepted) {
   }
   if (deny) deny.addEventListener("click", () => reviewServerSectionApplication(false));
   if (accept) accept.addEventListener("click", () => reviewServerSectionApplication(true));
+  if (discard) discard.addEventListener("click", () => discardServerSectionApplication());
   const pendingMore = document.getElementById("server-applications-pending-more");
   const reviewedMore = document.getElementById("server-applications-reviewed-more");
   if (pendingMore) pendingMore.addEventListener("click", () => loadMoreServerSectionApplications("pending"));

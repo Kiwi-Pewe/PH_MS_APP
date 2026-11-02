@@ -229,15 +229,17 @@ function paintEditApplication() {
     });
     top.appendChild(select);
     top.appendChild(remove);
-    const prompt = document.createElement("input");
-    prompt.className = "server-settings-input edit-application-prompt";
-    prompt.type = "text";
-    prompt.setAttribute("data-application-prompt", "");
-    prompt.maxLength = 200;
-    prompt.placeholder = "Ask a question";
-    prompt.value = question.prompt || "";
     card.appendChild(top);
-    if (question.type !== "signature") card.appendChild(prompt);
+    if (question.type !== "signature") {
+      const prompt = document.createElement("input");
+      prompt.className = "server-settings-input edit-application-prompt";
+      prompt.type = "text";
+      prompt.setAttribute("data-application-prompt", "");
+      prompt.maxLength = 200;
+      prompt.placeholder = "Ask a question";
+      prompt.value = question.prompt || "";
+      card.appendChild(prompt);
+    }
     if (question.type === "multi" || question.type === "choice") {
       const options = document.createElement("div");
       options.className = "edit-application-options";

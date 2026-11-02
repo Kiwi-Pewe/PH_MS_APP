@@ -184,17 +184,16 @@ function buildServerSectionApplicationCard(row) {
 }
 
 function paintServerSectionApplicationsList() {
+  const section = document.getElementById("server-applications-section");
   const body = document.getElementById("server-applications-section-list");
+  const empty = document.getElementById("server-applications-section-empty");
   if (!body || !serverApplicationsSectionOpen()) return;
   body.innerHTML = "";
-  body.classList.toggle("is-empty", !serverSectionApplications.length);
-  if (!serverSectionApplications.length) {
-    const empty = document.createElement("p");
-    empty.className = "server-applications-empty";
-    empty.textContent = "No applications.";
-    body.appendChild(empty);
-    return;
-  }
+  const none = !serverSectionApplications.length;
+  if (section) section.classList.toggle("is-empty", none);
+  if (empty) empty.hidden = !none;
+  body.hidden = none;
+  if (none) return;
   serverSectionApplications.forEach((row) => body.appendChild(buildServerSectionApplicationCard(row)));
 }
 

@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=477">
+<link rel="stylesheet" href="app.css?v=478">
 </head>
 <body>
 
@@ -761,7 +761,10 @@
         </div>
 
         <div id="server-applications-section" style="display:none;">
-          <div id="server-applications-section-list"></div>
+          <div id="server-applications-section-empty" class="centered-empty-state" hidden>
+            <p>No applications.</p>
+          </div>
+          <div id="server-applications-section-list" hidden></div>
         </div>
 
         <div id="server-overview" style="display:none;">
@@ -2475,9 +2478,11 @@
         <span id="server-application-title" class="leave-party-title">Application</span>
         <button type="button" class="icon-btn" id="server-application-close" title="Close">&times;</button>
       </div>
-      <div class="leave-party-main" id="server-application-body"></div>
-      <div class="leave-party-footer" id="server-application-footer">
+      <div class="leave-party-main">
+        <div id="server-application-body"></div>
         <p id="server-application-error" class="server-settings-help" hidden></p>
+      </div>
+      <div class="leave-party-footer" id="server-application-footer">
         <button type="button" class="deny-btn" id="server-application-deny">Deny</button>
         <button type="button" class="pill-btn" id="server-application-accept">Accept</button>
       </div>
@@ -2865,7 +2870,7 @@
     </div>
 <script src="boot.js?v=155"></script>
 <script src="app-shell.js?v=77"></script>
-<script src="communities.js?v=45"></script>
+<script src="communities.js?v=46"></script>
 <script src="community-posts.js?v=4"></script>
 <script src="community-rooms.js?v=7"></script>
 <script src="community-search.js?v=2"></script>
@@ -2918,7 +2923,7 @@
 <script src="invites.js?v=51"></script>
 <script src="server-invites.js?v=7"></script>
 <script src="server-bans.js?v=3"></script>
-<script src="server-privacy.js?v=8"></script>
+<script src="server-privacy.js?v=9"></script>
 <script src="server-emojis.js?v=3"></script>
 <script src="server-integrations.js?v=1"></script>
 <script src="server-audit.js?v=11"></script>
@@ -2949,7 +2954,7 @@
 <script src="calendar-event.js?v=8"></script>
 <script src="overview.js?v=7"></script>
 <script src="server-section-members.js?v=2"></script>
-<script src="server-section-applications.js?v=3"></script>
+<script src="server-section-applications.js?v=4"></script>
 <script src="schedule.js?v=10"></script>
 <script src="doc-channel.js?v=14"></script>
 <script src="media-channel.js?v=6"></script>

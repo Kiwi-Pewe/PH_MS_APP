@@ -1454,7 +1454,7 @@ function paintCommunityApply(row) {
       card.appendChild(options);
     } else if (question.type === "signature") {
       const input = document.createElement("input");
-      input.className = "server-settings-input";
+      input.className = "server-settings-input application-question-input";
       input.type = "text";
       input.setAttribute("data-apply-value", "");
       input.autocomplete = "off";
@@ -1463,7 +1463,7 @@ function paintCommunityApply(row) {
       card.appendChild(input);
     } else {
       const input = document.createElement("input");
-      input.className = "server-settings-input";
+      input.className = "server-settings-input application-question-input";
       input.type = "text";
       input.setAttribute("data-apply-value", "");
       input.placeholder = "Write your answer";

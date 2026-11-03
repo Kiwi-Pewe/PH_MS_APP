@@ -41,14 +41,14 @@ function resolveNewMessagesMarker(messages) {
     let left = chatNewMarker.unreadCount;
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
-      if (!m || m.isMine || m.isSystem || m.senderId == null) continue;
+      if (!m || m.isMine || m.isSystem || (m.senderId == null && !m.isWebhook)) continue;
       left -= 1;
       if (left <= 0) {
         chatNewMarker.messageId = m.id;
         return;
       }
     }
-    const first = messages.find((m) => m && !m.isMine && !m.isSystem && m.senderId != null);
+    const first = messages.find((m) => m && !m.isMine && !m.isSystem && (m.senderId != null || m.isWebhook));
     if (first) chatNewMarker.messageId = first.id;
     return;
   }
@@ -160,7 +160,7 @@ function renderClusteredMessages(wrap, messages) {
       return;
     }
 
-    if (msg.isSystem || msg.senderId === null) {
+    if ((msg.isSystem || msg.senderId === null) && !msg.isWebhook) {
       appendChatDecorators(wrap, msg, lastDateRef);
       wrap.appendChild(buildSystemDivider(msg));
       openCluster = null;
@@ -599,10 +599,14 @@ function startNewCluster(wrap, msg) {
 
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
-  if (typeof paintUserFace === "function") paintUserFace(avatar, msg, { name: msg.username, userId: msg.senderId });
-  else avatar.textContent = avatarLetter(msg.username);
-  avatar.addEventListener("contextmenu", (e) => showClusterProfileMenu(e, msg));
-  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(avatar, msg.senderId);
+  if (typeof paintUserFace === "function") {
+    if (msg.isWebhook) paintUserFace(avatar, { username: msg.username }, { name: msg.username });
+    else paintUserFace(avatar, msg, { name: msg.username, userId: msg.senderId });
+  } else avatar.textContent = avatarLetter(msg.username);
+  if (!msg.isWebhook) {
+    avatar.addEventListener("contextmenu", (e) => showClusterProfileMenu(e, msg));
+    if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(avatar, msg.senderId);
+  }
 
   const body = document.createElement("div");
   body.className = "cluster-body";
@@ -612,11 +616,13 @@ function startNewCluster(wrap, msg) {
   const name = document.createElement("span");
   name.className = "cluster-name";
   name.textContent = msg.nickname || msg.username;
-  if ((msg.chatKind === "channel" || msg.chatKind === "forum") && typeof applyServerNameColor === "function") {
+  if (!msg.isWebhook && (msg.chatKind === "channel" || msg.chatKind === "forum") && typeof applyServerNameColor === "function") {
     applyServerNameColor(name, msg.senderId, msg.nameRole);
   }
-  name.addEventListener("contextmenu", (e) => showClusterProfileMenu(e, msg));
-  if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(name, msg.senderId);
+  if (!msg.isWebhook) {
+    name.addEventListener("contextmenu", (e) => showClusterProfileMenu(e, msg));
+    if (typeof bindMiniProfileTarget === "function") bindMiniProfileTarget(name, msg.senderId);
+  }
   const time = document.createElement("span");
   time.className = "cluster-time";
   time.textContent = formatClusterTime(msg.time);

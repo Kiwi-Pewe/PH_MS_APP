@@ -101,6 +101,7 @@ function applyConversationLists(conversations, parties, closedMutes) {
       username: c.username,
       displayName: c.display_name || c.username,
       status: (c.status || "").trim(),
+      presence: c.presence || "",
       unread: c.unread_count || 0,
       timestamp: c.last_message_at,
       avatar: c.avatar || null
@@ -158,10 +159,14 @@ function renderConversationList() {
     if (convo.type === "party") {
       if (typeof paintPartyFace === "function") paintPartyFace(face, displayName, convo.iconUrl);
       else face.textContent = avatarLetter(displayName);
-    } else if (typeof paintUserFace === "function") {
-      paintUserFace(face, convo, { name: displayName, userId: convo.id });
     } else {
-      face.textContent = avatarLetter(displayName);
+      row.dataset.userId = String(convo.id);
+      const pip = document.createElement("div");
+      const presence = typeof personPresence === "function" ? personPresence(convo) : (convo.presence || "offline");
+      pip.className = "status-dot status-" + presence;
+      face.appendChild(pip);
+      if (typeof paintUserFace === "function") paintUserFace(face, convo, { name: displayName, userId: convo.id });
+      else face.insertBefore(document.createTextNode(avatarLetter(displayName)), pip);
     }
     row.querySelector(".who").textContent = displayName;
     if (subtitle) {
@@ -211,6 +216,24 @@ function renderConversationList() {
   });
 
   updateHomeBadge();
+}
+
+function applyConversationPresence(userId, status) {
+  const presence = String(status || "").toLowerCase() === "online" ? "online" : "offline";
+  (conversationList || []).forEach((convo) => {
+    if (convo.type === "dm" && Number(convo.id) === Number(userId)) convo.presence = presence;
+  });
+  document.querySelectorAll("#dm-rows .dm-item[data-user-id]").forEach((row) => {
+    if (Number(row.dataset.userId) !== Number(userId)) return;
+    const face = row.querySelector(".avatar-dot");
+    if (!face) return;
+    let pip = face.querySelector(":scope > .status-dot");
+    if (!pip) {
+      pip = document.createElement("div");
+      face.appendChild(pip);
+    }
+    pip.className = "status-dot status-" + presence;
+  });
 }
 
 // type+id together identify an entry - a DM partner's id and a party's

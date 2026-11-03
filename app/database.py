@@ -730,6 +730,47 @@ def ensure_community_columns():
             conn.rollback()
 
 
+def ensure_webhook_columns():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS server_webhooks ("
+                "id INTEGER PRIMARY KEY, "
+                "server_id VARCHAR(10) NOT NULL, "
+                "channel_id INTEGER NOT NULL, "
+                "creator_id INTEGER, "
+                "name VARCHAR, "
+                "token VARCHAR, "
+                "created_at DATETIME)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_server_webhooks_token ON server_webhooks (token)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_server_webhooks_server ON server_webhooks (server_id, id)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        for column, coltype in (
+            ("webhook_id", "INTEGER"),
+            ("webhook_name", "VARCHAR"),
+        ):
+            try:
+                conn.execute(text(f"ALTER TABLE channel_messages ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+
 def ensure_load_indexes():
     statements = (
         "CREATE INDEX IF NOT EXISTS ix_channel_messages_channel_id ON channel_messages (channel_id, id)",

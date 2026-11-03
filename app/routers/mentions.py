@@ -430,7 +430,14 @@ def channel_has_unseen(database, channel, user_id, since):
         if since is not None:
             query = query.filter(Calendar_event_comment.created_at > since)
         return query.first() is not None
-    return other_authored_after(database, Channel_messages, Channel_messages.channel_id, Channel_messages.timestamp, Channel_messages.sender_id, channel_id, user_id, since)
+    query = database.query(Channel_messages.id).filter(Channel_messages.channel_id == channel_id)
+    if since is not None:
+        query = query.filter(Channel_messages.timestamp > since)
+    query = query.filter(or_(
+        and_(Channel_messages.sender_id.isnot(None), Channel_messages.sender_id != user_id),
+        Channel_messages.webhook_id.isnot(None),
+    ))
+    return query.first() is not None
 
 
 def seed_channel_unread(database, channel_id, member_ids, sender_id, seen_at):

@@ -10807,6 +10807,75 @@ body.is-mini-dragging {
   display: none;
 }
 
+.webhook-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  margin: 0 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-alt);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.webhook-row-copy {
+  min-width: 0;
+}
+.webhook-row-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.webhook-row-channel {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+#webhook-edit-overlay,
+#webhook-delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 960;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+#webhook-delete-overlay { z-index: 970; }
+#webhook-edit-overlay[hidden],
+#webhook-delete-overlay[hidden] { display: none; }
+.webhook-edit-modal {
+  width: 480px;
+}
+.webhook-edit-modal .server-settings-select { max-width: none; }
+.webhook-edit-modal .leave-party-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.webhook-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.webhook-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+#webhook-edit-delete {
+  align-self: flex-start;
+}
+
 
 
 

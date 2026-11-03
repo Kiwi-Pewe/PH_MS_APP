@@ -207,7 +207,7 @@ function auditEntryFields(row) {
     push("Author", detail.author_username);
     push("Content", detail.content || detail.title);
   }
-  if (action === "delete_channel" || action === "delete_category" || action === "create_channel" || action === "create_category" || action === "create_emoji" || action === "delete_emoji") push("Name", detail.name);
+  if (action === "delete_channel" || action === "delete_category" || action === "create_channel" || action === "create_category" || action === "create_emoji" || action === "delete_emoji" || action === "create_webhook" || action === "update_webhook" || action === "delete_webhook") push("Name", detail.name);
   if ((action === "delete_channel" || action === "create_channel") && detail.channel_type) push("Type", detail.channel_type);
   if (action === "update_channel_perms") {
     push("Channel", detail.name);

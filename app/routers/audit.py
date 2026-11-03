@@ -63,6 +63,9 @@ ACTION_LABELS = {
     "voice_move": "Member Moved",
     "application_accepted": "Application Accepted",
     "application_denied": "Application Denied",
+    "create_webhook": "Webhook Created",
+    "update_webhook": "Webhook Updated",
+    "delete_webhook": "Webhook Deleted",
 }
 
 
@@ -139,7 +142,7 @@ def detail_summary(action, target_type, detail):
     if action == "voice_move":
         name = d.get("username") or "member"
         return f"{name}: {d.get('from') or 'Voice'} → {d.get('to') or 'Voice'}"
-    if action in ("delete_channel", "delete_category", "create_channel", "create_category", "update_channel", "update_category", "create_emoji", "rename_emoji", "delete_emoji"):
+    if action in ("delete_channel", "delete_category", "create_channel", "create_category", "update_channel", "update_category", "create_emoji", "rename_emoji", "delete_emoji", "create_webhook", "update_webhook", "delete_webhook"):
         return d.get("name") or target_type or ""
     if action in ("update_server", "update_privacy"):
         return d.get("field") or d.get("name") or "Server"

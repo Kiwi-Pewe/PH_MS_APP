@@ -20,7 +20,7 @@ DEFAULT_ROLE_COLOR = "#99aab5"
 
 LIVE_ROLE_PERMS = (
     "update_server", "manage_roles", "invite_members", "kick_members",
-    "ban_members", "timeout_members", "manage_channels", "mention_everyone", "bypass_slowmode",
+    "ban_members", "timeout_members", "manage_channels", "manage_webhooks", "mention_everyone", "bypass_slowmode",
     "view_announcements", "create_announcements", "manage_announcements",
     "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
     "read_forums", "create_topics", "create_topic_replies", "manage_topics",
@@ -53,6 +53,7 @@ MEMBERS_DEFAULT_PERMS = (
 
 LIVE_CHANNEL_OVERRIDE_PERMS = (
     "manage_channels",
+    "manage_webhooks",
     "mention_everyone",
     "bypass_slowmode",
     "read_messages",
@@ -105,6 +106,7 @@ LIVE_CHANNEL_OVERRIDE_PERMS = (
 
 CHANNEL_PERM_LABELS = {
     "manage_channels": "Manage Channel",
+    "manage_webhooks": "Manage Webhooks",
     "mention_everyone": "Mention @everyone and @here",
     "bypass_slowmode": "Slowmode exception",
     "read_messages": "Read messages",

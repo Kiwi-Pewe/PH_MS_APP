@@ -585,6 +585,7 @@ function applyPresence(userId, status) {
     paintMiniProfilePresence(status);
   }
   if (typeof paintServerSectionMembersList === "function") paintServerSectionMembersList();
+  if (typeof applyConversationPresence === "function") applyConversationPresence(userId, status);
 }
 
 function applyMemberJoined(scope, scopeId, member) {

@@ -193,6 +193,16 @@ class Server_applications(Base):
     reviewed_at = Column(DateTime, nullable=True)
     reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
+class Server_webhooks(Base):
+    __tablename__ = "server_webhooks"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    channel_id = Column(Integer, ForeignKey("server_channels.id"))
+    creator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    name = Column(String)
+    token = Column(String, unique=True)
+    created_at = Column(DateTime, server_default=func.now())
+
 class Server_members(Base):
     __tablename__ = "server_members"
     id = Column(Integer, primary_key=True)
@@ -338,6 +348,8 @@ class Channel_messages(Base):
     timestamp = Column(DateTime, server_default=func.now())
     edited = Column(Boolean, default= False)
     reply_to_id = Column(Integer, nullable=True)
+    webhook_id = Column(Integer, nullable=True)
+    webhook_name = Column(String, nullable=True)
 
 class Invite_model(Base):
     __tablename__ = "invites"

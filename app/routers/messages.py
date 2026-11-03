@@ -22,7 +22,7 @@ from app.routers.reactions import reactions_for_messages
 from app.routers.mentions import accepted_reply_parent, reply_map_for
 from app.routers.profile import STATUS_MAX, avatar_lookup, clip_text, public_avatar, public_display_name
 from app.routers.feed import notify_activity_reply, notify_feed_alert
-from app.routers.realtime import notify_user
+from app.routers.realtime import notify_user, presence_status
 from app.site_moderation import mask_message_payloads, permaban_by_user_id
 from datetime import datetime, timedelta
 
@@ -316,6 +316,7 @@ def conversation_history(database: Session = Depends(get_db), current_user: User
             "username": other_account.username if other_account else "",
             "display_name": public_display_name(other_account) if other_account else "",
             "status": clip_text(other_account.profile_status, STATUS_MAX).strip() if other_account else "",
+            "presence": presence_status(other_id),
             "unread_count": unread_counts.get(other_id, 0),
             "last_message_at": str(convo.last_message_at),
             "avatar": public_avatar(other_account) if other_account else None,

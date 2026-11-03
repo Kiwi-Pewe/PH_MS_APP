@@ -1413,6 +1413,10 @@ document.addEventListener("keydown", (e) => {
   if (graphic && !graphic.hidden) return;
   const application = document.getElementById("edit-application-overlay");
   if (application && !application.hidden) return;
+  const webhookEdit = document.getElementById("webhook-edit-overlay");
+  if (webhookEdit && !webhookEdit.hidden) return;
+  const webhookDelete = document.getElementById("webhook-delete-overlay");
+  if (webhookDelete && !webhookDelete.hidden) return;
   const palette = document.getElementById("gradient-palette-overlay");
   if (palette && !palette.hidden) return;
   if (!isServerSettingsOpen) return;

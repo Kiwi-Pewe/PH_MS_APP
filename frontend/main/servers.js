@@ -344,8 +344,9 @@ function mapChannelHistory(messages) {
     const mapped = {
       id: msg.id,
       chatKind: "channel",
-      isMine: msg.sender_id === myUserId,
+      isMine: !msg.is_webhook && !msg.webhook_id && msg.sender_id === myUserId,
       senderId: msg.sender_id,
+      isWebhook: !!msg.is_webhook || !!msg.webhook_id,
       username: msg.username,
       nickname: msg.nickname || "",
       content: msg.content,

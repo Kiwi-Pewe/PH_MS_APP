@@ -1392,11 +1392,13 @@ def channel_history_payload(database, current_user, channel_id, before_id=None, 
 
     message_history = []
     for index, message in enumerate(channel_history):
+        hook_name = getattr(message, "webhook_name", None) or ""
+        is_hook = bool(getattr(message, "webhook_id", None) or hook_name)
         message_history.append({
             "id": message.id,
             "sender_id": message.sender_id,
-            "username": "" if message.sender_id == None else username_lookup.get(message.sender_id, ""),
-            "nickname": nick_map.get(message.sender_id, ""),
+            "username": hook_name if is_hook else ("" if message.sender_id == None else username_lookup.get(message.sender_id, "")),
+            "nickname": "" if is_hook else nick_map.get(message.sender_id, ""),
             "content": message.content,
             "attachment": attachment_public(message.attachment),
             "timestamp": str(message.timestamp),
@@ -1406,8 +1408,11 @@ def channel_history_payload(database, current_user, channel_id, before_id=None, 
             "mention_users": mention_meta[index]["mention_users"],
             "mention_roles": mention_meta[index]["mention_roles"],
             "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,
-            "avatar": faces.get(message.sender_id),
-            "name_role": name_map.get(message.sender_id),
+            "avatar": None if is_hook else faces.get(message.sender_id),
+            "name_role": None if is_hook else name_map.get(message.sender_id),
+            "is_webhook": is_hook,
+            "webhook_id": getattr(message, "webhook_id", None),
+            "webhook_name": hook_name,
         })
 
     if not around_mode:

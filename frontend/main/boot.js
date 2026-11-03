@@ -291,6 +291,7 @@ function connectSocket() {
           chatKind: "channel",
           senderId: data.sender_id,
           isMine: false,
+          isWebhook: !!data.is_webhook || !!data.webhook_id,
           username: data.username,
           nickname: data.nickname || "",
           content: data.content,

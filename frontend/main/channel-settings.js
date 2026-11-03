@@ -12,7 +12,7 @@ let channelSettingsForumReactionPick = null;
 let channelSettingsPermRoleId = "members";
 let channelSettingsPermDisplay = {};
 let channelSettingsPermLive = [
-  "manage_channels", "mention_everyone", "bypass_slowmode",
+  "manage_channels", "manage_webhooks", "mention_everyone", "bypass_slowmode",
   "read_messages", "send_messages", "upload_chat_media", "manage_messages", "pin_messages",
   "view_announcements", "create_announcements", "manage_announcements",
   "read_forums", "create_topics", "create_topic_replies", "manage_topics",
@@ -778,7 +778,10 @@ function showChannelSettingsTab(tab) {
     paintChannelSettingsPermissions();
     loadChannelSettingsRolePerms();
   }
-  if (tab === "integrations") paintChannelFollows();
+  if (tab === "integrations") {
+    paintChannelFollows();
+    if (typeof paintChannelWebhooks === "function") paintChannelWebhooks();
+  }
   if (tab === "invites" && typeof loadChannelInvitesPage === "function") loadChannelInvitesPage();
 }
 

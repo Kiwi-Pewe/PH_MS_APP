@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=480">
+<link rel="stylesheet" href="app.css?v=481">
 </head>
 <body>
 
@@ -1482,7 +1482,7 @@
         <section class="server-integrations-section" aria-labelledby="server-integrations-webhooks-title">
           <div class="server-integrations-section-head">
             <h3 id="server-integrations-webhooks-title" class="server-integrations-section-title">Webhooks</h3>
-            <button type="button" id="server-integrations-webhook-create" class="ghost-btn" disabled>New Webhook</button>
+            <button type="button" id="server-integrations-webhook-create" class="ghost-btn">New Webhook</button>
           </div>
           <div id="server-integrations-webhooks-list" class="server-integrations-list"></div>
           <p id="server-integrations-webhooks-empty" class="server-settings-help">No webhooks.</p>
@@ -1716,13 +1716,13 @@
       </div>
       <div id="channel-settings-integrations" class="server-settings-page is-channel-only" hidden>
         <h2 class="server-settings-page-title">Integrations</h2>
-        <p class="server-settings-help">Followed announcement channels land here. Webhooks stay a later pass.</p>
         <section class="server-integrations-section">
           <div class="server-integrations-section-head">
             <h3 class="server-integrations-section-title">Webhooks</h3>
-            <button type="button" class="ghost-btn" disabled>New Webhook</button>
+            <button type="button" id="channel-settings-webhook-create" class="ghost-btn">New Webhook</button>
           </div>
-          <p class="server-settings-help">No webhooks for this channel.</p>
+          <div id="channel-settings-webhooks-list" class="server-integrations-list"></div>
+          <p id="channel-settings-webhooks-empty" class="server-settings-help">No webhooks for this channel.</p>
         </section>
         <section class="server-integrations-section">
           <div class="server-integrations-section-head">
@@ -2571,6 +2571,50 @@
     </div>
   </div>
 
+  <div id="webhook-edit-overlay" hidden>
+    <div id="webhook-edit-modal" class="leave-party-modal webhook-edit-modal" role="dialog" aria-modal="true" aria-labelledby="webhook-edit-title">
+      <div class="leave-party-header">
+        <span id="webhook-edit-title" class="leave-party-title">Edit Webhook</span>
+        <button type="button" class="icon-btn" id="webhook-edit-close" title="Close">&times;</button>
+      </div>
+      <div class="leave-party-main">
+        <label class="webhook-field-label" for="webhook-edit-name">Name</label>
+        <input type="text" id="webhook-edit-name" class="server-settings-input" maxlength="80" autocomplete="off" spellcheck="false">
+        <label class="webhook-field-label" for="webhook-edit-channel">Channel</label>
+        <select id="webhook-edit-channel" class="settings-select server-settings-select"></select>
+        <label class="webhook-field-label" for="webhook-edit-url">Webhook URL</label>
+        <input type="text" id="webhook-edit-url" class="server-settings-input" readonly>
+        <div class="webhook-edit-actions">
+          <button type="button" class="ghost-btn" id="webhook-edit-copy">Copy URL</button>
+          <button type="button" class="ghost-btn" id="webhook-edit-test">Send Test</button>
+        </div>
+        <button type="button" class="deny-btn" id="webhook-edit-delete">Delete Webhook</button>
+        <p id="webhook-edit-status" class="server-settings-help" hidden></p>
+      </div>
+      <div class="leave-party-footer">
+        <button type="button" class="ghost-btn" id="webhook-edit-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="webhook-edit-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="webhook-delete-overlay" hidden>
+    <div id="webhook-delete-modal" class="leave-party-modal" role="dialog" aria-modal="true" aria-labelledby="webhook-delete-title">
+      <div class="leave-party-header">
+        <span id="webhook-delete-title" class="leave-party-title">Delete Webhook</span>
+        <button type="button" class="icon-btn" id="webhook-delete-close" title="Close">&times;</button>
+      </div>
+      <div class="leave-party-main">
+        <p class="leave-party-body" id="webhook-delete-copy">This webhook URL will stop working. Messages already posted stay in the channel.</p>
+        <p id="webhook-delete-status" class="server-settings-help" hidden></p>
+      </div>
+      <div class="leave-party-footer">
+        <button type="button" class="ghost-btn" id="webhook-delete-cancel">Cancel</button>
+        <button type="button" class="deny-btn" id="webhook-delete-confirm">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <div id="follow-channel-overlay" hidden>
     <div id="follow-channel-modal" class="delete-server-modal" role="dialog" aria-modal="true" aria-labelledby="follow-channel-title">
       <div class="delete-server-header">
@@ -2877,7 +2921,7 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=155"></script>
+<script src="boot.js?v=156"></script>
 <script src="app-shell.js?v=77"></script>
 <script src="communities.js?v=46"></script>
 <script src="community-posts.js?v=4"></script>
@@ -2890,9 +2934,9 @@
 <script src="community-finder-settings.js?v=1"></script>
 <script src="feed.js?v=23"></script>
 <script src="settings.js?v=31"></script>
-<script src="server-settings.js?v=53"></script>
+<script src="server-settings.js?v=54"></script>
 <script src="server-listing.js?v=3"></script>
-<script src="server-roles.js?v=40"></script>
+<script src="server-roles.js?v=41"></script>
 <script src="server-moderation.js?v=7"></script>
 <script src="server-members.js?v=12"></script>
 <script src="settings-account.js?v=10"></script>
@@ -2919,8 +2963,8 @@
 <script src="profile-identity.js?v=19"></script>
 <script src="profile-edit.js?v=101"></script>
 <script src="context-menus.js?v=111"></script>
-<script src="conversations.js?v=76"></script>
-<script src="chat-render.js?v=75"></script>
+<script src="conversations.js?v=77"></script>
+<script src="chat-render.js?v=76"></script>
 <script src="chat-history.js?v=52"></script>
 <script src="chat-compose.js?v=66"></script>
 <script src="typing.js?v=4"></script>
@@ -2934,8 +2978,8 @@
 <script src="server-bans.js?v=3"></script>
 <script src="server-privacy.js?v=9"></script>
 <script src="server-emojis.js?v=3"></script>
-<script src="server-integrations.js?v=1"></script>
-<script src="server-audit.js?v=11"></script>
+<script src="server-integrations.js?v=2"></script>
+<script src="server-audit.js?v=12"></script>
 <script src="server-delete.js?v=2"></script>
 <script src="account-delete.js?v=1"></script>
 <script src="server-notify.js?v=6"></script>
@@ -2943,15 +2987,15 @@
 <script src="embeds.js?v=48"></script>
 <script src="mentions.js?v=24"></script>
 <script src="explicit-channel.js?v=1"></script>
-<script src="servers.js?v=139"></script>
+<script src="servers.js?v=140"></script>
 <script src="voice.js?v=25"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=5"></script>
 <script src="server-dnd.js?v=4"></script>
-<script src="channel-settings.js?v=30"></script>
+<script src="channel-settings.js?v=31"></script>
 <script src="pins.js?v=4"></script>
 <script src="search.js?v=10"></script>
-<script src="members.js?v=29"></script>
+<script src="members.js?v=30"></script>
 <script src="mini-profile.js?v=42"></script>
 <script src="server-modals.js?v=49"></script>
 <script src="announcements.js?v=72"></script>

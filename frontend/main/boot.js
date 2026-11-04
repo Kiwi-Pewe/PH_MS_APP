@@ -978,8 +978,9 @@ function handleConnectionDeepLink() {
   const connection = params.get("connection");
   if (!connection) return;
   const error = params.get("error") || "";
+  const pick = params.get("pick") || "";
   history.replaceState({}, "", window.location.pathname);
-  window.connectionLinkNotice = { provider: connection, error: error };
+  window.connectionLinkNotice = { provider: connection, error: error, pick: pick };
   if (typeof openSettings !== "function") return;
   Promise.resolve(openSettings()).then(() => {
     if (typeof jumpToSettings === "function") jumpToSettings("connections");

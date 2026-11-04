@@ -31,13 +31,41 @@ const STEAM_CONNECTION_PARTS = [
   { key: "level_badges", label: "Level and badges" }
 ];
 
-const CONNECTION_LINK_ERRORS = {
-  cancel: "Steam sign-in was canceled.",
-  failed: "Steam did not confirm that sign-in.",
-  taken: "That Steam account is already linked to another Oneira account."
-};
+const YOUTUBE_CONNECTION_PARTS = [
+  { key: "identity", label: "Identity" },
+  { key: "stats", label: "Stats" },
+  { key: "uploads", label: "Uploads" },
+  { key: "playlists", label: "Playlists" },
+  { key: "likes", label: "Likes" },
+  { key: "subscriptions", label: "Subscriptions" },
+  { key: "live", label: "Live" },
+  { key: "activity", label: "Activity" },
+  { key: "channel_shelves", label: "Channel shelves" },
+  { key: "comments", label: "Comments" },
+  { key: "live_chat", label: "Live chat" },
+  { key: "super_chat", label: "Super Chat" },
+  { key: "memberships", label: "Memberships" }
+];
+
+const LIVE_CONNECTION_SLUGS = ["steam", "youtube"];
+
+function connectionLinkError(provider, code) {
+  const name = provider === "youtube" ? "YouTube" : "Steam";
+  if (code === "cancel") return name + " sign-in was canceled.";
+  if (code === "failed") return name + " did not confirm that sign-in.";
+  if (code === "taken") return "That " + name + " account is already linked to another Oneira account.";
+  if (code === "no_channel") return "That Google account has no YouTube channel.";
+  return "Could not finish that connection.";
+}
+
+function connectionPartsFor(provider) {
+  if (provider === "youtube") return YOUTUBE_CONNECTION_PARTS;
+  if (provider === "steam") return STEAM_CONNECTION_PARTS;
+  return [];
+}
 
 let connectionDisconnectService = "";
+let youtubePickChannelId = "";
 
 function connectionSlug(service) {
   const item = CONNECTION_PROVIDERS.find(row => row.name === service);
@@ -191,7 +219,10 @@ async function loadConnectionList(list) {
   const notice = window.connectionLinkNotice;
   window.connectionLinkNotice = null;
   if (notice && notice.error) {
-    list.appendChild(settingsNote(CONNECTION_LINK_ERRORS[notice.error] || "Could not finish that connection."));
+    list.appendChild(settingsNote(connectionLinkError(notice.provider, notice.error)));
+  }
+  if (notice && notice.pick === "1" && notice.provider === "youtube") {
+    openYoutubePick();
   }
   if (!rows.length) return;
   const count = document.createElement("div");
@@ -201,7 +232,7 @@ async function loadConnectionList(list) {
   rows.forEach(item => {
     const provider = CONNECTION_PROVIDERS.find(row => row.slug === item.provider);
     if (!provider) return;
-    const parts = item.provider === "steam" ? STEAM_CONNECTION_PARTS : [];
+    const parts = connectionPartsFor(item.provider);
     list.appendChild(paintConnectionCard(provider.name, parts, item.parts || {}, item.name || provider.name));
   });
 }
@@ -258,6 +289,172 @@ function ensureConnectionDisconnect() {
   document.body.appendChild(overlay);
 }
 
+function closeYoutubePick() {
+  const overlay = document.getElementById("youtube-pick-overlay");
+  if (overlay) overlay.hidden = true;
+  youtubePickChannelId = "";
+}
+
+function paintYoutubePickRows(channels) {
+  const list = document.getElementById("youtube-pick-list");
+  const confirm = document.getElementById("youtube-pick-confirm");
+  if (!list) return;
+  list.replaceChildren();
+  youtubePickChannelId = "";
+  if (confirm) confirm.disabled = true;
+  channels.forEach(item => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "youtube-pick-row";
+    row.dataset.channelId = item.id || "";
+    if (item.thumb) {
+      const img = document.createElement("img");
+      img.className = "youtube-pick-face";
+      img.src = item.thumb;
+      img.alt = "";
+      row.appendChild(img);
+    } else {
+      const face = document.createElement("span");
+      face.className = "youtube-pick-face is-empty";
+      row.appendChild(face);
+    }
+    const name = document.createElement("span");
+    name.className = "youtube-pick-name";
+    name.textContent = item.title || "YouTube channel";
+    row.appendChild(name);
+    row.addEventListener("click", () => {
+      youtubePickChannelId = row.dataset.channelId;
+      list.querySelectorAll(".youtube-pick-row").forEach(el => el.classList.toggle("is-on", el === row));
+      if (confirm) confirm.disabled = !youtubePickChannelId;
+    });
+    list.appendChild(row);
+  });
+}
+
+async function openYoutubePick() {
+  ensureYoutubePick();
+  const overlay = document.getElementById("youtube-pick-overlay");
+  const body = document.getElementById("youtube-pick-body");
+  const confirm = document.getElementById("youtube-pick-confirm");
+  if (!overlay) return;
+  if (body) body.textContent = "Pick which YouTube channel to link.";
+  if (confirm) confirm.disabled = true;
+  overlay.hidden = false;
+  try {
+    const response = await fetch(`https://${serverAddress}/connections/youtube/pending`, { credentials: "include" });
+    if (!response.ok) throw new Error("fail");
+    const data = await response.json();
+    const channels = data.channels || [];
+    if (!channels.length) {
+      closeYoutubePick();
+      return;
+    }
+    paintYoutubePickRows(channels);
+  } catch (e) {
+    if (body) body.textContent = "Could not load your YouTube channels.";
+  }
+}
+
+async function submitYoutubePick() {
+  const overlay = document.getElementById("youtube-pick-overlay");
+  const body = document.getElementById("youtube-pick-body");
+  const confirm = document.getElementById("youtube-pick-confirm");
+  if (!overlay || !youtubePickChannelId || !confirm) return;
+  confirm.disabled = true;
+  try {
+    const response = await fetch(`https://${serverAddress}/connections/youtube/choose`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel_id: youtubePickChannelId })
+    });
+    if (response.status === 409) {
+      if (body) body.textContent = connectionLinkError("youtube", "taken");
+      confirm.disabled = false;
+      return;
+    }
+    if (!response.ok) throw new Error("fail");
+    closeYoutubePick();
+    if (typeof jumpToSettings === "function") jumpToSettings("connections");
+  } catch (e) {
+    if (body) body.textContent = "Could not finish that connection.";
+    confirm.disabled = false;
+  }
+}
+
+async function cancelYoutubePick() {
+  try {
+    await fetch(`https://${serverAddress}/connections/youtube/cancel`, {
+      method: "POST",
+      credentials: "include"
+    });
+  } catch (e) {}
+  closeYoutubePick();
+}
+
+function ensureYoutubePick() {
+  if (document.getElementById("youtube-pick-overlay")) return;
+  const overlay = document.createElement("div");
+  overlay.id = "youtube-pick-overlay";
+  overlay.hidden = true;
+  const modal = document.createElement("div");
+  modal.className = "leave-party-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "youtube-pick-title");
+  const header = document.createElement("div");
+  header.className = "leave-party-header";
+  const title = document.createElement("span");
+  title.id = "youtube-pick-title";
+  title.className = "leave-party-title";
+  title.textContent = "Choose a YouTube channel";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "icon-btn";
+  close.title = "Close";
+  close.textContent = "\u00d7";
+  close.addEventListener("click", () => cancelYoutubePick());
+  header.appendChild(title);
+  header.appendChild(close);
+  const main = document.createElement("div");
+  main.className = "leave-party-main";
+  const copy = document.createElement("p");
+  copy.id = "youtube-pick-body";
+  copy.className = "leave-party-body";
+  const list = document.createElement("div");
+  list.id = "youtube-pick-list";
+  list.className = "youtube-pick-list";
+  main.appendChild(copy);
+  main.appendChild(list);
+  const footer = document.createElement("div");
+  footer.className = "leave-party-footer";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "ghost-btn";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", () => cancelYoutubePick());
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.id = "youtube-pick-confirm";
+  confirm.className = "pill-btn";
+  confirm.textContent = "Connect";
+  confirm.disabled = true;
+  confirm.addEventListener("click", () => submitYoutubePick());
+  footer.appendChild(cancel);
+  footer.appendChild(confirm);
+  modal.appendChild(header);
+  modal.appendChild(main);
+  modal.appendChild(footer);
+  overlay.appendChild(modal);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) cancelYoutubePick();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !overlay.hidden) cancelYoutubePick();
+  });
+  document.body.appendChild(overlay);
+}
+
 function paintConnections(host) {
   const blurb = document.createElement("p");
   blurb.className = "settings-blurb";
@@ -277,11 +474,11 @@ function paintConnections(host) {
     btn.className = "connection-provider";
     btn.title = item.name;
     btn.setAttribute("aria-label", item.name);
-    const live = item.slug === "steam";
+    const live = LIVE_CONNECTION_SLUGS.indexOf(item.slug) >= 0;
     btn.disabled = !live;
     if (live) {
       btn.addEventListener("click", () => {
-        window.location.href = `https://${serverAddress}/connections/steam/start`;
+        window.location.href = `https://${serverAddress}/connections/${item.slug}/start`;
       });
     }
     btn.appendChild(paintConnectionIcon(item));
@@ -333,6 +530,7 @@ function paintAuthorizedApps(host) {
 
 function renderConnectedAppsSettings(pane, jumpChildId) {
   ensureConnectionDisconnect();
+  ensureYoutubePick();
   pane.innerHTML = "";
   const block = document.createElement("section");
   block.className = "settings-block has-sections";

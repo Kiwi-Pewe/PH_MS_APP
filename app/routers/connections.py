@@ -36,6 +36,25 @@ STEAM_PARTS = (
     "achievements",
     "level_badges",
 )
+YOUTUBE_PARTS = (
+    "identity",
+    "stats",
+    "uploads",
+    "playlists",
+    "likes",
+    "subscriptions",
+    "live",
+    "activity",
+    "channel_shelves",
+    "comments",
+    "live_chat",
+    "super_chat",
+    "memberships",
+)
+PROVIDER_PARTS = {
+    "steam": STEAM_PARTS,
+    "youtube": YOUTUBE_PARTS,
+}
 NONCE_MINUTES = 15
 _ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
 
@@ -51,36 +70,41 @@ def steam_api_key():
     return (os.getenv("STEAM_WEB_API_KEY") or "").strip()
 
 
-def default_parts():
-    return {key: True for key in STEAM_PARTS}
+def default_parts(provider="steam"):
+    keys = PROVIDER_PARTS.get(provider) or ()
+    return {key: True for key in keys}
 
 
-def read_parts(raw):
+def read_parts(raw, provider="steam"):
     try:
         data = json.loads(raw or "")
     except Exception:
         data = {}
     if not isinstance(data, dict):
         data = {}
-    parts = default_parts()
-    for key in STEAM_PARTS:
+    parts = default_parts(provider)
+    for key in PROVIDER_PARTS.get(provider) or ():
         if key in data:
             parts[key] = bool(data[key])
     return parts
 
 
 def connection_public(row):
+    provider = (row.provider or "").strip()
+    fallback = "YouTube channel" if provider == "youtube" else "Steam user"
     return {
-        "provider": row.provider,
-        "name": (row.display_name or "").strip() or "Steam user",
-        "parts": read_parts(row.parts),
+        "provider": provider,
+        "name": (row.display_name or "").strip() or fallback,
+        "parts": read_parts(row.parts, provider),
     }
 
 
-def app_redirect(error=""):
-    url = APP_RETURN + "?connection=steam"
+def app_redirect(error="", provider="steam", pick=False):
+    url = APP_RETURN + "?connection=" + (provider or "steam")
     if error:
         url += "&error=" + error
+    if pick:
+        url += "&pick=1"
     return RedirectResponse(url)
 
 
@@ -1075,7 +1099,8 @@ def update_connection_part(body: Connection_part, session_id: str = Cookie(None)
         raise HTTPException(status_code=401, detail="Invalid or expired session.")
     provider = (body.provider or "").strip()
     part = (body.part or "").strip()
-    if provider != "steam" or part not in STEAM_PARTS:
+    allowed = PROVIDER_PARTS.get(provider) or ()
+    if part not in allowed:
         raise HTTPException(status_code=400, detail="Unknown connection setting.")
     row = database.query(Account_connection).filter(
         Account_connection.user_id == user.id,
@@ -1083,7 +1108,7 @@ def update_connection_part(body: Connection_part, session_id: str = Cookie(None)
     ).first()
     if not row:
         raise HTTPException(status_code=404, detail="That account is not connected.")
-    parts = read_parts(row.parts)
+    parts = read_parts(row.parts, provider)
     parts[part] = bool(body.enabled)
     row.parts = json.dumps(parts)
     database.commit()
@@ -1096,7 +1121,7 @@ def delete_connection(provider: str, session_id: str = Cookie(None), database: S
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired session.")
     provider = (provider or "").strip()
-    if provider != "steam":
+    if provider not in PROVIDER_PARTS:
         raise HTTPException(status_code=404, detail="That account is not connected.")
     row = database.query(Account_connection).filter(
         Account_connection.user_id == user.id,

@@ -771,6 +771,25 @@ def ensure_webhook_columns():
                 conn.rollback()
 
 
+def ensure_connection_columns():
+    with engine.connect() as conn:
+        for column, coltype in (
+            ("access_token", "VARCHAR"),
+            ("refresh_token", "VARCHAR"),
+            ("token_expires_at", "DATETIME"),
+        ):
+            try:
+                conn.execute(text(f"ALTER TABLE account_connections ADD COLUMN {column} {coltype}"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE connection_nonces ADD COLUMN payload VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_load_indexes():
     statements = (
         "CREATE INDEX IF NOT EXISTS ix_channel_messages_channel_id ON channel_messages (channel_id, id)",

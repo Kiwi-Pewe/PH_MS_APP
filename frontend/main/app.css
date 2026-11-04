@@ -4077,6 +4077,55 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   background: rgba(0, 0, 0, 0.6);
 }
 #leave-party-overlay[hidden] { display: none; }
+#youtube-pick-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 970;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+#youtube-pick-overlay[hidden] { display: none; }
+.youtube-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.youtube-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  text-align: left;
+}
+.youtube-pick-row:hover { border-color: var(--accent); }
+.youtube-pick-row.is-on {
+  border-color: var(--accent);
+  background: var(--rail);
+}
+.youtube-pick-face {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--panel);
+}
+.youtube-pick-face.is-empty { display: inline-block; }
+.youtube-pick-name {
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 0;
+}
 .leave-party-modal {
   width: 400px;
   max-width: calc(100vw - 32px);

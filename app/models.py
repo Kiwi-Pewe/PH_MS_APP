@@ -756,6 +756,9 @@ class Account_connection(Base):
     profile_url = Column(String, nullable=True)
     parts = Column(String, nullable=True)
     cache = Column(String, nullable=True)
+    access_token = Column(String, nullable=True)
+    refresh_token = Column(String, nullable=True)
+    token_expires_at = Column(DateTime, nullable=True)
     linked_at = Column(DateTime, server_default=func.now())
     refreshed_at = Column(DateTime, nullable=True)
     __table_args__ = (
@@ -872,6 +875,7 @@ class Connection_nonce(Base):
     nonce = Column(String, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, nullable=False)
+    payload = Column(String, nullable=True)
 
 Index(
     "ix_forum_post_activity",

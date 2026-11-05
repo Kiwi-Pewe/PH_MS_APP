@@ -410,7 +410,7 @@ def youtube_public(path, query):
     params = dict(query)
     params["key"] = key
     url = YOUTUBE_API + path + "?" + urlencode(params)
-    payload = http_json(url)
+    payload = http_json(url, headers={"Referer": SITE_ORIGIN})
     if not payload or payload.get("error"):
         return None
     return payload
@@ -1276,7 +1276,7 @@ def youtube_comments_fresh(cache, video_id, now):
     if not isinstance(bucket, dict):
         return False
     slot = bucket.get(video_id)
-    if not isinstance(slot, dict) or not isinstance(slot.get("rows"), list):
+    if not isinstance(slot, dict) or not slot.get("ok") or not isinstance(slot.get("rows"), list):
         return False
     raw = slot.get("at") or ""
     try:
@@ -1297,23 +1297,29 @@ def refresh_youtube_comments_cache(database, row, video_id):
         slot = bucket.get(wanted) or {}
         rows = slot.get("rows") if isinstance(slot.get("rows"), list) else []
         return cache, rows
-    token = youtube_access_token(database, row)
-    listed = youtube_fetch("/commentThreads", {
+    query = {
         "part": "snippet",
         "videoId": wanted,
         "maxResults": 25,
         "order": "time",
         "textFormat": "plainText",
-    }, token)
+    }
+    listed = youtube_public("/commentThreads", query)
+    if listed is None:
+        token = youtube_access_token(database, row)
+        listed = youtube_get("/commentThreads", query, token) if token else None
+        if listed and listed.get("error"):
+            listed = None
+    if listed is None:
+        return cache, []
     rows = []
-    if listed is not None:
-        for item in (listed.get("items") or []):
-            if isinstance(item, dict):
-                rows.append(comment_entry(item, wanted))
+    for item in (listed.get("items") or []):
+        if isinstance(item, dict):
+            rows.append(comment_entry(item, wanted))
     bucket = cache.get("comment_map")
     if not isinstance(bucket, dict):
         bucket = {}
-    bucket[wanted] = {"at": now.isoformat(), "rows": rows}
+    bucket[wanted] = {"at": now.isoformat(), "rows": rows, "ok": True}
     cache["comment_map"] = bucket
     row.cache = json.dumps(cache)
     database.commit()

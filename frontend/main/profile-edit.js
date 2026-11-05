@@ -785,6 +785,11 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillYoutubeLiveOptions(box, tile, draft, onChange, hintEl);
     return;
   }
+  if (tile.type === "youtube_playlists") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillYoutubePlaylistsOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
     fillFixedTitleOptions(box, draft, onChange, "left");
     return;
@@ -1194,6 +1199,31 @@ function fillYoutubeLiveOptions(box, tile, draft, onChange, hintEl) {
     ["show_comments", "Comment count", true, "comments"],
     ["show_unlisted", "Unlisted", false, "unlisted"]
   ], typeof youtubeLiveData !== "undefined" ? youtubeLiveData : null);
+}
+
+function fillYoutubePlaylistsOptions(box, tile, draft, onChange, hintEl) {
+  if (typeof ensureYoutubePlaylists === "function") ensureYoutubePlaylists();
+  if (draft.sort !== "count") draft.sort = "date";
+  const sort = profileSelectField("Sort", [
+    { value: "date", label: "Date Posted" },
+    { value: "count", label: "Most videos" }
+  ], draft.sort);
+  sort.select.addEventListener("change", () => {
+    draft.sort = sort.select.value === "count" ? "count" : "date";
+    if (typeof youtubePlaylistsPage !== "undefined") youtubePlaylistsPage[tile.id] = 1;
+    onChange();
+  });
+  const sortBlock = document.createElement("div");
+  sortBlock.className = "profile-name-opt";
+  sortBlock.appendChild(sort.label);
+  box.appendChild(sortBlock);
+  fillYoutubeFlagOptions(box, draft, onChange, [
+    ["show_thumb", "Picture", true, "thumb"],
+    ["show_video_title", "Title", true, "video_title"],
+    ["show_channel", "Creator", true, "channel"],
+    ["show_count", "Videos", true, "count"],
+    ["show_unlisted", "Unlisted", false, "unlisted"]
+  ], typeof youtubePlaylistsData !== "undefined" ? youtubePlaylistsData : null);
 }
 
 function fillLinkOptions(box, tile, draft, onChange, hintEl) {

@@ -161,7 +161,8 @@ def playlist_entry(item):
         "title": clip(snippet.get("title"), 160),
         "thumb": thumb_url(snippet.get("thumbnails")),
         "count": int(details.get("itemCount") or 0),
-        "privacy": clip((item.get("status") or {}).get("privacyStatus") if isinstance(item.get("status"), dict) else "", 16),
+        "published": clip(snippet.get("publishedAt"), 40),
+        "privacy": clip((item.get("status") or {}).get("privacyStatus") if isinstance(item.get("status"), dict) else "", 16) or "public",
     }
 
 
@@ -857,6 +858,115 @@ def load_youtube_live_card(database, user_id):
             "watching": any(clip(str(item.get("watching") or ""), 24) for item in streams),
             "banner": bool(banner),
             "unlisted": any((item.get("privacy") or "") == "unlisted" for item in streams),
+        },
+    }
+
+
+def youtube_playlists_fresh(cache, now):
+    rows = cache.get("playlists")
+    if not isinstance(rows, list):
+        return False
+    raw = cache.get("playlists_at") or ""
+    try:
+        at = datetime.fromisoformat(str(raw))
+    except Exception:
+        return False
+    if any(not isinstance(item, dict) or not item.get("privacy") or "published" not in item for item in rows):
+        return False
+    return (now - at) < timedelta(minutes=5)
+
+
+def refresh_youtube_playlists_cache(database, row):
+    cache = youtube_cache_dict(row.cache)
+    now = datetime.now()
+    if youtube_playlists_fresh(cache, now):
+        return cache
+    token = youtube_access_token(database, row)
+    listed = youtube_fetch("/playlists", {
+        "part": "snippet,contentDetails,status",
+        "mine": "true",
+        "maxResults": 25,
+    }, token)
+    if listed is None:
+        if cache.get("playlists") is None:
+            cache["playlists"] = []
+            cache["playlists_at"] = now.isoformat()
+            row.cache = json.dumps(cache)
+            database.commit()
+        return cache
+    rows = []
+    for item in (listed.get("items") or []):
+        if isinstance(item, dict):
+            rows.append(playlist_entry(item))
+    cache["playlists"] = rows
+    cache["playlists_at"] = now.isoformat()
+    row.cache = json.dumps(cache)
+    database.commit()
+    return cache
+
+
+def youtube_playlist_public(row):
+    privacy = (clip(row.get("privacy"), 16) or "public").lower()
+    if privacy == "private":
+        return None
+    try:
+        count = int(row.get("count") or 0)
+    except (TypeError, ValueError):
+        count = 0
+    return {
+        "id": clip(row.get("id"), 64),
+        "title": clip(row.get("title"), 160),
+        "thumb": clip(row.get("thumb"), 400),
+        "count": max(0, count),
+        "published": clip(row.get("published"), 40),
+        "privacy": privacy,
+    }
+
+
+def load_youtube_playlists_card(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "youtube",
+    ).first()
+    if not row:
+        return {
+            "linked": False,
+            "identity": False,
+            "playlists": False,
+            "lists": [],
+            "available": {},
+        }
+    cache = refresh_youtube_identity_cache(database, row)
+    cache = refresh_youtube_playlists_cache(database, row)
+    if not cache.get("profile_url"):
+        cache["profile_url"] = clip(row.profile_url, 400)
+    if not cache.get("title"):
+        cache["title"] = clip(row.display_name, 120)
+    parts = read_parts(row.parts, "youtube")
+    name = clip(cache.get("title"), 120)
+    link = clip(cache.get("profile_url"), 400)
+    if not link:
+        link = channel_profile_url(clip(cache.get("channel_id"), 64), cache.get("custom_url"))
+    lists = []
+    for item in (cache.get("playlists") or []):
+        if not isinstance(item, dict):
+            continue
+        public = youtube_playlist_public(item)
+        if public:
+            lists.append(public)
+    return {
+        "linked": True,
+        "identity": bool(parts.get("identity")),
+        "playlists": bool(parts.get("playlists")),
+        "name": name,
+        "profile_url": link,
+        "lists": lists,
+        "available": {
+            "thumb": any(clip(item.get("thumb"), 400) for item in lists),
+            "video_title": any(clip(item.get("title"), 160) for item in lists),
+            "channel": bool(name),
+            "count": any(item.get("count") for item in lists),
+            "unlisted": any((item.get("privacy") or "") == "unlisted" for item in lists),
         },
     }
 

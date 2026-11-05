@@ -7319,6 +7319,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_channel,
 .profile-tile.is-youtube_video,
 .profile-tile.is-youtube_uploads,
+.profile-tile.is-youtube_playlists,
 .profile-tile.is-youtube_live_now {
   display: flex; flex-direction: column; align-items: stretch; overflow: hidden;
 }
@@ -7335,6 +7336,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_video > .youtube-video-card,
 .profile-tile.is-youtube_live_now > .youtube-video-card,
 .profile-tile.is-youtube_uploads > .youtube-uploads-card,
+.profile-tile.is-youtube_playlists > .youtube-uploads-card,
 .profile-tile[class*="is-youtube_"] > .steam-recent-card {
   flex: 1 1 auto; min-height: 0; height: 0;
 }
@@ -7836,7 +7838,12 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_uploads[data-text-align="center"] .youtube-uploads-channel,
 .profile-tile.is-youtube_uploads[data-text-align="center"] .youtube-uploads-views,
 .profile-tile.is-youtube_uploads[data-text-align="center"] .youtube-uploads-foot,
-.profile-tile.is-youtube_uploads[data-text-align="center"] .steam-profile-note { text-align: center; }
+.profile-tile.is-youtube_uploads[data-text-align="center"] .steam-profile-note,
+.profile-tile.is-youtube_playlists[data-text-align="center"] .youtube-uploads-title,
+.profile-tile.is-youtube_playlists[data-text-align="center"] .youtube-uploads-channel,
+.profile-tile.is-youtube_playlists[data-text-align="center"] .youtube-uploads-views,
+.profile-tile.is-youtube_playlists[data-text-align="center"] .youtube-uploads-foot,
+.profile-tile.is-youtube_playlists[data-text-align="center"] .steam-profile-note { text-align: center; }
 .profile-tile.is-youtube_video[data-text-align="center"] .youtube-video-who { justify-content: center; }
 .profile-tile.is-friends[data-text-align="right"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="right"] .profile-friend-name,
@@ -7866,7 +7873,12 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_uploads[data-text-align="right"] .youtube-uploads-channel,
 .profile-tile.is-youtube_uploads[data-text-align="right"] .youtube-uploads-views,
 .profile-tile.is-youtube_uploads[data-text-align="right"] .youtube-uploads-foot,
-.profile-tile.is-youtube_uploads[data-text-align="right"] .steam-profile-note { text-align: right; }
+.profile-tile.is-youtube_uploads[data-text-align="right"] .steam-profile-note,
+.profile-tile.is-youtube_playlists[data-text-align="right"] .youtube-uploads-title,
+.profile-tile.is-youtube_playlists[data-text-align="right"] .youtube-uploads-channel,
+.profile-tile.is-youtube_playlists[data-text-align="right"] .youtube-uploads-views,
+.profile-tile.is-youtube_playlists[data-text-align="right"] .youtube-uploads-foot,
+.profile-tile.is-youtube_playlists[data-text-align="right"] .steam-profile-note { text-align: right; }
 .profile-tile.is-youtube_video[data-text-align="right"] .youtube-video-who { justify-content: flex-end; }
 .profile-tile.is-friends[data-text-align="justify"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="justify"] .profile-friend-name,
@@ -7896,7 +7908,12 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_uploads[data-text-align="justify"] .youtube-uploads-channel,
 .profile-tile.is-youtube_uploads[data-text-align="justify"] .youtube-uploads-views,
 .profile-tile.is-youtube_uploads[data-text-align="justify"] .youtube-uploads-foot,
-.profile-tile.is-youtube_uploads[data-text-align="justify"] .steam-profile-note { text-align: justify; }
+.profile-tile.is-youtube_uploads[data-text-align="justify"] .steam-profile-note,
+.profile-tile.is-youtube_playlists[data-text-align="justify"] .youtube-uploads-title,
+.profile-tile.is-youtube_playlists[data-text-align="justify"] .youtube-uploads-channel,
+.profile-tile.is-youtube_playlists[data-text-align="justify"] .youtube-uploads-views,
+.profile-tile.is-youtube_playlists[data-text-align="justify"] .youtube-uploads-foot,
+.profile-tile.is-youtube_playlists[data-text-align="justify"] .steam-profile-note { text-align: justify; }
 .profile-tile.is-friends[data-text-align="center"] .profile-friend-row,
 .profile-tile.is-link_tree[data-text-align="center"] .profile-link-row { justify-content: center; }
 .profile-tile.is-friends[data-text-align="right"] .profile-friend-row,

@@ -7250,7 +7250,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-steam_recently_played > .steam-recent-card,
 .profile-tile.is-steam_library > .steam-recent-card,
 .profile-tile.is-steam_achievements > .steam-recent-card,
-.profile-tile.is-steam_badges > .steam-recent-card {
+.profile-tile.is-steam_badges > .steam-recent-card,
+.profile-tile[class*="is-youtube_"] > .steam-recent-card {
   flex: 1 1 auto; min-height: 0; height: 0;
 }
 .steam-profile-card {

@@ -94,6 +94,17 @@ const PROFILE_TILE_TYPES = {
   steam_library: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Library" },
   steam_achievements: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Achievements" },
   steam_badges: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Badges" },
+  youtube_channel: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "Channel" },
+  youtube_video: { w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Video" },
+  youtube_uploads: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Uploads" },
+  youtube_live_now: { w: 10, h: 4, minW: 7, minH: 4, maxW: 10, maxH: 6, label: "Live Now" },
+  youtube_playlists: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Playlists" },
+  youtube_liked: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Liked videos" },
+  youtube_subscriptions: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Subscriptions" },
+  youtube_comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" },
+  youtube_live_chat: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Live chat" },
+  youtube_super_chat: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Super Chat" },
+  youtube_memberships: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Memberships" },
   frame: { label: "Frame", w: 12, h: 8, minW: 1, minH: 1, maxW: 32, maxH: 81 },
   meter: { label: "Meter", w: 10, h: 3, minW: 6, minH: 1, maxW: 24, maxH: 4 }
 };
@@ -784,7 +795,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "meter" || type === "member_since" || type === "friends" || type === "link_tree" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "mutuals" || type === "featured_friend" || type === "featured_server" || type === "connections";
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "meter" || type === "member_since" || type === "friends" || type === "link_tree" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "mutuals" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
 }
 
 function profileTextChrome(props, type) {
@@ -2199,6 +2210,29 @@ function steamProfileNote(text) {
   return note;
 }
 
+function isYoutubeWidget(type) {
+  return String(type || "").indexOf("youtube_") === 0;
+}
+
+function paintYoutubeStub(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
+  const meta = PROFILE_TILE_TYPES[tile.type] || { label: "YouTube" };
+  const fallback = meta.label || "YouTube";
+  const showTitle = !(tile.props && tile.props.show_title === false);
+  const card = document.createElement("div");
+  card.className = "steam-recent-card";
+  if (showTitle) {
+    const title = document.createElement("div");
+    title.className = "steam-recent-title";
+    title.textContent = String((tile.props && tile.props.title) || "").trim() || fallback;
+    card.appendChild(title);
+  }
+  const linked = typeof profileHasConnection === "function" && profileHasConnection("youtube");
+  card.appendChild(steamProfileNote(linked ? "" : "Connect YouTube to show this."));
+  el.appendChild(card);
+}
+
 function paintSteamProfile(tile, el) {
   applyProfileWidgetSurface(el, tile);
   applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
@@ -3375,6 +3409,10 @@ function paintProfileTileContent(tile, el) {
   }
   if (tile.type === "steam_badges") {
     paintSteamBadges(tile, el);
+    return;
+  }
+  if (isYoutubeWidget(tile.type)) {
+    paintYoutubeStub(tile, el);
     return;
   }
   if (tile.type === "banner") {

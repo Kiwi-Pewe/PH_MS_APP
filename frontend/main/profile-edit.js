@@ -82,6 +82,24 @@ const PROFILE_PALETTE = [
       { type: "steam_achievements", label: "Achievements" },
       { type: "steam_badges", label: "Badges" }
     ]
+  },
+  {
+    id: "youtube",
+    label: "YouTube",
+    connection: "youtube",
+    items: [
+      { type: "youtube_channel", label: "Channel" },
+      { type: "youtube_video", label: "Video" },
+      { type: "youtube_uploads", label: "Uploads" },
+      { type: "youtube_live_now", label: "Live Now" },
+      { type: "youtube_playlists", label: "Playlists" },
+      { type: "youtube_liked", label: "Liked videos" },
+      { type: "youtube_subscriptions", label: "Subscriptions" },
+      { type: "youtube_comments", label: "Comments" },
+      { type: "youtube_live_chat", label: "Live chat" },
+      { type: "youtube_super_chat", label: "Super Chat" },
+      { type: "youtube_memberships", label: "Memberships" }
+    ]
   }
 ];
 
@@ -136,13 +154,21 @@ const MINI_PROFILE_PALETTE = [
 ];
 
 let profileSteamLinked = false;
+let profileYoutubeLinked = false;
 let profileSteamChecked = false;
 let profileSteamLoad = null;
 
 function resetProfileSteamLink() {
   profileSteamLinked = false;
+  profileYoutubeLinked = false;
   profileSteamChecked = false;
   profileSteamLoad = null;
+}
+
+function profileHasConnection(provider) {
+  if (provider === "youtube") return profileYoutubeLinked;
+  if (provider === "steam") return profileSteamLinked;
+  return false;
 }
 
 function currentProfilePage() {
@@ -163,10 +189,13 @@ function renderProfilePalette() {
     profileSteamLoad = fetch(`https://${serverAddress}/connections`, { credentials: "include" })
       .then(response => response.ok ? response.json() : { connections: [] })
       .then(data => {
-        profileSteamLinked = (data.connections || []).some(row => row.provider === "steam");
+        const rows = data.connections || [];
+        profileSteamLinked = rows.some(row => row.provider === "steam");
+        profileYoutubeLinked = rows.some(row => row.provider === "youtube");
       })
       .catch(() => {
         profileSteamLinked = false;
+        profileYoutubeLinked = false;
       })
       .finally(() => {
         profileSteamChecked = true;
@@ -184,7 +213,7 @@ function renderProfilePalette() {
     });
   }
   groups.forEach(group => {
-    if (group.connection === "steam" && !profileSteamLinked) return;
+    if (group.connection && !profileHasConnection(group.connection)) return;
     const wrap = document.createElement("div");
     wrap.className = "profile-palette-group" + (mini ? " is-open" : "");
     const toggle = document.createElement("button");
@@ -583,7 +612,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections";
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -729,6 +758,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   if (tile.type === "steam_badges") {
     fillFixedTitleOptions(box, draft, onChange, "left");
     fillSteamBadgeOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
+  if (String(tile.type || "").indexOf("youtube_") === 0) {
+    fillFixedTitleOptions(box, draft, onChange, tile.type === "youtube_channel" ? "center" : "left");
     return;
   }
   if (tile.type === "featured_friend") {

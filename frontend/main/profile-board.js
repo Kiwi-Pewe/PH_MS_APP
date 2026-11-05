@@ -104,7 +104,7 @@ const PROFILE_TILE_TYPES = {
   youtube_comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" },
   youtube_live_chat: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Live chat" },
   youtube_super_chat: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Super Chat" },
-  youtube_memberships: { w: 6, h: 11, minW: 4, minH: 11, maxW: 6, maxH: 15, label: "Memberships" },
+  youtube_memberships: { w: 6, h: 11, minW: 4, minH: 11, maxW: 8, maxH: 15, label: "Memberships" },
   frame: { label: "Frame", w: 12, h: 8, minW: 1, minH: 1, maxW: 32, maxH: 81 },
   meter: { label: "Meter", w: 10, h: 3, minW: 6, minH: 1, maxW: 24, maxH: 4 }
 };
@@ -1127,7 +1127,9 @@ function applyProfileSubSize(el, tile) {
 }
 
 function applyProfileMemberSize(el, tile) {
-  applyProfileEntrySize(el, tile.props && tile.props.member_size, "--profile-friend-icon", "--profile-friend-text");
+  const n = clampProfileEntrySize(tile.props && tile.props.member_size);
+  el.style.setProperty("--profile-friend-icon", (22 + n * 2) + "px");
+  el.style.setProperty("--profile-friend-text", (10.5 + n * 0.7) + "px");
 }
 
 function applyProfileIconSize(el, tile) {

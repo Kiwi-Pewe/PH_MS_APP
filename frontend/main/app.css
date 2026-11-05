@@ -7283,7 +7283,12 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   height: var(--profile-friend-icon, 28px);
   font-size: calc(var(--profile-friend-icon, 28px) * 0.4);
 }
-.profile-tile.is-youtube_memberships .profile-friend-row .avatar-dot { overflow: visible; }
+.profile-tile.is-youtube_memberships .profile-friend-row .avatar-dot {
+  overflow: visible;
+  width: var(--profile-friend-icon, 32px);
+  height: var(--profile-friend-icon, 32px);
+  font-size: calc(var(--profile-friend-icon, 32px) * 0.4);
+}
 .profile-member-level {
   position: absolute;
   right: -2px;

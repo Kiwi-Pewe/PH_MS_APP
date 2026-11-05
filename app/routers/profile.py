@@ -263,7 +263,7 @@ def tile_bounds(kind, props=None):
         "youtube_comments": (8, 6, 24, 18),
         "youtube_live_chat": (8, 6, 24, 18),
         "youtube_super_chat": (7, 6, 16, 16),
-        "youtube_memberships": (4, 11, 6, 15),
+        "youtube_memberships": (4, 11, 8, 15),
     }.get(kind, (1, 1, GRID_COLS, 24))
 
 

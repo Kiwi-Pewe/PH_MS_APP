@@ -2213,6 +2213,10 @@ let youtubeSuperData = null;
 let youtubeSuperLoad = null;
 let youtubeSuperTimer = null;
 const youtubePlaylistsPage = {};
+const youtubeMembershipsPage = {};
+const YOUTUBE_MEMBER_MAX = 8;
+const YOUTUBE_MEMBER_ROW_H = 56;
+const YOUTUBE_MEMBER_PAD_Y = 16;
 
 function ensureSteamCard() {
   const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
@@ -3469,8 +3473,48 @@ function youtubeMembershipPlaceholders() {
     { id: "m5", title: "Avery", months: 3, since: iso(20), level_rank: 0, url: "" },
     { id: "m6", title: "Quinn", months: 36, since: iso(800), level_rank: 0, url: "" },
     { id: "m7", title: "Drew", months: 14, since: iso(45), level_rank: 2, url: "" },
-    { id: "m8", title: "Morgan", months: 6, since: iso(25), level_rank: 1, url: "" }
+    { id: "m8", title: "Morgan", months: 6, since: iso(25), level_rank: 1, url: "" },
+    { id: "m9", title: "Taylor", months: 2, since: iso(8), level_rank: 0, url: "" },
+    { id: "m10", title: "Reese", months: 18, since: iso(200), level_rank: 2, url: "" },
+    { id: "m11", title: "Skyler", months: 4, since: iso(50), level_rank: 1, url: "" },
+    { id: "m12", title: "Cameron", months: 10, since: iso(15), level_rank: 2, url: "" }
   ];
+}
+
+function youtubeMembershipsFlowBox(tile, withFoot) {
+  const chrome = profileTextChrome(tile.props, tile.type);
+  const frameW = chrome.show_frame ? chrome.frame_width : 0;
+  const pad = Math.max(clampProfileSpan(chrome.pad, 0, 32), frameW);
+  const border = chrome.show_border && !chrome.border_gradient ? Number(chrome.border_width) || 0 : 0;
+  const inset = pad + border;
+  const foot = withFoot ? YOUTUBE_UPLOADS_FOOT_H : 0;
+  return Math.max(0, tile.h * PROFILE_ROW_H - inset * 2 - YOUTUBE_UPLOADS_TITLE_H - foot - YOUTUBE_MEMBER_PAD_Y);
+}
+
+function youtubeMembershipsPerPage(tile, withFoot) {
+  const height = youtubeMembershipsFlowBox(tile, withFoot);
+  const rows = Math.max(1, Math.floor(height / YOUTUBE_MEMBER_ROW_H));
+  return Math.min(YOUTUBE_MEMBER_MAX, rows);
+}
+
+function youtubeMembershipsLayout(tile, count) {
+  let perPage = youtubeMembershipsPerPage(tile, false);
+  let pages = Math.max(1, Math.ceil(Math.max(0, count) / perPage) || 1);
+  if (pages > 1) {
+    perPage = youtubeMembershipsPerPage(tile, true);
+    pages = Math.max(1, Math.ceil(Math.max(0, count) / perPage) || 1);
+  }
+  return { perPage, pages };
+}
+
+function youtubeMembershipsTurn(tile, el, page) {
+  youtubeMembershipsPage[tile.id] = page;
+  if (el.classList.contains("is-opt-preview")) {
+    el.innerHTML = "";
+    paintYoutubeMemberships(tile, el);
+    return;
+  }
+  repaintProfileYoutubeTiles(true);
 }
 
 function youtubeMemberLevelNumber(row) {
@@ -3529,7 +3573,14 @@ function paintYoutubeMemberships(tile, el) {
     el.appendChild(body);
     return;
   }
-  members.forEach(channel => {
+  const layout = youtubeMembershipsLayout(tile, members.length);
+  let page = Math.round(Number(youtubeMembershipsPage[tile.id])) || 1;
+  if (page < 1) page = 1;
+  if (page > layout.pages) page = layout.pages;
+  youtubeMembershipsPage[tile.id] = page;
+  const flow = document.createElement("div");
+  flow.className = "profile-member-flow";
+  members.slice((page - 1) * layout.perPage, page * layout.perPage).forEach(channel => {
     const row = document.createElement("div");
     row.className = "profile-friend-row";
     const face = document.createElement("div");
@@ -3574,8 +3625,39 @@ function paintYoutubeMemberships(tile, el) {
         window.open(channel.url, "_blank", "noopener,noreferrer");
       });
     }
-    body.appendChild(row);
+    flow.appendChild(row);
   });
+  body.appendChild(flow);
+  if (layout.pages > 1) {
+    const foot = document.createElement("div");
+    foot.className = "youtube-uploads-foot";
+    const prev = document.createElement("button");
+    prev.type = "button";
+    prev.className = "steam-recent-page-btn";
+    prev.textContent = "‹";
+    prev.disabled = page <= 1;
+    prev.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (page > 1) youtubeMembershipsTurn(tile, el, page - 1);
+    });
+    const count = document.createElement("div");
+    count.className = "steam-recent-page-count";
+    count.textContent = String(page);
+    const next = document.createElement("button");
+    next.type = "button";
+    next.className = "steam-recent-page-btn";
+    next.textContent = "›";
+    next.disabled = page >= layout.pages;
+    next.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (page < layout.pages) youtubeMembershipsTurn(tile, el, page + 1);
+    });
+    foot.addEventListener("pointerdown", (e) => e.stopPropagation());
+    foot.appendChild(prev);
+    foot.appendChild(count);
+    foot.appendChild(next);
+    body.appendChild(foot);
+  }
   el.appendChild(body);
 }
 

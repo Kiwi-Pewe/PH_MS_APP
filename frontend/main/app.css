@@ -6542,6 +6542,27 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   overflow: auto;
   padding: 4px 12px 12px;
 }
+.profile-tile.is-youtube_memberships .profile-tile-body {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 12px 0;
+}
+.profile-member-flow {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.profile-tile.is-youtube_memberships .profile-friend-row {
+  flex: 0 0 56px;
+  height: 56px;
+  box-sizing: border-box;
+}
+.profile-tile.is-youtube_memberships .youtube-uploads-foot {
+  margin: 0 -12px;
+}
 .profile-tile.is-display_server .oneira-wall-head {
   padding: 10px 12px 0;
 }

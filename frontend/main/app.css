@@ -7018,7 +7018,9 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .youtube-uploads-title,
   .youtube-uploads-channel,
   .youtube-uploads-views,
-  .youtube-uploads-foot
+  .youtube-uploads-foot,
+  .youtube-comments-author,
+  .youtube-comments-text
 ) {
   color: var(--profile-text-color);
 }
@@ -7080,7 +7082,9 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .youtube-uploads-title,
   .youtube-uploads-channel,
   .youtube-uploads-views,
-  .youtube-uploads-foot
+  .youtube-uploads-foot,
+  .youtube-comments-author,
+  .youtube-comments-text
 ) {
   background-image: var(--profile-text-paint);
   background-repeat: no-repeat;
@@ -7136,7 +7140,9 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .youtube-uploads-title,
   .youtube-uploads-channel,
   .youtube-uploads-views,
-  .youtube-uploads-foot
+  .youtube-uploads-foot,
+  .youtube-comments-author,
+  .youtube-comments-text
 ) {
   line-height: var(--profile-line-height);
 }
@@ -7325,6 +7331,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_uploads,
 .profile-tile.is-youtube_playlists,
 .profile-tile.is-youtube_liked,
+.profile-tile.is-youtube_comments,
 .profile-tile.is-youtube_live_now {
   display: flex; flex-direction: column; align-items: stretch; overflow: hidden;
 }
@@ -7343,6 +7350,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_uploads > .youtube-uploads-card,
 .profile-tile.is-youtube_playlists > .youtube-uploads-card,
 .profile-tile.is-youtube_liked > .youtube-uploads-card,
+.profile-tile.is-youtube_comments > .youtube-comments-card,
 .profile-tile[class*="is-youtube_"] > .steam-recent-card {
   flex: 1 1 auto; min-height: 0; height: 0;
 }
@@ -7660,6 +7668,41 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   background: var(--rail); border-top: 1px solid var(--border);
 }
 .youtube-uploads-card > .steam-profile-note { flex: 1; }
+.youtube-comments-card {
+  height: 100%; min-height: 0; box-sizing: border-box;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.youtube-comments-flow {
+  flex: 1 1 auto; min-height: 0; height: 0; box-sizing: border-box;
+  display: flex; flex-direction: column; overflow: auto;
+  padding: 8px 12px;
+}
+.youtube-comments-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 0; min-width: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  cursor: pointer;
+}
+.youtube-comments-row:last-child { border-bottom: 0; }
+.profile-tile.is-editing .youtube-comments-row { cursor: inherit; }
+.profile-tile.is-editing .youtube-comments-row a { pointer-events: none; }
+.youtube-comments-face { width: 28px; height: 28px; font-size: 11px; }
+.youtube-comments-copy {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+}
+.youtube-comments-author {
+  font-size: calc(var(--profile-text-size, 14pt) * 0.72);
+  font-weight: 700; color: var(--accent); text-decoration: none;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.youtube-comments-author:hover { color: var(--text); text-decoration: underline; }
+.youtube-comments-text {
+  font-size: calc(var(--profile-text-size, 14pt) * 0.68);
+  color: var(--text); line-height: 1.35;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.youtube-comments-card > .steam-profile-note { flex: 1; }
 .youtube-live-thumb {
   background-color: #000;
   background-position: center;
@@ -7858,7 +7901,11 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_liked[data-text-align="center"] .youtube-uploads-channel,
 .profile-tile.is-youtube_liked[data-text-align="center"] .youtube-uploads-views,
 .profile-tile.is-youtube_liked[data-text-align="center"] .youtube-uploads-foot,
-.profile-tile.is-youtube_liked[data-text-align="center"] .steam-profile-note { text-align: center; }
+.profile-tile.is-youtube_liked[data-text-align="center"] .steam-profile-note,
+.profile-tile.is-youtube_comments[data-text-align="center"] .youtube-comments-author,
+.profile-tile.is-youtube_comments[data-text-align="center"] .youtube-comments-text,
+.profile-tile.is-youtube_comments[data-text-align="center"] .youtube-uploads-foot,
+.profile-tile.is-youtube_comments[data-text-align="center"] .steam-profile-note { text-align: center; }
 .profile-tile.is-youtube_video[data-text-align="center"] .youtube-video-who { justify-content: center; }
 .profile-tile.is-friends[data-text-align="right"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="right"] .profile-friend-name,
@@ -7900,7 +7947,11 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_liked[data-text-align="right"] .youtube-uploads-channel,
 .profile-tile.is-youtube_liked[data-text-align="right"] .youtube-uploads-views,
 .profile-tile.is-youtube_liked[data-text-align="right"] .youtube-uploads-foot,
-.profile-tile.is-youtube_liked[data-text-align="right"] .steam-profile-note { text-align: right; }
+.profile-tile.is-youtube_liked[data-text-align="right"] .steam-profile-note,
+.profile-tile.is-youtube_comments[data-text-align="right"] .youtube-comments-author,
+.profile-tile.is-youtube_comments[data-text-align="right"] .youtube-comments-text,
+.profile-tile.is-youtube_comments[data-text-align="right"] .youtube-uploads-foot,
+.profile-tile.is-youtube_comments[data-text-align="right"] .steam-profile-note { text-align: right; }
 .profile-tile.is-youtube_video[data-text-align="right"] .youtube-video-who { justify-content: flex-end; }
 .profile-tile.is-friends[data-text-align="justify"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="justify"] .profile-friend-name,
@@ -7942,7 +7993,11 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_liked[data-text-align="justify"] .youtube-uploads-channel,
 .profile-tile.is-youtube_liked[data-text-align="justify"] .youtube-uploads-views,
 .profile-tile.is-youtube_liked[data-text-align="justify"] .youtube-uploads-foot,
-.profile-tile.is-youtube_liked[data-text-align="justify"] .steam-profile-note { text-align: justify; }
+.profile-tile.is-youtube_liked[data-text-align="justify"] .steam-profile-note,
+.profile-tile.is-youtube_comments[data-text-align="justify"] .youtube-comments-author,
+.profile-tile.is-youtube_comments[data-text-align="justify"] .youtube-comments-text,
+.profile-tile.is-youtube_comments[data-text-align="justify"] .youtube-uploads-foot,
+.profile-tile.is-youtube_comments[data-text-align="justify"] .steam-profile-note { text-align: justify; }
 .profile-tile.is-friends[data-text-align="center"] .profile-friend-row,
 .profile-tile.is-youtube_subscriptions[data-text-align="center"] .profile-friend-row,
 .profile-tile.is-link_tree[data-text-align="center"] .profile-link-row { justify-content: center; }

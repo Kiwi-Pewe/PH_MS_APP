@@ -1239,6 +1239,126 @@ def load_youtube_subscriptions_card(database, user_id):
     }
 
 
+def youtube_watch_id(value):
+    text = clip(value, 16)
+    if len(text) != 11:
+        return ""
+    for ch in text:
+        if not (ch.isalnum() or ch in "-_"):
+            return ""
+    return text
+
+
+def comment_entry(item, video_id):
+    snippet = item.get("snippet") if isinstance(item.get("snippet"), dict) else {}
+    top = snippet.get("topLevelComment") if isinstance(snippet.get("topLevelComment"), dict) else {}
+    body = top.get("snippet") if isinstance(top.get("snippet"), dict) else {}
+    author_ch = body.get("authorChannelId")
+    if isinstance(author_ch, dict):
+        author_id = clip(author_ch.get("value"), 64)
+    else:
+        author_id = clip(author_ch, 64)
+    comment_id = clip(top.get("id") or item.get("id"), 64)
+    return {
+        "id": comment_id,
+        "video_id": youtube_watch_id(video_id or body.get("videoId")),
+        "author": clip(body.get("authorDisplayName"), 120),
+        "thumb": clip(body.get("authorProfileImageUrl"), 400),
+        "channel_id": author_id,
+        "url": channel_profile_url(author_id, ""),
+        "text": clip(body.get("textOriginal") or body.get("textDisplay"), 2000),
+        "published": clip(body.get("publishedAt"), 40),
+    }
+
+
+def youtube_comments_fresh(cache, video_id, now):
+    bucket = cache.get("comment_map")
+    if not isinstance(bucket, dict):
+        return False
+    slot = bucket.get(video_id)
+    if not isinstance(slot, dict) or not isinstance(slot.get("rows"), list):
+        return False
+    raw = slot.get("at") or ""
+    try:
+        at = datetime.fromisoformat(str(raw))
+    except Exception:
+        return False
+    return (now - at) < timedelta(minutes=5)
+
+
+def refresh_youtube_comments_cache(database, row, video_id):
+    cache = youtube_cache_dict(row.cache)
+    now = datetime.now()
+    wanted = youtube_watch_id(video_id)
+    if not wanted:
+        return cache, []
+    if youtube_comments_fresh(cache, wanted, now):
+        bucket = cache.get("comment_map") or {}
+        slot = bucket.get(wanted) or {}
+        rows = slot.get("rows") if isinstance(slot.get("rows"), list) else []
+        return cache, rows
+    token = youtube_access_token(database, row)
+    listed = youtube_fetch("/commentThreads", {
+        "part": "snippet",
+        "videoId": wanted,
+        "maxResults": 25,
+        "order": "time",
+        "textFormat": "plainText",
+    }, token)
+    rows = []
+    if listed is not None:
+        for item in (listed.get("items") or []):
+            if isinstance(item, dict):
+                rows.append(comment_entry(item, wanted))
+    bucket = cache.get("comment_map")
+    if not isinstance(bucket, dict):
+        bucket = {}
+    bucket[wanted] = {"at": now.isoformat(), "rows": rows}
+    cache["comment_map"] = bucket
+    row.cache = json.dumps(cache)
+    database.commit()
+    return cache, rows
+
+
+def load_youtube_comments_card(database, user_id, video_id=""):
+    miss = {
+        "linked": False,
+        "comments": False,
+        "video_id": "",
+        "threads": [],
+        "videos": [],
+    }
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "youtube",
+    ).first()
+    if not row:
+        return miss
+    cache = refresh_youtube_identity_cache(database, row)
+    cache = refresh_youtube_uploads_cache(database, row)
+    parts = read_parts(row.parts, "youtube")
+    videos = []
+    for item in (cache.get("uploads") or []):
+        if not isinstance(item, dict):
+            continue
+        public = youtube_video_public(item)
+        if public:
+            videos.append(public)
+    wanted = youtube_watch_id(video_id)
+    if not wanted and videos:
+        wanted = youtube_watch_id(videos[0].get("id"))
+    threads = []
+    if parts.get("comments") and wanted:
+        cache, threads = refresh_youtube_comments_cache(database, row, wanted)
+    return {
+        "linked": True,
+        "comments": bool(parts.get("comments")),
+        "video_id": wanted,
+        "threads": threads,
+        "videos": videos,
+    }
+
+
 def pending_youtube(database, user_id):
     drop_expired_nonces(database)
     cutoff = datetime.now() - timedelta(minutes=NONCE_MINUTES)

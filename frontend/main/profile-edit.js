@@ -617,7 +617,7 @@ function profileHasWidgetSettings(type) {
 }
 
 function profileHasLinkSettings(type) {
-  return type === "youtube_video" || type === "youtube_uploads" || type === "youtube_live_now" || type === "youtube_playlists" || type === "youtube_liked";
+  return type === "youtube_video" || type === "youtube_uploads" || type === "youtube_live_now" || type === "youtube_playlists" || type === "youtube_liked" || type === "youtube_comments";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -797,6 +797,11 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "youtube_subscriptions") {
     fillYoutubeSubscriptionsOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "youtube_comments") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillYoutubeCommentsOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
@@ -1290,6 +1295,48 @@ function fillYoutubeSubscriptionsOptions(box, tile, draft, onChange, hintEl) {
   box.appendChild(sizeRow);
 }
 
+function fillYoutubeCommentsOptions(box, tile, draft, onChange, hintEl) {
+  if (typeof ensureYoutubeVideo === "function") ensureYoutubeVideo();
+  if (draft.mode !== "specific" && draft.mode !== "link") draft.mode = "recent";
+  draft.video_id = String(draft.video_id || "");
+  const videos = (typeof youtubeVideoData !== "undefined" && youtubeVideoData && Array.isArray(youtubeVideoData.videos))
+    ? youtubeVideoData.videos
+    : [];
+  const mode = profileSelectField("Mode", [
+    { value: "recent", label: "Most recent" },
+    { value: "specific", label: "Specific upload" },
+    { value: "link", label: "Link widgets" }
+  ], draft.mode);
+  mode.select.addEventListener("change", () => {
+    draft.mode = mode.select.value === "specific" || mode.select.value === "link" ? mode.select.value : "recent";
+    extras.hidden = draft.mode !== "specific";
+    onChange();
+  });
+  const modeBlock = document.createElement("div");
+  modeBlock.className = "profile-name-opt";
+  modeBlock.appendChild(mode.label);
+  box.appendChild(modeBlock);
+  const extras = document.createElement("div");
+  extras.className = "profile-name-opt";
+  extras.hidden = draft.mode !== "specific";
+  const picks = [{ value: "", label: videos.length ? "Pick an upload" : "No uploads yet" }];
+  videos.forEach(row => {
+    if (!row || !row.id) return;
+    picks.push({ value: String(row.id), label: row.title || row.id });
+  });
+  if (draft.video_id && videos.length && !picks.some(opt => opt.value === draft.video_id)) draft.video_id = "";
+  const pick = profileSelectField("Upload", picks, draft.video_id);
+  pick.select.addEventListener("change", () => {
+    draft.video_id = String(pick.select.value || "");
+    onChange();
+  });
+  extras.appendChild(pick.label);
+  box.appendChild(extras);
+  fillYoutubeFlagOptions(box, draft, onChange, [
+    ["show_unlisted", "Unlisted", false, "unlisted"]
+  ], typeof youtubeVideoData !== "undefined" ? youtubeVideoData : null);
+}
+
 function fillLinkOptions(box, tile, draft, onChange, hintEl) {
   if (typeof ensureYoutubeVideo === "function") ensureYoutubeVideo();
   if (typeof ensureYoutubeLive === "function") ensureYoutubeLive();
@@ -1297,7 +1344,7 @@ function fillLinkOptions(box, tile, draft, onChange, hintEl) {
     fillYoutubeLinkSection(box, tile, draft, onChange, "findable");
     return;
   }
-  if (tile.type === "youtube_uploads" || tile.type === "youtube_playlists" || tile.type === "youtube_liked") {
+  if (tile.type === "youtube_uploads" || tile.type === "youtube_playlists" || tile.type === "youtube_liked" || tile.type === "youtube_comments") {
     fillYoutubeLinkSection(box, tile, draft, onChange, "driver");
   }
 }

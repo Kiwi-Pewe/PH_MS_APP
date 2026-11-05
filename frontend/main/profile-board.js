@@ -2195,6 +2195,10 @@ let youtubeLikedLoad = null;
 let youtubeSubsOwnerId = "";
 let youtubeSubsData = null;
 let youtubeSubsLoad = null;
+const youtubeCommentsStore = {};
+const youtubeCommentsLoad = {};
+const youtubeCommentsPage = {};
+const YOUTUBE_COMMENT_PAGE = 6;
 const youtubePlaylistsPage = {};
 
 function ensureSteamCard() {
@@ -2769,6 +2773,7 @@ function openYoutubeUpload(tile, video) {
     youtubeVideoLiveRow[target.id] = video;
     delete youtubeVideoPlaylist[target.id];
     repaintProfileTileId(target.id);
+    repaintYoutubeCommentTiles();
     return;
   }
   const href = youtubeWatchUrl(video && video.id);
@@ -2814,6 +2819,7 @@ function openYoutubePlaylist(tile, list) {
         video: (start && start.video) || null
       };
       repaintProfileTileId(target.id);
+      repaintYoutubeCommentTiles();
     });
     return;
   }
@@ -3437,6 +3443,224 @@ function paintYoutubeSubscriptions(tile, el) {
     body.appendChild(row);
   });
   el.appendChild(body);
+}
+
+function youtubeCommentUrl(videoId, commentId) {
+  if (!videoId || !commentId) return "";
+  return "https://www.youtube.com/watch?v=" + encodeURIComponent(videoId) + "&lc=" + encodeURIComponent(commentId);
+}
+
+function youtubeCommentsKey(videoId) {
+  const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  return owner + ":" + String(videoId || "");
+}
+
+function pickYoutubeCommentTarget(tile) {
+  const props = (tile && tile.props) || {};
+  const mode = props.mode === "specific" || props.mode === "link" ? props.mode : "recent";
+  if (mode === "link") {
+    const target = youtubeLinkTarget(props.link_tile);
+    if (!target) return { missing: true, video: null };
+    if (!youtubeVideoData || youtubeVideoOwnerId !== String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "")) {
+      ensureYoutubeVideo();
+      return { pending: true, video: null };
+    }
+    return { video: pickYoutubeVideo(youtubeVideoData, target.props, target.id) };
+  }
+  const rows = youtubeListedUploads(
+    (youtubeVideoData && youtubeVideoData.videos) || [],
+    steamFlag(props, "show_unlisted", false)
+  );
+  if (mode === "specific") {
+    const wanted = String(props.video_id || "").trim();
+    return { video: rows.find(row => row && String(row.id || "") === wanted) || null };
+  }
+  return { video: rows[0] || null };
+}
+
+function ensureYoutubeComments(videoId) {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  const wanted = String(videoId || "").trim();
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  const key = youtubeCommentsKey(wanted);
+  if (youtubeCommentsStore[key] || youtubeCommentsLoad[key]) return;
+  const query = wanted ? ("?video_id=" + encodeURIComponent(wanted)) : "";
+  youtubeCommentsLoad[key] = fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/youtube_comments" + query, { credentials: "include" })
+    .then(response => response.ok ? response.json() : { linked: false, threads: [] })
+    .then(data => { youtubeCommentsStore[key] = data || { linked: false, threads: [] }; })
+    .catch(() => { youtubeCommentsStore[key] = { linked: false, threads: [] }; })
+    .finally(() => {
+      youtubeCommentsLoad[key] = null;
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id) repaintYoutubeCommentTiles();
+    });
+}
+
+function youtubeCommentsTurn(tile, el, page) {
+  const pick = pickYoutubeCommentTarget(tile);
+  const videoId = pick.video && pick.video.id ? String(pick.video.id) : "";
+  youtubeCommentsPage[tile.id + ":" + videoId] = page;
+  if (el.classList.contains("is-opt-preview")) {
+    el.innerHTML = "";
+    paintYoutubeComments(tile, el);
+    return;
+  }
+  repaintYoutubeCommentTiles();
+}
+
+function repaintYoutubeCommentTiles() {
+  const board = document.getElementById("profile-board");
+  if (!board) return;
+  const layout = profileDraft || profileSavedLayout;
+  const page = typeof profilePageById === "function" ? profilePageById(layout, profileActivePageId) : null;
+  const tiles = (page && page.tiles) || [];
+  board.querySelectorAll(".profile-tile").forEach(node => {
+    const tile = tiles.find(item => item && item.id === node.dataset.tileId);
+    if (!tile || tile.type !== "youtube_comments") return;
+    const handle = node.querySelector(".profile-resize");
+    paintProfileTileContent(tile, node);
+    if (handle) node.appendChild(handle);
+  });
+}
+
+function paintYoutubeComments(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
+  mountSteamTitle(el, tile, "YouTube comments", "left");
+  const card = document.createElement("div");
+  card.className = "youtube-comments-card";
+  const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!youtubeVideoData || youtubeVideoOwnerId !== owner) {
+    ensureYoutubeVideo();
+    el.appendChild(card);
+    return;
+  }
+  const data = youtubeVideoData;
+  if (!data.linked) {
+    card.appendChild(steamProfileNote("Connect YouTube to show this."));
+    el.appendChild(card);
+    return;
+  }
+  const pick = pickYoutubeCommentTarget(tile);
+  if (pick.pending) {
+    el.appendChild(card);
+    return;
+  }
+  if (pick.missing) {
+    card.appendChild(steamProfileNote("Link a Video to show this."));
+    el.appendChild(card);
+    return;
+  }
+  const video = pick.video;
+  if (!video || !video.id) {
+    card.appendChild(steamProfileNote("No uploads to show."));
+    el.appendChild(card);
+    return;
+  }
+  const key = youtubeCommentsKey(video.id);
+  const packed = youtubeCommentsStore[key];
+  if (!packed) {
+    ensureYoutubeComments(video.id);
+    el.appendChild(card);
+    return;
+  }
+  if (packed.comments === false) {
+    card.appendChild(steamProfileNote("Turn on Comments for YouTube."));
+    el.appendChild(card);
+    return;
+  }
+  const threads = Array.isArray(packed.threads) ? packed.threads : [];
+  if (!threads.length) {
+    card.appendChild(steamProfileNote("No comments to show."));
+    el.appendChild(card);
+    return;
+  }
+  const pages = Math.max(1, Math.ceil(threads.length / YOUTUBE_COMMENT_PAGE));
+  const pageKey = tile.id + ":" + video.id;
+  let page = Math.round(Number(youtubeCommentsPage[pageKey])) || 1;
+  if (page < 1) page = 1;
+  if (page > pages) page = pages;
+  youtubeCommentsPage[pageKey] = page;
+  const flow = document.createElement("div");
+  flow.className = "youtube-comments-flow";
+  threads.slice((page - 1) * YOUTUBE_COMMENT_PAGE, page * YOUTUBE_COMMENT_PAGE).forEach(row => {
+    const entry = document.createElement("div");
+    entry.className = "youtube-comments-row";
+    entry.addEventListener("click", (e) => {
+      if (profileEditing && profileIsOwn) return;
+      if (e.target.closest("a")) return;
+      e.stopPropagation();
+      const href = youtubeCommentUrl(row.video_id || video.id, row.id);
+      if (href) window.open(href, "_blank", "noopener,noreferrer");
+    });
+    const face = document.createElement("div");
+    face.className = "avatar-dot youtube-comments-face";
+    if (row.thumb) {
+      const img = document.createElement("img");
+      img.src = row.thumb;
+      img.alt = "";
+      img.draggable = false;
+      face.appendChild(img);
+    } else {
+      const shown = row.author || "?";
+      face.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : shown.slice(0, 1);
+    }
+    const copy = document.createElement("div");
+    copy.className = "youtube-comments-copy";
+    if (row.author) {
+      const name = document.createElement(row.url ? "a" : "div");
+      name.className = "youtube-comments-author";
+      name.textContent = row.author;
+      if (row.url) {
+        name.href = row.url;
+        name.target = "_blank";
+        name.rel = "noopener noreferrer";
+        name.addEventListener("pointerdown", (e) => e.stopPropagation());
+        name.addEventListener("click", (e) => e.stopPropagation());
+      }
+      copy.appendChild(name);
+    }
+    if (row.text) {
+      const text = document.createElement("div");
+      text.className = "youtube-comments-text";
+      text.textContent = row.text;
+      copy.appendChild(text);
+    }
+    entry.appendChild(face);
+    if (copy.childNodes.length) entry.appendChild(copy);
+    flow.appendChild(entry);
+  });
+  card.appendChild(flow);
+  if (pages > 1) {
+    const foot = document.createElement("div");
+    foot.className = "youtube-uploads-foot";
+    const prev = document.createElement("button");
+    prev.type = "button";
+    prev.className = "steam-recent-page-btn";
+    prev.textContent = "‹";
+    prev.disabled = page <= 1;
+    prev.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (page > 1) youtubeCommentsTurn(tile, el, page - 1);
+    });
+    const count = document.createElement("div");
+    count.className = "steam-recent-page-count";
+    count.textContent = String(page);
+    const next = document.createElement("button");
+    next.type = "button";
+    next.className = "steam-recent-page-btn";
+    next.textContent = "›";
+    next.disabled = page >= pages;
+    next.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (page < pages) youtubeCommentsTurn(tile, el, page + 1);
+    });
+    foot.addEventListener("pointerdown", (e) => e.stopPropagation());
+    foot.appendChild(prev);
+    foot.appendChild(count);
+    foot.appendChild(next);
+    card.appendChild(foot);
+  }
+  el.appendChild(card);
 }
 
 function ensureYoutubeLive() {
@@ -4904,6 +5128,10 @@ function paintProfileTileContent(tile, el) {
     paintYoutubeSubscriptions(tile, el);
     return;
   }
+  if (tile.type === "youtube_comments") {
+    paintYoutubeComments(tile, el);
+    return;
+  }
   if (isYoutubeWidget(tile.type)) {
     paintYoutubeStub(tile, el);
     return;
@@ -5256,7 +5484,7 @@ function repaintProfileYoutubeTiles(force) {
   const tiles = (page && page.tiles) || [];
   board.querySelectorAll(".profile-tile").forEach(el => {
     const tile = tiles.find(item => item && item.id === el.dataset.tileId);
-    if (!tile || (tile.type !== "youtube_channel" && tile.type !== "youtube_video" && tile.type !== "youtube_uploads" && tile.type !== "youtube_live_now" && tile.type !== "youtube_playlists" && tile.type !== "youtube_liked" && tile.type !== "youtube_subscriptions")) return;
+    if (!tile || (tile.type !== "youtube_channel" && tile.type !== "youtube_video" && tile.type !== "youtube_uploads" && tile.type !== "youtube_live_now" && tile.type !== "youtube_playlists" && tile.type !== "youtube_liked" && tile.type !== "youtube_subscriptions" && tile.type !== "youtube_comments")) return;
     const handle = el.querySelector(".profile-resize");
     paintProfileTileContent(tile, el);
     if (handle) el.appendChild(handle);

@@ -8,7 +8,7 @@ import random
 import colorsys
 from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user, Servers, Server_members
 from app.routers.connections import load_steam_achievements, load_steam_badges, load_steam_card, load_steam_playing, load_steam_recent, load_steam_library
-from app.routers.youtube_link import load_youtube_card, load_youtube_video_card, load_youtube_live_card, load_youtube_playlists_card, load_youtube_playlist_start, load_youtube_liked_card
+from app.routers.youtube_link import load_youtube_card, load_youtube_video_card, load_youtube_live_card, load_youtube_playlists_card, load_youtube_playlist_start, load_youtube_liked_card, load_youtube_subscriptions_card
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
 from app.database import get_db
 from app.auth import get_current_user
@@ -259,7 +259,7 @@ def tile_bounds(kind, props=None):
         "youtube_live_now": (12, 10, 24, 16),
         "youtube_playlists": (10, 5, 10, 16),
         "youtube_liked": (10, 5, 10, 16),
-        "youtube_subscriptions": (7, 6, 16, 16),
+        "youtube_subscriptions": (4, 11, 6, 15),
         "youtube_comments": (8, 6, 24, 18),
         "youtube_live_chat": (8, 6, 24, 18),
         "youtube_super_chat": (7, 6, 16, 16),
@@ -325,7 +325,7 @@ def default_sizes(kind):
         "youtube_live_now": (16, 12),
         "youtube_playlists": (10, 8),
         "youtube_liked": (10, 8),
-        "youtube_subscriptions": (12, 8),
+        "youtube_subscriptions": (6, 11),
         "youtube_comments": (12, 10),
         "youtube_live_chat": (12, 10),
         "youtube_super_chat": (12, 8),
@@ -1228,6 +1228,12 @@ def normalize_youtube_liked_props(data):
     return out
 
 
+def normalize_youtube_subscriptions_props(data):
+    out = normalize_text_chrome(data, 14, True)
+    out["channel_size"] = clamp_int(data.get("channel_size"), 1, 10, 5)
+    return out
+
+
 def normalize_youtube_live_props(data):
     out = normalize_youtube_title_props(data, "left")
     out["findable"] = bool(data.get("findable"))
@@ -1446,6 +1452,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_youtube_playlists_props(data)
     if kind == "youtube_liked":
         return normalize_youtube_liked_props(data)
+    if kind == "youtube_subscriptions":
+        return normalize_youtube_subscriptions_props(data)
     if kind.startswith("youtube_"):
         return normalize_youtube_title_props(data, "left")
     if kind == "featured_friend":
@@ -2051,6 +2059,16 @@ def get_profile_youtube_liked(user_id: int, current_user: UserInfo = Depends(get
     if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
         raise HTTPException(status_code=403, detail="You cannot see this profile.")
     return load_youtube_liked_card(database, owner.id)
+
+
+@router.get("/profile/{user_id}/youtube_subscriptions")
+def get_profile_youtube_subscriptions(user_id: int, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    return load_youtube_subscriptions_card(database, owner.id)
 
 
 @router.get("/profile/{user_id}/steam_playing")

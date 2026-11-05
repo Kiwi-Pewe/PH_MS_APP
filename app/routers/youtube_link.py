@@ -171,10 +171,12 @@ def playlist_entry(item):
 def subscription_entry(item):
     snippet = item.get("snippet") if isinstance(item.get("snippet"), dict) else {}
     resource = snippet.get("resourceId") if isinstance(snippet.get("resourceId"), dict) else {}
+    channel_id = clip(resource.get("channelId"), 64)
     return {
-        "id": clip(resource.get("channelId"), 64),
+        "id": channel_id,
         "title": clip(snippet.get("title"), 120),
         "thumb": thumb_url(snippet.get("thumbnails")),
+        "url": channel_profile_url(channel_id, ""),
     }
 
 
@@ -1149,6 +1151,91 @@ def load_youtube_liked_card(database, user_id):
             "views": any(clip(str(item.get("views") or ""), 24) for item in videos),
             "unlisted": any((item.get("privacy") or "") == "unlisted" for item in videos),
         },
+    }
+
+
+def youtube_subscriptions_fresh(cache, now):
+    rows = cache.get("subscriptions")
+    if not isinstance(rows, list):
+        return False
+    raw = cache.get("subscriptions_at") or ""
+    try:
+        at = datetime.fromisoformat(str(raw))
+    except Exception:
+        return False
+    if any(not isinstance(item, dict) or not item.get("id") for item in rows):
+        return False
+    return (now - at) < timedelta(minutes=5)
+
+
+def refresh_youtube_subscriptions_cache(database, row):
+    cache = youtube_cache_dict(row.cache)
+    now = datetime.now()
+    if youtube_subscriptions_fresh(cache, now):
+        return cache
+    token = youtube_access_token(database, row)
+    listed = youtube_fetch("/subscriptions", {
+        "part": "snippet",
+        "mine": "true",
+        "maxResults": 25,
+    }, token)
+    if listed is None:
+        rows = cache.get("subscriptions")
+        if not isinstance(rows, list):
+            cache["subscriptions"] = []
+            rows = cache["subscriptions"]
+        cache["subscriptions_at"] = now.isoformat()
+        row.cache = json.dumps(cache)
+        database.commit()
+        return cache
+    rows = []
+    for item in (listed.get("items") or []):
+        if isinstance(item, dict):
+            rows.append(subscription_entry(item))
+    cache["subscriptions"] = rows
+    cache["subscriptions_at"] = now.isoformat()
+    row.cache = json.dumps(cache)
+    database.commit()
+    return cache
+
+
+def youtube_subscription_public(row):
+    channel_id = clip(row.get("id"), 64)
+    if not channel_id:
+        return None
+    return {
+        "id": channel_id,
+        "title": clip(row.get("title"), 120),
+        "thumb": clip(row.get("thumb"), 400),
+        "url": clip(row.get("url"), 400) or channel_profile_url(channel_id, ""),
+    }
+
+
+def load_youtube_subscriptions_card(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "youtube",
+    ).first()
+    if not row:
+        return {
+            "linked": False,
+            "subscriptions": False,
+            "channels": [],
+        }
+    cache = refresh_youtube_identity_cache(database, row)
+    cache = refresh_youtube_subscriptions_cache(database, row)
+    parts = read_parts(row.parts, "youtube")
+    channels = []
+    for item in (cache.get("subscriptions") or []):
+        if not isinstance(item, dict):
+            continue
+        public = youtube_subscription_public(item)
+        if public:
+            channels.append(public)
+    return {
+        "linked": True,
+        "subscriptions": bool(parts.get("subscriptions")),
+        "channels": channels,
     }
 
 

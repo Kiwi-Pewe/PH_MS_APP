@@ -795,6 +795,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillYoutubeLikedOptions(box, tile, draft, onChange, hintEl);
     return;
   }
+  if (tile.type === "youtube_subscriptions") {
+    fillYoutubeSubscriptionsOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
     fillFixedTitleOptions(box, draft, onChange, "left");
     return;
@@ -1254,6 +1258,36 @@ function fillYoutubeLikedOptions(box, tile, draft, onChange, hintEl) {
     ["show_views", "Views", true, "views"],
     ["show_unlisted", "Unlisted", false, "unlisted"]
   ], typeof youtubeLikedData !== "undefined" ? youtubeLikedData : null);
+}
+
+function fillYoutubeSubscriptionsOptions(box, tile, draft, onChange, hintEl) {
+  if (typeof ensureYoutubeSubscriptions === "function") ensureYoutubeSubscriptions();
+  draft.channel_size = clampProfileEntrySize(draft.channel_size);
+  const sizeLabel = document.createElement("div");
+  sizeLabel.className = "profile-opt-field-label";
+  sizeLabel.textContent = "Size";
+  const sizeRow = document.createElement("div");
+  sizeRow.className = "profile-opt-slider-row";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = "1";
+  slider.max = "10";
+  slider.step = "1";
+  slider.className = "settings-slider";
+  slider.value = String(draft.channel_size);
+  const val = document.createElement("div");
+  val.className = "profile-opt-slider-val";
+  val.textContent = slider.value;
+  profileOptHint(slider, "Scale the picture and name for every channel.", hintEl);
+  slider.addEventListener("input", () => {
+    draft.channel_size = Number(slider.value) || 5;
+    val.textContent = String(draft.channel_size);
+    onChange();
+  });
+  sizeRow.appendChild(slider);
+  sizeRow.appendChild(val);
+  box.appendChild(sizeLabel);
+  box.appendChild(sizeRow);
 }
 
 function fillLinkOptions(box, tile, draft, onChange, hintEl) {

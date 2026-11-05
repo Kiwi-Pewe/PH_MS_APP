@@ -2202,6 +2202,14 @@ const YOUTUBE_COMMENT_PAGE = 6;
 const youtubeLiveChatStore = {};
 const youtubeLiveChatLoad = {};
 let youtubeLiveChatTimer = null;
+const YOUTUBE_SUPER_PLACEHOLDER = {
+  id: "placeholder",
+  author: "Alex",
+  thumb: "",
+  url: "",
+  amount: "$5.00",
+  text: "Thanks for the stream — this Super Chat is here so we can get the layout right."
+};
 const youtubePlaylistsPage = {};
 
 function ensureSteamCard() {
@@ -3882,6 +3890,67 @@ function paintYoutubeLiveChat(tile, el) {
   flow.scrollTop = flow.scrollHeight;
 }
 
+function paintYoutubeSuperChat(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
+  mountSteamTitle(el, tile, "YouTube super chat", "left");
+  const card = document.createElement("div");
+  card.className = "youtube-super-card";
+  const linked = typeof profileHasConnection === "function" && profileHasConnection("youtube");
+  if (!linked) {
+    card.appendChild(steamProfileNote("Connect YouTube to show this."));
+    el.appendChild(card);
+    return;
+  }
+  const row = YOUTUBE_SUPER_PLACEHOLDER;
+  const head = document.createElement("div");
+  head.className = "youtube-super-head";
+  const face = document.createElement("div");
+  face.className = "avatar-dot youtube-super-face";
+  if (row.thumb) {
+    const img = document.createElement("img");
+    img.src = row.thumb;
+    img.alt = "";
+    img.draggable = false;
+    face.appendChild(img);
+  } else {
+    const shown = row.author || "?";
+    face.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : shown.slice(0, 1);
+  }
+  const who = document.createElement("div");
+  who.className = "youtube-super-who";
+  if (row.author) {
+    const name = document.createElement(row.url ? "a" : "div");
+    name.className = "youtube-super-name";
+    name.textContent = row.author;
+    if (row.url) {
+      name.href = row.url;
+      name.target = "_blank";
+      name.rel = "noopener noreferrer";
+      name.addEventListener("pointerdown", (e) => e.stopPropagation());
+      name.addEventListener("click", (e) => e.stopPropagation());
+    }
+    who.appendChild(name);
+  }
+  const amount = document.createElement("div");
+  amount.className = "youtube-super-amount";
+  amount.textContent = row.amount || "";
+  head.appendChild(face);
+  if (who.childNodes.length) head.appendChild(who);
+  if (row.amount) head.appendChild(amount);
+  card.appendChild(head);
+  if (row.text) {
+    const body = document.createElement("div");
+    body.className = "youtube-super-body";
+    const text = document.createElement("div");
+    text.className = "youtube-super-text";
+    text.textContent = row.text;
+    body.appendChild(text);
+    card.appendChild(body);
+  }
+  el.appendChild(card);
+}
+
 function ensureYoutubeLive() {
   const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
   if (!id || typeof serverAddress !== "string" || !serverAddress) return;
@@ -5355,6 +5424,10 @@ function paintProfileTileContent(tile, el) {
     paintYoutubeLiveChat(tile, el);
     return;
   }
+  if (tile.type === "youtube_super_chat") {
+    paintYoutubeSuperChat(tile, el);
+    return;
+  }
   if (isYoutubeWidget(tile.type)) {
     paintYoutubeStub(tile, el);
     return;
@@ -5707,7 +5780,7 @@ function repaintProfileYoutubeTiles(force) {
   const tiles = (page && page.tiles) || [];
   board.querySelectorAll(".profile-tile").forEach(el => {
     const tile = tiles.find(item => item && item.id === el.dataset.tileId);
-    if (!tile || (tile.type !== "youtube_channel" && tile.type !== "youtube_video" && tile.type !== "youtube_uploads" && tile.type !== "youtube_live_now" && tile.type !== "youtube_playlists" && tile.type !== "youtube_liked" && tile.type !== "youtube_subscriptions" && tile.type !== "youtube_comments" && tile.type !== "youtube_live_chat")) return;
+    if (!tile || (tile.type !== "youtube_channel" && tile.type !== "youtube_video" && tile.type !== "youtube_uploads" && tile.type !== "youtube_live_now" && tile.type !== "youtube_playlists" && tile.type !== "youtube_liked" && tile.type !== "youtube_subscriptions" && tile.type !== "youtube_comments" && tile.type !== "youtube_live_chat" && tile.type !== "youtube_super_chat")) return;
     const handle = el.querySelector(".profile-resize");
     paintProfileTileContent(tile, el);
     if (handle) el.appendChild(handle);

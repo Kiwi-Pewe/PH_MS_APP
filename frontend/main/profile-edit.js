@@ -809,6 +809,11 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillYoutubeLiveChatOptions(box, tile, draft, onChange, hintEl);
     return;
   }
+  if (tile.type === "youtube_super_chat") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillYoutubeSuperChatOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
     fillFixedTitleOptions(box, draft, onChange, "left");
     return;
@@ -1384,6 +1389,22 @@ function fillYoutubeLiveChatOptions(box, tile, draft, onChange, hintEl) {
   fillYoutubeFlagOptions(box, draft, onChange, [
     ["show_unlisted", "Unlisted", false, "unlisted"]
   ], typeof youtubeLiveData !== "undefined" ? youtubeLiveData : null);
+}
+
+function fillYoutubeSuperChatOptions(box, tile, draft, onChange, hintEl) {
+  if (draft.sort !== "amount") draft.sort = "recent";
+  const sort = profileSelectField("Show", [
+    { value: "recent", label: "Most recent" },
+    { value: "amount", label: "Highest amount" }
+  ], draft.sort);
+  sort.select.addEventListener("change", () => {
+    draft.sort = sort.select.value === "amount" ? "amount" : "recent";
+    onChange();
+  });
+  const sortBlock = document.createElement("div");
+  sortBlock.className = "profile-name-opt";
+  sortBlock.appendChild(sort.label);
+  box.appendChild(sortBlock);
 }
 
 function fillLinkOptions(box, tile, draft, onChange, hintEl) {

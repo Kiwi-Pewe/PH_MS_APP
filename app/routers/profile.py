@@ -1264,6 +1264,12 @@ def normalize_youtube_live_chat_props(data):
     return out
 
 
+def normalize_youtube_super_chat_props(data):
+    out = normalize_youtube_title_props(data, "left")
+    out["sort"] = "amount" if str(data.get("sort") or "").strip().lower() == "amount" else "recent"
+    return out
+
+
 def normalize_youtube_live_props(data):
     out = normalize_youtube_title_props(data, "left")
     out["findable"] = bool(data.get("findable"))
@@ -1488,6 +1494,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_youtube_comments_props(data)
     if kind == "youtube_live_chat":
         return normalize_youtube_live_chat_props(data)
+    if kind == "youtube_super_chat":
+        return normalize_youtube_super_chat_props(data)
     if kind.startswith("youtube_"):
         return normalize_youtube_title_props(data, "left")
     if kind == "featured_friend":

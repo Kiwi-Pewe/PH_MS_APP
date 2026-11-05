@@ -2202,15 +2202,10 @@ const YOUTUBE_COMMENT_PAGE = 6;
 const youtubeLiveChatStore = {};
 const youtubeLiveChatLoad = {};
 let youtubeLiveChatTimer = null;
-const YOUTUBE_SUPER_PLACEHOLDER = {
-  id: "placeholder",
-  author: "Alex",
-  thumb: "",
-  url: "",
-  amount: "$5.00",
-  published: "",
-  text: "Thanks for the stream — this Super Chat is here so we can get the layout right."
-};
+let youtubeSuperOwnerId = "";
+let youtubeSuperData = null;
+let youtubeSuperLoad = null;
+let youtubeSuperTimer = null;
 const youtubePlaylistsPage = {};
 
 function ensureSteamCard() {
@@ -3891,19 +3886,120 @@ function paintYoutubeLiveChat(tile, el) {
   flow.scrollTop = flow.scrollHeight;
 }
 
+function pickYoutubeSuperChat(rows, sort) {
+  const list = (rows || []).filter(row => row && row.id);
+  if (!list.length) return null;
+  if (sort === "amount") {
+    list.sort((a, b) => {
+      const money = (Number(b.micros) || 0) - (Number(a.micros) || 0);
+      if (money) return money;
+      return String((b && b.published) || "").localeCompare(String((a && a.published) || ""));
+    });
+  } else {
+    list.sort((a, b) => String((b && b.published) || "").localeCompare(String((a && a.published) || "")));
+  }
+  return list[0];
+}
+
+function ensureYoutubeSuperChat() {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  if (youtubeSuperLoad) return;
+  if (youtubeSuperOwnerId === id && youtubeSuperData && youtubeSuperData._at && (Date.now() - youtubeSuperData._at) < 15000) return;
+  youtubeSuperOwnerId = id;
+  youtubeSuperLoad = fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/youtube_super_chat", { credentials: "include" })
+    .then(response => response.ok ? response.json() : { linked: false, events: [] })
+    .then(data => {
+      const row = data || { linked: false, events: [] };
+      row._at = Date.now();
+      youtubeSuperData = row;
+    })
+    .catch(() => {
+      if (!youtubeSuperData) youtubeSuperData = { linked: false, events: [], _at: Date.now() };
+      else youtubeSuperData._at = Date.now();
+    })
+    .finally(() => {
+      youtubeSuperLoad = null;
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id) repaintYoutubeSuperChatTiles();
+    });
+}
+
+function armYoutubeSuperChatTimer() {
+  if (youtubeSuperTimer) return;
+  youtubeSuperTimer = setInterval(() => {
+    const board = document.getElementById("profile-board");
+    if (!board || !board.querySelector(".profile-tile.is-youtube_super_chat")) return;
+    repaintYoutubeSuperChatTiles();
+  }, 15000);
+}
+
+function repaintYoutubeSuperChatTiles() {
+  const board = document.getElementById("profile-board");
+  if (!board) return;
+  const layout = profileDraft || profileSavedLayout;
+  const page = typeof profilePageById === "function" ? profilePageById(layout, profileActivePageId) : null;
+  const tiles = (page && page.tiles) || [];
+  const packed = youtubeSuperData;
+  board.querySelectorAll(".profile-tile").forEach(node => {
+    const tile = tiles.find(item => item && item.id === node.dataset.tileId);
+    if (!tile || tile.type !== "youtube_super_chat") return;
+    const props = (tile && tile.props) || {};
+    const row = packed && packed.linked && packed.super_chat !== false
+      ? pickYoutubeSuperChat(packed.events, props.sort === "amount" ? "amount" : "recent")
+      : null;
+    const shown = String((row && row.id) || "");
+    if (packed && node.dataset.superId === shown) {
+      const timeEl = node.querySelector(".youtube-super-time");
+      if (timeEl && row && row.published) timeEl.textContent = youtubeAgoText(row.published);
+      ensureYoutubeSuperChat();
+      return;
+    }
+    const handle = node.querySelector(".profile-resize");
+    paintProfileTileContent(tile, node);
+    if (handle) node.appendChild(handle);
+  });
+}
+
 function paintYoutubeSuperChat(tile, el) {
+  const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!youtubeSuperData || youtubeSuperOwnerId !== owner) {
+    applyProfileWidgetSurface(el, tile);
+    applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
+    mountSteamTitle(el, tile, "YouTube super chat", "left");
+    const wait = document.createElement("div");
+    wait.className = "youtube-super-card";
+    el.appendChild(wait);
+    ensureYoutubeSuperChat();
+    return;
+  }
+  const packed = youtubeSuperData;
+  const props = (tile && tile.props) || {};
+  const row = packed.linked && packed.super_chat !== false
+    ? pickYoutubeSuperChat(packed.events, props.sort === "amount" ? "amount" : "recent")
+    : null;
   applyProfileWidgetSurface(el, tile);
   applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
   mountSteamTitle(el, tile, "YouTube super chat", "left");
   const card = document.createElement("div");
   card.className = "youtube-super-card";
-  const linked = typeof profileHasConnection === "function" && profileHasConnection("youtube");
-  if (!linked) {
+  el.dataset.superId = String((row && row.id) || "");
+  if (!packed.linked) {
     card.appendChild(steamProfileNote("Connect YouTube to show this."));
     el.appendChild(card);
     return;
   }
-  const row = YOUTUBE_SUPER_PLACEHOLDER;
+  if (packed.super_chat === false) {
+    card.appendChild(steamProfileNote("Turn on Super Chat for YouTube."));
+    el.appendChild(card);
+    return;
+  }
+  ensureYoutubeSuperChat();
+  armYoutubeSuperChatTimer();
+  if (!row) {
+    card.appendChild(steamProfileNote("No super chats to show."));
+    el.appendChild(card);
+    return;
+  }
   const head = document.createElement("div");
   head.className = "youtube-super-head";
   const face = document.createElement("div");
@@ -3915,12 +4011,12 @@ function paintYoutubeSuperChat(tile, el) {
     img.draggable = false;
     face.appendChild(img);
   } else {
-    const shown = row.author || "?";
-    face.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : shown.slice(0, 1);
+    const letter = row.author || "?";
+    face.textContent = typeof avatarLetter === "function" ? avatarLetter(letter) : letter.slice(0, 1);
   }
   const who = document.createElement("div");
   who.className = "youtube-super-who";
-  const when = youtubeAgoText(row.published || new Date(Date.now() - 120000).toISOString());
+  const when = youtubeAgoText(row.published);
   if (row.author) {
     const name = document.createElement(row.url ? "a" : "div");
     name.className = "youtube-super-name";

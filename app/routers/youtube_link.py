@@ -1539,6 +1539,89 @@ def load_youtube_live_chat_card(database, user_id, video_id=""):
     }
 
 
+def super_chat_entry(item):
+    snippet = item.get("snippet") if isinstance(item.get("snippet"), dict) else {}
+    supporter = snippet.get("supporterDetails") if isinstance(snippet.get("supporterDetails"), dict) else {}
+    author_id = clip(supporter.get("channelId"), 64)
+    try:
+        micros = int(snippet.get("amountMicros") or 0)
+    except (TypeError, ValueError):
+        micros = 0
+    text = clip(snippet.get("commentText"), 500)
+    if not text and snippet.get("isSuperStickerEvent"):
+        meta = snippet.get("superStickerMetadata") if isinstance(snippet.get("superStickerMetadata"), dict) else {}
+        text = clip(meta.get("altText"), 500)
+    return {
+        "id": clip(item.get("id"), 128),
+        "author": clip(supporter.get("displayName"), 120),
+        "thumb": clip(supporter.get("profileImageUrl"), 400),
+        "channel_id": author_id,
+        "url": clip(supporter.get("channelUrl"), 400) or channel_profile_url(author_id, ""),
+        "amount": clip(snippet.get("displayString"), 24),
+        "micros": micros,
+        "text": text,
+        "published": clip(snippet.get("createdAt"), 40),
+    }
+
+
+def youtube_super_chat_fresh(cache, now):
+    rows = cache.get("super_chat")
+    if not isinstance(rows, list) or not cache.get("super_chat_ok"):
+        return False
+    raw = cache.get("super_chat_at") or ""
+    try:
+        at = datetime.fromisoformat(str(raw))
+    except Exception:
+        return False
+    return (now - at) < timedelta(seconds=15)
+
+
+def refresh_youtube_super_chat_cache(database, row):
+    cache = youtube_cache_dict(row.cache)
+    now = datetime.now()
+    if youtube_super_chat_fresh(cache, now):
+        rows = cache.get("super_chat")
+        return cache, rows if isinstance(rows, list) else []
+    token = youtube_access_token(database, row)
+    query = {"part": "snippet", "maxResults": 50, "hl": "en"}
+    listed = youtube_get("/superChatEvents", query, token) if token else None
+    if listed and listed.get("error"):
+        listed = None
+    if listed is None:
+        listed = youtube_public("/superChatEvents", query)
+    if listed is None:
+        return cache, []
+    rows = []
+    for item in (listed.get("items") or []):
+        if isinstance(item, dict):
+            rows.append(super_chat_entry(item))
+    cache["super_chat"] = rows
+    cache["super_chat_ok"] = True
+    cache["super_chat_at"] = now.isoformat()
+    row.cache = json.dumps(cache)
+    database.commit()
+    return cache, rows
+
+
+def load_youtube_super_chat_card(database, user_id):
+    miss = {"linked": False, "super_chat": False, "events": []}
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "youtube",
+    ).first()
+    if not row:
+        return miss
+    parts = read_parts(row.parts, "youtube")
+    events = []
+    if parts.get("super_chat"):
+        cache, events = refresh_youtube_super_chat_cache(database, row)
+    return {
+        "linked": True,
+        "super_chat": bool(parts.get("super_chat")),
+        "events": events,
+    }
+
+
 def pending_youtube(database, user_id):
     drop_expired_nonces(database)
     cutoff = datetime.now() - timedelta(minutes=NONCE_MINUTES)

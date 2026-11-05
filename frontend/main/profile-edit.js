@@ -223,7 +223,7 @@ function renderProfilePalette() {
   groups.forEach(group => {
     if (group.connection && !profileHasConnection(group.connection)) return;
     const wrap = document.createElement("div");
-    wrap.className = "profile-palette-group" + (mini ? " is-open" : "");
+    wrap.className = "profile-palette-group";
     const toggle = document.createElement("button");
     toggle.type = "button";
     const caret = document.createElement("span");

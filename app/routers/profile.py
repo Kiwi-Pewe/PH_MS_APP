@@ -34,6 +34,10 @@ TILE_TYPES = {
     "want_to_play", "games_played", "game_stats", "library", "review",
     "steam_profile", "steam_playing_now", "steam_recently_played",
     "steam_library", "steam_achievements", "steam_badges",
+    "youtube_channel", "youtube_video", "youtube_uploads", "youtube_live_now",
+    "youtube_playlists", "youtube_liked", "youtube_subscriptions",
+    "youtube_comments", "youtube_live_chat", "youtube_super_chat",
+    "youtube_memberships",
 }
 PAGE_VIS = {"public", "owner"}
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -249,6 +253,17 @@ def tile_bounds(kind, props=None):
         "steam_library": (8, 4, 24, 14),
         "steam_achievements": (8, 3, 24, 12),
         "steam_badges": (6, 3, 16, 10),
+        "youtube_channel": (8, 5, 12, 12),
+        "youtube_video": (8, 4, 24, 16),
+        "youtube_uploads": (7, 6, 16, 16),
+        "youtube_live_now": (7, 4, 10, 6),
+        "youtube_playlists": (7, 6, 16, 16),
+        "youtube_liked": (7, 6, 16, 16),
+        "youtube_subscriptions": (7, 6, 16, 16),
+        "youtube_comments": (8, 6, 24, 18),
+        "youtube_live_chat": (8, 6, 24, 18),
+        "youtube_super_chat": (7, 6, 16, 16),
+        "youtube_memberships": (7, 6, 16, 16),
     }.get(kind, (1, 1, GRID_COLS, 24))
 
 
@@ -304,6 +319,17 @@ def default_sizes(kind):
         "steam_library": (12, 8),
         "steam_achievements": (12, 8),
         "steam_badges": (12, 8),
+        "youtube_channel": (12, 7),
+        "youtube_video": (12, 7),
+        "youtube_uploads": (12, 8),
+        "youtube_live_now": (10, 4),
+        "youtube_playlists": (12, 8),
+        "youtube_liked": (12, 8),
+        "youtube_subscriptions": (12, 8),
+        "youtube_comments": (12, 10),
+        "youtube_live_chat": (12, 10),
+        "youtube_super_chat": (12, 8),
+        "youtube_memberships": (12, 8),
     }.get(kind, (8, 3))
 
 
@@ -1128,6 +1154,29 @@ def normalize_steam_playing_props(data):
     return out
 
 
+def normalize_youtube_title_props(data, fallback_align="left"):
+    out = normalize_text_chrome(data, 14, True)
+    shown = data.get("show_title")
+    align = str(data.get("title_align") or "")
+    out["show_title"] = False if shown is None else bool(shown)
+    out["title_align"] = align if align in ("left", "center", "right") else fallback_align
+    return out
+
+
+def normalize_youtube_channel_props(data):
+    out = normalize_youtube_title_props(data, "center")
+    on_keys = (
+        "show_banner", "show_avatar", "show_name",
+        "show_subscribers", "show_views", "show_videos",
+    )
+    off_keys = ("show_handle", "show_created", "show_description", "show_country")
+    for key in on_keys:
+        out[key] = True if key not in data or data.get(key) is None else bool(data.get(key))
+    for key in off_keys:
+        out[key] = False if key not in data or data.get(key) is None else bool(data.get(key))
+    return out
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
     if kind == "banner":
@@ -1318,6 +1367,10 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_steam_achievement_props(data)
     if kind == "steam_badges":
         return normalize_steam_badge_props(data)
+    if kind == "youtube_channel":
+        return normalize_youtube_channel_props(data)
+    if kind.startswith("youtube_"):
+        return normalize_youtube_title_props(data, "left")
     if kind == "featured_friend":
         try:
             user_id = int(data.get("user_id") or 0)

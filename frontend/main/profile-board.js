@@ -94,7 +94,7 @@ const PROFILE_TILE_TYPES = {
   steam_library: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Library" },
   steam_achievements: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Achievements" },
   steam_badges: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Badges" },
-  youtube_channel: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "User Profile" },
+  youtube_channel: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 12, label: "User Profile" },
   youtube_video: { w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Video" },
   youtube_uploads: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Uploads" },
   youtube_live_now: { w: 10, h: 4, minW: 7, minH: 4, maxW: 10, maxH: 6, label: "Live Now" },

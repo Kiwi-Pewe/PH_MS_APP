@@ -2208,6 +2208,7 @@ const YOUTUBE_SUPER_PLACEHOLDER = {
   thumb: "",
   url: "",
   amount: "$5.00",
+  published: "",
   text: "Thanks for the stream — this Super Chat is here so we can get the layout right."
 };
 const youtubePlaylistsPage = {};
@@ -3939,13 +3940,22 @@ function paintYoutubeSuperChat(tile, el) {
   if (who.childNodes.length) head.appendChild(who);
   if (row.amount) head.appendChild(amount);
   card.appendChild(head);
-  if (row.text) {
+  const when = youtubeAgoText(row.published || new Date(Date.now() - 120000).toISOString());
+  if (row.text || when) {
     const body = document.createElement("div");
     body.className = "youtube-super-body";
-    const text = document.createElement("div");
-    text.className = "youtube-super-text";
-    text.textContent = row.text;
-    body.appendChild(text);
+    if (row.text) {
+      const text = document.createElement("div");
+      text.className = "youtube-super-text";
+      text.textContent = row.text;
+      body.appendChild(text);
+    }
+    if (when) {
+      const time = document.createElement("div");
+      time.className = "youtube-super-time";
+      time.textContent = when;
+      body.appendChild(time);
+    }
     card.appendChild(body);
   }
   el.appendChild(card);

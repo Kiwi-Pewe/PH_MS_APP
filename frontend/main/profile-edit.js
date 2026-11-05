@@ -814,6 +814,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillYoutubeSuperChatOptions(box, tile, draft, onChange, hintEl);
     return;
   }
+  if (tile.type === "youtube_memberships") {
+    fillYoutubeMembershipsOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
     fillFixedTitleOptions(box, draft, onChange, "left");
     return;
@@ -1389,6 +1393,60 @@ function fillYoutubeLiveChatOptions(box, tile, draft, onChange, hintEl) {
   fillYoutubeFlagOptions(box, draft, onChange, [
     ["show_unlisted", "Unlisted", false, "unlisted"]
   ], typeof youtubeLiveData !== "undefined" ? youtubeLiveData : null);
+}
+
+function fillYoutubeMembershipsOptions(box, tile, draft, onChange, hintEl) {
+  draft.member_size = clampProfileEntrySize(draft.member_size);
+  if (draft.sort !== "oldest" && draft.sort !== "longest" && draft.sort !== "high" && draft.sort !== "low") draft.sort = "recent";
+  draft.last_month = !!draft.last_month;
+  const sort = profileSelectField("Sort", [
+    { value: "recent", label: "Most recent" },
+    { value: "oldest", label: "Oldest" },
+    { value: "longest", label: "Longest lasted" },
+    { value: "high", label: "Highest level" },
+    { value: "low", label: "Lowest level" }
+  ], draft.sort);
+  sort.select.addEventListener("change", () => {
+    const next = sort.select.value;
+    draft.sort = next === "oldest" || next === "longest" || next === "high" || next === "low" ? next : "recent";
+    onChange();
+  });
+  const sortBlock = document.createElement("div");
+  sortBlock.className = "profile-name-opt";
+  sortBlock.appendChild(sort.label);
+  box.appendChild(sortBlock);
+  const lastBlock = document.createElement("div");
+  lastBlock.className = "profile-name-opt";
+  lastBlock.appendChild(settingsOpt("Last month", "", settingsToggle(!!draft.last_month, false, (on) => {
+    draft.last_month = on;
+    onChange();
+  })));
+  box.appendChild(lastBlock);
+  const sizeLabel = document.createElement("div");
+  sizeLabel.className = "profile-opt-field-label";
+  sizeLabel.textContent = "Size";
+  const sizeRow = document.createElement("div");
+  sizeRow.className = "profile-opt-slider-row";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = "1";
+  slider.max = "10";
+  slider.step = "1";
+  slider.className = "settings-slider";
+  slider.value = String(draft.member_size);
+  const val = document.createElement("div");
+  val.className = "profile-opt-slider-val";
+  val.textContent = slider.value;
+  profileOptHint(slider, "Scale the picture and name for every member.", hintEl);
+  slider.addEventListener("input", () => {
+    draft.member_size = Number(slider.value) || 5;
+    val.textContent = String(draft.member_size);
+    onChange();
+  });
+  sizeRow.appendChild(slider);
+  sizeRow.appendChild(val);
+  box.appendChild(sizeLabel);
+  box.appendChild(sizeRow);
 }
 
 function fillYoutubeSuperChatOptions(box, tile, draft, onChange, hintEl) {

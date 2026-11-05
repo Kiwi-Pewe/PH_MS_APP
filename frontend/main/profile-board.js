@@ -104,7 +104,7 @@ const PROFILE_TILE_TYPES = {
   youtube_comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" },
   youtube_live_chat: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Live chat" },
   youtube_super_chat: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Super Chat" },
-  youtube_memberships: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Memberships" },
+  youtube_memberships: { w: 6, h: 11, minW: 4, minH: 11, maxW: 6, maxH: 15, label: "Memberships" },
   frame: { label: "Frame", w: 12, h: 8, minW: 1, minH: 1, maxW: 32, maxH: 81 },
   meter: { label: "Meter", w: 10, h: 3, minW: 6, minH: 1, maxW: 24, maxH: 4 }
 };
@@ -1124,6 +1124,10 @@ function applyProfileFriendSize(el, tile) {
 
 function applyProfileSubSize(el, tile) {
   applyProfileEntrySize(el, tile.props && tile.props.channel_size, "--profile-friend-icon", "--profile-friend-text");
+}
+
+function applyProfileMemberSize(el, tile) {
+  applyProfileEntrySize(el, tile.props && tile.props.member_size, "--profile-friend-icon", "--profile-friend-text");
 }
 
 function applyProfileIconSize(el, tile) {
@@ -3452,6 +3456,104 @@ function paintYoutubeSubscriptions(tile, el) {
   el.appendChild(body);
 }
 
+function youtubeMembershipPlaceholders() {
+  const now = Date.now();
+  const iso = (days) => new Date(now - days * 86400000).toISOString();
+  return [
+    { id: "m1", title: "Riley", months: 1, since: iso(5), level_rank: 2, url: "" },
+    { id: "m2", title: "Sam", months: 0, since: iso(12), level_rank: 1, url: "" },
+    { id: "m3", title: "Jordan", months: 24, since: iso(400), level_rank: 2, url: "" },
+    { id: "m4", title: "Casey", months: 8, since: iso(90), level_rank: 1, url: "" },
+    { id: "m5", title: "Avery", months: 3, since: iso(20), level_rank: 0, url: "" },
+    { id: "m6", title: "Quinn", months: 36, since: iso(800), level_rank: 0, url: "" },
+    { id: "m7", title: "Drew", months: 14, since: iso(45), level_rank: 2, url: "" },
+    { id: "m8", title: "Morgan", months: 6, since: iso(25), level_rank: 1, url: "" }
+  ];
+}
+
+function youtubeListedMembers(rows, props) {
+  const sort = (props && props.sort) || "recent";
+  const lastMonth = !!(props && props.last_month);
+  const cutoff = Date.now() - 30 * 86400000;
+  const list = (rows || []).filter(row => {
+    if (!row) return false;
+    if (!lastMonth) return true;
+    const at = Date.parse(row.since || "");
+    return Number.isFinite(at) && at >= cutoff;
+  });
+  list.sort((a, b) => {
+    if (sort === "oldest") return String(a.since || "").localeCompare(String(b.since || ""));
+    if (sort === "longest") {
+      const months = (Number(b.months) || 0) - (Number(a.months) || 0);
+      if (months) return months;
+      return String(a.since || "").localeCompare(String(b.since || ""));
+    }
+    if (sort === "high" || sort === "low") {
+      const dir = sort === "high" ? 1 : -1;
+      const rank = ((Number(b.level_rank) || 0) - (Number(a.level_rank) || 0)) * dir;
+      if (rank) return rank;
+      return String(a.title || "").localeCompare(String(b.title || ""));
+    }
+    return String(b.since || "").localeCompare(String(a.since || ""));
+  });
+  return list;
+}
+
+function paintYoutubeMemberships(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
+  applyProfileMemberSize(el, tile);
+  mountProfileFixedTitle(el, "Memberships");
+  const body = document.createElement("div");
+  body.className = "profile-tile-body";
+  const linked = typeof profileHasConnection === "function" && profileHasConnection("youtube");
+  if (!linked) {
+    body.appendChild(steamProfileNote("Connect YouTube to show this."));
+    el.appendChild(body);
+    return;
+  }
+  const members = youtubeListedMembers(youtubeMembershipPlaceholders(), tile.props || {});
+  if (!members.length) {
+    const empty = document.createElement("div");
+    empty.className = "settings-opt-desc";
+    empty.textContent = "No memberships to show.";
+    body.appendChild(empty);
+    el.appendChild(body);
+    return;
+  }
+  members.forEach(channel => {
+    const row = document.createElement("div");
+    row.className = "profile-friend-row";
+    const face = document.createElement("div");
+    face.className = "avatar-dot";
+    if (channel.thumb) {
+      const img = document.createElement("img");
+      img.src = channel.thumb;
+      img.alt = "";
+      img.draggable = false;
+      face.appendChild(img);
+    } else {
+      const shown = channel.title || "?";
+      face.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : shown.slice(0, 1);
+    }
+    const name = document.createElement("div");
+    name.className = "profile-friend-name";
+    name.textContent = channel.title || "Member";
+    row.appendChild(face);
+    row.appendChild(name);
+    if (!(profileEditing && profileIsOwn) && channel.url) {
+      row.classList.add("is-youtube-member");
+      row.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(channel.url, "_blank", "noopener,noreferrer");
+      });
+    }
+    body.appendChild(row);
+  });
+  el.appendChild(body);
+}
+
 function youtubeCommentUrl(videoId, commentId) {
   if (!videoId || !commentId) return "";
   return "https://www.youtube.com/watch?v=" + encodeURIComponent(videoId) + "&lc=" + encodeURIComponent(commentId);
@@ -5532,6 +5634,10 @@ function paintProfileTileContent(tile, el) {
     paintYoutubeSuperChat(tile, el);
     return;
   }
+  if (tile.type === "youtube_memberships") {
+    paintYoutubeMemberships(tile, el);
+    return;
+  }
   if (isYoutubeWidget(tile.type)) {
     paintYoutubeStub(tile, el);
     return;
@@ -5884,7 +5990,7 @@ function repaintProfileYoutubeTiles(force) {
   const tiles = (page && page.tiles) || [];
   board.querySelectorAll(".profile-tile").forEach(el => {
     const tile = tiles.find(item => item && item.id === el.dataset.tileId);
-    if (!tile || (tile.type !== "youtube_channel" && tile.type !== "youtube_video" && tile.type !== "youtube_uploads" && tile.type !== "youtube_live_now" && tile.type !== "youtube_playlists" && tile.type !== "youtube_liked" && tile.type !== "youtube_subscriptions" && tile.type !== "youtube_comments" && tile.type !== "youtube_live_chat" && tile.type !== "youtube_super_chat")) return;
+    if (!tile || (tile.type !== "youtube_channel" && tile.type !== "youtube_video" && tile.type !== "youtube_uploads" && tile.type !== "youtube_live_now" && tile.type !== "youtube_playlists" && tile.type !== "youtube_liked" && tile.type !== "youtube_subscriptions" && tile.type !== "youtube_comments" && tile.type !== "youtube_live_chat" && tile.type !== "youtube_super_chat" && tile.type !== "youtube_memberships")) return;
     const handle = el.querySelector(".profile-resize");
     paintProfileTileContent(tile, el);
     if (handle) el.appendChild(handle);

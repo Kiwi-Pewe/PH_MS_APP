@@ -263,7 +263,7 @@ def tile_bounds(kind, props=None):
         "youtube_comments": (8, 6, 24, 18),
         "youtube_live_chat": (8, 6, 24, 18),
         "youtube_super_chat": (7, 6, 16, 16),
-        "youtube_memberships": (7, 6, 16, 16),
+        "youtube_memberships": (4, 11, 6, 15),
     }.get(kind, (1, 1, GRID_COLS, 24))
 
 
@@ -329,7 +329,7 @@ def default_sizes(kind):
         "youtube_comments": (12, 10),
         "youtube_live_chat": (12, 10),
         "youtube_super_chat": (12, 8),
-        "youtube_memberships": (12, 8),
+        "youtube_memberships": (6, 11),
     }.get(kind, (8, 3))
 
 
@@ -1270,6 +1270,18 @@ def normalize_youtube_super_chat_props(data):
     return out
 
 
+def normalize_youtube_memberships_props(data):
+    out = normalize_text_chrome(data, 14, True)
+    out["member_size"] = clamp_int(data.get("member_size"), 1, 10, 5)
+    sort = str(data.get("sort") or "").strip().lower()
+    if sort in ("oldest", "longest", "high", "low"):
+        out["sort"] = sort
+    else:
+        out["sort"] = "recent"
+    out["last_month"] = bool(data.get("last_month"))
+    return out
+
+
 def normalize_youtube_live_props(data):
     out = normalize_youtube_title_props(data, "left")
     out["findable"] = bool(data.get("findable"))
@@ -1496,6 +1508,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_youtube_live_chat_props(data)
     if kind == "youtube_super_chat":
         return normalize_youtube_super_chat_props(data)
+    if kind == "youtube_memberships":
+        return normalize_youtube_memberships_props(data)
     if kind.startswith("youtube_"):
         return normalize_youtube_title_props(data, "left")
     if kind == "featured_friend":

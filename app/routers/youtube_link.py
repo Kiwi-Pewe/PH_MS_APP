@@ -150,6 +150,8 @@ def video_entry(item):
         "live": clip(snippet.get("liveBroadcastContent"), 16),
         "embeddable": False if status.get("embeddable") is False else True,
         "privacy": clip(status.get("privacyStatus"), 16) or "public",
+        "channel": clip(snippet.get("channelTitle"), 120),
+        "channel_id": clip(snippet.get("channelId"), 64),
     }
 
 
@@ -691,6 +693,7 @@ def youtube_video_public(row):
     privacy = (clip(row.get("privacy"), 16) or "public").lower()
     if privacy == "private":
         return None
+    channel_id = clip(row.get("channel_id"), 64)
     return {
         "id": clip(row.get("id"), 32),
         "title": clip(row.get("title"), 160),
@@ -702,6 +705,10 @@ def youtube_video_public(row):
         "comments": clip(str(row.get("comments") or ""), 24),
         "embeddable": False if row.get("embeddable") is False else True,
         "privacy": privacy,
+        "channel": clip(row.get("channel"), 120),
+        "channel_id": channel_id,
+        "channel_url": clip(row.get("channel_url"), 400) or channel_profile_url(channel_id, ""),
+        "liked": clip(row.get("liked"), 40),
     }
 
 
@@ -1019,6 +1026,130 @@ def load_youtube_playlist_start(database, user_id, playlist_id):
             video = hit
             break
     return {"ok": True, "playlist_id": wanted, "video": video}
+
+
+def youtube_likes_fresh(cache, now):
+    rows = cache.get("likes")
+    if not isinstance(rows, list):
+        return False
+    raw = cache.get("likes_at") or ""
+    try:
+        at = datetime.fromisoformat(str(raw))
+    except Exception:
+        return False
+    if any(not isinstance(item, dict) or not item.get("privacy") or "liked" not in item for item in rows):
+        return False
+    return (now - at) < timedelta(minutes=5)
+
+
+def refresh_youtube_likes_cache(database, row):
+    cache = youtube_cache_dict(row.cache)
+    now = datetime.now()
+    if youtube_likes_fresh(cache, now):
+        return cache
+    token = youtube_access_token(database, row)
+    likes_id = clip(cache.get("likes_id"), 64)
+    if not likes_id:
+        channel_id = clip(row.external_id or cache.get("channel_id"), 64)
+        channel = youtube_channel_resource(token, channel_id)
+        if channel:
+            cache.update(youtube_identity_fields(channel))
+            likes_id = clip(cache.get("likes_id"), 64)
+    listed = youtube_fetch("/playlistItems", {
+        "part": "snippet,contentDetails",
+        "playlistId": likes_id,
+        "maxResults": 25,
+    }, token) if likes_id else None
+    if listed is None:
+        rows = cache.get("likes")
+        if not isinstance(rows, list):
+            cache["likes"] = []
+            rows = cache["likes"]
+        for entry in rows:
+            if not isinstance(entry, dict):
+                continue
+            if "liked" not in entry:
+                entry["liked"] = entry.get("published") or ""
+            if not entry.get("privacy"):
+                entry["privacy"] = "public"
+        cache["likes_at"] = now.isoformat()
+        row.cache = json.dumps(cache)
+        database.commit()
+        return cache
+    ids = []
+    liked_at = {}
+    for item in (listed.get("items") or []):
+        if not isinstance(item, dict):
+            continue
+        details = item.get("contentDetails") if isinstance(item.get("contentDetails"), dict) else {}
+        snippet = item.get("snippet") if isinstance(item.get("snippet"), dict) else {}
+        resource = snippet.get("resourceId") if isinstance(snippet.get("resourceId"), dict) else {}
+        video_id = clip(details.get("videoId") or resource.get("videoId"), 32)
+        if video_id:
+            ids.append(video_id)
+            liked_at[video_id] = clip(snippet.get("publishedAt"), 40)
+    found = {}
+    if ids:
+        payload = youtube_fetch("/videos", {
+            "part": "snippet,statistics,contentDetails,status",
+            "id": ",".join(ids[:50]),
+            "maxResults": 50,
+        }, token)
+        for item in (payload or {}).get("items") or []:
+            if not isinstance(item, dict):
+                continue
+            entry = video_entry(item)
+            if entry.get("id"):
+                found[entry["id"]] = entry
+    videos = []
+    for video_id in ids:
+        entry = found.get(video_id)
+        if not entry:
+            continue
+        item = dict(entry)
+        item["liked"] = liked_at.get(video_id) or entry.get("published") or ""
+        videos.append(item)
+    cache["likes"] = videos
+    cache["likes_at"] = now.isoformat()
+    row.cache = json.dumps(cache)
+    database.commit()
+    return cache
+
+
+def load_youtube_liked_card(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "youtube",
+    ).first()
+    if not row:
+        return {
+            "linked": False,
+            "likes": False,
+            "videos": [],
+            "available": {},
+        }
+    cache = refresh_youtube_identity_cache(database, row)
+    cache = refresh_youtube_likes_cache(database, row)
+    parts = read_parts(row.parts, "youtube")
+    videos = []
+    for item in (cache.get("likes") or []):
+        if not isinstance(item, dict):
+            continue
+        public = youtube_video_public(item)
+        if public:
+            videos.append(public)
+    return {
+        "linked": True,
+        "likes": bool(parts.get("likes")),
+        "videos": videos,
+        "available": {
+            "thumb": any(clip(item.get("thumb"), 400) for item in videos),
+            "video_title": any(clip(item.get("title"), 160) for item in videos),
+            "channel": any(clip(item.get("channel"), 120) for item in videos),
+            "views": any(clip(str(item.get("views") or ""), 24) for item in videos),
+            "unlisted": any((item.get("privacy") or "") == "unlisted" for item in videos),
+        },
+    }
 
 
 def pending_youtube(database, user_id):

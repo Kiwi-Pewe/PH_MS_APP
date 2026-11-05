@@ -99,7 +99,7 @@ const PROFILE_TILE_TYPES = {
   youtube_uploads: { w: 10, h: 8, minW: 10, minH: 5, maxW: 10, maxH: 16, label: "Uploads" },
   youtube_live_now: { w: 16, h: 12, minW: 12, minH: 10, maxW: 24, maxH: 16, label: "Live Now" },
   youtube_playlists: { w: 10, h: 8, minW: 10, minH: 5, maxW: 10, maxH: 16, label: "Playlists" },
-  youtube_liked: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Liked videos" },
+  youtube_liked: { w: 10, h: 8, minW: 10, minH: 5, maxW: 10, maxH: 16, label: "Liked videos" },
   youtube_subscriptions: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Subscriptions" },
   youtube_comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" },
   youtube_live_chat: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Live chat" },
@@ -2173,15 +2173,20 @@ let youtubeVideoOwnerId = "";
 let youtubeVideoData = null;
 let youtubeVideoLoad = null;
 const youtubeVideoLive = {};
+const youtubeVideoLiveRow = {};
 const youtubeVideoPlaylist = {};
 const youtubePlaylistStart = {};
 const youtubeUploadsPage = {};
+const youtubeLikedPage = {};
 let youtubeLiveOwnerId = "";
 let youtubeLiveData = null;
 let youtubeLiveLoad = null;
 let youtubePlaylistsOwnerId = "";
 let youtubePlaylistsData = null;
 let youtubePlaylistsLoad = null;
+let youtubeLikedOwnerId = "";
+let youtubeLikedData = null;
+let youtubeLikedLoad = null;
 const youtubePlaylistsPage = {};
 
 function ensureSteamCard() {
@@ -2319,6 +2324,7 @@ function ensureYoutubeVideo() {
 
 function clearYoutubeVideoOverride(tileId) {
   delete youtubeVideoLive[tileId];
+  delete youtubeVideoLiveRow[tileId];
   delete youtubeVideoPlaylist[tileId];
 }
 
@@ -2331,12 +2337,14 @@ function pickYoutubeVideo(data, props, tileId) {
   const playlist = youtubePlaylistOverride(tileId);
   if (playlist && playlist.video) return playlist.video;
   const rows = (data && Array.isArray(data.videos)) ? data.videos : [];
-  if (!rows.length) return null;
   const live = String(youtubeVideoLive[tileId] || "").trim();
   if (live) {
     const current = rows.find(row => row && String(row.id || "") === live);
     if (current) return current;
+    const extra = youtubeVideoLiveRow[tileId];
+    if (extra && String(extra.id || "") === live) return extra;
   }
+  if (!rows.length) return null;
   if (props && props.mode === "specific") {
     const wanted = String((props && props.video_id) || "").trim();
     const hit = rows.find(row => row && String(row.id || "") === wanted);
@@ -2600,10 +2608,11 @@ function paintYoutubeVideo(tile, el) {
   const avail = data.available || {};
   const identityOn = data.identity !== false;
   const statsOn = data.stats !== false;
-  const fromList = !!playlist;
-  const showPlayer = steamFlag(props, "show_player", true) && (fromList || avail.player !== false);
+  const liveOn = !!String(youtubeVideoLive[tile.id] || "").trim();
+  const follow = !!playlist || liveOn;
+  const showPlayer = steamFlag(props, "show_player", true) && (follow || avail.player !== false);
   if (showPlayer) {
-    if (video && video.embeddable === false && !fromList) {
+    if (video && video.embeddable === false && !playlist) {
       const blocked = document.createElement("div");
       blocked.className = "youtube-video-stage is-blocked";
       if (video.thumb) blocked.style.backgroundImage = "url(" + JSON.stringify(String(video.thumb)) + ")";
@@ -2660,7 +2669,7 @@ function paintYoutubeVideo(tile, el) {
   if (whoText.childNodes.length) who.appendChild(whoText);
   if (who.childNodes.length) body.appendChild(who);
   const bits = [];
-  if (steamFlag(props, "show_views", true) && (fromList || avail.views !== false) && video) {
+  if (steamFlag(props, "show_views", true) && (follow || avail.views !== false) && video) {
     const text = youtubeCountLabel(video.views, "view", "views");
     if (text) bits.push(text);
   }
@@ -2668,7 +2677,7 @@ function paintYoutubeVideo(tile, el) {
     const when = youtubeAgoText(video.published);
     if (when) bits.push(when);
   }
-  if (steamFlag(props, "show_likes", true) && (fromList || avail.likes !== false) && video) {
+  if (steamFlag(props, "show_likes", true) && (follow || avail.likes !== false) && video) {
     const text = youtubeCountLabel(video.likes, "like", "likes");
     if (text) bits.push(text);
   }
@@ -2690,7 +2699,7 @@ function paintYoutubeVideo(tile, el) {
     body.appendChild(desc);
   }
   if (body.childNodes.length) card.appendChild(body);
-  if (steamFlag(props, "show_comments", true) && (fromList || avail.comments !== false) && video) {
+  if (steamFlag(props, "show_comments", true) && (follow || avail.comments !== false) && video) {
     const count = youtubeCountLabel(video.comments, "comment", "comments");
     if (count) {
       const foot = document.createElement("div");
@@ -2749,6 +2758,7 @@ function openYoutubeUpload(tile, video) {
   const target = youtubeLinkTarget(current.props && current.props.link_tile);
   if (target && video && video.id) {
     youtubeVideoLive[target.id] = String(video.id);
+    youtubeVideoLiveRow[target.id] = video;
     delete youtubeVideoPlaylist[target.id];
     repaintProfileTileId(target.id);
     return;
@@ -2790,6 +2800,7 @@ function openYoutubePlaylist(tile, list) {
   if (target && list && list.id) {
     loadYoutubePlaylistStart(list.id, (start) => {
       delete youtubeVideoLive[target.id];
+      delete youtubeVideoLiveRow[target.id];
       youtubeVideoPlaylist[target.id] = {
         id: String((start && start.playlist_id) || list.id),
         video: (start && start.video) || null
@@ -3155,6 +3166,174 @@ function paintYoutubePlaylists(tile, el) {
     next.addEventListener("click", (e) => {
       e.stopPropagation();
       if (page < layout.pages) youtubePlaylistsTurn(tile, el, page + 1);
+    });
+    foot.addEventListener("pointerdown", (e) => e.stopPropagation());
+    foot.appendChild(prev);
+    foot.appendChild(count);
+    foot.appendChild(next);
+    card.appendChild(foot);
+  }
+  el.appendChild(card);
+}
+
+function sortYoutubeLiked(rows, sort) {
+  const list = (rows || []).slice();
+  const when = (row) => String((row && (row.liked || row.published)) || "");
+  if (sort === "views") {
+    list.sort((a, b) => {
+      const views = (Number(b && b.views) || 0) - (Number(a && a.views) || 0);
+      if (views) return views;
+      return when(b).localeCompare(when(a));
+    });
+    return list;
+  }
+  list.sort((a, b) => when(b).localeCompare(when(a)));
+  return list;
+}
+
+function ensureYoutubeLiked() {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  if (youtubeLikedOwnerId === id && (youtubeLikedData || youtubeLikedLoad)) return;
+  youtubeLikedOwnerId = id;
+  youtubeLikedData = null;
+  youtubeLikedLoad = fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/youtube_liked", { credentials: "include" })
+    .then(response => response.ok ? response.json() : { linked: false, videos: [] })
+    .then(data => { youtubeLikedData = data || { linked: false, videos: [] }; })
+    .catch(() => { youtubeLikedData = { linked: false, videos: [] }; })
+    .finally(() => {
+      youtubeLikedLoad = null;
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id) repaintProfileYoutubeTiles(true);
+    });
+}
+
+function youtubeLikedTurn(tile, el, page) {
+  youtubeLikedPage[tile.id] = page;
+  if (el.classList.contains("is-opt-preview")) {
+    el.innerHTML = "";
+    paintYoutubeLiked(tile, el);
+    return;
+  }
+  repaintProfileYoutubeTiles(true);
+}
+
+function paintYoutubeLiked(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
+  mountSteamTitle(el, tile, "YouTube liked videos", "left");
+  const card = document.createElement("div");
+  card.className = "youtube-uploads-card";
+  const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!youtubeLikedData || youtubeLikedOwnerId !== owner) {
+    ensureYoutubeLiked();
+    el.appendChild(card);
+    return;
+  }
+  const data = youtubeLikedData;
+  const props = tile.props || {};
+  if (!data.linked) {
+    card.appendChild(steamProfileNote("Connect YouTube to show this."));
+    el.appendChild(card);
+    return;
+  }
+  if (data.likes === false) {
+    card.appendChild(steamProfileNote("Turn on Likes for YouTube."));
+    el.appendChild(card);
+    return;
+  }
+  const avail = data.available || {};
+  const videos = sortYoutubeLiked(
+    youtubeListedUploads(data.videos, steamFlag(props, "show_unlisted", false)),
+    props.sort === "views" ? "views" : "date"
+  );
+  if (!videos.length) {
+    card.appendChild(steamProfileNote("No liked videos to show."));
+    el.appendChild(card);
+    return;
+  }
+  const layout = youtubeUploadsLayout(tile, videos.length);
+  let page = Math.round(Number(youtubeLikedPage[tile.id])) || 1;
+  if (page < 1) page = 1;
+  if (page > layout.pages) page = layout.pages;
+  youtubeLikedPage[tile.id] = page;
+  const flow = document.createElement("div");
+  flow.className = "youtube-uploads-flow";
+  videos.slice((page - 1) * layout.perPage, page * layout.perPage).forEach(video => {
+    const entry = document.createElement("div");
+    entry.className = "youtube-uploads-entry";
+    entry.addEventListener("click", (e) => {
+      if (profileEditing && profileIsOwn) return;
+      if (e.target.closest("a")) return;
+      e.stopPropagation();
+      openYoutubeUpload(tile, video);
+    });
+    if (steamFlag(props, "show_thumb", true) && avail.thumb !== false && video.thumb) {
+      const thumb = document.createElement("div");
+      thumb.className = "youtube-uploads-thumb";
+      const img = document.createElement("img");
+      img.src = video.thumb;
+      img.alt = "";
+      img.draggable = false;
+      thumb.appendChild(img);
+      entry.appendChild(thumb);
+    }
+    const copy = document.createElement("div");
+    copy.className = "youtube-uploads-copy";
+    if (steamFlag(props, "show_video_title", true) && video.title) {
+      const title = document.createElement("div");
+      title.className = "youtube-uploads-title";
+      title.textContent = video.title;
+      copy.appendChild(title);
+    }
+    if (steamFlag(props, "show_channel", true) && avail.channel !== false && video.channel) {
+      const name = document.createElement(video.channel_url ? "a" : "div");
+      name.className = "youtube-uploads-channel";
+      name.textContent = video.channel;
+      if (video.channel_url) {
+        name.href = video.channel_url;
+        name.target = "_blank";
+        name.rel = "noopener noreferrer";
+        name.addEventListener("pointerdown", (e) => e.stopPropagation());
+        name.addEventListener("click", (e) => e.stopPropagation());
+      }
+      copy.appendChild(name);
+    }
+    if (steamFlag(props, "show_views", true) && avail.views !== false) {
+      const text = youtubeCountLabel(video.views, "view", "views");
+      if (text) {
+        const views = document.createElement("div");
+        views.className = "youtube-uploads-views";
+        views.textContent = text;
+        copy.appendChild(views);
+      }
+    }
+    if (copy.childNodes.length) entry.appendChild(copy);
+    flow.appendChild(entry);
+  });
+  card.appendChild(flow);
+  if (layout.pages > 1) {
+    const foot = document.createElement("div");
+    foot.className = "youtube-uploads-foot";
+    const prev = document.createElement("button");
+    prev.type = "button";
+    prev.className = "steam-recent-page-btn";
+    prev.textContent = "‹";
+    prev.disabled = page <= 1;
+    prev.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (page > 1) youtubeLikedTurn(tile, el, page - 1);
+    });
+    const count = document.createElement("div");
+    count.className = "steam-recent-page-count";
+    count.textContent = String(page);
+    const next = document.createElement("button");
+    next.type = "button";
+    next.className = "steam-recent-page-btn";
+    next.textContent = "›";
+    next.disabled = page >= layout.pages;
+    next.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (page < layout.pages) youtubeLikedTurn(tile, el, page + 1);
     });
     foot.addEventListener("pointerdown", (e) => e.stopPropagation());
     foot.appendChild(prev);
@@ -4622,6 +4801,10 @@ function paintProfileTileContent(tile, el) {
     paintYoutubePlaylists(tile, el);
     return;
   }
+  if (tile.type === "youtube_liked") {
+    paintYoutubeLiked(tile, el);
+    return;
+  }
   if (isYoutubeWidget(tile.type)) {
     paintYoutubeStub(tile, el);
     return;
@@ -4974,7 +5157,7 @@ function repaintProfileYoutubeTiles(force) {
   const tiles = (page && page.tiles) || [];
   board.querySelectorAll(".profile-tile").forEach(el => {
     const tile = tiles.find(item => item && item.id === el.dataset.tileId);
-    if (!tile || (tile.type !== "youtube_channel" && tile.type !== "youtube_video" && tile.type !== "youtube_uploads" && tile.type !== "youtube_live_now" && tile.type !== "youtube_playlists")) return;
+    if (!tile || (tile.type !== "youtube_channel" && tile.type !== "youtube_video" && tile.type !== "youtube_uploads" && tile.type !== "youtube_live_now" && tile.type !== "youtube_playlists" && tile.type !== "youtube_liked")) return;
     const handle = el.querySelector(".profile-resize");
     paintProfileTileContent(tile, el);
     if (handle) el.appendChild(handle);

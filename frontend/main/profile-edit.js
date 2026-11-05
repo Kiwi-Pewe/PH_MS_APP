@@ -617,7 +617,7 @@ function profileHasWidgetSettings(type) {
 }
 
 function profileHasLinkSettings(type) {
-  return type === "youtube_video" || type === "youtube_uploads" || type === "youtube_live_now" || type === "youtube_playlists";
+  return type === "youtube_video" || type === "youtube_uploads" || type === "youtube_live_now" || type === "youtube_playlists" || type === "youtube_liked";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -788,6 +788,11 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   if (tile.type === "youtube_playlists") {
     fillFixedTitleOptions(box, draft, onChange, "left");
     fillYoutubePlaylistsOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "youtube_liked") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillYoutubeLikedOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
@@ -1226,6 +1231,31 @@ function fillYoutubePlaylistsOptions(box, tile, draft, onChange, hintEl) {
   ], typeof youtubePlaylistsData !== "undefined" ? youtubePlaylistsData : null);
 }
 
+function fillYoutubeLikedOptions(box, tile, draft, onChange, hintEl) {
+  if (typeof ensureYoutubeLiked === "function") ensureYoutubeLiked();
+  if (draft.sort !== "views") draft.sort = "date";
+  const sort = profileSelectField("Sort", [
+    { value: "date", label: "Date liked" },
+    { value: "views", label: "Most watched" }
+  ], draft.sort);
+  sort.select.addEventListener("change", () => {
+    draft.sort = sort.select.value === "views" ? "views" : "date";
+    if (typeof youtubeLikedPage !== "undefined") youtubeLikedPage[tile.id] = 1;
+    onChange();
+  });
+  const sortBlock = document.createElement("div");
+  sortBlock.className = "profile-name-opt";
+  sortBlock.appendChild(sort.label);
+  box.appendChild(sortBlock);
+  fillYoutubeFlagOptions(box, draft, onChange, [
+    ["show_thumb", "Picture", true, "thumb"],
+    ["show_video_title", "Title", true, "video_title"],
+    ["show_channel", "Creator", true, "channel"],
+    ["show_views", "Views", true, "views"],
+    ["show_unlisted", "Unlisted", false, "unlisted"]
+  ], typeof youtubeLikedData !== "undefined" ? youtubeLikedData : null);
+}
+
 function fillLinkOptions(box, tile, draft, onChange, hintEl) {
   if (typeof ensureYoutubeVideo === "function") ensureYoutubeVideo();
   if (typeof ensureYoutubeLive === "function") ensureYoutubeLive();
@@ -1233,7 +1263,7 @@ function fillLinkOptions(box, tile, draft, onChange, hintEl) {
     fillYoutubeLinkSection(box, tile, draft, onChange, "findable");
     return;
   }
-  if (tile.type === "youtube_uploads" || tile.type === "youtube_playlists") {
+  if (tile.type === "youtube_uploads" || tile.type === "youtube_playlists" || tile.type === "youtube_liked") {
     fillYoutubeLinkSection(box, tile, draft, onChange, "driver");
   }
 }

@@ -212,6 +212,7 @@ def live_entry(item):
         "scheduled": clip(snippet.get("scheduledStartTime"), 40),
         "started": clip(snippet.get("actualStartTime"), 40),
         "ended": clip(snippet.get("actualEndTime"), 40),
+        "live_chat_id": clip(snippet.get("liveChatId"), 128),
     }
 
 
@@ -613,6 +614,9 @@ def refresh_youtube_uploads_cache(database, row):
 
 
 def youtube_live_fresh(cache, now):
+    rows = cache.get("live")
+    if isinstance(rows, list) and any(isinstance(item, dict) and "live_chat_id" not in item for item in rows):
+        return False
     raw = cache.get("live_at") or ""
     try:
         at = datetime.fromisoformat(str(raw))
@@ -636,6 +640,9 @@ def apply_live_video(row, item):
     row["ended"] = row.get("ended") or clip(details.get("actualEndTime"), 40)
     row["started"] = row.get("started") or clip(details.get("actualStartTime"), 40)
     row["scheduled"] = row.get("scheduled") or clip(details.get("scheduledStartTime"), 40)
+    chat_id = clip(details.get("activeLiveChatId"), 128)
+    if chat_id:
+        row["live_chat_id"] = chat_id
     return row
 
 
@@ -799,6 +806,7 @@ def youtube_live_public(row):
         "scheduled": clip(row.get("scheduled"), 40),
         "started": clip(row.get("started"), 40),
         "ended": clip(row.get("ended"), 40),
+        "live_chat_id": clip(row.get("live_chat_id"), 128),
     }
 
 
@@ -1362,6 +1370,172 @@ def load_youtube_comments_card(database, user_id, video_id=""):
         "video_id": wanted,
         "threads": threads,
         "videos": videos,
+    }
+
+
+def live_chat_entry(item, video_id):
+    snippet = item.get("snippet") if isinstance(item.get("snippet"), dict) else {}
+    kind = clip(snippet.get("type"), 40)
+    if kind and kind != "textMessageEvent":
+        return None
+    details = snippet.get("textMessageDetails") if isinstance(snippet.get("textMessageDetails"), dict) else {}
+    text = clip(details.get("messageText") or snippet.get("displayMessage"), 500)
+    if not text:
+        return None
+    author = item.get("authorDetails") if isinstance(item.get("authorDetails"), dict) else {}
+    author_id = clip(author.get("channelId"), 64)
+    return {
+        "id": clip(item.get("id"), 128),
+        "video_id": youtube_watch_id(video_id),
+        "author": clip(author.get("displayName"), 120),
+        "thumb": clip(author.get("profileImageUrl"), 400),
+        "channel_id": author_id,
+        "url": channel_profile_url(author_id, ""),
+        "text": text,
+        "published": clip(snippet.get("publishedAt"), 40),
+    }
+
+
+def youtube_live_chat_fresh(cache, video_id, now):
+    bucket = cache.get("live_chat_map")
+    if not isinstance(bucket, dict):
+        return False
+    slot = bucket.get(video_id)
+    if not isinstance(slot, dict) or not slot.get("ok") or not isinstance(slot.get("rows"), list):
+        return False
+    raw = slot.get("at") or ""
+    try:
+        at = datetime.fromisoformat(str(raw))
+    except Exception:
+        return False
+    return (now - at) < timedelta(seconds=15)
+
+
+def youtube_active_chat_id(token, video_id):
+    query = {"part": "liveStreamingDetails", "id": video_id, "maxResults": 1}
+    payload = youtube_public("/videos", query)
+    if payload is None:
+        payload = youtube_get("/videos", query, token) if token else None
+        if payload and payload.get("error"):
+            payload = None
+    items = (payload or {}).get("items") or []
+    item = items[0] if items and isinstance(items[0], dict) else {}
+    details = item.get("liveStreamingDetails") if isinstance(item.get("liveStreamingDetails"), dict) else {}
+    return clip(details.get("activeLiveChatId"), 128)
+
+
+def youtube_pick_live_stream(streams, video_id=""):
+    wanted = youtube_watch_id(video_id)
+    live = []
+    soon = []
+    for item in streams:
+        if not isinstance(item, dict):
+            continue
+        status = (clip(item.get("status"), 24) or "").lower()
+        ident = youtube_watch_id(item.get("id"))
+        if wanted:
+            if ident != wanted:
+                continue
+            if status in ("complete", "revoked", "testing", "teststarting"):
+                return None
+            return item
+        if status in ("live", "livestarting"):
+            live.append(item)
+            continue
+        if status in ("complete", "revoked", "testing", "teststarting"):
+            continue
+        if item.get("scheduled"):
+            soon.append(item)
+    if live:
+        return live[0]
+    if soon:
+        return soon[0]
+    return None
+
+
+def refresh_youtube_live_chat_cache(database, row, video_id, chat_id=""):
+    cache = youtube_cache_dict(row.cache)
+    now = datetime.now()
+    wanted = youtube_watch_id(video_id)
+    if not wanted:
+        return cache, [], False
+    if youtube_live_chat_fresh(cache, wanted, now):
+        slot = (cache.get("live_chat_map") or {}).get(wanted) or {}
+        rows = slot.get("rows") if isinstance(slot.get("rows"), list) else []
+        return cache, rows, bool(slot.get("ready"))
+    token = youtube_access_token(database, row)
+    chat = clip(chat_id, 128) or youtube_active_chat_id(token, wanted)
+    rows = []
+    ready = bool(chat)
+    if chat:
+        query = {
+            "part": "snippet,authorDetails",
+            "liveChatId": chat,
+            "maxResults": 200,
+        }
+        listed = youtube_public("/liveChat/messages", query)
+        if listed is None:
+            listed = youtube_get("/liveChat/messages", query, token) if token else None
+            if listed and listed.get("error"):
+                listed = None
+        if listed is None:
+            return cache, [], True
+        for item in (listed.get("items") or []):
+            if not isinstance(item, dict):
+                continue
+            entry = live_chat_entry(item, wanted)
+            if entry:
+                rows.append(entry)
+        if len(rows) > 25:
+            rows = rows[-25:]
+    bucket = cache.get("live_chat_map")
+    if not isinstance(bucket, dict):
+        bucket = {}
+    bucket[wanted] = {"at": now.isoformat(), "rows": rows, "ok": True, "ready": ready}
+    cache["live_chat_map"] = bucket
+    row.cache = json.dumps(cache)
+    database.commit()
+    return cache, rows, ready
+
+
+def load_youtube_live_chat_card(database, user_id, video_id=""):
+    miss = {
+        "linked": False,
+        "live_chat": False,
+        "video_id": "",
+        "ready": False,
+        "messages": [],
+    }
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "youtube",
+    ).first()
+    if not row:
+        return miss
+    cache = refresh_youtube_identity_cache(database, row)
+    cache = refresh_youtube_live_cache(database, row)
+    parts = read_parts(row.parts, "youtube")
+    streams = []
+    for item in (cache.get("live") or []):
+        if not isinstance(item, dict):
+            continue
+        public = youtube_live_public(item)
+        if public:
+            streams.append(public)
+    stream = youtube_pick_live_stream(streams, video_id)
+    wanted = youtube_watch_id((stream or {}).get("id"))
+    messages = []
+    ready = False
+    if parts.get("live_chat") and wanted:
+        cache, messages, ready = refresh_youtube_live_chat_cache(
+            database, row, wanted, (stream or {}).get("live_chat_id") or ""
+        )
+    return {
+        "linked": True,
+        "live_chat": bool(parts.get("live_chat")),
+        "video_id": wanted,
+        "ready": ready,
+        "messages": messages,
     }
 
 

@@ -8,7 +8,7 @@ import random
 import colorsys
 from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user, Servers, Server_members
 from app.routers.connections import load_steam_achievements, load_steam_badges, load_steam_card, load_steam_playing, load_steam_recent, load_steam_library
-from app.routers.youtube_link import load_youtube_card, load_youtube_video_card
+from app.routers.youtube_link import load_youtube_card, load_youtube_video_card, load_youtube_live_card
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
 from app.database import get_db
 from app.auth import get_current_user
@@ -256,7 +256,7 @@ def tile_bounds(kind, props=None):
         "youtube_channel": (8, 5, 12, 10),
         "youtube_video": (12, 10, 24, 16),
         "youtube_uploads": (10, 5, 10, 16),
-        "youtube_live_now": (7, 4, 10, 6),
+        "youtube_live_now": (12, 10, 24, 16),
         "youtube_playlists": (7, 6, 16, 16),
         "youtube_liked": (7, 6, 16, 16),
         "youtube_subscriptions": (7, 6, 16, 16),
@@ -322,7 +322,7 @@ def default_sizes(kind):
         "youtube_channel": (12, 7),
         "youtube_video": (16, 12),
         "youtube_uploads": (10, 8),
-        "youtube_live_now": (10, 4),
+        "youtube_live_now": (16, 12),
         "youtube_playlists": (12, 8),
         "youtube_liked": (12, 8),
         "youtube_subscriptions": (12, 8),
@@ -1206,6 +1206,22 @@ def normalize_youtube_uploads_props(data):
     return out
 
 
+def normalize_youtube_live_props(data):
+    out = normalize_youtube_title_props(data, "left")
+    out["findable"] = bool(data.get("findable"))
+    out["link_name"] = clip_text(data.get("link_name"), 20)
+    on_keys = (
+        "show_player", "show_video_title", "show_avatar", "show_channel",
+        "show_subscribers", "show_views", "show_published", "show_likes",
+        "show_watching", "show_comments",
+    )
+    for key in on_keys:
+        out[key] = True if key not in data or data.get(key) is None else bool(data.get(key))
+    out["show_description"] = False if "show_description" not in data or data.get("show_description") is None else bool(data.get("show_description"))
+    out["show_unlisted"] = False if "show_unlisted" not in data or data.get("show_unlisted") is None else bool(data.get("show_unlisted"))
+    return out
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
     if kind == "banner":
@@ -1402,6 +1418,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_youtube_video_props(data)
     if kind == "youtube_uploads":
         return normalize_youtube_uploads_props(data)
+    if kind == "youtube_live_now":
+        return normalize_youtube_live_props(data)
     if kind.startswith("youtube_"):
         return normalize_youtube_title_props(data, "left")
     if kind == "featured_friend":
@@ -1967,6 +1985,16 @@ def get_profile_youtube_video(user_id: int, current_user: UserInfo = Depends(get
     if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
         raise HTTPException(status_code=403, detail="You cannot see this profile.")
     return load_youtube_video_card(database, owner.id)
+
+
+@router.get("/profile/{user_id}/youtube_live")
+def get_profile_youtube_live(user_id: int, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    return load_youtube_live_card(database, owner.id)
 
 
 @router.get("/profile/{user_id}/steam_playing")

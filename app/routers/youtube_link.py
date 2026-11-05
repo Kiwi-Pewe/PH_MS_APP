@@ -203,9 +203,10 @@ def live_entry(item):
         "title": clip(snippet.get("title"), 160),
         "thumb": thumb_url(snippet.get("thumbnails")),
         "status": clip(status.get("lifeCycleStatus"), 24),
-        "privacy": clip(status.get("privacyStatus"), 16),
+        "privacy": clip(status.get("privacyStatus"), 16) or "public",
         "scheduled": clip(snippet.get("scheduledStartTime"), 40),
         "started": clip(snippet.get("actualStartTime"), 40),
+        "ended": clip(snippet.get("actualEndTime"), 40),
     }
 
 
@@ -606,6 +607,85 @@ def refresh_youtube_uploads_cache(database, row):
     return cache
 
 
+def youtube_live_fresh(cache, now):
+    raw = cache.get("live_at") or ""
+    try:
+        at = datetime.fromisoformat(str(raw))
+    except Exception:
+        return False
+    return (now - at) < timedelta(minutes=5)
+
+
+def apply_live_video(row, item):
+    extra = video_entry(item)
+    details = item.get("liveStreamingDetails") if isinstance(item.get("liveStreamingDetails"), dict) else {}
+    row["title"] = extra.get("title") or row.get("title")
+    row["description"] = extra.get("description") or ""
+    row["thumb"] = extra.get("thumb") or row.get("thumb")
+    row["published"] = extra.get("published") or ""
+    row["views"] = extra.get("views") or ""
+    row["likes"] = extra.get("likes") or ""
+    row["comments"] = extra.get("comments") or ""
+    row["embeddable"] = extra.get("embeddable")
+    row["watching"] = clip(str(details.get("concurrentViewers") or ""), 24)
+    row["ended"] = row.get("ended") or clip(details.get("actualEndTime"), 40)
+    row["started"] = row.get("started") or clip(details.get("actualStartTime"), 40)
+    row["scheduled"] = row.get("scheduled") or clip(details.get("scheduledStartTime"), 40)
+    return row
+
+
+def refresh_youtube_live_cache(database, row):
+    cache = youtube_cache_dict(row.cache)
+    now = datetime.now()
+    if youtube_live_fresh(cache, now):
+        return cache
+    token = youtube_access_token(database, row)
+    listed = youtube_fetch("/liveBroadcasts", {
+        "part": "snippet,status",
+        "mine": "true",
+        "broadcastStatus": "all",
+        "maxResults": 25,
+    }, token)
+    if listed is None:
+        if cache.get("live") is None:
+            cache["live"] = []
+            cache["live_at"] = now.isoformat()
+            row.cache = json.dumps(cache)
+            database.commit()
+        return cache
+    rows = []
+    ids = []
+    for item in (listed.get("items") or []):
+        if not isinstance(item, dict):
+            continue
+        entry = live_entry(item)
+        if entry.get("id"):
+            ids.append(entry["id"])
+        rows.append(entry)
+    videos = {}
+    if ids:
+        payload = youtube_fetch("/videos", {
+            "part": "snippet,statistics,contentDetails,status,liveStreamingDetails",
+            "id": ",".join(ids[:50]),
+            "maxResults": 50,
+        }, token)
+        for item in (payload or {}).get("items") or []:
+            if not isinstance(item, dict):
+                continue
+            video_id = clip(item.get("id"), 32)
+            if video_id:
+                videos[video_id] = item
+    for entry in rows:
+        extra = videos.get(clip(entry.get("id"), 32))
+        if extra:
+            apply_live_video(entry, extra)
+    cache["live"] = rows
+    cache["live_at"] = now.isoformat()
+    row.cache = json.dumps(cache)
+    database.commit()
+    return cache
+
+
 def youtube_video_public(row):
     privacy = (clip(row.get("privacy"), 16) or "public").lower()
     if privacy == "private":
@@ -685,6 +765,98 @@ def load_youtube_video_card(database, user_id):
             "description": any(clip(item.get("description"), 1000) for item in videos),
             "comments": any(clip(str(item.get("comments") or ""), 24) for item in videos),
             "unlisted": any((item.get("privacy") or "") == "unlisted" for item in videos),
+        },
+    }
+
+
+def youtube_live_public(row):
+    privacy = (clip(row.get("privacy"), 16) or "public").lower()
+    if privacy == "private":
+        return None
+    return {
+        "id": clip(row.get("id"), 32),
+        "title": clip(row.get("title"), 160),
+        "description": clip(row.get("description"), 1000),
+        "thumb": clip(row.get("thumb"), 400),
+        "published": clip(row.get("published"), 40),
+        "views": clip(str(row.get("views") or ""), 24),
+        "likes": clip(str(row.get("likes") or ""), 24),
+        "comments": clip(str(row.get("comments") or ""), 24),
+        "watching": clip(str(row.get("watching") or ""), 24),
+        "embeddable": False if row.get("embeddable") is False else True,
+        "privacy": privacy,
+        "status": clip(row.get("status"), 24).lower(),
+        "scheduled": clip(row.get("scheduled"), 40),
+        "started": clip(row.get("started"), 40),
+        "ended": clip(row.get("ended"), 40),
+    }
+
+
+def load_youtube_live_card(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "youtube",
+    ).first()
+    if not row:
+        return {
+            "linked": False,
+            "identity": False,
+            "stats": False,
+            "live": False,
+            "streams": [],
+            "available": {},
+        }
+    cache = refresh_youtube_identity_cache(database, row)
+    cache = refresh_youtube_live_cache(database, row)
+    if not cache.get("profile_url"):
+        cache["profile_url"] = clip(row.profile_url, 400)
+    if not cache.get("thumb"):
+        cache["thumb"] = clip(row.avatar_url, 400)
+    if not cache.get("title"):
+        cache["title"] = clip(row.display_name, 120)
+    parts = read_parts(row.parts, "youtube")
+    hidden = bool(cache.get("hidden_subscribers"))
+    subscribers = "" if hidden else clip(str(cache.get("subscribers") or ""), 24)
+    name = clip(cache.get("title"), 120)
+    link = clip(cache.get("profile_url"), 400)
+    if not link:
+        link = channel_profile_url(clip(cache.get("channel_id"), 64), cache.get("custom_url"))
+    avatar = clip(cache.get("thumb"), 400)
+    banner = clip(cache.get("banner"), 400)
+    streams = []
+    for item in (cache.get("live") or []):
+        if not isinstance(item, dict):
+            continue
+        public = youtube_live_public(item)
+        if public:
+            streams.append(public)
+    return {
+        "linked": True,
+        "identity": bool(parts.get("identity")),
+        "stats": bool(parts.get("stats")),
+        "live": bool(parts.get("live")),
+        "name": name,
+        "profile_url": link,
+        "avatar": avatar,
+        "banner": banner,
+        "subscribers": subscribers,
+        "hidden_subscribers": hidden,
+        "streams": streams,
+        "available": {
+            "player": any((item.get("status") or "") in ("live", "livestarting") for item in streams),
+            "thumb": any(clip(item.get("thumb"), 400) for item in streams) or bool(banner),
+            "video_title": any(clip(item.get("title"), 160) for item in streams),
+            "avatar": bool(avatar),
+            "channel": bool(name),
+            "subscribers": bool(subscribers),
+            "views": any(clip(str(item.get("views") or ""), 24) for item in streams),
+            "published": any(clip(item.get("started") or item.get("scheduled") or item.get("ended"), 40) for item in streams),
+            "likes": any(clip(str(item.get("likes") or ""), 24) for item in streams),
+            "description": any(clip(item.get("description"), 1000) for item in streams),
+            "comments": any(clip(str(item.get("comments") or ""), 24) for item in streams),
+            "watching": any(clip(str(item.get("watching") or ""), 24) for item in streams),
+            "banner": bool(banner),
+            "unlisted": any((item.get("privacy") or "") == "unlisted" for item in streams),
         },
     }
 

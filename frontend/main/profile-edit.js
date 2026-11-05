@@ -617,7 +617,7 @@ function profileHasWidgetSettings(type) {
 }
 
 function profileHasLinkSettings(type) {
-  return type === "youtube_video" || type === "youtube_uploads";
+  return type === "youtube_video" || type === "youtube_uploads" || type === "youtube_live_now";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -778,6 +778,11 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   if (tile.type === "youtube_uploads") {
     fillFixedTitleOptions(box, draft, onChange, "left");
     fillYoutubeUploadsOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "youtube_live_now") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillYoutubeLiveOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
@@ -1173,9 +1178,28 @@ function fillYoutubeUploadsOptions(box, tile, draft, onChange, hintEl) {
   ], typeof youtubeVideoData !== "undefined" ? youtubeVideoData : null);
 }
 
+function fillYoutubeLiveOptions(box, tile, draft, onChange, hintEl) {
+  if (typeof ensureYoutubeLive === "function") ensureYoutubeLive();
+  fillYoutubeFlagOptions(box, draft, onChange, [
+    ["show_player", "Player", true, "player"],
+    ["show_video_title", "Title", true, "video_title"],
+    ["show_avatar", "Channel picture", true, "avatar"],
+    ["show_channel", "Channel name", true, "channel"],
+    ["show_subscribers", "Subscribers", true, "subscribers"],
+    ["show_views", "Views", true, "views"],
+    ["show_published", "Published", true, "published"],
+    ["show_likes", "Likes", true, "likes"],
+    ["show_watching", "Watching", true, "watching"],
+    ["show_description", "Description", false, "description"],
+    ["show_comments", "Comment count", true, "comments"],
+    ["show_unlisted", "Unlisted", false, "unlisted"]
+  ], typeof youtubeLiveData !== "undefined" ? youtubeLiveData : null);
+}
+
 function fillLinkOptions(box, tile, draft, onChange, hintEl) {
   if (typeof ensureYoutubeVideo === "function") ensureYoutubeVideo();
-  if (tile.type === "youtube_video") {
+  if (typeof ensureYoutubeLive === "function") ensureYoutubeLive();
+  if (tile.type === "youtube_video" || tile.type === "youtube_live_now") {
     fillYoutubeLinkSection(box, tile, draft, onChange, "findable");
     return;
   }

@@ -214,7 +214,7 @@ def live_entry(item):
 def playlist_video_ids(token, playlist_id, limit=25):
     if not playlist_id:
         return []
-    payload = youtube_get("/playlistItems", {
+    payload = youtube_fetch("/playlistItems", {
         "part": "snippet,contentDetails",
         "playlistId": playlist_id,
         "maxResults": min(limit, 50),
@@ -969,6 +969,56 @@ def load_youtube_playlists_card(database, user_id):
             "unlisted": any((item.get("privacy") or "") == "unlisted" for item in lists),
         },
     }
+
+
+def load_youtube_playlist_start(database, user_id, playlist_id):
+    wanted = clip(playlist_id, 64)
+    miss = {"ok": False, "playlist_id": "", "video": None}
+    if not wanted:
+        return miss
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "youtube",
+    ).first()
+    if not row:
+        return miss
+    parts = read_parts(row.parts, "youtube")
+    if not parts.get("playlists"):
+        return miss
+    cache = refresh_youtube_playlists_cache(database, row)
+    listed = None
+    for item in (cache.get("playlists") or []):
+        if not isinstance(item, dict):
+            continue
+        public = youtube_playlist_public(item)
+        if public and public.get("id") == wanted:
+            listed = public
+            break
+    if not listed:
+        return miss
+    token = youtube_access_token(database, row)
+    ids = playlist_video_ids(token, wanted, 25)
+    if not ids:
+        return {"ok": True, "playlist_id": wanted, "video": None}
+    payload = youtube_fetch("/videos", {
+        "part": "snippet,statistics,contentDetails,status",
+        "id": ",".join(ids[:50]),
+        "maxResults": 50,
+    }, token)
+    found = {}
+    for item in (payload or {}).get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        public = youtube_video_public(video_entry(item))
+        if public and public.get("id"):
+            found[public["id"]] = public
+    video = None
+    for video_id in ids:
+        hit = found.get(video_id)
+        if hit:
+            video = hit
+            break
+    return {"ok": True, "playlist_id": wanted, "video": video}
 
 
 def pending_youtube(database, user_id):

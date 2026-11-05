@@ -617,7 +617,7 @@ function profileHasWidgetSettings(type) {
 }
 
 function profileHasLinkSettings(type) {
-  return type === "youtube_video" || type === "youtube_uploads" || type === "youtube_live_now";
+  return type === "youtube_video" || type === "youtube_uploads" || type === "youtube_live_now" || type === "youtube_playlists";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -1077,7 +1077,7 @@ function fillYoutubeLinkSection(box, tile, draft, onChange, role) {
     findBlock.appendChild(settingsOpt("Findable", "", settingsToggle(!!draft.findable, false, (on) => {
       draft.findable = on;
       nameBlock.hidden = !on;
-      if (!on && typeof youtubeVideoLive !== "undefined") delete youtubeVideoLive[tile.id];
+      if (!on && typeof clearYoutubeVideoOverride === "function") clearYoutubeVideoOverride(tile.id);
       onChange();
     })));
     box.appendChild(findBlock);
@@ -1120,7 +1120,7 @@ function fillYoutubeVideoOptions(box, tile, draft, onChange, hintEl) {
   mode.select.addEventListener("change", () => {
     draft.mode = mode.select.value === "specific" ? "specific" : "recent";
     extras.hidden = draft.mode !== "specific";
-    if (typeof youtubeVideoLive !== "undefined") delete youtubeVideoLive[tile.id];
+    if (typeof clearYoutubeVideoOverride === "function") clearYoutubeVideoOverride(tile.id);
     onChange();
   });
   const modeBlock = document.createElement("div");
@@ -1139,7 +1139,7 @@ function fillYoutubeVideoOptions(box, tile, draft, onChange, hintEl) {
   const pick = profileSelectField("Upload", picks, draft.video_id);
   pick.select.addEventListener("change", () => {
     draft.video_id = String(pick.select.value || "");
-    if (typeof youtubeVideoLive !== "undefined") delete youtubeVideoLive[tile.id];
+    if (typeof clearYoutubeVideoOverride === "function") clearYoutubeVideoOverride(tile.id);
     onChange();
   });
   extras.appendChild(pick.label);
@@ -1233,7 +1233,7 @@ function fillLinkOptions(box, tile, draft, onChange, hintEl) {
     fillYoutubeLinkSection(box, tile, draft, onChange, "findable");
     return;
   }
-  if (tile.type === "youtube_uploads") {
+  if (tile.type === "youtube_uploads" || tile.type === "youtube_playlists") {
     fillYoutubeLinkSection(box, tile, draft, onChange, "driver");
   }
 }

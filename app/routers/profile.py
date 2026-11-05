@@ -8,7 +8,7 @@ import random
 import colorsys
 from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user, Servers, Server_members
 from app.routers.connections import load_steam_achievements, load_steam_badges, load_steam_card, load_steam_playing, load_steam_recent, load_steam_library
-from app.routers.youtube_link import load_youtube_card, load_youtube_video_card, load_youtube_live_card, load_youtube_playlists_card
+from app.routers.youtube_link import load_youtube_card, load_youtube_video_card, load_youtube_live_card, load_youtube_playlists_card, load_youtube_playlist_start
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
 from app.database import get_db
 from app.auth import get_current_user
@@ -1210,6 +1210,7 @@ def normalize_youtube_playlists_props(data):
     out = normalize_youtube_title_props(data, "left")
     sort = str(data.get("sort") or "").strip().lower()
     out["sort"] = "count" if sort == "count" else "date"
+    out["link_tile"] = clip_text(data.get("link_tile"), 32)
     for key in ("show_thumb", "show_video_title", "show_channel", "show_count"):
         out[key] = True if key not in data or data.get(key) is None else bool(data.get(key))
     out["show_unlisted"] = False if "show_unlisted" not in data or data.get("show_unlisted") is None else bool(data.get("show_unlisted"))
@@ -2017,6 +2018,16 @@ def get_profile_youtube_playlists(user_id: int, current_user: UserInfo = Depends
     if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
         raise HTTPException(status_code=403, detail="You cannot see this profile.")
     return load_youtube_playlists_card(database, owner.id)
+
+
+@router.get("/profile/{user_id}/youtube_playlist/{playlist_id}")
+def get_profile_youtube_playlist_start(user_id: int, playlist_id: str, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    return load_youtube_playlist_start(database, owner.id, playlist_id)
 
 
 @router.get("/profile/{user_id}/steam_playing")

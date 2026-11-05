@@ -2173,6 +2173,8 @@ let youtubeVideoOwnerId = "";
 let youtubeVideoData = null;
 let youtubeVideoLoad = null;
 const youtubeVideoLive = {};
+const youtubeVideoPlaylist = {};
+const youtubePlaylistStart = {};
 const youtubeUploadsPage = {};
 let youtubeLiveOwnerId = "";
 let youtubeLiveData = null;
@@ -2315,7 +2317,19 @@ function ensureYoutubeVideo() {
     });
 }
 
+function clearYoutubeVideoOverride(tileId) {
+  delete youtubeVideoLive[tileId];
+  delete youtubeVideoPlaylist[tileId];
+}
+
+function youtubePlaylistOverride(tileId) {
+  const row = youtubeVideoPlaylist[tileId];
+  return row && row.id ? row : null;
+}
+
 function pickYoutubeVideo(data, props, tileId) {
+  const playlist = youtubePlaylistOverride(tileId);
+  if (playlist && playlist.video) return playlist.video;
   const rows = (data && Array.isArray(data.videos)) ? data.videos : [];
   if (!rows.length) return null;
   const live = String(youtubeVideoLive[tileId] || "").trim();
@@ -2331,7 +2345,22 @@ function pickYoutubeVideo(data, props, tileId) {
   return rows[0];
 }
 
-function mountYoutubePlayer(host, videoId, editOverlay) {
+function youtubePlayerSrc(videoId, playlistId) {
+  const list = String(playlistId || "").trim();
+  const id = String(videoId || "").trim();
+  if (id) {
+    const src = (typeof oneiraEmbedIframeSrc === "function")
+      ? oneiraEmbedIframeSrc({ provider: "youtube", kind: "video", id })
+      : "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) + "?rel=0&playsinline=1";
+    return list ? src + (src.indexOf("?") >= 0 ? "&" : "?") + "list=" + encodeURIComponent(list) : src;
+  }
+  if (list) {
+    return "https://www.youtube-nocookie.com/embed/videoseries?list=" + encodeURIComponent(list) + "&rel=0&playsinline=1";
+  }
+  return "";
+}
+
+function mountYoutubePlayer(host, videoId, editOverlay, playlistId) {
   if (typeof oneiraPlayers !== "undefined") {
     [...oneiraPlayers].forEach((api) => {
       if (api && api.root && !api.root.isConnected && api.destroy) api.destroy();
@@ -2339,11 +2368,7 @@ function mountYoutubePlayer(host, videoId, editOverlay) {
   }
   const stage = document.createElement("div");
   stage.className = "youtube-video-stage" + (editOverlay ? " is-edit" : "");
-  const src = videoId
-    ? ((typeof oneiraEmbedIframeSrc === "function")
-      ? oneiraEmbedIframeSrc({ provider: "youtube", kind: "video", id: videoId })
-      : "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(videoId) + "?rel=0&playsinline=1")
-    : "";
+  const src = youtubePlayerSrc(videoId, playlistId);
   let iframe = null;
   let liveSrc = src;
   let parked = false;
@@ -2555,35 +2580,43 @@ function paintYoutubeVideo(tile, el) {
     el.appendChild(card);
     return;
   }
-  if (data.uploads === false) {
+  const playlist = youtubePlaylistOverride(tile.id);
+  if (!playlist && data.uploads === false) {
     card.appendChild(steamProfileNote("Turn on Uploads for YouTube."));
     el.appendChild(card);
     return;
   }
   const video = pickYoutubeVideo(data, props, tile.id);
-  if (!video) {
+  if (!playlist && !video) {
     card.appendChild(steamProfileNote("No uploads to show."));
+    el.appendChild(card);
+    return;
+  }
+  if (playlist && !video && !playlist.id) {
+    card.appendChild(steamProfileNote("No videos to play."));
     el.appendChild(card);
     return;
   }
   const avail = data.available || {};
   const identityOn = data.identity !== false;
   const statsOn = data.stats !== false;
-  const showPlayer = steamFlag(props, "show_player", true) && avail.player !== false;
+  const fromList = !!playlist;
+  const showPlayer = steamFlag(props, "show_player", true) && (fromList || avail.player !== false);
   if (showPlayer) {
-    if (video.embeddable === false) {
+    if (video && video.embeddable === false && !fromList) {
       const blocked = document.createElement("div");
       blocked.className = "youtube-video-stage is-blocked";
       if (video.thumb) blocked.style.backgroundImage = "url(" + JSON.stringify(String(video.thumb)) + ")";
       blocked.appendChild(steamProfileNote("Can't play here."));
       card.appendChild(blocked);
     } else {
-      el._youtubePlayer = mountYoutubePlayer(card, video.id, !!(profileEditing && profileIsOwn));
+      const playId = (video && video.embeddable !== false) ? video.id : "";
+      el._youtubePlayer = mountYoutubePlayer(card, playId, !!(profileEditing && profileIsOwn), playlist && playlist.id);
     }
   }
   const body = document.createElement("div");
   body.className = "youtube-video-body";
-  if (steamFlag(props, "show_video_title", true) && video.title) {
+  if (steamFlag(props, "show_video_title", true) && video && video.title) {
     const title = document.createElement("div");
     title.className = "youtube-video-title";
     title.textContent = video.title;
@@ -2627,15 +2660,15 @@ function paintYoutubeVideo(tile, el) {
   if (whoText.childNodes.length) who.appendChild(whoText);
   if (who.childNodes.length) body.appendChild(who);
   const bits = [];
-  if (steamFlag(props, "show_views", true) && avail.views !== false) {
+  if (steamFlag(props, "show_views", true) && (fromList || avail.views !== false) && video) {
     const text = youtubeCountLabel(video.views, "view", "views");
     if (text) bits.push(text);
   }
-  if (steamFlag(props, "show_published", true) && video.published) {
+  if (steamFlag(props, "show_published", true) && video && video.published) {
     const when = youtubeAgoText(video.published);
     if (when) bits.push(when);
   }
-  if (steamFlag(props, "show_likes", true) && avail.likes !== false) {
+  if (steamFlag(props, "show_likes", true) && (fromList || avail.likes !== false) && video) {
     const text = youtubeCountLabel(video.likes, "like", "likes");
     if (text) bits.push(text);
   }
@@ -2645,7 +2678,7 @@ function paintYoutubeVideo(tile, el) {
     stats.textContent = bits.join(" · ");
     body.appendChild(stats);
   }
-  if (steamFlag(props, "show_description", false) && video.description) {
+  if (steamFlag(props, "show_description", false) && video && video.description) {
     if (body.childNodes.length) {
       const rule = document.createElement("div");
       rule.className = "profile-text-rule youtube-profile-rule";
@@ -2657,7 +2690,7 @@ function paintYoutubeVideo(tile, el) {
     body.appendChild(desc);
   }
   if (body.childNodes.length) card.appendChild(body);
-  if (steamFlag(props, "show_comments", true) && avail.comments !== false) {
+  if (steamFlag(props, "show_comments", true) && (fromList || avail.comments !== false) && video) {
     const count = youtubeCountLabel(video.comments, "comment", "comments");
     if (count) {
       const foot = document.createElement("div");
@@ -2716,10 +2749,56 @@ function openYoutubeUpload(tile, video) {
   const target = youtubeLinkTarget(current.props && current.props.link_tile);
   if (target && video && video.id) {
     youtubeVideoLive[target.id] = String(video.id);
+    delete youtubeVideoPlaylist[target.id];
     repaintProfileTileId(target.id);
     return;
   }
   const href = youtubeWatchUrl(video && video.id);
+  if (href) window.open(href, "_blank", "noopener,noreferrer");
+}
+
+function loadYoutubePlaylistStart(playlistId, done) {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  const wanted = String(playlistId || "").trim();
+  if (!id || !wanted || typeof serverAddress !== "string" || !serverAddress) {
+    if (done) done({ ok: false, playlist_id: "", video: null });
+    return;
+  }
+  const key = id + ":" + wanted;
+  const cached = youtubePlaylistStart[key];
+  if (cached) {
+    if (done) done(cached);
+    return;
+  }
+  fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/youtube_playlist/" + encodeURIComponent(wanted), { credentials: "include" })
+    .then(response => response.ok ? response.json() : { ok: false, playlist_id: wanted, video: null })
+    .then(data => {
+      const row = data || { ok: false, playlist_id: wanted, video: null };
+      youtubePlaylistStart[key] = row;
+      if (done) done(row);
+    })
+    .catch(() => {
+      if (done) done({ ok: false, playlist_id: wanted, video: null });
+    });
+}
+
+function openYoutubePlaylist(tile, list) {
+  const layout = profileDraft || profileSavedLayout;
+  const page = typeof profilePageById === "function" ? profilePageById(layout, profileActivePageId) : null;
+  const current = ((page && page.tiles) || []).find(item => item && item.id === tile.id) || tile;
+  const target = youtubeLinkTarget(current.props && current.props.link_tile);
+  if (target && list && list.id) {
+    loadYoutubePlaylistStart(list.id, (start) => {
+      delete youtubeVideoLive[target.id];
+      youtubeVideoPlaylist[target.id] = {
+        id: String((start && start.playlist_id) || list.id),
+        video: (start && start.video) || null
+      };
+      repaintProfileTileId(target.id);
+    });
+    return;
+  }
+  const href = youtubePlaylistUrl(list && list.id);
   if (href) window.open(href, "_blank", "noopener,noreferrer");
 }
 
@@ -3007,8 +3086,7 @@ function paintYoutubePlaylists(tile, el) {
       if (profileEditing && profileIsOwn) return;
       if (e.target.closest("a")) return;
       e.stopPropagation();
-      const href = youtubePlaylistUrl(list.id);
-      if (href) window.open(href, "_blank", "noopener,noreferrer");
+      openYoutubePlaylist(tile, list);
     });
     if (steamFlag(props, "show_thumb", true) && avail.thumb !== false && list.thumb) {
       const thumb = document.createElement("div");

@@ -255,7 +255,7 @@ def tile_bounds(kind, props=None):
         "steam_badges": (6, 3, 16, 10),
         "youtube_channel": (8, 5, 12, 10),
         "youtube_video": (12, 10, 24, 16),
-        "youtube_uploads": (12, 5, 12, 16),
+        "youtube_uploads": (10, 5, 10, 16),
         "youtube_live_now": (7, 4, 10, 6),
         "youtube_playlists": (7, 6, 16, 16),
         "youtube_liked": (7, 6, 16, 16),
@@ -321,7 +321,7 @@ def default_sizes(kind):
         "steam_badges": (12, 8),
         "youtube_channel": (12, 7),
         "youtube_video": (16, 12),
-        "youtube_uploads": (12, 8),
+        "youtube_uploads": (10, 8),
         "youtube_live_now": (10, 4),
         "youtube_playlists": (12, 8),
         "youtube_liked": (12, 8),
@@ -1201,6 +1201,7 @@ def normalize_youtube_uploads_props(data):
     out["link_tile"] = clip_text(data.get("link_tile"), 32)
     for key in ("show_thumb", "show_video_title", "show_channel", "show_views"):
         out[key] = True if key not in data or data.get(key) is None else bool(data.get(key))
+    out["show_unlisted"] = False if "show_unlisted" not in data or data.get("show_unlisted") is None else bool(data.get("show_unlisted"))
     return out
 
 

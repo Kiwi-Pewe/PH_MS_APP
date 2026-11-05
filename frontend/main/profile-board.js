@@ -96,7 +96,7 @@ const PROFILE_TILE_TYPES = {
   steam_badges: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Badges" },
   youtube_channel: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 10, label: "User Profile" },
   youtube_video: { w: 16, h: 12, minW: 12, minH: 10, maxW: 24, maxH: 16, label: "Video" },
-  youtube_uploads: { w: 12, h: 8, minW: 12, minH: 5, maxW: 12, maxH: 16, label: "Uploads" },
+  youtube_uploads: { w: 10, h: 8, minW: 10, minH: 5, maxW: 10, maxH: 16, label: "Uploads" },
   youtube_live_now: { w: 10, h: 4, minW: 7, minH: 4, maxW: 10, maxH: 6, label: "Live Now" },
   youtube_playlists: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Playlists" },
   youtube_liked: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Liked videos" },
@@ -2652,7 +2652,7 @@ const YOUTUBE_UPLOADS_PAD_Y = 16;
 const YOUTUBE_UPLOADS_PAD_X = 24;
 const YOUTUBE_UPLOADS_FOOT_H = 36;
 const YOUTUBE_UPLOADS_TITLE_H = 37;
-const YOUTUBE_UPLOADS_ROW_H = 79;
+const YOUTUBE_UPLOADS_ROW_H = 68;
 const YOUTUBE_UPLOADS_MAX = 6;
 
 function youtubeWatchUrl(id) {
@@ -2699,6 +2699,15 @@ function openYoutubeUpload(tile, video) {
   }
   const href = youtubeWatchUrl(video && video.id);
   if (href) window.open(href, "_blank", "noopener,noreferrer");
+}
+
+function youtubeListedUploads(rows, allowUnlisted) {
+  return (rows || []).filter(row => {
+    const privacy = String((row && row.privacy) || "public").toLowerCase();
+    if (privacy === "private") return false;
+    if (privacy === "unlisted" && !allowUnlisted) return false;
+    return true;
+  });
 }
 
 function sortYoutubeUploads(rows, sort) {
@@ -2781,7 +2790,10 @@ function paintYoutubeUploads(tile, el) {
   }
   const avail = data.available || {};
   const identityOn = data.identity !== false;
-  const videos = sortYoutubeUploads(data.videos, props.sort === "views" ? "views" : "date");
+  const videos = sortYoutubeUploads(
+    youtubeListedUploads(data.videos, steamFlag(props, "show_unlisted", false)),
+    props.sort === "views" ? "views" : "date"
+  );
   if (!videos.length) {
     card.appendChild(steamProfileNote("No uploads to show."));
     el.appendChild(card);
@@ -2797,8 +2809,8 @@ function paintYoutubeUploads(tile, el) {
   videos.slice((page - 1) * layout.perPage, page * layout.perPage).forEach(video => {
     const entry = document.createElement("div");
     entry.className = "youtube-uploads-entry";
-    entry.addEventListener("pointerdown", (e) => e.stopPropagation());
     entry.addEventListener("click", (e) => {
+      if (profileEditing && profileIsOwn) return;
       if (e.target.closest("a")) return;
       e.stopPropagation();
       openYoutubeUpload(tile, video);

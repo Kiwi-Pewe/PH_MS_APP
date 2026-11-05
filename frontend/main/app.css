@@ -7611,12 +7611,14 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   padding: 8px 12px; overflow: hidden;
 }
 .youtube-uploads-entry {
-  flex: 0 0 79px; height: 79px; min-width: 0;
+  flex: 0 0 68px; height: 68px; min-width: 0;
   display: flex; align-items: stretch; gap: 10px;
   overflow: hidden; box-sizing: border-box; cursor: pointer;
 }
+.profile-tile.is-editing .youtube-uploads-entry { cursor: inherit; }
+.profile-tile.is-editing .youtube-uploads-entry a { pointer-events: none; }
 .youtube-uploads-thumb {
-  width: 140px; height: 79px; flex: 0 0 auto;
+  width: 120px; height: 68px; flex: 0 0 auto;
   border-radius: 4px; overflow: hidden; background: var(--panel);
 }
 .youtube-uploads-thumb img {

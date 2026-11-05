@@ -419,7 +419,7 @@ function bindProfileTileDrag(el, tile, handle) {
     if (e.target.closest(".oneira-music-seek, .oneira-music-row")) return;
     if (e.target.closest(".oneira-gallery-nav")) return;
     if (e.target.closest(".steam-recent-pages")) return;
-    if (e.target.closest(".youtube-uploads-foot, .youtube-uploads-entry")) return;
+    if (e.target.closest(".youtube-uploads-foot")) return;
     if (e.target.closest(".steam-achieve-entry, .steam-badge-entry")) return;
     if (e.target.closest(".oneira-wall-compose, .oneira-wall-pager, .oneira-wall-notify, .oneira-wall-edit, .oneira-wall-input")) return;
     if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
@@ -614,6 +614,10 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 
 function profileHasWidgetSettings(type) {
   return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
+}
+
+function profileHasLinkSettings(type) {
+  return type === "youtube_video" || type === "youtube_uploads";
 }
 
 function bindDraftReaders(box, draft, readValues, onChange) {
@@ -1034,13 +1038,6 @@ function fillYoutubeProfileOptions(box, draft, onChange) {
 }
 
 function fillYoutubeLinkSection(box, tile, draft, onChange, role) {
-  const split = document.createElement("div");
-  split.className = "profile-opt-section-split";
-  box.appendChild(split);
-  const heading = document.createElement("div");
-  heading.className = "profile-opt-section-title";
-  heading.textContent = "Link widgets";
-  box.appendChild(heading);
   if (role === "findable") {
     draft.findable = !!draft.findable;
     const findBlock = document.createElement("div");
@@ -1133,13 +1130,11 @@ function fillYoutubeVideoOptions(box, tile, draft, onChange, hintEl) {
     ["show_description", "Description", false, "description"],
     ["show_comments", "Comment count", true, "comments"]
   ], typeof youtubeVideoData !== "undefined" ? youtubeVideoData : null);
-  fillYoutubeLinkSection(box, tile, draft, onChange, "findable");
 }
 
 function fillYoutubeUploadsOptions(box, tile, draft, onChange, hintEl) {
   if (typeof ensureYoutubeVideo === "function") ensureYoutubeVideo();
   if (draft.sort !== "views") draft.sort = "date";
-  draft.link_tile = String(draft.link_tile || "");
   const sort = profileSelectField("Sort", [
     { value: "date", label: "Date Posted" },
     { value: "views", label: "Most watched" }
@@ -1157,9 +1152,20 @@ function fillYoutubeUploadsOptions(box, tile, draft, onChange, hintEl) {
     ["show_thumb", "Picture", true, "thumb"],
     ["show_video_title", "Title", true, "video_title"],
     ["show_channel", "Creator", true, "channel"],
-    ["show_views", "Views", true, "views"]
+    ["show_views", "Views", true, "views"],
+    ["show_unlisted", "Unlisted", false, "unlisted"]
   ], typeof youtubeVideoData !== "undefined" ? youtubeVideoData : null);
-  fillYoutubeLinkSection(box, tile, draft, onChange, "driver");
+}
+
+function fillLinkOptions(box, tile, draft, onChange, hintEl) {
+  if (typeof ensureYoutubeVideo === "function") ensureYoutubeVideo();
+  if (tile.type === "youtube_video") {
+    fillYoutubeLinkSection(box, tile, draft, onChange, "findable");
+    return;
+  }
+  if (tile.type === "youtube_uploads") {
+    fillYoutubeLinkSection(box, tile, draft, onChange, "driver");
+  }
 }
 
 function fillMiniSteamConnectionOptions(box, draft, onChange) {
@@ -3382,6 +3388,9 @@ function openProfileTileOptions(tile) {
   if (profileHasTextFormat(tile.type)) {
     addTab('text', 'Text', 'Color, type, and spacing for the text in this widget.');
   }
+  if (profileHasLinkSettings(tile.type)) {
+    addTab('link', 'Link', 'Connect this widget to another YouTube widget on this page.');
+  }
 
   function paintPreview() {
     const spec = (typeof PROFILE_TILE_TYPES !== "undefined" && PROFILE_TILE_TYPES[tile.type]) || {};
@@ -3433,6 +3442,8 @@ function openProfileTileOptions(tile) {
       fillWidgetOptions(left, tile, draft, paintPreview, hintEl);
     } else if (tab === 'text' && profileHasTextFormat(tile.type)) {
       fillTextFormatOptions(left, draft, tile.type, paintPreview, hintEl);
+    } else if (tab === 'link' && profileHasLinkSettings(tile.type)) {
+      fillLinkOptions(left, tile, draft, paintPreview, hintEl);
     } else {
       fillDesignOptions(left, tile, draft, paintPreview, hintEl);
     }

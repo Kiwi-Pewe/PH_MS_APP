@@ -149,6 +149,7 @@ def video_entry(item):
         "comments": clip(str(stats.get("commentCount") or ""), 24),
         "live": clip(snippet.get("liveBroadcastContent"), 16),
         "embeddable": False if status.get("embeddable") is False else True,
+        "privacy": clip(status.get("privacyStatus"), 16) or "public",
     }
 
 
@@ -547,6 +548,8 @@ def youtube_uploads_fresh(cache, now):
     uploads = cache.get("uploads")
     if not isinstance(uploads, list) or not uploads:
         return False
+    if any(not isinstance(item, dict) or not item.get("privacy") for item in uploads):
+        return False
     raw = cache.get("uploads_at") or ""
     try:
         at = datetime.fromisoformat(str(raw))
@@ -604,6 +607,9 @@ def refresh_youtube_uploads_cache(database, row):
 
 
 def youtube_video_public(row):
+    privacy = (clip(row.get("privacy"), 16) or "public").lower()
+    if privacy == "private":
+        return None
     return {
         "id": clip(row.get("id"), 32),
         "title": clip(row.get("title"), 160),
@@ -614,6 +620,7 @@ def youtube_video_public(row):
         "likes": clip(str(row.get("likes") or ""), 24),
         "comments": clip(str(row.get("comments") or ""), 24),
         "embeddable": False if row.get("embeddable") is False else True,
+        "privacy": privacy,
     }
 
 
@@ -647,7 +654,13 @@ def load_youtube_video_card(database, user_id):
     if not link:
         link = channel_profile_url(clip(cache.get("channel_id"), 64), cache.get("custom_url"))
     avatar = clip(cache.get("thumb"), 400)
-    videos = [youtube_video_public(item) for item in (cache.get("uploads") or []) if isinstance(item, dict)]
+    videos = []
+    for item in (cache.get("uploads") or []):
+        if not isinstance(item, dict):
+            continue
+        public = youtube_video_public(item)
+        if public:
+            videos.append(public)
     return {
         "linked": True,
         "identity": bool(parts.get("identity")),
@@ -671,6 +684,7 @@ def load_youtube_video_card(database, user_id):
             "likes": any(clip(str(item.get("likes") or ""), 24) for item in videos),
             "description": any(clip(item.get("description"), 1000) for item in videos),
             "comments": any(clip(str(item.get("comments") or ""), 24) for item in videos),
+            "unlisted": any((item.get("privacy") or "") == "unlisted" for item in videos),
         },
     }
 

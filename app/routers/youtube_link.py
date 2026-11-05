@@ -135,10 +135,12 @@ def video_entry(item):
     snippet = item.get("snippet") if isinstance(item.get("snippet"), dict) else {}
     stats = item.get("statistics") if isinstance(item.get("statistics"), dict) else {}
     details = item.get("contentDetails") if isinstance(item.get("contentDetails"), dict) else {}
+    status = item.get("status") if isinstance(item.get("status"), dict) else {}
     video_id = clip(item.get("id"), 32)
     return {
         "id": video_id,
         "title": clip(snippet.get("title"), 160),
+        "description": clip(snippet.get("description"), 1000),
         "thumb": thumb_url(snippet.get("thumbnails")),
         "published": clip(snippet.get("publishedAt"), 40),
         "duration": clip(details.get("duration"), 24),
@@ -146,6 +148,7 @@ def video_entry(item):
         "likes": clip(str(stats.get("likeCount") or ""), 24),
         "comments": clip(str(stats.get("commentCount") or ""), 24),
         "live": clip(snippet.get("liveBroadcastContent"), 16),
+        "embeddable": False if status.get("embeddable") is False else True,
     }
 
 
@@ -230,7 +233,7 @@ def videos_by_ids(token, ids):
     if not ids:
         return []
     payload = youtube_get("/videos", {
-        "part": "snippet,statistics,contentDetails",
+        "part": "snippet,statistics,contentDetails,status",
         "id": ",".join(ids[:50]),
         "maxResults": 50,
     }, token)
@@ -327,6 +330,7 @@ def youtube_snapshot(token, channel):
         "memberships": [],
         "membership_levels": [],
         "profile_ready": True,
+        "uploads_at": datetime.now().isoformat(),
     })
     return data
 
@@ -528,6 +532,146 @@ def load_youtube_card(database, user_id):
     if not cache.get("title"):
         cache["title"] = clip(row.display_name, 120)
     return youtube_card_payload(cache, read_parts(row.parts, "youtube"))
+
+
+def youtube_fetch(path, query, token=""):
+    payload = youtube_get(path, query, token) if token else None
+    if payload and payload.get("error"):
+        payload = None
+    if not payload:
+        payload = youtube_public(path, query)
+    return payload
+
+
+def youtube_uploads_fresh(cache, now):
+    uploads = cache.get("uploads")
+    if not isinstance(uploads, list) or not uploads:
+        return False
+    raw = cache.get("uploads_at") or ""
+    try:
+        at = datetime.fromisoformat(str(raw))
+    except Exception:
+        return False
+    return (now - at) < timedelta(minutes=5)
+
+
+def refresh_youtube_uploads_cache(database, row):
+    cache = youtube_cache_dict(row.cache)
+    now = datetime.now()
+    if youtube_uploads_fresh(cache, now):
+        return cache
+    token = youtube_access_token(database, row)
+    uploads_id = clip(cache.get("uploads_id"), 64)
+    if not uploads_id:
+        channel_id = clip(row.external_id or cache.get("channel_id"), 64)
+        channel = youtube_channel_resource(token, channel_id)
+        if channel:
+            cache.update(youtube_identity_fields(channel))
+            uploads_id = clip(cache.get("uploads_id"), 64)
+    listed = youtube_fetch("/playlistItems", {
+        "part": "snippet,contentDetails",
+        "playlistId": uploads_id,
+        "maxResults": 25,
+    }, token) if uploads_id else None
+    ids = []
+    for item in (listed or {}).get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        details = item.get("contentDetails") if isinstance(item.get("contentDetails"), dict) else {}
+        snippet = item.get("snippet") if isinstance(item.get("snippet"), dict) else {}
+        resource = snippet.get("resourceId") if isinstance(snippet.get("resourceId"), dict) else {}
+        video_id = clip(details.get("videoId") or resource.get("videoId"), 32)
+        if video_id:
+            ids.append(video_id)
+    videos = []
+    details = None
+    if ids:
+        details = youtube_fetch("/videos", {
+            "part": "snippet,statistics,contentDetails,status",
+            "id": ",".join(ids[:50]),
+            "maxResults": 50,
+        }, token)
+        for item in (details or {}).get("items") or []:
+            if isinstance(item, dict):
+                videos.append(video_entry(item))
+    ready = listed is not None and (not ids or details is not None)
+    if ready:
+        cache["uploads"] = videos
+        cache["uploads_at"] = now.isoformat()
+        row.cache = json.dumps(cache)
+        database.commit()
+    return cache
+
+
+def youtube_video_public(row):
+    return {
+        "id": clip(row.get("id"), 32),
+        "title": clip(row.get("title"), 160),
+        "description": clip(row.get("description"), 1000),
+        "thumb": clip(row.get("thumb"), 400),
+        "published": clip(row.get("published"), 40),
+        "views": clip(str(row.get("views") or ""), 24),
+        "likes": clip(str(row.get("likes") or ""), 24),
+        "comments": clip(str(row.get("comments") or ""), 24),
+        "embeddable": False if row.get("embeddable") is False else True,
+    }
+
+
+def load_youtube_video_card(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "youtube",
+    ).first()
+    if not row:
+        return {
+            "linked": False,
+            "identity": False,
+            "stats": False,
+            "uploads": False,
+            "videos": [],
+            "available": {},
+        }
+    cache = refresh_youtube_identity_cache(database, row)
+    cache = refresh_youtube_uploads_cache(database, row)
+    if not cache.get("profile_url"):
+        cache["profile_url"] = clip(row.profile_url, 400)
+    if not cache.get("thumb"):
+        cache["thumb"] = clip(row.avatar_url, 400)
+    if not cache.get("title"):
+        cache["title"] = clip(row.display_name, 120)
+    parts = read_parts(row.parts, "youtube")
+    hidden = bool(cache.get("hidden_subscribers"))
+    subscribers = "" if hidden else clip(str(cache.get("subscribers") or ""), 24)
+    name = clip(cache.get("title"), 120)
+    link = clip(cache.get("profile_url"), 400)
+    if not link:
+        link = channel_profile_url(clip(cache.get("channel_id"), 64), cache.get("custom_url"))
+    avatar = clip(cache.get("thumb"), 400)
+    videos = [youtube_video_public(item) for item in (cache.get("uploads") or []) if isinstance(item, dict)]
+    return {
+        "linked": True,
+        "identity": bool(parts.get("identity")),
+        "stats": bool(parts.get("stats")),
+        "uploads": bool(parts.get("uploads")),
+        "name": name,
+        "profile_url": link,
+        "avatar": avatar,
+        "subscribers": subscribers,
+        "hidden_subscribers": hidden,
+        "videos": videos,
+        "available": {
+            "player": bool(videos),
+            "video_title": any(clip(item.get("title"), 160) for item in videos),
+            "avatar": bool(avatar),
+            "channel": bool(name),
+            "subscribers": bool(subscribers),
+            "views": any(clip(str(item.get("views") or ""), 24) for item in videos),
+            "published": any(clip(item.get("published"), 40) for item in videos),
+            "likes": any(clip(str(item.get("likes") or ""), 24) for item in videos),
+            "description": any(clip(item.get("description"), 1000) for item in videos),
+            "comments": any(clip(str(item.get("comments") or ""), 24) for item in videos),
+        },
+    }
 
 
 def pending_youtube(database, user_id):

@@ -765,6 +765,11 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillYoutubeProfileOptions(box, draft, onChange);
     return;
   }
+  if (tile.type === "youtube_video") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillYoutubeVideoOptions(box, draft, onChange, hintEl);
+    return;
+  }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
     fillFixedTitleOptions(box, draft, onChange, "left");
     return;
@@ -989,9 +994,9 @@ function fillSteamProfileOptions(box, draft, onChange) {
   ]);
 }
 
-function fillYoutubeFlagOptions(box, draft, onChange, rows) {
-  const card = typeof youtubeCardData !== "undefined" ? youtubeCardData : null;
-  const avail = card && card.available ? card.available : null;
+function fillYoutubeFlagOptions(box, draft, onChange, rows, card) {
+  const source = card || (typeof youtubeCardData !== "undefined" ? youtubeCardData : null);
+  const avail = source && source.available ? source.available : null;
   rows.forEach(row => {
     if (draft[row[0]] == null) draft[row[0]] = row[2];
     const locked = !!(avail && avail[row[3]] === false);
@@ -1020,6 +1025,64 @@ function fillYoutubeProfileOptions(box, draft, onChange) {
     ["show_description", "Description", false, "description"],
     ["show_country", "Country", false, "country"]
   ]);
+}
+
+function fillYoutubeVideoOptions(box, draft, onChange, hintEl) {
+  if (typeof ensureYoutubeVideo === "function") ensureYoutubeVideo();
+  if (draft.mode !== "specific") draft.mode = "recent";
+  draft.video_id = String(draft.video_id || "");
+  draft.findable = !!draft.findable;
+  const videos = (typeof youtubeVideoData !== "undefined" && youtubeVideoData && Array.isArray(youtubeVideoData.videos))
+    ? youtubeVideoData.videos
+    : [];
+  const mode = profileSelectField("Mode", [
+    { value: "recent", label: "Most recent" },
+    { value: "specific", label: "Specific upload" }
+  ], draft.mode);
+  mode.select.addEventListener("change", () => {
+    draft.mode = mode.select.value === "specific" ? "specific" : "recent";
+    extras.hidden = draft.mode !== "specific";
+    onChange();
+  });
+  const modeBlock = document.createElement("div");
+  modeBlock.className = "profile-name-opt";
+  modeBlock.appendChild(mode.label);
+  box.appendChild(modeBlock);
+  const extras = document.createElement("div");
+  extras.className = "profile-name-opt";
+  extras.hidden = draft.mode !== "specific";
+  const picks = [{ value: "", label: videos.length ? "Pick an upload" : "No uploads yet" }];
+  videos.forEach(row => {
+    if (!row || !row.id) return;
+    picks.push({ value: String(row.id), label: row.title || row.id });
+  });
+  if (draft.video_id && videos.length && !picks.some(opt => opt.value === draft.video_id)) draft.video_id = "";
+  const pick = profileSelectField("Upload", picks, draft.video_id);
+  pick.select.addEventListener("change", () => {
+    draft.video_id = String(pick.select.value || "");
+    onChange();
+  });
+  extras.appendChild(pick.label);
+  box.appendChild(extras);
+  const findBlock = document.createElement("div");
+  findBlock.className = "profile-name-opt";
+  findBlock.appendChild(settingsOpt("Findable", "", settingsToggle(!!draft.findable, false, (on) => {
+    draft.findable = on;
+    onChange();
+  })));
+  box.appendChild(findBlock);
+  fillYoutubeFlagOptions(box, draft, onChange, [
+    ["show_player", "Player", true, "player"],
+    ["show_video_title", "Video title", true, "video_title"],
+    ["show_avatar", "Channel picture", true, "avatar"],
+    ["show_channel", "Channel name", true, "channel"],
+    ["show_subscribers", "Subscribers", true, "subscribers"],
+    ["show_views", "Views", true, "views"],
+    ["show_published", "Published", true, "published"],
+    ["show_likes", "Likes", true, "likes"],
+    ["show_description", "Description", false, "description"],
+    ["show_comments", "Comment count", true, "comments"]
+  ], typeof youtubeVideoData !== "undefined" ? youtubeVideoData : null);
 }
 
 function fillMiniSteamConnectionOptions(box, draft, onChange) {

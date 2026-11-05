@@ -1037,17 +1037,41 @@ function fillYoutubeProfileOptions(box, draft, onChange) {
   ]);
 }
 
+function youtubeLinkName(props) {
+  const name = String((props && props.link_name) || "").trim();
+  return name || "Unnamed";
+}
+
 function fillYoutubeLinkSection(box, tile, draft, onChange, role) {
   if (role === "findable") {
     draft.findable = !!draft.findable;
+    draft.link_name = String(draft.link_name || "").slice(0, 20);
     const findBlock = document.createElement("div");
     findBlock.className = "profile-name-opt";
+    const nameBlock = document.createElement("div");
+    nameBlock.className = "profile-name-opt";
+    nameBlock.hidden = !draft.findable;
+    const nameLabel = document.createElement("label");
+    nameLabel.textContent = "Name";
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.maxLength = 20;
+    nameInput.value = draft.link_name;
+    nameInput.placeholder = "Name this link";
+    nameInput.addEventListener("input", () => {
+      draft.link_name = String(nameInput.value || "").slice(0, 20);
+      onChange();
+    });
+    nameLabel.appendChild(nameInput);
+    nameBlock.appendChild(nameLabel);
     findBlock.appendChild(settingsOpt("Findable", "", settingsToggle(!!draft.findable, false, (on) => {
       draft.findable = on;
+      nameBlock.hidden = !on;
       if (!on && typeof youtubeVideoLive !== "undefined") delete youtubeVideoLive[tile.id];
       onChange();
     })));
     box.appendChild(findBlock);
+    box.appendChild(nameBlock);
     return;
   }
   draft.link_tile = String(draft.link_tile || "");
@@ -1055,17 +1079,9 @@ function fillYoutubeLinkSection(box, tile, draft, onChange, role) {
   const tiles = ((page && page.tiles) || []).filter(item => (
     item && item.type === "youtube_video" && item.props && item.props.findable && item.id !== tile.id
   ));
-  const used = {};
   const picks = [{ value: "", label: tiles.length ? "None" : "No findable Video on this page" }];
   tiles.forEach(item => {
-    const video = (typeof pickYoutubeVideo === "function" && typeof youtubeVideoData !== "undefined")
-      ? pickYoutubeVideo(youtubeVideoData, item.props || {}, item.id)
-      : null;
-    let label = (video && video.title) || "YouTube video";
-    const n = (used[label] || 0) + 1;
-    used[label] = n;
-    if (n > 1) label = label + " (" + n + ")";
-    picks.push({ value: String(item.id), label });
+    picks.push({ value: String(item.id), label: youtubeLinkName(item.props) });
   });
   if (draft.link_tile && !picks.some(opt => opt.value === draft.link_tile)) draft.link_tile = "";
   const pick = profileSelectField("Video", picks, draft.link_tile);

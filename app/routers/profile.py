@@ -1183,6 +1183,7 @@ def normalize_youtube_video_props(data):
     out["mode"] = "specific" if mode == "specific" else "recent"
     out["video_id"] = clip_text(data.get("video_id"), 32)
     out["findable"] = bool(data.get("findable"))
+    out["link_name"] = clip_text(data.get("link_name"), 20)
     on_keys = (
         "show_player", "show_video_title", "show_avatar", "show_channel",
         "show_subscribers", "show_views", "show_published", "show_likes",

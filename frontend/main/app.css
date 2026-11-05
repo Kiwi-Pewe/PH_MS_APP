@@ -7012,7 +7012,11 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .youtube-video-subs,
   .youtube-video-stats,
   .youtube-video-desc,
-  .youtube-video-foot
+  .youtube-video-foot,
+  .youtube-uploads-title,
+  .youtube-uploads-channel,
+  .youtube-uploads-views,
+  .youtube-uploads-foot
 ) {
   color: var(--profile-text-color);
 }
@@ -7070,7 +7074,11 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .youtube-video-subs,
   .youtube-video-stats,
   .youtube-video-desc,
-  .youtube-video-foot
+  .youtube-video-foot,
+  .youtube-uploads-title,
+  .youtube-uploads-channel,
+  .youtube-uploads-views,
+  .youtube-uploads-foot
 ) {
   background-image: var(--profile-text-paint);
   background-repeat: no-repeat;
@@ -7122,7 +7130,11 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .youtube-video-subs,
   .youtube-video-stats,
   .youtube-video-desc,
-  .youtube-video-foot
+  .youtube-video-foot,
+  .youtube-uploads-title,
+  .youtube-uploads-channel,
+  .youtube-uploads-views,
+  .youtube-uploads-foot
 ) {
   line-height: var(--profile-line-height);
 }
@@ -7305,7 +7317,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-steam_achievements,
 .profile-tile.is-steam_badges,
 .profile-tile.is-youtube_channel,
-.profile-tile.is-youtube_video {
+.profile-tile.is-youtube_video,
+.profile-tile.is-youtube_uploads {
   display: flex; flex-direction: column; align-items: stretch; overflow: hidden;
 }
 .profile-tile[data-title-align="left"] > .profile-tile-head { text-align: left; }
@@ -7319,6 +7332,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-steam_badges > .steam-recent-card,
 .profile-tile.is-youtube_channel > .youtube-profile-card,
 .profile-tile.is-youtube_video > .youtube-video-card,
+.profile-tile.is-youtube_uploads > .youtube-uploads-card,
 .profile-tile[class*="is-youtube_"] > .steam-recent-card {
   flex: 1 1 auto; min-height: 0; height: 0;
 }
@@ -7587,6 +7601,53 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .youtube-video-card > .steam-profile-note {
   flex: 1;
 }
+.youtube-uploads-card {
+  height: 100%; min-height: 0; box-sizing: border-box;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.youtube-uploads-flow {
+  flex: 1 1 auto; min-height: 0; height: 0; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 8px 12px; overflow: hidden;
+}
+.youtube-uploads-entry {
+  flex: 0 0 79px; height: 79px; min-width: 0;
+  display: flex; align-items: stretch; gap: 10px;
+  overflow: hidden; box-sizing: border-box; cursor: pointer;
+}
+.youtube-uploads-thumb {
+  width: 140px; height: 79px; flex: 0 0 auto;
+  border-radius: 4px; overflow: hidden; background: var(--panel);
+}
+.youtube-uploads-thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.youtube-uploads-copy {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
+  justify-content: center; gap: 2px; overflow: hidden;
+}
+.youtube-uploads-title {
+  font-size: calc(var(--profile-text-size, 14pt) * 0.78);
+  font-weight: 800; color: var(--text); line-height: 1.2;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.youtube-uploads-channel {
+  font-size: calc(var(--profile-text-size, 14pt) * 0.7);
+  font-weight: 700; color: var(--accent); text-decoration: none;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.youtube-uploads-channel:hover { color: var(--text); text-decoration: underline; }
+.youtube-uploads-views {
+  font-size: calc(var(--profile-text-size, 14pt) * 0.65);
+  color: var(--text-dim); line-height: 1.2;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.youtube-uploads-foot {
+  flex: 0 0 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  background: var(--rail); border-top: 1px solid var(--border);
+}
+.youtube-uploads-card > .steam-profile-note { flex: 1; }
 .profile-tile.is-steam_playing_now { overflow: hidden; }
 .steam-playing-card {
   height: 100%; min-height: 0; box-sizing: border-box;
@@ -7714,7 +7775,12 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_video[data-text-align="center"] .youtube-video-stats,
 .profile-tile.is-youtube_video[data-text-align="center"] .youtube-video-desc,
 .profile-tile.is-youtube_video[data-text-align="center"] .youtube-video-foot,
-.profile-tile.is-youtube_video[data-text-align="center"] .steam-profile-note { text-align: center; }
+.profile-tile.is-youtube_video[data-text-align="center"] .steam-profile-note,
+.profile-tile.is-youtube_uploads[data-text-align="center"] .youtube-uploads-title,
+.profile-tile.is-youtube_uploads[data-text-align="center"] .youtube-uploads-channel,
+.profile-tile.is-youtube_uploads[data-text-align="center"] .youtube-uploads-views,
+.profile-tile.is-youtube_uploads[data-text-align="center"] .youtube-uploads-foot,
+.profile-tile.is-youtube_uploads[data-text-align="center"] .steam-profile-note { text-align: center; }
 .profile-tile.is-youtube_video[data-text-align="center"] .youtube-video-who { justify-content: center; }
 .profile-tile.is-friends[data-text-align="right"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="right"] .profile-friend-name,
@@ -7739,7 +7805,12 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_video[data-text-align="right"] .youtube-video-stats,
 .profile-tile.is-youtube_video[data-text-align="right"] .youtube-video-desc,
 .profile-tile.is-youtube_video[data-text-align="right"] .youtube-video-foot,
-.profile-tile.is-youtube_video[data-text-align="right"] .steam-profile-note { text-align: right; }
+.profile-tile.is-youtube_video[data-text-align="right"] .steam-profile-note,
+.profile-tile.is-youtube_uploads[data-text-align="right"] .youtube-uploads-title,
+.profile-tile.is-youtube_uploads[data-text-align="right"] .youtube-uploads-channel,
+.profile-tile.is-youtube_uploads[data-text-align="right"] .youtube-uploads-views,
+.profile-tile.is-youtube_uploads[data-text-align="right"] .youtube-uploads-foot,
+.profile-tile.is-youtube_uploads[data-text-align="right"] .steam-profile-note { text-align: right; }
 .profile-tile.is-youtube_video[data-text-align="right"] .youtube-video-who { justify-content: flex-end; }
 .profile-tile.is-friends[data-text-align="justify"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="justify"] .profile-friend-name,
@@ -7764,7 +7835,12 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_video[data-text-align="justify"] .youtube-video-stats,
 .profile-tile.is-youtube_video[data-text-align="justify"] .youtube-video-desc,
 .profile-tile.is-youtube_video[data-text-align="justify"] .youtube-video-foot,
-.profile-tile.is-youtube_video[data-text-align="justify"] .steam-profile-note { text-align: justify; }
+.profile-tile.is-youtube_video[data-text-align="justify"] .steam-profile-note,
+.profile-tile.is-youtube_uploads[data-text-align="justify"] .youtube-uploads-title,
+.profile-tile.is-youtube_uploads[data-text-align="justify"] .youtube-uploads-channel,
+.profile-tile.is-youtube_uploads[data-text-align="justify"] .youtube-uploads-views,
+.profile-tile.is-youtube_uploads[data-text-align="justify"] .youtube-uploads-foot,
+.profile-tile.is-youtube_uploads[data-text-align="justify"] .steam-profile-note { text-align: justify; }
 .profile-tile.is-friends[data-text-align="center"] .profile-friend-row,
 .profile-tile.is-link_tree[data-text-align="center"] .profile-link-row { justify-content: center; }
 .profile-tile.is-friends[data-text-align="right"] .profile-friend-row,

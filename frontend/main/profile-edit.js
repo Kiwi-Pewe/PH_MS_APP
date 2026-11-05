@@ -419,6 +419,7 @@ function bindProfileTileDrag(el, tile, handle) {
     if (e.target.closest(".oneira-music-seek, .oneira-music-row")) return;
     if (e.target.closest(".oneira-gallery-nav")) return;
     if (e.target.closest(".steam-recent-pages")) return;
+    if (e.target.closest(".youtube-uploads-foot, .youtube-uploads-entry")) return;
     if (e.target.closest(".steam-achieve-entry, .steam-badge-entry")) return;
     if (e.target.closest(".oneira-wall-compose, .oneira-wall-pager, .oneira-wall-notify, .oneira-wall-edit, .oneira-wall-input")) return;
     if (el.classList.contains("is-typing") && e.target.closest("textarea, input")) return;
@@ -767,7 +768,12 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "youtube_video") {
     fillFixedTitleOptions(box, draft, onChange, "left");
-    fillYoutubeVideoOptions(box, draft, onChange, hintEl);
+    fillYoutubeVideoOptions(box, tile, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "youtube_uploads") {
+    fillFixedTitleOptions(box, draft, onChange, "left");
+    fillYoutubeUploadsOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
@@ -1027,11 +1033,60 @@ function fillYoutubeProfileOptions(box, draft, onChange) {
   ]);
 }
 
-function fillYoutubeVideoOptions(box, draft, onChange, hintEl) {
+function fillYoutubeLinkSection(box, tile, draft, onChange, role) {
+  const split = document.createElement("div");
+  split.className = "profile-opt-section-split";
+  box.appendChild(split);
+  const heading = document.createElement("div");
+  heading.className = "profile-opt-section-title";
+  heading.textContent = "Link widgets";
+  box.appendChild(heading);
+  if (role === "findable") {
+    draft.findable = !!draft.findable;
+    const findBlock = document.createElement("div");
+    findBlock.className = "profile-name-opt";
+    findBlock.appendChild(settingsOpt("Findable", "", settingsToggle(!!draft.findable, false, (on) => {
+      draft.findable = on;
+      if (!on && typeof youtubeVideoLive !== "undefined") delete youtubeVideoLive[tile.id];
+      onChange();
+    })));
+    box.appendChild(findBlock);
+    return;
+  }
+  draft.link_tile = String(draft.link_tile || "");
+  const page = typeof currentProfilePage === "function" ? currentProfilePage() : null;
+  const tiles = ((page && page.tiles) || []).filter(item => (
+    item && item.type === "youtube_video" && item.props && item.props.findable && item.id !== tile.id
+  ));
+  const used = {};
+  const picks = [{ value: "", label: tiles.length ? "None" : "No findable Video on this page" }];
+  tiles.forEach(item => {
+    const video = (typeof pickYoutubeVideo === "function" && typeof youtubeVideoData !== "undefined")
+      ? pickYoutubeVideo(youtubeVideoData, item.props || {}, item.id)
+      : null;
+    let label = (video && video.title) || "YouTube video";
+    const n = (used[label] || 0) + 1;
+    used[label] = n;
+    if (n > 1) label = label + " (" + n + ")";
+    picks.push({ value: String(item.id), label });
+  });
+  if (draft.link_tile && !picks.some(opt => opt.value === draft.link_tile)) draft.link_tile = "";
+  const pick = profileSelectField("Video", picks, draft.link_tile);
+  pick.select.disabled = !tiles.length;
+  pick.select.addEventListener("change", () => {
+    draft.link_tile = String(pick.select.value || "");
+    onChange();
+  });
+  const pickBlock = document.createElement("div");
+  pickBlock.className = "profile-name-opt";
+  pickBlock.appendChild(pick.label);
+  box.appendChild(pickBlock);
+}
+
+function fillYoutubeVideoOptions(box, tile, draft, onChange, hintEl) {
   if (typeof ensureYoutubeVideo === "function") ensureYoutubeVideo();
   if (draft.mode !== "specific") draft.mode = "recent";
   draft.video_id = String(draft.video_id || "");
-  draft.findable = !!draft.findable;
   const videos = (typeof youtubeVideoData !== "undefined" && youtubeVideoData && Array.isArray(youtubeVideoData.videos))
     ? youtubeVideoData.videos
     : [];
@@ -1042,6 +1097,7 @@ function fillYoutubeVideoOptions(box, draft, onChange, hintEl) {
   mode.select.addEventListener("change", () => {
     draft.mode = mode.select.value === "specific" ? "specific" : "recent";
     extras.hidden = draft.mode !== "specific";
+    if (typeof youtubeVideoLive !== "undefined") delete youtubeVideoLive[tile.id];
     onChange();
   });
   const modeBlock = document.createElement("div");
@@ -1060,17 +1116,11 @@ function fillYoutubeVideoOptions(box, draft, onChange, hintEl) {
   const pick = profileSelectField("Upload", picks, draft.video_id);
   pick.select.addEventListener("change", () => {
     draft.video_id = String(pick.select.value || "");
+    if (typeof youtubeVideoLive !== "undefined") delete youtubeVideoLive[tile.id];
     onChange();
   });
   extras.appendChild(pick.label);
   box.appendChild(extras);
-  const findBlock = document.createElement("div");
-  findBlock.className = "profile-name-opt";
-  findBlock.appendChild(settingsOpt("Findable", "", settingsToggle(!!draft.findable, false, (on) => {
-    draft.findable = on;
-    onChange();
-  })));
-  box.appendChild(findBlock);
   fillYoutubeFlagOptions(box, draft, onChange, [
     ["show_player", "Player", true, "player"],
     ["show_video_title", "Video title", true, "video_title"],
@@ -1083,6 +1133,33 @@ function fillYoutubeVideoOptions(box, draft, onChange, hintEl) {
     ["show_description", "Description", false, "description"],
     ["show_comments", "Comment count", true, "comments"]
   ], typeof youtubeVideoData !== "undefined" ? youtubeVideoData : null);
+  fillYoutubeLinkSection(box, tile, draft, onChange, "findable");
+}
+
+function fillYoutubeUploadsOptions(box, tile, draft, onChange, hintEl) {
+  if (typeof ensureYoutubeVideo === "function") ensureYoutubeVideo();
+  if (draft.sort !== "views") draft.sort = "date";
+  draft.link_tile = String(draft.link_tile || "");
+  const sort = profileSelectField("Sort", [
+    { value: "date", label: "Date Posted" },
+    { value: "views", label: "Most watched" }
+  ], draft.sort);
+  sort.select.addEventListener("change", () => {
+    draft.sort = sort.select.value === "views" ? "views" : "date";
+    if (typeof youtubeUploadsPage !== "undefined") youtubeUploadsPage[tile.id] = 1;
+    onChange();
+  });
+  const sortBlock = document.createElement("div");
+  sortBlock.className = "profile-name-opt";
+  sortBlock.appendChild(sort.label);
+  box.appendChild(sortBlock);
+  fillYoutubeFlagOptions(box, draft, onChange, [
+    ["show_thumb", "Picture", true, "thumb"],
+    ["show_video_title", "Title", true, "video_title"],
+    ["show_channel", "Creator", true, "channel"],
+    ["show_views", "Views", true, "views"]
+  ], typeof youtubeVideoData !== "undefined" ? youtubeVideoData : null);
+  fillYoutubeLinkSection(box, tile, draft, onChange, "driver");
 }
 
 function fillMiniSteamConnectionOptions(box, draft, onChange) {

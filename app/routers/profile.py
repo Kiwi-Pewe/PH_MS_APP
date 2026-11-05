@@ -255,7 +255,7 @@ def tile_bounds(kind, props=None):
         "steam_badges": (6, 3, 16, 10),
         "youtube_channel": (8, 5, 12, 10),
         "youtube_video": (12, 10, 24, 16),
-        "youtube_uploads": (7, 6, 16, 16),
+        "youtube_uploads": (12, 5, 12, 16),
         "youtube_live_now": (7, 4, 10, 6),
         "youtube_playlists": (7, 6, 16, 16),
         "youtube_liked": (7, 6, 16, 16),
@@ -1194,6 +1194,16 @@ def normalize_youtube_video_props(data):
     return out
 
 
+def normalize_youtube_uploads_props(data):
+    out = normalize_youtube_title_props(data, "left")
+    sort = str(data.get("sort") or "").strip().lower()
+    out["sort"] = "views" if sort == "views" else "date"
+    out["link_tile"] = clip_text(data.get("link_tile"), 32)
+    for key in ("show_thumb", "show_video_title", "show_channel", "show_views"):
+        out[key] = True if key not in data or data.get(key) is None else bool(data.get(key))
+    return out
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
     if kind == "banner":
@@ -1388,6 +1398,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_youtube_channel_props(data)
     if kind == "youtube_video":
         return normalize_youtube_video_props(data)
+    if kind == "youtube_uploads":
+        return normalize_youtube_uploads_props(data)
     if kind.startswith("youtube_"):
         return normalize_youtube_title_props(data, "left")
     if kind == "featured_friend":

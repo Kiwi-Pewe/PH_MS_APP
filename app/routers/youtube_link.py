@@ -661,6 +661,7 @@ def load_youtube_video_card(database, user_id):
         "videos": videos,
         "available": {
             "player": bool(videos),
+            "thumb": any(clip(item.get("thumb"), 400) for item in videos),
             "video_title": any(clip(item.get("title"), 160) for item in videos),
             "avatar": bool(avatar),
             "channel": bool(name),

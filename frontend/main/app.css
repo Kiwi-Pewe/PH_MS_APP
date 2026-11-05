@@ -6489,6 +6489,34 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--text-dim); padding: 10px 12px 0;
 }
+.profile-tile.has-title-band > .profile-tile-head {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: auto;
+  padding: 8px 12px;
+  line-height: 20px;
+  background: var(--rail);
+  border-bottom: 1px solid var(--border);
+}
+.profile-tile.has-title-band > .profile-text-rule {
+  display: none;
+}
+.profile-tile.has-title-band > .profile-text-shell {
+  padding-top: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+.profile-tile.has-title-band .profile-text-title {
+  background: var(--rail);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.profile-tile.has-title-band .profile-text-shell > .profile-text-rule {
+  display: none;
+}
+.profile-tile.has-title-band .profile-text-slot {
+  padding: 8px 12px 10px;
+}
 .profile-tile-body {
   padding: 8px 12px 12px;
   font-size: 14px;
@@ -6977,7 +7005,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .youtube-profile-handle,
   .youtube-profile-stats,
   .youtube-profile-meta,
-  .youtube-profile-desc
+  .youtube-profile-desc,
+  .youtube-profile-foot
 ) {
   color: var(--profile-text-color);
 }
@@ -7028,7 +7057,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .youtube-profile-handle,
   .youtube-profile-stats,
   .youtube-profile-meta,
-  .youtube-profile-desc
+  .youtube-profile-desc,
+  .youtube-profile-foot
 ) {
   background-image: var(--profile-text-paint);
   background-repeat: no-repeat;
@@ -7073,7 +7103,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .youtube-profile-handle,
   .youtube-profile-stats,
   .youtube-profile-meta,
-  .youtube-profile-desc
+  .youtube-profile-desc,
+  .youtube-profile-foot
 ) {
   line-height: var(--profile-line-height);
 }
@@ -7360,14 +7391,15 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   text-overflow: ellipsis;
 }
 .youtube-profile-handle {
-  font-size: calc(var(--profile-text-size, 14pt) * 0.75);
-  color: var(--text-dim);
+  font-size: calc(var(--profile-text-size, 14pt) * 0.85);
+  font-weight: 700;
+  color: var(--accent);
   text-decoration: none;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.youtube-profile-handle:hover { color: var(--text); }
+.youtube-profile-handle:hover { color: var(--text); text-decoration: underline; }
 .youtube-profile-stats,
 .youtube-profile-meta {
   font-size: calc(var(--profile-text-size, 14pt) * 0.75);
@@ -7382,6 +7414,22 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+.youtube-profile-body > .youtube-profile-rule {
+  margin: 8px 0;
+}
+.youtube-profile-foot {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: 8px 14px;
+  background: var(--rail);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.youtube-profile-foot .youtube-profile-meta {
+  font-size: calc(var(--profile-text-size, 14pt) * 0.7);
 }
 .youtube-profile-body > .steam-profile-note {
   flex: 0 0 auto;
@@ -7427,6 +7475,29 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-steam_achievements > .profile-text-rule,
 .profile-tile.is-steam_badges > .profile-text-rule {
   height: 1px; margin: 6px 12px 7px;
+}
+.profile-tile.has-title-band.is-meter > .profile-tile-head,
+.profile-tile.has-title-band.is-friends > .profile-tile-head,
+.profile-tile.has-title-band.is-link_tree > .profile-tile-head,
+.profile-tile.has-title-band.is-steam_profile > .profile-tile-head,
+.profile-tile.has-title-band.is-steam_playing_now > .profile-tile-head,
+.profile-tile.has-title-band.is-steam_recently_played > .profile-tile-head,
+.profile-tile.has-title-band.is-steam_library > .profile-tile-head,
+.profile-tile.has-title-band.is-steam_achievements > .profile-tile-head,
+.profile-tile.has-title-band.is-steam_badges > .profile-tile-head,
+.profile-tile.has-title-band.is-youtube_channel > .profile-tile-head,
+.profile-tile.has-title-band[class*="is-youtube_"] > .profile-tile-head {
+  height: auto;
+  padding: 8px 12px;
+  line-height: 20px;
+  background: var(--rail);
+  border-bottom: 1px solid var(--border);
+}
+.profile-tile.has-title-band.is-steam_recently_played > .profile-text-rule,
+.profile-tile.has-title-band.is-steam_library > .profile-text-rule,
+.profile-tile.has-title-band.is-steam_achievements > .profile-text-rule,
+.profile-tile.has-title-band.is-steam_badges > .profile-text-rule {
+  display: none;
 }
 .steam-recent-card {
   height: 100%; min-height: 0; box-sizing: border-box;
@@ -7485,6 +7556,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_channel[data-text-align="center"] .youtube-profile-stats,
 .profile-tile.is-youtube_channel[data-text-align="center"] .youtube-profile-meta,
 .profile-tile.is-youtube_channel[data-text-align="center"] .youtube-profile-desc,
+.profile-tile.is-youtube_channel[data-text-align="center"] .youtube-profile-foot,
 .profile-tile.is-youtube_channel[data-text-align="center"] .steam-profile-note { text-align: center; }
 .profile-tile.is-friends[data-text-align="right"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="right"] .profile-friend-name,
@@ -7501,6 +7573,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_channel[data-text-align="right"] .youtube-profile-stats,
 .profile-tile.is-youtube_channel[data-text-align="right"] .youtube-profile-meta,
 .profile-tile.is-youtube_channel[data-text-align="right"] .youtube-profile-desc,
+.profile-tile.is-youtube_channel[data-text-align="right"] .youtube-profile-foot,
 .profile-tile.is-youtube_channel[data-text-align="right"] .steam-profile-note { text-align: right; }
 .profile-tile.is-friends[data-text-align="justify"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="justify"] .profile-friend-name,
@@ -7517,6 +7590,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_channel[data-text-align="justify"] .youtube-profile-stats,
 .profile-tile.is-youtube_channel[data-text-align="justify"] .youtube-profile-meta,
 .profile-tile.is-youtube_channel[data-text-align="justify"] .youtube-profile-desc,
+.profile-tile.is-youtube_channel[data-text-align="justify"] .youtube-profile-foot,
 .profile-tile.is-youtube_channel[data-text-align="justify"] .steam-profile-note { text-align: justify; }
 .profile-tile.is-friends[data-text-align="center"] .profile-friend-row,
 .profile-tile.is-link_tree[data-text-align="center"] .profile-link-row { justify-content: center; }

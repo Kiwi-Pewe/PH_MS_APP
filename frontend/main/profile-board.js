@@ -598,7 +598,7 @@ function defaultProfileTileProps(type, existing) {
       threshold: profileMeterNumber(row && row.threshold, 0)
     })) : [];
     return Object.assign({}, chrome, {
-      show_title: prev.show_title !== false,
+      show_title: !!prev.show_title,
       title: prev.title == null ? "Meter" : String(prev.title).slice(0, 48),
       title_align: align,
       current: profileMeterNumber(prev.current, 0),
@@ -853,6 +853,7 @@ function applyProfileTextPaint(el, chrome) {
 }
 
 function mountProfileFixedTitle(el, label) {
+  el.classList.add("has-title-band");
   const title = document.createElement("div");
   title.className = "profile-tile-head";
   title.textContent = label;
@@ -864,7 +865,7 @@ function mountProfileFixedTitle(el, label) {
 
 function mountSteamTitle(el, tile, label, fallback) {
   const props = tile.props || {};
-  if (props.show_title === false) {
+  if (!steamFlag(props, "show_title", false)) {
     delete el.dataset.titleAlign;
     return;
   }
@@ -979,6 +980,7 @@ function mountProfileTextChrome(el, tile) {
   const shell = document.createElement("div");
   shell.className = "profile-text-shell";
   if (profileHasFixedTitle(tile.type)) {
+    el.classList.add("has-title-band");
     const title = document.createElement("div");
     title.className = "profile-text-title";
     title.textContent = tile.type === "bio" ? "About" : ((PROFILE_TILE_TYPES[tile.type] || {}).label || tile.type);
@@ -989,6 +991,7 @@ function mountProfileTextChrome(el, tile) {
   } else if (tile.type === "body" && tile.props && tile.props.show_title) {
     const titleText = String(tile.props.title || "").trim();
     if (titleText || (profileEditing && profileIsOwn)) {
+      el.classList.add("has-title-band");
       el.dataset.titleAlign = tile.props.title_align === "center" || tile.props.title_align === "right" ? tile.props.title_align : "left";
       const title = document.createElement("div");
       title.className = "profile-text-title" + (titleText ? "" : " is-empty");
@@ -1194,9 +1197,10 @@ function paintProfileMeter(tile, el) {
   applyProfileWidgetSurface(el, tile);
   const props = defaultProfileTileProps("meter", tile.props);
   el.classList.toggle("is-meter-named", Number(tile.h) >= 3);
-  if (props.show_title !== false) {
+  if (props.show_title) {
     const align = props.title_align === "center" || props.title_align === "right" ? props.title_align : "left";
     el.dataset.titleAlign = align;
+    el.classList.add("has-title-band");
     const text = String(props.title || "").trim();
     if (text || (profileEditing && profileIsOwn)) {
       const title = document.createElement("div");
@@ -2122,6 +2126,7 @@ function paintProfilePlaceholder(tile, el) {
   const emptyInView = tile.type === "color_block";
   el.classList.add("is-placeholder");
   if (emptyInView && !(profileEditing && profileIsOwn)) return;
+  el.classList.add("has-title-band");
   const head = document.createElement("div");
   head.className = "profile-tile-head";
   head.textContent = meta.label;
@@ -2254,16 +2259,9 @@ function paintYoutubeStub(tile, el) {
   applyProfileWidgetSurface(el, tile);
   applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
   const meta = PROFILE_TILE_TYPES[tile.type] || { label: "YouTube" };
-  const fallback = meta.label || "YouTube";
-  const showTitle = !(tile.props && tile.props.show_title === false);
+  mountSteamTitle(el, tile, meta.label || "YouTube", tile.type === "youtube_channel" ? "center" : "left");
   const card = document.createElement("div");
   card.className = "steam-recent-card";
-  if (showTitle) {
-    const title = document.createElement("div");
-    title.className = "steam-recent-title";
-    title.textContent = String((tile.props && tile.props.title) || "").trim() || fallback;
-    card.appendChild(title);
-  }
   const linked = typeof profileHasConnection === "function" && profileHasConnection("youtube");
   card.appendChild(steamProfileNote(linked ? "" : "Connect YouTube to show this."));
   el.appendChild(card);
@@ -2325,7 +2323,7 @@ function paintYoutubeProfile(tile, el) {
       name.textContent = data.name;
       body.appendChild(name);
     }
-    if (steamFlag(props, "show_handle", true) && avail.handle !== false && data.profile_url) {
+    if (steamFlag(props, "show_handle", false) && avail.handle !== false && data.profile_url) {
       const link = document.createElement("a");
       link.className = "youtube-profile-handle";
       link.href = data.profile_url;
@@ -2361,33 +2359,40 @@ function paintYoutubeProfile(tile, el) {
   } else {
     body.appendChild(steamProfileNote("Turn on Stats for YouTube."));
   }
+  if (identityOn && steamFlag(props, "show_description", false) && avail.description !== false && data.description) {
+    if (body.childNodes.length) {
+      const rule = document.createElement("div");
+      rule.className = "profile-text-rule youtube-profile-rule";
+      body.appendChild(rule);
+    }
+    const desc = document.createElement("div");
+    desc.className = "youtube-profile-desc";
+    desc.textContent = data.description;
+    body.appendChild(desc);
+  }
+  if (body.childNodes.length) card.appendChild(body);
   if (identityOn) {
+    const footBits = [];
     if (steamFlag(props, "show_created", false) && avail.created && data.published) {
       const when = youtubeDateText(data.published);
-      if (when) {
-        const line = document.createElement("div");
-        line.className = "youtube-profile-meta";
-        line.textContent = "Created · " + when;
-        body.appendChild(line);
-      }
+      if (when) footBits.push("Created · " + when);
     }
     if (steamFlag(props, "show_country", false) && avail.country && data.country) {
       const place = steamCountryName(data.country);
-      if (place) {
+      if (place) footBits.push(place);
+    }
+    if (footBits.length) {
+      const foot = document.createElement("div");
+      foot.className = "youtube-profile-foot";
+      footBits.forEach(text => {
         const line = document.createElement("div");
         line.className = "youtube-profile-meta";
-        line.textContent = place;
-        body.appendChild(line);
-      }
-    }
-    if (steamFlag(props, "show_description", false) && avail.description !== false && data.description) {
-      const desc = document.createElement("div");
-      desc.className = "youtube-profile-desc";
-      desc.textContent = data.description;
-      body.appendChild(desc);
+        line.textContent = text;
+        foot.appendChild(line);
+      });
+      card.appendChild(foot);
     }
   }
-  if (body.childNodes.length) card.appendChild(body);
   el.appendChild(card);
 }
 
@@ -2541,7 +2546,7 @@ function paintSteamProfile(tile, el) {
 
 const STEAM_RECENT_GAP = 8;
 const STEAM_RECENT_PAGE_H = 36;
-const STEAM_RECENT_TITLE_H = 42;
+const STEAM_RECENT_TITLE_H = 37;
 const STEAM_RECENT_FLOW_PAD = 12;
 const steamRecentPage = {};
 
@@ -2585,7 +2590,7 @@ function steamRecentFlowBox(tile) {
   const pad = Math.max(clampProfileSpan(chrome.pad, 0, 32), frameW);
   const border = chrome.show_border && !chrome.border_gradient ? Number(chrome.border_width) || 0 : 0;
   const inset = pad + border;
-  const title = tile.props && tile.props.show_title === false ? 0 : STEAM_RECENT_TITLE_H;
+  const title = tile.props && tile.props.show_title ? STEAM_RECENT_TITLE_H : 0;
   return {
     width: Math.max(0, tile.w * PROFILE_ROW_H - inset * 2 - STEAM_RECENT_FLOW_PAD * 2),
     height: Math.max(0, tile.h * PROFILE_ROW_H - inset * 2 - title - STEAM_RECENT_PAGE_H)
@@ -3544,6 +3549,7 @@ function paintSteamBadges(tile, el) {
 
 function paintProfileTileContent(tile, el) {
   el.innerHTML = "";
+  el.classList.remove("has-title-band");
   el.classList.toggle("is-compact-row", Number(tile.h) === 1);
   if (tile.type === "steam_profile") {
     paintSteamProfile(tile, el);

@@ -788,7 +788,7 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
 }
 
 function fillFixedTitleOptions(box, draft, onChange, fallback) {
-  if (draft.show_title == null) draft.show_title = true;
+  if (draft.show_title == null) draft.show_title = false;
   if (draft.title_align !== "left" && draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = fallback;
   const block = document.createElement("div");
   block.className = "profile-name-opt";
@@ -1012,7 +1012,7 @@ function fillYoutubeProfileOptions(box, draft, onChange) {
     ["show_banner", "Banner", true, "banner"],
     ["show_avatar", "Profile picture", true, "avatar"],
     ["show_name", "Name", true, "name"],
-    ["show_handle", "Handle", true, "handle"],
+    ["show_handle", "Handle", false, "handle"],
     ["show_subscribers", "Subscribers", true, "subscribers"],
     ["show_views", "Views", true, "views"],
     ["show_videos", "Videos", true, "videos"],
@@ -2410,7 +2410,7 @@ function profileSelectField(labelText, options, selected) {
 }
 
 function fillMeterOptions(box, draft, onChange, hintEl) {
-  draft.show_title = draft.show_title !== false;
+  draft.show_title = !!draft.show_title;
   if (draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = "left";
   draft.title = draft.title == null ? "Meter" : String(draft.title);
   draft.current = profileMeterNumber(draft.current, 0);

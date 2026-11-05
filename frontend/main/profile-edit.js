@@ -1075,13 +1075,15 @@ function fillYoutubeProfileOptions(box, draft, onChange, hideDesc) {
   const rows = [
     ["show_banner", "Banner", true, "banner"],
     ["show_avatar", "Profile picture", true, "avatar"],
-    ["show_name", "Name", true, "name"],
-    ["show_handle", "Handle", false, "handle"],
+    ["show_name", "Name", true, "name"]
+  ];
+  if (!hideDesc) rows.push(["show_handle", "Handle", false, "handle"]);
+  rows.push(
     ["show_subscribers", "Subscribers", true, "subscribers"],
     ["show_views", "Views", true, "views"],
     ["show_videos", "Videos", true, "videos"],
     ["show_created", "Created", false, "created"]
-  ];
+  );
   if (!hideDesc) rows.push(["show_description", "Description", false, "description"]);
   rows.push(["show_country", "Country", false, "country"]);
   fillYoutubeFlagOptions(box, draft, onChange, rows);

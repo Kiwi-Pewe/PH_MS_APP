@@ -9944,23 +9944,47 @@ body.is-mini-dragging {
 .mini-profile-widget-tile.is-youtube_channel .youtube-profile-banner {
   flex: 0 0 48px;
 }
-.mini-profile-widget-tile.is-youtube_channel .youtube-profile-face {
-  width: 44px;
-  height: 44px;
-  margin: 8px 10px 0;
-  border-width: 2px;
+.mini-youtube-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px 4px;
 }
-.mini-profile-widget-tile.is-youtube_channel .youtube-profile-card.has-banner .youtube-profile-face {
-  margin-top: -22px;
+.mini-youtube-who .youtube-profile-face {
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  border-width: 2px;
+  flex: 0 0 auto;
+}
+.mini-youtube-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mini-youtube-subs {
+  min-width: 0;
+  font-size: calc(var(--profile-text-size, 14pt) * 0.75);
+  font-weight: 600;
+  color: var(--text-dim);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mini-profile-widget-tile.is-youtube_channel .youtube-profile-body {
-  padding: 4px 10px 8px;
+  padding: 0 10px 8px;
   gap: 2px;
   flex: 0 1 auto;
 }
 .mini-profile-widget-tile.is-youtube_channel .youtube-profile-foot {
   padding: 6px 10px;
 }
+.youtube-profile-card.is-mini-youtube.is-youtube-open { cursor: pointer; }
+.mini-profile-widgets.is-edit .youtube-profile-card.is-mini-youtube { cursor: inherit; }
 .mini-profile-widgets.is-edit .youtube-profile-handle { pointer-events: none; }
 .mini-playing-now {
   display: flex;

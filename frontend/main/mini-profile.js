@@ -1205,21 +1205,142 @@ function paintMiniPlayingCard(data) {
   return row;
 }
 
-function paintMiniYoutubeProfile(el, tile, live, editing, data) {
+function paintMiniYoutubeCard(el, tile, row, editing) {
+  if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
+  if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
   const props = Object.assign({}, tile.props || {}, { show_description: false, show_title: false });
-  const fake = {
-    id: tile.id,
-    type: "youtube_channel",
-    props: props,
-    w: 8,
-    h: 4,
-    x: 0,
-    y: 0
+  const flag = typeof steamFlag === "function" ? steamFlag : (p, key, fallback) => (p && p[key] == null ? fallback : !!(p && p[key]));
+  const card = document.createElement("div");
+  card.className = "youtube-profile-card is-mini-youtube";
+  const note = (text) => {
+    if (typeof steamProfileNote === "function") return steamProfileNote(text);
+    return miniSteamNote(text);
   };
+  if (!row || !row.linked) {
+    card.appendChild(note("Connect YouTube to show this."));
+    el.appendChild(card);
+    return;
+  }
+  const avail = row.available || {};
+  const identityOn = row.identity !== false;
+  const statsOn = row.stats !== false;
+  if (!identityOn && !statsOn) {
+    card.appendChild(note("Turn on Identity and Stats for YouTube."));
+    el.appendChild(card);
+    return;
+  }
+  const showBanner = identityOn && flag(props, "show_banner", true) && avail.banner !== false && row.banner;
+  const showAvatar = identityOn && flag(props, "show_avatar", true) && avail.avatar !== false && row.avatar;
+  const showName = identityOn && flag(props, "show_name", true) && avail.name !== false && row.name;
+  const subsText = statsOn && flag(props, "show_subscribers", true) && avail.subscribers !== false
+    ? (typeof youtubeCountLabel === "function" ? youtubeCountLabel(row.subscribers, "subscriber", "subscribers") : "")
+    : "";
+  if (showBanner) {
+    const banner = document.createElement("div");
+    banner.className = "youtube-profile-banner";
+    banner.style.backgroundImage = "url(" + JSON.stringify(String(row.banner)) + ")";
+    card.appendChild(banner);
+  }
+  if (showAvatar || showName || subsText) {
+    const who = document.createElement("div");
+    who.className = "mini-youtube-who";
+    if (showAvatar) {
+      const face = document.createElement("div");
+      face.className = "youtube-profile-face";
+      const img = document.createElement("img");
+      img.className = "youtube-profile-avatar";
+      img.src = row.avatar;
+      img.alt = "";
+      img.draggable = false;
+      face.appendChild(img);
+      who.appendChild(face);
+    }
+    const copy = document.createElement("div");
+    copy.className = "mini-youtube-copy";
+    if (showName) {
+      const name = document.createElement("div");
+      name.className = "youtube-profile-name";
+      name.textContent = row.name;
+      copy.appendChild(name);
+    }
+    if (subsText) {
+      const subs = document.createElement("div");
+      subs.className = "mini-youtube-subs";
+      subs.textContent = subsText;
+      copy.appendChild(subs);
+    }
+    if (copy.childNodes.length) who.appendChild(copy);
+    if (who.childNodes.length) card.appendChild(who);
+  } else if (!identityOn) {
+    card.appendChild(note("Turn on Identity for YouTube."));
+  }
+  const body = document.createElement("div");
+  body.className = "youtube-profile-body";
+  if (statsOn) {
+    const bits = [];
+    if (flag(props, "show_views", true) && avail.views !== false) {
+      const text = typeof youtubeCountLabel === "function" ? youtubeCountLabel(row.views, "view", "views") : "";
+      if (text) bits.push(text);
+    }
+    if (flag(props, "show_videos", true) && avail.videos !== false) {
+      const text = typeof youtubeCountLabel === "function" ? youtubeCountLabel(row.videos, "video", "videos") : "";
+      if (text) bits.push(text);
+    }
+    if (bits.length) {
+      const stats = document.createElement("div");
+      stats.className = "youtube-profile-stats";
+      stats.textContent = bits.join(" · ");
+      body.appendChild(stats);
+    }
+  } else {
+    body.appendChild(note("Turn on Stats for YouTube."));
+  }
+  if (identityOn && row.profile_url) {
+    const handle = document.createElement("div");
+    handle.className = "youtube-profile-handle";
+    handle.textContent = typeof youtubeHandleText === "function" ? youtubeHandleText(row.profile_url) : row.profile_url;
+    body.appendChild(handle);
+  }
+  if (body.childNodes.length) card.appendChild(body);
+  if (identityOn) {
+    const footBits = [];
+    if (flag(props, "show_created", false) && avail.created && row.published) {
+      const when = typeof youtubeDateText === "function" ? youtubeDateText(row.published) : "";
+      if (when) footBits.push("Created · " + when);
+    }
+    if (flag(props, "show_country", false) && avail.country && row.country) {
+      const place = typeof steamCountryName === "function" ? steamCountryName(row.country) : row.country;
+      if (place) footBits.push(place);
+    }
+    if (footBits.length) {
+      const foot = document.createElement("div");
+      foot.className = "youtube-profile-foot";
+      footBits.forEach((text) => {
+        const line = document.createElement("div");
+        line.className = "youtube-profile-meta";
+        line.textContent = text;
+        foot.appendChild(line);
+      });
+      card.appendChild(foot);
+    }
+  }
+  const href = row.profile_url || "";
+  if (!editing && href) {
+    card.classList.add("is-youtube-open");
+    card.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.open(href, "_blank", "noopener,noreferrer");
+    });
+  }
+  el.appendChild(card);
+}
+
+function paintMiniYoutubeProfile(el, tile, live, editing, data) {
   const paint = (row) => {
     el.innerHTML = "";
     el.classList.remove("is-awaiting");
-    if (typeof paintYoutubeProfile === "function") paintYoutubeProfile(fake, el, row || { linked: false });
+    paintMiniYoutubeCard(el, tile, row || { linked: false }, editing);
   };
   if (live && typeof live.linked === "boolean") {
     paint(live);

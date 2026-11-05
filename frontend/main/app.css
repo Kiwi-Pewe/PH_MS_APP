@@ -9931,11 +9931,37 @@ body.is-mini-dragging {
   flex: 0 0 48px;
   font-size: 16px;
 }
-.mini-profile-widget-tile.is-steam_playing_now:not(.is-awaiting) {
+.mini-profile-widget-tile.is-steam_playing_now:not(.is-awaiting),
+.mini-profile-widget-tile.is-youtube_channel:not(.is-awaiting) {
   justify-content: stretch;
   align-items: stretch;
   text-align: left;
 }
+.mini-profile-widget-tile.is-youtube_channel .youtube-profile-card {
+  height: auto;
+  min-height: 0;
+}
+.mini-profile-widget-tile.is-youtube_channel .youtube-profile-banner {
+  flex: 0 0 48px;
+}
+.mini-profile-widget-tile.is-youtube_channel .youtube-profile-face {
+  width: 44px;
+  height: 44px;
+  margin: 8px 10px 0;
+  border-width: 2px;
+}
+.mini-profile-widget-tile.is-youtube_channel .youtube-profile-card.has-banner .youtube-profile-face {
+  margin-top: -22px;
+}
+.mini-profile-widget-tile.is-youtube_channel .youtube-profile-body {
+  padding: 4px 10px 8px;
+  gap: 2px;
+  flex: 0 1 auto;
+}
+.mini-profile-widget-tile.is-youtube_channel .youtube-profile-foot {
+  padding: 6px 10px;
+}
+.mini-profile-widgets.is-edit .youtube-profile-handle { pointer-events: none; }
 .mini-playing-now {
   display: flex;
   align-items: center;

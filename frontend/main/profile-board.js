@@ -2465,19 +2465,20 @@ function paintYoutubeStub(tile, el) {
   el.appendChild(card);
 }
 
-function paintYoutubeProfile(tile, el) {
+function paintYoutubeProfile(tile, el, cardOverride) {
   applyProfileWidgetSurface(el, tile);
   applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
-  mountSteamTitle(el, tile, "YouTube profile", "center");
+  const mini = el.classList.contains("mini-profile-widget-tile");
+  if (!mini) mountSteamTitle(el, tile, "YouTube profile", "center");
   const card = document.createElement("div");
   card.className = "youtube-profile-card";
   const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
-  if (!youtubeCardData || youtubeCardOwnerId !== owner) {
+  if (!cardOverride && (!youtubeCardData || youtubeCardOwnerId !== owner)) {
     ensureYoutubeCard();
     el.appendChild(card);
     return;
   }
-  const data = youtubeCardData;
+  const data = cardOverride || youtubeCardData;
   const props = tile.props || {};
   if (!data.linked) {
     card.appendChild(steamProfileNote("Connect YouTube to show this."));
@@ -2557,7 +2558,7 @@ function paintYoutubeProfile(tile, el) {
   } else {
     body.appendChild(steamProfileNote("Turn on Stats for YouTube."));
   }
-  if (identityOn && steamFlag(props, "show_description", false) && avail.description !== false && data.description) {
+  if (!mini && identityOn && steamFlag(props, "show_description", false) && avail.description !== false && data.description) {
     if (body.childNodes.length) {
       const rule = document.createElement("div");
       rule.className = "profile-text-rule youtube-profile-rule";

@@ -12,6 +12,7 @@ const MINI_BODY_WRAPS = 8;
 const MINI_WIDGET_ADD = [
   { type: "clock", label: "Clock" },
   { type: "steam_playing_now", label: "Playing Now", steam: true },
+  { type: "youtube_channel", label: "User Profile", youtube: true },
   { type: "body", label: "Body" },
   { type: "member_since", label: "Member since" },
   { type: "button", label: "Button" },
@@ -569,7 +570,7 @@ function miniWidgetTiles(data) {
     slot: typeof miniWidgetSlotOf === "function" ? miniWidgetSlotOf(row, -1) : row.slot,
     live: row.live,
     w: 8,
-    h: row.type === "steam_playing_now" ? 4 : 3,
+    h: (row.type === "steam_playing_now" || row.type === "youtube_channel") ? 4 : 3,
     x: 0,
     y: 0
   }));
@@ -1204,6 +1205,46 @@ function paintMiniPlayingCard(data) {
   return row;
 }
 
+function paintMiniYoutubeProfile(el, tile, live, editing, data) {
+  const props = Object.assign({}, tile.props || {}, { show_description: false, show_title: false });
+  const fake = {
+    id: tile.id,
+    type: "youtube_channel",
+    props: props,
+    w: 8,
+    h: 4,
+    x: 0,
+    y: 0
+  };
+  const paint = (row) => {
+    el.innerHTML = "";
+    el.classList.remove("is-awaiting");
+    if (typeof paintYoutubeProfile === "function") paintYoutubeProfile(fake, el, row || { linked: false });
+  };
+  if (live && typeof live.linked === "boolean") {
+    paint(live);
+    return;
+  }
+  const ownerId = String((data && data.user && data.user.id) || (typeof profileOwnerId !== "undefined" ? profileOwnerId : "") || "");
+  if (typeof youtubeCardData !== "undefined" && youtubeCardData && String(typeof youtubeCardOwnerId !== "undefined" ? youtubeCardOwnerId : "") === ownerId) {
+    paint(youtubeCardData);
+    return;
+  }
+  if (ownerId && typeof ensureYoutubeCard === "function") {
+    ensureYoutubeCard();
+    const wait = typeof youtubeCardLoad !== "undefined" ? youtubeCardLoad : null;
+    if (wait) {
+      paintMiniAwaiting(el, "User Profile", "Connect YouTube to show this.");
+      wait.then(() => {
+        if (!el.isConnected) return;
+        paint(typeof youtubeCardData !== "undefined" ? youtubeCardData : null);
+      });
+      return;
+    }
+  }
+  paintMiniAwaiting(el, "User Profile", "Connect YouTube to show this.");
+}
+
 function paintMiniPlayingNow(el, tile, live, editing, data) {
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   if (typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : {});
@@ -1331,6 +1372,10 @@ function paintMiniProfileWidgetTile(host, tile, data, editing) {
   }
   if (tile.type === "steam_playing_now") {
     paintMiniPlayingNow(host, tile, live, editing, data);
+    return;
+  }
+  if (tile.type === "youtube_channel") {
+    paintMiniYoutubeProfile(host, tile, live, editing, data);
     return;
   }
   paintMiniCarryTile(host, tile);

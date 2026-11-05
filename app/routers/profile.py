@@ -47,6 +47,7 @@ MINI_WIDGET_MAX = 3
 MINI_WIDGET_TYPES = {
     "clock", "steam_playing_now", "body", "member_since", "button", "meter",
     "mutuals", "featured_friend", "featured_server", "connections",
+    "youtube_channel",
 }
 HEADER_MAX = 120
 FOOTNOTE_MAX = 300

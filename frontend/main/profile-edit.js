@@ -150,6 +150,14 @@ const MINI_PROFILE_PALETTE = [
     items: [
       { type: "steam_playing_now", label: "Playing Now" }
     ]
+  },
+  {
+    id: "youtube",
+    label: "YouTube",
+    connection: "youtube",
+    items: [
+      { type: "youtube_channel", label: "User Profile" }
+    ]
   }
 ];
 
@@ -766,8 +774,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     return;
   }
   if (tile.type === "youtube_channel") {
-    fillFixedTitleOptions(box, draft, onChange, "center");
-    fillYoutubeProfileOptions(box, draft, onChange);
+    const mini = typeof isMiniProfilePageId === "function" && isMiniProfilePageId(profileActivePageId);
+    if (!mini) fillFixedTitleOptions(box, draft, onChange, "center");
+    else draft.show_title = false;
+    fillYoutubeProfileOptions(box, draft, onChange, mini);
     return;
   }
   if (tile.type === "youtube_video") {
@@ -1059,9 +1069,10 @@ function fillYoutubeFlagOptions(box, draft, onChange, rows, card) {
   });
 }
 
-function fillYoutubeProfileOptions(box, draft, onChange) {
+function fillYoutubeProfileOptions(box, draft, onChange, hideDesc) {
   if (typeof ensureYoutubeCard === "function") ensureYoutubeCard();
-  fillYoutubeFlagOptions(box, draft, onChange, [
+  if (hideDesc) draft.show_description = false;
+  const rows = [
     ["show_banner", "Banner", true, "banner"],
     ["show_avatar", "Profile picture", true, "avatar"],
     ["show_name", "Name", true, "name"],
@@ -1069,10 +1080,11 @@ function fillYoutubeProfileOptions(box, draft, onChange) {
     ["show_subscribers", "Subscribers", true, "subscribers"],
     ["show_views", "Views", true, "views"],
     ["show_videos", "Videos", true, "videos"],
-    ["show_created", "Created", false, "created"],
-    ["show_description", "Description", false, "description"],
-    ["show_country", "Country", false, "country"]
-  ]);
+    ["show_created", "Created", false, "created"]
+  ];
+  if (!hideDesc) rows.push(["show_description", "Description", false, "description"]);
+  rows.push(["show_country", "Country", false, "country"]);
+  fillYoutubeFlagOptions(box, draft, onChange, rows);
 }
 
 function youtubeLinkName(props) {

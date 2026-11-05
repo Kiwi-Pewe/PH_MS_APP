@@ -7,6 +7,7 @@ from app.auth import get_current_user
 from app.privacy import accepted_friend_ids
 from app.r2 import public_url_for
 from app.routers.connections import connection_public, load_steam_card, load_steam_playing
+from app.routers.youtube_link import load_youtube_card
 from app.routers.profile import (
     STATUS_MAX,
     clip_text,
@@ -163,6 +164,8 @@ def mini_widgets_payload(database, owner, viewer_id, layout):
                 live["steam"] = load_steam_card(database, owner.id)
         elif kind == "member_since":
             live = {"member_since": member_since_iso(owner)}
+        elif kind == "youtube_channel":
+            live = load_youtube_card(database, owner.id)
         try:
             slot = int(tile.get("slot"))
         except (TypeError, ValueError):

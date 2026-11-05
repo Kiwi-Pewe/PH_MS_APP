@@ -1295,7 +1295,7 @@ function paintMiniYoutubeCard(el, tile, row, editing) {
   } else {
     body.appendChild(note("Turn on Stats for YouTube."));
   }
-  if (identityOn && row.profile_url) {
+  if (identityOn && flag(props, "show_handle", false) && avail.handle !== false && row.profile_url) {
     const handle = document.createElement("div");
     handle.className = "youtube-profile-handle";
     handle.textContent = typeof youtubeHandleText === "function" ? youtubeHandleText(row.profile_url) : row.profile_url;

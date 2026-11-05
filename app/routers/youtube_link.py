@@ -22,6 +22,7 @@ from app.routers.connections import (
     default_parts,
     drop_expired_nonces,
     app_redirect,
+    read_parts,
 )
 
 router = APIRouter()
@@ -249,22 +250,18 @@ def list_items(token, path, query, wrap):
     return rows
 
 
-def youtube_snapshot(token, channel):
+def youtube_identity_fields(channel):
     snippet = channel.get("snippet") if isinstance(channel.get("snippet"), dict) else {}
     stats = channel.get("statistics") if isinstance(channel.get("statistics"), dict) else {}
     branding = channel.get("brandingSettings") if isinstance(channel.get("brandingSettings"), dict) else {}
     brand_channel = branding.get("channel") if isinstance(branding.get("channel"), dict) else {}
     brand_image = branding.get("image") if isinstance(branding.get("image"), dict) else {}
+    status = channel.get("status") if isinstance(channel.get("status"), dict) else {}
     details = channel.get("contentDetails") if isinstance(channel.get("contentDetails"), dict) else {}
     related = details.get("relatedPlaylists") if isinstance(details.get("relatedPlaylists"), dict) else {}
-    status = channel.get("status") if isinstance(channel.get("status"), dict) else {}
     topics = channel.get("topicDetails") if isinstance(channel.get("topicDetails"), dict) else {}
     channel_id = clip(channel.get("id"), 64)
     custom = clip(snippet.get("customUrl"), 80)
-    uploads_id = clip(related.get("uploads"), 64)
-    likes_id = clip(related.get("likes"), 64)
-    upload_ids = playlist_video_ids(token, uploads_id)
-    like_ids = playlist_video_ids(token, likes_id)
     return {
         "channel_id": channel_id,
         "title": clip(snippet.get("title"), 120),
@@ -283,8 +280,20 @@ def youtube_snapshot(token, channel):
         "hidden_subscribers": bool(stats.get("hiddenSubscriberCount")),
         "views": clip(str(stats.get("viewCount") or ""), 24),
         "video_count": clip(str(stats.get("videoCount") or ""), 24),
-        "uploads_id": uploads_id,
-        "likes_id": likes_id,
+        "uploads_id": clip(related.get("uploads"), 64),
+        "likes_id": clip(related.get("likes"), 64),
+        "profile_url": channel_profile_url(channel_id, custom),
+        "profile_ready": True,
+    }
+
+
+def youtube_snapshot(token, channel):
+    data = youtube_identity_fields(channel)
+    uploads_id = data.get("uploads_id") or ""
+    likes_id = data.get("likes_id") or ""
+    upload_ids = playlist_video_ids(token, uploads_id)
+    like_ids = playlist_video_ids(token, likes_id)
+    data.update({
         "uploads": videos_by_ids(token, upload_ids),
         "likes": videos_by_ids(token, like_ids),
         "playlists": list_items(token, "/playlists", {
@@ -318,7 +327,8 @@ def youtube_snapshot(token, channel):
         "memberships": [],
         "membership_levels": [],
         "profile_ready": True,
-    }
+    })
+    return data
 
 
 def apply_tokens(row, tokens, now):
@@ -372,6 +382,152 @@ def save_youtube_link(database: Session, user_id, channel, tokens):
     apply_tokens(row, tokens, now)
     database.commit()
     return True
+
+
+def youtube_cache_dict(raw):
+    try:
+        data = json.loads(raw or "")
+    except Exception:
+        data = {}
+    return data if isinstance(data, dict) else {}
+
+
+def youtube_public(path, query):
+    _, _, key = google_client()
+    if not key:
+        return None
+    params = dict(query)
+    params["key"] = key
+    url = YOUTUBE_API + path + "?" + urlencode(params)
+    payload = http_json(url)
+    if not payload or payload.get("error"):
+        return None
+    return payload
+
+
+def youtube_access_token(database, row):
+    now = datetime.now()
+    current = clip(row.access_token, 4000)
+    if current and row.token_expires_at and row.token_expires_at > now + timedelta(seconds=60):
+        return current
+    if not row.refresh_token:
+        return current
+    client_id, client_secret, _ = google_client()
+    if not client_id or not client_secret:
+        return current
+    payload = http_json(GOOGLE_TOKEN, {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "refresh_token": row.refresh_token,
+        "grant_type": "refresh_token",
+    })
+    if not payload or not payload.get("access_token"):
+        return current
+    apply_tokens(row, payload, now)
+    database.commit()
+    return clip(row.access_token, 4000)
+
+
+def youtube_channel_resource(token, channel_id):
+    if not channel_id:
+        return None
+    query = {
+        "part": "snippet,statistics,brandingSettings,contentDetails,status,topicDetails",
+        "id": channel_id,
+        "maxResults": 1,
+    }
+    payload = youtube_get("/channels", query, token) if token else None
+    if payload and payload.get("error"):
+        payload = None
+    if not payload:
+        payload = youtube_public("/channels", query)
+    items = (payload or {}).get("items") or []
+    if items and isinstance(items[0], dict):
+        return items[0]
+    return None
+
+
+def refresh_youtube_identity_cache(database, row):
+    cache = youtube_cache_dict(row.cache)
+    now = datetime.now()
+    if row.refreshed_at and (now - row.refreshed_at) < timedelta(minutes=5) and cache.get("profile_ready"):
+        return cache
+    channel_id = clip(row.external_id or cache.get("channel_id"), 64)
+    if not channel_id:
+        return cache
+    token = youtube_access_token(database, row)
+    channel = youtube_channel_resource(token, channel_id)
+    if not channel:
+        return cache
+    cache.update(youtube_identity_fields(channel))
+    row.display_name = cache.get("title") or row.display_name
+    row.avatar_url = cache.get("thumb") or row.avatar_url
+    row.profile_url = cache.get("profile_url") or row.profile_url
+    row.cache = json.dumps(cache)
+    row.refreshed_at = now
+    database.commit()
+    return cache
+
+
+def youtube_card_payload(cache, parts):
+    hidden = bool(cache.get("hidden_subscribers"))
+    subscribers = "" if hidden else clip(str(cache.get("subscribers") or ""), 24)
+    views = clip(str(cache.get("views") or ""), 24)
+    videos = clip(str(cache.get("video_count") or ""), 24)
+    name = clip(cache.get("title"), 120)
+    link = clip(cache.get("profile_url"), 400)
+    if not link:
+        link = channel_profile_url(clip(cache.get("channel_id"), 64), cache.get("custom_url"))
+    avatar = clip(cache.get("thumb"), 400)
+    banner = clip(cache.get("banner"), 400)
+    description = clip(cache.get("description"), 1000)
+    published = clip(cache.get("published"), 40)
+    country = clip(cache.get("country"), 8)
+    return {
+        "linked": True,
+        "identity": bool(parts.get("identity")),
+        "stats": bool(parts.get("stats")),
+        "name": name,
+        "profile_url": link,
+        "avatar": avatar,
+        "banner": banner,
+        "description": description,
+        "published": published,
+        "country": country,
+        "subscribers": subscribers,
+        "views": views,
+        "videos": videos,
+        "hidden_subscribers": hidden,
+        "available": {
+            "banner": bool(banner),
+            "avatar": bool(avatar),
+            "name": bool(name),
+            "handle": bool(link),
+            "subscribers": bool(subscribers),
+            "views": bool(views),
+            "videos": bool(videos),
+            "created": bool(published),
+            "description": bool(description),
+            "country": bool(country),
+        },
+    }
+
+
+def load_youtube_card(database, user_id):
+    row = database.query(Account_connection).filter(
+        Account_connection.user_id == user_id,
+        Account_connection.provider == "youtube",
+    ).first()
+    if not row:
+        return {"linked": False, "identity": False, "stats": False, "available": {}}
+    cache = refresh_youtube_identity_cache(database, row)
+    if not cache.get("profile_url"):
+        cache["profile_url"] = clip(row.profile_url, 400)
+    if not cache.get("thumb"):
+        cache["thumb"] = clip(row.avatar_url, 400)
+    if not cache.get("title"):
+        cache["title"] = clip(row.display_name, 120)
+    return youtube_card_payload(cache, read_parts(row.parts, "youtube"))
 
 
 def pending_youtube(database, user_id):

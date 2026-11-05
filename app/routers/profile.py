@@ -8,6 +8,7 @@ import random
 import colorsys
 from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user, Servers, Server_members
 from app.routers.connections import load_steam_achievements, load_steam_badges, load_steam_card, load_steam_playing, load_steam_recent, load_steam_library
+from app.routers.youtube_link import load_youtube_card
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
 from app.database import get_db
 from app.auth import get_current_user
@@ -1842,6 +1843,33 @@ def get_profile_steam_card(user_id: int, current_user: UserInfo = Depends(get_cu
         card["country"] = ""
     if not shown["state"]:
         card["state"] = ""
+    return card
+
+
+@router.get("/profile/{user_id}/youtube_card")
+def get_profile_youtube_card(user_id: int, current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    card = load_youtube_card(database, owner.id)
+    if current_user.id == owner.id:
+        return card
+    layout = ensure_layout(owner, database)
+    shown = False
+    for page in (layout or {}).get("pages") or []:
+        for tile in page.get("tiles") or []:
+            if tile.get("type") != "youtube_channel":
+                continue
+            props = tile.get("props") or {}
+            if props.get("show_country") is True:
+                shown = True
+    if not shown:
+        card["country"] = ""
+        avail = card.get("available")
+        if isinstance(avail, dict):
+            avail["country"] = False
     return card
 
 

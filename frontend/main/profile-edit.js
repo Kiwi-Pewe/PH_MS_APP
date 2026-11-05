@@ -88,7 +88,7 @@ const PROFILE_PALETTE = [
     label: "YouTube",
     connection: "youtube",
     items: [
-      { type: "youtube_channel", label: "Channel" },
+      { type: "youtube_channel", label: "User Profile" },
       { type: "youtube_video", label: "Video" },
       { type: "youtube_uploads", label: "Uploads" },
       { type: "youtube_live_now", label: "Live Now" },
@@ -760,8 +760,13 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillSteamBadgeOptions(box, tile, draft, onChange, hintEl);
     return;
   }
+  if (tile.type === "youtube_channel") {
+    fillFixedTitleOptions(box, draft, onChange, "center");
+    fillYoutubeProfileOptions(box, draft, onChange);
+    return;
+  }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
-    fillFixedTitleOptions(box, draft, onChange, tile.type === "youtube_channel" ? "center" : "left");
+    fillFixedTitleOptions(box, draft, onChange, "left");
     return;
   }
   if (tile.type === "featured_friend") {
@@ -981,6 +986,39 @@ function fillSteamProfileOptions(box, draft, onChange) {
     ["show_group", "Primary group", true, "group"],
     ["show_level", "Steam level", true, "level"],
     ["show_xp", "XP", true, "xp"]
+  ]);
+}
+
+function fillYoutubeFlagOptions(box, draft, onChange, rows) {
+  const card = typeof youtubeCardData !== "undefined" ? youtubeCardData : null;
+  const avail = card && card.available ? card.available : null;
+  rows.forEach(row => {
+    if (draft[row[0]] == null) draft[row[0]] = row[2];
+    const locked = !!(avail && avail[row[3]] === false);
+    const block = document.createElement("div");
+    block.className = "profile-name-opt";
+    const toggle = settingsToggle(!!draft[row[0]], locked, (on) => {
+      draft[row[0]] = on;
+      onChange();
+    });
+    block.appendChild(settingsOpt(row[1], "", toggle));
+    box.appendChild(block);
+  });
+}
+
+function fillYoutubeProfileOptions(box, draft, onChange) {
+  if (typeof ensureYoutubeCard === "function") ensureYoutubeCard();
+  fillYoutubeFlagOptions(box, draft, onChange, [
+    ["show_banner", "Banner", true, "banner"],
+    ["show_avatar", "Profile picture", true, "avatar"],
+    ["show_name", "Name", true, "name"],
+    ["show_handle", "Handle", true, "handle"],
+    ["show_subscribers", "Subscribers", true, "subscribers"],
+    ["show_views", "Views", true, "views"],
+    ["show_videos", "Videos", true, "videos"],
+    ["show_created", "Created", false, "created"],
+    ["show_description", "Description", false, "description"],
+    ["show_country", "Country", false, "country"]
   ]);
 }
 

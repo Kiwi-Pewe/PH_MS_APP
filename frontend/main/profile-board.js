@@ -94,7 +94,7 @@ const PROFILE_TILE_TYPES = {
   steam_library: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Library" },
   steam_achievements: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Achievements" },
   steam_badges: { w: 12, h: 8, minW: 7, minH: 6, maxW: 18, maxH: 13, label: "Badges" },
-  youtube_channel: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "Channel" },
+  youtube_channel: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "User Profile" },
   youtube_video: { w: 12, h: 7, minW: 8, minH: 4, maxW: 24, maxH: 16, label: "Video" },
   youtube_uploads: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Uploads" },
   youtube_live_now: { w: 10, h: 4, minW: 7, minH: 4, maxW: 10, maxH: 6, label: "Live Now" },
@@ -2161,6 +2161,9 @@ let steamBadgeLoad = null;
 let steamBadgeFill = null;
 let steamBadgeTries = 0;
 const steamBadgePage = {};
+let youtubeCardOwnerId = "";
+let youtubeCardData = null;
+let youtubeCardLoad = null;
 
 function ensureSteamCard() {
   const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
@@ -2214,6 +2217,39 @@ function isYoutubeWidget(type) {
   return String(type || "").indexOf("youtube_") === 0;
 }
 
+function ensureYoutubeCard() {
+  const id = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!id || typeof serverAddress !== "string" || !serverAddress) return;
+  if (youtubeCardOwnerId === id && (youtubeCardData || youtubeCardLoad)) return;
+  youtubeCardOwnerId = id;
+  youtubeCardData = null;
+  youtubeCardLoad = fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(id) + "/youtube_card", { credentials: "include" })
+    .then(response => response.ok ? response.json() : { linked: false })
+    .then(data => { youtubeCardData = data || { linked: false }; })
+    .catch(() => { youtubeCardData = { linked: false }; })
+    .finally(() => {
+      youtubeCardLoad = null;
+      if (String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "") === id) repaintProfileYoutubeTiles(true);
+    });
+}
+
+function youtubeDateText(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function youtubeHandleText(url) {
+  return String(url || "").replace(/^https?:\/\//i, "").replace(/\/$/, "");
+}
+
+function youtubeCountLabel(raw, one, many) {
+  if (raw == null || raw === "") return "";
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString() + " " + (n === 1 ? one : many);
+}
+
 function paintYoutubeStub(tile, el) {
   applyProfileWidgetSurface(el, tile);
   applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
@@ -2230,6 +2266,128 @@ function paintYoutubeStub(tile, el) {
   }
   const linked = typeof profileHasConnection === "function" && profileHasConnection("youtube");
   card.appendChild(steamProfileNote(linked ? "" : "Connect YouTube to show this."));
+  el.appendChild(card);
+}
+
+function paintYoutubeProfile(tile, el) {
+  applyProfileWidgetSurface(el, tile);
+  applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
+  mountSteamTitle(el, tile, "YouTube profile", "center");
+  const card = document.createElement("div");
+  card.className = "youtube-profile-card";
+  const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
+  if (!youtubeCardData || youtubeCardOwnerId !== owner) {
+    ensureYoutubeCard();
+    el.appendChild(card);
+    return;
+  }
+  const data = youtubeCardData;
+  const props = tile.props || {};
+  if (!data.linked) {
+    card.appendChild(steamProfileNote("Connect YouTube to show this."));
+    el.appendChild(card);
+    return;
+  }
+  const avail = data.available || {};
+  const identityOn = data.identity !== false;
+  const statsOn = data.stats !== false;
+  if (!identityOn && !statsOn) {
+    card.appendChild(steamProfileNote("Turn on Identity and Stats for YouTube."));
+    el.appendChild(card);
+    return;
+  }
+  const showBanner = identityOn && steamFlag(props, "show_banner", true) && avail.banner !== false && data.banner;
+  const showAvatar = identityOn && steamFlag(props, "show_avatar", true) && avail.avatar !== false && data.avatar;
+  if (showBanner) {
+    card.classList.add("has-banner");
+    const banner = document.createElement("div");
+    banner.className = "youtube-profile-banner";
+    banner.style.backgroundImage = "url(" + JSON.stringify(String(data.banner)) + ")";
+    card.appendChild(banner);
+  }
+  if (showAvatar) {
+    const face = document.createElement("div");
+    face.className = "youtube-profile-face";
+    const img = document.createElement("img");
+    img.className = "youtube-profile-avatar";
+    img.src = data.avatar;
+    img.alt = "";
+    img.draggable = false;
+    face.appendChild(img);
+    card.appendChild(face);
+  }
+  const body = document.createElement("div");
+  body.className = "youtube-profile-body";
+  if (identityOn) {
+    if (steamFlag(props, "show_name", true) && avail.name !== false && data.name) {
+      const name = document.createElement("div");
+      name.className = "youtube-profile-name";
+      name.textContent = data.name;
+      body.appendChild(name);
+    }
+    if (steamFlag(props, "show_handle", true) && avail.handle !== false && data.profile_url) {
+      const link = document.createElement("a");
+      link.className = "youtube-profile-handle";
+      link.href = data.profile_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = youtubeHandleText(data.profile_url);
+      link.addEventListener("pointerdown", (e) => e.stopPropagation());
+      body.appendChild(link);
+    }
+  } else {
+    body.appendChild(steamProfileNote("Turn on Identity for YouTube."));
+  }
+  if (statsOn) {
+    const bits = [];
+    if (steamFlag(props, "show_subscribers", true) && avail.subscribers !== false) {
+      const text = youtubeCountLabel(data.subscribers, "subscriber", "subscribers");
+      if (text) bits.push(text);
+    }
+    if (steamFlag(props, "show_views", true) && avail.views !== false) {
+      const text = youtubeCountLabel(data.views, "view", "views");
+      if (text) bits.push(text);
+    }
+    if (steamFlag(props, "show_videos", true) && avail.videos !== false) {
+      const text = youtubeCountLabel(data.videos, "video", "videos");
+      if (text) bits.push(text);
+    }
+    if (bits.length) {
+      const stats = document.createElement("div");
+      stats.className = "youtube-profile-stats";
+      stats.textContent = bits.join(" · ");
+      body.appendChild(stats);
+    }
+  } else {
+    body.appendChild(steamProfileNote("Turn on Stats for YouTube."));
+  }
+  if (identityOn) {
+    if (steamFlag(props, "show_created", false) && avail.created && data.published) {
+      const when = youtubeDateText(data.published);
+      if (when) {
+        const line = document.createElement("div");
+        line.className = "youtube-profile-meta";
+        line.textContent = "Created · " + when;
+        body.appendChild(line);
+      }
+    }
+    if (steamFlag(props, "show_country", false) && avail.country && data.country) {
+      const place = steamCountryName(data.country);
+      if (place) {
+        const line = document.createElement("div");
+        line.className = "youtube-profile-meta";
+        line.textContent = place;
+        body.appendChild(line);
+      }
+    }
+    if (steamFlag(props, "show_description", false) && avail.description !== false && data.description) {
+      const desc = document.createElement("div");
+      desc.className = "youtube-profile-desc";
+      desc.textContent = data.description;
+      body.appendChild(desc);
+    }
+  }
+  if (body.childNodes.length) card.appendChild(body);
   el.appendChild(card);
 }
 
@@ -3411,6 +3569,10 @@ function paintProfileTileContent(tile, el) {
     paintSteamBadges(tile, el);
     return;
   }
+  if (tile.type === "youtube_channel") {
+    paintYoutubeProfile(tile, el);
+    return;
+  }
   if (isYoutubeWidget(tile.type)) {
     paintYoutubeStub(tile, el);
     return;
@@ -3748,6 +3910,22 @@ function repaintProfileSteamTiles(force) {
   board.querySelectorAll(".profile-tile").forEach(el => {
     const tile = tiles.find(item => item && item.id === el.dataset.tileId);
     if (!tile || String(tile.type || "").indexOf("steam_") !== 0) return;
+    const handle = el.querySelector(".profile-resize");
+    paintProfileTileContent(tile, el);
+    if (handle) el.appendChild(handle);
+  });
+}
+
+function repaintProfileYoutubeTiles(force) {
+  if (profileEditing && !force) return;
+  const board = document.getElementById("profile-board");
+  if (!board) return;
+  const layout = profileDraft || profileSavedLayout;
+  const page = typeof profilePageById === "function" ? profilePageById(layout, profileActivePageId) : null;
+  const tiles = (page && page.tiles) || [];
+  board.querySelectorAll(".profile-tile").forEach(el => {
+    const tile = tiles.find(item => item && item.id === el.dataset.tileId);
+    if (!tile || tile.type !== "youtube_channel") return;
     const handle = el.querySelector(".profile-resize");
     paintProfileTileContent(tile, el);
     if (handle) el.appendChild(handle);

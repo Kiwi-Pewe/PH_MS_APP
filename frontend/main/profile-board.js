@@ -3471,6 +3471,12 @@ function youtubeMembershipPlaceholders() {
   ];
 }
 
+function youtubeMemberLevelNumber(row) {
+  const rank = Number(row && row.level_rank);
+  if (!Number.isFinite(rank)) return 0;
+  return Math.max(0, Math.floor(rank)) + 1;
+}
+
 function youtubeListedMembers(rows, props) {
   const sort = (props && props.sort) || "recent";
   const lastMonth = !!(props && props.last_month);
@@ -3536,11 +3542,28 @@ function paintYoutubeMemberships(tile, el) {
       const shown = channel.title || "?";
       face.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : shown.slice(0, 1);
     }
+    const level = youtubeMemberLevelNumber(channel);
+    if (level) {
+      const badge = document.createElement("div");
+      badge.className = "profile-member-level";
+      badge.textContent = String(level);
+      face.appendChild(badge);
+    }
+    const copy = document.createElement("div");
+    copy.className = "profile-member-copy";
     const name = document.createElement("div");
     name.className = "profile-friend-name";
     name.textContent = channel.title || "Member";
+    copy.appendChild(name);
+    const since = youtubeDateText(channel.since);
+    if (since) {
+      const foot = document.createElement("div");
+      foot.className = "profile-member-since";
+      foot.textContent = "Member Since: " + since;
+      copy.appendChild(foot);
+    }
     row.appendChild(face);
-    row.appendChild(name);
+    row.appendChild(copy);
     if (!(profileEditing && profileIsOwn) && channel.url) {
       row.classList.add("is-youtube-member");
       row.addEventListener("click", (e) => {

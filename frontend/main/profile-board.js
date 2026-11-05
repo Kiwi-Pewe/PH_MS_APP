@@ -3920,6 +3920,7 @@ function paintYoutubeSuperChat(tile, el) {
   }
   const who = document.createElement("div");
   who.className = "youtube-super-who";
+  const when = youtubeAgoText(row.published || new Date(Date.now() - 120000).toISOString());
   if (row.author) {
     const name = document.createElement(row.url ? "a" : "div");
     name.className = "youtube-super-name";
@@ -3933,6 +3934,12 @@ function paintYoutubeSuperChat(tile, el) {
     }
     who.appendChild(name);
   }
+  if (when) {
+    const time = document.createElement("div");
+    time.className = "youtube-super-time";
+    time.textContent = when;
+    who.appendChild(time);
+  }
   const amount = document.createElement("div");
   amount.className = "youtube-super-amount";
   amount.textContent = row.amount || "";
@@ -3940,22 +3947,13 @@ function paintYoutubeSuperChat(tile, el) {
   if (who.childNodes.length) head.appendChild(who);
   if (row.amount) head.appendChild(amount);
   card.appendChild(head);
-  const when = youtubeAgoText(row.published || new Date(Date.now() - 120000).toISOString());
-  if (row.text || when) {
+  if (row.text) {
     const body = document.createElement("div");
     body.className = "youtube-super-body";
-    if (row.text) {
-      const text = document.createElement("div");
-      text.className = "youtube-super-text";
-      text.textContent = row.text;
-      body.appendChild(text);
-    }
-    if (when) {
-      const time = document.createElement("div");
-      time.className = "youtube-super-time";
-      time.textContent = when;
-      body.appendChild(time);
-    }
+    const text = document.createElement("div");
+    text.className = "youtube-super-text";
+    text.textContent = row.text;
+    body.appendChild(text);
     card.appendChild(body);
   }
   el.appendChild(card);

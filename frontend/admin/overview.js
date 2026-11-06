@@ -184,17 +184,21 @@ function paintOverviewAccounts(main, stats) {
   main.className = "is-fit";
   const accounts = (stats && stats.accounts) || {};
   const pulse = (stats && stats.pulse) || {};
+  const standing = accounts.standing || {};
+  const age = accounts.age || {};
   const recent = accounts.recent || [];
   const total = Number(accounts.total) || 0;
   const fresh = Number(accounts.new_24h) || 0;
   const active = Number(pulse.active_24h) || 0;
-  const verified = 0;
-  const awaiting = 0;
+  const online = Number(accounts.online) || 0;
+  const clear = Number(standing.clear) || 0;
+  const warned = Number(standing.warned) || 0;
+  const banned = Number(standing.banned) || 0;
   const newDelta = overviewPct(accounts.new_24h, accounts.new_prev_24h, "vs previous 24h");
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Accounts"],
     title: "Accounts",
-    note: "Account growth, verification and recent registrations across the site.",
+    note: "Account growth and recent registrations across the site.",
     filter: "Last 24 hours",
     range: "compared with previous day"
   }));
@@ -213,10 +217,10 @@ function paintOverviewAccounts(main, stats) {
       tone: newDelta.tone
     },
     {
-      label: "Verified accounts",
-      value: overviewNum(verified),
-      icon: "check",
-      detail: (total > 0 ? ((verified * 1000) / total / 10).toFixed(1) : "0.0") + "% of all accounts"
+      label: "Online now",
+      value: overviewNum(online),
+      icon: "eye",
+      detail: "Connected right now"
     },
     {
       label: "Active accounts",
@@ -227,39 +231,43 @@ function paintOverviewAccounts(main, stats) {
   ]);
   const mid = adminEl("div", "overview-mid");
   const dash = adminEl("div", "overview-dash");
-  const verify = adminPanel({ title: "Verification status", meta: overviewNum(total) + " accounts" });
-  verify.body.appendChild(adminMeterList(
+  const status = adminPanel({ title: "Account standing", meta: overviewNum(total) + " accounts" });
+  status.body.appendChild(adminMeterList(
     [
-      { label: "Verified", value: verified, total: total },
-      { label: "Awaiting verification", value: awaiting, total: total }
+      { label: "Clear", value: clear, total: total },
+      { label: "Warned", value: warned, total: total },
+      { label: "Banned", value: banned, total: total }
     ],
-    overviewNum(verified) + " of today's " + overviewNum(accounts.new_today) + " new accounts are verified."
+    overviewNum(banned) + " currently banned · " + overviewNum(warned) + " with a warning"
   ));
-  dash.appendChild(verify.panel);
-  const sources = adminPanel({ title: "Registration sources", meta: overviewNum(fresh) + " new · Last 24h" });
-  sources.body.appendChild(adminMeterList([
-    { label: "Discovery & organic", value: 0, total: fresh },
-    { label: "Server invitations", value: 0, total: fresh },
-    { label: "Direct visits", value: 0, total: fresh }
-  ]));
-  dash.appendChild(sources.panel);
+  dash.appendChild(status.panel);
+  const ages = adminPanel({ title: "Signup age", meta: overviewNum(total) + " accounts" });
+  ages.body.appendChild(adminMeterList(
+    [
+      { label: "Last 24 hours", value: Number(age.h24) || 0, total: total },
+      { label: "1–7 days", value: Number(age.d7) || 0, total: total },
+      { label: "8–30 days", value: Number(age.d30) || 0, total: total },
+      { label: "Older than 30 days", value: Number(age.older) || 0, total: total }
+    ],
+    "How long current accounts have been registered."
+  ));
+  dash.appendChild(ages.panel);
   mid.appendChild(dash);
   main.appendChild(mid);
   const list = adminPanel({
     title: "Recent registrations",
-    meta: "Latest " + recent.length + " of " + overviewNum(fresh) + " · Last 24h",
+    meta: "Latest " + recent.length,
     foot: "Snapshot data · Updates every 5 minutes"
   });
   list.panel.classList.add("is-fill");
   const rows = recent.map((row) => [
-    row.username ? "@" + row.username : "—",
-    overviewJoinedClock(row.created_at),
-    "—",
-    "—"
+    row.username || "—",
+    row.display_name || row.username || "—",
+    overviewJoinedClock(row.created_at)
   ]);
   list.body.appendChild(adminTable(
-    ["Account", "Joined", "Source", "Verification"],
-    rows.length ? rows : [["No recent registrations", "", "", ""]],
+    ["Username", "Display name", "Created"],
+    rows.length ? rows : [["No recent registrations", "", ""]],
     "is-start"
   ));
   main.appendChild(list.panel);

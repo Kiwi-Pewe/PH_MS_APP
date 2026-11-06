@@ -388,8 +388,14 @@ def admin_overview_stats(
     accounts_24h = count_rows(database, UserInfo, UserInfo.created_at, ago_1)
     accounts_prev = count_rows(database, UserInfo, UserInfo.created_at, ago_2, ago_1)
     accounts_today = count_rows(database, UserInfo, UserInfo.created_at, day)
-    warned = int(
-        database.query(func.count(func.distinct(Account_warn.user_id))).scalar() or 0
+    ago_7 = now - timedelta(days=7)
+    ago_30 = now - timedelta(days=30)
+    age_1_7d = count_rows(database, UserInfo, UserInfo.created_at, ago_7, ago_1)
+    age_8_30d = count_rows(database, UserInfo, UserInfo.created_at, ago_30, ago_7)
+    age_older = max(0, accounts_total - accounts_24h - age_1_7d - age_8_30d)
+    banned_ids = database.query(UserInfo.id).filter(
+        UserInfo.banned_until != None,
+        UserInfo.banned_until > now,
     )
     banned = int(
         database.query(func.count()).select_from(UserInfo).filter(
@@ -397,11 +403,19 @@ def admin_overview_stats(
             UserInfo.banned_until > now,
         ).scalar() or 0
     )
+    warned = int(
+        database.query(func.count(func.distinct(Account_warn.user_id))).scalar() or 0
+    )
+    warned_open = int(
+        database.query(func.count(func.distinct(Account_warn.user_id)))
+        .filter(~Account_warn.user_id.in_(banned_ids))
+        .scalar() or 0
+    )
+    standing_clear = max(0, accounts_total - banned - warned_open)
     recent_rows = (
         database.query(UserInfo)
-        .filter(UserInfo.created_at >= ago_1)
         .order_by(UserInfo.created_at.desc(), UserInfo.id.desc())
-        .limit(5)
+        .limit(8)
         .all()
     )
     recent = [{
@@ -462,6 +476,17 @@ def admin_overview_stats(
             "online": len(active_connections),
             "warned": warned,
             "banned": banned,
+            "standing": {
+                "clear": standing_clear,
+                "warned": warned_open,
+                "banned": banned,
+            },
+            "age": {
+                "h24": accounts_24h,
+                "d7": age_1_7d,
+                "d30": age_8_30d,
+                "older": age_older,
+            },
             "recent": recent,
         },
         "reports": {

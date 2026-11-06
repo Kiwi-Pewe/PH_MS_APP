@@ -261,7 +261,7 @@
 
 #admin-main.is-fit {
   overflow: hidden;
-  padding: 16px 22px 12px;
+  padding: 18px 24px 16px;
 }
 
 .admin-head {
@@ -276,7 +276,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-dim);
   margin-bottom: 10px;
 }
@@ -293,7 +293,7 @@
 }
 
 .admin-page-note {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text-dim);
   margin: 0;
   line-height: 1.45;

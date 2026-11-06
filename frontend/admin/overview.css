@@ -6,19 +6,16 @@
   min-height: 0;
 }
 #admin-main.is-fit .overview-mid {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
   margin-bottom: 16px;
 }
 #admin-main.is-fit .overview-mid .overview-dash {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  height: 100%;
 }
 #admin-main.is-fit > .admin-panel.is-fill {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-height: 0;
-  max-height: 38%;
 }
 #admin-main.is-fit .overview-page-foot { flex: 0 0 auto; margin-top: 12px; }
 #admin-main.is-fit .overview-tile-value { font-size: 30px; }

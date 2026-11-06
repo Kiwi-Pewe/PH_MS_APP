@@ -285,7 +285,7 @@ function paintOverviewReports(main, stats) {
   const reports = (stats && stats.reports) || {};
   const types = reports.types || {};
   const kinds = reports.kinds || {};
-  const recent = reports.recent || [];
+  const recent = (reports.recent || []).slice(0, 5);
   const open = Number(reports.open) || 0;
   const userServer = Number(reports.user_server) || 0;
   const fresh = Number(reports.new_24h) || 0;

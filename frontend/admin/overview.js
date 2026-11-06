@@ -160,7 +160,7 @@ function loadOverviewStats() {
     if (!response.ok) return;
     overviewStats = data;
     overviewStatsAt = Date.now();
-    if (adminPage === "overview" && (adminSection === "statistics" || adminSection === "accounts" || adminSection === "reports")) paintAdminMain();
+    if (adminPage === "overview" && (adminSection === "statistics" || adminSection === "accounts" || adminSection === "reports" || adminSection === "servers")) paintAdminMain();
   })).catch(() => {
     overviewStatsLoading = false;
   });
@@ -438,18 +438,92 @@ function paintOverviewAutoMod(main) {
   main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
-function paintOverviewServers(main) {
+function overviewShare(part, whole, suffix) {
+  const a = Number(part) || 0;
+  const b = Number(whole) || 0;
+  const pct = b > 0 ? ((a * 1000) / b / 10).toFixed(1) : "0.0";
+  return pct + "% " + suffix;
+}
+
+function paintOverviewServers(main, stats) {
+  main.className = "is-fit";
+  const servers = (stats && stats.servers) || {};
+  const recent = (servers.recent || []).slice(0, 5);
+  const total = Number(servers.total) || 0;
+  const active = Number(servers.active_24h) || 0;
+  const fresh = Number(servers.created_24h) || 0;
+  const listed = Number(servers.public) || 0;
+  const hidden = Math.max(0, total - listed);
+  const quiet = Math.max(0, total - active);
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Servers"],
     title: "Servers",
-    note: "How many servers exist and how fast new ones appear.",
-    badge: "Read only"
+    note: "Server growth, visibility and activity across the network.",
+    filter: "Last 24 hours",
+    range: "compared with previous day"
   }));
   adminKpiRow(main, [
-    { label: "Total servers", value: "0", icon: "grid" },
-    { label: "Active last 24h", value: "0", icon: "eye" },
-    { label: "Created today", value: "0", icon: "grid" }
+    {
+      label: "Total servers",
+      value: overviewNum(total),
+      icon: "grid",
+      detail: "All site communities"
+    },
+    {
+      label: "Active servers",
+      value: overviewNum(active),
+      icon: "activity",
+      detail: overviewShare(active, total, "active in the last 24h")
+    },
+    {
+      label: "New servers",
+      value: overviewNum(fresh),
+      icon: "plus",
+      detail: "Created in the last 24h"
+    },
+    {
+      label: "Public servers",
+      value: overviewNum(listed),
+      icon: "share",
+      detail: overviewShare(listed, total, "of the network")
+    }
   ]);
+  const mid = adminEl("div", "overview-mid");
+  const dash = adminEl("div", "overview-dash");
+  const visibility = adminPanel({ title: "Server visibility", meta: overviewNum(total) + " total" });
+  visibility.body.appendChild(adminMeterList([
+    { label: "Public", value: listed, total: total },
+    { label: "Private", value: hidden, total: total }
+  ]));
+  dash.appendChild(visibility.panel);
+  const activity = adminPanel({ title: "Activity distribution", meta: "Last 24h" });
+  activity.body.appendChild(adminMeterList([
+    { label: "Active", value: active, total: total },
+    { label: "No recorded activity", value: quiet, total: total }
+  ]));
+  dash.appendChild(activity.panel);
+  mid.appendChild(dash);
+  main.appendChild(mid);
+  const list = adminPanel({
+    title: "Recently created servers",
+    meta: "Latest " + recent.length + (fresh ? " of " + overviewNum(fresh) : "") + " · Last 24h",
+    foot: "Snapshot data · Updates every 5 minutes"
+  });
+  list.panel.classList.add("is-fill");
+  const rows = recent.map((row) => [
+    row.name || row.id || "—",
+    overviewJoinedClock(row.created_at),
+    row.public ? "Public" : "Private",
+    overviewNum(row.members),
+    row.active ? "Active" : "No activity"
+  ]);
+  list.body.appendChild(adminTable(
+    ["Server", "Created", "Visibility", "Members", "Activity"],
+    rows.length ? rows : [["No servers created", "", "", "", ""]],
+    "is-start"
+  ));
+  main.appendChild(list.panel);
+  main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
 function paintOverviewCommunity(main) {
@@ -478,7 +552,11 @@ function paintOverview(main, sectionId) {
     return;
   }
   if (sectionId === "auto-mod") return paintOverviewAutoMod(main);
-  if (sectionId === "servers") return paintOverviewServers(main);
+  if (sectionId === "servers") {
+    paintOverviewServers(main, overviewStats);
+    loadOverviewStats();
+    return;
+  }
   if (sectionId === "community") return paintOverviewCommunity(main);
   paintOverviewStatistics(main, overviewStats);
   loadOverviewStats();

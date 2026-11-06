@@ -347,6 +347,20 @@ def count_rows(database, model, column, start, end=None):
     return int(query.scalar() or 0)
 
 
+def active_server_ids(database, start, ids=None):
+    query = (
+        database.query(Server_categories.server_id)
+        .select_from(Channel_messages)
+        .join(Server_channels, Server_channels.id == Channel_messages.channel_id)
+        .join(Server_categories, Server_categories.id == Server_channels.category_id)
+        .filter(Channel_messages.timestamp >= start)
+        .distinct()
+    )
+    if ids:
+        query = query.filter(Server_categories.server_id.in_(ids))
+    return {row[0] for row in query.all() if row[0]}
+
+
 def active_server_count(database, start, end=None):
     query = (
         database.query(func.count(func.distinct(Server_categories.server_id)))
@@ -485,6 +499,35 @@ def admin_overview_stats(
     servers_prev = count_rows(database, Servers, Servers.created_at, ago_2, ago_1)
     servers_today = count_rows(database, Servers, Servers.created_at, day)
     servers_active = active_server_count(database, ago_1)
+    servers_public = int(
+        database.query(func.count()).select_from(Servers).filter(Servers.discoverable == True).scalar() or 0
+    )
+    recent_server_rows = (
+        database.query(Servers)
+        .filter(Servers.created_at >= ago_1)
+        .order_by(Servers.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    recent_server_ids = [row.id for row in recent_server_rows]
+    member_counts = {}
+    active_recent = set()
+    if recent_server_ids:
+        member_counts = dict(
+            database.query(Server_members.server_id, func.count())
+            .filter(Server_members.server_id.in_(recent_server_ids))
+            .group_by(Server_members.server_id)
+            .all()
+        )
+        active_recent = active_server_ids(database, ago_1, recent_server_ids)
+    recent_servers = [{
+        "id": row.id,
+        "name": row.name or row.id,
+        "created_at": str(row.created_at) if row.created_at else None,
+        "public": bool(row.discoverable),
+        "members": int(member_counts.get(row.id, 0)),
+        "active": row.id in active_recent,
+    } for row in recent_server_rows]
     posts_24h = count_rows(database, Community_post, Community_post.created_at, ago_1)
     posts_prev = count_rows(database, Community_post, Community_post.created_at, ago_2, ago_1)
     week_new = count_rows(database, UserInfo, UserInfo.created_at, week_start)
@@ -556,6 +599,8 @@ def admin_overview_stats(
             "created_prev_24h": servers_prev,
             "created_today": servers_today,
             "active_24h": servers_active,
+            "public": servers_public,
+            "recent": recent_servers,
         },
         "community": {
             "posts_24h": posts_24h,

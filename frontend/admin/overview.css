@@ -1,0 +1,135 @@
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.overview-tile {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.overview-tile.is-placeholder {
+  pointer-events: none;
+}
+
+.overview-tile-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.overview-tile-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.overview-tile.is-placeholder .overview-tile-value,
+.overview-tile.is-placeholder .overview-split-n,
+.overview-row.is-placeholder {
+  color: var(--text-dim);
+  opacity: 0.72;
+}
+
+.overview-tile-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.overview-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 4px;
+}
+
+.overview-split-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.overview-split-n {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.overview-split-k {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.overview-block {
+  margin-top: 22px;
+}
+
+.overview-block-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 10px;
+}
+
+.overview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.overview-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.overview-face {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.overview-row-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.overview-row-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overview-row-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.overview-row-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  flex: 0 0 auto;
+}

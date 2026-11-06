@@ -4,24 +4,22 @@
 <meta charset="UTF-8">
 <title>Oneira — Admin Panel</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=13">
-<link rel="stylesheet" href="app.css?v=11">
+<link rel="stylesheet" href="app.css?v=12">
+<link rel="stylesheet" href="overview.css?v=1">
 </head>
 <body>
 
-<div class="admin-opt" id="admin-card" hidden>
-  <div class="admin-opt-top">
-    <div class="admin-opt-name" id="admin-title">Admin Panel</div>
-    <div class="admin-opt-split">|</div>
-    <div class="admin-opt-tabs" id="admin-tabs"></div>
+<div id="admin-shell" hidden>
+  <div id="admin-top">
+    <div class="admin-brand">ADMIN PANEL</div>
+    <div class="admin-pages" id="admin-pages"></div>
     <button type="button" class="admin-back" id="admin-back">Back</button>
   </div>
-  <div class="admin-opt-body">
-    <div class="admin-opt-main" id="admin-main"></div>
-    <aside class="admin-preview" id="admin-preview" hidden>
-      <button type="button" class="admin-preview-close" id="admin-preview-close">×</button>
-      <div class="admin-preview-inner" id="admin-preview-inner"></div>
-      <div class="admin-preview-rail" id="admin-preview-rail" hidden></div>
-    </aside>
+  <div id="admin-body">
+    <div id="admin-left">
+      <div id="admin-sections"></div>
+    </div>
+    <div id="admin-main"></div>
   </div>
 </div>
 
@@ -41,6 +39,14 @@
 </div>
 
 <script src="../shared/config.js?v=5"></script>
-<script src="app.js?v=13"></script>
+<script src="app-shell.js?v=1"></script>
+<script src="overview.js?v=1"></script>
+<script src="users.js?v=1"></script>
+<script src="servers.js?v=1"></script>
+<script src="reports.js?v=1"></script>
+<script src="community.js?v=1"></script>
+<script src="news.js?v=1"></script>
+<script src="settings.js?v=1"></script>
+<script src="boot.js?v=1"></script>
 </body>
 </html>

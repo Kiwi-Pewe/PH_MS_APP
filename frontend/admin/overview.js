@@ -160,7 +160,7 @@ function loadOverviewStats() {
     if (!response.ok) return;
     overviewStats = data;
     overviewStatsAt = Date.now();
-    if (adminPage === "overview" && (adminSection === "statistics" || adminSection === "accounts")) paintAdminMain();
+    if (adminPage === "overview" && (adminSection === "statistics" || adminSection === "accounts" || adminSection === "reports")) paintAdminMain();
   })).catch(() => {
     overviewStatsLoading = false;
   });
@@ -185,7 +185,6 @@ function paintOverviewAccounts(main, stats) {
   const accounts = (stats && stats.accounts) || {};
   const pulse = (stats && stats.pulse) || {};
   const standing = accounts.standing || {};
-  const age = accounts.age || {};
   const recent = accounts.recent || [];
   const total = Number(accounts.total) || 0;
   const fresh = Number(accounts.new_24h) || 0;
@@ -241,17 +240,7 @@ function paintOverviewAccounts(main, stats) {
     overviewNum(banned) + " currently banned · " + overviewNum(warned) + " with a warning"
   ));
   dash.appendChild(status.panel);
-  const ages = adminPanel({ title: "Signup age", meta: overviewNum(total) + " accounts" });
-  ages.body.appendChild(adminMeterList(
-    [
-      { label: "Last 24 hours", value: Number(age.h24) || 0, total: total },
-      { label: "1–7 days", value: Number(age.d7) || 0, total: total },
-      { label: "8–30 days", value: Number(age.d30) || 0, total: total },
-      { label: "Older than 30 days", value: Number(age.older) || 0, total: total }
-    ],
-    "How long current accounts have been registered."
-  ));
-  dash.appendChild(ages.panel);
+  dash.appendChild(adminPanel({ title: "" }).panel);
   mid.appendChild(dash);
   main.appendChild(mid);
   const list = adminPanel({
@@ -274,20 +263,110 @@ function paintOverviewAccounts(main, stats) {
   main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
-function paintOverviewReports(main) {
+function overviewReportType(kind) {
+  if (kind === "bug") return "Bug";
+  if (kind === "feature") return "Feature";
+  if (kind === "inquiry") return "Inquiry";
+  if (kind === "report") return "User/Server";
+  return kind || "—";
+}
+
+function overviewReportStatus(status) {
+  if (status === "viewed") return "Viewed";
+  if (status === "review") return "In review";
+  if (status === "completed") return "Completed";
+  return "New";
+}
+
+function paintOverviewReports(main, stats) {
+  main.className = "is-fit";
+  const reports = (stats && stats.reports) || {};
+  const types = reports.types || {};
+  const status = reports.status || {};
+  const recent = reports.recent || [];
+  const open = Number(reports.open) || 0;
+  const fresh = Number(reports.new_24h) || 0;
+  const newDelta = overviewPct(reports.new_24h, reports.new_prev_24h, "vs previous 24h");
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Reports"],
     title: "Reports",
-    note: "Feedback notes waiting for review. Completing a ticket happens on Reports.",
-    badge: "Read only"
+    note: "Open tickets and recent reports across the site. Completing a ticket happens on Reports.",
+    filter: "Last 24 hours",
+    range: "compared with previous day"
   }));
   adminKpiRow(main, [
-    { label: "Open", value: "0", icon: "flag" },
-    { label: "High priority", value: "0", icon: "flag" },
-    { label: "In review", value: "0", icon: "eye" },
-    { label: "Completed", value: "0", icon: "chart" },
-    { label: "User/Server", value: "0", icon: "users" }
+    {
+      label: "Open",
+      value: overviewNum(open),
+      icon: "flag",
+      detail: "Waiting for review"
+    },
+    {
+      label: "New reports",
+      value: overviewNum(fresh),
+      icon: "plus",
+      delta: newDelta.text.replace("↑ ", "+").replace("↓ ", "−"),
+      tone: newDelta.tone
+    },
+    {
+      label: "In review",
+      value: overviewNum(reports.review),
+      icon: "eye",
+      detail: "Currently in review"
+    },
+    {
+      label: "Completed",
+      value: overviewNum(reports.completed),
+      icon: "check",
+      detail: "Still on file"
+    },
+    {
+      label: "User/Server",
+      value: overviewNum(reports.user_server),
+      icon: "users",
+      detail: "Open user or server reports"
+    }
   ]);
+  const mid = adminEl("div", "overview-mid");
+  const dash = adminEl("div", "overview-dash");
+  const kinds = adminPanel({ title: "Open by type", meta: overviewNum(open) + " open" });
+  kinds.body.appendChild(adminMeterList([
+    { label: "Bug", value: Number(types.bug) || 0, total: open },
+    { label: "Feature", value: Number(types.feature) || 0, total: open },
+    { label: "Inquiry", value: Number(types.inquiry) || 0, total: open },
+    { label: "User/Server", value: Number(types.report) || 0, total: open }
+  ]));
+  dash.appendChild(kinds.panel);
+  const totalStatus = (Number(status.new) || 0) + (Number(status.viewed) || 0) + (Number(status.review) || 0) + (Number(status.completed) || 0);
+  const queue = adminPanel({ title: "Status", meta: overviewNum(totalStatus) + " on file" });
+  queue.body.appendChild(adminMeterList([
+    { label: "New", value: Number(status.new) || 0, total: totalStatus },
+    { label: "Viewed", value: Number(status.viewed) || 0, total: totalStatus },
+    { label: "In review", value: Number(status.review) || 0, total: totalStatus },
+    { label: "Completed", value: Number(status.completed) || 0, total: totalStatus }
+  ]));
+  dash.appendChild(queue.panel);
+  mid.appendChild(dash);
+  main.appendChild(mid);
+  const list = adminPanel({
+    title: "Recent reports",
+    meta: "Latest " + recent.length,
+    foot: "Snapshot data · Updates every 5 minutes"
+  });
+  list.panel.classList.add("is-fill");
+  const rows = recent.map((row) => [
+    row.username || row.display_name || "—",
+    overviewReportType(row.feedback_type),
+    overviewReportStatus(row.status),
+    overviewJoinedClock(row.created_at)
+  ]);
+  list.body.appendChild(adminTable(
+    ["Account", "Type", "Status", "Created"],
+    rows.length ? rows : [["No reports", "", "", ""]],
+    "is-start"
+  ));
+  main.appendChild(list.panel);
+  main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
 function paintOverviewAutoMod(main) {
@@ -339,7 +418,11 @@ function paintOverview(main, sectionId) {
     loadOverviewStats();
     return;
   }
-  if (sectionId === "reports") return paintOverviewReports(main);
+  if (sectionId === "reports") {
+    paintOverviewReports(main, overviewStats);
+    loadOverviewStats();
+    return;
+  }
   if (sectionId === "auto-mod") return paintOverviewAutoMod(main);
   if (sectionId === "servers") return paintOverviewServers(main);
   if (sectionId === "community") return paintOverviewCommunity(main);

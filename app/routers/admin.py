@@ -431,6 +431,33 @@ def admin_overview_stats(
     )
     reports_24h = count_rows(database, Feedback_report, Feedback_report.created_at, ago_1)
     reports_prev = count_rows(database, Feedback_report, Feedback_report.created_at, ago_2, ago_1)
+    report_status = {key: 0 for key in FEEDBACK_STATUSES}
+    for status, n in database.query(Feedback_report.status, func.count()).group_by(Feedback_report.status).all():
+        key = status if status in report_status else "new"
+        report_status[key] += int(n or 0)
+    report_types = {key: 0 for key in FEEDBACK_TYPE_LABELS}
+    for kind, n in (
+        database.query(Feedback_report.feedback_type, func.count())
+        .filter(or_(Feedback_report.status.is_(None), Feedback_report.status != "completed"))
+        .group_by(Feedback_report.feedback_type)
+        .all()
+    ):
+        if kind in report_types:
+            report_types[kind] = int(n or 0)
+    recent_report_rows = (
+        database.query(Feedback_report)
+        .order_by(Feedback_report.created_at.desc(), Feedback_report.id.desc())
+        .limit(8)
+        .all()
+    )
+    recent_reports = [{
+        "id": row.id,
+        "username": row.username or "",
+        "display_name": row.display_name or row.username or "",
+        "feedback_type": row.feedback_type or "",
+        "status": row.status or "new",
+        "created_at": str(row.created_at) if row.created_at else None,
+    } for row in recent_report_rows]
     servers_total = int(database.query(func.count()).select_from(Servers).scalar() or 0)
     servers_24h = count_rows(database, Servers, Servers.created_at, ago_1)
     servers_prev = count_rows(database, Servers, Servers.created_at, ago_2, ago_1)
@@ -493,6 +520,12 @@ def admin_overview_stats(
             "open": reports_open,
             "new_24h": reports_24h,
             "new_prev_24h": reports_prev,
+            "review": report_status["review"],
+            "completed": report_status["completed"],
+            "user_server": report_types["report"],
+            "status": report_status,
+            "types": report_types,
+            "recent": recent_reports,
         },
         "servers": {
             "total": servers_total,

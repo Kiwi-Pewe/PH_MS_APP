@@ -416,13 +416,10 @@ function paintOverviewAutoMod(main) {
   ]));
   dash.appendChild(surfaces.panel);
   const outcomes = adminPanel({ title: "Detection outcomes", meta: "Last 24h" });
-  outcomes.body.appendChild(adminMeterList(
-    [
-      { label: "Flagged for review", value: 0, total: 0 },
-      { label: "Flags reviewed", value: 0, total: 0 }
-    ],
-    "Counts are silent flags on Community, not automated blocks. A flag is not a report."
-  ));
+  outcomes.body.appendChild(adminMeterList([
+    { label: "Flagged for review", value: 0, total: 0 },
+    { label: "Flags reviewed", value: 0, total: 0 }
+  ]));
   dash.appendChild(outcomes.panel);
   mid.appendChild(dash);
   main.appendChild(mid);

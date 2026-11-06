@@ -1,19 +1,19 @@
 .overview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
-  margin-bottom: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(385px, 1fr));
+  gap: 21px;
+  margin-bottom: 14px;
 }
 
 .overview-tile {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 16px;
-  min-height: 92px;
+  border-radius: 14px;
+  padding: 25px 28px;
+  min-height: 161px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 11px;
 }
 
 .overview-tile.is-placeholder {
@@ -21,13 +21,13 @@
 }
 
 .overview-tile-label {
-  font-size: 13px;
+  font-size: 23px;
   font-weight: 600;
   color: var(--text);
 }
 
 .overview-tile-value {
-  font-size: 28px;
+  font-size: 49px;
   font-weight: 800;
   color: var(--text);
   line-height: 1.1;
@@ -41,68 +41,68 @@
 }
 
 .overview-tile-sub {
-  font-size: 12px;
+  font-size: 21px;
   color: var(--text-dim);
 }
 
 .overview-split {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
-  margin-top: 4px;
+  gap: 14px 25px;
+  margin-top: 7px;
 }
 
 .overview-split-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
 .overview-split-n {
-  font-size: 16px;
+  font-size: 28px;
   font-weight: 800;
   color: var(--text);
 }
 
 .overview-split-k {
-  font-size: 11px;
+  font-size: 19px;
   color: var(--text-dim);
 }
 
 .overview-block {
-  margin-top: 22px;
+  margin-top: 39px;
 }
 
 .overview-block-title {
-  font-size: 15px;
+  font-size: 26px;
   font-weight: 700;
   color: var(--text);
-  margin: 0 0 10px;
+  margin: 0 0 18px;
 }
 
 .overview-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 11px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px;
+  border-radius: 14px;
+  padding: 14px;
 }
 
 .overview-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  gap: 18px;
+  min-height: 77px;
+  padding: 11px 14px;
+  border-radius: 10px;
 }
 
 .overview-face {
-  width: 32px;
-  height: 32px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--panel-alt);
   border: 1px solid var(--border);
@@ -115,7 +115,7 @@
 }
 
 .overview-row-name {
-  font-size: 13px;
+  font-size: 23px;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
@@ -124,12 +124,12 @@
 }
 
 .overview-row-sub {
-  font-size: 12px;
+  font-size: 21px;
   color: var(--text-dim);
 }
 
 .overview-row-meta {
-  font-size: 12px;
+  font-size: 21px;
   color: var(--text-dim);
   flex: 0 0 auto;
 }

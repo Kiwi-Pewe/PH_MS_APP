@@ -8,18 +8,18 @@
 #admin-shell[hidden] { display: none; }
 
 #admin-top {
-  height: 52px;
+  height: 91px;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 28px;
   border-bottom: 1px solid var(--border);
-  gap: 24px;
+  gap: 42px;
   background: var(--rail);
 }
 
 .admin-brand {
-  font-size: 14px;
+  font-size: 25px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -29,7 +29,7 @@
 
 .admin-pages {
   display: flex;
-  gap: 4px;
+  gap: 7px;
   flex: 1;
   min-width: 0;
   align-items: center;
@@ -39,10 +39,10 @@
 .admin-pages button {
   background: transparent;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: 23px;
   font-weight: 600;
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 14px 21px;
+  border-radius: 10px;
   white-space: nowrap;
 }
 
@@ -57,9 +57,9 @@
   flex: 0 0 auto;
   background: var(--danger);
   color: #fff;
-  font-size: 13px;
+  font-size: 23px;
   font-weight: 700;
-  padding: 6px 14px;
+  padding: 11px 24px;
   border-radius: 999px;
 }
 
@@ -68,7 +68,7 @@
 #admin-body {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 420px minmax(0, 1fr);
   grid-template-rows: 1fr;
   min-height: 0;
 }
@@ -78,13 +78,13 @@
   border-right: 1px solid var(--border);
   min-height: 0;
   overflow: auto;
-  padding: 8px;
+  padding: 14px;
 }
 
 #admin-sections {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .admin-section {
@@ -92,14 +92,14 @@
   align-items: center;
   width: 100%;
   box-sizing: border-box;
-  min-height: 32px;
+  min-height: 56px;
   background: transparent;
   color: var(--text-dim);
   text-align: left;
-  font-size: 14px;
+  font-size: 25px;
   font-weight: 600;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 11px 14px;
+  border-radius: 10px;
 }
 
 .admin-section:hover,
@@ -113,20 +113,20 @@
   min-height: 0;
   overflow: auto;
   background: var(--bg);
-  padding: 20px 24px 32px;
+  padding: 35px 42px 56px;
 }
 
 .admin-page-title {
-  font-size: 20px;
+  font-size: 35px;
   font-weight: 800;
   color: var(--text);
-  margin: 0 0 6px;
+  margin: 0 0 11px;
 }
 
 .admin-page-note {
-  font-size: 13px;
+  font-size: 23px;
   color: var(--text-dim);
-  margin: 0 0 20px;
+  margin: 0 0 35px;
   line-height: 1.45;
 }
 
@@ -145,16 +145,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 42px;
 }
 
 #admin-mod-overlay[hidden] { display: none; }
 
 #admin-mod-modal {
-  width: min(440px, 100%);
+  width: min(770px, 100%);
   background: var(--panel);
   border: 1px solid var(--accent-submenu);
-  border-radius: 10px;
+  border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   display: flex;
@@ -165,26 +165,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 21px;
+  padding: 25px 28px;
   background: var(--rail);
   border-bottom: 1px solid var(--border);
 }
 
 #admin-mod-title {
-  font-size: 16px;
+  font-size: 28px;
   font-weight: 800;
   color: var(--text);
 }
 
 .admin-mod-x {
-  width: 28px;
-  height: 28px;
+  width: 49px;
+  height: 49px;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   background: transparent;
   color: var(--text-dim);
-  font-size: 22px;
+  font-size: 38px;
   line-height: 1;
   cursor: pointer;
 }
@@ -195,21 +195,21 @@
 }
 
 .admin-mod-body {
-  padding: 12px 16px 8px;
+  padding: 21px 28px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
 }
 
 .admin-mod-copy {
   margin: 0;
-  font-size: 13px;
+  font-size: 23px;
   line-height: 1.5;
   color: var(--text);
 }
 
 .admin-mod-label {
-  font-size: 11px;
+  font-size: 19px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-dim);
@@ -219,7 +219,7 @@
 .admin-mod-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 11px;
 }
 
 .admin-mod-chip {
@@ -227,9 +227,9 @@
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 21px;
   font-weight: 600;
-  padding: 6px 10px;
+  padding: 11px 18px;
 }
 
 .admin-mod-chip.is-on {
@@ -245,14 +245,14 @@
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 10px;
+  border-radius: 10px;
+  padding: 14px 18px;
   font: inherit;
-  font-size: 13px;
+  font-size: 23px;
 }
 
 .admin-mod-reason {
-  min-height: 72px;
+  min-height: 126px;
   resize: none;
 }
 
@@ -267,8 +267,8 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 12px 16px 16px;
+  gap: 14px;
+  padding: 21px 28px 28px;
   background: var(--rail);
   border-top: 1px solid var(--border);
 }
@@ -276,7 +276,7 @@
 .admin-mod-error {
   margin: 0;
   flex: 1 1 100%;
-  font-size: 12px;
+  font-size: 21px;
   font-weight: 600;
   color: #c45c5c;
 }
@@ -286,10 +286,10 @@
   background: var(--panel-alt);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: 10px;
+  font-size: 21px;
   font-weight: 700;
-  padding: 7px 14px;
+  padding: 12px 25px;
 }
 
 .admin-mod-confirm {

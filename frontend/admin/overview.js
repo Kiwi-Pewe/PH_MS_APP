@@ -526,18 +526,102 @@ function paintOverviewServers(main, stats) {
   main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
-function paintOverviewCommunity(main) {
+function overviewPostLine(raw) {
+  const text = String(raw || "").replace(/\s+/g, " ").trim();
+  if (!text) return "—";
+  if (text.length <= 72) return text;
+  return text.slice(0, 72).replace(/\s+\S*$/, "").trim() + "…";
+}
+
+function paintOverviewCommunity(main, stats) {
+  main.className = "is-fit";
+  const community = (stats && stats.community) || {};
+  const recent = (community.recent || []).slice(0, 5);
+  const posts = Number(community.posts_24h) || 0;
+  const rooms = Number(community.rooms) || 0;
+  const occupied = Number(community.rooms_occupied) || 0;
+  const empty = Number(community.rooms_empty) || 0;
+  const active = Number(community.rooms_active) || 0;
+  const quiet = Number(community.rooms_quiet) || 0;
+  const inRooms = Number(community.in_rooms) || 0;
+  const inCall = Number(community.in_call) || 0;
+  const waiting = Number(community.waiting) || 0;
+  const onPhone = Number(community.on_phone) || 0;
+  const listings = Number(community.listings) || 0;
+  const live = inRooms + inCall + waiting;
+  const postDelta = overviewPct(community.posts_24h, community.posts_prev_24h, "vs previous 24h");
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Community"],
     title: "Community",
-    note: "Public Communities load across posts, rooms, and the server finder.",
-    badge: "Read only"
+    note: "Posts, rooms, Phone a User, and finder listings.",
+    filter: "Last 24 hours",
+    range: "compared with previous day"
   }));
   adminKpiRow(main, [
-    { label: "Posts", value: "0", icon: "share" },
-    { label: "Rooms", value: "0", icon: "users" },
-    { label: "Finder listings", value: "0", icon: "grid" }
+    {
+      label: "Posts",
+      value: overviewNum(posts),
+      icon: "share",
+      detail: "Submitted in the last 24h",
+      delta: postDelta.text,
+      tone: postDelta.tone
+    },
+    {
+      label: "Rooms",
+      value: overviewNum(rooms),
+      icon: "users",
+      detail: overviewShare(occupied, rooms, "occupied")
+    },
+    {
+      label: "On the phone",
+      value: overviewNum(onPhone),
+      icon: "phone",
+      detail: overviewNum(inCall) + " in a call · " + overviewNum(waiting) + " waiting"
+    },
+    {
+      label: "Listings",
+      value: overviewNum(listings),
+      icon: "grid",
+      detail: "On the finder"
+    }
   ]);
+  const mid = adminEl("div", "overview-mid");
+  const dash = adminEl("div", "overview-dash");
+  const now = adminPanel({ title: "Live now", meta: overviewNum(live) + " people" });
+  now.body.appendChild(adminMeterList([
+    { label: "In a room", value: inRooms, total: live },
+    { label: "On a call", value: inCall, total: live },
+    { label: "Waiting for a call", value: waiting, total: live }
+  ]));
+  dash.appendChild(now.panel);
+  const roomMix = adminPanel({ title: "Rooms", meta: overviewNum(rooms) + " total" });
+  roomMix.body.appendChild(adminMeterList([
+    { label: "Occupied", value: occupied, total: rooms },
+    { label: "Empty", value: empty, total: rooms },
+    { label: "Active", value: active, total: rooms },
+    { label: "Quiet", value: quiet, total: rooms }
+  ]));
+  dash.appendChild(roomMix.panel);
+  mid.appendChild(dash);
+  main.appendChild(mid);
+  const list = adminPanel({
+    title: "Recent posts",
+    meta: "Latest " + recent.length + (posts ? " of " + overviewNum(posts) : "") + " · Last 24h",
+    foot: "Snapshot data · Updates every 5 minutes"
+  });
+  list.panel.classList.add("is-fill");
+  const rows = recent.map((row) => [
+    overviewPostLine(row.body),
+    row.username || "—",
+    overviewJoinedClock(row.created_at)
+  ]);
+  list.body.appendChild(adminTable(
+    ["Post", "Author", "Created"],
+    rows.length ? rows : [["No posts", "", ""]],
+    "is-start"
+  ));
+  main.appendChild(list.panel);
+  main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
 function paintOverview(main, sectionId) {
@@ -557,7 +641,11 @@ function paintOverview(main, sectionId) {
     loadOverviewStats();
     return;
   }
-  if (sectionId === "community") return paintOverviewCommunity(main);
+  if (sectionId === "community") {
+    paintOverviewCommunity(main, overviewStats);
+    loadOverviewStats();
+    return;
+  }
   paintOverviewStatistics(main, overviewStats);
   loadOverviewStats();
 }

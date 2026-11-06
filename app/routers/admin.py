@@ -4,7 +4,8 @@ from sqlalchemy import func, or_, cast, String
 from app.models import (
     UserInfo, Feedback_report, Servers, Server_members, Server_bans, Friend_request,
     Account_warn, Site_ban, Active_Sessions, Message, Channel_messages, Server_channels,
-    Server_categories, Community_post, Community_room_message,
+    Server_categories, Community_post, Community_room, Community_room_member,
+    Community_room_message, Community_phone_wait, Community_phone_call,
 )
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
@@ -530,6 +531,51 @@ def admin_overview_stats(
     } for row in recent_server_rows]
     posts_24h = count_rows(database, Community_post, Community_post.created_at, ago_1)
     posts_prev = count_rows(database, Community_post, Community_post.created_at, ago_2, ago_1)
+    rooms_total = int(database.query(func.count()).select_from(Community_room).scalar() or 0)
+    rooms_occupied = int(
+        database.query(func.count(func.distinct(Community_room_member.room_id))).scalar() or 0
+    )
+    rooms_empty = max(0, rooms_total - rooms_occupied)
+    rooms_active = int(
+        database.query(func.count()).select_from(Community_room)
+        .filter(Community_room.active_at.isnot(None), Community_room.active_at >= ago_1)
+        .scalar() or 0
+    )
+    rooms_quiet = max(0, rooms_total - rooms_active)
+    in_rooms = int(
+        database.query(func.count(func.distinct(Community_room_member.user_id))).scalar() or 0
+    )
+    call_users = (
+        database.query(Community_phone_call.user_a, Community_phone_call.user_b)
+        .filter(Community_phone_call.status == "active")
+        .all()
+    )
+    phone_ids = set()
+    for user_a, user_b in call_users:
+        if user_a:
+            phone_ids.add(user_a)
+        if user_b:
+            phone_ids.add(user_b)
+    in_call = len(phone_ids)
+    wait_ids = {
+        row[0] for row in database.query(Community_phone_wait.user_id).all() if row[0]
+    }
+    waiting = len(wait_ids)
+    on_phone = len(phone_ids | wait_ids)
+    recent_post_rows = (
+        database.query(Community_post, UserInfo)
+        .join(UserInfo, UserInfo.id == Community_post.author_id)
+        .filter(Community_post.created_at >= ago_1)
+        .order_by(Community_post.created_at.desc(), Community_post.id.desc())
+        .limit(5)
+        .all()
+    )
+    recent_posts = [{
+        "id": post.id,
+        "body": post.body or "",
+        "username": user.username or "",
+        "created_at": str(post.created_at) if post.created_at else None,
+    } for post, user in recent_post_rows]
     week_new = count_rows(database, UserInfo, UserInfo.created_at, week_start)
     prev_week_new = count_rows(database, UserInfo, UserInfo.created_at, prev_week_start, week_start)
     bars = []
@@ -605,6 +651,17 @@ def admin_overview_stats(
         "community": {
             "posts_24h": posts_24h,
             "posts_prev_24h": posts_prev,
+            "rooms": rooms_total,
+            "rooms_occupied": rooms_occupied,
+            "rooms_empty": rooms_empty,
+            "rooms_active": rooms_active,
+            "rooms_quiet": rooms_quiet,
+            "in_rooms": in_rooms,
+            "in_call": in_call,
+            "waiting": waiting,
+            "on_phone": on_phone,
+            "listings": servers_public,
+            "recent": recent_posts,
         },
         "growth": {
             "week": week_new,

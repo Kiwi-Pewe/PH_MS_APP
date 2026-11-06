@@ -399,8 +399,9 @@ def admin_overview_stats(
     )
     recent_rows = (
         database.query(UserInfo)
+        .filter(UserInfo.created_at >= ago_1)
         .order_by(UserInfo.created_at.desc(), UserInfo.id.desc())
-        .limit(10)
+        .limit(5)
         .all()
     )
     recent = [{

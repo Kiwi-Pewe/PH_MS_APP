@@ -7,10 +7,17 @@ const ADMIN_ICON = {
   share: "M12 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M5 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M19 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M10.4 6.5 6.7 15.2 M13.6 6.5l3.7 8.7 M7 19h10",
   eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z",
   down: "M6 9l6 6 6-6",
-  right: "M9 6l6 6-6 6"
+  right: "M9 6l6 6-6 6",
+  check: "M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4 12 14.01l-3-3",
+  plus: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M19 8v6 M16 11h6",
+  activity: "M22 12h-4l-3 7L9 3 6 12H2"
 };
 
 const ADMIN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function adminNum(value) {
+  return Number(value || 0).toLocaleString("en-US");
+}
 
 function adminEl(tag, className, text) {
   const node = document.createElement(tag);
@@ -120,6 +127,28 @@ function adminPanel(opts) {
   return { panel: panel, body: body };
 }
 
+function adminMeterList(rows, note) {
+  const wrap = adminEl("div", "admin-meters");
+  rows.forEach((row) => {
+    const total = Number(row.total) || 0;
+    const value = Number(row.value) || 0;
+    const pct = total > 0 ? Math.round((value * 1000) / total) / 10 : 0;
+    const item = adminEl("div", "admin-meter");
+    const top = adminEl("div", "admin-meter-top");
+    top.appendChild(adminEl("div", "admin-meter-label", row.label));
+    top.appendChild(adminEl("div", "admin-meter-n", adminNum(value) + " · " + pct.toFixed(1) + "%"));
+    item.appendChild(top);
+    const track = adminEl("div", "admin-meter-track");
+    const fill = adminEl("div", "admin-meter-fill");
+    fill.style.width = Math.min(100, pct) + "%";
+    track.appendChild(fill);
+    item.appendChild(track);
+    wrap.appendChild(item);
+  });
+  if (note) wrap.appendChild(adminEl("div", "admin-meter-note", note));
+  return wrap;
+}
+
 function adminBarChart(opts) {
   const wrap = adminEl("div", "overview-chart");
   const scale = adminEl("div", "overview-chart-scale");
@@ -142,8 +171,8 @@ function adminBarChart(opts) {
   return wrap;
 }
 
-function adminTable(columns, rows) {
-  const table = adminEl("table", "admin-table");
+function adminTable(columns, rows, className) {
+  const table = adminEl("table", "admin-table" + (className ? " " + className : ""));
   const thead = adminEl("thead");
   const hr = adminEl("tr");
   columns.forEach((col) => hr.appendChild(adminEl("th", "", col)));

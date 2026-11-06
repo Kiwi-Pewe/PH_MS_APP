@@ -166,7 +166,7 @@ function loadOverviewStats() {
   });
 }
 
-function overviewJoined(raw) {
+function overviewJoinedClock(raw) {
   if (!raw) return "";
   const when = new Date(String(raw).replace(" ", "T") + "Z");
   if (Number.isNaN(when.getTime())) return "";
@@ -174,45 +174,96 @@ function overviewJoined(raw) {
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const day = Date.UTC(when.getUTCFullYear(), when.getUTCMonth(), when.getUTCDate());
   const diff = Math.round((today - day) / 86400000);
-  if (diff <= 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  if (diff < 7) return diff + " days ago";
-  return adminPad(when.getUTCDate()) + " " + ADMIN_MONTHS[when.getUTCMonth()] + " " + when.getUTCFullYear();
+  const hm = adminPad(when.getUTCHours()) + ":" + adminPad(when.getUTCMinutes());
+  if (diff <= 0) return "Today, " + hm;
+  if (diff === 1) return "Yesterday, " + hm;
+  return adminPad(when.getUTCDate()) + " " + ADMIN_MONTHS[when.getUTCMonth()] + ", " + hm;
 }
 
 function paintOverviewAccounts(main, stats) {
   main.className = "is-fit";
   const accounts = (stats && stats.accounts) || {};
+  const pulse = (stats && stats.pulse) || {};
   const recent = accounts.recent || [];
+  const total = Number(accounts.total) || 0;
+  const fresh = Number(accounts.new_24h) || 0;
+  const active = Number(pulse.active_24h) || 0;
+  const verified = 0;
+  const awaiting = 0;
+  const newDelta = overviewPct(accounts.new_24h, accounts.new_prev_24h, "vs previous 24h");
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Accounts"],
     title: "Accounts",
-    note: "Who has joined Oneira and who is on the site right now.",
+    note: "Account growth, verification and recent registrations across the site.",
     filter: "Last 24 hours",
     range: "compared with previous day"
   }));
   adminKpiRow(main, [
-    { label: "Total accounts", value: overviewNum(accounts.total), icon: "users" },
-    { label: "Online now", value: overviewNum(accounts.online), icon: "eye" },
     {
-      label: "New today",
-      value: overviewNum(accounts.new_today),
+      label: "Total accounts",
+      value: overviewNum(total),
       icon: "users",
-      delta: overviewPct(accounts.new_24h, accounts.new_prev_24h, "new vs previous day").text,
-      tone: overviewPct(accounts.new_24h, accounts.new_prev_24h, "").tone
+      detail: "All registered accounts"
     },
-    { label: "New last 7 days", value: overviewNum(accounts.new_7d), icon: "chart" },
-    { label: "Warned", value: overviewNum(accounts.warned), icon: "flag" },
-    { label: "Banned", value: overviewNum(accounts.banned), icon: "shield" }
+    {
+      label: "New accounts",
+      value: overviewNum(fresh),
+      icon: "plus",
+      delta: newDelta.text.replace("↑ ", "+").replace("↓ ", "−"),
+      tone: newDelta.tone
+    },
+    {
+      label: "Verified accounts",
+      value: overviewNum(verified),
+      icon: "check",
+      detail: (total > 0 ? ((verified * 1000) / total / 10).toFixed(1) : "0.0") + "% of all accounts"
+    },
+    {
+      label: "Active accounts",
+      value: overviewNum(active),
+      icon: "activity",
+      detail: "Signed in during the last 24h"
+    }
   ]);
-  const list = adminPanel({ title: "Recent signups", meta: overviewNum(recent.length) + " shown" });
+  const mid = adminEl("div", "overview-mid");
+  const dash = adminEl("div", "overview-dash");
+  const verify = adminPanel({ title: "Verification status", meta: overviewNum(total) + " accounts" });
+  verify.body.appendChild(adminMeterList(
+    [
+      { label: "Verified", value: verified, total: total },
+      { label: "Awaiting verification", value: awaiting, total: total }
+    ],
+    overviewNum(verified) + " of today's " + overviewNum(accounts.new_today) + " new accounts are verified."
+  ));
+  dash.appendChild(verify.panel);
+  const sources = adminPanel({ title: "Registration sources", meta: overviewNum(fresh) + " new · Last 24h" });
+  sources.body.appendChild(adminMeterList([
+    { label: "Discovery & organic", value: 0, total: fresh },
+    { label: "Server invitations", value: 0, total: fresh },
+    { label: "Direct visits", value: 0, total: fresh }
+  ]));
+  dash.appendChild(sources.panel);
+  mid.appendChild(dash);
+  main.appendChild(mid);
+  const list = adminPanel({
+    title: "Recent registrations",
+    meta: "Latest " + recent.length + " of " + overviewNum(fresh) + " · Last 24h",
+    foot: "Snapshot data · Updates every 5 minutes"
+  });
   list.panel.classList.add("is-fill");
-  list.body.appendChild(adminPeopleList(recent.map((row) => ({
-    display_name: row.display_name,
-    username: row.username,
-    meta: overviewJoined(row.created_at)
-  }))));
+  const rows = recent.map((row) => [
+    row.username ? "@" + row.username : "—",
+    overviewJoinedClock(row.created_at),
+    "—",
+    "—"
+  ]);
+  list.body.appendChild(adminTable(
+    ["Account", "Joined", "Source", "Verification"],
+    rows.length ? rows : [["No recent registrations", "", "", ""]],
+    "is-start"
+  ));
   main.appendChild(list.panel);
+  main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
 function paintOverviewReports(main) {

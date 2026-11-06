@@ -2,6 +2,8 @@
 #admin-main.is-fit .admin-banner { flex: 0 0 auto; margin-bottom: 10px; }
 #admin-main.is-fit .overview-kpis { flex: 0 0 auto; margin-bottom: 10px; }
 #admin-main.is-fit .overview-dash { flex: 1 1 auto; min-height: 0; }
+#admin-main.is-fit .overview-mid { flex: 0 0 auto; margin-bottom: 10px; }
+#admin-main.is-fit .overview-mid .overview-dash { flex: 0 0 auto; }
 #admin-main.is-fit > .admin-panel.is-fill {
   flex: 1 1 auto;
   min-height: 0;
@@ -40,6 +42,10 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.overview-kpis.is-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .overview-kpis.is-6 {
@@ -269,6 +275,11 @@
 .admin-table th:nth-child(n+2),
 .admin-table td:nth-child(n+2) { text-align: right; }
 
+.admin-table.is-start th,
+.admin-table.is-start td,
+.admin-table.is-start th:nth-child(n+2),
+.admin-table.is-start td:nth-child(n+2) { text-align: left; }
+
 .admin-table tr:last-child td { border-bottom: 0; }
 
 .admin-panel-foot {
@@ -414,8 +425,54 @@
   flex: 0 0 auto;
 }
 
+.admin-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-meter-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.admin-meter-label {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.admin-meter-n {
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.admin-meter-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--panel-alt);
+  overflow: hidden;
+}
+
+.admin-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--admin-mark);
+  min-width: 0;
+}
+
+.admin-meter-note {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
 @media (max-width: 1280px) {
   .overview-kpis,
+  .overview-kpis.is-4,
   .overview-kpis.is-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 

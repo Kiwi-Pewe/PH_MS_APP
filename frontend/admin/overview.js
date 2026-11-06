@@ -1,5 +1,49 @@
-function paintOverviewStatistics(main) {
+let overviewStats = null;
+let overviewStatsAt = 0;
+let overviewStatsLoading = false;
+
+function overviewNum(value) {
+  return Number(value || 0).toLocaleString("en-US");
+}
+
+function overviewPct(now, prev, suffix) {
+  const a = Number(now) || 0;
+  const b = Number(prev) || 0;
+  if (b <= 0) {
+    if (a <= 0) return { text: "0% " + suffix, tone: "flat" };
+    return { text: "↑ " + suffix, tone: "up" };
+  }
+  const pct = Math.round(((a - b) * 1000) / b) / 10;
+  const tone = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+  const arrow = pct > 0 ? "↑ " : pct < 0 ? "↓ " : "";
+  return { text: arrow + Math.abs(pct) + "% " + suffix, tone: tone };
+}
+
+function overviewMax(bars) {
+  let max = 0;
+  (bars || []).forEach((bar) => {
+    const n = Number(bar.value) || 0;
+    if (n > max) max = n;
+  });
+  return max || 1;
+}
+
+function paintOverviewStatistics(main, stats) {
   main.className = "is-fit";
+  const accounts = (stats && stats.accounts) || {};
+  const reports = (stats && stats.reports) || {};
+  const servers = (stats && stats.servers) || {};
+  const community = (stats && stats.community) || {};
+  const growth = (stats && stats.growth) || {};
+  const pulse = (stats && stats.pulse) || {};
+  const accountDelta = overviewPct(accounts.new_24h, accounts.new_prev_24h, "new vs previous day");
+  const reportDelta = overviewPct(reports.new_24h, reports.new_prev_24h, "new vs previous day");
+  const communityDelta = overviewPct(community.posts_24h, community.posts_prev_24h, "vs previous day");
+  const weekDelta = overviewPct(growth.week, growth.prev_week, "vs previous week");
+  const activeDelta = overviewPct(pulse.active_24h, pulse.active_prev_24h, "");
+  const messageDelta = overviewPct(pulse.messages_24h, pulse.messages_prev_24h, "");
+  const growthWord = growth.vs_week === "below" ? "below" : growth.vs_week === "even" ? "even with" : "above";
+  const bars = growth.bars || [];
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Statistics"],
     title: "Statistics",
@@ -9,73 +53,106 @@ function paintOverviewStatistics(main) {
   }));
   main.appendChild(adminBanner(
     "All systems operational",
-    "38 open reports, including 8 high priority. Account growth is above the weekly baseline."
+    overviewNum(reports.open) + " open reports. Account growth is " + growthWord + " the weekly baseline."
   ));
   adminKpiRow(main, [
-    { label: "Accounts", value: "12,480", icon: "users", detail: "186 new in the last 24h", delta: "↑ 6.9% new vs previous day", tone: "up" },
-    { label: "Reports", value: "38", icon: "flag", detail: "Open reports · 8 high priority", delta: "↓ 4 open vs previous day", tone: "down" },
-    { label: "Auto mod", value: "126", icon: "shield", detail: "Flags only · never acts on accounts", delta: "↑ 14.5% flags vs previous day", tone: "up" },
-    { label: "Servers", value: "842", icon: "grid", detail: "612 active in the last 24h", delta: "+14 created in the last 24h", tone: "flat" },
-    { label: "Community", value: "2,416", icon: "share", detail: "Posts submitted in the last 24h", delta: "↑ 9.4% vs previous day", tone: "up" }
+    {
+      label: "Accounts",
+      value: overviewNum(accounts.total),
+      icon: "users",
+      detail: overviewNum(accounts.new_24h) + " new in the last 24h",
+      delta: accountDelta.text,
+      tone: accountDelta.tone
+    },
+    {
+      label: "Reports",
+      value: overviewNum(reports.open),
+      icon: "flag",
+      detail: "Open reports",
+      delta: reportDelta.text,
+      tone: reportDelta.tone
+    },
+    {
+      label: "Auto mod",
+      value: "0",
+      icon: "shield",
+      detail: "Flags only · never acts on accounts",
+      delta: "0% flags vs previous day",
+      tone: "flat"
+    },
+    {
+      label: "Servers",
+      value: overviewNum(servers.total),
+      icon: "grid",
+      detail: overviewNum(servers.active_24h) + " active in the last 24h",
+      delta: "+" + overviewNum(servers.created_24h) + " created in the last 24h",
+      tone: Number(servers.created_24h) > 0 ? "up" : "flat"
+    },
+    {
+      label: "Community",
+      value: overviewNum(community.posts_24h),
+      icon: "share",
+      detail: "Posts submitted in the last 24h",
+      delta: communityDelta.text,
+      tone: communityDelta.tone
+    }
   ]);
   const dash = adminEl("div", "overview-dash");
   const left = adminEl("div", "overview-stack");
-  const growth = adminPanel({ title: "Account growth", meta: "31 Oct – 06 Nov · 7 days" });
+  const growthPanel = adminPanel({ title: "Account growth", meta: growth.range || "Last 7 days" });
   const line = adminEl("div", "overview-growth-line");
-  const total = adminEl("div", "overview-growth-n", "1,084");
+  const total = adminEl("div", "overview-growth-n", overviewNum(growth.week));
   total.appendChild(adminEl("span", "", "new accounts this week"));
   line.appendChild(total);
-  line.appendChild(adminEl("div", "overview-delta is-up", "↑ 13.3% vs previous week"));
-  growth.body.appendChild(line);
-  growth.body.appendChild(adminBarChart({
-    max: 200,
-    scale: ["200", "100", "0"],
-    bars: [
-      { label: "31 Oct", value: 122 },
-      { label: "01 Nov", value: 148 },
-      { label: "02 Nov", value: 124 },
-      { label: "03 Nov", value: 167 },
-      { label: "04 Nov", value: 153 },
-      { label: "05 Nov", value: 174 },
-      { label: "06 Nov", value: 186, hot: true }
-    ]
+  line.appendChild(adminEl("div", "overview-delta is-" + weekDelta.tone, weekDelta.text));
+  growthPanel.body.appendChild(line);
+  const max = overviewMax(bars);
+  growthPanel.body.appendChild(adminBarChart({
+    max: max,
+    scale: [String(max), String(Math.round(max / 2)), "0"],
+    bars: bars
   }));
-  left.appendChild(growth.panel);
+  left.appendChild(growthPanel.panel);
   const queue = adminPanel({
     title: "Report queue snapshot",
-    meta: "38 open",
+    meta: overviewNum(reports.open) + " open",
     foot: "Snapshot data · Updates every 5 minutes"
   });
   queue.body.appendChild(adminTable(
     ["Priority", "Open", "Oldest", "Share"],
     [
-      ["High priority", "8", "2h 14m", "21%"],
-      ["Normal priority", "19", "5h 32m", "50%"],
-      ["Low priority", "11", "8h 06m", "29%"]
+      ["High priority", "—", "—", "—"],
+      ["Normal priority", "—", "—", "—"],
+      ["Low priority", "—", "—", "—"]
     ]
   ));
   left.appendChild(queue.panel);
   const right = adminEl("div", "overview-stack");
-  const pulse = adminPanel({ title: "Site pulse", meta: "Last 24h" });
-  pulse.body.appendChild(adminPulse(
+  const pulsePanel = adminPanel({ title: "Site pulse", meta: "Last 24h" });
+  pulsePanel.body.appendChild(adminPulse(
     [
       { label: "Platform availability", pill: "Operational" },
-      { label: "Active accounts", value: "3,248", delta: "+8.2%", tone: "up" },
-      { label: "Messages", value: "18,720", delta: "+6.1%", tone: "up" },
-      { label: "New servers", value: "14", delta: "+4 today", tone: "up" }
+      { label: "Active accounts", value: overviewNum(pulse.active_24h), delta: activeDelta.text.replace(/\s+$/, ""), tone: activeDelta.tone },
+      { label: "Messages", value: overviewNum(pulse.messages_24h), delta: messageDelta.text.replace(/\s+$/, ""), tone: messageDelta.tone },
+      {
+        label: "New servers",
+        value: overviewNum(pulse.servers_24h),
+        delta: "+" + overviewNum(pulse.servers_today) + " today",
+        tone: Number(pulse.servers_today) > 0 ? "up" : "flat"
+      }
     ],
     "No service incidents in the last 24 hours."
   ));
-  right.appendChild(pulse.panel);
+  right.appendChild(pulsePanel.panel);
   const noting = adminPanel({ title: "Worth noting", meta: "Today" });
   noting.body.appendChild(adminNotes([
     {
       title: "Spam is the leading auto mod signal",
-      copy: "88 of 126 flags came from spam detection."
+      copy: "Flags only. Auto moderation does not warn, ban, or delete."
     },
     {
       title: "Community participation is growing",
-      copy: "1,854 people contributed across 612 active servers."
+      copy: overviewNum(community.posts_24h) + " posts were submitted in the last 24 hours."
     }
   ]));
   right.appendChild(noting.panel);
@@ -83,6 +160,21 @@ function paintOverviewStatistics(main) {
   dash.appendChild(right);
   main.appendChild(dash);
   main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
+}
+
+function loadOverviewStats() {
+  if (overviewStatsLoading) return;
+  if (overviewStats && Date.now() - overviewStatsAt < 30000) return;
+  overviewStatsLoading = true;
+  adminApi("/admin/overview/stats").then((response) => response.json().then((data) => {
+    overviewStatsLoading = false;
+    if (!response.ok) return;
+    overviewStats = data;
+    overviewStatsAt = Date.now();
+    if (adminPage === "overview" && adminSection === "statistics") paintAdminMain();
+  })).catch(() => {
+    overviewStatsLoading = false;
+  });
 }
 
 function paintOverviewAccounts(main) {
@@ -93,9 +185,9 @@ function paintOverviewAccounts(main) {
     badge: "Read only"
   }));
   adminKpiRow(main, [
-    { label: "Total accounts", value: "12,480", icon: "users" },
-    { label: "Online now", value: "3,248", icon: "eye" },
-    { label: "New today", value: "186", icon: "users", delta: "↑ 6.9% vs previous day", tone: "up" },
+    { label: "Total accounts", value: "0", icon: "users" },
+    { label: "Online now", value: "0", icon: "eye" },
+    { label: "New today", value: "0", icon: "users" },
     { label: "Warned", value: "0", icon: "flag" },
     { label: "Banned", value: "0", icon: "shield" }
   ]);
@@ -109,8 +201,8 @@ function paintOverviewReports(main) {
     badge: "Read only"
   }));
   adminKpiRow(main, [
-    { label: "Open", value: "38", icon: "flag" },
-    { label: "High priority", value: "8", icon: "flag" },
+    { label: "Open", value: "0", icon: "flag" },
+    { label: "High priority", value: "0", icon: "flag" },
     { label: "In review", value: "0", icon: "eye" },
     { label: "Completed", value: "0", icon: "chart" },
     { label: "User/Server", value: "0", icon: "users" }
@@ -125,8 +217,8 @@ function paintOverviewAutoMod(main) {
     badge: "Read only"
   }));
   adminKpiRow(main, [
-    { label: "Open flags", value: "126", icon: "shield" },
-    { label: "Flagged", value: "28", icon: "flag" },
+    { label: "Open flags", value: "0", icon: "shield" },
+    { label: "Flagged", value: "0", icon: "flag" },
     { label: "Posts", value: "0", icon: "share" },
     { label: "Users", value: "0", icon: "users" }
   ]);
@@ -140,9 +232,9 @@ function paintOverviewServers(main) {
     badge: "Read only"
   }));
   adminKpiRow(main, [
-    { label: "Total servers", value: "842", icon: "grid" },
-    { label: "Active last 24h", value: "612", icon: "eye" },
-    { label: "Created today", value: "14", icon: "grid", delta: "+14 created in the last 24h", tone: "flat" }
+    { label: "Total servers", value: "0", icon: "grid" },
+    { label: "Active last 24h", value: "0", icon: "eye" },
+    { label: "Created today", value: "0", icon: "grid" }
   ]);
 }
 
@@ -154,7 +246,7 @@ function paintOverviewCommunity(main) {
     badge: "Read only"
   }));
   adminKpiRow(main, [
-    { label: "Posts", value: "2,416", icon: "share" },
+    { label: "Posts", value: "0", icon: "share" },
     { label: "Rooms", value: "0", icon: "users" },
     { label: "Finder listings", value: "0", icon: "grid" }
   ]);
@@ -166,7 +258,8 @@ function paintOverview(main, sectionId) {
   if (sectionId === "auto-mod") return paintOverviewAutoMod(main);
   if (sectionId === "servers") return paintOverviewServers(main);
   if (sectionId === "community") return paintOverviewCommunity(main);
-  paintOverviewStatistics(main);
+  paintOverviewStatistics(main, overviewStats);
+  loadOverviewStats();
 }
 
 registerAdminPage({

@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, cast, String
-from app.models import UserInfo, Feedback_report, Servers, Server_members, Server_bans, Friend_request, Account_warn, Site_ban
+from app.models import (
+    UserInfo, Feedback_report, Servers, Server_members, Server_bans, Friend_request,
+    Account_warn, Site_ban, Active_Sessions, Message, Channel_messages, Server_channels,
+    Server_categories, Community_post, Community_room_message,
+)
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app.schemas import Feedback_status, Admin_warn, Admin_ban, Admin_delete
@@ -314,6 +318,49 @@ async def sweep_completed_feedback():
             database.close()
 
 
+MONTH_SHORT = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def utc_now():
+    return datetime.utcnow()
+
+
+def utc_day(when):
+    return when.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def day_label(when):
+    return str(when.day).zfill(2) + " " + MONTH_SHORT[when.month - 1]
+
+
+def count_rows(database, model, column, start, end=None):
+    query = database.query(func.count()).select_from(model).filter(column >= start)
+    if end is not None:
+        query = query.filter(column < end)
+    return int(query.scalar() or 0)
+
+
+def active_server_count(database, start, end=None):
+    query = (
+        database.query(func.count(func.distinct(Server_categories.server_id)))
+        .select_from(Channel_messages)
+        .join(Server_channels, Server_channels.id == Channel_messages.channel_id)
+        .join(Server_categories, Server_categories.id == Server_channels.category_id)
+        .filter(Channel_messages.timestamp >= start)
+    )
+    if end is not None:
+        query = query.filter(Channel_messages.timestamp < end)
+    return int(query.scalar() or 0)
+
+
+def message_count(database, start, end=None):
+    return (
+        count_rows(database, Channel_messages, Channel_messages.timestamp, start, end)
+        + count_rows(database, Message, Message.timestamp, start, end)
+        + count_rows(database, Community_room_message, Community_room_message.created_at, start, end)
+    )
+
+
 @router.get("/admin/me")
 def admin_me(current_user: UserInfo = Depends(get_current_user)):
     require_oneira_admin(current_user)
@@ -321,6 +368,103 @@ def admin_me(current_user: UserInfo = Depends(get_current_user)):
         "id": current_user.id,
         "username": current_user.username,
         "display_name": public_display_name(current_user),
+    }
+
+
+@router.get("/admin/overview/stats")
+def admin_overview_stats(
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    now = utc_now()
+    day = utc_day(now)
+    ago_1 = now - timedelta(hours=24)
+    ago_2 = now - timedelta(hours=48)
+    week_start = day - timedelta(days=6)
+    prev_week_start = week_start - timedelta(days=7)
+    accounts_total = int(database.query(func.count()).select_from(UserInfo).scalar() or 0)
+    accounts_24h = count_rows(database, UserInfo, UserInfo.created_at, ago_1)
+    accounts_prev = count_rows(database, UserInfo, UserInfo.created_at, ago_2, ago_1)
+    reports_open = int(
+        database.query(func.count()).select_from(Feedback_report).filter(
+            or_(Feedback_report.status.is_(None), Feedback_report.status != "completed")
+        ).scalar() or 0
+    )
+    reports_24h = count_rows(database, Feedback_report, Feedback_report.created_at, ago_1)
+    reports_prev = count_rows(database, Feedback_report, Feedback_report.created_at, ago_2, ago_1)
+    servers_total = int(database.query(func.count()).select_from(Servers).scalar() or 0)
+    servers_24h = count_rows(database, Servers, Servers.created_at, ago_1)
+    servers_prev = count_rows(database, Servers, Servers.created_at, ago_2, ago_1)
+    servers_today = count_rows(database, Servers, Servers.created_at, day)
+    servers_active = active_server_count(database, ago_1)
+    posts_24h = count_rows(database, Community_post, Community_post.created_at, ago_1)
+    posts_prev = count_rows(database, Community_post, Community_post.created_at, ago_2, ago_1)
+    week_new = count_rows(database, UserInfo, UserInfo.created_at, week_start)
+    prev_week_new = count_rows(database, UserInfo, UserInfo.created_at, prev_week_start, week_start)
+    bars = []
+    for offset in range(7):
+        start = week_start + timedelta(days=offset)
+        end = start + timedelta(days=1)
+        bars.append({
+            "label": day_label(start),
+            "value": count_rows(database, UserInfo, UserInfo.created_at, start, end),
+            "hot": offset == 6,
+        })
+    active_24h = int(
+        database.query(func.count(func.distinct(Active_Sessions.account_id)))
+        .filter(Active_Sessions.last_active >= ago_1)
+        .scalar() or 0
+    )
+    active_prev = int(
+        database.query(func.count(func.distinct(Active_Sessions.account_id)))
+        .filter(Active_Sessions.last_active >= ago_2, Active_Sessions.last_active < ago_1)
+        .scalar() or 0
+    )
+    messages_24h = message_count(database, ago_1)
+    messages_prev = message_count(database, ago_2, ago_1)
+    growth = "even"
+    if week_new > prev_week_new:
+        growth = "above"
+    elif week_new < prev_week_new:
+        growth = "below"
+    return {
+        "accounts": {
+            "total": accounts_total,
+            "new_24h": accounts_24h,
+            "new_prev_24h": accounts_prev,
+        },
+        "reports": {
+            "open": reports_open,
+            "new_24h": reports_24h,
+            "new_prev_24h": reports_prev,
+        },
+        "servers": {
+            "total": servers_total,
+            "created_24h": servers_24h,
+            "created_prev_24h": servers_prev,
+            "created_today": servers_today,
+            "active_24h": servers_active,
+        },
+        "community": {
+            "posts_24h": posts_24h,
+            "posts_prev_24h": posts_prev,
+        },
+        "growth": {
+            "week": week_new,
+            "prev_week": prev_week_new,
+            "vs_week": growth,
+            "range": day_label(week_start) + " – " + day_label(day) + " · 7 days",
+            "bars": bars,
+        },
+        "pulse": {
+            "active_24h": active_24h,
+            "active_prev_24h": active_prev,
+            "messages_24h": messages_24h,
+            "messages_prev_24h": messages_prev,
+            "servers_24h": servers_24h,
+            "servers_today": servers_today,
+        },
     }
 
 

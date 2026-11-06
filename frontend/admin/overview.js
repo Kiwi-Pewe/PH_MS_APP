@@ -370,18 +370,75 @@ function paintOverviewReports(main, stats) {
 }
 
 function paintOverviewAutoMod(main) {
+  main.className = "is-fit";
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Auto mod"],
     title: "Auto mod",
-    note: "Silent flags on public posts, users, and pages. Auto moderation never warns, bans, or deletes.",
-    badge: "Read only"
+    note: "Silent flags on the Community page. Auto moderation never warns, bans, hides, or deletes.",
+    filter: "Last 24 hours",
+    range: "compared with previous day"
   }));
   adminKpiRow(main, [
-    { label: "Open flags", value: "0", icon: "shield" },
-    { label: "Flagged", value: "0", icon: "flag" },
-    { label: "Posts", value: "0", icon: "share" },
-    { label: "Users", value: "0", icon: "users" }
+    {
+      label: "Detection events",
+      value: "0",
+      icon: "shield",
+      delta: "0% vs previous 24h",
+      tone: "flat"
+    },
+    {
+      label: "Flags reviewed",
+      value: "0",
+      icon: "check",
+      detail: "0% of detection events"
+    },
+    {
+      label: "Flagged for review",
+      value: "0",
+      icon: "flag",
+      detail: "0% of detection events"
+    },
+    {
+      label: "Servers affected",
+      value: "0",
+      icon: "grid",
+      detail: "Public Community listings"
+    }
   ]);
+  const mid = adminEl("div", "overview-mid");
+  const dash = adminEl("div", "overview-dash");
+  const surfaces = adminPanel({ title: "Flags by surface", meta: "0 total" });
+  surfaces.body.appendChild(adminMeterList([
+    { label: "Posts flagged", value: 0, total: 0 },
+    { label: "Rooms flagged", value: 0, total: 0 },
+    { label: "Phone flagged", value: 0, total: 0 },
+    { label: "Listings flagged", value: 0, total: 0 }
+  ]));
+  dash.appendChild(surfaces.panel);
+  const outcomes = adminPanel({ title: "Detection outcomes", meta: "Last 24h" });
+  outcomes.body.appendChild(adminMeterList(
+    [
+      { label: "Flagged for review", value: 0, total: 0 },
+      { label: "Flags reviewed", value: 0, total: 0 }
+    ],
+    "Counts are silent flags on Community, not automated blocks. A flag is not a report."
+  ));
+  dash.appendChild(outcomes.panel);
+  mid.appendChild(dash);
+  main.appendChild(mid);
+  const list = adminPanel({
+    title: "Recent detection events",
+    meta: "Latest 0",
+    foot: "Snapshot data · Updates every 5 minutes"
+  });
+  list.panel.classList.add("is-fill");
+  list.body.appendChild(adminTable(
+    ["Event", "Rule", "Server", "Detected", "Outcome"],
+    [["No flags", "", "", "", ""]],
+    "is-start"
+  ));
+  main.appendChild(list.panel);
+  main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
 function paintOverviewServers(main) {

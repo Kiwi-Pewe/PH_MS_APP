@@ -144,18 +144,7 @@ function paintOverviewStatistics(main, stats) {
     "No service incidents in the last 24 hours."
   ));
   right.appendChild(pulsePanel.panel);
-  const noting = adminPanel({ title: "Worth noting", meta: "Today" });
-  noting.body.appendChild(adminNotes([
-    {
-      title: "Spam is the leading auto mod signal",
-      copy: "Flags only. Auto moderation does not warn, ban, or delete."
-    },
-    {
-      title: "Community participation is growing",
-      copy: overviewNum(community.posts_24h) + " posts were submitted in the last 24 hours."
-    }
-  ]));
-  right.appendChild(noting.panel);
+  right.appendChild(adminPanel({ title: "Worth noting", meta: "Today" }).panel);
   dash.appendChild(left);
   dash.appendChild(right);
   main.appendChild(dash);
@@ -171,26 +160,59 @@ function loadOverviewStats() {
     if (!response.ok) return;
     overviewStats = data;
     overviewStatsAt = Date.now();
-    if (adminPage === "overview" && adminSection === "statistics") paintAdminMain();
+    if (adminPage === "overview" && (adminSection === "statistics" || adminSection === "accounts")) paintAdminMain();
   })).catch(() => {
     overviewStatsLoading = false;
   });
 }
 
-function paintOverviewAccounts(main) {
+function overviewJoined(raw) {
+  if (!raw) return "";
+  const when = new Date(String(raw).replace(" ", "T") + "Z");
+  if (Number.isNaN(when.getTime())) return "";
+  const now = new Date();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const day = Date.UTC(when.getUTCFullYear(), when.getUTCMonth(), when.getUTCDate());
+  const diff = Math.round((today - day) / 86400000);
+  if (diff <= 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  if (diff < 7) return diff + " days ago";
+  return adminPad(when.getUTCDate()) + " " + ADMIN_MONTHS[when.getUTCMonth()] + " " + when.getUTCFullYear();
+}
+
+function paintOverviewAccounts(main, stats) {
+  main.className = "is-fit";
+  const accounts = (stats && stats.accounts) || {};
+  const recent = accounts.recent || [];
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Accounts"],
     title: "Accounts",
     note: "Who has joined Oneira and who is on the site right now.",
-    badge: "Read only"
+    filter: "Last 24 hours",
+    range: "compared with previous day"
   }));
   adminKpiRow(main, [
-    { label: "Total accounts", value: "0", icon: "users" },
-    { label: "Online now", value: "0", icon: "eye" },
-    { label: "New today", value: "0", icon: "users" },
-    { label: "Warned", value: "0", icon: "flag" },
-    { label: "Banned", value: "0", icon: "shield" }
+    { label: "Total accounts", value: overviewNum(accounts.total), icon: "users" },
+    { label: "Online now", value: overviewNum(accounts.online), icon: "eye" },
+    {
+      label: "New today",
+      value: overviewNum(accounts.new_today),
+      icon: "users",
+      delta: overviewPct(accounts.new_24h, accounts.new_prev_24h, "new vs previous day").text,
+      tone: overviewPct(accounts.new_24h, accounts.new_prev_24h, "").tone
+    },
+    { label: "New last 7 days", value: overviewNum(accounts.new_7d), icon: "chart" },
+    { label: "Warned", value: overviewNum(accounts.warned), icon: "flag" },
+    { label: "Banned", value: overviewNum(accounts.banned), icon: "shield" }
   ]);
+  const list = adminPanel({ title: "Recent signups", meta: overviewNum(recent.length) + " shown" });
+  list.panel.classList.add("is-fill");
+  list.body.appendChild(adminPeopleList(recent.map((row) => ({
+    display_name: row.display_name,
+    username: row.username,
+    meta: overviewJoined(row.created_at)
+  }))));
+  main.appendChild(list.panel);
 }
 
 function paintOverviewReports(main) {
@@ -253,7 +275,11 @@ function paintOverviewCommunity(main) {
 }
 
 function paintOverview(main, sectionId) {
-  if (sectionId === "accounts") return paintOverviewAccounts(main);
+  if (sectionId === "accounts") {
+    paintOverviewAccounts(main, overviewStats);
+    loadOverviewStats();
+    return;
+  }
   if (sectionId === "reports") return paintOverviewReports(main);
   if (sectionId === "auto-mod") return paintOverviewAutoMod(main);
   if (sectionId === "servers") return paintOverviewServers(main);

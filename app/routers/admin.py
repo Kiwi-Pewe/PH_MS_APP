@@ -14,6 +14,7 @@ from app.routers.profile import public_identity, public_avatar, ensure_layout
 from app.routers.mini_profiles import layout_banner_and_about
 from app.routers.servers import server_banner_fields, server_icon_url
 from app.routers.feed import notify_feed_alert
+from app.routers.realtime import active_connections
 from app.r2 import delete_attachment, post_attachments_public
 from app.site_moderation import (
     SITE_BAN_LABELS,
@@ -386,6 +387,28 @@ def admin_overview_stats(
     accounts_total = int(database.query(func.count()).select_from(UserInfo).scalar() or 0)
     accounts_24h = count_rows(database, UserInfo, UserInfo.created_at, ago_1)
     accounts_prev = count_rows(database, UserInfo, UserInfo.created_at, ago_2, ago_1)
+    accounts_today = count_rows(database, UserInfo, UserInfo.created_at, day)
+    warned = int(
+        database.query(func.count(func.distinct(Account_warn.user_id))).scalar() or 0
+    )
+    banned = int(
+        database.query(func.count()).select_from(UserInfo).filter(
+            UserInfo.banned_until != None,
+            UserInfo.banned_until > now,
+        ).scalar() or 0
+    )
+    recent_rows = (
+        database.query(UserInfo)
+        .order_by(UserInfo.created_at.desc(), UserInfo.id.desc())
+        .limit(10)
+        .all()
+    )
+    recent = [{
+        "id": row.id,
+        "username": row.username or "",
+        "display_name": public_display_name(row),
+        "created_at": str(row.created_at) if row.created_at else None,
+    } for row in recent_rows]
     reports_open = int(
         database.query(func.count()).select_from(Feedback_report).filter(
             or_(Feedback_report.status.is_(None), Feedback_report.status != "completed")
@@ -433,6 +456,12 @@ def admin_overview_stats(
             "total": accounts_total,
             "new_24h": accounts_24h,
             "new_prev_24h": accounts_prev,
+            "new_today": accounts_today,
+            "new_7d": week_new,
+            "online": len(active_connections),
+            "warned": warned,
+            "banned": banned,
+            "recent": recent,
         },
         "reports": {
             "open": reports_open,

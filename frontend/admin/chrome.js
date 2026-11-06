@@ -188,8 +188,30 @@ function adminNotes(items) {
 
 function adminKpiRow(host, cards) {
   const grid = adminEl("div", "overview-kpis");
+  if (cards.length !== 5) grid.className = "overview-kpis is-" + cards.length;
   cards.forEach((card) => grid.appendChild(adminStatCard(card)));
   host.appendChild(grid);
+}
+
+function adminPeopleList(rows) {
+  const list = adminEl("div", "admin-people");
+  if (!rows.length) {
+    list.appendChild(adminEl("div", "admin-people-empty", "No recent signups."));
+    return list;
+  }
+  rows.forEach((row) => {
+    const item = adminEl("div", "admin-people-row");
+    const shown = row.display_name || row.username || "Account";
+    const face = adminEl("div", "admin-people-face", shown.slice(0, 1).toUpperCase());
+    const text = adminEl("div", "admin-people-text");
+    text.appendChild(adminEl("div", "admin-people-name", shown));
+    text.appendChild(adminEl("div", "admin-people-sub", row.username ? "@" + row.username : ""));
+    item.appendChild(face);
+    item.appendChild(text);
+    item.appendChild(adminEl("div", "admin-people-meta", row.meta || ""));
+    list.appendChild(item);
+  });
+  return list;
 }
 
 function paintAdminPlaceholder(main, title, note) {

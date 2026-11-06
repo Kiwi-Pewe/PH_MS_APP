@@ -272,6 +272,7 @@ class Community_room_create(BaseModel):
 
 class Feedback_submit(BaseModel):
     feedback_type: str
+    report_kind: str = ""
     report: str
     attachments: list[Attachment_in] = []
     context_view: str = ""

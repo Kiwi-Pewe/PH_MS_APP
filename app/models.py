@@ -638,6 +638,8 @@ class Feedback_report(Base):
     username = Column(String)
     display_name = Column(String, nullable=True)
     feedback_type = Column(String)
+    report_kind = Column(String, nullable=True)
+    report_score = Column(Integer, nullable=True)
     report = Column(String)
     attachments = Column(String, nullable=True)
     status = Column(String, default="new")

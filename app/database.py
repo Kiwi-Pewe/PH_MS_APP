@@ -531,6 +531,8 @@ def ensure_forum_columns():
 def ensure_feedback_columns():
     adds = (
         ("feedback_reports", "delete_after", "DATETIME"),
+        ("feedback_reports", "report_kind", "VARCHAR"),
+        ("feedback_reports", "report_score", "INTEGER"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:

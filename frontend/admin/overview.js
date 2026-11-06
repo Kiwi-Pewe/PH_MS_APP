@@ -263,7 +263,7 @@ function paintOverviewAccounts(main, stats) {
   main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
-function overviewReportType(kind) {
+function overviewReportCategory(kind) {
   if (kind === "bug") return "Bug";
   if (kind === "feature") return "Feature";
   if (kind === "inquiry") return "Inquiry";
@@ -271,98 +271,98 @@ function overviewReportType(kind) {
   return kind || "—";
 }
 
-function overviewReportStatus(status) {
-  if (status === "viewed") return "Viewed";
-  if (status === "review") return "In review";
-  if (status === "completed") return "Completed";
-  return "New";
+function overviewReportKind(kind) {
+  if (kind === "harassment") return "Harassment";
+  if (kind === "impersonation") return "Impersonation";
+  if (kind === "spam") return "Spam";
+  if (kind === "misleading") return "Misleading content";
+  if (kind === "other") return "Other";
+  return "—";
 }
 
 function paintOverviewReports(main, stats) {
   main.className = "is-fit";
   const reports = (stats && stats.reports) || {};
   const types = reports.types || {};
-  const status = reports.status || {};
+  const kinds = reports.kinds || {};
   const recent = reports.recent || [];
   const open = Number(reports.open) || 0;
+  const userServer = Number(reports.user_server) || 0;
   const fresh = Number(reports.new_24h) || 0;
   const newDelta = overviewPct(reports.new_24h, reports.new_prev_24h, "vs previous 24h");
+  const share = open > 0 ? ((userServer * 1000) / open / 10).toFixed(1) + "% of the open queue" : "0% of the open queue";
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Reports"],
     title: "Reports",
-    note: "Open tickets and recent reports across the site. Completing a ticket happens on Reports.",
+    note: "Queue volume and incoming tickets. Completing a ticket happens on Reports.",
     filter: "Last 24 hours",
     range: "compared with previous day"
   }));
   adminKpiRow(main, [
     {
-      label: "Open",
+      label: "Open reports",
       value: overviewNum(open),
       icon: "flag",
       detail: "Waiting for review"
     },
     {
-      label: "New reports",
+      label: "User/Server",
+      value: overviewNum(userServer),
+      icon: "users",
+      detail: share
+    },
+    {
+      label: "Received",
       value: overviewNum(fresh),
       icon: "plus",
       delta: newDelta.text.replace("↑ ", "+").replace("↓ ", "−"),
-      tone: newDelta.tone
-    },
-    {
-      label: "In review",
-      value: overviewNum(reports.review),
-      icon: "eye",
-      detail: "Currently in review"
+      tone: newDelta.tone,
+      detail: "Submitted in the last 24h"
     },
     {
       label: "Completed",
       value: overviewNum(reports.completed),
       icon: "check",
       detail: "Still on file"
-    },
-    {
-      label: "User/Server",
-      value: overviewNum(reports.user_server),
-      icon: "users",
-      detail: "Open user or server reports"
     }
   ]);
   const mid = adminEl("div", "overview-mid");
   const dash = adminEl("div", "overview-dash");
-  const kinds = adminPanel({ title: "Open by type", meta: overviewNum(open) + " open" });
-  kinds.body.appendChild(adminMeterList([
+  const cats = adminPanel({ title: "Open by category", meta: overviewNum(open) + " open" });
+  cats.body.appendChild(adminMeterList([
     { label: "Bug", value: Number(types.bug) || 0, total: open },
     { label: "Feature", value: Number(types.feature) || 0, total: open },
     { label: "Inquiry", value: Number(types.inquiry) || 0, total: open },
     { label: "User/Server", value: Number(types.report) || 0, total: open }
   ]));
-  dash.appendChild(kinds.panel);
-  const totalStatus = (Number(status.new) || 0) + (Number(status.viewed) || 0) + (Number(status.review) || 0) + (Number(status.completed) || 0);
-  const queue = adminPanel({ title: "Status", meta: overviewNum(totalStatus) + " on file" });
-  queue.body.appendChild(adminMeterList([
-    { label: "New", value: Number(status.new) || 0, total: totalStatus },
-    { label: "Viewed", value: Number(status.viewed) || 0, total: totalStatus },
-    { label: "In review", value: Number(status.review) || 0, total: totalStatus },
-    { label: "Completed", value: Number(status.completed) || 0, total: totalStatus }
+  dash.appendChild(cats.panel);
+  const typePanel = adminPanel({ title: "Open reports by type", meta: overviewNum(userServer) + " user/server" });
+  typePanel.body.appendChild(adminMeterList([
+    { label: "Harassment", value: Number(kinds.harassment) || 0, total: userServer },
+    { label: "Impersonation", value: Number(kinds.impersonation) || 0, total: userServer },
+    { label: "Spam", value: Number(kinds.spam) || 0, total: userServer },
+    { label: "Misleading content", value: Number(kinds.misleading) || 0, total: userServer },
+    { label: "Other", value: Number(kinds.other) || 0, total: userServer }
   ]));
-  dash.appendChild(queue.panel);
+  dash.appendChild(typePanel.panel);
   mid.appendChild(dash);
   main.appendChild(mid);
   const list = adminPanel({
-    title: "Recent reports",
+    title: "Recent incoming reports",
     meta: "Latest " + recent.length,
     foot: "Snapshot data · Updates every 5 minutes"
   });
   list.panel.classList.add("is-fill");
   const rows = recent.map((row) => [
-    row.username || row.display_name || "—",
-    overviewReportType(row.feedback_type),
-    overviewReportStatus(row.status),
+    row.id != null ? String(row.id) : "—",
+    overviewReportCategory(row.feedback_type),
+    row.feedback_type === "report" ? overviewReportKind(row.report_kind) : "—",
+    row.report_score != null ? String(row.report_score) : "—",
     overviewJoinedClock(row.created_at)
   ]);
   list.body.appendChild(adminTable(
-    ["Account", "Type", "Status", "Created"],
-    rows.length ? rows : [["No reports", "", "", ""]],
+    ["Report", "Category", "Type", "Score", "Created"],
+    rows.length ? rows : [["No reports", "", "", "", ""]],
     "is-start"
   ));
   main.appendChild(list.panel);

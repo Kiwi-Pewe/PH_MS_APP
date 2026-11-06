@@ -11,6 +11,13 @@ const FEEDBACK_TYPES = [
   { value: "inquiry", label: "General Inquiries" },
   { value: "report", label: "User/Server Report" }
 ];
+const FEEDBACK_REPORT_KINDS = [
+  { value: "harassment", label: "Harassment" },
+  { value: "impersonation", label: "Impersonation" },
+  { value: "spam", label: "Spam" },
+  { value: "misleading", label: "Misleading content" },
+  { value: "other", label: "Other" }
+];
 
 let feedbackOverlay = null;
 let feedbackFiles = [];
@@ -154,20 +161,42 @@ function openFeedbackCard(preset) {
   bottom.appendChild(hintEl);
   bottom.appendChild(submit);
 
-  const typeLabel = document.createElement("label");
-  typeLabel.textContent = "Type";
-  const typeSelect = document.createElement("select");
+  const categoryLabel = document.createElement("label");
+  categoryLabel.textContent = "Category";
+  const categorySelect = document.createElement("select");
   const blank = document.createElement("option");
   blank.value = "";
   blank.textContent = "Select…";
-  typeSelect.appendChild(blank);
+  categorySelect.appendChild(blank);
   FEEDBACK_TYPES.forEach((item) => {
     const opt = document.createElement("option");
     opt.value = item.value;
     opt.textContent = item.label;
-    typeSelect.appendChild(opt);
+    categorySelect.appendChild(opt);
   });
-  typeLabel.appendChild(typeSelect);
+  categoryLabel.appendChild(categorySelect);
+
+  const kindLabel = document.createElement("label");
+  kindLabel.textContent = "Type";
+  kindLabel.hidden = true;
+  const kindSelect = document.createElement("select");
+  const kindBlank = document.createElement("option");
+  kindBlank.value = "";
+  kindBlank.textContent = "Select…";
+  kindSelect.appendChild(kindBlank);
+  FEEDBACK_REPORT_KINDS.forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = item.value;
+    opt.textContent = item.label;
+    kindSelect.appendChild(opt);
+  });
+  kindLabel.appendChild(kindSelect);
+
+  function syncKindRow() {
+    const reportOn = categorySelect.value === "report";
+    kindLabel.hidden = !reportOn;
+    if (!reportOn) kindSelect.value = "";
+  }
 
   const bodyLabel = document.createElement("label");
   bodyLabel.textContent = "Message";
@@ -196,7 +225,8 @@ function openFeedbackCard(preset) {
   mediaRow.appendChild(fileInput);
   mediaRow.appendChild(strip);
 
-  main.appendChild(typeLabel);
+  main.appendChild(categoryLabel);
+  main.appendChild(kindLabel);
   main.appendChild(bodyLabel);
   main.appendChild(mediaLabel);
   main.appendChild(mediaRow);
@@ -284,7 +314,10 @@ function openFeedbackCard(preset) {
     growFeedbackBody();
     refreshHint();
   });
-  typeSelect.addEventListener("change", refreshHint);
+  categorySelect.addEventListener("change", () => {
+    syncKindRow();
+    refreshHint();
+  });
   cancel.addEventListener("click", () => closeFeedbackCard());
   close.addEventListener("click", () => closeFeedbackCard());
   overlay.addEventListener("click", (e) => {
@@ -296,10 +329,14 @@ function openFeedbackCard(preset) {
       closeFeedbackCard();
       return;
     }
-    const kind = typeSelect.value;
+    const kind = categorySelect.value;
     const text = body.value.replace(/\r\n/g, "\n").trim();
     if (!kind) {
-      setHint("Choose a feedback type.");
+      setHint("Choose a feedback category.");
+      return;
+    }
+    if (kind === "report" && !kindSelect.value) {
+      setHint("Choose a report type.");
       return;
     }
     if (feedbackTextLength(text) < FEEDBACK_TEXT_MIN) {
@@ -320,6 +357,7 @@ function openFeedbackCard(preset) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(Object.assign({
           feedback_type: kind,
+          report_kind: kind === "report" ? kindSelect.value : "",
           report: text,
           attachments
         }, feedbackContext()))
@@ -342,9 +380,10 @@ function openFeedbackCard(preset) {
   overlay.appendChild(box);
   document.body.appendChild(overlay);
   feedbackOverlay = overlay;
-  if (feedbackPreset && feedbackPreset.type) typeSelect.value = feedbackPreset.type;
+  if (feedbackPreset && feedbackPreset.type) categorySelect.value = feedbackPreset.type;
+  syncKindRow();
   paintStrip();
   growFeedbackBody();
   refreshHint();
-  typeSelect.focus();
+  categorySelect.focus();
 }

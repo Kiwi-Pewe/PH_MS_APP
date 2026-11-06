@@ -10,6 +10,7 @@ from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app.schemas import Feedback_status, Admin_warn, Admin_ban, Admin_delete
 from app.routers.account import public_display_name
+from app.routers.feedback import REPORT_KINDS, feedback_file_count, feedback_score
 from app.routers.profile import public_identity, public_avatar, ensure_layout
 from app.routers.mini_profiles import layout_banner_and_about
 from app.routers.servers import server_banner_fields, server_icon_url
@@ -222,6 +223,11 @@ def pack_feedback(row, extra=None):
         "display_name": extra.get("display_name") or row.display_name,
         "feedback_type": row.feedback_type,
         "feedback_label": FEEDBACK_TYPE_LABELS.get(row.feedback_type, row.feedback_type),
+        "report_kind": row.report_kind or "",
+        "report_kind_label": REPORT_KINDS.get(row.report_kind, ""),
+        "report_score": int(row.report_score) if row.report_score is not None else feedback_score(
+            row.feedback_type, row.report, feedback_file_count(row.attachments)
+        ),
         "report": row.report,
         "attachments": post_attachments_public(row.attachments),
         "status": row.status or "new",
@@ -450,11 +456,27 @@ def admin_overview_stats(
         .limit(8)
         .all()
     )
+    report_kinds = {key: 0 for key in REPORT_KINDS}
+    for kind, n in (
+        database.query(Feedback_report.report_kind, func.count())
+        .filter(
+            Feedback_report.feedback_type == "report",
+            or_(Feedback_report.status.is_(None), Feedback_report.status != "completed"),
+        )
+        .group_by(Feedback_report.report_kind)
+        .all()
+    ):
+        if kind in report_kinds:
+            report_kinds[kind] = int(n or 0)
     recent_reports = [{
         "id": row.id,
         "username": row.username or "",
         "display_name": row.display_name or row.username or "",
         "feedback_type": row.feedback_type or "",
+        "report_kind": row.report_kind or "",
+        "report_score": int(row.report_score) if row.report_score is not None else feedback_score(
+            row.feedback_type, row.report, feedback_file_count(row.attachments)
+        ),
         "status": row.status or "new",
         "created_at": str(row.created_at) if row.created_at else None,
     } for row in recent_report_rows]
@@ -525,6 +547,7 @@ def admin_overview_stats(
             "user_server": report_types["report"],
             "status": report_status,
             "types": report_types,
+            "kinds": report_kinds,
             "recent": recent_reports,
         },
         "servers": {

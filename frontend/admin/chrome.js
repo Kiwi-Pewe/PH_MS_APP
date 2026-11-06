@@ -60,6 +60,14 @@ function adminPageHead(opts) {
   wrap.appendChild(left);
   const meta = adminEl("div", "admin-head-meta");
   if (opts.clock !== false) meta.appendChild(adminEl("div", "admin-clock", adminUtcStamp()));
+  if (opts.filter) {
+    const filter = adminEl("button", "admin-filter-pill");
+    filter.type = "button";
+    filter.disabled = true;
+    filter.appendChild(adminEl("span", "", opts.filter));
+    filter.appendChild(adminIcon("down"));
+    meta.appendChild(filter);
+  }
   if (opts.badge) {
     const badge = adminEl("div", "admin-badge");
     badge.appendChild(adminEl("span", "admin-badge-dot"));
@@ -122,9 +130,11 @@ function adminBarChart(opts) {
   (opts.bars || []).forEach((bar) => {
     const col = adminEl("div", "overview-bar-col");
     col.appendChild(adminEl("div", "overview-bar-n", String(bar.value)));
+    const track = adminEl("div", "overview-bar-track");
     const fill = adminEl("div", "overview-bar" + (bar.hot ? " is-hot" : ""));
-    fill.style.height = Math.max(8, Math.round((Number(bar.value) / max) * 120)) + "px";
-    col.appendChild(fill);
+    fill.style.height = Math.max(8, Math.round((Number(bar.value) / max) * 100)) + "%";
+    track.appendChild(fill);
+    col.appendChild(track);
     col.appendChild(adminEl("div", "overview-bar-k", bar.label));
     cols.appendChild(col);
   });

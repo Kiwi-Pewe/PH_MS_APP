@@ -1,10 +1,11 @@
 function paintOverviewStatistics(main) {
+  main.className = "is-fit";
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Statistics"],
     title: "Statistics",
-    note: "Your site at a glance. Activity, growth and signals worth knowing about.",
-    badge: "Read only",
-    range: "Last 24 hours · compared with previous day"
+    note: "Oneira at a glance. Activity, growth, and signals worth knowing about.",
+    filter: "Last 24 hours",
+    range: "compared with previous day"
   }));
   main.appendChild(adminBanner(
     "All systems operational",
@@ -13,7 +14,7 @@ function paintOverviewStatistics(main) {
   adminKpiRow(main, [
     { label: "Accounts", value: "12,480", icon: "users", detail: "186 new in the last 24h", delta: "↑ 6.9% new vs previous day", tone: "up" },
     { label: "Reports", value: "38", icon: "flag", detail: "Open reports · 8 high priority", delta: "↓ 4 open vs previous day", tone: "down" },
-    { label: "Auto mod", value: "126", icon: "shield", detail: "88 blocked · 28 flagged", delta: "↑ 14.5% events vs previous day", tone: "up" },
+    { label: "Auto mod", value: "126", icon: "shield", detail: "Flags only · never acts on accounts", delta: "↑ 14.5% flags vs previous day", tone: "up" },
     { label: "Servers", value: "842", icon: "grid", detail: "612 active in the last 24h", delta: "+14 created in the last 24h", tone: "flat" },
     { label: "Community", value: "2,416", icon: "share", detail: "Posts submitted in the last 24h", delta: "↑ 9.4% vs previous day", tone: "up" }
   ]);
@@ -42,7 +43,7 @@ function paintOverviewStatistics(main) {
   left.appendChild(growth.panel);
   const queue = adminPanel({
     title: "Report queue snapshot",
-    meta: "Read only · 38 open",
+    meta: "38 open",
     foot: "Snapshot data · Updates every 5 minutes"
   });
   queue.body.appendChild(adminTable(
@@ -70,7 +71,7 @@ function paintOverviewStatistics(main) {
   noting.body.appendChild(adminNotes([
     {
       title: "Spam is the leading auto mod signal",
-      copy: "88 of 126 events came from spam detection."
+      copy: "88 of 126 flags came from spam detection."
     },
     {
       title: "Community participation is growing",
@@ -125,7 +126,6 @@ function paintOverviewAutoMod(main) {
   }));
   adminKpiRow(main, [
     { label: "Open flags", value: "126", icon: "shield" },
-    { label: "Blocked", value: "88", icon: "shield" },
     { label: "Flagged", value: "28", icon: "flag" },
     { label: "Posts", value: "0", icon: "share" },
     { label: "Users", value: "0", icon: "users" }

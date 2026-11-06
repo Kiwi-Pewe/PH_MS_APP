@@ -255,6 +255,13 @@
   overflow: auto;
   background: var(--bg);
   padding: 22px 28px 36px;
+  display: flex;
+  flex-direction: column;
+}
+
+#admin-main.is-fit {
+  overflow: hidden;
+  padding: 16px 22px 12px;
 }
 
 .admin-head {
@@ -323,6 +330,30 @@
   height: 7px;
   border-radius: 50%;
   background: var(--danger);
+}
+
+.admin-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
+.admin-filter-pill svg {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-filter-pill:disabled {
+  opacity: 0.72;
+  cursor: default;
+  color: var(--text-dim);
 }
 
 .admin-range {

@@ -93,6 +93,7 @@ function paintAdminLeft() {
 function paintAdminMain() {
   const main = document.getElementById("admin-main");
   if (!main) return;
+  main.className = "";
   main.innerHTML = "";
   const page = currentAdminPage();
   if (page && typeof page.paint === "function") page.paint(main, adminSection);

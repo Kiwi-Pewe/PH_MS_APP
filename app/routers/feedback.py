@@ -20,13 +20,13 @@ FEEDBACK_TYPES = {
     "bug": "Bug Report",
     "feature": "Feature Request",
     "inquiry": "General Inquiries",
-    "report": "User/Server Report",
+    "report": "Report",
 }
 REPORT_KINDS = {
     "harassment": "Harassment",
-    "impersonation": "Impersonation",
-    "spam": "Spam",
-    "misleading": "Misleading content",
+    "privacy": "Privacy",
+    "scam": "Scam",
+    "inappropriate": "Inappropriate content",
     "other": "Other",
 }
 FEEDBACK_TEXT_MIN = 10

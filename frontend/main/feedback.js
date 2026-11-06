@@ -9,13 +9,13 @@ const FEEDBACK_TYPES = [
   { value: "bug", label: "Bug Report" },
   { value: "feature", label: "Feature Request" },
   { value: "inquiry", label: "General Inquiries" },
-  { value: "report", label: "User/Server Report" }
+  { value: "report", label: "Report" }
 ];
 const FEEDBACK_REPORT_KINDS = [
   { value: "harassment", label: "Harassment" },
-  { value: "impersonation", label: "Impersonation" },
-  { value: "spam", label: "Spam" },
-  { value: "misleading", label: "Misleading content" },
+  { value: "privacy", label: "Privacy" },
+  { value: "scam", label: "Scam" },
+  { value: "inappropriate", label: "Inappropriate content" },
   { value: "other", label: "Other" }
 ];
 
@@ -177,8 +177,8 @@ function openFeedbackCard(preset) {
   categoryLabel.appendChild(categorySelect);
 
   const kindLabel = document.createElement("label");
+  kindLabel.className = "feedback-kind-row";
   kindLabel.textContent = "Type";
-  kindLabel.hidden = true;
   const kindSelect = document.createElement("select");
   const kindBlank = document.createElement("option");
   kindBlank.value = "";
@@ -194,7 +194,7 @@ function openFeedbackCard(preset) {
 
   function syncKindRow() {
     const reportOn = categorySelect.value === "report";
-    kindLabel.hidden = !reportOn;
+    kindLabel.classList.toggle("is-on", reportOn);
     if (!reportOn) kindSelect.value = "";
   }
 
@@ -205,6 +205,10 @@ function openFeedbackCard(preset) {
   body.maxLength = FEEDBACK_TEXT_MAX;
   body.spellcheck = true;
   bodyLabel.appendChild(body);
+  const bodyNote = document.createElement("div");
+  bodyNote.className = "feedback-opt-note";
+  bodyNote.textContent = "Please provide as much information as possible.";
+  bodyLabel.appendChild(bodyNote);
 
   const mediaLabel = document.createElement("div");
   mediaLabel.className = "profile-opt-field-label";
@@ -225,8 +229,11 @@ function openFeedbackCard(preset) {
   mediaRow.appendChild(fileInput);
   mediaRow.appendChild(strip);
 
+  const split = document.createElement("div");
+  split.className = "feedback-opt-split";
   main.appendChild(categoryLabel);
   main.appendChild(kindLabel);
+  main.appendChild(split);
   main.appendChild(bodyLabel);
   main.appendChild(mediaLabel);
   main.appendChild(mediaRow);

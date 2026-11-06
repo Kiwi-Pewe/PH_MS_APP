@@ -267,15 +267,15 @@ function overviewReportCategory(kind) {
   if (kind === "bug") return "Bug";
   if (kind === "feature") return "Feature";
   if (kind === "inquiry") return "Inquiry";
-  if (kind === "report") return "User/Server";
+  if (kind === "report") return "Report";
   return kind || "—";
 }
 
 function overviewReportKind(kind) {
   if (kind === "harassment") return "Harassment";
-  if (kind === "impersonation") return "Impersonation";
-  if (kind === "spam") return "Spam";
-  if (kind === "misleading") return "Misleading content";
+  if (kind === "privacy") return "Privacy";
+  if (kind === "scam") return "Scam";
+  if (kind === "inappropriate") return "Inappropriate content";
   if (kind === "other") return "Other";
   return "—";
 }
@@ -306,7 +306,7 @@ function paintOverviewReports(main, stats) {
       detail: "Waiting for review"
     },
     {
-      label: "User/Server",
+      label: "Report",
       value: overviewNum(userServer),
       icon: "users",
       detail: share
@@ -333,15 +333,15 @@ function paintOverviewReports(main, stats) {
     { label: "Bug", value: Number(types.bug) || 0, total: open },
     { label: "Feature", value: Number(types.feature) || 0, total: open },
     { label: "Inquiry", value: Number(types.inquiry) || 0, total: open },
-    { label: "User/Server", value: Number(types.report) || 0, total: open }
+    { label: "Report", value: Number(types.report) || 0, total: open }
   ]));
   dash.appendChild(cats.panel);
-  const typePanel = adminPanel({ title: "Open reports by type", meta: overviewNum(userServer) + " user/server" });
+  const typePanel = adminPanel({ title: "Open reports by type", meta: overviewNum(userServer) + " reports" });
   typePanel.body.appendChild(adminMeterList([
     { label: "Harassment", value: Number(kinds.harassment) || 0, total: userServer },
-    { label: "Impersonation", value: Number(kinds.impersonation) || 0, total: userServer },
-    { label: "Spam", value: Number(kinds.spam) || 0, total: userServer },
-    { label: "Misleading content", value: Number(kinds.misleading) || 0, total: userServer },
+    { label: "Privacy", value: Number(kinds.privacy) || 0, total: userServer },
+    { label: "Scam", value: Number(kinds.scam) || 0, total: userServer },
+    { label: "Inappropriate content", value: Number(kinds.inappropriate) || 0, total: userServer },
     { label: "Other", value: Number(kinds.other) || 0, total: userServer }
   ]));
   dash.appendChild(typePanel.panel);

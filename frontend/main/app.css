@@ -8620,6 +8620,18 @@ a.profile-link-row:hover { color: var(--accent); }
   color: var(--text-dim);
   margin-bottom: 12px;
 }
+.feedback-opt-main label.feedback-kind-row { display: none; }
+.feedback-opt-main label.feedback-kind-row.is-on { display: block; }
+.feedback-opt-split {
+  border-top: 1px solid var(--border);
+  margin: 4px 0 16px;
+}
+.feedback-opt-note {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
 .feedback-opt-main select,
 .feedback-opt-main textarea {
   display: block;

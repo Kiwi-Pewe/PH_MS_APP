@@ -88,7 +88,7 @@ function usersWhen(raw) {
   if (!raw) return "—";
   const when = new Date(String(raw).replace(" ", "T") + "Z");
   if (Number.isNaN(when.getTime())) return "—";
-  return usersCreated(raw) + ", " + adminPad(when.getUTCHours()) + ":" + adminPad(when.getUTCMinutes());
+  return adminEstStamp(when);
 }
 
 function usersHandle(row) {
@@ -264,13 +264,45 @@ function paintUsersAccount(host, row) {
   host.appendChild(foot);
 }
 
+function usersReportCategory(row) {
+  const mode = String(row.report_mode || row.report_kind || "").toLowerCase();
+  if (mode === "general") return "General";
+  if (mode === "moderation") return "Moderation";
+  return row.feedback_label || "Report";
+}
+
+function usersReportSubject(row) {
+  const kind = String(row.report_kind || "").toLowerCase();
+  if (kind && kind !== "general" && kind !== "moderation") return usersKindLabel(kind) || kind;
+  return row.feedback_label || "Report";
+}
+
 function usersReportRow(row) {
   const status = String(row.status || "new").toLowerCase();
-  const btn = adminEl("button", "users-ticket" + (row.id === usersPinnedId ? " is-on" : ""));
+  const btn = adminEl("button", "users-entry" + (row.id === usersPinnedId ? " is-on" : ""));
   btn.type = "button";
-  btn.appendChild(adminEl("div", "users-ticket-id", "R-" + row.id));
-  btn.appendChild(adminEl("div", "users-ticket-subject", usersKindLabel(row.report_kind) || row.feedback_label || "Report"));
-  btn.appendChild(adminEl("div", "users-ticket-state is-" + status, usersStatusLabel(status)));
+  const top = adminEl("div", "users-entry-top");
+  const who = adminEl("div", "users-entry-who");
+  const face = adminEl("div", "users-entry-face");
+  usersFace(face, row, row.display_name || row.username);
+  who.appendChild(face);
+  who.appendChild(adminEl("div", "users-entry-name", row.display_name || row.username || "—"));
+  top.appendChild(who);
+  const times = adminEl("div", "users-entry-times");
+  times.appendChild(adminEl("div", "users-entry-when", usersWhen(row.created_at)));
+  times.appendChild(adminEl("div", "users-entry-updated", usersWhen(row.last_interacted || row.created_at)));
+  top.appendChild(times);
+  btn.appendChild(top);
+  const bottom = adminEl("div", "users-entry-bottom");
+  const pills = adminEl("div", "users-entry-pills");
+  pills.appendChild(adminEl("div", "users-entry-pill", usersReportCategory(row)));
+  pills.appendChild(adminEl("div", "users-entry-pill", usersReportSubject(row)));
+  pills.appendChild(adminEl("div", "users-entry-pill is-" + status, usersStatusLabel(status)));
+  bottom.appendChild(pills);
+  const text = String(row.report || "").trim();
+  const body = adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information");
+  bottom.appendChild(body);
+  btn.appendChild(bottom);
   btn.addEventListener("click", () => pinUsersReport(row.id === usersPinnedId ? 0 : row.id));
   return btn;
 }
@@ -297,8 +329,13 @@ function paintUsersReports(host) {
   }
   const pinned = usersReports.find((row) => row.id === usersPinnedId);
   const reports = usersCard({ title: "Reports", fill: true, className: "users-reports-card" });
-  const tickets = adminEl("div", "users-ticket-list");
-  usersReports.forEach((row) => tickets.appendChild(usersReportRow(row)));
+  const tickets = adminEl("div", "users-entry-list");
+  usersReports.slice().sort((a, b) => {
+    const left = String(b.last_interacted || b.created_at || "");
+    const right = String(a.last_interacted || a.created_at || "");
+    if (left === right) return (b.id || 0) - (a.id || 0);
+    return left > right ? 1 : -1;
+  }).forEach((row) => tickets.appendChild(usersReportRow(row)));
   reports.appendChild(tickets);
   const body = adminEl("div", "users-trail");
   paintUsersTrail(body);

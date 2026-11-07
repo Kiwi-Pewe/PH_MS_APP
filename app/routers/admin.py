@@ -289,6 +289,7 @@ def pack_feedback(row, extra=None):
         "requests_info": bool(row.requests_info),
         "report_mode": row.report_mode or "",
         "created_at": str(row.created_at) if row.created_at else None,
+        "last_interacted": extra.get("last_interacted") or (str(row.created_at) if row.created_at else None),
         "delete_after": str(row.delete_after) if getattr(row, "delete_after", None) else None,
         "avatar": extra.get("avatar") or {},
         "joined_at": extra.get("joined_at"),
@@ -966,11 +967,24 @@ def admin_user_reports(
     user_ids = list({row.user_id for row in rows if row.user_id})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
     extras = feedback_extras(database, rows, accounts)
+    report_ids = [row.id for row in rows]
+    last = {}
+    if report_ids:
+        last = dict(
+            database.query(Feedback_event.report_id, func.max(Feedback_event.created_at))
+            .filter(Feedback_event.report_id.in_(report_ids))
+            .group_by(Feedback_event.report_id)
+            .all()
+        )
     packed = []
     for row in rows:
-        item = pack_feedback(row, extras.get(row.id))
+        extra = dict(extras.get(row.id) or {})
+        touched = last.get(row.id) or row.created_at
+        extra["last_interacted"] = str(touched) if touched else None
+        item = pack_feedback(row, extra)
         item["about"] = bool(row.user_id != account.id)
         packed.append(item)
+    packed.sort(key=lambda item: (item.get("last_interacted") or "", item.get("id") or 0), reverse=True)
     return {"reports": packed}
 
 

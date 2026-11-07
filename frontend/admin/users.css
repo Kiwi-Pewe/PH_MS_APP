@@ -71,19 +71,23 @@
 
 .users-card-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   padding: 12px 14px 10px;
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
   background: var(--rail);
+  text-align: center;
 }
 
 .users-card-title {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   color: var(--text);
+  width: 100%;
+  text-align: center;
 }
 
 .users-card-meta {
@@ -536,12 +540,17 @@
 .users-btn-report:hover { background: var(--panel-alt); }
 
 .admin-tracked-kicker {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-dim);
-  padding: 2px 4px 0;
+  padding: 2px 4px 6px;
+  text-align: center;
+}
+
+#admin-main.is-users .admin-page-title {
+  text-align: center;
 }
 
 .admin-tracked-card {

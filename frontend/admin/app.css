@@ -138,6 +138,11 @@
   overflow: auto;
 }
 
+#admin-sections .admin-tracked {
+  margin-top: auto;
+  padding-top: 10px;
+}
+
 .admin-section {
   display: flex;
   align-items: center;
@@ -222,11 +227,41 @@
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 8px 10px;
+  padding: 4px 6px 4px 8px;
   color: var(--text);
 }
 
 .admin-tracked-card:hover { background: var(--panel-alt); }
+
+.admin-tracked-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 4px 0;
+}
+
+.admin-tracked-x {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  background: transparent;
+  color: var(--text-dim);
+  border: none;
+  border-radius: 8px;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+}
+
+.admin-tracked-x:hover {
+  color: var(--text);
+  background: var(--panel-alt);
+}
 
 .admin-tracked-face {
   width: 32px;

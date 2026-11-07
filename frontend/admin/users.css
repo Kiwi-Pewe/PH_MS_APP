@@ -290,21 +290,23 @@
 .users-entry-top {
   position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   background: var(--rail);
   border-bottom: 1px solid var(--border);
+  min-height: 80px;
+  box-sizing: border-box;
 }
 
 .users-entry-face {
   position: absolute;
   left: 14px;
-  bottom: -11px;
+  top: 12px;
   width: 56px;
   height: 56px;
   border-radius: 14px;
-  border: 3px solid var(--bg);
+  border: 3px solid var(--rail);
   background-color: var(--panel-alt);
   color: var(--admin-on);
   display: flex;
@@ -362,7 +364,6 @@
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
-  padding-bottom: 4px;
 }
 
 .users-entry-split {
@@ -412,7 +413,7 @@
 }
 
 .users-entry-post {
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.45;
   color: var(--text);
 }
@@ -427,7 +428,7 @@
 
 .users-entry-text {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.45;
   color: var(--text);
   overflow: hidden;
@@ -442,7 +443,7 @@
 
 .users-entry-updates {
   margin-top: 8px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-dim);
 }

@@ -340,6 +340,18 @@ function usersDateShift(days) {
   return when.getFullYear() + "-" + adminPad(when.getMonth() + 1) + "-" + adminPad(when.getDate());
 }
 
+function usersToggle(on) {
+  const label = adminEl("label", "toggle-switch");
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = !!on;
+  const track = adminEl("span", "toggle-track");
+  track.appendChild(adminEl("span", "toggle-thumb"));
+  label.appendChild(input);
+  label.appendChild(track);
+  return { label: label, input: input };
+}
+
 function usersDurationControls() {
   const host = adminEl("div", "admin-report-duration");
   const mode = adminEl("div", "admin-report-switch");
@@ -390,18 +402,16 @@ function usersDurationControls() {
 
 function usersLockControl(item) {
   const wrap = adminEl("div", "admin-report-lock");
-  const line = adminEl("label", "admin-report-lock-line");
-  const box = document.createElement("input");
-  box.type = "checkbox";
-  box.checked = true;
-  line.appendChild(box);
+  const line = adminEl("div", "admin-report-lock-line");
   line.appendChild(adminEl("span", "", item.label));
+  const toggle = usersToggle(false);
+  line.appendChild(toggle.label);
   wrap.appendChild(line);
   const duration = usersDurationControls();
   duration.host.hidden = true;
   wrap.appendChild(duration.host);
-  box.addEventListener("change", () => {
-    duration.host.hidden = box.checked;
+  toggle.input.addEventListener("change", () => {
+    duration.host.hidden = !toggle.input.checked;
   });
   return {
     wrap: wrap,
@@ -409,7 +419,7 @@ function usersLockControl(item) {
       const extra = duration.read();
       return {
         kind: item.id,
-        allowed: box.checked,
+        allowed: !toggle.input.checked,
         permanent: extra.permanent,
         days: extra.days,
         until: extra.until
@@ -467,41 +477,37 @@ function openUsersCreateReport(row) {
   body.appendChild(modeSwitch);
   body.appendChild(adminEl("div", "admin-report-rule"));
   const generalBox = adminEl("div", "admin-report-mode");
-  const alertLine = adminEl("label", "admin-report-check");
-  const alertBox = document.createElement("input");
-  alertBox.type = "checkbox";
-  alertLine.appendChild(alertBox);
+  const alertLine = adminEl("div", "admin-report-check");
   alertLine.appendChild(adminEl("span", "", "Alert User"));
-  const infoLine = adminEl("label", "admin-report-check");
-  const infoBox = document.createElement("input");
-  infoBox.type = "checkbox";
-  infoLine.appendChild(infoBox);
+  const alertToggle = usersToggle(false);
+  alertLine.appendChild(alertToggle.label);
+  const infoLine = adminEl("div", "admin-report-check");
   infoLine.appendChild(adminEl("span", "", "Requests Info From User"));
+  const infoToggle = usersToggle(false);
+  infoLine.appendChild(infoToggle.label);
   generalBox.appendChild(alertLine);
   generalBox.appendChild(infoLine);
   const modBox = adminEl("div", "admin-report-mode");
   modBox.hidden = true;
-  const warnLine = adminEl("label", "admin-report-check");
-  const warnBox = document.createElement("input");
-  warnBox.type = "checkbox";
-  warnLine.appendChild(warnBox);
+  const warnLine = adminEl("div", "admin-report-check");
   warnLine.appendChild(adminEl("span", "", "Warn"));
+  const warnToggle = usersToggle(false);
+  warnLine.appendChild(warnToggle.label);
   const warnReason = adminEl("textarea", "admin-report-reason");
   warnReason.rows = 5;
   warnReason.placeholder = "Reason";
   warnReason.hidden = true;
-  warnBox.addEventListener("change", () => {
-    warnReason.hidden = !warnBox.checked;
+  warnToggle.input.addEventListener("change", () => {
+    warnReason.hidden = !warnToggle.input.checked;
   });
-  const banLine = adminEl("label", "admin-report-check");
-  const banBox = document.createElement("input");
-  banBox.type = "checkbox";
-  banLine.appendChild(banBox);
+  const banLine = adminEl("div", "admin-report-check");
   banLine.appendChild(adminEl("span", "", "Ban"));
+  const banToggle = usersToggle(false);
+  banLine.appendChild(banToggle.label);
   const banDuration = usersDurationControls();
   banDuration.host.hidden = true;
-  banBox.addEventListener("change", () => {
-    banDuration.host.hidden = !banBox.checked;
+  banToggle.input.addEventListener("change", () => {
+    banDuration.host.hidden = !banToggle.input.checked;
   });
   modBox.appendChild(warnLine);
   modBox.appendChild(warnReason);
@@ -574,7 +580,7 @@ function openUsersCreateReport(row) {
   body.appendChild(info);
   function submit() {
     usersReportError("");
-    if (mode === "moderation" && warnBox.checked && !String(warnReason.value || "").trim()) {
+    if (mode === "moderation" && warnToggle.input.checked && !String(warnReason.value || "").trim()) {
       usersReportError("Write a warn reason.");
       return;
     }
@@ -591,11 +597,11 @@ function openUsersCreateReport(row) {
         status: status,
         assign_id: status === "closed" ? null : Number(assign.value) || null,
         urgency: status === "closed" ? "" : urgency,
-        alert_user: mode === "general" && alertBox.checked,
-        requests_info: mode === "general" && infoBox.checked,
-        warn: mode === "moderation" && warnBox.checked,
+        alert_user: mode === "general" && alertToggle.input.checked,
+        requests_info: mode === "general" && infoToggle.input.checked,
+        warn: mode === "moderation" && warnToggle.input.checked,
         warn_reason: warnReason.value,
-        ban: mode === "moderation" && banBox.checked,
+        ban: mode === "moderation" && banToggle.input.checked,
         ban_permanent: ban.permanent,
         ban_days: ban.days,
         ban_until: ban.until,

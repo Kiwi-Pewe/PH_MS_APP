@@ -713,37 +713,51 @@
 .admin-report-check {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   font-size: 15px;
   font-weight: 700;
   color: var(--text);
 }
 
-.admin-report-lock-line input[type="checkbox"],
-.admin-report-check input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  margin: 0;
+.admin-report-lock .toggle-switch,
+.admin-report-check .toggle-switch {
   flex: 0 0 auto;
-  box-sizing: border-box;
-  background: transparent;
-  border: 1px solid var(--text-dim);
-  border-radius: 0;
 }
 
-.admin-report-lock-line input[type="checkbox"]:checked,
-.admin-report-check input[type="checkbox"]:checked {
-  background: var(--accent);
-  border-color: var(--accent);
+.toggle-switch { position: relative; display: inline-block; cursor: pointer; line-height: 0; }
+.toggle-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  position: relative;
+}
+.toggle-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.toggle-switch input:checked + .toggle-track {
+  background: var(--accent-submenu);
+  border-color: var(--accent-submenu);
+}
+.toggle-switch input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(16px);
+  background: #fff;
 }
 
 .admin-report-duration {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding-left: 26px;
 }
 
 .admin-report-duration .admin-report-switch {
@@ -790,6 +804,14 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.admin-report-duration[hidden],
+.admin-report-mode[hidden],
+.admin-report-extra[hidden],
+.admin-report-reason[hidden],
+.admin-report-input[hidden] {
+  display: none !important;
 }
 
 .admin-report-left .users-banner {

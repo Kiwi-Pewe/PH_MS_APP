@@ -60,11 +60,34 @@ function usersCreated(raw) {
   return adminPad(when.getUTCDate()) + " " + ADMIN_MONTHS[when.getUTCMonth()] + " " + when.getUTCFullYear();
 }
 
+function usersClock(raw) {
+  if (!raw) return "—";
+  const when = new Date(String(raw).replace(" ", "T") + "Z");
+  if (Number.isNaN(when.getTime())) return "—";
+  return adminPad(when.getUTCHours()) + ":" + adminPad(when.getUTCMinutes()) + " UTC";
+}
+
 function usersWhen(raw) {
   if (!raw) return "—";
   const when = new Date(String(raw).replace(" ", "T") + "Z");
   if (Number.isNaN(when.getTime())) return "—";
   return usersCreated(raw) + ", " + adminPad(when.getUTCHours()) + ":" + adminPad(when.getUTCMinutes());
+}
+
+function usersHandle(row) {
+  const name = (row && row.username) || "";
+  return name ? ("u/" + name) : "—";
+}
+
+function usersCard(opts) {
+  const card = adminEl("div", "users-card" + (opts.fill ? " is-fill" : ""));
+  if (opts.title || opts.meta) {
+    const head = adminEl("div", "users-card-head");
+    if (opts.title) head.appendChild(adminEl("div", "users-card-title", opts.title));
+    if (opts.meta) head.appendChild(adminEl("div", "users-card-meta", opts.meta));
+    card.appendChild(head);
+  }
+  return card;
 }
 
 function usersBanUntil(raw) {
@@ -146,53 +169,65 @@ function paintUsersAccount(host, row) {
     usersSelectEmpty(host);
     return;
   }
-  const wrap = adminEl("div", "users-account");
-  const top = adminEl("div", "users-account-top");
+  const ident = usersCard({});
   const banner = adminEl("div", "users-banner");
   const bannerUrl = usersMediaUrl(row.banner);
   if (bannerUrl) banner.style.backgroundImage = "url(\"" + bannerUrl + "\")";
   else if (row.banner_color) banner.style.background = row.banner_color;
-  top.appendChild(banner);
+  ident.appendChild(banner);
   const who = adminEl("div", "users-account-who");
   const face = adminEl("div", "users-account-face");
   usersFace(face, row, row.username || row.display_name);
   who.appendChild(face);
   const names = adminEl("div", "users-account-names");
   names.appendChild(adminEl("div", "users-account-display", row.display_name || row.username || "—"));
-  names.appendChild(adminEl("div", "users-account-handle", row.username || "—"));
-  names.appendChild(adminEl("div", "users-account-created", usersCreated(row.created_at)));
+  names.appendChild(adminEl("div", "users-account-handle", usersHandle(row)));
   who.appendChild(names);
-  top.appendChild(who);
-  wrap.appendChild(top);
-  const mid = adminEl("div", "users-account-mid");
+  if (usersPresence(row) === "online") who.appendChild(adminEl("div", "users-account-live", "Active"));
+  ident.appendChild(who);
+  const dates = adminEl("div", "users-account-dates");
+  const created = adminEl("div", "");
+  created.appendChild(adminEl("div", "users-account-date-k", "Created"));
+  created.appendChild(adminEl("div", "users-account-date-v", usersCreated(row.created_at)));
+  const last = adminEl("div", "");
+  last.appendChild(adminEl("div", "users-account-date-k", "Last online"));
+  last.appendChild(adminEl("div", "users-account-date-v", usersClock(row.last_active)));
+  dates.appendChild(created);
+  dates.appendChild(last);
+  ident.appendChild(dates);
+  host.appendChild(ident);
   const banned = !!row.site_banned;
   const until = usersBanUntil(row.banned_until);
-  const last = usersPresence(row) === "online" ? "Online" : usersWhen(row.last_active);
-  mid.appendChild(usersStat("Last online", last));
-  mid.appendChild(usersStat("Friends", adminNum(row.friend_count)));
-  mid.appendChild(usersStat("Warns", adminNum(row.warn_count)));
-  mid.appendChild(usersStat("Blocked by", adminNum(row.blocked_by)));
-  mid.appendChild(usersStat("Servers banned from", adminNum(row.server_ban_count)));
-  mid.appendChild(usersStat("Reports made", adminNum(row.reports_made)));
-  mid.appendChild(usersStat("Reports about", adminNum(row.reports_about)));
-  mid.appendChild(usersStat("Site bans", adminNum(row.site_ban_count)));
-  mid.appendChild(usersStat("Ban", banned ? (until || "Banned") : "Not banned"));
-  if (banned && row.ban_reason) mid.appendChild(usersStat("Ban reason", row.ban_reason));
-  mid.appendChild(usersStat("Connected devices", adminNum(row.session_count)));
-  mid.appendChild(usersStat("Servers", adminNum(row.server_count)));
-  wrap.appendChild(mid);
-  const notes = adminEl("div", "users-account-notes");
+  const summary = usersCard({ title: "Moderation summary", meta: usersHandle(row) });
+  const stats = adminEl("div", "users-stats");
+  stats.appendChild(usersStat("Friends", adminNum(row.friend_count)));
+  stats.appendChild(usersStat("Warns", adminNum(row.warn_count)));
+  stats.appendChild(usersStat("Blocked by", adminNum(row.blocked_by) + " users"));
+  stats.appendChild(usersStat("Banned from", adminNum(row.server_ban_count) + " servers"));
+  stats.appendChild(usersStat("Reports made", adminNum(row.reports_made)));
+  stats.appendChild(usersStat("Reports about", adminNum(row.reports_about)));
+  stats.appendChild(usersStat("Site bans", adminNum(row.site_ban_count)));
+  stats.appendChild(usersStat("Ban", banned ? (until || "Banned") : "Not banned"));
+  if (banned && row.ban_reason) stats.appendChild(usersStat("Ban reason", row.ban_reason));
+  stats.appendChild(usersStat("Connected devices", adminNum(row.session_count)));
+  stats.appendChild(usersStat("Servers", adminNum(row.server_count)));
+  summary.appendChild(stats);
+  host.appendChild(summary);
+  const notes = usersCard({ title: "User notes", meta: adminNum(usersNotes.length) + " notes", fill: true });
   const list = adminEl("div", "users-note-list");
   usersNotes.forEach((note) => {
     const item = adminEl("div", "users-note");
-    item.appendChild(adminEl("div", "users-note-meta", (note.actor_username || "kiwi") + " · " + usersWhen(note.created_at)));
+    const top = adminEl("div", "users-note-top");
+    top.appendChild(adminEl("div", "users-note-who", note.actor_username || "kiwi"));
+    top.appendChild(adminEl("div", "users-note-when", usersClock(note.created_at)));
+    item.appendChild(top);
     item.appendChild(adminEl("div", "users-note-text", note.text || ""));
     list.appendChild(item);
   });
   notes.appendChild(list);
-  notes.appendChild(usersNoteBox("Note", (text, done) => {
+  notes.appendChild(usersNoteBox("Add admin note for this user...", (text, done) => {
     adminApi("/admin/user/" + row.id + "/notes", { method: "POST", body: { text: text } }).then((response) => {
-      if (!response.ok) return response.json().then((data) => Promise.reject(data)).catch(() => null);
+      if (!response.ok) return null;
       return response.json();
     }).then((data) => {
       if (!data || !data.note) return;
@@ -201,32 +236,26 @@ function paintUsersAccount(host, row) {
       done();
     }).catch(() => {});
   }));
-  wrap.appendChild(notes);
-  const foot = adminEl("div", "users-account-foot");
-  const track = adminEl("button", "users-btn-track", "Track user");
+  host.appendChild(notes);
+  const foot = adminEl("div", "users-actions");
+  const track = adminEl("button", "users-btn-track", "Track User");
   track.type = "button";
   track.addEventListener("click", () => trackAdminUser(row));
-  const report = adminEl("button", "users-btn-report", "Create report");
+  const report = adminEl("button", "users-btn-report", "Create Report");
   report.type = "button";
   report.addEventListener("click", () => openUsersCreateReport(row));
   foot.appendChild(track);
   foot.appendChild(report);
-  wrap.appendChild(foot);
-  host.appendChild(wrap);
+  host.appendChild(foot);
 }
 
-function usersReportCard(row, pinned) {
+function usersReportRow(row) {
   const status = String(row.status || "new").toLowerCase();
-  const btn = adminEl("button", "users-ticket" + (pinned ? " is-pin" : "") + (row.id === usersPinnedId ? " is-on" : ""));
+  const btn = adminEl("button", "users-ticket" + (row.id === usersPinnedId ? " is-on" : ""));
   btn.type = "button";
-  const top = adminEl("div", "users-ticket-top");
-  top.appendChild(adminEl("div", "users-ticket-state is-" + status, usersStatusLabel(status)));
-  top.appendChild(adminEl("div", "users-ticket-side", row.about ? "About" : "By"));
-  btn.appendChild(top);
-  const title = usersKindLabel(row.report_kind) || row.feedback_label || "Report";
-  btn.appendChild(adminEl("div", "users-ticket-title", title));
-  btn.appendChild(adminEl("div", "users-ticket-body", usersLine(row.report, 90)));
-  btn.appendChild(adminEl("div", "users-ticket-meta", (row.username || "—") + " · " + usersWhen(row.created_at)));
+  btn.appendChild(adminEl("div", "users-ticket-id", "R-" + row.id));
+  btn.appendChild(adminEl("div", "users-ticket-subject", usersKindLabel(row.report_kind) || row.feedback_label || "Report"));
+  btn.appendChild(adminEl("div", "users-ticket-state is-" + status, usersStatusLabel(status)));
   btn.addEventListener("click", () => pinUsersReport(row.id === usersPinnedId ? 0 : row.id));
   return btn;
 }
@@ -235,9 +264,11 @@ function paintUsersTrail(host) {
   host.innerHTML = "";
   usersEvents.forEach((row) => {
     const item = adminEl("div", "users-trail-item");
-    const kind = row.kind === "note" ? "Note" : row.kind === "status" ? "Update" : "Opened";
+    const top = adminEl("div", "users-trail-top");
+    top.appendChild(adminEl("div", "users-trail-who", row.actor_username || "kiwi"));
+    top.appendChild(adminEl("div", "users-trail-when", usersClock(row.created_at)));
+    item.appendChild(top);
     const label = row.kind === "note" ? (row.text || "") : usersStatusLabel(row.text);
-    item.appendChild(adminEl("div", "users-trail-meta", kind + " · " + (row.actor_username || "kiwi") + " · " + usersWhen(row.created_at)));
     if (label) item.appendChild(adminEl("div", "users-trail-text", label));
     host.appendChild(item);
   });
@@ -249,14 +280,28 @@ function paintUsersReports(host) {
     usersSelectEmpty(host);
     return;
   }
-  const wrap = adminEl("div", "users-reports");
+  const handle = usersHandle(usersSelected);
+  const reports = usersCard({ title: "Reports by / about " + handle, meta: adminNum(usersReports.length) + " total" });
+  const head = adminEl("div", "users-table-head");
+  head.appendChild(adminEl("div", "", "ID"));
+  head.appendChild(adminEl("div", "", "Subject"));
+  head.appendChild(adminEl("div", "", "State"));
+  reports.appendChild(head);
+  const list = adminEl("div", "users-ticket-list");
+  usersReports.forEach((row) => list.appendChild(usersReportRow(row)));
+  reports.appendChild(list);
+  host.appendChild(reports);
   const pinned = usersReports.find((row) => row.id === usersPinnedId);
+  const trail = usersCard({
+    title: "Audit trail",
+    meta: pinned ? ("R-" + pinned.id) : "",
+    fill: true
+  });
+  const body = adminEl("div", "users-trail");
+  paintUsersTrail(body);
+  trail.appendChild(body);
   if (pinned) {
-    wrap.appendChild(usersReportCard(pinned, true));
-    const trail = adminEl("div", "users-trail");
-    paintUsersTrail(trail);
-    wrap.appendChild(trail);
-    wrap.appendChild(usersNoteBox("Note", (text, done) => {
+    trail.appendChild(usersNoteBox("Add internal note for the moderation team...", (text, done) => {
       adminApi("/admin/feedback/" + pinned.id + "/note", { method: "POST", body: { text: text } }).then((response) => {
         if (!response.ok) return null;
         return response.json();
@@ -267,13 +312,8 @@ function paintUsersReports(host) {
         done();
       }).catch(() => {});
     }));
-    host.appendChild(wrap);
-    return;
   }
-  const list = adminEl("div", "users-ticket-list");
-  usersReports.forEach((row) => list.appendChild(usersReportCard(row, false)));
-  wrap.appendChild(list);
-  host.appendChild(wrap);
+  host.appendChild(trail);
 }
 
 function pinUsersReport(reportId) {
@@ -350,7 +390,7 @@ function paintUsersRows(list) {
     btn.appendChild(face);
     const text = adminEl("div", "users-row-text");
     text.appendChild(adminEl("div", "users-row-name", row.display_name || row.username || "—"));
-    text.appendChild(adminEl("div", "users-row-handle", row.username || "—"));
+    text.appendChild(adminEl("div", "users-row-handle", usersHandle(row)));
     btn.appendChild(text);
     btn.addEventListener("click", () => selectUsersRow(row.id));
     list.appendChild(btn);
@@ -426,10 +466,16 @@ function queueUsersSearch() {
 
 function paintUsersSearch(main) {
   main.className = "is-users";
+  main.appendChild(adminPageHead({
+    crumbs: ["Admin", "Users", "Search"],
+    title: "Search",
+    range: usersSelected ? ("Selected account: " + usersHandle(usersSelected)) : ""
+  }));
   const board = adminEl("div", "users-search");
-  const left = adminEl("div", "users-col");
-  const top = adminEl("div", "users-search-top");
-  const row = adminEl("div", "users-search-row");
+  const left = adminEl("div", "users-stack");
+  const search = usersCard({});
+  const fields = adminEl("div", "users-search-fields");
+  fields.appendChild(adminEl("div", "users-field-k", "Search by"));
   const select = adminEl("select", "users-search-by");
   USERS_BY.forEach((opt) => {
     const item = document.createElement("option");
@@ -438,6 +484,8 @@ function paintUsersSearch(main) {
     if (opt.id === usersBy) item.selected = true;
     select.appendChild(item);
   });
+  fields.appendChild(select);
+  fields.appendChild(adminEl("div", "users-field-k", "Query"));
   const input = adminEl("input", "users-search-q");
   input.type = "text";
   input.value = usersQuery;
@@ -451,31 +499,33 @@ function paintUsersSearch(main) {
     usersQuery = input.value || "";
     queueUsersSearch();
   });
-  row.appendChild(select);
-  row.appendChild(input);
-  top.appendChild(row);
+  fields.appendChild(input);
   const filter = adminEl("button", "admin-filter-pill");
   filter.type = "button";
   filter.disabled = true;
   filter.appendChild(adminEl("span", "", "Filters"));
   filter.appendChild(adminIcon("down"));
-  top.appendChild(filter);
-  left.appendChild(top);
+  fields.appendChild(filter);
+  search.appendChild(fields);
+  left.appendChild(search);
+  const entries = usersCard({ title: "Account entries", fill: true });
   const list = adminEl("div", "users-search-list");
   list.id = "users-search-list";
-  left.appendChild(list);
+  entries.appendChild(list);
+  left.appendChild(entries);
   board.appendChild(left);
-  const mid = adminEl("div", "users-col");
+  const mid = adminEl("div", "users-stack");
   mid.id = "users-reports";
   if (usersSelectedId) paintUsersReports(mid);
   else usersSelectEmpty(mid);
   board.appendChild(mid);
-  const right = adminEl("div", "users-col");
+  const right = adminEl("div", "users-stack");
   right.id = "users-account";
   if (usersSelected) paintUsersAccount(right, usersSelected);
   else usersSelectEmpty(right);
   board.appendChild(right);
   main.appendChild(board);
+  main.appendChild(adminEl("div", "overview-page-foot", "Snapshot data · Updates every 5 minutes"));
   if (usersRows.length) paintUsersRows(list);
   else loadUsersList(false);
 }

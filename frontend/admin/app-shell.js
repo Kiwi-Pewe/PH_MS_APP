@@ -109,27 +109,6 @@ function paintAdminLeftFoot() {
   note.appendChild(adminIcon("eye"));
   note.appendChild(adminEl("span", "", "Read-only overview"));
   host.appendChild(note);
-  if (adminTracked.length) {
-    const pack = adminEl("div", "admin-tracked");
-    adminTracked.forEach((row) => {
-      const btn = adminEl("button", "admin-tracked-card");
-      btn.type = "button";
-      const face = adminEl("div", "admin-tracked-face", (row.username || row.display_name || "u").slice(0, 1).toLowerCase());
-      const url = row.avatar && row.avatar.url;
-      if (url) {
-        face.style.backgroundImage = "url(\"" + url + "\")";
-        face.textContent = "";
-      }
-      btn.appendChild(face);
-      const text = adminEl("div", "admin-tracked-text");
-      text.appendChild(adminEl("div", "admin-tracked-name", row.display_name || row.username || "—"));
-      text.appendChild(adminEl("div", "admin-tracked-handle", row.username || "—"));
-      btn.appendChild(text);
-      btn.addEventListener("click", () => openTrackedUser(row.id));
-      pack.appendChild(btn);
-    });
-    host.appendChild(pack);
-  }
   const who = adminEl("div", "admin-who");
   const name = (adminUser && (adminUser.display_name || adminUser.username)) || "kiwi";
   const handle = (adminUser && adminUser.username) || "kiwi";
@@ -141,6 +120,28 @@ function paintAdminLeftFoot() {
   who.appendChild(text);
   who.appendChild(adminIcon("right", "admin-who-caret"));
   host.appendChild(who);
+  if (adminTracked.length) {
+    const pack = adminEl("div", "admin-tracked");
+    pack.appendChild(adminEl("div", "admin-tracked-kicker", "Tracked users"));
+    adminTracked.forEach((row) => {
+      const btn = adminEl("button", "admin-tracked-card");
+      btn.type = "button";
+      const face = adminEl("div", "admin-tracked-face", (row.username || row.display_name || "u").slice(0, 1).toLowerCase());
+      const url = row.avatar && row.avatar.url;
+      if (url) {
+        face.style.backgroundImage = "url(\"" + url + "\")";
+        face.textContent = "";
+      }
+      btn.appendChild(face);
+      const copy = adminEl("div", "admin-tracked-text");
+      copy.appendChild(adminEl("div", "admin-tracked-name", row.display_name || row.username || "—"));
+      copy.appendChild(adminEl("div", "admin-tracked-handle", row.username ? ("u/" + row.username) : "—"));
+      btn.appendChild(copy);
+      btn.addEventListener("click", () => openTrackedUser(row.id));
+      pack.appendChild(btn);
+    });
+    host.appendChild(pack);
+  }
 }
 
 function paintAdminLeft() {

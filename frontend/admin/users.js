@@ -45,8 +45,6 @@ let usersSelectedId = 0;
 let usersSelected = null;
 let usersTimer = 0;
 let usersReports = [];
-let usersPinnedId = 0;
-let usersEvents = [];
 let usersNoteText = "";
 
 function usersByMeta(id) {
@@ -75,13 +73,6 @@ function usersCreated(raw) {
   const when = new Date(String(raw).replace(" ", "T") + "Z");
   if (Number.isNaN(when.getTime())) return "—";
   return adminPad(when.getUTCDate()) + " " + ADMIN_MONTHS[when.getUTCMonth()] + " " + when.getUTCFullYear();
-}
-
-function usersClock(raw) {
-  if (!raw) return "—";
-  const when = new Date(String(raw).replace(" ", "T") + "Z");
-  if (Number.isNaN(when.getTime())) return "—";
-  return adminPad(when.getUTCHours()) + ":" + adminPad(when.getUTCMinutes()) + " UTC";
 }
 
 function usersWhen(raw) {
@@ -165,23 +156,6 @@ function usersStat(label, value) {
   row.appendChild(adminEl("div", "users-stat-k", label));
   row.appendChild(adminEl("div", "users-stat-v", value));
   return row;
-}
-
-function usersNoteBox(placeholder, onSend) {
-  const wrap = adminEl("div", "users-note-box");
-  const area = adminEl("textarea", "users-note-input");
-  area.rows = 5;
-  area.placeholder = placeholder;
-  area.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      const text = area.value;
-      if (!String(text || "").trim()) return;
-      onSend(text, () => { area.value = ""; });
-    }
-  });
-  wrap.appendChild(area);
-  return wrap;
 }
 
 function paintUsersAccount(host, row) {
@@ -277,48 +251,50 @@ function usersReportSubject(row) {
   return row.feedback_label || "Report";
 }
 
+function usersUrgencyLabel(value) {
+  const key = String(value || "low").toLowerCase();
+  if (key === "high") return "High";
+  if (key === "medium") return "Medium";
+  return "Low";
+}
+
+function usersReportStamp(label, raw) {
+  const wrap = adminEl("div", "users-entry-stamp");
+  wrap.appendChild(adminEl("div", "users-entry-stamp-k", label));
+  wrap.appendChild(adminEl("div", "users-entry-stamp-v", usersWhen(raw)));
+  return wrap;
+}
+
 function usersReportRow(row) {
   const status = String(row.status || "new").toLowerCase();
-  const btn = adminEl("button", "users-entry" + (row.id === usersPinnedId ? " is-on" : ""));
-  btn.type = "button";
+  const card = adminEl("div", "users-entry");
+  card.appendChild(adminEl("div", "users-entry-banner"));
   const top = adminEl("div", "users-entry-top");
   const who = adminEl("div", "users-entry-who");
   const face = adminEl("div", "users-entry-face");
   usersFace(face, row, row.display_name || row.username);
   who.appendChild(face);
-  who.appendChild(adminEl("div", "users-entry-name", row.display_name || row.username || "—"));
+  const names = adminEl("div", "users-entry-copy");
+  names.appendChild(adminEl("div", "users-entry-name", row.display_name || row.username || "—"));
+  names.appendChild(usersReportStamp("Created", row.created_at));
+  who.appendChild(names);
   top.appendChild(who);
-  const times = adminEl("div", "users-entry-times");
-  times.appendChild(adminEl("div", "users-entry-when", usersWhen(row.created_at)));
-  times.appendChild(adminEl("div", "users-entry-updated", usersWhen(row.last_interacted || row.created_at)));
-  top.appendChild(times);
-  btn.appendChild(top);
+  const flags = adminEl("div", "users-entry-flags");
+  flags.appendChild(adminEl("div", "users-entry-pill is-status is-" + status, usersStatusLabel(status)));
+  flags.appendChild(adminEl("div", "users-entry-split", "|"));
+  flags.appendChild(adminEl("div", "users-entry-pill is-urgency is-" + String(row.urgency || "low").toLowerCase(), usersUrgencyLabel(row.urgency)));
+  top.appendChild(flags);
+  card.appendChild(top);
   const bottom = adminEl("div", "users-entry-bottom");
   const pills = adminEl("div", "users-entry-pills");
   pills.appendChild(adminEl("div", "users-entry-pill", usersReportCategory(row)));
   pills.appendChild(adminEl("div", "users-entry-pill", usersReportSubject(row)));
-  pills.appendChild(adminEl("div", "users-entry-pill is-" + status, usersStatusLabel(status)));
   bottom.appendChild(pills);
   const text = String(row.report || "").trim();
-  const body = adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information");
-  bottom.appendChild(body);
-  btn.appendChild(bottom);
-  btn.addEventListener("click", () => pinUsersReport(row.id === usersPinnedId ? 0 : row.id));
-  return btn;
-}
-
-function paintUsersTrail(host) {
-  host.innerHTML = "";
-  usersEvents.forEach((row) => {
-    const item = adminEl("div", "users-trail-item");
-    const top = adminEl("div", "users-trail-top");
-    top.appendChild(adminEl("div", "users-trail-who", row.actor_username || "kiwi"));
-    top.appendChild(adminEl("div", "users-trail-when", usersClock(row.created_at)));
-    item.appendChild(top);
-    const label = row.kind === "note" ? (row.text || "") : usersStatusLabel(row.text);
-    if (label) item.appendChild(adminEl("div", "users-trail-text", label));
-    host.appendChild(item);
-  });
+  bottom.appendChild(adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information"));
+  bottom.appendChild(usersReportStamp("Updated", row.last_interacted || row.created_at));
+  card.appendChild(bottom);
+  return card;
 }
 
 function paintUsersReports(host) {
@@ -327,7 +303,6 @@ function paintUsersReports(host) {
     usersSelectEmpty(host);
     return;
   }
-  const pinned = usersReports.find((row) => row.id === usersPinnedId);
   const reports = usersCard({ title: "Reports", fill: true, className: "users-reports-card" });
   const tickets = adminEl("div", "users-entry-list");
   usersReports.slice().sort((a, b) => {
@@ -337,43 +312,7 @@ function paintUsersReports(host) {
     return left > right ? 1 : -1;
   }).forEach((row) => tickets.appendChild(usersReportRow(row)));
   reports.appendChild(tickets);
-  const body = adminEl("div", "users-trail");
-  paintUsersTrail(body);
-  reports.appendChild(body);
-  if (pinned) {
-    reports.appendChild(usersNoteBox("Add internal note for the moderation team...", (text, done) => {
-      adminApi("/admin/feedback/" + pinned.id + "/note", { method: "POST", body: { text: text } }).then((response) => {
-        if (!response.ok) return null;
-        return response.json();
-      }).then((data) => {
-        if (!data) return;
-        usersEvents = data.events || [];
-        paintUsersReports(host);
-        done();
-      }).catch(() => {});
-    }));
-  }
   host.appendChild(reports);
-}
-
-function pinUsersReport(reportId) {
-  usersPinnedId = reportId;
-  usersEvents = [];
-  const host = document.getElementById("users-reports");
-  if (!reportId) {
-    if (host) paintUsersReports(host);
-    return;
-  }
-  adminApi("/admin/feedback/" + reportId + "/events").then((response) => {
-    if (!response.ok) return null;
-    return response.json();
-  }).then((data) => {
-    if (usersPinnedId !== reportId) return;
-    usersEvents = (data && data.events) || [];
-    if (host) paintUsersReports(host);
-  }).catch(() => {
-    if (host) paintUsersReports(host);
-  });
 }
 
 function usersDateShift(days) {
@@ -775,11 +714,9 @@ function openUsersCreateReport(row) {
       closeUsersReport();
       if (result.data && result.data.user) usersSelected = result.data.user;
       else if (usersSelected) usersSelected.reports_about = (Number(usersSelected.reports_about) || 0) + 1;
-      if (result.data && result.data.report) {
-        usersReports.unshift(result.data.report);
-        usersPinnedId = result.data.report.id;
-        pinUsersReport(usersPinnedId);
-      }
+      if (result.data && result.data.report) usersReports.unshift(result.data.report);
+      const mid = document.getElementById("users-reports");
+      if (mid) paintUsersReports(mid);
       const account = document.getElementById("users-account");
       if (account && usersSelected) paintUsersAccount(account, usersSelected);
     }).catch(() => usersReportError("Could not create the report."));
@@ -819,8 +756,6 @@ function paintUsersRows(list) {
 
 function selectUsersRow(userId) {
   usersSelectedId = userId;
-  usersPinnedId = 0;
-  usersEvents = [];
   const list = document.getElementById("users-search-list");
   if (list) paintUsersRows(list);
   const mid = document.getElementById("users-reports");
@@ -837,17 +772,8 @@ function selectUsersRow(userId) {
     if (detail && detail.user) usersSelected = detail.user;
     usersReports = (reports && reports.reports) || [];
     usersNoteText = (notes && notes.text) || "";
-    if (!usersPinnedId && usersReports.length) usersPinnedId = usersReports[0].id;
     if (account) paintUsersAccount(account, usersSelected);
-    if (usersPinnedId) {
-      adminApi("/admin/feedback/" + usersPinnedId + "/events").then((response) => response.ok ? response.json() : null).then((data) => {
-        if (usersSelectedId !== userId) return;
-        usersEvents = (data && data.events) || [];
-        if (mid) paintUsersReports(mid);
-      }).catch(() => {
-        if (mid) paintUsersReports(mid);
-      });
-    } else if (mid) paintUsersReports(mid);
+    if (mid) paintUsersReports(mid);
   }).catch(() => {});
 }
 

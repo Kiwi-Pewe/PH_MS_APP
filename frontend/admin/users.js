@@ -79,7 +79,9 @@ function usersWhen(raw) {
   if (!raw) return "—";
   const when = new Date(String(raw).replace(" ", "T") + "Z");
   if (Number.isNaN(when.getTime())) return "—";
-  return adminEstStamp(when);
+  const time = when.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
+  if (Date.now() - when.getTime() < 86400000) return time;
+  return when.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
 function usersHandle(row) {
@@ -283,16 +285,17 @@ function usersReportRow(row) {
   top.appendChild(flags);
   card.appendChild(top);
   const bottom = adminEl("div", "users-entry-bottom");
+  const pills = adminEl("div", "users-entry-pills");
+  pills.appendChild(adminEl("div", "users-entry-pill", usersReportCategory(row)));
+  pills.appendChild(adminEl("div", "users-entry-pill", usersReportSubject(row)));
+  bottom.appendChild(pills);
   const post = adminEl("div", "users-entry-post");
-  const who = row.username || row.display_name || "—";
-  const when = usersWhen(row.created_at);
-  const text = String(row.report || "").trim() || "No additional information";
-  post.appendChild(adminEl("span", "users-entry-user", who));
+  post.appendChild(adminEl("span", "users-entry-user", row.username || row.display_name || "—"));
   post.appendChild(document.createTextNode(" | "));
-  post.appendChild(adminEl("span", "users-entry-when", when));
-  post.appendChild(document.createTextNode(": "));
-  post.appendChild(adminEl("span", "users-entry-text" + (String(row.report || "").trim() ? "" : " is-empty"), text));
+  post.appendChild(adminEl("span", "users-entry-when", usersWhen(row.created_at)));
   bottom.appendChild(post);
+  const text = String(row.report || "").trim();
+  bottom.appendChild(adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information"));
   bottom.appendChild(adminEl("div", "users-entry-updates", "Update: " + adminNum(row.update_count)));
   card.appendChild(bottom);
   return card;

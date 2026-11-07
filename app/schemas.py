@@ -200,9 +200,30 @@ class Admin_note(BaseModel):
     text: str = ""
 
 
+class Admin_lock(BaseModel):
+    kind: str = ""
+    allowed: bool = True
+    permanent: bool = False
+    days: int = 1
+    until: str = ""
+
+
 class Admin_user_report(BaseModel):
     report_kind: str = ""
     report: str = ""
+    mode: str = "general"
+    status: str = "open"
+    assign_id: int | None = None
+    urgency: str = ""
+    alert_user: bool = False
+    requests_info: bool = False
+    warn: bool = False
+    warn_reason: str = ""
+    ban: bool = False
+    ban_permanent: bool = False
+    ban_days: int = 1
+    ban_until: str = ""
+    locks: list[Admin_lock] = []
 
 
 class Community_post_create(BaseModel):

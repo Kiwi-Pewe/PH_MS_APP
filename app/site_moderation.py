@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_
 from app.models import (
     Account_warn, Active_Sessions, Admin_audit, Announcement_comment, Announcement_post,
+    Community_lock,
     Audit_log, Block_user, Channel_last_viewed, Channel_messages, Conversations,
     Dm_server_pref, Doc_page, Forum_messages, Forum_post, Friend_request, Invite_model,
     Message, Message_mention, Party_members, Party_messages, Perma_ban, Profile_comment,
@@ -294,6 +295,100 @@ def delete_own_account(database, user):
     wipe_user_chat(database, user.id)
     remove_user_memberships(database, user.id)
     database.delete(user)
+
+
+COMMUNITY_LOCKS = ("post", "comment", "rooms", "phone")
+COMMUNITY_LOCK_DETAIL = {
+    "post": "You cannot make posts.",
+    "comment": "You cannot comment.",
+    "rooms": "You cannot create or join rooms.",
+    "phone": "You cannot use Phone a User.",
+}
+
+
+def pack_community_locks(database, user_id):
+    now = datetime.utcnow()
+    rows = database.query(Community_lock).filter(Community_lock.user_id == user_id).all()
+    out = {}
+    for row in rows:
+        if not row.permanent and row.lift_at and row.lift_at <= now:
+            database.delete(row)
+            continue
+        out[row.kind] = {
+            "kind": row.kind,
+            "permanent": bool(row.permanent),
+            "lift_at": str(row.lift_at) if row.lift_at else None,
+        }
+    return out
+
+
+def refuse_community_lock(database, user, kind):
+    if not user:
+        return user
+    now = datetime.utcnow()
+    row = (
+        database.query(Community_lock)
+        .filter(Community_lock.user_id == user.id, Community_lock.kind == kind)
+        .first()
+    )
+    if not row:
+        return user
+    if not row.permanent and row.lift_at and row.lift_at <= now:
+        database.delete(row)
+        database.commit()
+        return user
+    raise HTTPException(status_code=403, detail=COMMUNITY_LOCK_DETAIL.get(kind, "That action is locked."))
+
+
+def set_community_lock(database, actor, target, kind, permanent, lift_at):
+    refuse_moderate(actor, target)
+    if kind not in COMMUNITY_LOCKS:
+        raise HTTPException(status_code=400, detail="Pick a valid lock.")
+    row = (
+        database.query(Community_lock)
+        .filter(Community_lock.user_id == target.id, Community_lock.kind == kind)
+        .first()
+    )
+    if not row:
+        row = Community_lock(user_id=target.id, kind=kind)
+        database.add(row)
+    row.permanent = bool(permanent)
+    row.lift_at = None if permanent else lift_at
+    row.actor_id = actor.id if actor else None
+    row.actor_username = (actor.username if actor else "") or ""
+    return row
+
+
+def clear_community_lock(database, user_id, kind):
+    database.query(Community_lock).filter(
+        Community_lock.user_id == user_id,
+        Community_lock.kind == kind,
+    ).delete(synchronize_session=False)
+
+
+def ban_account_until(database, actor, target, until, reason, permanent=False):
+    refuse_moderate(actor, target)
+    text = clip_reason(reason, required=False)
+    if permanent:
+        until = PERM_UNTIL
+        expires_at = None
+    else:
+        if not until or until <= datetime.utcnow():
+            raise HTTPException(status_code=400, detail="Pick a valid ban length.")
+        expires_at = until
+    target.banned_until = until
+    target.ban_reason = text or None
+    database.add(Site_ban(
+        user_id=target.id,
+        actor_id=actor.id,
+        actor_username=actor.username or "",
+        reason=text or "",
+        created_at=datetime.utcnow(),
+        expires_at=expires_at,
+    ))
+    drop_user_sessions(database, target.id)
+    write_admin_audit(database, actor, "ban", target, detail=text or "")
+    return until, expires_at
 
 
 def warn_account(database, actor, target, reason):

@@ -23,6 +23,7 @@ from app.routers.feed import notify_feed_alert
 from app.routers.messages import insert_system_dm, notify_system_dm, open_conversation
 from app.routers.profile import public_avatar, public_display_name
 from app.routers.realtime import notify_user
+from app.site_moderation import refuse_community_lock
 from app.schemas import Block_schema, Community_filter_entry, Community_phone_prefs, Community_phone_topic
 
 router = APIRouter()
@@ -420,6 +421,7 @@ async def get_community_phone(database: Session = Depends(get_db), current_user:
 
 @router.post("/community_phone/find")
 async def find_community_phone(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    refuse_community_lock(database, current_user, "phone")
     events = sweep_phone(database)
     database.commit()
     await push_phone_ends(events)
@@ -437,6 +439,7 @@ async def find_community_phone(database: Session = Depends(get_db), current_user
 
 @router.post("/community_phone/widen")
 async def widen_community_phone(database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    refuse_community_lock(database, current_user, "phone")
     events = sweep_phone(database)
     database.commit()
     await push_phone_ends(events)

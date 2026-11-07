@@ -24,6 +24,7 @@ from app.r2 import (
     store_attachment,
 )
 from app.schemas import Community_comment_create, Community_filter_entry, Community_post_create, Community_post_prefs
+from app.site_moderation import refuse_community_lock
 
 router = APIRouter()
 
@@ -578,6 +579,7 @@ def create_community_post(
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    refuse_community_lock(database, current_user, "post")
     text = clean_community_body(body.body)
     topics = clean_community_topics(body.topics)
     attachments = store_community_attachments(body.attachments, current_user)
@@ -603,6 +605,7 @@ def create_community_comment(
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    refuse_community_lock(database, current_user, "comment")
     parent = root_by_code(database, code)
     hidden = drop_blocked_rows(database, current_user.id, [parent], "author_id")
     if not hidden:

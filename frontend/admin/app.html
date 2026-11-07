@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="../shared/tokens.css?v=13">
 <link rel="stylesheet" href="app.css?v=18">
 <link rel="stylesheet" href="overview.css?v=9">
-<link rel="stylesheet" href="users.css?v=6">
+<link rel="stylesheet" href="users.css?v=7">
 </head>
 <body>
 
@@ -23,6 +23,23 @@
       <div id="admin-left-foot"></div>
     </div>
     <div id="admin-main"></div>
+  </div>
+</div>
+
+<div id="admin-report-overlay" hidden>
+  <div id="admin-report-modal" role="dialog" aria-modal="true" aria-labelledby="admin-report-title">
+    <div class="admin-report-left" id="admin-report-left"></div>
+    <div class="admin-report-right">
+      <div class="admin-report-head">
+        <span id="admin-report-title">Create Report</span>
+      </div>
+      <div class="admin-report-body" id="admin-report-body"></div>
+      <div class="admin-report-foot">
+        <p class="admin-report-error" id="admin-report-error" hidden></p>
+        <button type="button" class="admin-report-cancel" id="admin-report-cancel">Cancel</button>
+        <button type="button" class="admin-report-create" id="admin-report-create">Create</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -45,7 +62,7 @@
 <script src="app-shell.js?v=7"></script>
 <script src="chrome.js?v=7"></script>
 <script src="overview.js?v=15"></script>
-<script src="users.js?v=7"></script>
+<script src="users.js?v=8"></script>
 <script src="servers.js?v=2"></script>
 <script src="reports.js?v=2"></script>
 <script src="community.js?v=2"></script>

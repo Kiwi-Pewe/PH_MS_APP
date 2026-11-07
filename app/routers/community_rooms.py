@@ -22,6 +22,7 @@ from app.routers.community_posts import (
 )
 from app.routers.messages import mute_is_active, mute_public, mute_until_for
 from app.r2 import attachment_public, require_message_body, store_attachment
+from app.site_moderation import refuse_community_lock
 from app.routers.mentions import (
     accepted_reply_parent,
     apply_room_mentions,
@@ -284,6 +285,7 @@ def create_community_room(
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    refuse_community_lock(database, current_user, "rooms")
     owned = database.query(func.count(Community_room.id)).filter(Community_room.owner_id == current_user.id).scalar() or 0
     if owned >= COMMUNITY_ROOM_OWN_MAX:
         raise HTTPException(status_code=400, detail="You can only own 3 rooms.")
@@ -479,6 +481,7 @@ async def join_community_room(
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    refuse_community_lock(database, current_user, "rooms")
     room = room_or_404(database, room_id)
     if room_member(database, room.id, current_user.id):
         return pack_community_rooms(database, [room], current_user.id)[0]

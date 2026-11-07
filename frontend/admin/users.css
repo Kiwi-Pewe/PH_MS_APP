@@ -312,7 +312,9 @@
 }
 
 .users-ticket-state.is-new,
-.users-ticket-state.is-review {
+.users-ticket-state.is-review,
+.users-ticket-state.is-open,
+.users-ticket-state.is-followup {
   color: var(--admin-on);
   background: color-mix(in srgb, var(--admin-mark) 16%, transparent);
   border-radius: 999px;
@@ -320,7 +322,8 @@
 }
 
 .users-ticket-state.is-viewed { color: var(--text); }
-.users-ticket-state.is-completed { color: var(--text-dim); }
+.users-ticket-state.is-completed,
+.users-ticket-state.is-closed { color: var(--text-dim); }
 
 .users-trail {
   flex: 1 1 auto;
@@ -552,4 +555,247 @@
 
 .admin-tracked-card {
   border-left: 3px solid var(--admin-mark);
+}
+
+#admin-report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1210;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 34px;
+}
+
+#admin-report-overlay[hidden] { display: none; }
+
+#admin-report-modal {
+  width: min(1080px, 100%);
+  max-height: min(860px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--accent-submenu);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  display: grid;
+  grid-template-columns: minmax(280px, 0.78fr) minmax(420px, 1.22fr);
+}
+
+.admin-report-left {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+
+.admin-report-right {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+
+.admin-report-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 22px;
+  background: var(--rail);
+  border-bottom: 1px solid var(--border);
+}
+
+#admin-report-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.admin-report-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-report-foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 11px;
+  padding: 17px 22px 22px;
+  background: var(--rail);
+  border-top: 1px solid var(--border);
+}
+
+.admin-report-error {
+  margin: 0;
+  flex: 1 1 100%;
+  font-size: 16px;
+  font-weight: 600;
+  color: #c45c5c;
+}
+
+.admin-report-cancel,
+.admin-report-create {
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  padding: 10px 20px;
+}
+
+.admin-report-create {
+  margin-left: auto;
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.admin-report-rule {
+  height: 0;
+  border-top: 1px solid var(--border);
+}
+
+.admin-report-k {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.admin-report-switch {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.admin-report-switch button {
+  flex: 1 1 0;
+  background: var(--panel-alt);
+  color: var(--text-dim);
+  border: none;
+  border-right: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 12px;
+}
+
+.admin-report-switch button:last-child { border-right: none; }
+
+.admin-report-switch button.is-on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.admin-report-lock {
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-report-lock-line,
+.admin-report-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.admin-report-lock-line input[type="checkbox"],
+.admin-report-check input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  background: transparent;
+  border: 1px solid var(--text-dim);
+  border-radius: 0;
+}
+
+.admin-report-lock-line input[type="checkbox"]:checked,
+.admin-report-check input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.admin-report-duration {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-left: 26px;
+}
+
+.admin-report-duration .admin-report-switch {
+  flex: 1 1 160px;
+}
+
+.admin-report-input,
+.admin-report-reason {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 15px;
+}
+
+.admin-report-duration .admin-report-input {
+  flex: 1 1 140px;
+  width: auto;
+}
+
+.admin-report-reason {
+  min-height: 7.5em;
+  resize: none;
+  line-height: 1.45;
+}
+
+.admin-report-input:focus,
+.admin-report-reason:focus {
+  outline: none;
+  border-color: var(--accent-submenu);
+}
+
+.admin-report-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-report-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-report-left .users-banner {
+  flex: 0 0 auto;
+}
+
+.admin-report-left .users-account-who {
+  padding-top: 0;
 }

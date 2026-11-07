@@ -534,6 +534,11 @@ def ensure_feedback_columns():
         ("feedback_reports", "report_kind", "VARCHAR"),
         ("feedback_reports", "report_score", "INTEGER"),
         ("feedback_reports", "target_user_id", "INTEGER"),
+        ("feedback_reports", "assign_id", "INTEGER"),
+        ("feedback_reports", "urgency", "VARCHAR"),
+        ("feedback_reports", "alert_user", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("feedback_reports", "requests_info", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("feedback_reports", "report_mode", "VARCHAR"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:
@@ -565,6 +570,22 @@ def ensure_feedback_columns():
                 "actor_username VARCHAR, "
                 "text VARCHAR NOT NULL, "
                 "created_at DATETIME)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS community_locks ("
+                "id INTEGER PRIMARY KEY, "
+                "user_id INTEGER NOT NULL, "
+                "kind VARCHAR NOT NULL, "
+                "permanent BOOLEAN NOT NULL DEFAULT 0, "
+                "lift_at DATETIME, "
+                "actor_id INTEGER, "
+                "actor_username VARCHAR, "
+                "created_at DATETIME, "
+                "CONSTRAINT uq_community_lock UNIQUE (user_id, kind))"
             ))
             conn.commit()
         except Exception:

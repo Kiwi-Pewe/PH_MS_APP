@@ -650,6 +650,11 @@ class Feedback_report(Base):
     channel_name = Column(String, nullable=True)
     channel_type = Column(String, nullable=True)
     target_user_id = Column(Integer, nullable=True)
+    assign_id = Column(Integer, nullable=True)
+    urgency = Column(String, nullable=True)
+    alert_user = Column(Boolean, nullable=False, default=False, server_default="0")
+    requests_info = Column(Boolean, nullable=False, default=False, server_default="0")
+    report_mode = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     delete_after = Column(DateTime, nullable=True)
 
@@ -673,6 +678,20 @@ class Admin_user_note(Base):
     actor_username = Column(String, nullable=True)
     text = Column(String, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class Community_lock(Base):
+    __tablename__ = "community_locks"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False)
+    kind = Column(String, nullable=False)
+    permanent = Column(Boolean, nullable=False, default=False)
+    lift_at = Column(DateTime, nullable=True)
+    actor_id = Column(Integer, nullable=True)
+    actor_username = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("user_id", "kind", name="uq_community_lock"),)
+
 
 class Audit_log(Base):
     __tablename__ = "audit_logs"

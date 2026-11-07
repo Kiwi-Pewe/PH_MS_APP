@@ -8,14 +8,31 @@ const USERS_REPORT_STATUS = {
   new: "New",
   viewed: "Viewed",
   review: "In Progress",
-  completed: "Completed"
+  completed: "Completed",
+  open: "Open",
+  followup: "Needs Followup",
+  closed: "Closed"
 };
 const USERS_REPORT_KINDS = [
+  { id: "general", label: "General" },
+  { id: "moderation", label: "Moderation" },
   { id: "harassment", label: "Harassment" },
   { id: "privacy", label: "Privacy" },
   { id: "scam", label: "Scam" },
   { id: "inappropriate", label: "Inappropriate content" },
   { id: "other", label: "Other" }
+];
+const USERS_DURATION = [
+  { days: 1, label: "1 day" },
+  { days: 3, label: "3 days" },
+  { days: 5, label: "5 days" },
+  { days: 7, label: "one week" }
+];
+const USERS_LOCKS = [
+  { id: "post", label: "Can Post" },
+  { id: "comment", label: "Can Comment" },
+  { id: "rooms", label: "Can create/join Rooms" },
+  { id: "phone", label: "Can use Phone" }
 ];
 
 let usersBy = "id";
@@ -275,6 +292,9 @@ function paintUsersReports(host) {
   }
   const pinned = usersReports.find((row) => row.id === usersPinnedId);
   const reports = usersCard({ title: "Reports", fill: true, className: "users-reports-card" });
+  const tickets = adminEl("div", "users-ticket-list");
+  usersReports.forEach((row) => tickets.appendChild(usersReportRow(row)));
+  reports.appendChild(tickets);
   const body = adminEl("div", "users-trail");
   paintUsersTrail(body);
   reports.appendChild(body);
@@ -314,46 +334,294 @@ function pinUsersReport(reportId) {
   });
 }
 
-function openUsersCreateReport(row) {
-  const body = adminEl("div", "");
-  const kindLabel = adminEl("div", "admin-mod-label", "Type");
-  const kind = adminEl("select", "admin-mod-input");
-  USERS_REPORT_KINDS.forEach((item) => {
+function usersDateShift(days) {
+  const when = new Date();
+  when.setDate(when.getDate() + days);
+  return when.getFullYear() + "-" + adminPad(when.getMonth() + 1) + "-" + adminPad(when.getDate());
+}
+
+function usersDurationControls() {
+  const host = adminEl("div", "admin-report-duration");
+  const mode = adminEl("div", "admin-report-switch");
+  const durationBtn = adminEl("button", "is-on", "Duration");
+  const permBtn = adminEl("button", "", "Permanent");
+  durationBtn.type = "button";
+  permBtn.type = "button";
+  const days = adminEl("select", "admin-report-input");
+  USERS_DURATION.forEach((item) => {
     const opt = document.createElement("option");
-    opt.value = item.id;
+    opt.value = String(item.days);
     opt.textContent = item.label;
-    kind.appendChild(opt);
+    days.appendChild(opt);
   });
-  const area = adminEl("textarea", "admin-mod-reason");
-  area.rows = 5;
-  body.appendChild(kindLabel);
-  body.appendChild(kind);
-  body.appendChild(area);
-  openAdminMod({
-    title: "Create report",
-    confirm: "Create report",
-    body: body,
-    onConfirm: () => {
-      adminModError("");
-      adminApi("/admin/user/" + row.id + "/report", {
-        method: "POST",
-        body: { report_kind: kind.value, report: area.value }
-      }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
-        if (!result.ok) {
-          const detail = result.data && result.data.detail;
-          adminModError(typeof detail === "string" ? detail : "Could not create the report.");
-          return;
-        }
-        closeAdminMod();
-        if (result.data && result.data.report) usersReports.unshift(result.data.report);
-        if (usersSelected) usersSelected.reports_about = (Number(usersSelected.reports_about) || 0) + 1;
-        const mid = document.getElementById("users-reports");
-        if (mid) paintUsersReports(mid);
-        const account = document.getElementById("users-account");
-        if (account && usersSelected) paintUsersAccount(account, usersSelected);
-      }).catch(() => adminModError("Could not create the report."));
+  days.value = "1";
+  const cal = document.createElement("input");
+  cal.type = "date";
+  cal.className = "admin-report-input";
+  cal.min = usersDateShift(1);
+  cal.value = usersDateShift(1);
+  let permanent = false;
+  function setMode(on) {
+    permanent = on;
+    durationBtn.classList.toggle("is-on", !on);
+    permBtn.classList.toggle("is-on", on);
+    days.hidden = on;
+    cal.hidden = on;
+  }
+  days.addEventListener("change", () => {
+    cal.value = usersDateShift(Number(days.value) || 1);
+  });
+  durationBtn.addEventListener("click", () => setMode(false));
+  permBtn.addEventListener("click", () => setMode(true));
+  mode.appendChild(durationBtn);
+  mode.appendChild(permBtn);
+  host.appendChild(mode);
+  host.appendChild(days);
+  host.appendChild(cal);
+  return {
+    host: host,
+    read: () => ({
+      permanent: permanent,
+      days: Number(days.value) || 1,
+      until: permanent ? "" : cal.value
+    })
+  };
+}
+
+function usersLockControl(item) {
+  const wrap = adminEl("div", "admin-report-lock");
+  const line = adminEl("label", "admin-report-lock-line");
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = true;
+  line.appendChild(box);
+  line.appendChild(adminEl("span", "", item.label));
+  wrap.appendChild(line);
+  const duration = usersDurationControls();
+  duration.host.hidden = true;
+  wrap.appendChild(duration.host);
+  box.addEventListener("change", () => {
+    duration.host.hidden = box.checked;
+  });
+  return {
+    wrap: wrap,
+    read: () => {
+      const extra = duration.read();
+      return {
+        kind: item.id,
+        allowed: box.checked,
+        permanent: extra.permanent,
+        days: extra.days,
+        until: extra.until
+      };
     }
+  };
+}
+
+function closeUsersReport() {
+  const overlay = document.getElementById("admin-report-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+function usersReportError(text) {
+  const err = document.getElementById("admin-report-error");
+  if (!err) return;
+  err.textContent = text || "";
+  err.hidden = !text;
+}
+
+function openUsersCreateReport(row) {
+  const overlay = document.getElementById("admin-report-overlay");
+  const left = document.getElementById("admin-report-left");
+  const body = document.getElementById("admin-report-body");
+  const create = document.getElementById("admin-report-create");
+  const cancel = document.getElementById("admin-report-cancel");
+  if (!overlay || !left || !body) return;
+  left.innerHTML = "";
+  body.innerHTML = "";
+  usersReportError("");
+  const banner = adminEl("div", "users-banner");
+  const bannerUrl = usersMediaUrl(row.banner);
+  if (bannerUrl) banner.style.backgroundImage = "url(\"" + bannerUrl + "\")";
+  else if (row.banner_color) banner.style.background = row.banner_color;
+  left.appendChild(banner);
+  const who = adminEl("div", "users-account-who");
+  const face = adminEl("div", "users-account-face");
+  usersFace(face, row, row.username || row.display_name);
+  who.appendChild(face);
+  const names = adminEl("div", "users-account-names");
+  names.appendChild(adminEl("div", "users-account-display", row.display_name || row.username || "—"));
+  names.appendChild(adminEl("div", "users-account-handle", usersHandle(row)));
+  who.appendChild(names);
+  left.appendChild(who);
+  left.appendChild(adminEl("div", "admin-report-rule"));
+  const locks = USERS_LOCKS.map((item) => usersLockControl(item));
+  locks.forEach((item) => left.appendChild(item.wrap));
+  const modeSwitch = adminEl("div", "admin-report-switch is-wide");
+  const generalBtn = adminEl("button", "is-on", "General");
+  const modBtn = adminEl("button", "", "Moderation");
+  generalBtn.type = "button";
+  modBtn.type = "button";
+  modeSwitch.appendChild(generalBtn);
+  modeSwitch.appendChild(modBtn);
+  body.appendChild(modeSwitch);
+  body.appendChild(adminEl("div", "admin-report-rule"));
+  const generalBox = adminEl("div", "admin-report-mode");
+  const alertLine = adminEl("label", "admin-report-check");
+  const alertBox = document.createElement("input");
+  alertBox.type = "checkbox";
+  alertLine.appendChild(alertBox);
+  alertLine.appendChild(adminEl("span", "", "Alert User"));
+  const infoLine = adminEl("label", "admin-report-check");
+  const infoBox = document.createElement("input");
+  infoBox.type = "checkbox";
+  infoLine.appendChild(infoBox);
+  infoLine.appendChild(adminEl("span", "", "Requests Info From User"));
+  generalBox.appendChild(alertLine);
+  generalBox.appendChild(infoLine);
+  const modBox = adminEl("div", "admin-report-mode");
+  modBox.hidden = true;
+  const warnLine = adminEl("label", "admin-report-check");
+  const warnBox = document.createElement("input");
+  warnBox.type = "checkbox";
+  warnLine.appendChild(warnBox);
+  warnLine.appendChild(adminEl("span", "", "Warn"));
+  const warnReason = adminEl("textarea", "admin-report-reason");
+  warnReason.rows = 5;
+  warnReason.placeholder = "Reason";
+  warnReason.hidden = true;
+  warnBox.addEventListener("change", () => {
+    warnReason.hidden = !warnBox.checked;
   });
+  const banLine = adminEl("label", "admin-report-check");
+  const banBox = document.createElement("input");
+  banBox.type = "checkbox";
+  banLine.appendChild(banBox);
+  banLine.appendChild(adminEl("span", "", "Ban"));
+  const banDuration = usersDurationControls();
+  banDuration.host.hidden = true;
+  banBox.addEventListener("change", () => {
+    banDuration.host.hidden = !banBox.checked;
+  });
+  modBox.appendChild(warnLine);
+  modBox.appendChild(warnReason);
+  modBox.appendChild(banLine);
+  modBox.appendChild(banDuration.host);
+  body.appendChild(generalBox);
+  body.appendChild(modBox);
+  let mode = "general";
+  function setMode(next) {
+    mode = next;
+    generalBtn.classList.toggle("is-on", next === "general");
+    modBtn.classList.toggle("is-on", next === "moderation");
+    generalBox.hidden = next !== "general";
+    modBox.hidden = next !== "moderation";
+  }
+  generalBtn.addEventListener("click", () => setMode("general"));
+  modBtn.addEventListener("click", () => setMode("moderation"));
+  body.appendChild(adminEl("div", "admin-report-rule"));
+  body.appendChild(adminEl("div", "admin-report-k", "Status"));
+  const statusSwitch = adminEl("div", "admin-report-switch is-wide");
+  const extra = adminEl("div", "admin-report-extra");
+  const statusOpts = [
+    { id: "open", label: "Open" },
+    { id: "followup", label: "Needs Followup" },
+    { id: "closed", label: "Closed" }
+  ];
+  let status = "open";
+  const statusBtns = statusOpts.map((item) => {
+    const btn = adminEl("button", item.id === "open" ? "is-on" : "", item.label);
+    btn.type = "button";
+    btn.addEventListener("click", () => {
+      status = item.id;
+      statusBtns.forEach((other) => other.classList.toggle("is-on", other === btn));
+      extra.hidden = status === "closed";
+    });
+    statusSwitch.appendChild(btn);
+    return btn;
+  });
+  body.appendChild(statusSwitch);
+  extra.appendChild(adminEl("div", "admin-report-k", "Assign to"));
+  const assign = adminEl("select", "admin-report-input");
+  const assignOpt = document.createElement("option");
+  assignOpt.value = String((adminUser && adminUser.id) || "");
+  assignOpt.textContent = (adminUser && (adminUser.display_name || adminUser.username)) || "kiwi";
+  assign.appendChild(assignOpt);
+  extra.appendChild(assign);
+  extra.appendChild(adminEl("div", "admin-report-k", "Urgency"));
+  const urgencySwitch = adminEl("div", "admin-report-switch is-wide");
+  const urgencyOpts = [
+    { id: "high", label: "High" },
+    { id: "medium", label: "Medium" },
+    { id: "low", label: "Low" }
+  ];
+  let urgency = "medium";
+  const urgencyBtns = urgencyOpts.map((item) => {
+    const btn = adminEl("button", item.id === "medium" ? "is-on" : "", item.label);
+    btn.type = "button";
+    btn.addEventListener("click", () => {
+      urgency = item.id;
+      urgencyBtns.forEach((other) => other.classList.toggle("is-on", other === btn));
+    });
+    urgencySwitch.appendChild(btn);
+    return btn;
+  });
+  extra.appendChild(urgencySwitch);
+  body.appendChild(extra);
+  body.appendChild(adminEl("div", "admin-report-k", "Additional Information"));
+  const info = adminEl("textarea", "admin-report-reason");
+  info.rows = 5;
+  body.appendChild(info);
+  function submit() {
+    usersReportError("");
+    if (mode === "moderation" && warnBox.checked && !String(warnReason.value || "").trim()) {
+      usersReportError("Write a warn reason.");
+      return;
+    }
+    if (!String(info.value || "").trim()) {
+      usersReportError("Write additional information.");
+      return;
+    }
+    const ban = banDuration.read();
+    adminApi("/admin/user/" + row.id + "/report", {
+      method: "POST",
+      body: {
+        report: info.value,
+        mode: mode,
+        status: status,
+        assign_id: status === "closed" ? null : Number(assign.value) || null,
+        urgency: status === "closed" ? "" : urgency,
+        alert_user: mode === "general" && alertBox.checked,
+        requests_info: mode === "general" && infoBox.checked,
+        warn: mode === "moderation" && warnBox.checked,
+        warn_reason: warnReason.value,
+        ban: mode === "moderation" && banBox.checked,
+        ban_permanent: ban.permanent,
+        ban_days: ban.days,
+        ban_until: ban.until,
+        locks: locks.map((item) => item.read())
+      }
+    }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+      if (!result.ok) {
+        const detail = result.data && result.data.detail;
+        usersReportError(typeof detail === "string" ? detail : "Could not create the report.");
+        return;
+      }
+      closeUsersReport();
+      if (result.data && result.data.user) usersSelected = result.data.user;
+      else if (usersSelected) usersSelected.reports_about = (Number(usersSelected.reports_about) || 0) + 1;
+      if (result.data && result.data.report) {
+        usersReports.unshift(result.data.report);
+        usersPinnedId = result.data.report.id;
+        pinUsersReport(usersPinnedId);
+      }
+      const account = document.getElementById("users-account");
+      if (account && usersSelected) paintUsersAccount(account, usersSelected);
+    }).catch(() => usersReportError("Could not create the report."));
+  }
+  create.onclick = submit;
+  cancel.onclick = closeUsersReport;
+  overlay.hidden = false;
 }
 
 function paintUsersRows(list) {

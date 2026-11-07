@@ -22,15 +22,19 @@ from app.routers.feed import notify_feed_alert
 from app.routers.realtime import active_connections, presence_status
 from app.r2 import delete_attachment, post_attachments_public
 from app.site_moderation import (
+    COMMUNITY_LOCKS,
     SITE_BAN_LABELS,
     SITE_BAN_SECONDS,
     account_warn_count,
     ban_account,
+    ban_account_until,
     delete_account_to_permaban,
     friend_count,
     is_protected_account,
+    pack_community_locks,
     refuse_moderate,
     server_ban_count,
+    set_community_lock,
     site_ban_active,
     site_ban_count,
     warn_account,
@@ -50,15 +54,21 @@ FEEDBACK_TYPE_LABELS = {
     "report": "Report",
 }
 
-FEEDBACK_STATUSES = ("new", "viewed", "review", "completed")
-FEEDBACK_CHANGE_STATUSES = ("viewed", "review")
+FEEDBACK_STATUSES = ("new", "viewed", "review", "completed", "open", "followup", "closed")
+FEEDBACK_CHANGE_STATUSES = ("viewed", "review", "open", "followup")
 FEEDBACK_COMPLETE_DAYS = 30
 FEEDBACK_STATUS_LABELS = {
     "new": "New",
     "viewed": "Viewed",
     "review": "In review",
     "completed": "Completed",
+    "open": "Open",
+    "followup": "Needs Followup",
+    "closed": "Closed",
 }
+ADMIN_REPORT_STATUSES = ("open", "followup", "closed")
+ADMIN_URGENCY = ("high", "medium", "low")
+ADMIN_LOCK_DAYS = (1, 3, 5, 7)
 
 
 def require_oneira_admin(user):
@@ -163,6 +173,8 @@ def load_admin_user(database, user_id):
         .filter(or_(Feedback_report.user_id.is_(None), Feedback_report.user_id != account.id))
         .scalar() or 0
     )
+    packed["community_locks"] = pack_community_locks(database, account.id)
+    database.commit()
     return packed
 
 
@@ -271,6 +283,11 @@ def pack_feedback(row, extra=None):
         "channel_name": row.channel_name,
         "channel_type": row.channel_type,
         "target_user_id": row.target_user_id,
+        "assign_id": row.assign_id,
+        "urgency": row.urgency or "",
+        "alert_user": bool(row.alert_user),
+        "requests_info": bool(row.requests_info),
+        "report_mode": row.report_mode or "",
         "created_at": str(row.created_at) if row.created_at else None,
         "delete_after": str(row.delete_after) if getattr(row, "delete_after", None) else None,
         "avatar": extra.get("avatar") or {},
@@ -400,10 +417,17 @@ def clip_admin_note(text, required=True):
 
 def apply_feedback_status(row, status):
     key = (status or "").strip().lower()
-    if key == "completed":
-        row.status = "completed"
-        if not getattr(row, "delete_after", None):
-            row.delete_after = datetime.utcnow() + timedelta(days=FEEDBACK_COMPLETE_DAYS)
+    if key in ("completed", "closed"):
+        row.status = "closed"
+        row.delete_after = None
+        return row
+    if key in ("review", "followup"):
+        row.status = "followup"
+        row.delete_after = None
+        return row
+    if key in ("new", "open"):
+        row.status = "open"
+        row.delete_after = None
         return row
     if key not in FEEDBACK_CHANGE_STATUSES:
         raise HTTPException(status_code=400, detail="That status cannot be set.")
@@ -412,27 +436,34 @@ def apply_feedback_status(row, status):
     return row
 
 
+def parse_admin_until(until, days, permanent):
+    if permanent:
+        return None, True
+    text = (until or "").strip()
+    if text:
+        try:
+            if "T" in text:
+                when = datetime.fromisoformat(text.replace("Z", ""))
+            else:
+                bits = text.split("-")
+                when = datetime(int(bits[0]), int(bits[1]), int(bits[2]), 23, 59, 59)
+        except (TypeError, ValueError, IndexError):
+            raise HTTPException(status_code=400, detail="Pick a valid date.")
+        if when <= datetime.utcnow():
+            raise HTTPException(status_code=400, detail="Pick a date in the future.")
+        return when, False
+    try:
+        count = int(days or 1)
+    except (TypeError, ValueError):
+        count = 1
+    if count not in ADMIN_LOCK_DAYS:
+        count = 1
+    return datetime.utcnow() + timedelta(days=count), False
+
+
 async def sweep_completed_feedback():
     while True:
         await asyncio.sleep(1800)
-        database = SessionLocal()
-        try:
-            now = datetime.utcnow()
-            rows = (
-                database.query(Feedback_report)
-                .filter(
-                    Feedback_report.status == "completed",
-                    Feedback_report.delete_after != None,
-                    Feedback_report.delete_after <= now,
-                )
-                .all()
-            )
-            for row in rows:
-                delete_attachment(row.attachments)
-                database.delete(row)
-            database.commit()
-        finally:
-            database.close()
 
 
 MONTH_SHORT = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
@@ -993,7 +1024,7 @@ def admin_add_user_note(
 
 
 @router.post("/admin/user/{user_id}/report")
-def admin_create_user_report(
+async def admin_create_user_report(
     user_id: int,
     body: Admin_user_report,
     database: Session = Depends(get_db),
@@ -1003,31 +1034,81 @@ def admin_create_user_report(
     account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
     if not account:
         raise HTTPException(status_code=404, detail="User not found.")
-    report_kind = clean_report_kind("report", body.report_kind)
-    report = clean_feedback_text(body.report)
+    report = clip_admin_note(body.report, required=True)
+    mode = (body.mode or "general").strip().lower()
+    if mode not in ("general", "moderation"):
+        raise HTTPException(status_code=400, detail="Pick General or Moderation.")
+    status = (body.status or "open").strip().lower()
+    if status not in ADMIN_REPORT_STATUSES:
+        raise HTTPException(status_code=400, detail="Pick a valid status.")
+    urgency = (body.urgency or "").strip().lower()
+    if status != "closed":
+        if urgency not in ADMIN_URGENCY:
+            urgency = "medium"
+    else:
+        urgency = None
+    assign_id = None
+    if status != "closed" and body.assign_id:
+        if int(body.assign_id) != current_user.id:
+            raise HTTPException(status_code=400, detail="Assign to kiwi.")
+        assign_id = current_user.id
+    locks = body.locks or []
+    need_action = bool(body.warn or body.ban or any(not item.allowed for item in locks))
+    if need_action:
+        refuse_moderate(current_user, account)
+    if mode == "moderation" and body.warn:
+        warn_account(database, current_user, account, body.warn_reason)
+    if mode == "moderation" and body.ban:
+        until, permanent = parse_admin_until(body.ban_until, body.ban_days, body.ban_permanent)
+        ban_account_until(database, current_user, account, until, "", permanent)
+    for item in locks:
+        kind = (item.kind or "").strip().lower()
+        if kind not in COMMUNITY_LOCKS or item.allowed:
+            continue
+        until, permanent = parse_admin_until(item.until, item.days, item.permanent)
+        set_community_lock(database, current_user, account, kind, permanent, until)
+    alert_user = bool(mode == "general" and body.alert_user)
+    requests_info = bool(mode == "general" and body.requests_info)
     score = feedback_score("report", report, 0)
     row = Feedback_report(
         user_id=current_user.id,
         username=current_user.username,
         display_name=public_display_name(current_user),
         feedback_type="report",
-        report_kind=report_kind,
+        report_kind=mode,
         report_score=score,
         report=report,
-        status="new",
+        status=status,
         context_view="profile",
         channel_id=account.id,
         channel_name="@" + (account.username or ""),
         target_user_id=account.id,
+        assign_id=assign_id,
+        urgency=urgency,
+        alert_user=alert_user,
+        requests_info=requests_info,
+        report_mode=mode,
     )
     database.add(row)
     database.commit()
     database.refresh(row)
-    add_feedback_event(database, row.id, current_user, "created", "new")
+    add_feedback_event(database, row.id, current_user, "created", status)
     database.commit()
+    if alert_user:
+        await notify_feed_alert(
+            database,
+            receiver_id=account.id,
+            alert_type="report_status",
+            sender_id=current_user.id,
+            alert_family="feedback",
+            reason="Open" if status == "open" else FEEDBACK_STATUS_LABELS.get(status, status),
+            context=json.dumps({"report_id": row.id, "feedback_type": "report"}),
+            force=True,
+        )
     extras = feedback_extras(database, [row], [current_user])
     packed = pack_feedback(row, extras.get(row.id))
     packed["about"] = True
+    packed["user"] = load_admin_user(database, account.id)
     return {"report": packed}
 
 

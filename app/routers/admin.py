@@ -389,9 +389,9 @@ def pack_admin_note(row):
     }
 
 
-def clip_admin_note(text):
+def clip_admin_note(text, required=True):
     value = (text or "").replace("\r\n", "\n").strip()
-    if not value:
+    if required and not value:
         raise HTTPException(status_code=400, detail="Write a note.")
     if len(value) > 1500:
         raise HTTPException(status_code=400, detail="Note is over the character limit.")
@@ -960,7 +960,8 @@ def admin_user_notes(
         .limit(50)
         .all()
     )
-    return {"notes": [pack_admin_note(row) for row in rows]}
+    text = rows[0].text if rows else ""
+    return {"text": text, "notes": [pack_admin_note(row) for row in rows]}
 
 
 @router.post("/admin/user/{user_id}/notes")
@@ -974,17 +975,21 @@ def admin_add_user_note(
     account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
     if not account:
         raise HTTPException(status_code=404, detail="User not found.")
-    text = clip_admin_note(body.text)
-    row = Admin_user_note(
-        user_id=account.id,
-        actor_id=current_user.id,
-        actor_username=current_user.username or "",
-        text=text,
-    )
-    database.add(row)
+    text = clip_admin_note(body.text, required=False)
+    database.query(Admin_user_note).filter(Admin_user_note.user_id == user_id).delete(synchronize_session=False)
+    row = None
+    if text:
+        row = Admin_user_note(
+            user_id=account.id,
+            actor_id=current_user.id,
+            actor_username=current_user.username or "",
+            text=text,
+        )
+        database.add(row)
     database.commit()
-    database.refresh(row)
-    return {"note": pack_admin_note(row)}
+    if row:
+        database.refresh(row)
+    return {"text": text, "note": pack_admin_note(row) if row else None}
 
 
 @router.post("/admin/user/{user_id}/report")

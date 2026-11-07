@@ -135,7 +135,7 @@ function paintAdminLeftFoot() {
       btn.appendChild(face);
       const copy = adminEl("div", "admin-tracked-text");
       copy.appendChild(adminEl("div", "admin-tracked-name", row.display_name || row.username || "—"));
-      copy.appendChild(adminEl("div", "admin-tracked-handle", row.username ? ("u/" + row.username) : "—"));
+      copy.appendChild(adminEl("div", "admin-tracked-handle", row.username || "—"));
       btn.appendChild(copy);
       btn.addEventListener("click", () => openTrackedUser(row.id));
       pack.appendChild(btn);

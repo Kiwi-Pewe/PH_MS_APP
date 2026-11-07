@@ -273,6 +273,7 @@
 }
 
 .users-entry {
+  position: relative;
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
@@ -281,35 +282,24 @@
   overflow: hidden;
 }
 
-.users-entry-banner {
-  height: 40px;
-  background: var(--rail);
-  flex: 0 0 auto;
-}
-
 .users-entry-top,
 .users-entry-bottom {
-  padding: 0 14px 12px;
+  padding: 12px 14px 12px 82px;
 }
 
 .users-entry-top {
+  position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
-}
-
-.users-entry-who {
-  min-width: 0;
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  margin-top: -22px;
 }
 
 .users-entry-face {
+  position: absolute;
+  left: 14px;
+  bottom: -11px;
   width: 56px;
   height: 56px;
   border-radius: 14px;
@@ -322,7 +312,8 @@
   font-size: 20px;
   font-weight: 800;
   overflow: hidden;
-  flex: 0 0 auto;
+  box-sizing: border-box;
+  z-index: 2;
 }
 
 .users-entry-face img {
@@ -330,13 +321,11 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  border-radius: 11px;
 }
 
 .users-entry-copy {
   min-width: 0;
   flex: 1 1 auto;
-  padding-bottom: 2px;
 }
 
 .users-entry-name {
@@ -416,23 +405,33 @@
   color: var(--text-dim);
 }
 
-.users-entry-text {
+.users-entry-post {
   font-size: 13px;
   line-height: 1.45;
   color: var(--text);
-  white-space: pre-wrap;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 5;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+.users-entry-user {
+  font-weight: 800;
+}
+
+.users-entry-when {
+  font-weight: 700;
 }
 
 .users-entry-text.is-empty {
   color: var(--text-dim);
 }
 
-.users-entry-bottom .users-entry-stamp {
-  margin-top: 10px;
+.users-entry-updates {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
 }
 
 .users-trail {

@@ -268,17 +268,14 @@ function usersReportStamp(label, raw) {
 function usersReportRow(row) {
   const status = String(row.status || "new").toLowerCase();
   const card = adminEl("div", "users-entry");
-  card.appendChild(adminEl("div", "users-entry-banner"));
   const top = adminEl("div", "users-entry-top");
-  const who = adminEl("div", "users-entry-who");
   const face = adminEl("div", "users-entry-face");
   usersFace(face, row, row.display_name || row.username);
-  who.appendChild(face);
+  top.appendChild(face);
   const names = adminEl("div", "users-entry-copy");
   names.appendChild(adminEl("div", "users-entry-name", row.display_name || row.username || "—"));
   names.appendChild(usersReportStamp("Created", row.created_at));
-  who.appendChild(names);
-  top.appendChild(who);
+  top.appendChild(names);
   const flags = adminEl("div", "users-entry-flags");
   flags.appendChild(adminEl("div", "users-entry-pill is-status is-" + status, usersStatusLabel(status)));
   flags.appendChild(adminEl("div", "users-entry-split", "|"));
@@ -286,13 +283,17 @@ function usersReportRow(row) {
   top.appendChild(flags);
   card.appendChild(top);
   const bottom = adminEl("div", "users-entry-bottom");
-  const pills = adminEl("div", "users-entry-pills");
-  pills.appendChild(adminEl("div", "users-entry-pill", usersReportCategory(row)));
-  pills.appendChild(adminEl("div", "users-entry-pill", usersReportSubject(row)));
-  bottom.appendChild(pills);
-  const text = String(row.report || "").trim();
-  bottom.appendChild(adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information"));
-  bottom.appendChild(usersReportStamp("Updated", row.last_interacted || row.created_at));
+  const post = adminEl("div", "users-entry-post");
+  const who = row.username || row.display_name || "—";
+  const when = usersWhen(row.created_at);
+  const text = String(row.report || "").trim() || "No additional information";
+  post.appendChild(adminEl("span", "users-entry-user", who));
+  post.appendChild(document.createTextNode(" | "));
+  post.appendChild(adminEl("span", "users-entry-when", when));
+  post.appendChild(document.createTextNode(": "));
+  post.appendChild(adminEl("span", "users-entry-text" + (String(row.report || "").trim() ? "" : " is-empty"), text));
+  bottom.appendChild(post);
+  bottom.appendChild(adminEl("div", "users-entry-updates", "Update: " + adminNum(row.update_count)));
   card.appendChild(bottom);
   return card;
 }

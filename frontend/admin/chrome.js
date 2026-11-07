@@ -53,6 +53,27 @@ function adminUtcStamp(date) {
     + " · " + adminPad(when.getUTCHours()) + ":" + adminPad(when.getUTCMinutes()) + " UTC";
 }
 
+function adminEstStamp(date) {
+  const when = date || new Date();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
+  }).formatToParts(when);
+  const pick = (type) => {
+    const row = parts.find((item) => item.type === type);
+    return row ? row.value : "";
+  };
+  const hour = pick("hour");
+  const minute = pick("minute");
+  const period = (pick("dayPeriod") || "AM").toUpperCase();
+  return pick("day") + " " + pick("month") + " " + pick("year") + " · " + hour + ":" + minute + " " + period + " EST";
+}
+
 function adminPageHead(opts) {
   const wrap = adminEl("div", "admin-head");
   const left = adminEl("div", "admin-head-copy");
@@ -67,7 +88,10 @@ function adminPageHead(opts) {
   if (opts.note) left.appendChild(adminEl("p", "admin-page-note", opts.note));
   wrap.appendChild(left);
   const meta = adminEl("div", "admin-head-meta");
-  if (opts.clock !== false) meta.appendChild(adminEl("div", "admin-clock", adminUtcStamp()));
+  if (opts.clock !== false) {
+    const stamp = opts.clock === "est" ? adminEstStamp() : adminUtcStamp();
+    meta.appendChild(adminEl("div", "admin-clock", stamp));
+  }
   if (opts.filter) {
     const filter = adminEl("button", "admin-filter-pill");
     filter.type = "button";

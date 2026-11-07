@@ -456,7 +456,8 @@ function paintUsersSearch(main) {
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Users", "Search"],
     title: "Search",
-    range: usersSelected ? ("Selected account: " + usersHandle(usersSelected)) : ""
+    note: "Search for users to review relative reports.",
+    clock: "est"
   }));
   const board = adminEl("div", "users-search");
   const left = adminEl("div", "users-stack is-left");

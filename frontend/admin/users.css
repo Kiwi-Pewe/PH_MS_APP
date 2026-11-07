@@ -549,9 +549,6 @@
   text-align: center;
 }
 
-#admin-main.is-users .admin-page-title {
-  text-align: center;
-}
 
 .admin-tracked-card {
   border-left: 3px solid var(--admin-mark);

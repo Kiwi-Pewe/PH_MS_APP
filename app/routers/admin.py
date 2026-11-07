@@ -1,22 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, cast, String
+from sqlalchemy import func, or_, and_, cast, String
 from app.models import (
-    UserInfo, Feedback_report, Servers, Server_members, Server_bans, Friend_request,
-    Account_warn, Site_ban, Active_Sessions, Message, Channel_messages, Server_channels,
-    Server_categories, Community_post, Community_room, Community_room_member,
-    Community_room_message, Community_phone_wait, Community_phone_call,
+    UserInfo, Feedback_report, Feedback_event, Admin_user_note, Servers, Server_members,
+    Server_bans, Friend_request, Account_warn, Site_ban, Active_Sessions, Message,
+    Channel_messages, Server_channels, Server_categories, Community_post, Community_room,
+    Community_room_member, Community_room_message, Community_phone_wait, Community_phone_call,
+    Block_user,
 )
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
-from app.schemas import Feedback_status, Admin_warn, Admin_ban, Admin_delete
+from app.schemas import Feedback_status, Admin_warn, Admin_ban, Admin_delete, Admin_note, Admin_user_report
 from app.routers.account import public_display_name
-from app.routers.feedback import REPORT_KINDS, feedback_file_count, feedback_score
+from app.routers.feedback import (
+    REPORT_KINDS, feedback_file_count, feedback_score, clean_feedback_text, clean_report_kind,
+)
 from app.routers.profile import public_identity, public_avatar, ensure_layout
 from app.routers.mini_profiles import layout_banner_and_about
 from app.routers.servers import server_banner_fields, server_icon_url
 from app.routers.feed import notify_feed_alert
-from app.routers.realtime import active_connections
+from app.routers.realtime import active_connections, presence_status
 from app.r2 import delete_attachment, post_attachments_public
 from app.site_moderation import (
     SITE_BAN_LABELS,
@@ -116,6 +119,7 @@ def pack_user(account, server_count, database=None):
         "site_banned": site_ban_active(account),
         "banned_until": str(account.banned_until) if getattr(account, "banned_until", None) else None,
         "ban_reason": getattr(account, "ban_reason", None) or "",
+        "presence": presence_status(account.id),
     }
     if database is not None:
         payload["friend_count"] = friend_count(database, account.id)
@@ -131,7 +135,35 @@ def load_admin_user(database, user_id):
     if not account:
         raise HTTPException(status_code=404, detail="User not found.")
     count = user_server_counts(database, [account.id]).get(account.id, 0)
-    return pack_user(account, count, database)
+    packed = pack_user(account, count, database)
+    packed["session_count"] = int(
+        database.query(func.count()).select_from(Active_Sessions)
+        .filter(Active_Sessions.account_id == account.id)
+        .scalar() or 0
+    )
+    last_active = (
+        database.query(func.max(Active_Sessions.last_active))
+        .filter(Active_Sessions.account_id == account.id)
+        .scalar()
+    )
+    packed["last_active"] = str(last_active) if last_active else None
+    packed["blocked_by"] = int(
+        database.query(func.count()).select_from(Block_user)
+        .filter(Block_user.blocked_user == account.id)
+        .scalar() or 0
+    )
+    packed["reports_made"] = int(
+        database.query(func.count()).select_from(Feedback_report)
+        .filter(Feedback_report.user_id == account.id)
+        .scalar() or 0
+    )
+    packed["reports_about"] = int(
+        database.query(func.count()).select_from(Feedback_report)
+        .filter(feedback_about_user(account.id, account.username))
+        .filter(or_(Feedback_report.user_id.is_(None), Feedback_report.user_id != account.id))
+        .scalar() or 0
+    )
+    return packed
 
 
 def pack_server(server, owner_names, owner_handles, member_count):
@@ -238,6 +270,7 @@ def pack_feedback(row, extra=None):
         "channel_id": row.channel_id,
         "channel_name": row.channel_name,
         "channel_type": row.channel_type,
+        "target_user_id": row.target_user_id,
         "created_at": str(row.created_at) if row.created_at else None,
         "delete_after": str(row.delete_after) if getattr(row, "delete_after", None) else None,
         "avatar": extra.get("avatar") or {},
@@ -287,6 +320,82 @@ def load_feedback_row(database, report_id):
     account = database.query(UserInfo).filter(UserInfo.id == row.user_id).first() if row.user_id else None
     extras = feedback_extras(database, [row], [account] if account else [])
     return pack_feedback(row, extras.get(row.id))
+
+
+def feedback_about_user(user_id, username=""):
+    handle = (username or "").strip()
+    parts = [
+        Feedback_report.target_user_id == user_id,
+        and_(Feedback_report.context_view == "phone", Feedback_report.channel_id == user_id),
+        and_(Feedback_report.context_view == "profile", Feedback_report.channel_id == user_id),
+    ]
+    if handle:
+        parts.append(and_(Feedback_report.context_view == "post", Feedback_report.server_name == handle))
+    return or_(*parts)
+
+
+def feedback_for_user(user_id, username=""):
+    return or_(
+        Feedback_report.user_id == user_id,
+        feedback_about_user(user_id, username),
+    )
+
+
+def add_feedback_event(database, report_id, actor, kind, text=""):
+    database.add(Feedback_event(
+        report_id=report_id,
+        actor_id=actor.id if actor else None,
+        actor_username=((actor.username if actor else "") or ""),
+        kind=kind,
+        text=text or "",
+    ))
+
+
+def pack_feedback_event(row):
+    return {
+        "id": row.id,
+        "kind": row.kind or "",
+        "text": row.text or "",
+        "actor_username": row.actor_username or "",
+        "created_at": str(row.created_at) if row.created_at else None,
+    }
+
+
+def load_feedback_events(database, row):
+    events = (
+        database.query(Feedback_event)
+        .filter(Feedback_event.report_id == row.id)
+        .order_by(Feedback_event.created_at.asc(), Feedback_event.id.asc())
+        .all()
+    )
+    packed = [pack_feedback_event(item) for item in events]
+    if packed:
+        return packed
+    return [{
+        "id": 0,
+        "kind": "created",
+        "text": row.status or "new",
+        "actor_username": row.username or "",
+        "created_at": str(row.created_at) if row.created_at else None,
+    }]
+
+
+def pack_admin_note(row):
+    return {
+        "id": row.id,
+        "text": row.text or "",
+        "actor_username": row.actor_username or "",
+        "created_at": str(row.created_at) if row.created_at else None,
+    }
+
+
+def clip_admin_note(text):
+    value = (text or "").replace("\r\n", "\n").strip()
+    if not value:
+        raise HTTPException(status_code=400, detail="Write a note.")
+    if len(value) > 1500:
+        raise HTTPException(status_code=400, detail="Note is over the character limit.")
+    return value
 
 
 def apply_feedback_status(row, status):
@@ -740,6 +849,7 @@ async def admin_feedback_status(
         raise HTTPException(status_code=404, detail="Report not found.")
     previous = row.status
     apply_feedback_status(row, body.status)
+    add_feedback_event(database, row.id, current_user, "status", row.status or "")
     database.commit()
     database.refresh(row)
     await notify_feedback_ticket_alert(database, row, current_user, previous)
@@ -758,6 +868,7 @@ async def admin_feedback_complete(
         raise HTTPException(status_code=404, detail="Report not found.")
     previous = row.status
     apply_feedback_status(row, "completed")
+    add_feedback_event(database, row.id, current_user, "status", "completed")
     database.commit()
     database.refresh(row)
     await notify_feedback_ticket_alert(database, row, current_user, previous)
@@ -767,6 +878,7 @@ async def admin_feedback_complete(
 @router.get("/admin/user")
 def admin_user(
     q: str = "",
+    by: str = "id",
     sort: str = "id",
     order: str = "asc",
     offset: int = 0,
@@ -777,32 +889,18 @@ def admin_user(
     require_oneira_admin(current_user)
     query = database.query(UserInfo)
     text = (q or "").strip()
+    field = (by or "id").strip().lower()
+    if field not in ("id", "username", "display_name"):
+        field = "id"
     if text:
         needle = like_text(text)
-        query = query.filter(or_(
-            UserInfo.username.ilike(needle),
-            UserInfo.display_name.ilike(needle),
-            UserInfo.profile_status.ilike(needle),
-            UserInfo.profile_pronouns.ilike(needle),
-            cast(UserInfo.id, String).ilike(needle),
-        ))
-    server_count_col = (
-        database.query(func.count(Server_members.id))
-        .filter(Server_members.user_id == UserInfo.id)
-        .correlate(UserInfo)
-        .as_scalar()
-    )
-    columns = {
-        "id": UserInfo.id,
-        "username": UserInfo.username,
-        "display_name": UserInfo.display_name,
-        "created_at": UserInfo.created_at,
-        "status": UserInfo.profile_status,
-        "pronouns": UserInfo.profile_pronouns,
-        "mfa_enabled": UserInfo.mfa_enabled,
-        "server_count": server_count_col,
-    }
-    query = query.order_by(*sort_keys(columns.get(sort, UserInfo.id), order, UserInfo.id))
+        if field == "username":
+            query = query.filter(UserInfo.username.ilike(needle))
+        elif field == "display_name":
+            query = query.filter(UserInfo.display_name.ilike(needle))
+        else:
+            query = query.filter(cast(UserInfo.id, String).ilike(needle))
+    query = query.order_by(UserInfo.id.asc())
     accounts, has_more = take_page(query, offset, limit)
     counts = user_server_counts(database, [account.id for account in accounts])
     return {
@@ -815,6 +913,147 @@ def admin_user(
 def admin_user_detail(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     require_oneira_admin(current_user)
     return {"user": load_admin_user(database, user_id)}
+
+
+@router.get("/admin/user/{user_id}/reports")
+def admin_user_reports(
+    user_id: int,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    rows = (
+        database.query(Feedback_report)
+        .filter(feedback_for_user(account.id, account.username))
+        .order_by(Feedback_report.created_at.desc(), Feedback_report.id.desc())
+        .limit(50)
+        .all()
+    )
+    user_ids = list({row.user_id for row in rows if row.user_id})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
+    extras = feedback_extras(database, rows, accounts)
+    packed = []
+    for row in rows:
+        item = pack_feedback(row, extras.get(row.id))
+        item["about"] = bool(row.user_id != account.id)
+        packed.append(item)
+    return {"reports": packed}
+
+
+@router.get("/admin/user/{user_id}/notes")
+def admin_user_notes(
+    user_id: int,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    rows = (
+        database.query(Admin_user_note)
+        .filter(Admin_user_note.user_id == user_id)
+        .order_by(Admin_user_note.created_at.desc(), Admin_user_note.id.desc())
+        .limit(50)
+        .all()
+    )
+    return {"notes": [pack_admin_note(row) for row in rows]}
+
+
+@router.post("/admin/user/{user_id}/notes")
+def admin_add_user_note(
+    user_id: int,
+    body: Admin_note,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    text = clip_admin_note(body.text)
+    row = Admin_user_note(
+        user_id=account.id,
+        actor_id=current_user.id,
+        actor_username=current_user.username or "",
+        text=text,
+    )
+    database.add(row)
+    database.commit()
+    database.refresh(row)
+    return {"note": pack_admin_note(row)}
+
+
+@router.post("/admin/user/{user_id}/report")
+def admin_create_user_report(
+    user_id: int,
+    body: Admin_user_report,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    report_kind = clean_report_kind("report", body.report_kind)
+    report = clean_feedback_text(body.report)
+    score = feedback_score("report", report, 0)
+    row = Feedback_report(
+        user_id=current_user.id,
+        username=current_user.username,
+        display_name=public_display_name(current_user),
+        feedback_type="report",
+        report_kind=report_kind,
+        report_score=score,
+        report=report,
+        status="new",
+        context_view="profile",
+        channel_id=account.id,
+        channel_name="@" + (account.username or ""),
+        target_user_id=account.id,
+    )
+    database.add(row)
+    database.commit()
+    database.refresh(row)
+    add_feedback_event(database, row.id, current_user, "created", "new")
+    database.commit()
+    extras = feedback_extras(database, [row], [current_user])
+    packed = pack_feedback(row, extras.get(row.id))
+    packed["about"] = True
+    return {"report": packed}
+
+
+@router.get("/admin/feedback/{report_id}/events")
+def admin_feedback_events(
+    report_id: int,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    row = database.query(Feedback_report).filter(Feedback_report.id == report_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    return {"events": load_feedback_events(database, row)}
+
+
+@router.post("/admin/feedback/{report_id}/note")
+def admin_feedback_note(
+    report_id: int,
+    body: Admin_note,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    row = database.query(Feedback_report).filter(Feedback_report.id == report_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    text = clip_admin_note(body.text)
+    add_feedback_event(database, row.id, current_user, "note", text)
+    database.commit()
+    return {"events": load_feedback_events(database, row)}
 
 
 @router.get("/admin/user/{user_id}/friends")

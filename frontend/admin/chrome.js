@@ -253,3 +253,52 @@ function paintAdminPlaceholder(main, title, note) {
     badge: "Read only"
   }));
 }
+
+let adminModConfirm = null;
+
+function closeAdminMod() {
+  const overlay = document.getElementById("admin-mod-overlay");
+  if (overlay) overlay.hidden = true;
+  adminModConfirm = null;
+}
+
+function adminModError(text) {
+  const err = document.getElementById("admin-mod-error");
+  if (!err) return;
+  err.textContent = text || "";
+  err.hidden = !text;
+}
+
+function openAdminMod(opts) {
+  const overlay = document.getElementById("admin-mod-overlay");
+  const title = document.getElementById("admin-mod-title");
+  const body = document.getElementById("admin-mod-body");
+  const confirm = document.getElementById("admin-mod-confirm");
+  const cancel = document.getElementById("admin-mod-cancel");
+  if (!overlay || !body) return;
+  title.textContent = (opts && opts.title) || "";
+  confirm.textContent = (opts && opts.confirm) || "Confirm";
+  cancel.textContent = (opts && opts.cancel) || "Cancel";
+  confirm.classList.toggle("is-danger", !!(opts && opts.danger));
+  body.innerHTML = "";
+  if (opts && opts.body) body.appendChild(opts.body);
+  adminModError("");
+  adminModConfirm = opts && opts.onConfirm;
+  overlay.hidden = false;
+}
+
+function bindAdminMod() {
+  const overlay = document.getElementById("admin-mod-overlay");
+  if (!overlay || overlay.dataset.bound) return;
+  overlay.dataset.bound = "1";
+  const close = document.getElementById("admin-mod-close");
+  const cancel = document.getElementById("admin-mod-cancel");
+  const confirm = document.getElementById("admin-mod-confirm");
+  if (close) close.addEventListener("click", closeAdminMod);
+  if (cancel) cancel.addEventListener("click", closeAdminMod);
+  if (confirm) confirm.addEventListener("click", () => {
+    if (typeof adminModConfirm === "function") adminModConfirm();
+  });
+}
+
+bindAdminMod();

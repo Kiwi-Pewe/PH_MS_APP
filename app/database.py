@@ -533,6 +533,7 @@ def ensure_feedback_columns():
         ("feedback_reports", "delete_after", "DATETIME"),
         ("feedback_reports", "report_kind", "VARCHAR"),
         ("feedback_reports", "report_score", "INTEGER"),
+        ("feedback_reports", "target_user_id", "INTEGER"),
     )
     with engine.connect() as conn:
         for table, column, coltype in adds:
@@ -541,6 +542,33 @@ def ensure_feedback_columns():
                 conn.commit()
             except Exception:
                 conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS feedback_events ("
+                "id INTEGER PRIMARY KEY, "
+                "report_id INTEGER NOT NULL, "
+                "actor_id INTEGER, "
+                "actor_username VARCHAR, "
+                "kind VARCHAR NOT NULL, "
+                "text VARCHAR, "
+                "created_at DATETIME)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS admin_user_notes ("
+                "id INTEGER PRIMARY KEY, "
+                "user_id INTEGER NOT NULL, "
+                "actor_id INTEGER, "
+                "actor_username VARCHAR, "
+                "text VARCHAR NOT NULL, "
+                "created_at DATETIME)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_feed_alert_columns():

@@ -649,8 +649,30 @@ class Feedback_report(Base):
     channel_id = Column(Integer, nullable=True)
     channel_name = Column(String, nullable=True)
     channel_type = Column(String, nullable=True)
+    target_user_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     delete_after = Column(DateTime, nullable=True)
+
+
+class Feedback_event(Base):
+    __tablename__ = "feedback_events"
+    id = Column(Integer, primary_key=True)
+    report_id = Column(Integer, ForeignKey("feedback_reports.id"), nullable=False)
+    actor_id = Column(Integer, nullable=True)
+    actor_username = Column(String, nullable=True)
+    kind = Column(String, nullable=False)
+    text = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class Admin_user_note(Base):
+    __tablename__ = "admin_user_notes"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False)
+    actor_id = Column(Integer, nullable=True)
+    actor_username = Column(String, nullable=True)
+    text = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
 
 class Audit_log(Base):
     __tablename__ = "audit_logs"

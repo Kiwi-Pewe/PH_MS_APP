@@ -1,5 +1,12 @@
-function adminApi(path) {
-  return fetch("https://" + API_HOST + path, { credentials: "include" });
+function adminApi(path, opts) {
+  const extra = opts || {};
+  const headers = extra.body ? { "Content-Type": "application/json" } : {};
+  return fetch("https://" + API_HOST + path, {
+    method: extra.method || "GET",
+    credentials: "include",
+    headers: headers,
+    body: extra.body ? JSON.stringify(extra.body) : undefined
+  });
 }
 
 window.addEventListener("load", () => {

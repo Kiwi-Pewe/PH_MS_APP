@@ -4,6 +4,44 @@ const adminSectionByPage = {};
 let adminUser = null;
 let adminPage = "overview";
 let adminSection = "statistics";
+let adminTracked = [];
+const ADMIN_TRACK_KEY = "oneira-admin-tracked";
+
+function loadAdminTracked() {
+  try {
+    const rows = JSON.parse(window.localStorage.getItem(ADMIN_TRACK_KEY) || "[]");
+    adminTracked = Array.isArray(rows) ? rows : [];
+  } catch (err) {
+    adminTracked = [];
+  }
+}
+
+function saveAdminTracked() {
+  window.localStorage.setItem(ADMIN_TRACK_KEY, JSON.stringify(adminTracked.slice(0, 8)));
+}
+
+function trackAdminUser(row) {
+  if (!row || !row.id) return;
+  adminTracked = adminTracked.filter((item) => item.id !== row.id);
+  adminTracked.unshift({
+    id: row.id,
+    username: row.username || "",
+    display_name: row.display_name || row.username || "",
+    avatar: row.avatar || {},
+    presence: row.presence || "offline"
+  });
+  saveAdminTracked();
+  paintAdminLeftFoot();
+}
+
+function openTrackedUser(userId) {
+  if (typeof selectUsersRow === "function") {
+    showAdminPage("users", "search");
+    selectUsersRow(userId);
+    return;
+  }
+  showAdminPage("users", "search");
+}
 
 function registerAdminPage(page) {
   ADMIN_PAGES.push(page);
@@ -71,6 +109,27 @@ function paintAdminLeftFoot() {
   note.appendChild(adminIcon("eye"));
   note.appendChild(adminEl("span", "", "Read-only overview"));
   host.appendChild(note);
+  if (adminTracked.length) {
+    const pack = adminEl("div", "admin-tracked");
+    adminTracked.forEach((row) => {
+      const btn = adminEl("button", "admin-tracked-card");
+      btn.type = "button";
+      const face = adminEl("div", "admin-tracked-face", (row.username || row.display_name || "u").slice(0, 1).toLowerCase());
+      const url = row.avatar && row.avatar.url;
+      if (url) {
+        face.style.backgroundImage = "url(\"" + url + "\")";
+        face.textContent = "";
+      }
+      btn.appendChild(face);
+      const text = adminEl("div", "admin-tracked-text");
+      text.appendChild(adminEl("div", "admin-tracked-name", row.display_name || row.username || "—"));
+      text.appendChild(adminEl("div", "admin-tracked-handle", row.username || "—"));
+      btn.appendChild(text);
+      btn.addEventListener("click", () => openTrackedUser(row.id));
+      pack.appendChild(btn);
+    });
+    host.appendChild(pack);
+  }
   const who = adminEl("div", "admin-who");
   const name = (adminUser && (adminUser.display_name || adminUser.username)) || "kiwi";
   const handle = (adminUser && adminUser.username) || "kiwi";
@@ -133,5 +192,6 @@ function startAdminShell() {
       window.location.href = "../main/app.html";
     });
   }
+  loadAdminTracked();
   showAdminPage("overview", "statistics");
 }

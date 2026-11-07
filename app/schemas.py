@@ -196,6 +196,15 @@ class Admin_delete(BaseModel):
     username: str = ""
 
 
+class Admin_note(BaseModel):
+    text: str = ""
+
+
+class Admin_user_report(BaseModel):
+    report_kind: str = ""
+    report: str = ""
+
+
 class Community_post_create(BaseModel):
     body: str = ""
     topics: list[str] = []

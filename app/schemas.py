@@ -208,6 +208,15 @@ class Admin_lock(BaseModel):
     until: str = ""
 
 
+class Admin_report_update(BaseModel):
+    report: str = ""
+    status: str = "open"
+    assign_id: int | None = None
+    urgency: str = ""
+    alert_user: bool = False
+    requests_info: bool = False
+
+
 class Admin_user_report(BaseModel):
     report_kind: str = ""
     report: str = ""

@@ -10,7 +10,7 @@ from app.models import (
 )
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
-from app.schemas import Feedback_status, Admin_warn, Admin_ban, Admin_delete, Admin_note, Admin_user_report
+from app.schemas import Feedback_status, Admin_warn, Admin_ban, Admin_delete, Admin_note, Admin_user_report, Admin_report_update
 from app.routers.account import public_display_name
 from app.routers.feedback import (
     REPORT_KINDS, feedback_file_count, feedback_score, clean_feedback_text, clean_report_kind,
@@ -291,6 +291,7 @@ def pack_feedback(row, extra=None):
         "created_at": str(row.created_at) if row.created_at else None,
         "last_interacted": extra.get("last_interacted") or (str(row.created_at) if row.created_at else None),
         "update_count": int(extra.get("update_count") or 0),
+        "last_username": extra.get("last_username") or row.username,
         "delete_after": str(row.delete_after) if getattr(row, "delete_after", None) else None,
         "avatar": extra.get("avatar") or {},
         "joined_at": extra.get("joined_at"),
@@ -370,12 +371,48 @@ def add_feedback_event(database, report_id, actor, kind, text=""):
     ))
 
 
-def pack_feedback_event(row):
+def pack_event_payload(row):
+    raw = row.text or ""
+    if raw.startswith("{") or raw.startswith("["):
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                return data
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
+def pack_feedback_event(row, extra=None):
+    extra = extra or {}
+    payload = pack_event_payload(row)
+    kind = (row.kind or "").strip().lower()
+    message = ""
+    changes = []
+    if payload:
+        message = (payload.get("report") or "").strip()
+        for key in ("status", "urgency", "assign", "alert_user", "requests_info"):
+            pair = payload.get(key)
+            if isinstance(pair, list) and len(pair) == 2 and pair[0] != pair[1]:
+                changes.append({"field": key, "from": pair[0], "to": pair[1]})
+    elif kind == "note":
+        message = row.text or ""
+    elif kind == "status":
+        changes.append({"field": "status", "from": "", "to": row.text or ""})
+    elif kind == "created":
+        message = ""
+    else:
+        message = row.text or ""
     return {
         "id": row.id,
-        "kind": row.kind or "",
+        "kind": kind,
         "text": row.text or "",
-        "actor_username": row.actor_username or "",
+        "message": message,
+        "changes": changes,
+        "actor_id": row.actor_id,
+        "actor_username": extra.get("username") or row.actor_username or "",
+        "actor_display_name": extra.get("display_name") or row.actor_username or "",
+        "avatar": extra.get("avatar") or {},
         "created_at": str(row.created_at) if row.created_at else None,
     }
 
@@ -387,14 +424,42 @@ def load_feedback_events(database, row):
         .order_by(Feedback_event.created_at.asc(), Feedback_event.id.asc())
         .all()
     )
-    packed = [pack_feedback_event(item) for item in events]
+    actor_ids = list({item.actor_id for item in events if item.actor_id})
+    if row.user_id:
+        actor_ids.append(row.user_id)
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(actor_ids)).all() if actor_ids else []
+    faces = {account.id: public_identity(account).get("avatar") or {} for account in accounts}
+    names = {account.id: public_display_name(account) for account in accounts}
+    handles = {account.id: account.username or "" for account in accounts}
+    packed = []
+    for item in events:
+        extra = {
+            "avatar": faces.get(item.actor_id) or {},
+            "display_name": names.get(item.actor_id) or "",
+            "username": handles.get(item.actor_id) or item.actor_username or "",
+        }
+        payload = pack_feedback_event(item, extra)
+        if payload["kind"] == "created" and not payload["message"]:
+            payload["message"] = row.report or ""
+            if not payload["avatar"]:
+                payload["avatar"] = faces.get(row.user_id) or {}
+            if not payload["actor_username"]:
+                payload["actor_username"] = handles.get(row.user_id) or row.username or ""
+            if not payload["actor_display_name"]:
+                payload["actor_display_name"] = names.get(row.user_id) or row.display_name or ""
+        packed.append(payload)
     if packed:
         return packed
     return [{
         "id": 0,
         "kind": "created",
-        "text": row.status or "new",
+        "text": "",
+        "message": row.report or "",
+        "changes": [],
+        "actor_id": row.user_id,
         "actor_username": row.username or "",
+        "actor_display_name": row.display_name or row.username or "",
+        "avatar": faces.get(row.user_id) if actor_ids else {},
         "created_at": str(row.created_at) if row.created_at else None,
     }]
 
@@ -984,12 +1049,24 @@ def admin_user_reports(
         )
         last = {report_id: touched for report_id, touched, _count in stats}
         added = {report_id: int(count or 0) for report_id, _touched, count in stats}
+    last_handles = {}
+    if report_ids:
+        last_ids = dict(
+            database.query(Feedback_event.report_id, func.max(Feedback_event.id))
+            .filter(Feedback_event.report_id.in_(report_ids))
+            .group_by(Feedback_event.report_id)
+            .all()
+        )
+        if last_ids:
+            last_events = database.query(Feedback_event).filter(Feedback_event.id.in_(list(last_ids.values()))).all()
+            last_handles = {item.report_id: item.actor_username or "" for item in last_events}
     packed = []
     for row in rows:
         extra = dict(extras.get(row.id) or {})
         touched = last.get(row.id) or row.created_at
         extra["last_interacted"] = str(touched) if touched else None
         extra["update_count"] = max(0, int(added.get(row.id) or 0) - 1)
+        extra["last_username"] = last_handles.get(row.id) or row.username
         item = pack_feedback(row, extra)
         item["about"] = bool(row.user_id != account.id)
         packed.append(item)
@@ -1115,7 +1192,7 @@ async def admin_create_user_report(
     database.add(row)
     database.commit()
     database.refresh(row)
-    add_feedback_event(database, row.id, current_user, "created", status)
+    add_feedback_event(database, row.id, current_user, "created", json.dumps({"report": report}))
     database.commit()
     if alert_user:
         await notify_feed_alert(
@@ -1146,6 +1223,99 @@ def admin_feedback_events(
     if not row:
         raise HTTPException(status_code=404, detail="Report not found.")
     return {"events": load_feedback_events(database, row)}
+
+
+def assign_label(database, assign_id):
+    if not assign_id:
+        return "Everyone"
+    account = database.query(UserInfo).filter(UserInfo.id == assign_id).first()
+    if not account:
+        return "Everyone"
+    return public_display_name(account) or account.username or "kiwi"
+
+
+@router.post("/admin/feedback/{report_id}/update")
+async def admin_update_user_report(
+    report_id: int,
+    body: Admin_report_update,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    row = database.query(Feedback_report).filter(Feedback_report.id == report_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    status = (body.status or "open").strip().lower()
+    if status not in ADMIN_REPORT_STATUSES:
+        raise HTTPException(status_code=400, detail="Pick a valid status.")
+    urgency = (body.urgency or "").strip().lower()
+    assign_id = None
+    if status == "closed":
+        urgency = row.urgency
+        assign_id = row.assign_id
+    else:
+        if urgency not in ADMIN_URGENCY:
+            urgency = (row.urgency or "low").strip().lower() or "low"
+        if body.assign_id:
+            if int(body.assign_id) != current_user.id:
+                raise HTTPException(status_code=400, detail="Assign to kiwi.")
+            assign_id = current_user.id
+    note = clip_admin_note(body.report, required=False)
+    payload = {}
+    if note and note != (row.report or "").strip():
+        payload["report"] = note
+        row.report = note
+    old_status = (row.status or "").strip().lower()
+    if status != old_status:
+        payload["status"] = [old_status, status]
+        apply_feedback_status(row, status)
+    old_urgency = (row.urgency or "low").strip().lower() or "low"
+    new_urgency = (urgency or "low").strip().lower() or "low"
+    if new_urgency != old_urgency:
+        payload["urgency"] = [old_urgency, new_urgency]
+        row.urgency = new_urgency
+    old_assign = row.assign_id
+    if assign_id != old_assign:
+        payload["assign"] = [assign_label(database, old_assign), assign_label(database, assign_id)]
+        row.assign_id = assign_id
+    old_alert = bool(row.alert_user)
+    new_alert = bool(body.alert_user)
+    if new_alert != old_alert:
+        payload["alert_user"] = ["On" if old_alert else "Off", "On" if new_alert else "Off"]
+        row.alert_user = new_alert
+    old_info = bool(row.requests_info)
+    new_info = bool(body.requests_info)
+    if new_info != old_info:
+        payload["requests_info"] = ["On" if old_info else "Off", "On" if new_info else "Off"]
+        row.requests_info = new_info
+    if not payload:
+        raise HTTPException(status_code=400, detail="Change something before updating.")
+    add_feedback_event(database, row.id, current_user, "update", json.dumps(payload))
+    database.commit()
+    database.refresh(row)
+    if new_alert and not old_alert:
+        account_id = row.target_user_id or row.channel_id
+        if account_id:
+            await notify_feed_alert(
+                database,
+                receiver_id=account_id,
+                alert_type="report_status",
+                sender_id=current_user.id,
+                alert_family="feedback",
+                reason=FEEDBACK_STATUS_LABELS.get(row.status or "", row.status or ""),
+                context=json.dumps({"report_id": row.id, "feedback_type": "report"}),
+                force=True,
+            )
+    extras = feedback_extras(database, [row], [current_user])
+    extra = dict(extras.get(row.id) or {})
+    extra["last_username"] = current_user.username
+    packed = pack_feedback(row, extra)
+    events = load_feedback_events(database, row)
+    if events:
+        packed["last_interacted"] = events[-1].get("created_at")
+        packed["update_count"] = max(0, len(events) - 1)
+        packed["last_username"] = events[-1].get("actor_username") or current_user.username
+    return {"report": packed, "events": events}
 
 
 @router.post("/admin/feedback/{report_id}/note")

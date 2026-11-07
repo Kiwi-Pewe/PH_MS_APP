@@ -133,13 +133,18 @@ function usersLine(raw, max) {
 
 function usersFace(host, row, letterName) {
   const url = usersMediaUrl(row && row.avatar);
-  if (url) {
-    host.style.backgroundImage = "url(\"" + url + "\")";
-    host.textContent = "";
-    return;
-  }
+  const pip = host.querySelector(".status-dot");
+  host.innerHTML = "";
   host.style.backgroundImage = "";
-  host.textContent = usersLetter(letterName || (row && (row.username || row.display_name)));
+  if (url) {
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    host.appendChild(img);
+  } else {
+    host.textContent = usersLetter(letterName || (row && (row.username || row.display_name)));
+  }
+  if (pip) host.appendChild(pip);
 }
 
 function paintUsersProfiles(main) {
@@ -337,7 +342,85 @@ function pinUsersReport(reportId) {
 function usersDateShift(days) {
   const when = new Date();
   when.setDate(when.getDate() + days);
+  return usersDateKey(when);
+}
+
+function usersDateKey(when) {
   return when.getFullYear() + "-" + adminPad(when.getMonth() + 1) + "-" + adminPad(when.getDate());
+}
+
+function usersParseKey(key) {
+  const bits = String(key || "").split("-");
+  if (bits.length !== 3) return null;
+  const when = new Date(Number(bits[0]), Number(bits[1]) - 1, Number(bits[2]));
+  if (Number.isNaN(when.getTime())) return null;
+  return when;
+}
+
+function usersDaysUntil(key) {
+  const when = usersParseKey(key);
+  if (!when) return 1;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  when.setHours(0, 0, 0, 0);
+  return Math.round((when.getTime() - today.getTime()) / 86400000);
+}
+
+function usersDurationLabel(days) {
+  const count = Math.max(1, Number(days) || 1);
+  if (count === 1) return "1 day";
+  if (count === 7) return "one week";
+  if (count % 7 === 0) return String(count / 7) + " weeks";
+  return String(count) + " days";
+}
+
+function usersCloseCals(keep) {
+  document.querySelectorAll(".admin-report-cal-pop").forEach((pop) => {
+    if (pop !== keep) pop.hidden = true;
+  });
+}
+
+function usersPaintCal(pop, view, selected, onPick) {
+  pop.innerHTML = "";
+  const head = adminEl("div", "admin-report-cal-head");
+  const prev = adminEl("button", "admin-report-cal-nav", "‹");
+  const next = adminEl("button", "admin-report-cal-nav", "›");
+  prev.type = "button";
+  next.type = "button";
+  head.appendChild(prev);
+  head.appendChild(adminEl("div", "admin-report-cal-month", ADMIN_MONTHS[view.getMonth()] + " " + view.getFullYear()));
+  head.appendChild(next);
+  pop.appendChild(head);
+  const week = adminEl("div", "admin-report-cal-week");
+  ["S", "M", "T", "W", "T", "F", "S"].forEach((day) => week.appendChild(adminEl("div", "", day)));
+  pop.appendChild(week);
+  const grid = adminEl("div", "admin-report-cal-grid");
+  const start = new Date(view.getFullYear(), view.getMonth(), 1);
+  const skip = start.getDay();
+  const last = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const selectedKey = selected;
+  for (let i = 0; i < skip; i += 1) grid.appendChild(adminEl("div", "admin-report-cal-empty"));
+  for (let day = 1; day <= last; day += 1) {
+    const when = new Date(view.getFullYear(), view.getMonth(), day);
+    const key = usersDateKey(when);
+    const btn = adminEl("button", "admin-report-cal-day" + (key === selectedKey ? " is-on" : ""), String(day));
+    btn.type = "button";
+    if (when <= today) {
+      btn.disabled = true;
+    } else {
+      btn.addEventListener("click", () => onPick(key));
+    }
+    grid.appendChild(btn);
+  }
+  pop.appendChild(grid);
+  prev.addEventListener("click", () => {
+    usersPaintCal(pop, new Date(view.getFullYear(), view.getMonth() - 1, 1), selected, onPick);
+  });
+  next.addEventListener("click", () => {
+    usersPaintCal(pop, new Date(view.getFullYear(), view.getMonth() + 1, 1), selected, onPick);
+  });
 }
 
 function usersToggle(on) {
@@ -350,6 +433,24 @@ function usersToggle(on) {
   label.appendChild(input);
   label.appendChild(track);
   return { label: label, input: input };
+}
+
+function usersFillDuration(days, until) {
+  const select = days;
+  const presets = USERS_DURATION.map((item) => String(item.days));
+  Array.from(select.querySelectorAll("option[data-custom]")).forEach((row) => row.remove());
+  const count = Math.max(1, Number(usersDaysUntil(until)) || 1);
+  if (presets.indexOf(String(count)) < 0) {
+    const opt = document.createElement("option");
+    opt.value = String(count);
+    opt.textContent = usersDurationLabel(count);
+    opt.dataset.custom = "1";
+    select.appendChild(opt);
+  } else {
+    const match = Array.from(select.options).find((row) => row.value === String(count));
+    if (match) match.textContent = usersDurationLabel(count);
+  }
+  select.value = String(count);
 }
 
 function usersDurationControls() {
@@ -367,35 +468,58 @@ function usersDurationControls() {
     days.appendChild(opt);
   });
   days.value = "1";
-  const cal = document.createElement("input");
-  cal.type = "date";
-  cal.className = "admin-report-input";
-  cal.min = usersDateShift(1);
-  cal.value = usersDateShift(1);
+  let until = usersDateShift(1);
+  const calWrap = adminEl("div", "admin-report-cal-wrap");
+  const calBtn = adminEl("button", "admin-report-cal");
+  calBtn.type = "button";
+  calBtn.appendChild(adminIcon("calendar"));
+  const pop = adminEl("div", "admin-report-cal-pop");
+  pop.hidden = true;
+  calWrap.appendChild(calBtn);
+  calWrap.appendChild(pop);
   let permanent = false;
   function setMode(on) {
     permanent = on;
     durationBtn.classList.toggle("is-on", !on);
     permBtn.classList.toggle("is-on", on);
     days.hidden = on;
-    cal.hidden = on;
+    calWrap.hidden = on;
+    if (on) pop.hidden = true;
+  }
+  function pickDate(key) {
+    until = key;
+    usersFillDuration(days, until);
+    pop.hidden = true;
   }
   days.addEventListener("change", () => {
-    cal.value = usersDateShift(Number(days.value) || 1);
+    until = usersDateShift(Number(days.value) || 1);
+    Array.from(days.querySelectorAll("option[data-custom]")).forEach((row) => {
+      if (row.value !== days.value) row.remove();
+    });
   });
+  calBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = pop.hidden;
+    usersCloseCals();
+    if (!open) return;
+    const view = usersParseKey(until) || new Date();
+    usersPaintCal(pop, new Date(view.getFullYear(), view.getMonth(), 1), until, pickDate);
+    pop.hidden = false;
+  });
+  pop.addEventListener("click", (event) => event.stopPropagation());
   durationBtn.addEventListener("click", () => setMode(false));
   permBtn.addEventListener("click", () => setMode(true));
   mode.appendChild(durationBtn);
   mode.appendChild(permBtn);
   host.appendChild(mode);
   host.appendChild(days);
-  host.appendChild(cal);
+  host.appendChild(calWrap);
   return {
     host: host,
     read: () => ({
       permanent: permanent,
-      days: Number(days.value) || 1,
-      until: permanent ? "" : cal.value
+      days: usersDaysUntil(until),
+      until: permanent ? "" : until
     })
   };
 }
@@ -404,14 +528,15 @@ function usersLockControl(item) {
   const wrap = adminEl("div", "admin-report-lock");
   const line = adminEl("div", "admin-report-lock-line");
   line.appendChild(adminEl("span", "", item.label));
-  const toggle = usersToggle(false);
+  const toggle = usersToggle(true);
   line.appendChild(toggle.label);
   wrap.appendChild(line);
   const duration = usersDurationControls();
   duration.host.hidden = true;
   wrap.appendChild(duration.host);
   toggle.input.addEventListener("change", () => {
-    duration.host.hidden = !toggle.input.checked;
+    duration.host.hidden = toggle.input.checked;
+    if (toggle.input.checked) usersCloseCals();
   });
   return {
     wrap: wrap,
@@ -419,7 +544,7 @@ function usersLockControl(item) {
       const extra = duration.read();
       return {
         kind: item.id,
-        allowed: !toggle.input.checked,
+        allowed: toggle.input.checked,
         permanent: extra.permanent,
         days: extra.days,
         until: extra.until
@@ -527,52 +652,49 @@ function openUsersCreateReport(row) {
   modBtn.addEventListener("click", () => setMode("moderation"));
   body.appendChild(adminEl("div", "admin-report-rule"));
   body.appendChild(adminEl("div", "admin-report-k", "Status"));
-  const statusSwitch = adminEl("div", "admin-report-switch is-wide");
   const extra = adminEl("div", "admin-report-extra");
-  const statusOpts = [
+  const status = adminEl("select", "admin-report-input");
+  [
     { id: "open", label: "Open" },
     { id: "followup", label: "Needs Followup" },
     { id: "closed", label: "Closed" }
-  ];
-  let status = "open";
-  const statusBtns = statusOpts.map((item) => {
-    const btn = adminEl("button", item.id === "open" ? "is-on" : "", item.label);
-    btn.type = "button";
-    btn.addEventListener("click", () => {
-      status = item.id;
-      statusBtns.forEach((other) => other.classList.toggle("is-on", other === btn));
-      extra.hidden = status === "closed";
-    });
-    statusSwitch.appendChild(btn);
-    return btn;
+  ].forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label;
+    status.appendChild(opt);
   });
-  body.appendChild(statusSwitch);
+  status.value = "open";
+  status.addEventListener("change", () => {
+    extra.hidden = status.value === "closed";
+  });
+  body.appendChild(status);
   extra.appendChild(adminEl("div", "admin-report-k", "Assign to"));
   const assign = adminEl("select", "admin-report-input");
+  const everyone = document.createElement("option");
+  everyone.value = "";
+  everyone.textContent = "Everyone";
+  assign.appendChild(everyone);
   const assignOpt = document.createElement("option");
   assignOpt.value = String((adminUser && adminUser.id) || "");
   assignOpt.textContent = (adminUser && (adminUser.display_name || adminUser.username)) || "kiwi";
   assign.appendChild(assignOpt);
+  assign.value = "";
   extra.appendChild(assign);
   extra.appendChild(adminEl("div", "admin-report-k", "Urgency"));
-  const urgencySwitch = adminEl("div", "admin-report-switch is-wide");
-  const urgencyOpts = [
+  const urgency = adminEl("select", "admin-report-input");
+  [
     { id: "high", label: "High" },
     { id: "medium", label: "Medium" },
     { id: "low", label: "Low" }
-  ];
-  let urgency = "medium";
-  const urgencyBtns = urgencyOpts.map((item) => {
-    const btn = adminEl("button", item.id === "medium" ? "is-on" : "", item.label);
-    btn.type = "button";
-    btn.addEventListener("click", () => {
-      urgency = item.id;
-      urgencyBtns.forEach((other) => other.classList.toggle("is-on", other === btn));
-    });
-    urgencySwitch.appendChild(btn);
-    return btn;
+  ].forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label;
+    urgency.appendChild(opt);
   });
-  extra.appendChild(urgencySwitch);
+  urgency.value = "low";
+  extra.appendChild(urgency);
   body.appendChild(extra);
   body.appendChild(adminEl("div", "admin-report-k", "Additional Information"));
   const info = adminEl("textarea", "admin-report-reason");
@@ -594,9 +716,9 @@ function openUsersCreateReport(row) {
       body: {
         report: info.value,
         mode: mode,
-        status: status,
-        assign_id: status === "closed" ? null : Number(assign.value) || null,
-        urgency: status === "closed" ? "" : urgency,
+        status: status.value,
+        assign_id: status.value === "closed" ? null : Number(assign.value) || null,
+        urgency: status.value === "closed" ? "" : urgency.value,
         alert_user: mode === "general" && alertToggle.input.checked,
         requests_info: mode === "general" && infoToggle.input.checked,
         warn: mode === "moderation" && warnToggle.input.checked,
@@ -629,6 +751,8 @@ function openUsersCreateReport(row) {
   cancel.onclick = closeUsersReport;
   overlay.hidden = false;
 }
+
+document.addEventListener("click", () => usersCloseCals());
 
 function paintUsersRows(list) {
   list.innerHTML = "";

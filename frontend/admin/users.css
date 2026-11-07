@@ -181,9 +181,20 @@
   font-weight: 800;
   flex: 0 0 auto;
   overflow: visible;
+  background-color: var(--panel-alt);
   background-size: cover;
   background-position: center;
 }
+
+.users-face img,
+.users-account-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.users-face img { border-radius: 50%; }
 
 .users-face .status-dot {
   position: absolute;
@@ -424,7 +435,7 @@
   height: 56px;
   border-radius: 14px;
   border: 3px solid var(--panel);
-  background: color-mix(in srgb, var(--admin-mark) 22%, var(--panel-alt));
+  background-color: var(--panel-alt);
   background-size: cover;
   background-position: center;
   color: var(--admin-on);
@@ -434,6 +445,11 @@
   font-size: 20px;
   font-weight: 800;
   flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.users-account-face img {
+  border-radius: 11px;
 }
 
 .users-account-names {
@@ -810,8 +826,114 @@
 .admin-report-mode[hidden],
 .admin-report-extra[hidden],
 .admin-report-reason[hidden],
-.admin-report-input[hidden] {
+.admin-report-input[hidden],
+.admin-report-cal-wrap[hidden],
+.admin-report-cal-pop[hidden] {
   display: none !important;
+}
+
+.admin-report-cal-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.admin-report-cal {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0;
+}
+
+.admin-report-cal svg {
+  width: 20px;
+  height: 20px;
+}
+
+.admin-report-cal-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  width: 248px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+  padding: 10px;
+}
+
+.admin-report-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.admin-report-cal-month {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.admin-report-cal-nav {
+  width: 28px;
+  height: 28px;
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.admin-report-cal-week,
+.admin-report-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+
+.admin-report-cal-week {
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.admin-report-cal-day {
+  height: 28px;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-report-cal-day:hover:not(:disabled) {
+  background: var(--panel-alt);
+}
+
+.admin-report-cal-day.is-on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.admin-report-cal-day:disabled {
+  color: var(--text-dim);
+  opacity: 0.45;
+}
+
+.admin-report-cal-empty {
+  height: 28px;
 }
 
 .admin-report-left .users-banner {

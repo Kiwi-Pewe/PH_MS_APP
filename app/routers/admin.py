@@ -456,7 +456,7 @@ def parse_admin_until(until, days, permanent):
         count = int(days or 1)
     except (TypeError, ValueError):
         count = 1
-    if count not in ADMIN_LOCK_DAYS:
+    if count < 1:
         count = 1
     return datetime.utcnow() + timedelta(days=count), False
 
@@ -1044,7 +1044,7 @@ async def admin_create_user_report(
     urgency = (body.urgency or "").strip().lower()
     if status != "closed":
         if urgency not in ADMIN_URGENCY:
-            urgency = "medium"
+            urgency = "low"
     else:
         urgency = None
     assign_id = None

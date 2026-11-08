@@ -424,7 +424,7 @@ function usersReportRow(row, open, onOpen) {
   bottom.appendChild(post);
   const text = String(row.report || "").trim();
   bottom.appendChild(adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information"));
-  bottom.appendChild(adminEl("div", "users-entry-updates", "Update: " + adminNum(row.update_count)));
+  bottom.appendChild(adminEl("div", "users-entry-updates", "Updates: " + adminNum(row.update_count)));
   card.appendChild(bottom);
   if (!open) card.addEventListener("click", () => (onOpen || openUsersHistory)(row.id));
   return card;

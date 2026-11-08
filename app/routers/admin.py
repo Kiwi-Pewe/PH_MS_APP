@@ -391,15 +391,45 @@ def feedback_extras(database, rows, accounts):
             .group_by(Server_bans.user_id)
             .all()
         )
+    last = {}
+    added = {}
+    last_handles = {}
+    report_ids = [row.id for row in rows]
+    if report_ids:
+        stats = (
+            database.query(
+                Feedback_event.report_id,
+                func.max(Feedback_event.created_at),
+                func.count(Feedback_event.id),
+            )
+            .filter(Feedback_event.report_id.in_(report_ids))
+            .group_by(Feedback_event.report_id)
+            .all()
+        )
+        last = {report_id: touched for report_id, touched, _count in stats}
+        added = {report_id: int(count or 0) for report_id, _touched, count in stats}
+        last_ids = dict(
+            database.query(Feedback_event.report_id, func.max(Feedback_event.id))
+            .filter(Feedback_event.report_id.in_(report_ids))
+            .group_by(Feedback_event.report_id)
+            .all()
+        )
+        if last_ids:
+            last_events = database.query(Feedback_event).filter(Feedback_event.id.in_(list(last_ids.values()))).all()
+            last_handles = {item.report_id: item.actor_username or "" for item in last_events}
     extras = {}
     for row in rows:
         uid = row.user_id
+        touched = last.get(row.id) or row.created_at
         extras[row.id] = {
             "avatar": faces.get(uid) or {},
             "joined_at": joined.get(uid),
             "display_name": names.get(uid) or row.display_name,
             "reports_made": int(made.get(uid, 0)),
             "ban_count": int(bans.get(uid, 0)),
+            "last_interacted": str(touched) if touched else None,
+            "update_count": max(0, int(added.get(row.id) or 0) - 1),
+            "last_username": last_handles.get(row.id) or row.username,
         }
     return extras
 
@@ -1144,40 +1174,7 @@ def pack_admin_reports(database, rows):
     user_ids = list({row.user_id for row in rows if row.user_id})
     accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
     extras = feedback_extras(database, rows, accounts)
-    report_ids = [row.id for row in rows]
-    last = {}
-    added = {}
-    last_handles = {}
-    if report_ids:
-        stats = (
-            database.query(
-                Feedback_event.report_id,
-                func.max(Feedback_event.created_at),
-                func.count(Feedback_event.id),
-            )
-            .filter(Feedback_event.report_id.in_(report_ids))
-            .group_by(Feedback_event.report_id)
-            .all()
-        )
-        last = {report_id: touched for report_id, touched, _count in stats}
-        added = {report_id: int(count or 0) for report_id, _touched, count in stats}
-        last_ids = dict(
-            database.query(Feedback_event.report_id, func.max(Feedback_event.id))
-            .filter(Feedback_event.report_id.in_(report_ids))
-            .group_by(Feedback_event.report_id)
-            .all()
-        )
-        if last_ids:
-            last_events = database.query(Feedback_event).filter(Feedback_event.id.in_(list(last_ids.values()))).all()
-            last_handles = {item.report_id: item.actor_username or "" for item in last_events}
-    packed = []
-    for row in rows:
-        extra = dict(extras.get(row.id) or {})
-        touched = last.get(row.id) or row.created_at
-        extra["last_interacted"] = str(touched) if touched else None
-        extra["update_count"] = max(0, int(added.get(row.id) or 0) - 1)
-        extra["last_username"] = last_handles.get(row.id) or row.username
-        packed.append(pack_feedback(row, extra))
+    packed = [pack_feedback(row, extras.get(row.id)) for row in rows]
     packed.sort(key=lambda item: (item.get("last_interacted") or "", item.get("id") or 0), reverse=True)
     return packed
 

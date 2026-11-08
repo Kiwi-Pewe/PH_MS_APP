@@ -693,6 +693,19 @@ class Community_lock(Base):
     __table_args__ = (UniqueConstraint("user_id", "kind", name="uq_community_lock"),)
 
 
+class Server_lock(Base):
+    __tablename__ = "server_locks"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), nullable=False)
+    kind = Column(String, nullable=False)
+    permanent = Column(Boolean, nullable=False, default=False)
+    lift_at = Column(DateTime, nullable=True)
+    actor_id = Column(Integer, nullable=True)
+    actor_username = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("server_id", "kind", name="uq_server_lock"),)
+
+
 class Audit_log(Base):
     __tablename__ = "audit_logs"
     id = Column(Integer, primary_key = True)

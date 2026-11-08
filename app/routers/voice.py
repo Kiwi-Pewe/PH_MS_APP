@@ -12,6 +12,7 @@ from app.auth import get_current_user
 from app.privacy import can_send_dm
 from app.routers.realtime import notify_user, server_broadcast
 from app.routers.profile import public_identity
+from app.site_moderation import refuse_server_lock
 
 router = APIRouter()
 
@@ -357,6 +358,8 @@ async def join_voice(body: Voice_join, database: Session = Depends(get_db), curr
     from app.routers.roles import effective_perms_for_user_in_channel, require_channel_perm
     from app.routers.moderation import require_not_timed_out
     channel, server = load_voice_channel(database, body.channel_id, current_user.id)
+    refuse_server_lock(database, server.id, "frozen")
+    refuse_server_lock(database, server.id, "voice")
     membership = database.query(Server_members).filter(Server_members.server_id == server.id, Server_members.user_id == current_user.id).first()
     if membership:
         require_not_timed_out(membership, "You are timed out.")

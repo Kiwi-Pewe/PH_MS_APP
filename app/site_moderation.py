@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_
 from app.models import (
     Account_warn, Active_Sessions, Admin_audit, Announcement_comment, Announcement_post,
-    Community_lock,
+    Community_lock, Server_lock,
     Audit_log, Block_user, Channel_last_viewed, Channel_messages, Conversations,
     Dm_server_pref, Doc_page, Forum_messages, Forum_post, Friend_request, Invite_model,
     Message, Message_mention, Party_members, Party_messages, Perma_ban, Profile_comment,
@@ -364,6 +364,114 @@ def clear_community_lock(database, user_id, kind):
         Community_lock.user_id == user_id,
         Community_lock.kind == kind,
     ).delete(synchronize_session=False)
+
+
+SERVER_LOCKS = ("voice", "images", "joins", "discovery")
+SERVER_LOCK_DETAIL = {
+    "voice": "Voice is locked on this server.",
+    "images": "Images and embeds are locked on this server.",
+    "joins": "This server is not taking new members.",
+    "discovery": "This server cannot appear in Discovery.",
+    "frozen": "This server is frozen.",
+    "flagged": "This server is flagged.",
+}
+
+
+def sweep_server_lock(database, row):
+    if not row:
+        return None
+    if not row.permanent and row.lift_at and row.lift_at <= datetime.utcnow():
+        database.delete(row)
+        return None
+    return row
+
+
+def server_lock_row(database, server_id, kind):
+    row = (
+        database.query(Server_lock)
+        .filter(Server_lock.server_id == server_id, Server_lock.kind == kind)
+        .first()
+    )
+    return sweep_server_lock(database, row)
+
+
+def server_lock_active(database, server_id, kind):
+    return bool(server_lock_row(database, server_id, kind))
+
+
+def refuse_server_lock(database, server_id, kind):
+    if not server_lock_active(database, server_id, kind):
+        return
+    raise HTTPException(status_code=403, detail=SERVER_LOCK_DETAIL.get(kind, "That action is locked."))
+
+
+def pack_server_locks(database, server_id):
+    rows = database.query(Server_lock).filter(Server_lock.server_id == server_id).all()
+    out = {}
+    for row in rows:
+        kept = sweep_server_lock(database, row)
+        if not kept:
+            continue
+        out[kept.kind] = {
+            "kind": kept.kind,
+            "permanent": bool(kept.permanent),
+            "lift_at": str(kept.lift_at) if kept.lift_at else None,
+        }
+    return out
+
+
+def set_server_lock(database, actor, server_id, kind, permanent, lift_at):
+    allowed = SERVER_LOCKS + ("frozen", "flagged")
+    if kind not in allowed:
+        raise HTTPException(status_code=400, detail="Pick a valid lock.")
+    row = (
+        database.query(Server_lock)
+        .filter(Server_lock.server_id == server_id, Server_lock.kind == kind)
+        .first()
+    )
+    if not row:
+        row = Server_lock(server_id=server_id, kind=kind)
+        database.add(row)
+    row.permanent = bool(permanent)
+    row.lift_at = None if permanent else lift_at
+    row.actor_id = actor.id if actor else None
+    row.actor_username = (actor.username if actor else "") or ""
+    return row
+
+
+def freeze_and_empty_server(database, actor, server):
+    database.query(Server_members).filter(Server_members.server_id == server.id).delete(synchronize_session=False)
+    server.discoverable = False
+    server.applications_enabled = False
+    set_server_lock(database, actor, server.id, "frozen", True, None)
+    set_server_lock(database, actor, server.id, "joins", True, None)
+    set_server_lock(database, actor, server.id, "discovery", True, None)
+    set_server_lock(database, actor, server.id, "voice", True, None)
+
+
+def refuse_server_join(database, server):
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found.")
+    refuse_server_lock(database, server.id, "frozen")
+    refuse_server_lock(database, server.id, "joins")
+
+
+def listing_blocked_ids(database):
+    rows = database.query(Server_lock).filter(Server_lock.kind.in_(("discovery", "frozen"))).all()
+    blocked = set()
+    for row in rows:
+        if sweep_server_lock(database, row):
+            blocked.add(row.server_id)
+    return blocked
+
+
+def refuse_server_media(database, server_id, content=None, attachment=None, attachments=None):
+    text = str(content or "")
+    has_file = bool(attachment or attachments)
+    has_embed = "http://" in text.lower() or "https://" in text.lower()
+    if not has_file and not has_embed:
+        return
+    refuse_server_lock(database, server_id, "images")
 
 
 def ban_account_until(database, actor, target, until, reason, permanent=False):

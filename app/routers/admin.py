@@ -10,7 +10,7 @@ from app.models import (
 )
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
-from app.schemas import Feedback_status, Admin_warn, Admin_ban, Admin_delete, Admin_note, Admin_user_report, Admin_report_update
+from app.schemas import Feedback_status, Admin_warn, Admin_ban, Admin_delete, Admin_note, Admin_user_report, Admin_server_report, Admin_report_update
 from app.routers.account import public_display_name
 from app.routers.feedback import (
     REPORT_KINDS, feedback_file_count, feedback_score, clean_feedback_text, clean_report_kind,
@@ -32,9 +32,13 @@ from app.site_moderation import (
     friend_count,
     is_protected_account,
     pack_community_locks,
+    pack_server_locks,
     refuse_moderate,
+    SERVER_LOCKS,
     server_ban_count,
     set_community_lock,
+    set_server_lock,
+    freeze_and_empty_server,
     site_ban_active,
     site_ban_count,
     warn_account,
@@ -215,7 +219,23 @@ def pack_server(server, owner_names, owner_handles, member_count):
         "banner_color": banner.get("banner_color") or "",
         "discoverable": bool(getattr(server, "discoverable", False)),
         "server_type_label": server_type_label(server.server_type or ""),
+        "frozen": False,
+        "flagged": False,
+        "locks": {},
     }
+
+
+def pack_admin_server(database, server):
+    owner_names, owner_handles = owner_maps(database, [server])
+    counts = server_member_counts(database, [server.id])
+    packed = pack_server(server, owner_names, owner_handles, counts.get(server.id, 0))
+    locks = pack_server_locks(database, server.id)
+    packed["locks"] = locks
+    packed["frozen"] = "frozen" in locks
+    packed["flagged"] = "flagged" in locks
+    packed["online_count"] = server_online_count(database, server.id)
+    packed["last_activity"] = server_last_message_at(database, server.id)
+    return packed
 
 
 def user_server_counts(database, ids):
@@ -1605,9 +1625,7 @@ def admin_server_detail(
         raise HTTPException(status_code=404, detail="Server not found.")
     owner_names, owner_handles = owner_maps(database, [server])
     counts = server_member_counts(database, [server.id])
-    packed = pack_server(server, owner_names, owner_handles, counts.get(server.id, 0))
-    packed["online_count"] = server_online_count(database, server.id)
-    packed["last_activity"] = server_last_message_at(database, server.id)
+    packed = pack_admin_server(database, server)
     return {"server": packed}
 
 
@@ -1629,3 +1647,102 @@ def admin_server_reports(
         .all()
     )
     return {"reports": pack_admin_reports(database, rows)}
+
+
+@router.post("/admin/server/{server_id}/report")
+async def admin_create_server_report(
+    server_id: str,
+    body: Admin_server_report,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found.")
+    report = clip_admin_note(body.report, required=True)
+    mode = (body.mode or "general").strip().lower()
+    if mode not in ("general", "moderation"):
+        raise HTTPException(status_code=400, detail="Pick General or Moderation.")
+    status = (body.status or "open").strip().lower()
+    if status not in ADMIN_REPORT_STATUSES:
+        raise HTTPException(status_code=400, detail="Pick a valid status.")
+    urgency = (body.urgency or "").strip().lower()
+    if status != "closed":
+        if urgency not in ADMIN_URGENCY:
+            urgency = "low"
+    else:
+        urgency = None
+    assign_id = None
+    if status != "closed" and body.assign_id:
+        if int(body.assign_id) != current_user.id:
+            raise HTTPException(status_code=400, detail="Assign to kiwi.")
+        assign_id = current_user.id
+    owner = database.query(UserInfo).filter(UserInfo.id == server.owner_id).first() if server.owner_id else None
+    locks = body.locks or []
+    need_action = bool(body.warn or body.disband or body.flag or any(not item.allowed for item in locks))
+    if need_action and owner:
+        refuse_moderate(current_user, owner)
+    if mode == "moderation" and body.warn:
+        if not owner:
+            raise HTTPException(status_code=400, detail="This server has no owner to warn.")
+        warn_account(database, current_user, owner, body.warn_reason)
+    if mode == "moderation" and body.disband:
+        freeze_and_empty_server(database, current_user, server)
+    if mode == "moderation" and body.flag:
+        set_server_lock(database, current_user, server.id, "flagged", True, None)
+    for item in locks:
+        kind = (item.kind or "").strip().lower()
+        if kind not in SERVER_LOCKS or item.allowed:
+            continue
+        until, permanent = parse_admin_until(item.until, item.days, item.permanent)
+        set_server_lock(database, current_user, server.id, kind, permanent, until)
+        if kind == "discovery":
+            server.discoverable = False
+        if kind == "joins":
+            server.applications_enabled = False
+    alert_user = bool(mode == "general" and body.alert_user)
+    requests_info = bool(mode == "general" and body.requests_info)
+    score = feedback_score("report", report, 0)
+    row = Feedback_report(
+        user_id=current_user.id,
+        username=current_user.username,
+        display_name=public_display_name(current_user),
+        feedback_type="report",
+        report_kind=mode,
+        report_score=score,
+        report=report,
+        status=status,
+        context_view="server",
+        server_id=server.id,
+        server_name=server.name or "",
+        channel_id=owner.id if owner else None,
+        channel_name="@" + ((owner.username if owner else "") or ""),
+        target_user_id=owner.id if owner else None,
+        assign_id=assign_id,
+        urgency=urgency,
+        alert_user=alert_user,
+        requests_info=requests_info,
+        report_mode=mode,
+    )
+    database.add(row)
+    database.commit()
+    database.refresh(row)
+    add_feedback_event(database, row.id, current_user, "created", json.dumps({"report": report}))
+    database.commit()
+    if alert_user and owner:
+        await notify_feed_alert(
+            database,
+            receiver_id=owner.id,
+            alert_type="report_status",
+            sender_id=current_user.id,
+            alert_family="feedback",
+            reason="Open" if status == "open" else FEEDBACK_STATUS_LABELS.get(status, status),
+            context=json.dumps({"report_id": row.id, "feedback_type": "report"}),
+            force=True,
+        )
+    extras = feedback_extras(database, [row], [current_user])
+    packed = pack_feedback(row, extras.get(row.id))
+    packed["about"] = True
+    packed["server"] = pack_admin_server(database, server)
+    return {"report": packed}

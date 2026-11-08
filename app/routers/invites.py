@@ -13,6 +13,7 @@ from app.routers.account import public_display_name
 from app.routers.profile import public_avatar
 from app.routers.parties import PARTY_MEMBER_CAP
 from app.privacy import blocked_from_party_owner
+from app.site_moderation import refuse_server_join
 from datetime import datetime, timedelta
 import asyncio
 import json
@@ -324,6 +325,8 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
             raise HTTPException(status_code=404, detail="Invite not found")
         server = database.query(Servers).filter(Servers.id == invite.server_id).first()
         is_member = database.query(Server_members).filter(Server_members.server_id == invite.server_id, Server_members.user_id == current_user.id).first()
+        if not is_member:
+            refuse_server_join(database, server)
         if is_member:
             landing = invite_channel_for(database, invite, current_user.id)
             payload = {"type": "server", "id": invite.server_id, "server_name": server.name, "position": is_member.position}

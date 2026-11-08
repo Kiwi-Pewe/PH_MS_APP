@@ -38,6 +38,7 @@ from app.routers.roles import (
 )
 from app.routers.account import public_display_name
 from app.routers.moderation import iso_dt, require_not_timed_out, timeout_until_for
+from app.site_moderation import refuse_server_lock, refuse_server_media
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, channel_notices_for, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 from app.routers.feed import notify_activity_reply
 from app.privacy import drop_blocked_rows
@@ -1315,6 +1316,8 @@ async def message_server_channel(server_msg: Server_message, database: Session =
         require_channel_perm(database, server, current_user.id, channel.id, "upload_chat_media", "You do not have permission to upload media.")
     require_not_timed_out(is_member)
     require_channel_slowmode(database, server, current_user.id, channel)
+    refuse_server_lock(database, server.id, "frozen")
+    refuse_server_media(database, server.id, server_msg.content, server_msg.attachment)
 
     require_message_body(server_msg.content, server_msg.attachment)
     parent = None

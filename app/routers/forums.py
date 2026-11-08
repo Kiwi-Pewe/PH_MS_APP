@@ -16,6 +16,7 @@ from app.routers.pins import clear_pins
 from app.routers.feed import notify_activity_reply, notify_activity_post_comment
 from app.privacy import drop_blocked_rows
 from datetime import datetime
+from app.site_moderation import refuse_server_lock, refuse_server_media
 
 router = APIRouter()
 
@@ -136,6 +137,8 @@ async def create_forum_post(create_forum: Forum_post_create, database: Session =
 
     items = normalize_post_attachments(create_forum.attachments, create_forum.attachment)
     require_post_body(create_forum.title, create_forum.body, items)
+    refuse_server_lock(database, server.id, "frozen")
+    refuse_server_media(database, server.id, (create_forum.title or "") + " " + (create_forum.body or ""), attachments=items)
     attachment_json = store_post_attachments(items, current_user)
 
     catalog = list_forum_tags(database, channel_exist.id)
@@ -363,6 +366,8 @@ async def send_forum_message(forum_message: Forum_message_create, database: Sess
     require_channel_slowmode(database, server, current_user.id, channel)
 
     require_message_body(forum_message.content, forum_message.attachment)
+    refuse_server_lock(database, server.id, "frozen")
+    refuse_server_media(database, server.id, forum_message.content, forum_message.attachment)
     parent = None
     if forum_message.reply_to_id:
         candidate = database.query(Forum_messages).filter(Forum_messages.id == forum_message.reply_to_id, Forum_messages.post_id == forum_message.post_id).first()

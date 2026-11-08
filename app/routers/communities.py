@@ -19,6 +19,7 @@ from app.routers.roles import assign_members_role, hoist_role_for_user, name_col
 from app.routers.feed import notify_feed_alert
 from app.routers.profile import public_avatar, public_display_name
 from app.routers.servers import clean_server_tag, parse_application_form, parse_server_tags, server_banner_fields, server_icon_still_url, server_icon_url, server_listing_tags, server_url_slug
+from app.site_moderation import listing_blocked_ids, refuse_server_join
 
 router = APIRouter()
 
@@ -67,7 +68,11 @@ def listed_server(server):
 
 
 def listed_servers_query(database):
-    return database.query(Servers).filter(Servers.discoverable == True)
+    rows = database.query(Servers).filter(Servers.discoverable == True)
+    blocked = listing_blocked_ids(database)
+    if blocked:
+        rows = rows.filter(~Servers.id.in_(blocked))
+    return rows
 
 
 def community_filter_tags(raw):
@@ -189,6 +194,7 @@ def add_community_member(database, server, user):
     ).first()
     if already:
         return False
+    refuse_server_join(database, server)
     highest_position = database.query(func.max(Server_members.position)).filter(
         Server_members.user_id == user.id
     ).scalar()
@@ -546,6 +552,7 @@ async def join_community(
     ).first()
     if is_member:
         return {"ok": True, "id": server.id, "joined": True}
+    refuse_server_join(database, server)
     added = add_community_member(database, server, current_user)
     if not added:
         return {"ok": True, "id": server.id, "joined": True}
@@ -597,6 +604,7 @@ async def apply_community(
     ).first()
     if is_member:
         return {"ok": True, "id": server.id, "joined": True}
+    refuse_server_join(database, server)
     form = parse_application_form(getattr(server, "application_form", None))
     packed = validate_application_answers(form, body.answers, current_user.username)
     snapshot = application_snapshot(form, packed)

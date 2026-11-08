@@ -3,6 +3,12 @@ const SERVERS_BY = [
   { id: "id", label: "Server ID", hint: "Server ID" },
   { id: "name", label: "Name", hint: "Name" }
 ];
+const SERVERS_LOCKS = [
+  { id: "voice", label: "Allow Voice Chat" },
+  { id: "images", label: "Allow Images" },
+  { id: "joins", label: "Allow Joins" },
+  { id: "discovery", label: "Allow Discovery" }
+];
 
 let serversBy = "id";
 let serversQuery = "";
@@ -129,7 +135,7 @@ function paintServersAccount(host, row) {
   track.addEventListener("click", () => trackAdminServer(row));
   const report = adminEl("button", "users-btn-report", "Create Report");
   report.type = "button";
-  report.disabled = true;
+  report.addEventListener("click", () => openServersCreateReport(row));
   foot.appendChild(track);
   foot.appendChild(report);
   host.appendChild(foot);
@@ -281,6 +287,185 @@ function paintServersSearch(main) {
   main.appendChild(adminEl("div", "overview-page-foot", "Snapshot data · Updates every 5 minutes"));
   if (serversRows.length) paintServersRows(list);
   else loadServersList(false);
+}
+
+function openServersCreateReport(row) {
+  const overlay = document.getElementById("admin-report-overlay");
+  const left = document.getElementById("admin-report-left");
+  const body = document.getElementById("admin-report-body");
+  const create = document.getElementById("admin-report-create");
+  const cancel = document.getElementById("admin-report-cancel");
+  if (!overlay || !left || !body) return;
+  left.innerHTML = "";
+  body.innerHTML = "";
+  usersReportError("");
+  const banner = adminEl("div", "users-banner");
+  if (row.banner_url) banner.style.backgroundImage = "url(\"" + row.banner_url + "\")";
+  else if (row.banner_color) banner.style.background = row.banner_color;
+  left.appendChild(banner);
+  const who = adminEl("div", "users-account-who");
+  const face = adminEl("div", "users-account-face is-server");
+  usersFace(face, { avatar: row.icon_url }, row.name);
+  who.appendChild(face);
+  const names = adminEl("div", "users-account-names");
+  names.appendChild(adminEl("div", "users-account-display", row.name || "—"));
+  names.appendChild(adminEl("div", "users-account-handle", row.id || "—"));
+  who.appendChild(names);
+  left.appendChild(who);
+  left.appendChild(adminEl("div", "admin-report-rule"));
+  const locks = SERVERS_LOCKS.map((item) => usersLockControl(item));
+  locks.forEach((item) => left.appendChild(item.wrap));
+  const modeSwitch = adminEl("div", "admin-report-switch is-wide");
+  const generalBtn = adminEl("button", "is-on", "General");
+  const modBtn = adminEl("button", "", "Moderation");
+  generalBtn.type = "button";
+  modBtn.type = "button";
+  modeSwitch.appendChild(generalBtn);
+  modeSwitch.appendChild(modBtn);
+  body.appendChild(modeSwitch);
+  body.appendChild(adminEl("div", "admin-report-rule"));
+  const generalBox = adminEl("div", "admin-report-mode");
+  const alertLine = adminEl("div", "admin-report-check");
+  alertLine.appendChild(adminEl("span", "", "Alert Server Owner"));
+  const alertToggle = usersToggle(false);
+  alertLine.appendChild(alertToggle.label);
+  const infoLine = adminEl("div", "admin-report-check");
+  infoLine.appendChild(adminEl("span", "", "Requests Info From User"));
+  const infoToggle = usersToggle(false);
+  infoLine.appendChild(infoToggle.label);
+  generalBox.appendChild(alertLine);
+  generalBox.appendChild(infoLine);
+  const modBox = adminEl("div", "admin-report-mode");
+  modBox.hidden = true;
+  const warnLine = adminEl("div", "admin-report-check");
+  warnLine.appendChild(adminEl("span", "", "Warn Server Owner"));
+  const warnToggle = usersToggle(false);
+  warnLine.appendChild(warnToggle.label);
+  const warnReason = adminEl("textarea", "admin-report-reason");
+  warnReason.rows = 5;
+  warnReason.placeholder = "Reason";
+  warnReason.hidden = true;
+  warnToggle.input.addEventListener("change", () => {
+    warnReason.hidden = !warnToggle.input.checked;
+  });
+  const disbandLine = adminEl("div", "admin-report-check");
+  disbandLine.appendChild(adminEl("span", "", "Disband Server"));
+  const disbandToggle = usersToggle(false);
+  disbandLine.appendChild(disbandToggle.label);
+  const flagLine = adminEl("div", "admin-report-check");
+  flagLine.appendChild(adminEl("span", "", "Flag Server"));
+  const flagToggle = usersToggle(false);
+  flagLine.appendChild(flagToggle.label);
+  modBox.appendChild(warnLine);
+  modBox.appendChild(warnReason);
+  modBox.appendChild(disbandLine);
+  modBox.appendChild(flagLine);
+  body.appendChild(generalBox);
+  body.appendChild(modBox);
+  let mode = "general";
+  function setMode(next) {
+    mode = next;
+    generalBtn.classList.toggle("is-on", next === "general");
+    modBtn.classList.toggle("is-on", next === "moderation");
+    generalBox.hidden = next !== "general";
+    modBox.hidden = next !== "moderation";
+  }
+  generalBtn.addEventListener("click", () => setMode("general"));
+  modBtn.addEventListener("click", () => setMode("moderation"));
+  body.appendChild(adminEl("div", "admin-report-rule"));
+  body.appendChild(adminEl("div", "admin-report-k", "Status"));
+  const extra = adminEl("div", "admin-report-extra");
+  const status = adminEl("select", "admin-report-input");
+  [
+    { id: "open", label: "Open" },
+    { id: "followup", label: "Needs Followup" },
+    { id: "closed", label: "Closed" }
+  ].forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label;
+    status.appendChild(opt);
+  });
+  status.value = "open";
+  status.addEventListener("change", () => {
+    extra.hidden = status.value === "closed";
+  });
+  body.appendChild(status);
+  extra.appendChild(adminEl("div", "admin-report-k", "Assign to"));
+  const assign = adminEl("select", "admin-report-input");
+  const everyone = document.createElement("option");
+  everyone.value = "";
+  everyone.textContent = "Everyone";
+  assign.appendChild(everyone);
+  const assignOpt = document.createElement("option");
+  assignOpt.value = String((adminUser && adminUser.id) || "");
+  assignOpt.textContent = (adminUser && (adminUser.display_name || adminUser.username)) || "kiwi";
+  assign.appendChild(assignOpt);
+  assign.value = "";
+  extra.appendChild(assign);
+  extra.appendChild(adminEl("div", "admin-report-k", "Urgency"));
+  const urgency = adminEl("select", "admin-report-input");
+  [
+    { id: "high", label: "High" },
+    { id: "medium", label: "Medium" },
+    { id: "low", label: "Low" }
+  ].forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = item.label;
+    urgency.appendChild(opt);
+  });
+  urgency.value = "low";
+  extra.appendChild(urgency);
+  body.appendChild(extra);
+  body.appendChild(adminEl("div", "admin-report-k", "Additional Information"));
+  const info = adminEl("textarea", "admin-report-reason");
+  info.rows = 5;
+  body.appendChild(info);
+  function submit() {
+    usersReportError("");
+    if (mode === "moderation" && warnToggle.input.checked && !String(warnReason.value || "").trim()) {
+      usersReportError("Write a warn reason.");
+      return;
+    }
+    if (!String(info.value || "").trim()) {
+      usersReportError("Write additional information.");
+      return;
+    }
+    adminApi("/admin/server/" + encodeURIComponent(row.id) + "/report", {
+      method: "POST",
+      body: {
+        report: info.value,
+        mode: mode,
+        status: status.value,
+        assign_id: status.value === "closed" ? null : Number(assign.value) || null,
+        urgency: status.value === "closed" ? "" : urgency.value,
+        alert_user: mode === "general" && alertToggle.input.checked,
+        requests_info: mode === "general" && infoToggle.input.checked,
+        warn: mode === "moderation" && warnToggle.input.checked,
+        warn_reason: warnReason.value,
+        disband: mode === "moderation" && disbandToggle.input.checked,
+        flag: mode === "moderation" && flagToggle.input.checked,
+        locks: locks.map((item) => item.read())
+      }
+    }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+      if (!result.ok) {
+        const detail = result.data && result.data.detail;
+        usersReportError(typeof detail === "string" ? detail : "Could not create the report.");
+        return;
+      }
+      closeUsersReport();
+      if (result.data && result.data.server) serversSelected = result.data.server;
+      if (result.data && result.data.report) serversReports.unshift(result.data.report);
+      const mid = document.getElementById("servers-reports");
+      if (mid) paintServersReports(mid);
+      const account = document.getElementById("servers-account");
+      if (account && serversSelected) paintServersAccount(account, serversSelected);
+    }).catch(() => usersReportError("Could not create the report."));
+  }
+  create.onclick = submit;
+  cancel.onclick = closeUsersReport;
+  overlay.hidden = false;
 }
 
 function paintServers(main) {

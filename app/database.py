@@ -590,6 +590,22 @@ def ensure_feedback_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS server_locks ("
+                "id INTEGER PRIMARY KEY, "
+                "server_id VARCHAR(10) NOT NULL, "
+                "kind VARCHAR NOT NULL, "
+                "permanent BOOLEAN NOT NULL DEFAULT 0, "
+                "lift_at DATETIME, "
+                "actor_id INTEGER, "
+                "actor_username VARCHAR, "
+                "created_at DATETIME, "
+                "CONSTRAINT uq_server_lock UNIQUE (server_id, kind))"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_feed_alert_columns():

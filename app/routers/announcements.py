@@ -16,6 +16,7 @@ from app.routers.realtime import server_broadcast
 from app.routers.profile import avatar_lookup, public_avatar
 from app.routers.roles import effective_perms_for_user_in_channel, highest_roles_by_user, name_color_role_for_user, name_color_roles_by_user, require_channel_perm, require_channel_slowmode
 from app.routers.deletion import write_audit_log
+from app.site_moderation import refuse_server_lock, refuse_server_media
 from app.routers.reactions import clear_reactions, reactions_for_messages
 from app.routers.pins import clear_pins
 from app.routers.feed import notify_activity_post_comment
@@ -106,6 +107,8 @@ async def create_post(announcement: Announcements, database: Session = Depends(g
 
     items = normalize_post_attachments(announcement.attachments, announcement.attachment)
     require_post_body(announcement.title, announcement.body, items)
+    refuse_server_lock(database, server.id, "frozen")
+    refuse_server_media(database, server.id, (announcement.title or "") + " " + (announcement.body or ""), attachments=items)
     attachment_json = store_post_attachments(items, current_user)
 
     new_post = Announcement_post(
@@ -290,6 +293,8 @@ async def post_comment(comment: Comment_create, database: Session = Depends(get_
         raise HTTPException(status_code=400, detail="Comments are turned off for this post.")
     from app.routers.moderation import require_not_timed_out
     require_not_timed_out(is_member)
+    refuse_server_lock(database, server.id, "frozen")
+    refuse_server_media(database, server.id, comment.content)
 
     new_comment = Announcement_comment(
         post_id = announcement.id,

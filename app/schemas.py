@@ -235,6 +235,21 @@ class Admin_user_report(BaseModel):
     locks: list[Admin_lock] = []
 
 
+class Admin_server_report(BaseModel):
+    report: str = ""
+    mode: str = "general"
+    status: str = "open"
+    assign_id: int | None = None
+    urgency: str = ""
+    alert_user: bool = False
+    requests_info: bool = False
+    warn: bool = False
+    warn_reason: str = ""
+    disband: bool = False
+    flag: bool = False
+    locks: list[Admin_lock] = []
+
+
 class Community_post_create(BaseModel):
     body: str = ""
     topics: list[str] = []

@@ -1,0 +1,31 @@
+#admin-main.is-reports {
+  overflow: hidden;
+  padding: 18px 24px 14px;
+  min-height: 0;
+}
+
+#admin-main.is-reports > .admin-head {
+  flex: 0 0 auto;
+  margin-bottom: 12px;
+}
+
+#admin-main.is-reports > .overview-page-foot {
+  flex: 0 0 auto;
+  margin-top: 10px;
+}
+
+#admin-main.is-reports .users-stack.is-left > .users-card {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#admin-main.is-reports .users-stack.is-right > .users-card,
+#admin-main.is-reports .users-stack.is-right > .users-empty {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#admin-main.is-reports .users-entry.is-on {
+  border-color: var(--admin-on);
+  background: var(--admin-on-bg);
+}

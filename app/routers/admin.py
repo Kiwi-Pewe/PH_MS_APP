@@ -962,8 +962,11 @@ def admin_overview_stats(
 @router.get("/admin/feedback")
 def admin_feedback(
     q: str = "",
+    by: str = "",
     sort: str = "id",
     order: str = "desc",
+    flagged: int = 0,
+    scope: str = "",
     offset: int = 0,
     limit: int = PAGE_SIZE,
     database: Session = Depends(get_db),
@@ -971,19 +974,41 @@ def admin_feedback(
 ):
     require_oneira_admin(current_user)
     query = database.query(Feedback_report)
+    bucket = (scope or "").strip().lower()
+    if bucket == "search":
+        query = query.filter(Feedback_report.feedback_type.in_(("bug", "report")))
+    elif bucket == "feedback":
+        query = query.filter(Feedback_report.feedback_type.in_(("inquiry", "feature")))
     text = (q or "").strip()
+    field = (by or "").strip().lower()
     if text:
         needle = like_text(text)
+        if field == "username":
+            query = query.filter(Feedback_report.username.ilike(needle))
+        elif field == "display_name":
+            query = query.filter(Feedback_report.display_name.ilike(needle))
+        elif field == "id":
+            query = query.filter(cast(Feedback_report.id, String).ilike(needle))
+        else:
+            query = query.filter(or_(
+                Feedback_report.username.ilike(needle),
+                Feedback_report.display_name.ilike(needle),
+                Feedback_report.report.ilike(needle),
+                Feedback_report.feedback_type.ilike(needle),
+                Feedback_report.status.ilike(needle),
+                Feedback_report.server_name.ilike(needle),
+                Feedback_report.server_id.ilike(needle),
+                Feedback_report.channel_name.ilike(needle),
+                cast(Feedback_report.id, String).ilike(needle),
+            ))
+    if flagged:
         query = query.filter(or_(
-            Feedback_report.username.ilike(needle),
-            Feedback_report.display_name.ilike(needle),
-            Feedback_report.report.ilike(needle),
-            Feedback_report.feedback_type.ilike(needle),
-            Feedback_report.status.ilike(needle),
-            Feedback_report.server_name.ilike(needle),
-            Feedback_report.server_id.ilike(needle),
-            Feedback_report.channel_name.ilike(needle),
-            cast(Feedback_report.id, String).ilike(needle),
+            Feedback_report.target_user_id.in_(
+                database.query(Community_lock.user_id).filter(Community_lock.kind == "flagged")
+            ),
+            Feedback_report.server_id.in_(
+                database.query(Server_lock.server_id).filter(Server_lock.kind == "flagged")
+            ),
         ))
     columns = {
         "id": Feedback_report.id,

@@ -1,4 +1,5 @@
 let serverAddress = (typeof API_HOST === "string" && API_HOST) ? API_HOST : "";
+let currentServerId = null;
 let myUserId = null;
 let myUsername = "";
 let myDisplayName = "";

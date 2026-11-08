@@ -490,3 +490,190 @@
   background: var(--rail);
   font-size: 12px;
 }
+
+#admin-main.is-servers-members {
+  overflow: hidden;
+  padding: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#admin-members-close {
+  flex: 0 0 auto;
+  height: 40px;
+  width: 100%;
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--rail);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+
+#admin-members-close:hover {
+  background: var(--panel-alt);
+}
+
+#admin-members-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--rail);
+}
+
+#admin-members-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel-alt);
+  flex: 0 0 auto;
+}
+
+#admin-members-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#admin-members-name {
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 0;
+}
+
+#admin-members-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+#admin-members-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#admin-members-table th {
+  text-align: left;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+#admin-members-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  vertical-align: middle;
+  color: var(--text);
+}
+
+#admin-members-table tbody tr:hover {
+  background: var(--panel-alt);
+}
+
+.admin-members-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-members-user .users-face {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.admin-members-labels {
+  min-width: 0;
+}
+
+.admin-members-display {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-members-username {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.admin-members-owner {
+  color: var(--admin-mark);
+  font-size: 12px;
+}
+
+.admin-members-roles {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-members-roles.is-empty {
+  color: var(--text-dim);
+}
+
+.admin-members-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--role-color, var(--text-dim)) 18%, var(--panel));
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-members-pill::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--role-color, var(--text-dim));
+}
+
+.admin-members-more-roles {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.admin-members-hold td {
+  padding: 14px;
+}
+
+.admin-members-hold-bar {
+  height: 12px;
+  border-radius: 4px;
+  background: var(--panel-alt);
+  width: 72%;
+}
+
+#admin-members-more {
+  flex: 0 0 auto;
+  margin: 10px 16px 16px;
+  align-self: flex-start;
+}
+
+#admin-members-empty {
+  padding: 24px 16px;
+}
+
+.is-servers-members .users-face.is-mini-profile-target {
+  cursor: pointer;
+}

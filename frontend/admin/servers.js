@@ -25,6 +25,13 @@ let serversEvents = [];
 let serversLayoutId = "";
 let serversLayoutChannelId = 0;
 const SERVERS_LAYOUT_GAP = 5 * 60 * 1000;
+const SERVERS_MEMBERS_PAGE = 25;
+let serversMembersId = "";
+let serversMembersName = "";
+let serversMembersRows = [];
+let serversMembersOffset = 0;
+let serversMembersHasMore = false;
+let serversMembersLoading = false;
 
 function serversByMeta(id) {
   return SERVERS_BY.find((row) => row.id === id) || SERVERS_BY[0];
@@ -939,8 +946,311 @@ function paintServersLayout(main) {
   main.appendChild(adminEl("div", "users-empty", "Select a tracked server."));
 }
 
+function serversMembersAge(ts) {
+  if (!ts) return "—";
+  const date = typeof parseUtcTimestamp === "function" ? parseUtcTimestamp(ts) : new Date(ts);
+  if (!date || Number.isNaN(date.getTime())) return "—";
+  const sec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (sec < 60) return "Just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return min === 1 ? "1 minute ago" : min + " minutes ago";
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return hr === 1 ? "1 hour ago" : hr + " hours ago";
+  const day = Math.floor(hr / 24);
+  if (day < 30) return day === 1 ? "1 day ago" : day + " days ago";
+  const month = Math.floor(day / 30);
+  if (month < 12) return month === 1 ? "1 month ago" : month + " months ago";
+  const year = Math.floor(day / 365);
+  return year <= 1 ? "1 year ago" : year + " years ago";
+}
+
+function serversMembersJoin(member) {
+  if (member && member.is_owner) return "Owner";
+  if (member && member.join_method === "community") return "Community";
+  const code = String((member && member.join_invite_code) || "").trim();
+  if (code) return code;
+  return "Invite";
+}
+
+function serversMembersNameOf(member) {
+  return String((member && (member.nickname || member.display_name || member.username)) || "User").trim() || "User";
+}
+
+function serversMembersRoles(member) {
+  return (member.roles || []).filter((role) => !role.is_members);
+}
+
+function serversMembersMini(userId, el) {
+  if (typeof currentServerId !== "undefined") currentServerId = serversMembersId || currentServerId;
+  const open = () => {
+    if (typeof openMiniProfile === "function") openMiniProfile(userId, el);
+  };
+  if (typeof ensureAdminProfileLayer === "function") {
+    ensureAdminProfileLayer().then(open);
+    return;
+  }
+  open();
+}
+
+function closeServersMembers() {
+  serversMembersId = "";
+  serversMembersName = "";
+  serversMembersRows = [];
+  serversMembersOffset = 0;
+  serversMembersHasMore = false;
+  serversMembersLoading = false;
+  if (typeof currentServerId !== "undefined") currentServerId = null;
+  const main = document.getElementById("admin-main");
+  if (main && adminPage === "servers" && adminSection === "members") {
+    main.innerHTML = "";
+    paintServersMembers(main);
+  }
+}
+
+function paintServersMembersHold(body) {
+  body.innerHTML = "";
+  for (let i = 0; i < 8; i += 1) {
+    const tr = document.createElement("tr");
+    tr.className = "admin-members-hold";
+    for (let c = 0; c < 6; c += 1) {
+      const td = document.createElement("td");
+      td.appendChild(adminEl("div", "admin-members-hold-bar"));
+      tr.appendChild(td);
+    }
+    body.appendChild(tr);
+  }
+}
+
+function paintServersMembersRoleCell(member) {
+  const wrap = adminEl("div", "admin-members-roles");
+  const roles = serversMembersRoles(member);
+  const primary = (member.highest_role && !member.highest_role.is_members) ? member.highest_role : roles[0];
+  if (!primary) {
+    wrap.classList.add("is-empty");
+    wrap.textContent = "—";
+    return wrap;
+  }
+  const pill = adminEl("span", "admin-members-pill", primary.name || "Role");
+  if (primary.color) pill.style.setProperty("--role-color", primary.color);
+  wrap.appendChild(pill);
+  const extra = Math.max(0, roles.length - 1);
+  if (extra > 0) {
+    const more = adminEl("span", "admin-members-more-roles", "+" + extra);
+    more.title = roles.slice(1).map((role) => role.name || "Role").join(", ");
+    wrap.appendChild(more);
+  }
+  return wrap;
+}
+
+function paintServersMembersRow(member) {
+  const tr = document.createElement("tr");
+  const userTd = document.createElement("td");
+  const user = adminEl("div", "admin-members-user");
+  const face = adminEl("div", "users-face");
+  if (typeof usersFace === "function") usersFace(face, member, serversMembersNameOf(member));
+  else face.textContent = serversMembersNameOf(member).slice(0, 1);
+  const status = (typeof usersPresence === "function") ? usersPresence(member) : "offline";
+  face.appendChild(adminEl("span", "status-dot status-" + status));
+  const labels = adminEl("div", "admin-members-labels");
+  const display = adminEl("div", "admin-members-display", serversMembersNameOf(member));
+  if (member.name_role && member.name_role.color) display.style.color = member.name_role.color;
+  if (member.is_owner) {
+    const crown = adminEl("span", "admin-members-owner", "★");
+    crown.title = "Owner";
+    display.appendChild(document.createTextNode(" "));
+    display.appendChild(crown);
+  }
+  labels.appendChild(display);
+  labels.appendChild(adminEl("div", "admin-members-username", member.username || ""));
+  user.appendChild(face);
+  user.appendChild(labels);
+  userTd.appendChild(user);
+  tr.appendChild(userTd);
+  const joined = document.createElement("td");
+  joined.textContent = serversMembersAge(member.joined_at);
+  tr.appendChild(joined);
+  const account = document.createElement("td");
+  account.textContent = serversMembersAge(member.created_at);
+  tr.appendChild(account);
+  const method = document.createElement("td");
+  method.textContent = serversMembersJoin(member);
+  tr.appendChild(method);
+  const roles = document.createElement("td");
+  roles.appendChild(paintServersMembersRoleCell(member));
+  tr.appendChild(roles);
+  const seen = document.createElement("td");
+  seen.textContent = status === "online" ? "Online" : serversMembersAge(member.last_active);
+  tr.appendChild(seen);
+  const open = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    serversMembersMini(member.id, face);
+  };
+  face.addEventListener("click", open);
+  display.addEventListener("click", open);
+  face.classList.add("is-mini-profile-target");
+  display.classList.add("is-mini-profile-target");
+  return tr;
+}
+
+function paintServersMembersRows() {
+  const body = document.getElementById("admin-members-body");
+  const empty = document.getElementById("admin-members-empty");
+  const more = document.getElementById("admin-members-more");
+  if (!body) return;
+  body.innerHTML = "";
+  if (!serversMembersRows.length) {
+    if (empty) empty.hidden = false;
+    if (more) more.hidden = true;
+    return;
+  }
+  if (empty) empty.hidden = true;
+  serversMembersRows.forEach((member) => body.appendChild(paintServersMembersRow(member)));
+  if (more) more.hidden = !serversMembersHasMore;
+}
+
+function loadServersMembers(serverId, more) {
+  if (!serverId || serversMembersLoading) return;
+  const body = document.getElementById("admin-members-body");
+  if (!more) {
+    serversMembersOffset = 0;
+    serversMembersRows = [];
+    serversMembersHasMore = false;
+    if (body) paintServersMembersHold(body);
+  }
+  serversMembersLoading = true;
+  const moreBtn = document.getElementById("admin-members-more");
+  if (moreBtn) moreBtn.disabled = true;
+  adminApi("/admin/server/" + encodeURIComponent(serverId) + "/members?offset=" + serversMembersOffset + "&limit=" + SERVERS_MEMBERS_PAGE).then((res) => {
+    if (!res.ok) throw new Error("fail");
+    return res.json();
+  }).then((data) => {
+    if (serversMembersId !== serverId) return;
+    const pack = data && data.server;
+    if (pack && pack.name) {
+      serversMembersName = pack.name;
+      const title = document.getElementById("admin-members-name");
+      if (title) title.textContent = pack.name;
+      const icon = document.getElementById("admin-members-icon");
+      if (icon && pack.icon_url) {
+        icon.innerHTML = "";
+        const img = document.createElement("img");
+        img.src = pack.icon_url;
+        img.alt = "";
+        icon.appendChild(img);
+      }
+    }
+    const rows = (data && data.members) || [];
+    serversMembersRows = more ? serversMembersRows.concat(rows) : rows;
+    serversMembersHasMore = !!(data && data.has_more);
+    serversMembersOffset = serversMembersRows.length;
+    paintServersMembersRows();
+  }).catch(() => {
+    if (serversMembersId !== serverId) return;
+    const empty = document.getElementById("admin-members-empty");
+    if (empty) {
+      empty.hidden = false;
+      empty.textContent = "Could not load members.";
+    }
+    if (body && !more) body.innerHTML = "";
+  }).finally(() => {
+    serversMembersLoading = false;
+    if (moreBtn) moreBtn.disabled = false;
+  });
+}
+
+function paintServersMembersView(main, seed) {
+  main.className = "is-servers is-servers-members";
+  main.innerHTML = "";
+  const close = adminEl("button", "", "Close");
+  close.type = "button";
+  close.id = "admin-members-close";
+  close.addEventListener("click", closeServersMembers);
+  main.appendChild(close);
+  const head = adminEl("div", "");
+  head.id = "admin-members-head";
+  const icon = adminEl("div", "");
+  icon.id = "admin-members-icon";
+  if (seed && seed.icon_url) {
+    const img = document.createElement("img");
+    img.src = seed.icon_url;
+    img.alt = "";
+    icon.appendChild(img);
+  }
+  head.appendChild(icon);
+  const name = adminEl("div", "", (seed && seed.name) || "Server");
+  name.id = "admin-members-name";
+  head.appendChild(name);
+  main.appendChild(head);
+  const wrap = adminEl("div", "");
+  wrap.id = "admin-members-wrap";
+  const table = document.createElement("table");
+  table.id = "admin-members-table";
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  ["Name", "Member since", "Joined Oneira", "Join Method", "Roles", "Last active"].forEach((label) => {
+    headRow.appendChild(adminEl("th", "", label));
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+  const body = document.createElement("tbody");
+  body.id = "admin-members-body";
+  table.appendChild(body);
+  wrap.appendChild(table);
+  const empty = adminEl("div", "users-empty", "No members.");
+  empty.id = "admin-members-empty";
+  empty.hidden = true;
+  wrap.appendChild(empty);
+  main.appendChild(wrap);
+  const more = adminEl("button", "users-more", "Load more");
+  more.type = "button";
+  more.id = "admin-members-more";
+  more.hidden = true;
+  more.addEventListener("click", () => loadServersMembers(serversMembersId, true));
+  main.appendChild(more);
+  paintServersMembersHold(body);
+}
+
+function openServersMembers(serverId) {
+  if (!serverId) return;
+  serversMembersId = serverId;
+  serversMembersName = "";
+  serversMembersRows = [];
+  serversMembersOffset = 0;
+  serversMembersHasMore = false;
+  if (typeof currentServerId !== "undefined") currentServerId = serverId;
+  if (adminPage !== "servers" || adminSection !== "members") {
+    showAdminPage("servers", "members");
+    return;
+  }
+  const main = document.getElementById("admin-main");
+  if (!main) return;
+  paintServersMembersView(main, serversLayoutSeed(serverId));
+  loadServersMembers(serverId, false);
+}
+
+function paintServersMembers(main) {
+  if (serversMembersId) {
+    paintServersMembersView(main, serversLayoutSeed(serversMembersId));
+    loadServersMembers(serversMembersId, false);
+    return;
+  }
+  main.className = "is-servers";
+  main.appendChild(adminPageHead({
+    crumbs: ["Admin", "Servers", "Members"],
+    title: "Members",
+    clock: "est"
+  }));
+  if (!adminTrackedServers.length) {
+    main.appendChild(adminEl("div", "users-empty", "Track a server from Search first."));
+    return;
+  }
+  main.appendChild(adminEl("div", "users-empty", "Select a tracked server."));
+}
+
 function paintServers(main, sectionId) {
   if (sectionId === "layout") return paintServersLayout(main);
+  if (sectionId === "members") return paintServersMembers(main);
   paintServersSearch(main);
 }
 
@@ -950,7 +1260,7 @@ registerAdminPage({
   sections: [
     { id: "search", label: "Search", icon: "grid" },
     { id: "layout", label: "Layout", icon: "share" },
-    { id: "members", label: "Members", icon: "users", later: true },
+    { id: "members", label: "Members", icon: "users" },
     { id: "ownership", label: "Track Ownership", icon: "eye", later: true }
   ],
   paint: paintServers
@@ -963,6 +1273,9 @@ if (typeof registerAdminTrackedServerOpen === "function") {
   });
   registerAdminTrackedServerOpen("servers", "layout", (serverId) => {
     openServersLayout(serverId);
+  });
+  registerAdminTrackedServerOpen("servers", "members", (serverId) => {
+    openServersMembers(serverId);
   });
 }
 

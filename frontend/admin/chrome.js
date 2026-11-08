@@ -368,7 +368,7 @@ function ensureAdminProfileLayer() {
       "../shared/music-player.js?v=2",
       "../shared/embed-frame.js?v=1",
       "../shared/gallery-frame.js?v=1",
-      "profile-bridge.js?v=1",
+      "profile-bridge.js?v=2",
       "../main/profile-identity.js?v=19",
       "../main/profile-comments.js?v=9",
       "../main/profile-board.js?v=137",

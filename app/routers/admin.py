@@ -4,7 +4,7 @@ from sqlalchemy import func, or_, and_, cast, String
 from app.models import (
     UserInfo, Feedback_report, Feedback_event, Admin_user_note, Servers, Server_members,
     Server_bans, Friend_request, Account_warn, Site_ban, Active_Sessions, Message,
-    Channel_messages, Server_channels, Server_categories, Community_post, Community_room,
+    Channel_messages, Server_channels, Server_categories, Server_roles, Server_role_members, Community_post, Community_room,
     Community_room_member, Community_room_message, Community_phone_wait, Community_phone_call,
     Block_user,
 )
@@ -17,10 +17,11 @@ from app.routers.feedback import (
 )
 from app.routers.profile import public_identity, public_avatar, ensure_layout, profile_payload, friend_preview, avatar_lookup
 from app.routers.mini_profiles import layout_banner_and_about
-from app.routers.servers import server_banner_fields, server_icon_url, server_type_label
+from app.routers.servers import server_banner_fields, server_icon_url, server_type_label, join_methods_by_user
 from app.routers.mentions import decorate_history, reply_map_for
+from app.routers.moderation import iso_dt
 from app.routers.reactions import reactions_for_messages
-from app.routers.roles import name_color_roles_by_user, nicknames_for_users
+from app.routers.roles import name_color_roles_by_user, nicknames_for_users, clean_role_color
 from app.r2 import delete_attachment, post_attachments_public, attachment_public
 from app.routers.feed import notify_feed_alert
 from app.routers.realtime import active_connections, presence_status
@@ -1891,3 +1892,98 @@ def admin_server_channel_history(
     if not admin_channel_is_chat(channel):
         raise HTTPException(status_code=400, detail="Chat history is only available in text channels.")
     return pack_admin_channel_history(database, current_user, server, channel, before_id)
+
+
+def pack_admin_member_roles(database, server_id, user_ids):
+    if not user_ids:
+        return {}
+    rows = (
+        database.query(Server_roles, Server_role_members.user_id)
+        .join(Server_role_members, Server_role_members.role_id == Server_roles.id)
+        .filter(Server_roles.server_id == server_id, Server_role_members.user_id.in_(user_ids))
+        .order_by(Server_roles.position, Server_roles.id)
+        .all()
+    )
+    out = {}
+    for role, user_id in rows:
+        packed = {
+            "id": role.id,
+            "name": role.name or "",
+            "color": clean_role_color(getattr(role, "color", None)),
+            "position": int(role.position or 0),
+            "is_members": bool(role.is_members),
+        }
+        out.setdefault(user_id, []).append(packed)
+    return out
+
+
+@router.get("/admin/server/{server_id}/members")
+def admin_server_members(
+    server_id: str,
+    offset: int = 0,
+    limit: int = 25,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found.")
+    query = (
+        database.query(Server_members)
+        .filter(Server_members.server_id == server.id)
+        .order_by(Server_members.joined_at.desc(), Server_members.id.desc())
+    )
+    rows, has_more = take_page(query, offset, limit)
+    user_ids = [row.user_id for row in rows]
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
+    account_lookup = {account.id: account for account in accounts}
+    roles_map = pack_admin_member_roles(database, server.id, user_ids)
+    name_map = name_color_roles_by_user(database, server.id, user_ids) if user_ids else {}
+    join_map = join_methods_by_user(database, server.id, user_ids) if user_ids else {}
+    last_seen = {}
+    if user_ids:
+        seen_rows = (
+            database.query(Active_Sessions.account_id, func.max(Active_Sessions.last_active))
+            .filter(Active_Sessions.account_id.in_(user_ids))
+            .group_by(Active_Sessions.account_id)
+            .all()
+        )
+        for account_id, stamp in seen_rows:
+            last_seen[account_id] = iso_dt(stamp)
+    members = []
+    for row in rows:
+        account = account_lookup.get(row.user_id)
+        if not account:
+            continue
+        roles = roles_map.get(account.id) or []
+        visible = [role for role in roles if not role.get("is_members")]
+        highest = visible[0] if visible else None
+        joined = join_map.get(account.id) or {}
+        name_role = name_map.get(account.id)
+        members.append({
+            "id": account.id,
+            "username": account.username or "",
+            "display_name": public_display_name(account),
+            "nickname": (getattr(row, "nickname", None) or "").strip(),
+            "avatar": public_avatar(account),
+            "presence": presence_status(account.id),
+            "is_owner": account.id == server.owner_id,
+            "joined_at": iso_dt(getattr(row, "joined_at", None)),
+            "created_at": iso_dt(getattr(account, "created_at", None)),
+            "last_active": last_seen.get(account.id),
+            "join_method": "owner" if account.id == server.owner_id else (joined.get("join_method") or "invite"),
+            "join_invite_code": joined.get("join_invite_code") or "",
+            "roles": roles,
+            "highest_role": highest,
+            "name_role": name_role,
+        })
+    return {
+        "server": {
+            "id": server.id,
+            "name": server.name or "",
+            "icon_url": server_icon_url(server),
+        },
+        "members": members,
+        "has_more": has_more,
+    }

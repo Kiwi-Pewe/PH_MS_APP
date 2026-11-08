@@ -178,6 +178,25 @@ def load_admin_user(database, user_id):
     return packed
 
 
+def server_online_count(database, server_id):
+    ids = [
+        uid for (uid,) in database.query(Server_members.user_id).filter(Server_members.server_id == server_id).all()
+    ]
+    return sum(1 for uid in ids if presence_status(uid) == "online")
+
+
+def server_last_message_at(database, server_id):
+    last = (
+        database.query(func.max(Channel_messages.timestamp))
+        .select_from(Channel_messages)
+        .join(Server_channels, Server_channels.id == Channel_messages.channel_id)
+        .join(Server_categories, Server_categories.id == Server_channels.category_id)
+        .filter(Server_categories.server_id == server_id)
+        .scalar()
+    )
+    return str(last) if last else None
+
+
 def pack_server(server, owner_names, owner_handles, member_count):
     banner = server_banner_fields(server)
     return {
@@ -1586,7 +1605,10 @@ def admin_server_detail(
         raise HTTPException(status_code=404, detail="Server not found.")
     owner_names, owner_handles = owner_maps(database, [server])
     counts = server_member_counts(database, [server.id])
-    return {"server": pack_server(server, owner_names, owner_handles, counts.get(server.id, 0))}
+    packed = pack_server(server, owner_names, owner_handles, counts.get(server.id, 0))
+    packed["online_count"] = server_online_count(database, server.id)
+    packed["last_activity"] = server_last_message_at(database, server.id)
+    return {"server": packed}
 
 
 @router.get("/admin/server/{server_id}/reports")

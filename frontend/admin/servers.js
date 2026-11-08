@@ -108,10 +108,12 @@ function paintServersAccount(host, row) {
   const summary = usersCard({ title: "Server", className: "users-summary", fill: true });
   const stats = adminEl("div", "users-stats");
   stats.appendChild(usersStat("Members", adminNum(row.member_count)));
+  stats.appendChild(usersStat("Currently Active Users", adminNum(row.online_count)));
   stats.appendChild(usersStat("Type", row.server_type_label || row.server_type || "—"));
   stats.appendChild(usersStat("URL", row.url_slug || "—"));
   stats.appendChild(usersStat("About", row.about || "—"));
-  stats.appendChild(usersStat("Finder", row.discoverable ? "On the finder" : "Not on the finder"));
+  stats.appendChild(usersStat("Public", row.discoverable ? "True" : "False"));
+  stats.appendChild(usersStat("Latest Activity", usersCreated(row.last_activity)));
   summary.appendChild(stats);
   host.appendChild(summary);
   const notes = usersCard({ title: "Server notes", className: "users-notes" });

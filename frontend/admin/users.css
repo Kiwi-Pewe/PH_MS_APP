@@ -513,20 +513,43 @@
   padding: 5px 10px;
 }
 
-.users-entry-pill.is-new,
+.users-entry-pill.is-new {
+  color: var(--online);
+  background: color-mix(in srgb, var(--online) 22%, transparent);
+  border-color: transparent;
+}
+
+.users-entry-pill.is-viewed {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: transparent;
+}
+
 .users-entry-pill.is-review,
+.users-entry-pill.is-followup {
+  color: var(--away);
+  background: color-mix(in srgb, var(--away) 22%, transparent);
+  border-color: transparent;
+}
+
 .users-entry-pill.is-open,
-.users-entry-pill.is-followup,
 .users-entry-pill.is-high {
   color: var(--admin-on);
   background: color-mix(in srgb, var(--admin-mark) 16%, transparent);
   border-color: transparent;
 }
 
+.users-entry-pill.is-completed {
+  color: var(--admin-up);
+  background: color-mix(in srgb, var(--admin-up) 18%, transparent);
+  border-color: transparent;
+}
+
 .users-entry-pill.is-closed,
-.users-entry-pill.is-completed,
 .users-entry-pill.is-low {
   color: var(--text-dim);
+  background: color-mix(in srgb, var(--text-dim) 16%, transparent);
+  border-color: transparent;
 }
 
 .users-entry-post {

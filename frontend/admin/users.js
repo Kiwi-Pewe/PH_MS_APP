@@ -84,8 +84,11 @@ function usersWhen(raw) {
   const when = new Date(String(raw).replace(" ", "T") + "Z");
   if (Number.isNaN(when.getTime())) return "—";
   const time = when.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
-  if (Date.now() - when.getTime() < 86400000) return time;
-  return when.toLocaleDateString([], { month: "short", day: "numeric" });
+  const now = new Date();
+  const sameDay = when.getFullYear() === now.getFullYear() && when.getMonth() === now.getMonth() && when.getDate() === now.getDate();
+  if (sameDay) return time;
+  const date = when.toLocaleDateString([], { month: "short", day: "numeric" });
+  return time + " · " + date;
 }
 
 function usersHandle(row) {
@@ -475,6 +478,10 @@ function usersHistoryItem(row) {
 function paintUsersHistory(host, events) {
   host.innerHTML = "";
   (events || usersEvents).forEach((row) => host.appendChild(usersHistoryItem(row)));
+  host.scrollTop = host.scrollHeight;
+  window.requestAnimationFrame(() => {
+    host.scrollTop = host.scrollHeight;
+  });
 }
 
 function usersComposeGrow(el) {

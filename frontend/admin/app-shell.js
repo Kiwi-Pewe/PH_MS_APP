@@ -98,12 +98,14 @@ function paintAdminSections() {
   const sections = (page && page.sections) || [];
   sections.forEach((section) => {
     const on = adminSection === section.id;
-    const btn = adminEl("button", "admin-section" + (on ? " is-on" : ""));
+    const later = !!section.later;
+    const btn = adminEl("button", "admin-section" + (on ? " is-on" : "") + (later ? " is-later" : ""));
     btn.type = "button";
+    btn.disabled = later;
     if (section.icon) btn.appendChild(adminIcon(section.icon));
     btn.appendChild(adminEl("span", "admin-section-label", section.label));
     if (on) btn.appendChild(adminEl("span", "admin-section-dot"));
-    btn.addEventListener("click", () => showAdminSection(section.id));
+    if (!later) btn.addEventListener("click", () => showAdminSection(section.id));
     host.appendChild(btn);
   });
   if (!adminTracked.length) return;

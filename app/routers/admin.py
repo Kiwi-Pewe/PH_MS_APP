@@ -17,7 +17,7 @@ from app.routers.feedback import (
 )
 from app.routers.profile import public_identity, public_avatar, ensure_layout, profile_payload, friend_preview
 from app.routers.mini_profiles import layout_banner_and_about
-from app.routers.servers import server_banner_fields, server_icon_url
+from app.routers.servers import server_banner_fields, server_icon_url, server_type_label
 from app.routers.feed import notify_feed_alert
 from app.routers.realtime import active_connections, presence_status
 from app.r2 import delete_attachment, post_attachments_public
@@ -194,6 +194,8 @@ def pack_server(server, owner_names, owner_handles, member_count):
         "icon_url": server_icon_url(server),
         "banner_url": banner.get("banner_url") or "",
         "banner_color": banner.get("banner_color") or "",
+        "discoverable": bool(getattr(server, "discoverable", False)),
+        "server_type_label": server_type_label(server.server_type or ""),
     }
 
 
@@ -1013,6 +1015,48 @@ def admin_user_detail(user_id: int, database: Session = Depends(get_db), current
     return {"user": load_admin_user(database, user_id)}
 
 
+def pack_admin_reports(database, rows):
+    user_ids = list({row.user_id for row in rows if row.user_id})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
+    extras = feedback_extras(database, rows, accounts)
+    report_ids = [row.id for row in rows]
+    last = {}
+    added = {}
+    last_handles = {}
+    if report_ids:
+        stats = (
+            database.query(
+                Feedback_event.report_id,
+                func.max(Feedback_event.created_at),
+                func.count(Feedback_event.id),
+            )
+            .filter(Feedback_event.report_id.in_(report_ids))
+            .group_by(Feedback_event.report_id)
+            .all()
+        )
+        last = {report_id: touched for report_id, touched, _count in stats}
+        added = {report_id: int(count or 0) for report_id, _touched, count in stats}
+        last_ids = dict(
+            database.query(Feedback_event.report_id, func.max(Feedback_event.id))
+            .filter(Feedback_event.report_id.in_(report_ids))
+            .group_by(Feedback_event.report_id)
+            .all()
+        )
+        if last_ids:
+            last_events = database.query(Feedback_event).filter(Feedback_event.id.in_(list(last_ids.values()))).all()
+            last_handles = {item.report_id: item.actor_username or "" for item in last_events}
+    packed = []
+    for row in rows:
+        extra = dict(extras.get(row.id) or {})
+        touched = last.get(row.id) or row.created_at
+        extra["last_interacted"] = str(touched) if touched else None
+        extra["update_count"] = max(0, int(added.get(row.id) or 0) - 1)
+        extra["last_username"] = last_handles.get(row.id) or row.username
+        packed.append(pack_feedback(row, extra))
+    packed.sort(key=lambda item: (item.get("last_interacted") or "", item.get("id") or 0), reverse=True)
+    return packed
+
+
 @router.get("/admin/user/{user_id}/reports")
 def admin_user_reports(
     user_id: int,
@@ -1030,47 +1074,10 @@ def admin_user_reports(
         .limit(50)
         .all()
     )
-    user_ids = list({row.user_id for row in rows if row.user_id})
-    accounts = database.query(UserInfo).filter(UserInfo.id.in_(user_ids)).all() if user_ids else []
-    extras = feedback_extras(database, rows, accounts)
-    report_ids = [row.id for row in rows]
-    last = {}
-    added = {}
-    if report_ids:
-        stats = (
-            database.query(
-                Feedback_event.report_id,
-                func.max(Feedback_event.created_at),
-                func.count(Feedback_event.id),
-            )
-            .filter(Feedback_event.report_id.in_(report_ids))
-            .group_by(Feedback_event.report_id)
-            .all()
-        )
-        last = {report_id: touched for report_id, touched, _count in stats}
-        added = {report_id: int(count or 0) for report_id, _touched, count in stats}
-    last_handles = {}
-    if report_ids:
-        last_ids = dict(
-            database.query(Feedback_event.report_id, func.max(Feedback_event.id))
-            .filter(Feedback_event.report_id.in_(report_ids))
-            .group_by(Feedback_event.report_id)
-            .all()
-        )
-        if last_ids:
-            last_events = database.query(Feedback_event).filter(Feedback_event.id.in_(list(last_ids.values()))).all()
-            last_handles = {item.report_id: item.actor_username or "" for item in last_events}
-    packed = []
-    for row in rows:
-        extra = dict(extras.get(row.id) or {})
-        touched = last.get(row.id) or row.created_at
-        extra["last_interacted"] = str(touched) if touched else None
-        extra["update_count"] = max(0, int(added.get(row.id) or 0) - 1)
-        extra["last_username"] = last_handles.get(row.id) or row.username
-        item = pack_feedback(row, extra)
-        item["about"] = bool(row.user_id != account.id)
-        packed.append(item)
-    packed.sort(key=lambda item: (item.get("last_interacted") or "", item.get("id") or 0), reverse=True)
+    packed = pack_admin_reports(database, rows)
+    about = {row.id: bool(row.user_id != account.id) for row in rows}
+    for item in packed:
+        item["about"] = about.get(item["id"], False)
     return {"reports": packed}
 
 
@@ -1508,6 +1515,7 @@ def admin_ban_lengths(current_user: UserInfo = Depends(get_current_user)):
 @router.get("/admin/server")
 def admin_server(
     q: str = "",
+    by: str = "",
     sort: str = "id",
     order: str = "asc",
     offset: int = 0,
@@ -1518,15 +1526,21 @@ def admin_server(
     require_oneira_admin(current_user)
     query = database.query(Servers)
     text = (q or "").strip()
+    field = (by or "").strip().lower()
     if text:
         needle = like_text(text)
-        query = query.filter(or_(
-            Servers.id.ilike(needle),
-            Servers.name.ilike(needle),
-            Servers.url_slug.ilike(needle),
-            Servers.about.ilike(needle),
-            Servers.server_type.ilike(needle),
-        ))
+        if field == "id":
+            query = query.filter(Servers.id.ilike(needle))
+        elif field == "name":
+            query = query.filter(Servers.name.ilike(needle))
+        else:
+            query = query.filter(or_(
+                Servers.id.ilike(needle),
+                Servers.name.ilike(needle),
+                Servers.url_slug.ilike(needle),
+                Servers.about.ilike(needle),
+                Servers.server_type.ilike(needle),
+            ))
     member_count_col = (
         database.query(func.count(Server_members.id))
         .filter(Server_members.server_id == Servers.id)
@@ -1558,3 +1572,38 @@ def admin_server(
         ],
         "has_more": has_more,
     }
+
+
+@router.get("/admin/server/{server_id}")
+def admin_server_detail(
+    server_id: str,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found.")
+    owner_names, owner_handles = owner_maps(database, [server])
+    counts = server_member_counts(database, [server.id])
+    return {"server": pack_server(server, owner_names, owner_handles, counts.get(server.id, 0))}
+
+
+@router.get("/admin/server/{server_id}/reports")
+def admin_server_reports(
+    server_id: str,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found.")
+    rows = (
+        database.query(Feedback_report)
+        .filter(Feedback_report.server_id == server.id)
+        .order_by(Feedback_report.created_at.desc(), Feedback_report.id.desc())
+        .limit(50)
+        .all()
+    )
+    return {"reports": pack_admin_reports(database, rows)}

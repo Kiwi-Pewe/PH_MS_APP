@@ -1,0 +1,24 @@
+#admin-main.is-servers .users-face.is-server,
+#admin-main.is-servers .users-account-face.is-server {
+  border-radius: 12px;
+}
+
+#admin-main.is-servers .users-face.is-server img,
+#admin-main.is-servers .users-account-face.is-server img {
+  border-radius: 10px;
+}
+
+#admin-main.is-servers .users-stat-v {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+#admin-main.is-servers .users-actions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+#admin-main.is-servers .users-note-input:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

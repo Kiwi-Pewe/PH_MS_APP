@@ -359,7 +359,7 @@ function usersReportStamp(label, raw) {
   return wrap;
 }
 
-function usersReportRow(row, open) {
+function usersReportRow(row, open, onOpen) {
   const status = String(row.status || "new").toLowerCase();
   const card = adminEl("div", "users-entry" + (open ? " is-open" : ""));
   const top = adminEl("div", "users-entry-top");
@@ -390,7 +390,7 @@ function usersReportRow(row, open) {
   bottom.appendChild(adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information"));
   bottom.appendChild(adminEl("div", "users-entry-updates", "Update: " + adminNum(row.update_count)));
   card.appendChild(bottom);
-  if (!open) card.addEventListener("click", () => openUsersHistory(row.id));
+  if (!open) card.addEventListener("click", () => (onOpen || openUsersHistory)(row.id));
   return card;
 }
 
@@ -439,9 +439,9 @@ function usersHistoryItem(row) {
   return item;
 }
 
-function paintUsersHistory(host) {
+function paintUsersHistory(host, events) {
   host.innerHTML = "";
-  usersEvents.forEach((row) => host.appendChild(usersHistoryItem(row)));
+  (events || usersEvents).forEach((row) => host.appendChild(usersHistoryItem(row)));
 }
 
 function usersComposeGrow(el) {
@@ -449,7 +449,7 @@ function usersComposeGrow(el) {
   el.style.height = Math.min(el.scrollHeight, 120) + "px";
 }
 
-function paintUsersUpdateForm(host, row) {
+function paintUsersUpdateForm(host, row, onSaved) {
   host.innerHTML = "";
   const extras = adminEl("div", "users-history-extras");
   extras.hidden = true;
@@ -549,6 +549,10 @@ function paintUsersUpdateForm(host, row) {
         err.hidden = false;
         return;
       }
+      if (onSaved) {
+        onSaved(result.data);
+        return;
+      }
       if (result.data && result.data.report) {
         usersReports = usersReports.map((item) => item.id === result.data.report.id ? result.data.report : item);
       }
@@ -582,20 +586,30 @@ function openUsersHistory(reportId) {
   });
 }
 
-function paintUsersReports(host) {
+function paintUsersReports(host, view) {
+  const selected = view ? view.selected : !!usersSelectedId;
+  const list = view ? view.reports : usersReports;
+  const openId = view ? view.openId : usersOpenId;
+  const events = view ? view.events : usersEvents;
+  const empty = (view && view.empty) || "Select a user.";
+  const onOpen = (view && view.onOpen) || openUsersHistory;
   host.innerHTML = "";
-  if (!usersSelectedId) {
-    usersSelectEmpty(host);
+  if (!selected) {
+    host.appendChild(adminEl("div", "users-empty", empty));
     return;
   }
-  const reports = usersCard({ title: "Reports", fill: true, className: "users-reports-card" + (usersOpenId ? " is-open" : "") });
+  const reports = usersCard({ title: "Reports", fill: true, className: "users-reports-card" + (openId ? " is-open" : "") });
   const head = reports.querySelector(".users-card-head");
   if (head) {
     head.classList.add("has-back");
     const back = adminEl("button", "users-reports-back", "Back");
     back.type = "button";
-    back.disabled = !usersOpenId;
+    back.disabled = !openId;
     back.addEventListener("click", () => {
+      if (view && view.onBack) {
+        view.onBack();
+        return;
+      }
       usersOpenId = 0;
       usersEvents = [];
       paintUsersReports(host);
@@ -603,23 +617,23 @@ function paintUsersReports(host) {
     head.insertBefore(back, head.firstChild);
   }
   const tickets = adminEl("div", "users-entry-list");
-  const open = usersReports.find((row) => row.id === usersOpenId);
+  const open = list.find((row) => row.id === openId);
   if (open) {
-    tickets.appendChild(usersReportRow(open, true));
+    tickets.appendChild(usersReportRow(open, true, onOpen));
     reports.appendChild(tickets);
     const history = adminEl("div", "users-history");
-    paintUsersHistory(history);
+    paintUsersHistory(history, events);
     reports.appendChild(history);
     const form = adminEl("div", "users-history-form");
-    paintUsersUpdateForm(form, open);
+    paintUsersUpdateForm(form, open, view && view.onSaved);
     reports.appendChild(form);
   } else {
-    usersReports.slice().sort((a, b) => {
+    list.slice().sort((a, b) => {
       const left = String(b.last_interacted || b.created_at || "");
       const right = String(a.last_interacted || a.created_at || "");
       if (left === right) return (b.id || 0) - (a.id || 0);
       return left > right ? 1 : -1;
-    }).forEach((row) => tickets.appendChild(usersReportRow(row)));
+    }).forEach((row) => tickets.appendChild(usersReportRow(row, false, onOpen)));
     reports.appendChild(tickets);
   }
   host.appendChild(reports);

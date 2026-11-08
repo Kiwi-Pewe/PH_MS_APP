@@ -188,6 +188,18 @@
   color: var(--admin-on);
 }
 
+.admin-section.is-later,
+.admin-section:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.admin-section.is-later:hover,
+.admin-section:disabled:hover {
+  background: transparent;
+  color: var(--text-dim);
+}
+
 #admin-left-foot {
   flex: 0 0 auto;
   padding: 10px 12px 14px;

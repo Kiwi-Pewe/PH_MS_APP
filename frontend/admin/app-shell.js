@@ -6,6 +6,7 @@ let adminPage = "overview";
 let adminSection = "statistics";
 let adminTracked = [];
 const ADMIN_TRACK_KEY = "oneira-admin-tracked";
+const adminTrackedOpen = {};
 
 function loadAdminTracked() {
   try {
@@ -40,13 +41,13 @@ function untrackAdminUser(userId) {
   paintAdminLeft();
 }
 
+function registerAdminTrackedOpen(pageId, sectionId, fn) {
+  adminTrackedOpen[pageId + ":" + sectionId] = fn;
+}
+
 function openTrackedUser(userId) {
-  if (typeof selectUsersRow === "function") {
-    showAdminPage("users", "search");
-    selectUsersRow(userId);
-    return;
-  }
-  showAdminPage("users", "search");
+  const fn = adminTrackedOpen[adminPage + ":" + adminSection];
+  if (typeof fn === "function") fn(userId);
 }
 
 function registerAdminPage(page) {

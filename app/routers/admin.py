@@ -15,7 +15,7 @@ from app.routers.account import public_display_name
 from app.routers.feedback import (
     REPORT_KINDS, feedback_file_count, feedback_score, clean_feedback_text, clean_report_kind,
 )
-from app.routers.profile import public_identity, public_avatar, ensure_layout
+from app.routers.profile import public_identity, public_avatar, ensure_layout, profile_payload, friend_preview
 from app.routers.mini_profiles import layout_banner_and_about
 from app.routers.servers import server_banner_fields, server_icon_url
 from app.routers.feed import notify_feed_alert
@@ -1462,18 +1462,7 @@ def admin_user_profile(user_id: int, database: Session = Depends(get_db), curren
     if not account:
         raise HTTPException(status_code=404, detail="User not found.")
     layout = ensure_layout(account, database)
-    return {
-        "user": {
-            "id": account.id,
-            "username": account.username,
-            "display_name": public_display_name(account),
-            "status": account.profile_status or "",
-            "pronouns": account.profile_pronouns or "",
-            "member_since": str(account.created_at) if account.created_at else None,
-        },
-        "layout": layout,
-        "identity": public_identity(account),
-    }
+    return profile_payload(account, layout, False, friend_preview(database, account.id))
 
 
 @router.post("/admin/user/{user_id}/warn")

@@ -48,6 +48,7 @@ let usersReports = [];
 let usersNoteText = "";
 let usersOpenId = 0;
 let usersEvents = [];
+let usersProfileId = 0;
 
 function usersByMeta(id) {
   return USERS_BY.find((row) => row.id === id) || USERS_BY[0];
@@ -142,12 +143,101 @@ function usersFace(host, row, letterName) {
   if (pip) host.appendChild(pip);
 }
 
+function applyAdminProfilePayload(data) {
+  profileUser = (data && data.user) || null;
+  profileOwnerId = profileUser ? profileUser.id : null;
+  profileIsOwn = false;
+  profileEditing = false;
+  profileLimited = false;
+  profileFriends = (data && data.friends) || [];
+  profileSavedLayout = (data && data.layout) || { pages: [] };
+  if (typeof stampClockNamedTimezones === "function") stampClockNamedTimezones(profileSavedLayout);
+  profileDraft = typeof cloneProfileLayout === "function" ? cloneProfileLayout(profileSavedLayout) : profileSavedLayout;
+  const pages = (profileDraft && profileDraft.pages) || [];
+  if (!pages.some((page) => page.id === profileActivePageId)) {
+    profileActivePageId = pages[0] ? pages[0].id : "profile";
+  }
+  if (typeof clearProfileCommentCache === "function") clearProfileCommentCache();
+}
+
+function paintUsersProfilePages() {
+  const host = document.getElementById("profile-page-list");
+  if (!host) return;
+  host.innerHTML = "";
+  const layout = profileDraft || profileSavedLayout || { pages: [] };
+  const ordered = typeof profileOrderedPages === "function"
+    ? profileOrderedPages(layout.pages || [])
+    : (layout.pages || []);
+  const privateStart = ordered.findIndex((page) => page.visibility === "owner");
+  ordered.forEach((page, index) => {
+    if (index === privateStart && privateStart >= 0) {
+      const line = adminEl("div", "profile-page-split");
+      host.appendChild(line);
+      host.appendChild(adminEl("div", "profile-page-group", "Private"));
+    }
+    const row = adminEl("button", "profile-page-item" + (page.id === profileActivePageId ? " is-on" : ""));
+    row.type = "button";
+    row.dataset.pageId = page.id;
+    row.appendChild(adminEl("span", "", page.title || "Page"));
+    row.addEventListener("click", () => {
+      profileActivePageId = page.id;
+      paintUsersProfilePages();
+      if (typeof renderProfileBoard === "function") renderProfileBoard();
+    });
+    host.appendChild(row);
+  });
+}
+
+function paintUsersProfileBoard() {
+  if (typeof renderProfileBoard === "function") renderProfileBoard();
+}
+
+function loadUsersProfile(userId) {
+  usersProfileId = userId;
+  if (typeof adminSyncProfileOwner === "function") adminSyncProfileOwner();
+  adminApi("/admin/user/" + userId + "/profile").then((response) => {
+    if (!response.ok) return null;
+    return response.json();
+  }).then((data) => {
+    if (usersProfileId !== userId) return;
+    if (!data) return;
+    applyAdminProfilePayload(data);
+    paintUsersProfilePages();
+    paintUsersProfileBoard();
+  }).catch(() => {});
+}
+
 function paintUsersProfiles(main) {
-  main.className = "is-fit";
+  main.className = "is-users is-users-profile";
+  if (typeof adminSyncProfileOwner === "function") adminSyncProfileOwner();
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Users", "Profile"],
     title: "Profile"
   }));
+  if (!usersProfileId) {
+    main.appendChild(adminEl("div", "users-empty", "Select a tracked user."));
+    return;
+  }
+  const shell = adminEl("div", "users-profile");
+  const rail = adminEl("div", "users-profile-rail");
+  rail.appendChild(adminEl("div", "users-profile-rail-k", "Pages"));
+  const list = adminEl("div", "");
+  list.id = "profile-page-list";
+  rail.appendChild(list);
+  shell.appendChild(rail);
+  const stage = adminEl("div", "users-profile-stage");
+  const scroll = adminEl("div", "");
+  scroll.id = "profile-board-scroll";
+  const fit = adminEl("div", "");
+  fit.id = "profile-board-fit";
+  const board = adminEl("div", "");
+  board.id = "profile-board";
+  fit.appendChild(board);
+  scroll.appendChild(fit);
+  stage.appendChild(scroll);
+  shell.appendChild(stage);
+  main.appendChild(shell);
+  loadUsersProfile(usersProfileId);
 }
 
 function usersSelectEmpty(host) {
@@ -1115,3 +1205,23 @@ registerAdminPage({
   ],
   paint: paintUsers
 });
+
+if (typeof miniProfileDataFromOpenProfile === "function") {
+  const usersMiniFromOpen = miniProfileDataFromOpenProfile;
+  miniProfileDataFromOpenProfile = function () {
+    const data = usersMiniFromOpen();
+    if (data) data.is_self = false;
+    return data;
+  };
+}
+
+if (typeof registerAdminTrackedOpen === "function") {
+  registerAdminTrackedOpen("users", "search", (userId) => {
+    showAdminPage("users", "search");
+    selectUsersRow(userId);
+  });
+  registerAdminTrackedOpen("users", "profile", (userId) => {
+    usersProfileId = userId;
+    showAdminPage("users", "profile");
+  });
+}

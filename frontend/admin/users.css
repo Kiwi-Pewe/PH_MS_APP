@@ -369,7 +369,7 @@
 }
 
 .users-entry-name {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -384,12 +384,12 @@
 }
 
 .users-entry-stamp-k {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-dim);
 }
 
 .users-entry-stamp-v {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -402,7 +402,7 @@
 
 .users-entry-split {
   color: var(--text-dim);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1;
 }
@@ -415,7 +415,7 @@
 }
 
 .users-entry-pill {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text);
   background: var(--panel-alt);
@@ -426,7 +426,7 @@
 
 .users-entry-pill.is-status,
 .users-entry-pill.is-urgency {
-  font-size: 14px;
+  font-size: 16px;
   padding: 5px 10px;
 }
 
@@ -447,7 +447,7 @@
 }
 
 .users-entry-post {
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.45;
   color: var(--text);
 }
@@ -462,7 +462,7 @@
 
 .users-entry-text {
   margin-top: 4px;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.45;
   color: var(--text);
   overflow: hidden;
@@ -477,7 +477,7 @@
 
 .users-entry-updates {
   margin-top: 8px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-dim);
 }
@@ -528,7 +528,7 @@
 }
 
 .users-history-top {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--text);
 }
 
@@ -543,7 +543,7 @@
 
 .users-history-text {
   margin-top: 4px;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.45;
   color: var(--text);
   white-space: pre-wrap;
@@ -555,7 +555,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text);
   display: flex;
@@ -565,9 +565,8 @@
 
 .users-history-form {
   flex: 0 0 auto;
-  max-height: 46%;
   overflow: auto;
-  padding: 12px 14px 14px;
+  padding: 10px 14px 12px;
   border-top: 1px solid var(--border);
   background: var(--rail);
   display: flex;
@@ -575,22 +574,95 @@
   gap: 10px;
 }
 
+.users-history-extras {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.users-history-extras[hidden] {
+  display: none !important;
+}
+
+.users-history-form .admin-report-k {
+  font-size: 15px;
+}
+
+.users-history-form .admin-report-check {
+  font-size: 16px;
+}
+
+.users-history-form .admin-report-input {
+  font-size: 16px;
+}
+
+.users-history-compose {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.users-history-plus {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+}
+
+.users-history-plus.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  transform: rotate(45deg);
+}
+
+.users-history-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 36px;
+  max-height: 120px;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+  resize: none;
+  overflow-y: auto;
+}
+
+.users-history-input:focus {
+  outline: none;
+  border-color: var(--accent-submenu);
+}
+
 .users-history-error {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #c45c5c;
 }
 
 .users-history-save {
-  align-self: flex-end;
+  flex: 0 0 auto;
+  height: 36px;
   background: var(--accent);
   color: #fff;
   border: 1px solid var(--accent);
   border-radius: 8px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  padding: 8px 16px;
+  padding: 0 14px;
 }
 
 .users-trail {

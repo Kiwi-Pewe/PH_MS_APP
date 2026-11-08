@@ -354,10 +354,15 @@ function paintUsersHistory(host) {
   usersEvents.forEach((row) => host.appendChild(usersHistoryItem(row)));
 }
 
+function usersComposeGrow(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+}
+
 function paintUsersUpdateForm(host, row) {
   host.innerHTML = "";
-  const err = adminEl("p", "users-history-error");
-  err.hidden = true;
+  const extras = adminEl("div", "users-history-extras");
+  extras.hidden = true;
   const alertLine = adminEl("div", "admin-report-check");
   alertLine.appendChild(adminEl("span", "", "Alert User"));
   const alertToggle = usersToggle(!!row.alert_user);
@@ -366,9 +371,9 @@ function paintUsersUpdateForm(host, row) {
   infoLine.appendChild(adminEl("span", "", "Requests Info From User"));
   const infoToggle = usersToggle(!!row.requests_info);
   infoLine.appendChild(infoToggle.label);
-  host.appendChild(alertLine);
-  host.appendChild(infoLine);
-  host.appendChild(adminEl("div", "admin-report-k", "Status"));
+  extras.appendChild(alertLine);
+  extras.appendChild(infoLine);
+  extras.appendChild(adminEl("div", "admin-report-k", "Status"));
   const extra = adminEl("div", "admin-report-extra");
   const status = adminEl("select", "admin-report-input");
   [
@@ -386,7 +391,7 @@ function paintUsersUpdateForm(host, row) {
   status.addEventListener("change", () => {
     extra.hidden = status.value === "closed";
   });
-  host.appendChild(status);
+  extras.appendChild(status);
   extra.appendChild(adminEl("div", "admin-report-k", "Assign to"));
   const assign = adminEl("select", "admin-report-input");
   const everyone = document.createElement("option");
@@ -414,12 +419,25 @@ function paintUsersUpdateForm(host, row) {
   urgency.value = (row.urgency || "low").toLowerCase() || "low";
   extra.appendChild(urgency);
   extra.hidden = status.value === "closed";
-  host.appendChild(extra);
-  host.appendChild(adminEl("div", "admin-report-k", "Additional Information"));
-  const info = adminEl("textarea", "admin-report-reason");
-  info.rows = 5;
-  host.appendChild(info);
+  extras.appendChild(extra);
+  host.appendChild(extras);
+  const err = adminEl("p", "users-history-error");
+  err.hidden = true;
   host.appendChild(err);
+  const bar = adminEl("div", "users-history-compose");
+  const plus = adminEl("button", "users-history-plus", "+");
+  plus.type = "button";
+  plus.title = "More options";
+  plus.addEventListener("click", () => {
+    extras.hidden = !extras.hidden;
+    plus.classList.toggle("is-on", !extras.hidden);
+  });
+  const info = adminEl("textarea", "users-history-input");
+  info.rows = 1;
+  info.placeholder = "Additional Information";
+  info.addEventListener("input", () => usersComposeGrow(info));
+  bar.appendChild(plus);
+  bar.appendChild(info);
   const save = adminEl("button", "users-history-save", "Update");
   save.type = "button";
   save.addEventListener("click", () => {
@@ -452,7 +470,9 @@ function paintUsersUpdateForm(host, row) {
       err.hidden = false;
     });
   });
-  host.appendChild(save);
+  bar.appendChild(save);
+  host.appendChild(bar);
+  usersComposeGrow(info);
 }
 
 function openUsersHistory(reportId) {

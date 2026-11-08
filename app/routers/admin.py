@@ -1793,9 +1793,16 @@ def pack_admin_server_layout(database, server):
             "is_private": bool(category.is_private),
             "channels": by_cat.get(category.id) or [],
         })
-    packed = pack_admin_server(database, server)
-    packed["categories"] = tree
-    return packed
+    banner = server_banner_fields(server)
+    return {
+        "id": server.id,
+        "name": server.name or "",
+        "discoverable": bool(getattr(server, "discoverable", False)),
+        "icon_url": server_icon_url(server),
+        "banner_url": banner.get("banner_url") or "",
+        "banner_color": banner.get("banner_color") or "",
+        "categories": tree,
+    }
 
 
 def pack_admin_channel_history(database, current_user, server, channel, before_id=None):

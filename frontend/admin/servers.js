@@ -492,75 +492,52 @@ function serversLayoutChat(channel) {
   return kind === "text";
 }
 
+function serversLayoutSeed(serverId) {
+  const tracked = (typeof adminTrackedServers !== "undefined" ? adminTrackedServers : []).find((row) => row && row.id === serverId);
+  return {
+    id: serverId,
+    name: (tracked && tracked.name) || "Server",
+    icon_url: (tracked && tracked.icon_url) || "",
+    banner_url: "",
+    banner_color: "",
+    discoverable: true,
+    categories: []
+  };
+}
+
 function closeServersLayout() {
   serversLayoutId = "";
   serversLayoutChannelId = 0;
-  const overlay = document.getElementById("admin-layout-overlay");
-  if (overlay) overlay.remove();
-}
-
-function ensureAdminLayoutOverlay() {
-  let overlay = document.getElementById("admin-layout-overlay");
-  if (overlay) return overlay;
-  overlay = adminEl("div", "");
-  overlay.id = "admin-layout-overlay";
-  overlay.innerHTML = "<button type=\"button\" id=\"admin-layout-close\">Close</button>"
-    + "<div class=\"admin-layout-grid\">"
-    + "<div id=\"secondary-panel\"><div id=\"server-sidebar-view\">"
-    + "<div id=\"server-sidebar-face\"><div id=\"server-sidebar-banner\"></div>"
-    + "<div id=\"server-sidebar-header\"><span id=\"server-sidebar-name\"></span></div></div>"
-    + "<div id=\"server-sidebar-body\"><div class=\"server-sidebar-group-label\" id=\"server-channels-label\">Channels</div>"
-    + "<div id=\"category-list\"></div></div></div></div>"
-    + "<div id=\"main-panel\"><div class=\"main-view active\" id=\"view-channel\">"
-    + "<div class=\"view-header\"><div class=\"header-title-group\"><div class=\"header-title-stack\">"
-    + "<span id=\"channel-header-title\">No channel selected</span>"
-    + "<span id=\"channel-header-desc\" class=\"header-description\" hidden></span></div></div>"
-    + "<div class=\"header-actions\" id=\"channel-header-actions\">"
-    + "<button type=\"button\" class=\"icon-btn\" id=\"admin-layout-call\" disabled title=\"Call\">Call</button>"
-    + "<button type=\"button\" class=\"icon-btn chat-pins-btn\" id=\"channel-pins-btn\" disabled title=\"Pinned messages\">Pins</button>"
-    + "<div class=\"chat-search-slot\"><div class=\"chat-search-shell\">"
-    + "<input type=\"search\" class=\"chat-search-input\" placeholder=\"Search\" autocomplete=\"off\" spellcheck=\"false\" disabled>"
-    + "</div></div>"
-    + "<button type=\"button\" class=\"icon-btn\" id=\"admin-layout-overflow\" disabled title=\"Chat settings\">&#8942;</button>"
-    + "</div></div>"
-    + "<div id=\"channel-body\"><div id=\"channel-empty\" class=\"centered-empty-state\">"
-    + "<div class=\"badge\" id=\"channel-empty-badge\">#</div>"
-    + "<p class=\"welcome-title\" id=\"channel-welcome-title\"></p>"
-    + "<p class=\"welcome-sub\" id=\"channel-welcome-sub\"></p></div>"
-    + "<div id=\"channel-messages\" class=\"self-right\" style=\"display:none;\"></div>"
-    + "</div></div></div></div>";
-  document.body.appendChild(overlay);
-  const close = document.getElementById("admin-layout-close");
-  if (close) close.addEventListener("click", closeServersLayout);
-  return overlay;
+  const main = document.getElementById("admin-main");
+  if (main && adminPage === "servers" && adminSection === "layout") {
+    main.innerHTML = "";
+    paintServersLayout(main);
+  }
 }
 
 function serversLayoutEmpty(title, sub) {
-  const empty = document.getElementById("channel-empty");
-  const messages = document.getElementById("channel-messages");
-  const welcome = document.getElementById("channel-welcome-title");
-  const note = document.getElementById("channel-welcome-sub");
+  const empty = document.getElementById("admin-layout-empty");
+  const messages = document.getElementById("admin-layout-messages");
+  const welcome = document.getElementById("admin-layout-empty-title");
+  const note = document.getElementById("admin-layout-empty-sub");
   if (messages) {
     messages.innerHTML = "";
-    messages.style.display = "none";
+    messages.classList.remove("is-on");
   }
-  if (empty) empty.style.display = "";
+  if (empty) empty.hidden = false;
   if (welcome) welcome.textContent = title || "";
   if (note) note.textContent = sub || "";
 }
 
 function serversLayoutBanner(server) {
-  const view = document.getElementById("server-sidebar-view");
-  const strip = document.getElementById("server-sidebar-banner");
-  const overlay = document.getElementById("admin-layout-overlay");
-  if (!view || !strip) return;
+  const face = document.getElementById("admin-layout-face");
+  const strip = document.getElementById("admin-layout-banner");
+  if (!face || !strip) return;
   const url = (server && server.banner_url) || "";
   const color = (server && server.banner_color) || "";
   strip.style.backgroundImage = url ? "url(\"" + url + "\")" : "";
   strip.style.backgroundColor = (!url && color) ? color : "";
-  const on = !!(url || color);
-  view.classList.toggle("has-banner", on);
-  if (overlay) overlay.classList.toggle("has-banner", on);
+  face.classList.toggle("has-banner", !!(url || color));
 }
 
 function serversLayoutFace(host, row, letterName) {
@@ -591,7 +568,7 @@ function serversLayoutLinkText(host, text) {
 function serversLayoutMedia(bubble, attachment) {
   const att = attachment && typeof attachment === "object" ? attachment : null;
   if (!att || !att.url) return;
-  const wrap = adminEl("div", "msg-media");
+  const wrap = adminEl("div", "admin-layout-media");
   if (att.kind === "video") {
     const vid = document.createElement("video");
     vid.src = att.url;
@@ -609,40 +586,40 @@ function serversLayoutMedia(bubble, attachment) {
 
 function serversLayoutReply(reply) {
   if (!reply) return null;
-  const row = adminEl("div", "msg-reply");
-  row.appendChild(adminEl("span", "msg-reply-name", reply.username || "user"));
-  row.appendChild(adminEl("span", "msg-reply-text", reply.deleted ? "Original message was deleted" : (reply.content || "")));
+  const row = adminEl("div", "admin-layout-reply");
+  row.appendChild(adminEl("span", "admin-layout-reply-name", reply.username || "user"));
+  row.appendChild(adminEl("span", "", reply.deleted ? "Original message was deleted" : (reply.content || "")));
   return row;
 }
 
 function serversLayoutCluster(wrap, msg) {
-  const cluster = adminEl("div", "msg-cluster " + (msg.isMine ? "self" : "other"));
-  const avatar = adminEl("div", "cluster-avatar");
+  const cluster = adminEl("div", "admin-layout-msg" + (msg.isMine ? " is-self" : ""));
+  const avatar = adminEl("div", "admin-layout-msg-face");
   serversLayoutFace(avatar, { avatar: msg.avatar }, msg.username);
-  const body = adminEl("div", "cluster-body");
+  const body = adminEl("div", "admin-layout-msg-body");
   if (msg.replyTo) {
     const reply = serversLayoutReply(msg.replyTo);
     if (reply) body.appendChild(reply);
   }
-  const header = adminEl("div", "cluster-header");
-  header.appendChild(adminEl("span", "cluster-name", msg.nickname || msg.username || "user"));
-  const time = adminEl("span", "cluster-time");
+  const header = adminEl("div", "admin-layout-msg-head");
+  header.appendChild(adminEl("span", "admin-layout-msg-name", msg.nickname || msg.username || "user"));
+  const time = adminEl("span", "admin-layout-msg-time");
   time.textContent = typeof formatClusterTime === "function" && msg.time ? formatClusterTime(msg.time) : "";
   header.appendChild(time);
-  const bubble = adminEl("div", "cluster-bubble");
+  const bubble = adminEl("div", "admin-layout-bubble");
   if (msg.content) {
-    const line = adminEl("div", "bubble-line");
+    const line = adminEl("div", "admin-layout-line");
     serversLayoutLinkText(line, msg.content);
-    if (msg.edited) line.appendChild(adminEl("span", "edited-tag", "edited"));
+    if (msg.edited) line.appendChild(adminEl("span", "admin-layout-edited", "edited"));
     bubble.appendChild(line);
   }
   serversLayoutMedia(bubble, msg.attachment);
   if (msg.reactions && msg.reactions.length) {
-    const row = adminEl("div", "reaction-row");
+    const row = adminEl("div", "admin-layout-react");
     msg.reactions.forEach((item) => {
-      const pill = adminEl("div", "reaction-pill");
-      pill.appendChild(adminEl("span", "reaction-emoji", item.emoji || ""));
-      pill.appendChild(adminEl("span", "reaction-count", String(item.count || 0)));
+      const pill = adminEl("div", "admin-layout-pill");
+      pill.appendChild(adminEl("span", "", item.emoji || ""));
+      pill.appendChild(adminEl("span", "", String(item.count || 0)));
       row.appendChild(pill);
     });
     bubble.appendChild(row);
@@ -656,17 +633,17 @@ function serversLayoutCluster(wrap, msg) {
 }
 
 function serversLayoutPaintMessages(rows, channelName) {
-  const empty = document.getElementById("channel-empty");
-  const wrap = document.getElementById("channel-messages");
-  const body = document.getElementById("channel-body");
+  const empty = document.getElementById("admin-layout-empty");
+  const wrap = document.getElementById("admin-layout-messages");
+  const body = document.getElementById("admin-layout-body");
   if (!wrap) return;
   wrap.innerHTML = "";
-  wrap.style.display = "";
-  if (empty) empty.style.display = "none";
-  const card = adminEl("div", "convo-start-card");
-  card.appendChild(adminEl("div", "convo-start-avatar", "#"));
-  card.appendChild(adminEl("div", "convo-start-name", "#" + (channelName || "channel")));
-  card.appendChild(adminEl("div", "convo-start-desc", "This is the start of #" + (channelName || "channel") + ". Welcome!"));
+  wrap.classList.add("is-on");
+  if (empty) empty.hidden = true;
+  const card = adminEl("div", "admin-layout-start");
+  card.appendChild(adminEl("div", "admin-layout-start-mark", "#"));
+  card.appendChild(adminEl("div", "admin-layout-start-name", "#" + (channelName || "channel")));
+  card.appendChild(adminEl("div", "admin-layout-start-desc", "This is the start of #" + (channelName || "channel") + ". Welcome!"));
   wrap.appendChild(card);
   let open = null;
   const lastDate = { date: null };
@@ -688,13 +665,13 @@ function serversLayoutPaintMessages(rows, channelName) {
     };
     if (msg.time && Number.isNaN(msg.time.getTime())) msg.time = new Date(raw.timestamp);
     if (raw.sender_id == null && !raw.is_webhook) {
-      wrap.appendChild(adminEl("div", "system-divider", msg.content || ""));
+      wrap.appendChild(adminEl("div", "admin-layout-system", msg.content || ""));
       open = null;
       return;
     }
     const when = msg.time;
     if (when && lastDate.date && typeof sameCalendarDay === "function" && !sameCalendarDay(lastDate.date, when)) {
-      wrap.appendChild(adminEl("div", "chat-date-sep", when.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })));
+      wrap.appendChild(adminEl("div", "admin-layout-date", when.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })));
       open = null;
     }
     if (when) lastDate.date = when;
@@ -703,11 +680,11 @@ function serversLayoutPaintMessages(rows, channelName) {
     if (msg.replyTo || !(same && within)) {
       open = serversLayoutCluster(wrap, msg);
     } else if (open) {
-      const bubble = wrap.lastChild && wrap.lastChild.querySelector(".cluster-bubble");
+      const bubble = wrap.lastChild && wrap.lastChild.querySelector(".admin-layout-bubble");
       if (msg.content && bubble) {
-        const line = adminEl("div", "bubble-line");
+        const line = adminEl("div", "admin-layout-line");
         serversLayoutLinkText(line, msg.content);
-        if (msg.edited) line.appendChild(adminEl("span", "edited-tag", "edited"));
+        if (msg.edited) line.appendChild(adminEl("span", "admin-layout-edited", "edited"));
         bubble.appendChild(line);
       }
       if (bubble) serversLayoutMedia(bubble, msg.attachment);
@@ -718,8 +695,8 @@ function serversLayoutPaintMessages(rows, channelName) {
 }
 
 function serversLayoutHeader(channel) {
-  const title = document.getElementById("channel-header-title");
-  const desc = document.getElementById("channel-header-desc");
+  const title = document.getElementById("admin-layout-title");
+  const desc = document.getElementById("admin-layout-desc");
   if (title) title.textContent = channel && channel.name ? "#" + channel.name : "No channel selected";
   if (desc) {
     const topic = channel && channel.topic ? channel.topic : "";
@@ -728,29 +705,46 @@ function serversLayoutHeader(channel) {
   }
 }
 
-function paintServersLayoutRail(server, live) {
-  const name = document.getElementById("server-sidebar-name");
-  if (name) name.textContent = (server && server.name) || "—";
-  serversLayoutBanner(server);
-  const list = document.getElementById("category-list");
+function paintServersLayoutHold(list) {
   if (!list) return;
   list.innerHTML = "";
-  ((server && server.categories) || []).forEach((category) => {
-    const block = adminEl("div", "category-block");
-    const header = adminEl("div", "category-header");
-    header.appendChild(adminEl("span", "category-arrow", "\u25BE"));
-    header.appendChild(adminEl("span", "category-name", category.name || ""));
+  const hold = adminEl("div", "admin-layout-hold");
+  ["is-wide", "is-mid", "is-short", "is-wide", "is-mid", "is-short", "is-wide", "is-mid"].forEach((size) => {
+    hold.appendChild(adminEl("div", "admin-layout-hold-row " + size));
+  });
+  list.appendChild(hold);
+}
+
+function paintServersLayoutRail(server, live) {
+  const name = document.getElementById("admin-layout-name");
+  const stage = document.getElementById("admin-layout-stage");
+  if (name) name.textContent = (server && server.name) || "—";
+  if (stage) stage.classList.toggle("is-private", !live);
+  serversLayoutBanner(server);
+  const list = document.getElementById("admin-layout-cats");
+  if (!list) return;
+  list.innerHTML = "";
+  const cats = (server && server.categories) || [];
+  if (!cats.length) {
+    paintServersLayoutHold(list);
+    return;
+  }
+  cats.forEach((category) => {
+    const block = adminEl("div", "admin-layout-cat");
+    const header = adminEl("div", "admin-layout-cat-head");
+    header.appendChild(adminEl("span", "admin-layout-cat-arrow", "\u25BE"));
+    header.appendChild(adminEl("span", "admin-layout-cat-name", category.name || ""));
     if (live) {
       header.addEventListener("click", () => {
         block.classList.toggle("collapsed");
       });
     }
     block.appendChild(header);
-    const channels = adminEl("div", "category-channels");
+    const channels = adminEl("div", "admin-layout-channels");
     (category.channels || []).forEach((channel) => {
-      const row = adminEl("div", "channel-row" + (channel.id === serversLayoutChannelId ? " active" : ""));
-      row.appendChild(adminEl("span", "channel-icon", serversLayoutIcon(channel.channel_type)));
-      row.appendChild(adminEl("span", "channel-label", channel.name || ""));
+      const row = adminEl("div", "admin-layout-channel" + (channel.id === serversLayoutChannelId ? " is-on" : ""));
+      row.appendChild(adminEl("span", "admin-layout-channel-icon", serversLayoutIcon(channel.channel_type)));
+      row.appendChild(adminEl("span", "admin-layout-channel-name", channel.name || ""));
       if (live) {
         row.addEventListener("click", () => openServersLayoutChannel(server, channel));
       }
@@ -796,13 +790,91 @@ function firstServersLayoutChat(server) {
   return (cats[0] && cats[0].channels && cats[0].channels[0]) || null;
 }
 
-function fillServersLayout(serverId) {
-  const overlay = ensureAdminLayoutOverlay();
-  overlay.classList.remove("is-private", "has-banner");
-  const name = document.getElementById("server-sidebar-name");
-  if (name) name.textContent = "…";
-  serversLayoutHeader(null);
+function paintServersLayoutView(main, seed) {
+  main.className = "is-servers is-servers-layout";
+  main.innerHTML = "";
+  const close = adminEl("button", "", "Close");
+  close.type = "button";
+  close.id = "admin-layout-close";
+  close.addEventListener("click", closeServersLayout);
+  main.appendChild(close);
+  const stage = adminEl("div", "");
+  stage.id = "admin-layout-stage";
+  const rail = adminEl("div", "");
+  rail.id = "admin-layout-rail";
+  const face = adminEl("div", "");
+  face.id = "admin-layout-face";
+  const banner = adminEl("div", "");
+  banner.id = "admin-layout-banner";
+  const head = adminEl("div", "");
+  head.id = "admin-layout-head";
+  const name = adminEl("span", "", (seed && seed.name) || "Server");
+  name.id = "admin-layout-name";
+  head.appendChild(name);
+  face.appendChild(banner);
+  face.appendChild(head);
+  rail.appendChild(face);
+  rail.appendChild(adminEl("div", "admin-layout-kicker", "Channels"));
+  const cats = adminEl("div", "");
+  cats.id = "admin-layout-cats";
+  rail.appendChild(cats);
+  const chat = adminEl("div", "");
+  chat.id = "admin-layout-chat";
+  const top = adminEl("div", "");
+  top.id = "admin-layout-top";
+  const titles = adminEl("div", "");
+  const title = adminEl("div", "", "No channel selected");
+  title.id = "admin-layout-title";
+  const desc = adminEl("div", "");
+  desc.id = "admin-layout-desc";
+  desc.hidden = true;
+  titles.appendChild(title);
+  titles.appendChild(desc);
+  const tools = adminEl("div", "");
+  tools.id = "admin-layout-tools";
+  const call = adminEl("button", "", "Call");
+  call.type = "button";
+  call.disabled = true;
+  const pins = adminEl("button", "", "Pins");
+  pins.type = "button";
+  pins.disabled = true;
+  const search = adminEl("input", "");
+  search.type = "search";
+  search.placeholder = "Search";
+  search.disabled = true;
+  const more = adminEl("button", "", "\u22EE");
+  more.type = "button";
+  more.disabled = true;
+  tools.appendChild(call);
+  tools.appendChild(pins);
+  tools.appendChild(search);
+  tools.appendChild(more);
+  top.appendChild(titles);
+  top.appendChild(tools);
+  const body = adminEl("div", "");
+  body.id = "admin-layout-body";
+  const empty = adminEl("div", "");
+  empty.id = "admin-layout-empty";
+  const emptyTitle = adminEl("div", "");
+  emptyTitle.id = "admin-layout-empty-title";
+  const emptySub = adminEl("div", "");
+  emptySub.id = "admin-layout-empty-sub";
+  empty.appendChild(emptyTitle);
+  empty.appendChild(emptySub);
+  const messages = adminEl("div", "");
+  messages.id = "admin-layout-messages";
+  body.appendChild(empty);
+  body.appendChild(messages);
+  chat.appendChild(top);
+  chat.appendChild(body);
+  stage.appendChild(rail);
+  stage.appendChild(chat);
+  main.appendChild(stage);
+  paintServersLayoutRail(seed, false);
   serversLayoutEmpty("", "Select a channel.");
+}
+
+function loadServersLayout(serverId) {
   adminApi("/admin/server/" + encodeURIComponent(serverId) + "/layout").then((response) => {
     if (!response.ok) return null;
     return response.json();
@@ -814,11 +886,10 @@ function fillServersLayout(serverId) {
       return;
     }
     const live = !!server.discoverable;
-    overlay.classList.toggle("is-private", !live);
     paintServersLayoutRail(server, live);
     if (!live) {
       serversLayoutHeader(null);
-      const title = document.getElementById("channel-header-title");
+      const title = document.getElementById("admin-layout-title");
       if (title) title.textContent = server.name || "Server";
       serversLayoutEmpty("This server is private.", "");
       return;
@@ -839,18 +910,23 @@ function openServersLayout(serverId) {
   if (!serverId) return;
   serversLayoutId = serverId;
   serversLayoutChannelId = 0;
-  if (typeof ensureAdminAppCss === "function") {
-    ensureAdminAppCss().then(() => {
-      if (serversLayoutId !== serverId) return;
-      fillServersLayout(serverId);
-    });
+  if (adminPage !== "servers" || adminSection !== "layout") {
+    showAdminPage("servers", "layout");
     return;
   }
-  fillServersLayout(serverId);
+  const main = document.getElementById("admin-main");
+  if (!main) return;
+  paintServersLayoutView(main, serversLayoutSeed(serverId));
+  loadServersLayout(serverId);
 }
 
 function paintServersLayout(main) {
-  main.className = "is-servers is-servers-layout";
+  if (serversLayoutId) {
+    paintServersLayoutView(main, serversLayoutSeed(serversLayoutId));
+    loadServersLayout(serversLayoutId);
+    return;
+  }
+  main.className = "is-servers";
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Servers", "Layout"],
     title: "Layout",

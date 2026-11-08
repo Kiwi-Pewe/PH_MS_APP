@@ -967,6 +967,9 @@ def admin_feedback(
     order: str = "desc",
     flagged: int = 0,
     scope: str = "",
+    status: str = "",
+    assign: str = "",
+    urgency: str = "",
     offset: int = 0,
     limit: int = PAGE_SIZE,
     database: Session = Depends(get_db),
@@ -1010,6 +1013,20 @@ def admin_feedback(
                 database.query(Server_lock.server_id).filter(Server_lock.kind == "flagged")
             ),
         ))
+    status_key = (status or "").strip().lower()
+    if status_key:
+        query = query.filter(Feedback_report.status == status_key)
+    assign_key = (assign or "").strip().lower()
+    if assign_key == "everyone":
+        query = query.filter(Feedback_report.assign_id.is_(None))
+    elif assign_key:
+        try:
+            query = query.filter(Feedback_report.assign_id == int(assign_key))
+        except (TypeError, ValueError):
+            pass
+    urgency_key = (urgency or "").strip().lower()
+    if urgency_key:
+        query = query.filter(Feedback_report.urgency == urgency_key)
     columns = {
         "id": Feedback_report.id,
         "feedback_label": Feedback_report.feedback_type,

@@ -8,6 +8,9 @@ const REPORTS_BY = [
 let reportsBy = "id";
 let reportsQuery = "";
 let reportsFlaggedOnly = false;
+let reportsStatus = "";
+let reportsAssign = "";
+let reportsUrgency = "";
 let reportsOffset = 0;
 let reportsHasMore = false;
 let reportsLoading = false;
@@ -18,6 +21,22 @@ let reportsTimer = 0;
 
 function reportsByMeta(id) {
   return REPORTS_BY.find((row) => row.id === id) || REPORTS_BY[0];
+}
+
+function reportsFilterSelect(label, value, options, onChange) {
+  const wrap = adminEl("div", "users-search-filter");
+  wrap.appendChild(adminEl("div", "users-field-k", label));
+  const select = adminEl("select", "users-search-by");
+  options.forEach((opt) => {
+    const item = document.createElement("option");
+    item.value = opt.id;
+    item.textContent = opt.label;
+    if (opt.id === value) item.selected = true;
+    select.appendChild(item);
+  });
+  select.addEventListener("change", () => onChange(select.value || ""));
+  wrap.appendChild(select);
+  return wrap;
 }
 
 function reportsSearchView() {
@@ -108,6 +127,9 @@ function loadReportsList(more) {
   params.set("order", "asc");
   params.set("scope", "search");
   params.set("flagged", reportsFlaggedOnly ? "1" : "0");
+  params.set("status", reportsStatus);
+  params.set("assign", reportsAssign);
+  params.set("urgency", reportsUrgency);
   params.set("offset", String(reportsOffset));
   params.set("limit", String(REPORTS_PAGE));
   adminApi("/admin/feedback?" + params.toString()).then((response) => {
@@ -179,10 +201,48 @@ function paintReportsSearch(main) {
   filter.appendChild(adminEl("span", "", "Filters"));
   filter.appendChild(adminIcon("down"));
   fields.appendChild(filter);
-  fields.appendChild(usersSearchFlagged("Flagged Reports", reportsFlaggedOnly, (on) => {
-    reportsFlaggedOnly = on;
+  const extra = adminEl("div", "users-search-extra");
+  extra.appendChild(adminEl("div", "admin-report-rule"));
+  const flaggedLine = adminEl("div", "admin-report-check");
+  flaggedLine.appendChild(adminEl("span", "", "Flagged Reports"));
+  const flagged = usersToggle(reportsFlaggedOnly);
+  flagged.input.addEventListener("change", () => {
+    reportsFlaggedOnly = !!flagged.input.checked;
+    loadReportsList(false);
+  });
+  flaggedLine.appendChild(flagged.label);
+  extra.appendChild(flaggedLine);
+  extra.appendChild(reportsFilterSelect("Status", reportsStatus, [
+    { id: "", label: "All" },
+    { id: "new", label: "New" },
+    { id: "viewed", label: "Viewed" },
+    { id: "review", label: "Need Review" },
+    { id: "open", label: "Open" },
+    { id: "followup", label: "Needs Followup" },
+    { id: "completed", label: "Completed" },
+    { id: "closed", label: "Closed" }
+  ], (value) => {
+    reportsStatus = value;
     loadReportsList(false);
   }));
+  extra.appendChild(reportsFilterSelect("Assigned to", reportsAssign, [
+    { id: "", label: "All" },
+    { id: "everyone", label: "Everyone" },
+    { id: String((adminUser && adminUser.id) || ""), label: (adminUser && (adminUser.display_name || adminUser.username)) || "kiwi" }
+  ], (value) => {
+    reportsAssign = value;
+    loadReportsList(false);
+  }));
+  extra.appendChild(reportsFilterSelect("Urgency", reportsUrgency, [
+    { id: "", label: "All" },
+    { id: "high", label: "High" },
+    { id: "medium", label: "Medium" },
+    { id: "low", label: "Low" }
+  ], (value) => {
+    reportsUrgency = value;
+    loadReportsList(false);
+  }));
+  fields.appendChild(extra);
   search.appendChild(fields);
   left.appendChild(search);
   board.appendChild(left);

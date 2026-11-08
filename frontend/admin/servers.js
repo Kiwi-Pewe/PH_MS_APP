@@ -12,6 +12,7 @@ const SERVERS_LOCKS = [
 
 let serversBy = "id";
 let serversQuery = "";
+let serversFlaggedOnly = false;
 let serversOffset = 0;
 let serversHasMore = false;
 let serversLoading = false;
@@ -169,7 +170,7 @@ function paintServersRows(list) {
     usersFace(face, { avatar: row.icon_url }, row.name);
     btn.appendChild(face);
     const text = adminEl("div", "users-row-text");
-    text.appendChild(adminEl("div", "users-row-name", row.name || "—"));
+    text.appendChild(typeof usersRowName === "function" ? usersRowName(row.name || "—", row.flagged) : adminEl("div", "users-row-name", row.name || "—"));
     text.appendChild(adminEl("div", "users-row-handle", row.id || "—"));
     btn.appendChild(text);
     btn.addEventListener("click", () => selectServersRow(row.id));
@@ -220,6 +221,7 @@ function loadServersList(more) {
   params.set("q", serversQuery);
   params.set("offset", String(serversOffset));
   params.set("limit", String(SERVERS_PAGE));
+  params.set("flagged", serversFlaggedOnly ? "1" : "0");
   adminApi("/admin/server?" + params.toString()).then((response) => {
     if (!response.ok) return null;
     return response.json();
@@ -284,6 +286,10 @@ function paintServersSearch(main) {
   filter.appendChild(adminEl("span", "", "Filters"));
   filter.appendChild(adminIcon("down"));
   fields.appendChild(filter);
+  fields.appendChild(typeof usersSearchFlagged === "function" ? usersSearchFlagged("Flagged Servers", serversFlaggedOnly, (on) => {
+    serversFlaggedOnly = on;
+    loadServersList(false);
+  }) : adminEl("div", ""));
   search.appendChild(fields);
   left.appendChild(search);
   const entries = usersCard({ title: "Server entries", fill: true });
@@ -480,6 +486,12 @@ function openServersCreateReport(row) {
       if (mid) paintServersReports(mid);
       const account = document.getElementById("servers-account");
       if (account && serversSelected) paintServersAccount(account, serversSelected);
+      if (serversSelected && serversSelected.flagged) {
+        serversRows = serversRows.map((item) => item.id === serversSelected.id ? Object.assign({}, item, { flagged: true }) : item);
+      }
+      const list = document.getElementById("servers-search-list");
+      if (serversFlaggedOnly) loadServersList(false);
+      else if (list) paintServersRows(list);
     }).catch(() => usersReportError("Could not create the report."));
   }
   create.onclick = submit;

@@ -232,6 +232,7 @@ class Admin_user_report(BaseModel):
     ban_permanent: bool = False
     ban_days: int = 1
     ban_until: str = ""
+    flag: bool = False
     locks: list[Admin_lock] = []
 
 

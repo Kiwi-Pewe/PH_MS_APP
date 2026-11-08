@@ -37,6 +37,7 @@ const USERS_LOCKS = [
 
 let usersBy = "id";
 let usersQuery = "";
+let usersFlaggedOnly = false;
 let usersOffset = 0;
 let usersHasMore = false;
 let usersLoading = false;
@@ -89,6 +90,25 @@ function usersWhen(raw) {
 
 function usersHandle(row) {
   return (row && row.username) || "—";
+}
+
+function usersRowName(text, flagged) {
+  const line = adminEl("div", "users-row-name-line");
+  line.appendChild(adminEl("div", "users-row-name", text || "—"));
+  if (flagged) line.appendChild(adminEl("span", "users-flag-pill", "FLAGGED"));
+  return line;
+}
+
+function usersSearchFlagged(label, on, onChange) {
+  const wrap = adminEl("div", "users-search-extra");
+  wrap.appendChild(adminEl("div", "admin-report-rule"));
+  const line = adminEl("div", "admin-report-check");
+  line.appendChild(adminEl("span", "", label));
+  const toggle = usersToggle(on);
+  toggle.input.addEventListener("change", () => onChange(!!toggle.input.checked));
+  line.appendChild(toggle.label);
+  wrap.appendChild(line);
+  return wrap;
 }
 
 function usersCard(opts) {
@@ -947,10 +967,15 @@ function openUsersCreateReport(row) {
   banToggle.input.addEventListener("change", () => {
     banDuration.host.hidden = !banToggle.input.checked;
   });
+  const flagLine = adminEl("div", "admin-report-check");
+  flagLine.appendChild(adminEl("span", "", "Flag User"));
+  const flagToggle = usersToggle(false);
+  flagLine.appendChild(flagToggle.label);
   modBox.appendChild(warnLine);
   modBox.appendChild(warnReason);
   modBox.appendChild(banLine);
   modBox.appendChild(banDuration.host);
+  modBox.appendChild(flagLine);
   body.appendChild(generalBox);
   body.appendChild(modBox);
   let mode = "general";
@@ -1040,6 +1065,7 @@ function openUsersCreateReport(row) {
         ban_permanent: ban.permanent,
         ban_days: ban.days,
         ban_until: ban.until,
+        flag: mode === "moderation" && flagToggle.input.checked,
         locks: locks.map((item) => item.read())
       }
     }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
@@ -1056,6 +1082,12 @@ function openUsersCreateReport(row) {
       if (mid) paintUsersReports(mid);
       const account = document.getElementById("users-account");
       if (account && usersSelected) paintUsersAccount(account, usersSelected);
+      if (usersSelected && usersSelected.flagged) {
+        usersRows = usersRows.map((item) => item.id === usersSelected.id ? Object.assign({}, item, { flagged: true }) : item);
+      }
+      const list = document.getElementById("users-search-list");
+      if (usersFlaggedOnly) loadUsersList(false);
+      else if (list) paintUsersRows(list);
     }).catch(() => usersReportError("Could not create the report."));
   }
   create.onclick = submit;
@@ -1076,7 +1108,7 @@ function paintUsersRows(list) {
     face.appendChild(adminEl("div", "status-dot status-" + online));
     btn.appendChild(face);
     const text = adminEl("div", "users-row-text");
-    text.appendChild(adminEl("div", "users-row-name", row.display_name || row.username || "—"));
+    text.appendChild(usersRowName(row.display_name || row.username || "—", row.flagged));
     text.appendChild(adminEl("div", "users-row-handle", usersHandle(row)));
     btn.appendChild(text);
     btn.addEventListener("click", () => selectUsersRow(row.id));
@@ -1130,6 +1162,7 @@ function loadUsersList(more) {
   params.set("q", usersQuery);
   params.set("offset", String(usersOffset));
   params.set("limit", String(USERS_PAGE));
+  params.set("flagged", usersFlaggedOnly ? "1" : "0");
   adminApi("/admin/user?" + params.toString()).then((response) => {
     if (!response.ok) return null;
     return response.json();
@@ -1194,6 +1227,10 @@ function paintUsersSearch(main) {
   filter.appendChild(adminEl("span", "", "Filters"));
   filter.appendChild(adminIcon("down"));
   fields.appendChild(filter);
+  fields.appendChild(usersSearchFlagged("Flagged Users", usersFlaggedOnly, (on) => {
+    usersFlaggedOnly = on;
+    loadUsersList(false);
+  }));
   search.appendChild(fields);
   left.appendChild(search);
   const entries = usersCard({ title: "Account entries", fill: true });

@@ -4,6 +4,7 @@ from sqlalchemy import func, or_, and_, cast, String
 from app.models import (
     UserInfo, Feedback_report, Feedback_event, Admin_user_note, Servers, Server_members,
     Server_bans, Friend_request, Account_warn, Site_ban, Active_Sessions, Message,
+    Community_lock, Server_lock,
     Channel_messages, Server_channels, Server_categories, Server_roles, Server_role_members, Community_post, Community_room,
     Community_room_member, Community_room_message, Community_phone_wait, Community_phone_call,
     Block_user,
@@ -139,6 +140,7 @@ def pack_user(account, server_count, database=None):
         "banned_until": str(account.banned_until) if getattr(account, "banned_until", None) else None,
         "ban_reason": getattr(account, "ban_reason", None) or "",
         "presence": presence_status(account.id),
+        "flagged": False,
     }
     if database is not None:
         payload["friend_count"] = friend_count(database, account.id)
@@ -183,6 +185,7 @@ def load_admin_user(database, user_id):
         .scalar() or 0
     )
     packed["community_locks"] = pack_community_locks(database, account.id)
+    packed["flagged"] = "flagged" in packed["community_locks"]
     database.commit()
     return packed
 
@@ -241,6 +244,28 @@ def pack_admin_server(database, server):
     packed["online_count"] = server_online_count(database, server.id)
     packed["last_activity"] = server_last_message_at(database, server.id)
     return packed
+
+
+def flagged_user_ids(database, ids):
+    if not ids:
+        return set()
+    rows = (
+        database.query(Community_lock.user_id)
+        .filter(Community_lock.user_id.in_(ids), Community_lock.kind == "flagged")
+        .all()
+    )
+    return {uid for (uid,) in rows}
+
+
+def flagged_server_ids(database, ids):
+    if not ids:
+        return set()
+    rows = (
+        database.query(Server_lock.server_id)
+        .filter(Server_lock.server_id.in_(ids), Server_lock.kind == "flagged")
+        .all()
+    )
+    return {sid for (sid,) in rows}
 
 
 def user_server_counts(database, ids):
@@ -1025,6 +1050,7 @@ def admin_user(
     by: str = "id",
     sort: str = "id",
     order: str = "asc",
+    flagged: int = 0,
     offset: int = 0,
     limit: int = PAGE_SIZE,
     database: Session = Depends(get_db),
@@ -1044,11 +1070,22 @@ def admin_user(
             query = query.filter(UserInfo.display_name.ilike(needle))
         else:
             query = query.filter(cast(UserInfo.id, String).ilike(needle))
+    if flagged:
+        query = query.join(
+            Community_lock,
+            and_(Community_lock.user_id == UserInfo.id, Community_lock.kind == "flagged"),
+        )
     query = query.order_by(UserInfo.id.asc())
     accounts, has_more = take_page(query, offset, limit)
     counts = user_server_counts(database, [account.id for account in accounts])
+    marked = flagged_user_ids(database, [account.id for account in accounts])
+    packed = []
+    for account in accounts:
+        row = pack_user(account, counts.get(account.id, 0), database)
+        row["flagged"] = account.id in marked
+        packed.append(row)
     return {
-        "users": [pack_user(account, counts.get(account.id, 0), database) for account in accounts],
+        "users": packed,
         "has_more": has_more,
     }
 
@@ -1204,7 +1241,7 @@ async def admin_create_user_report(
             raise HTTPException(status_code=400, detail="Assign to kiwi.")
         assign_id = current_user.id
     locks = body.locks or []
-    need_action = bool(body.warn or body.ban or any(not item.allowed for item in locks))
+    need_action = bool(body.warn or body.ban or body.flag or any(not item.allowed for item in locks))
     if need_action:
         refuse_moderate(current_user, account)
     if mode == "moderation" and body.warn:
@@ -1212,6 +1249,8 @@ async def admin_create_user_report(
     if mode == "moderation" and body.ban:
         until, permanent = parse_admin_until(body.ban_until, body.ban_days, body.ban_permanent)
         ban_account_until(database, current_user, account, until, "", permanent)
+    if mode == "moderation" and body.flag:
+        set_community_lock(database, current_user, account, "flagged", True, None)
     for item in locks:
         kind = (item.kind or "").strip().lower()
         if kind not in COMMUNITY_LOCKS or item.allowed:
@@ -1563,6 +1602,7 @@ def admin_server(
     by: str = "",
     sort: str = "id",
     order: str = "asc",
+    flagged: int = 0,
     offset: int = 0,
     limit: int = PAGE_SIZE,
     database: Session = Depends(get_db),
@@ -1586,6 +1626,11 @@ def admin_server(
                 Servers.about.ilike(needle),
                 Servers.server_type.ilike(needle),
             ))
+    if flagged:
+        query = query.join(
+            Server_lock,
+            and_(Server_lock.server_id == Servers.id, Server_lock.kind == "flagged"),
+        )
     member_count_col = (
         database.query(func.count(Server_members.id))
         .filter(Server_members.server_id == Servers.id)
@@ -1610,11 +1655,14 @@ def admin_server(
     matches, has_more = take_page(query, offset, limit)
     owner_names, owner_handles = owner_maps(database, matches)
     counts = server_member_counts(database, [row.id for row in matches])
+    marked = flagged_server_ids(database, [row.id for row in matches])
+    packed = []
+    for server in matches:
+        row = pack_server(server, owner_names, owner_handles, counts.get(server.id, 0))
+        row["flagged"] = server.id in marked
+        packed.append(row)
     return {
-        "servers": [
-            pack_server(server, owner_names, owner_handles, counts.get(server.id, 0))
-            for server in matches
-        ],
+        "servers": packed,
         "has_more": has_more,
     }
 

@@ -342,7 +342,7 @@ def refuse_community_lock(database, user, kind):
 
 def set_community_lock(database, actor, target, kind, permanent, lift_at):
     refuse_moderate(actor, target)
-    if kind not in COMMUNITY_LOCKS:
+    if kind not in COMMUNITY_LOCKS and kind != "flagged":
         raise HTTPException(status_code=400, detail="Pick a valid lock.")
     row = (
         database.query(Community_lock)

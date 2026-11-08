@@ -139,8 +139,11 @@
 }
 
 #admin-sections .admin-tracked {
-  margin-top: auto;
   padding-top: 10px;
+}
+
+#admin-sections .admin-tracked.is-first {
+  margin-top: auto;
 }
 
 .admin-section {
@@ -289,6 +292,10 @@
   font-size: 13px;
   font-weight: 800;
   flex: 0 0 auto;
+}
+
+.admin-tracked-face.is-server {
+  border-radius: 8px;
 }
 
 .admin-tracked-text { min-width: 0; flex: 1 1 auto; }

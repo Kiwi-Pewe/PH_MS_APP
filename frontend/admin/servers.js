@@ -126,7 +126,7 @@ function paintServersAccount(host, row) {
   const foot = adminEl("div", "users-actions");
   const track = adminEl("button", "users-btn-track", "Track Server");
   track.type = "button";
-  track.disabled = true;
+  track.addEventListener("click", () => trackAdminServer(row));
   const report = adminEl("button", "users-btn-report", "Create Report");
   report.type = "button";
   report.disabled = true;
@@ -298,3 +298,10 @@ registerAdminPage({
   ],
   paint: paintServers
 });
+
+if (typeof registerAdminTrackedServerOpen === "function") {
+  registerAdminTrackedServerOpen("servers", "search", (serverId) => {
+    showAdminPage("servers", "search");
+    selectServersRow(serverId);
+  });
+}

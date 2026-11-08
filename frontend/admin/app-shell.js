@@ -5,8 +5,11 @@ let adminUser = null;
 let adminPage = "overview";
 let adminSection = "statistics";
 let adminTracked = [];
+let adminTrackedServers = [];
 const ADMIN_TRACK_KEY = "oneira-admin-tracked";
+const ADMIN_TRACK_SERVER_KEY = "oneira-admin-tracked-servers";
 const adminTrackedOpen = {};
+const adminTrackedServerOpen = {};
 
 function loadAdminTracked() {
   try {
@@ -19,6 +22,19 @@ function loadAdminTracked() {
 
 function saveAdminTracked() {
   window.localStorage.setItem(ADMIN_TRACK_KEY, JSON.stringify(adminTracked.slice(0, 8)));
+}
+
+function loadAdminTrackedServers() {
+  try {
+    const rows = JSON.parse(window.localStorage.getItem(ADMIN_TRACK_SERVER_KEY) || "[]");
+    adminTrackedServers = Array.isArray(rows) ? rows : [];
+  } catch (err) {
+    adminTrackedServers = [];
+  }
+}
+
+function saveAdminTrackedServers() {
+  window.localStorage.setItem(ADMIN_TRACK_SERVER_KEY, JSON.stringify(adminTrackedServers.slice(0, 8)));
 }
 
 function trackAdminUser(row) {
@@ -41,13 +57,40 @@ function untrackAdminUser(userId) {
   paintAdminLeft();
 }
 
+function trackAdminServer(row) {
+  if (!row || !row.id) return;
+  adminTrackedServers = adminTrackedServers.filter((item) => item.id !== row.id);
+  adminTrackedServers.unshift({
+    id: row.id,
+    name: row.name || "",
+    icon_url: row.icon_url || ""
+  });
+  saveAdminTrackedServers();
+  paintAdminLeft();
+}
+
+function untrackAdminServer(serverId) {
+  adminTrackedServers = adminTrackedServers.filter((item) => item.id !== serverId);
+  saveAdminTrackedServers();
+  paintAdminLeft();
+}
+
 function registerAdminTrackedOpen(pageId, sectionId, fn) {
   adminTrackedOpen[pageId + ":" + sectionId] = fn;
+}
+
+function registerAdminTrackedServerOpen(pageId, sectionId, fn) {
+  adminTrackedServerOpen[pageId + ":" + sectionId] = fn;
 }
 
 function openTrackedUser(userId) {
   const fn = adminTrackedOpen[adminPage + ":" + adminSection];
   if (typeof fn === "function") fn(userId);
+}
+
+function openTrackedServer(serverId) {
+  const fn = adminTrackedServerOpen[adminPage + ":" + adminSection];
+  if (typeof fn === "function") fn(serverId);
 }
 
 function registerAdminPage(page) {
@@ -108,37 +151,73 @@ function paintAdminSections() {
     if (!later) btn.addEventListener("click", () => showAdminSection(section.id));
     host.appendChild(btn);
   });
-  if (!adminTracked.length) return;
-  const pack = adminEl("div", "admin-tracked");
-  pack.appendChild(adminEl("div", "admin-tracked-kicker", "Tracked users"));
-  adminTracked.forEach((row) => {
-    const card = adminEl("div", "admin-tracked-card");
-    const btn = adminEl("button", "admin-tracked-open");
-    btn.type = "button";
-    const face = adminEl("div", "admin-tracked-face", (row.username || row.display_name || "u").slice(0, 1).toLowerCase());
-    const url = row.avatar && row.avatar.url;
-    if (url) {
-      face.style.backgroundImage = "url(\"" + url + "\")";
-      face.textContent = "";
-    }
-    btn.appendChild(face);
-    const copy = adminEl("div", "admin-tracked-text");
-    copy.appendChild(adminEl("div", "admin-tracked-name", row.display_name || row.username || "—"));
-    copy.appendChild(adminEl("div", "admin-tracked-handle", row.username || "—"));
-    btn.appendChild(copy);
-    btn.addEventListener("click", () => openTrackedUser(row.id));
-    card.appendChild(btn);
-    const close = adminEl("button", "admin-tracked-x", "×");
-    close.type = "button";
-    close.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      untrackAdminUser(row.id);
-    });
-    card.appendChild(close);
-    pack.appendChild(card);
+  if (adminTracked.length) {
+    const pack = adminEl("div", "admin-tracked is-first");
+    pack.appendChild(adminEl("div", "admin-tracked-kicker", "Tracked users"));
+    adminTracked.forEach((row) => pack.appendChild(paintTrackedUserCard(row)));
+    host.appendChild(pack);
+  }
+  if (adminTrackedServers.length) {
+    const pack = adminEl("div", "admin-tracked" + (adminTracked.length ? "" : " is-first"));
+    pack.appendChild(adminEl("div", "admin-tracked-kicker", "Tracked servers"));
+    adminTrackedServers.forEach((row) => pack.appendChild(paintTrackedServerCard(row)));
+    host.appendChild(pack);
+  }
+}
+
+function paintTrackedUserCard(row) {
+  const card = adminEl("div", "admin-tracked-card");
+  const btn = adminEl("button", "admin-tracked-open");
+  btn.type = "button";
+  const face = adminEl("div", "admin-tracked-face", (row.username || row.display_name || "u").slice(0, 1).toLowerCase());
+  const url = row.avatar && row.avatar.url;
+  if (url) {
+    face.style.backgroundImage = "url(\"" + url + "\")";
+    face.textContent = "";
+  }
+  btn.appendChild(face);
+  const copy = adminEl("div", "admin-tracked-text");
+  copy.appendChild(adminEl("div", "admin-tracked-name", row.display_name || row.username || "—"));
+  copy.appendChild(adminEl("div", "admin-tracked-handle", row.username || "—"));
+  btn.appendChild(copy);
+  btn.addEventListener("click", () => openTrackedUser(row.id));
+  card.appendChild(btn);
+  const close = adminEl("button", "admin-tracked-x", "×");
+  close.type = "button";
+  close.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    untrackAdminUser(row.id);
   });
-  host.appendChild(pack);
+  card.appendChild(close);
+  return card;
+}
+
+function paintTrackedServerCard(row) {
+  const card = adminEl("div", "admin-tracked-card");
+  const btn = adminEl("button", "admin-tracked-open");
+  btn.type = "button";
+  const face = adminEl("div", "admin-tracked-face is-server", (row.name || "s").slice(0, 1).toLowerCase());
+  if (row.icon_url) {
+    face.style.backgroundImage = "url(\"" + row.icon_url + "\")";
+    face.textContent = "";
+  }
+  btn.appendChild(face);
+  const copy = adminEl("div", "admin-tracked-text");
+  copy.appendChild(adminEl("div", "admin-tracked-name", row.name || "—"));
+  copy.appendChild(adminEl("div", "admin-tracked-handle", row.id || "—"));
+  btn.appendChild(copy);
+  btn.addEventListener("click", () => openTrackedServer(row.id));
+  card.appendChild(btn);
+  const close = adminEl("button", "admin-tracked-x", "×");
+  close.type = "button";
+  close.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    untrackAdminServer(row.id);
+  });
+  card.appendChild(close);
+  return card;
 }
 
 function paintAdminLeftFoot() {
@@ -212,5 +291,6 @@ function startAdminShell() {
     });
   }
   loadAdminTracked();
+  loadAdminTrackedServers();
   showAdminPage("overview", "statistics");
 }

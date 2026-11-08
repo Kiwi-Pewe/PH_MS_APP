@@ -32,6 +32,9 @@ let serversMembersRows = [];
 let serversMembersOffset = 0;
 let serversMembersHasMore = false;
 let serversMembersLoading = false;
+let serversMembersUserId = 0;
+let serversMembersUser = null;
+let serversMembersServer = null;
 
 function serversByMeta(id) {
   return SERVERS_BY.find((row) => row.id === id) || SERVERS_BY[0];
@@ -999,12 +1002,74 @@ function closeServersMembers() {
   serversMembersOffset = 0;
   serversMembersHasMore = false;
   serversMembersLoading = false;
+  serversMembersUserId = 0;
+  serversMembersUser = null;
+  serversMembersServer = null;
   if (typeof currentServerId !== "undefined") currentServerId = null;
   const main = document.getElementById("admin-main");
   if (main && adminPage === "servers" && adminSection === "members") {
     main.innerHTML = "";
     paintServersMembers(main);
   }
+}
+
+function serversMembersShowUser(on) {
+  const main = document.getElementById("admin-main");
+  if (main) main.classList.toggle("has-member", !!on);
+}
+
+function loadServersMembersServer(serverId) {
+  const host = document.getElementById("admin-members-server");
+  if (!host) return;
+  if (serversMembersServer && serversMembersServer.id === serverId) {
+    paintServersAccount(host, serversMembersServer);
+    return;
+  }
+  serversSelectEmpty(host);
+  adminApi("/admin/server/" + encodeURIComponent(serverId)).then((res) => {
+    if (!res.ok) throw new Error("fail");
+    return res.json();
+  }).then((data) => {
+    if (serversMembersId !== serverId) return;
+    serversMembersServer = (data && data.server) || null;
+    if (serversMembersServer) paintServersAccount(host, serversMembersServer);
+    else serversSelectEmpty(host);
+  }).catch(() => {
+    if (serversMembersId !== serverId) return;
+    host.innerHTML = "";
+    host.appendChild(adminEl("div", "users-empty", "Could not load server."));
+  });
+}
+
+function selectServersMember(userId) {
+  if (!userId) return;
+  serversMembersUserId = userId;
+  serversMembersShowUser(true);
+  paintServersMembersRows();
+  const host = document.getElementById("admin-members-user");
+  if (!host) return;
+  if (typeof usersSelectEmpty === "function") usersSelectEmpty(host);
+  else host.innerHTML = "";
+  Promise.all([
+    adminApi("/admin/user/" + userId).then((res) => res.ok ? res.json() : null),
+    adminApi("/admin/user/" + userId + "/notes").then((res) => res.ok ? res.json() : null)
+  ]).then((parts) => {
+    if (serversMembersUserId !== userId) return;
+    const detail = parts[0];
+    const notes = parts[1];
+    serversMembersUser = (detail && detail.user) || null;
+    if (typeof usersNoteText !== "undefined") usersNoteText = (notes && notes.text) || "";
+    if (serversMembersUser && typeof paintUsersAccount === "function") {
+      paintUsersAccount(host, serversMembersUser);
+      return;
+    }
+    host.innerHTML = "";
+    host.appendChild(adminEl("div", "users-empty", "Could not load user."));
+  }).catch(() => {
+    if (serversMembersUserId !== userId) return;
+    host.innerHTML = "";
+    host.appendChild(adminEl("div", "users-empty", "Could not load user."));
+  });
 }
 
 function paintServersMembersHold(body) {
@@ -1044,6 +1109,7 @@ function paintServersMembersRoleCell(member) {
 
 function paintServersMembersRow(member) {
   const tr = document.createElement("tr");
+  if (member.id === serversMembersUserId) tr.classList.add("is-on");
   const userTd = document.createElement("td");
   const user = adminEl("div", "admin-members-user");
   const face = adminEl("div", "users-face");
@@ -1081,15 +1147,14 @@ function paintServersMembersRow(member) {
   const seen = document.createElement("td");
   seen.textContent = status === "online" ? "Online" : serversMembersAge(member.last_active);
   tr.appendChild(seen);
-  const open = (e) => {
+  tr.addEventListener("click", () => selectServersMember(member.id));
+  face.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
+    selectServersMember(member.id);
     serversMembersMini(member.id, face);
-  };
-  face.addEventListener("click", open);
-  display.addEventListener("click", open);
+  });
   face.classList.add("is-mini-profile-target");
-  display.classList.add("is-mini-profile-target");
   return tr;
 }
 
@@ -1127,19 +1192,7 @@ function loadServersMembers(serverId, more) {
   }).then((data) => {
     if (serversMembersId !== serverId) return;
     const pack = data && data.server;
-    if (pack && pack.name) {
-      serversMembersName = pack.name;
-      const title = document.getElementById("admin-members-name");
-      if (title) title.textContent = pack.name;
-      const icon = document.getElementById("admin-members-icon");
-      if (icon && pack.icon_url) {
-        icon.innerHTML = "";
-        const img = document.createElement("img");
-        img.src = pack.icon_url;
-        img.alt = "";
-        icon.appendChild(img);
-      }
-    }
+    if (pack && pack.name) serversMembersName = pack.name;
     const rows = (data && data.members) || [];
     serversMembersRows = more ? serversMembersRows.concat(rows) : rows;
     serversMembersHasMore = !!(data && data.has_more);
@@ -1160,28 +1213,25 @@ function loadServersMembers(serverId, more) {
 }
 
 function paintServersMembersView(main, seed) {
-  main.className = "is-servers is-servers-members";
+  main.className = "is-users is-servers is-servers-members" + (serversMembersUserId ? " has-member" : "");
   main.innerHTML = "";
   const close = adminEl("button", "", "Close");
   close.type = "button";
   close.id = "admin-members-close";
   close.addEventListener("click", closeServersMembers);
   main.appendChild(close);
-  const head = adminEl("div", "");
-  head.id = "admin-members-head";
-  const icon = adminEl("div", "");
-  icon.id = "admin-members-icon";
-  if (seed && seed.icon_url) {
-    const img = document.createElement("img");
-    img.src = seed.icon_url;
-    img.alt = "";
-    icon.appendChild(img);
+  const board = adminEl("div", "users-search");
+  board.id = "admin-members-board";
+  const left = adminEl("div", "users-stack is-right");
+  left.id = "admin-members-user";
+  if (serversMembersUser && typeof paintUsersAccount === "function") {
+    paintUsersAccount(left, serversMembersUser);
+  } else if (typeof usersSelectEmpty === "function") {
+    usersSelectEmpty(left);
   }
-  head.appendChild(icon);
-  const name = adminEl("div", "", (seed && seed.name) || "Server");
-  name.id = "admin-members-name";
-  head.appendChild(name);
-  main.appendChild(head);
+  board.appendChild(left);
+  const mid = adminEl("div", "users-stack is-mid");
+  const card = usersCard({ title: "Members", fill: true });
   const wrap = adminEl("div", "");
   wrap.id = "admin-members-wrap";
   const table = document.createElement("table");
@@ -1201,13 +1251,22 @@ function paintServersMembersView(main, seed) {
   empty.id = "admin-members-empty";
   empty.hidden = true;
   wrap.appendChild(empty);
-  main.appendChild(wrap);
+  card.appendChild(wrap);
+  mid.appendChild(card);
   const more = adminEl("button", "users-more", "Load more");
   more.type = "button";
   more.id = "admin-members-more";
   more.hidden = true;
   more.addEventListener("click", () => loadServersMembers(serversMembersId, true));
-  main.appendChild(more);
+  mid.appendChild(more);
+  board.appendChild(mid);
+  const right = adminEl("div", "users-stack is-right");
+  right.id = "admin-members-server";
+  if (serversMembersServer) paintServersAccount(right, serversMembersServer);
+  else if (seed) paintServersAccount(right, seed);
+  else serversSelectEmpty(right);
+  board.appendChild(right);
+  main.appendChild(board);
   paintServersMembersHold(body);
 }
 
@@ -1218,6 +1277,9 @@ function openServersMembers(serverId) {
   serversMembersRows = [];
   serversMembersOffset = 0;
   serversMembersHasMore = false;
+  serversMembersUserId = 0;
+  serversMembersUser = null;
+  if (!serversMembersServer || serversMembersServer.id !== serverId) serversMembersServer = null;
   if (typeof currentServerId !== "undefined") currentServerId = serverId;
   if (adminPage !== "servers" || adminSection !== "members") {
     showAdminPage("servers", "members");
@@ -1226,12 +1288,14 @@ function openServersMembers(serverId) {
   const main = document.getElementById("admin-main");
   if (!main) return;
   paintServersMembersView(main, serversLayoutSeed(serverId));
+  loadServersMembersServer(serverId);
   loadServersMembers(serverId, false);
 }
 
 function paintServersMembers(main) {
   if (serversMembersId) {
     paintServersMembersView(main, serversLayoutSeed(serversMembersId));
+    loadServersMembersServer(serversMembersId);
     loadServersMembers(serversMembersId, false);
     return;
   }

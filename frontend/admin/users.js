@@ -209,6 +209,19 @@ function loadUsersProfile(userId) {
 
 function paintUsersProfiles(main) {
   main.className = "is-users is-users-profile";
+  if (typeof renderProfileBoard !== "function" && typeof ensureAdminProfileLayer === "function") {
+    main.appendChild(adminPageHead({
+      crumbs: ["Admin", "Users", "Profile"],
+      title: "Profile"
+    }));
+    main.appendChild(adminEl("div", "users-empty", usersProfileId ? "" : "Select a tracked user."));
+    ensureAdminProfileLayer().then(() => {
+      if (adminPage !== "users") return;
+      if (adminSection !== "profile" && adminSection !== "profiles") return;
+      paintAdminMain();
+    });
+    return;
+  }
   if (typeof adminSyncProfileOwner === "function") adminSyncProfileOwner();
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Users", "Profile"],

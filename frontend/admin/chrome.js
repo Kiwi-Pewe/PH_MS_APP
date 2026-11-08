@@ -327,3 +327,55 @@ function bindAdminMod() {
 }
 
 bindAdminMod();
+
+function ensureAdminStylesheet(id, href) {
+  if (document.getElementById(id)) return Promise.resolve();
+  return new Promise((resolve) => {
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = href;
+    link.onload = () => resolve();
+    link.onerror = () => resolve();
+    document.head.appendChild(link);
+  });
+}
+
+function ensureAdminScript(src) {
+  if (document.querySelector("script[src=\"" + src + "\"]")) return Promise.resolve();
+  return new Promise((resolve) => {
+    const el = document.createElement("script");
+    el.src = src;
+    el.onload = () => resolve();
+    el.onerror = () => resolve();
+    document.body.appendChild(el);
+  });
+}
+
+function ensureAdminAppCss() {
+  return ensureAdminStylesheet("admin-app-css", "../main/app.css?v=504");
+}
+
+function ensureAdminScripts(list) {
+  return (list || []).reduce((chain, src) => chain.then(() => ensureAdminScript(src)), Promise.resolve());
+}
+
+function ensureAdminProfileLayer() {
+  if (typeof renderProfileBoard === "function") return Promise.resolve();
+  if (!window.__adminProfileLayer) {
+    window.__adminProfileLayer = ensureAdminAppCss().then(() => ensureAdminScripts([
+      "../shared/media-player.js?v=6",
+      "../shared/music-player.js?v=2",
+      "../shared/embed-frame.js?v=1",
+      "../shared/gallery-frame.js?v=1",
+      "profile-bridge.js?v=1",
+      "../main/profile-identity.js?v=19",
+      "../main/profile-comments.js?v=9",
+      "../main/profile-board.js?v=137",
+      "../main/mini-profile.js?v=45"
+    ])).then(() => {
+      if (typeof adminSyncProfileOwner === "function") adminSyncProfileOwner();
+    });
+  }
+  return window.__adminProfileLayer;
+}

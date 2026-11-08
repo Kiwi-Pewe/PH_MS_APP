@@ -496,7 +496,43 @@ function closeServersLayout() {
   serversLayoutId = "";
   serversLayoutChannelId = 0;
   const overlay = document.getElementById("admin-layout-overlay");
-  if (overlay) overlay.hidden = true;
+  if (overlay) overlay.remove();
+}
+
+function ensureAdminLayoutOverlay() {
+  let overlay = document.getElementById("admin-layout-overlay");
+  if (overlay) return overlay;
+  overlay = adminEl("div", "");
+  overlay.id = "admin-layout-overlay";
+  overlay.innerHTML = "<button type=\"button\" id=\"admin-layout-close\">Close</button>"
+    + "<div class=\"admin-layout-grid\">"
+    + "<div id=\"secondary-panel\"><div id=\"server-sidebar-view\">"
+    + "<div id=\"server-sidebar-face\"><div id=\"server-sidebar-banner\"></div>"
+    + "<div id=\"server-sidebar-header\"><span id=\"server-sidebar-name\"></span></div></div>"
+    + "<div id=\"server-sidebar-body\"><div class=\"server-sidebar-group-label\" id=\"server-channels-label\">Channels</div>"
+    + "<div id=\"category-list\"></div></div></div></div>"
+    + "<div id=\"main-panel\"><div class=\"main-view active\" id=\"view-channel\">"
+    + "<div class=\"view-header\"><div class=\"header-title-group\"><div class=\"header-title-stack\">"
+    + "<span id=\"channel-header-title\">No channel selected</span>"
+    + "<span id=\"channel-header-desc\" class=\"header-description\" hidden></span></div></div>"
+    + "<div class=\"header-actions\" id=\"channel-header-actions\">"
+    + "<button type=\"button\" class=\"icon-btn\" id=\"admin-layout-call\" disabled title=\"Call\">Call</button>"
+    + "<button type=\"button\" class=\"icon-btn chat-pins-btn\" id=\"channel-pins-btn\" disabled title=\"Pinned messages\">Pins</button>"
+    + "<div class=\"chat-search-slot\"><div class=\"chat-search-shell\">"
+    + "<input type=\"search\" class=\"chat-search-input\" placeholder=\"Search\" autocomplete=\"off\" spellcheck=\"false\" disabled>"
+    + "</div></div>"
+    + "<button type=\"button\" class=\"icon-btn\" id=\"admin-layout-overflow\" disabled title=\"Chat settings\">&#8942;</button>"
+    + "</div></div>"
+    + "<div id=\"channel-body\"><div id=\"channel-empty\" class=\"centered-empty-state\">"
+    + "<div class=\"badge\" id=\"channel-empty-badge\">#</div>"
+    + "<p class=\"welcome-title\" id=\"channel-welcome-title\"></p>"
+    + "<p class=\"welcome-sub\" id=\"channel-welcome-sub\"></p></div>"
+    + "<div id=\"channel-messages\" class=\"self-right\" style=\"display:none;\"></div>"
+    + "</div></div></div></div>";
+  document.body.appendChild(overlay);
+  const close = document.getElementById("admin-layout-close");
+  if (close) close.addEventListener("click", closeServersLayout);
+  return overlay;
 }
 
 function serversLayoutEmpty(title, sub) {
@@ -760,14 +796,9 @@ function firstServersLayoutChat(server) {
   return (cats[0] && cats[0].channels && cats[0].channels[0]) || null;
 }
 
-function openServersLayout(serverId) {
-  if (!serverId) return;
-  serversLayoutId = serverId;
-  serversLayoutChannelId = 0;
-  const overlay = document.getElementById("admin-layout-overlay");
-  if (!overlay) return;
+function fillServersLayout(serverId) {
+  const overlay = ensureAdminLayoutOverlay();
   overlay.classList.remove("is-private", "has-banner");
-  overlay.hidden = false;
   const name = document.getElementById("server-sidebar-name");
   if (name) name.textContent = "…";
   serversLayoutHeader(null);
@@ -802,6 +833,20 @@ function openServersLayout(serverId) {
     if (serversLayoutId !== serverId) return;
     serversLayoutEmpty("", "Could not load this server.");
   });
+}
+
+function openServersLayout(serverId) {
+  if (!serverId) return;
+  serversLayoutId = serverId;
+  serversLayoutChannelId = 0;
+  if (typeof ensureAdminAppCss === "function") {
+    ensureAdminAppCss().then(() => {
+      if (serversLayoutId !== serverId) return;
+      fillServersLayout(serverId);
+    });
+    return;
+  }
+  fillServersLayout(serverId);
 }
 
 function paintServersLayout(main) {
@@ -845,5 +890,3 @@ if (typeof registerAdminTrackedServerOpen === "function") {
   });
 }
 
-const adminLayoutClose = document.getElementById("admin-layout-close");
-if (adminLayoutClose) adminLayoutClose.addEventListener("click", closeServersLayout);

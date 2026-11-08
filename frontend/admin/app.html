@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="app.css?v=20">
 <link rel="stylesheet" href="overview.css?v=9">
 <link rel="stylesheet" href="users.css?v=18">
-<link rel="stylesheet" href="servers.css?v=1">
+<link rel="stylesheet" href="servers.css?v=2">
 </head>
 <body>
 
@@ -25,6 +25,56 @@
       <div id="admin-left-foot"></div>
     </div>
     <div id="admin-main"></div>
+  </div>
+</div>
+
+<div id="admin-layout-overlay" hidden>
+  <button type="button" id="admin-layout-close">Close</button>
+  <div class="admin-layout-grid">
+    <div id="secondary-panel">
+      <div id="server-sidebar-view">
+        <div id="server-sidebar-face">
+          <div id="server-sidebar-banner"></div>
+          <div id="server-sidebar-header">
+            <span id="server-sidebar-name"></span>
+          </div>
+        </div>
+        <div id="server-sidebar-body">
+          <div class="server-sidebar-group-label" id="server-channels-label">Channels</div>
+          <div id="category-list"></div>
+        </div>
+      </div>
+    </div>
+    <div id="main-panel">
+      <div class="main-view active" id="view-channel">
+        <div class="view-header">
+          <div class="header-title-group">
+            <div class="header-title-stack">
+              <span id="channel-header-title">No channel selected</span>
+              <span id="channel-header-desc" class="header-description" hidden></span>
+            </div>
+          </div>
+          <div class="header-actions" id="channel-header-actions">
+            <button type="button" class="icon-btn" id="admin-layout-call" disabled title="Call">Call</button>
+            <button type="button" class="icon-btn chat-pins-btn" id="channel-pins-btn" disabled title="Pinned messages">Pins</button>
+            <div class="chat-search-slot">
+              <div class="chat-search-shell">
+                <input type="search" class="chat-search-input" placeholder="Search" autocomplete="off" spellcheck="false" disabled>
+              </div>
+            </div>
+            <button type="button" class="icon-btn" id="admin-layout-overflow" disabled title="Chat settings">&#8942;</button>
+          </div>
+        </div>
+        <div id="channel-body">
+          <div id="channel-empty" class="centered-empty-state">
+            <div class="badge" id="channel-empty-badge">#</div>
+            <p class="welcome-title" id="channel-welcome-title"></p>
+            <p class="welcome-sub" id="channel-welcome-sub"></p>
+          </div>
+          <div id="channel-messages" class="self-right" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -75,7 +125,7 @@
 <script src="chrome.js?v=8"></script>
 <script src="overview.js?v=15"></script>
 <script src="users.js?v=18"></script>
-<script src="servers.js?v=6"></script>
+<script src="servers.js?v=7"></script>
 <script src="reports.js?v=2"></script>
 <script src="community.js?v=2"></script>
 <script src="news.js?v=2"></script>

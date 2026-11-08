@@ -15,12 +15,15 @@ from app.routers.account import public_display_name
 from app.routers.feedback import (
     REPORT_KINDS, feedback_file_count, feedback_score, clean_feedback_text, clean_report_kind,
 )
-from app.routers.profile import public_identity, public_avatar, ensure_layout, profile_payload, friend_preview
+from app.routers.profile import public_identity, public_avatar, ensure_layout, profile_payload, friend_preview, avatar_lookup
 from app.routers.mini_profiles import layout_banner_and_about
 from app.routers.servers import server_banner_fields, server_icon_url, server_type_label
+from app.routers.mentions import decorate_history, reply_map_for
+from app.routers.reactions import reactions_for_messages
+from app.routers.roles import name_color_roles_by_user, nicknames_for_users
+from app.r2 import delete_attachment, post_attachments_public, attachment_public
 from app.routers.feed import notify_feed_alert
 from app.routers.realtime import active_connections, presence_status
-from app.r2 import delete_attachment, post_attachments_public
 from app.site_moderation import (
     COMMUNITY_LOCKS,
     SITE_BAN_LABELS,
@@ -39,6 +42,7 @@ from app.site_moderation import (
     set_community_lock,
     set_server_lock,
     freeze_and_empty_server,
+    mask_message_payloads,
     site_ban_active,
     site_ban_count,
     warn_account,
@@ -1746,3 +1750,137 @@ async def admin_create_server_report(
     packed["about"] = True
     packed["server"] = pack_admin_server(database, server)
     return {"report": packed}
+
+
+def admin_channel_is_chat(channel):
+    kind = (getattr(channel, "channel_type", None) or "text").strip().lower()
+    return kind == "text"
+
+
+def pack_admin_server_layout(database, server):
+    categories = (
+        database.query(Server_categories)
+        .filter(Server_categories.server_id == server.id)
+        .order_by(Server_categories.position, Server_categories.id)
+        .all()
+    )
+    cat_ids = [row.id for row in categories]
+    channels = (
+        database.query(Server_channels)
+        .filter(Server_channels.category_id.in_(cat_ids))
+        .order_by(Server_channels.position, Server_channels.id)
+        .all()
+        if cat_ids
+        else []
+    )
+    by_cat = {}
+    for channel in channels:
+        by_cat.setdefault(channel.category_id, []).append({
+            "id": channel.id,
+            "category_id": channel.category_id,
+            "name": channel.name or "",
+            "channel_type": channel.channel_type or "text",
+            "topic": getattr(channel, "topic", None) or "",
+            "is_private": bool(channel.is_private),
+            "chat": admin_channel_is_chat(channel),
+        })
+    tree = []
+    for category in categories:
+        tree.append({
+            "id": category.id,
+            "name": category.name or "",
+            "position": category.position,
+            "is_private": bool(category.is_private),
+            "channels": by_cat.get(category.id) or [],
+        })
+    packed = pack_admin_server(database, server)
+    packed["categories"] = tree
+    return packed
+
+
+def pack_admin_channel_history(database, current_user, server, channel, before_id=None):
+    base = database.query(Channel_messages).filter(Channel_messages.channel_id == channel.id)
+    if before_id:
+        rows = base.filter(Channel_messages.id < before_id).order_by(Channel_messages.timestamp.desc()).limit(25).all()
+    else:
+        rows = base.order_by(Channel_messages.timestamp.desc()).limit(25).all()
+    sender_ids = list({message.sender_id for message in rows if message.sender_id})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all() if sender_ids else []
+    username_lookup = {account.id: account.username for account in accounts}
+    faces = avatar_lookup(accounts)
+    reaction_map = reactions_for_messages(database, "channel", [message.id for message in rows], current_user.id)
+    mention_meta = decorate_history(database, "channel", rows, current_user.id)
+    reply_map = reply_map_for(database, Channel_messages, rows)
+    name_map = name_color_roles_by_user(database, server.id, sender_ids)
+    nick_map = nicknames_for_users(database, server.id, sender_ids)
+    message_history = []
+    for index, message in enumerate(rows):
+        hook_name = getattr(message, "webhook_name", None) or ""
+        is_hook = bool(getattr(message, "webhook_id", None) or hook_name)
+        message_history.append({
+            "id": message.id,
+            "sender_id": message.sender_id,
+            "username": hook_name if is_hook else ("" if message.sender_id is None else username_lookup.get(message.sender_id, "")),
+            "nickname": "" if is_hook else nick_map.get(message.sender_id, ""),
+            "content": message.content,
+            "attachment": attachment_public(message.attachment),
+            "timestamp": str(message.timestamp),
+            "edited": bool(message.edited),
+            "reactions": reaction_map.get(message.id, []),
+            "mentioned": mention_meta[index]["mentioned"],
+            "mention_users": mention_meta[index]["mention_users"],
+            "mention_roles": mention_meta[index]["mention_roles"],
+            "reply_to": reply_map.get(message.reply_to_id) if message.reply_to_id else None,
+            "avatar": None if is_hook else faces.get(message.sender_id),
+            "name_role": None if is_hook else name_map.get(message.sender_id),
+            "is_webhook": is_hook,
+            "webhook_id": getattr(message, "webhook_id", None),
+            "webhook_name": hook_name,
+        })
+    message_history.reverse()
+    mask_message_payloads(database, message_history)
+    return {
+        "server_id": server.id,
+        "channel_id": channel.id,
+        "channel_name": channel.name or "",
+        "topic": getattr(channel, "topic", None) or "",
+        "messages": message_history,
+    }
+
+
+@router.get("/admin/server/{server_id}/layout")
+def admin_server_layout(
+    server_id: str,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found.")
+    return {"server": pack_admin_server_layout(database, server)}
+
+
+@router.get("/admin/server/{server_id}/channel/{channel_id}/history")
+def admin_server_channel_history(
+    server_id: str,
+    channel_id: int,
+    before_id: int = None,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    server = database.query(Servers).filter(Servers.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="Server not found.")
+    if not bool(getattr(server, "discoverable", False)):
+        raise HTTPException(status_code=403, detail="This server is private.")
+    channel = database.query(Server_channels).filter(Server_channels.id == channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found.")
+    category = database.query(Server_categories).filter(Server_categories.id == channel.category_id).first()
+    if not category or category.server_id != server.id:
+        raise HTTPException(status_code=404, detail="Channel not found.")
+    if not admin_channel_is_chat(channel):
+        raise HTTPException(status_code=400, detail="Chat history is only available in text channels.")
+    return pack_admin_channel_history(database, current_user, server, channel, before_id)

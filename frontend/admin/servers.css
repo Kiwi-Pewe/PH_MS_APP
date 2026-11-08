@@ -22,3 +22,71 @@
   opacity: 0.55;
   cursor: default;
 }
+
+#admin-layout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  min-height: 0;
+}
+
+#admin-layout-overlay[hidden] {
+  display: none;
+}
+
+#admin-layout-close {
+  flex: 0 0 auto;
+  height: 40px;
+  width: 100%;
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--rail);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+
+#admin-layout-close:hover {
+  background: var(--panel-alt);
+}
+
+.admin-layout-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+}
+
+#admin-layout-overlay #server-sidebar-header {
+  cursor: default;
+}
+
+#admin-layout-overlay #server-sidebar-header:hover {
+  background: transparent;
+}
+
+#admin-layout-overlay.has-banner #server-sidebar-header:hover {
+  background: linear-gradient(180deg, rgba(8, 18, 28, 0.78) 0%, rgba(8, 18, 28, 0) 70%);
+}
+
+#admin-layout-overlay.is-private .channel-row {
+  pointer-events: none;
+  cursor: default;
+}
+
+#admin-layout-overlay .header-actions .icon-btn:disabled,
+#admin-layout-overlay .chat-search-input:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+#admin-layout-overlay #channel-messages {
+  flex: 1 1 auto;
+}

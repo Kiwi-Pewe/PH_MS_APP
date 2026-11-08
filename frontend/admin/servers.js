@@ -22,6 +22,9 @@ let serversTimer = 0;
 let serversReports = [];
 let serversOpenId = 0;
 let serversEvents = [];
+let serversLayoutId = "";
+let serversLayoutChannelId = 0;
+const SERVERS_LAYOUT_GAP = 5 * 60 * 1000;
 
 function serversByMeta(id) {
   return SERVERS_BY.find((row) => row.id === id) || SERVERS_BY[0];
@@ -468,7 +471,355 @@ function openServersCreateReport(row) {
   overlay.hidden = false;
 }
 
-function paintServers(main) {
+function serversLayoutIcon(channelType) {
+  const kind = String(channelType || "").toLowerCase();
+  if (kind === "voice") return "\u{1F50A}";
+  if (kind === "forums") return "\u{1F5C2}";
+  if (kind === "announcements") return "\u{1F4E2}";
+  if (kind === "doc") return "\u{1F4C4}";
+  if (kind === "lists") return "\u2611";
+  if (kind === "media") return "\u{1F5BC}";
+  if (kind === "events") return "\u{1F4C5}";
+  if (kind === "scheduling") return "\u{1F552}";
+  if (kind === "docs") return "\u{1F4D5}";
+  if (kind === "tournaments") return "\u{1F3C6}";
+  if (kind === "watchparty") return "\u{1F3A6}";
+  return "#";
+}
+
+function serversLayoutChat(channel) {
+  const kind = String((channel && channel.channel_type) || "text").toLowerCase();
+  return kind === "text";
+}
+
+function closeServersLayout() {
+  serversLayoutId = "";
+  serversLayoutChannelId = 0;
+  const overlay = document.getElementById("admin-layout-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
+function serversLayoutEmpty(title, sub) {
+  const empty = document.getElementById("channel-empty");
+  const messages = document.getElementById("channel-messages");
+  const welcome = document.getElementById("channel-welcome-title");
+  const note = document.getElementById("channel-welcome-sub");
+  if (messages) {
+    messages.innerHTML = "";
+    messages.style.display = "none";
+  }
+  if (empty) empty.style.display = "";
+  if (welcome) welcome.textContent = title || "";
+  if (note) note.textContent = sub || "";
+}
+
+function serversLayoutBanner(server) {
+  const view = document.getElementById("server-sidebar-view");
+  const strip = document.getElementById("server-sidebar-banner");
+  const overlay = document.getElementById("admin-layout-overlay");
+  if (!view || !strip) return;
+  const url = (server && server.banner_url) || "";
+  const color = (server && server.banner_color) || "";
+  strip.style.backgroundImage = url ? "url(\"" + url + "\")" : "";
+  strip.style.backgroundColor = (!url && color) ? color : "";
+  const on = !!(url || color);
+  view.classList.toggle("has-banner", on);
+  if (overlay) overlay.classList.toggle("has-banner", on);
+}
+
+function serversLayoutFace(host, row, letterName) {
+  if (typeof usersFace === "function") {
+    usersFace(host, row, letterName);
+    return;
+  }
+  host.textContent = (letterName || "?").slice(0, 1).toUpperCase();
+}
+
+function serversLayoutLinkText(host, text) {
+  const value = String(text || "");
+  const parts = value.split(/(https?:\/\/[^\s]+)/gi);
+  parts.forEach((part) => {
+    if (/^https?:\/\//i.test(part)) {
+      const link = document.createElement("a");
+      link.href = part;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = part;
+      host.appendChild(link);
+    } else if (part) {
+      host.appendChild(document.createTextNode(part));
+    }
+  });
+}
+
+function serversLayoutMedia(bubble, attachment) {
+  const att = attachment && typeof attachment === "object" ? attachment : null;
+  if (!att || !att.url) return;
+  const wrap = adminEl("div", "msg-media");
+  if (att.kind === "video") {
+    const vid = document.createElement("video");
+    vid.src = att.url;
+    vid.controls = true;
+    vid.preload = "metadata";
+    wrap.appendChild(vid);
+  } else {
+    const img = document.createElement("img");
+    img.src = att.url;
+    img.alt = att.name || "image";
+    wrap.appendChild(img);
+  }
+  bubble.appendChild(wrap);
+}
+
+function serversLayoutReply(reply) {
+  if (!reply) return null;
+  const row = adminEl("div", "msg-reply");
+  row.appendChild(adminEl("span", "msg-reply-name", reply.username || "user"));
+  row.appendChild(adminEl("span", "msg-reply-text", reply.deleted ? "Original message was deleted" : (reply.content || "")));
+  return row;
+}
+
+function serversLayoutCluster(wrap, msg) {
+  const cluster = adminEl("div", "msg-cluster " + (msg.isMine ? "self" : "other"));
+  const avatar = adminEl("div", "cluster-avatar");
+  serversLayoutFace(avatar, { avatar: msg.avatar }, msg.username);
+  const body = adminEl("div", "cluster-body");
+  if (msg.replyTo) {
+    const reply = serversLayoutReply(msg.replyTo);
+    if (reply) body.appendChild(reply);
+  }
+  const header = adminEl("div", "cluster-header");
+  header.appendChild(adminEl("span", "cluster-name", msg.nickname || msg.username || "user"));
+  const time = adminEl("span", "cluster-time");
+  time.textContent = typeof formatClusterTime === "function" && msg.time ? formatClusterTime(msg.time) : "";
+  header.appendChild(time);
+  const bubble = adminEl("div", "cluster-bubble");
+  if (msg.content) {
+    const line = adminEl("div", "bubble-line");
+    serversLayoutLinkText(line, msg.content);
+    if (msg.edited) line.appendChild(adminEl("span", "edited-tag", "edited"));
+    bubble.appendChild(line);
+  }
+  serversLayoutMedia(bubble, msg.attachment);
+  if (msg.reactions && msg.reactions.length) {
+    const row = adminEl("div", "reaction-row");
+    msg.reactions.forEach((item) => {
+      const pill = adminEl("div", "reaction-pill");
+      pill.appendChild(adminEl("span", "reaction-emoji", item.emoji || ""));
+      pill.appendChild(adminEl("span", "reaction-count", String(item.count || 0)));
+      row.appendChild(pill);
+    });
+    bubble.appendChild(row);
+  }
+  body.appendChild(header);
+  body.appendChild(bubble);
+  cluster.appendChild(avatar);
+  cluster.appendChild(body);
+  wrap.appendChild(cluster);
+  return { username: msg.username, lastTime: msg.time, isMine: msg.isMine };
+}
+
+function serversLayoutPaintMessages(rows, channelName) {
+  const empty = document.getElementById("channel-empty");
+  const wrap = document.getElementById("channel-messages");
+  const body = document.getElementById("channel-body");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  wrap.style.display = "";
+  if (empty) empty.style.display = "none";
+  const card = adminEl("div", "convo-start-card");
+  card.appendChild(adminEl("div", "convo-start-avatar", "#"));
+  card.appendChild(adminEl("div", "convo-start-name", "#" + (channelName || "channel")));
+  card.appendChild(adminEl("div", "convo-start-desc", "This is the start of #" + (channelName || "channel") + ". Welcome!"));
+  wrap.appendChild(card);
+  let open = null;
+  const lastDate = { date: null };
+  (rows || []).forEach((raw) => {
+    const msg = {
+      id: raw.id,
+      senderId: raw.sender_id,
+      username: raw.username || "",
+      nickname: raw.nickname || "",
+      content: raw.content || "",
+      attachment: raw.attachment,
+      time: raw.timestamp ? new Date(String(raw.timestamp).replace(" ", "T")) : null,
+      edited: !!raw.edited,
+      reactions: raw.reactions || [],
+      replyTo: raw.reply_to,
+      avatar: raw.avatar,
+      isMine: !!(adminUser && raw.sender_id === adminUser.id),
+      isWebhook: !!raw.is_webhook
+    };
+    if (msg.time && Number.isNaN(msg.time.getTime())) msg.time = new Date(raw.timestamp);
+    if (raw.sender_id == null && !raw.is_webhook) {
+      wrap.appendChild(adminEl("div", "system-divider", msg.content || ""));
+      open = null;
+      return;
+    }
+    const when = msg.time;
+    if (when && lastDate.date && typeof sameCalendarDay === "function" && !sameCalendarDay(lastDate.date, when)) {
+      wrap.appendChild(adminEl("div", "chat-date-sep", when.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })));
+      open = null;
+    }
+    if (when) lastDate.date = when;
+    const same = open && open.isMine === msg.isMine && open.username === msg.username;
+    const within = open && when && open.lastTime && (when - open.lastTime) <= SERVERS_LAYOUT_GAP;
+    if (msg.replyTo || !(same && within)) {
+      open = serversLayoutCluster(wrap, msg);
+    } else if (open) {
+      const bubble = wrap.lastChild && wrap.lastChild.querySelector(".cluster-bubble");
+      if (msg.content && bubble) {
+        const line = adminEl("div", "bubble-line");
+        serversLayoutLinkText(line, msg.content);
+        if (msg.edited) line.appendChild(adminEl("span", "edited-tag", "edited"));
+        bubble.appendChild(line);
+      }
+      if (bubble) serversLayoutMedia(bubble, msg.attachment);
+      open.lastTime = when;
+    }
+  });
+  if (body) body.scrollTop = body.scrollHeight;
+}
+
+function serversLayoutHeader(channel) {
+  const title = document.getElementById("channel-header-title");
+  const desc = document.getElementById("channel-header-desc");
+  if (title) title.textContent = channel && channel.name ? "#" + channel.name : "No channel selected";
+  if (desc) {
+    const topic = channel && channel.topic ? channel.topic : "";
+    desc.textContent = topic;
+    desc.hidden = !topic;
+  }
+}
+
+function paintServersLayoutRail(server, live) {
+  const name = document.getElementById("server-sidebar-name");
+  if (name) name.textContent = (server && server.name) || "—";
+  serversLayoutBanner(server);
+  const list = document.getElementById("category-list");
+  if (!list) return;
+  list.innerHTML = "";
+  ((server && server.categories) || []).forEach((category) => {
+    const block = adminEl("div", "category-block");
+    const header = adminEl("div", "category-header");
+    header.appendChild(adminEl("span", "category-arrow", "\u25BE"));
+    header.appendChild(adminEl("span", "category-name", category.name || ""));
+    if (live) {
+      header.addEventListener("click", () => {
+        block.classList.toggle("collapsed");
+      });
+    }
+    block.appendChild(header);
+    const channels = adminEl("div", "category-channels");
+    (category.channels || []).forEach((channel) => {
+      const row = adminEl("div", "channel-row" + (channel.id === serversLayoutChannelId ? " active" : ""));
+      row.appendChild(adminEl("span", "channel-icon", serversLayoutIcon(channel.channel_type)));
+      row.appendChild(adminEl("span", "channel-label", channel.name || ""));
+      if (live) {
+        row.addEventListener("click", () => openServersLayoutChannel(server, channel));
+      }
+      channels.appendChild(row);
+    });
+    block.appendChild(channels);
+    list.appendChild(block);
+  });
+}
+
+function openServersLayoutChannel(server, channel) {
+  if (!server || !channel || !serversLayoutChat(channel)) {
+    serversLayoutChannelId = channel && channel.id ? channel.id : 0;
+    paintServersLayoutRail(server, true);
+    serversLayoutHeader(channel);
+    serversLayoutEmpty("#" + ((channel && channel.name) || "channel"), "Chat history is only available in text channels.");
+    return;
+  }
+  serversLayoutChannelId = channel.id;
+  paintServersLayoutRail(server, true);
+  serversLayoutHeader(channel);
+  const requestId = serversLayoutId;
+  adminApi("/admin/server/" + encodeURIComponent(server.id) + "/channel/" + encodeURIComponent(channel.id) + "/history").then((response) => {
+    if (!response.ok) return null;
+    return response.json();
+  }).then((data) => {
+    if (serversLayoutId !== requestId || serversLayoutChannelId !== channel.id) return;
+    serversLayoutPaintMessages((data && data.messages) || [], channel.name);
+  }).catch(() => {
+    if (serversLayoutId !== requestId) return;
+    serversLayoutEmpty("#" + (channel.name || "channel"), "Could not load messages.");
+  });
+}
+
+function firstServersLayoutChat(server) {
+  const cats = (server && server.categories) || [];
+  for (let i = 0; i < cats.length; i++) {
+    const channels = cats[i].channels || [];
+    for (let n = 0; n < channels.length; n++) {
+      if (serversLayoutChat(channels[n])) return channels[n];
+    }
+  }
+  return (cats[0] && cats[0].channels && cats[0].channels[0]) || null;
+}
+
+function openServersLayout(serverId) {
+  if (!serverId) return;
+  serversLayoutId = serverId;
+  serversLayoutChannelId = 0;
+  const overlay = document.getElementById("admin-layout-overlay");
+  if (!overlay) return;
+  overlay.classList.remove("is-private", "has-banner");
+  overlay.hidden = false;
+  const name = document.getElementById("server-sidebar-name");
+  if (name) name.textContent = "…";
+  serversLayoutHeader(null);
+  serversLayoutEmpty("", "Select a channel.");
+  adminApi("/admin/server/" + encodeURIComponent(serverId) + "/layout").then((response) => {
+    if (!response.ok) return null;
+    return response.json();
+  }).then((data) => {
+    if (serversLayoutId !== serverId) return;
+    const server = data && data.server;
+    if (!server) {
+      serversLayoutEmpty("", "Server not found.");
+      return;
+    }
+    const live = !!server.discoverable;
+    overlay.classList.toggle("is-private", !live);
+    paintServersLayoutRail(server, live);
+    if (!live) {
+      serversLayoutHeader(null);
+      const title = document.getElementById("channel-header-title");
+      if (title) title.textContent = server.name || "Server";
+      serversLayoutEmpty("This server is private.", "");
+      return;
+    }
+    const channel = firstServersLayoutChat(server);
+    if (!channel) {
+      serversLayoutEmpty("", "This server has no channels.");
+      return;
+    }
+    openServersLayoutChannel(server, channel);
+  }).catch(() => {
+    if (serversLayoutId !== serverId) return;
+    serversLayoutEmpty("", "Could not load this server.");
+  });
+}
+
+function paintServersLayout(main) {
+  main.className = "is-servers is-servers-layout";
+  main.appendChild(adminPageHead({
+    crumbs: ["Admin", "Servers", "Layout"],
+    title: "Layout",
+    clock: "est"
+  }));
+  if (!adminTrackedServers.length) {
+    main.appendChild(adminEl("div", "users-empty", "Track a server from Search first."));
+    return;
+  }
+  main.appendChild(adminEl("div", "users-empty", "Select a tracked server."));
+}
+
+function paintServers(main, sectionId) {
+  if (sectionId === "layout") return paintServersLayout(main);
   paintServersSearch(main);
 }
 
@@ -477,7 +828,7 @@ registerAdminPage({
   label: "Servers",
   sections: [
     { id: "search", label: "Search", icon: "grid" },
-    { id: "layout", label: "Layout", icon: "share", later: true },
+    { id: "layout", label: "Layout", icon: "share" },
     { id: "members", label: "Members", icon: "users", later: true },
     { id: "ownership", label: "Track Ownership", icon: "eye", later: true }
   ],
@@ -489,4 +840,10 @@ if (typeof registerAdminTrackedServerOpen === "function") {
     showAdminPage("servers", "search");
     selectServersRow(serverId);
   });
+  registerAdminTrackedServerOpen("servers", "layout", (serverId) => {
+    openServersLayout(serverId);
+  });
 }
+
+const adminLayoutClose = document.getElementById("admin-layout-close");
+if (adminLayoutClose) adminLayoutClose.addEventListener("click", closeServersLayout);

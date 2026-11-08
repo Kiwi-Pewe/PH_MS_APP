@@ -35,6 +35,12 @@ let serversMembersLoading = false;
 let serversMembersUserId = 0;
 let serversMembersUser = null;
 let serversMembersServer = null;
+let ownershipUserId = 0;
+let ownershipUser = null;
+let ownershipServerId = "";
+let ownershipServer = null;
+let ownershipRows = [];
+let ownershipLoading = false;
 
 function serversByMeta(id) {
   return SERVERS_BY.find((row) => row.id === id) || SERVERS_BY[0];
@@ -1312,9 +1318,308 @@ function paintServersMembers(main) {
   main.appendChild(adminEl("div", "users-empty", "Select a tracked server."));
 }
 
+function closeServersOwnership() {
+  ownershipUserId = 0;
+  ownershipUser = null;
+  ownershipServerId = "";
+  ownershipServer = null;
+  ownershipRows = [];
+  ownershipLoading = false;
+  const main = document.getElementById("admin-main");
+  if (main && adminPage === "servers" && adminSection === "ownership") {
+    main.innerHTML = "";
+    paintServersOwnership(main);
+  }
+}
+
+function paintServersOwnershipUser(host) {
+  if (!host) return;
+  if (ownershipUser && typeof paintUsersAccount === "function") {
+    paintUsersAccount(host, ownershipUser);
+    return;
+  }
+  if (typeof usersSelectEmpty === "function") usersSelectEmpty(host);
+}
+
+function paintServersOwnershipServer(host) {
+  if (!host) return;
+  if (ownershipServer) {
+    paintServersAccount(host, ownershipServer);
+    return;
+  }
+  serversSelectEmpty(host);
+}
+
+function paintOwnershipHold(host) {
+  host.innerHTML = "";
+  for (let i = 0; i < 6; i += 1) {
+    const row = adminEl("div", "users-row admin-ownership-hold");
+    row.appendChild(adminEl("div", "admin-members-hold-bar"));
+    host.appendChild(row);
+  }
+}
+
+function paintOwnershipGroup(host, title, rows) {
+  const pack = adminEl("div", "admin-ownership-group");
+  pack.appendChild(adminEl("div", "admin-ownership-kicker", title));
+  if (!rows.length) {
+    pack.appendChild(adminEl("div", "admin-ownership-empty", "—"));
+    host.appendChild(pack);
+    return;
+  }
+  rows.forEach((row) => {
+    const btn = adminEl("button", "users-row" + (row.id === ownershipServerId ? " is-on" : ""));
+    btn.type = "button";
+    const face = adminEl("div", "users-face is-server");
+    if (typeof usersFace === "function") usersFace(face, { avatar: row.icon_url }, row.name);
+    btn.appendChild(face);
+    const text = adminEl("div", "users-row-text");
+    text.appendChild(adminEl("div", "users-row-name", row.name || "—"));
+    text.appendChild(adminEl("div", "users-row-handle", row.id || "—"));
+    btn.appendChild(text);
+    btn.addEventListener("click", () => selectOwnershipServer(row));
+    pack.appendChild(btn);
+  });
+  host.appendChild(pack);
+}
+
+function paintOwnershipRows() {
+  const host = document.getElementById("admin-ownership-list");
+  if (!host) return;
+  host.innerHTML = "";
+  if (!ownershipRows.length) {
+    host.appendChild(adminEl("div", "users-empty", "User is not in any servers."));
+    return;
+  }
+  const owns = ownershipRows.filter((row) => row.owner || row.owner_id === ownershipUserId);
+  const member = ownershipRows.filter((row) => !(row.owner || row.owner_id === ownershipUserId));
+  paintOwnershipGroup(host, "Owns", owns);
+  paintOwnershipGroup(host, "Member of", member);
+}
+
+function loadOwnershipUser(userId) {
+  const host = document.getElementById("admin-ownership-user");
+  if (!host) return;
+  if (ownershipUser && ownershipUser.id === userId) {
+    paintServersOwnershipUser(host);
+    return;
+  }
+  if (typeof usersSelectEmpty === "function") usersSelectEmpty(host);
+  Promise.all([
+    adminApi("/admin/user/" + userId).then((res) => res.ok ? res.json() : null),
+    adminApi("/admin/user/" + userId + "/notes").then((res) => res.ok ? res.json() : null)
+  ]).then((parts) => {
+    if (ownershipUserId !== userId) return;
+    const notes = parts[1];
+    ownershipUser = (parts[0] && parts[0].user) || null;
+    if (typeof usersNoteText !== "undefined") usersNoteText = (notes && notes.text) || "";
+    paintServersOwnershipUser(host);
+  }).catch(() => {
+    if (ownershipUserId !== userId) return;
+    host.innerHTML = "";
+    host.appendChild(adminEl("div", "users-empty", "Could not load user."));
+  });
+}
+
+function loadOwnershipServer(serverId) {
+  const host = document.getElementById("admin-ownership-server");
+  if (!host || !serverId) {
+    if (host) paintServersOwnershipServer(host);
+    return;
+  }
+  if (ownershipServer && ownershipServer.id === serverId) {
+    paintServersOwnershipServer(host);
+    return;
+  }
+  serversSelectEmpty(host);
+  adminApi("/admin/server/" + encodeURIComponent(serverId)).then((res) => {
+    if (!res.ok) throw new Error("fail");
+    return res.json();
+  }).then((data) => {
+    if (ownershipServerId !== serverId) return;
+    ownershipServer = (data && data.server) || null;
+    paintServersOwnershipServer(host);
+  }).catch(() => {
+    if (ownershipServerId !== serverId) return;
+    host.innerHTML = "";
+    host.appendChild(adminEl("div", "users-empty", "Could not load server."));
+  });
+}
+
+function loadOwnershipList(userId) {
+  const host = document.getElementById("admin-ownership-list");
+  if (!host || !userId || ownershipLoading) return;
+  ownershipLoading = true;
+  ownershipRows = [];
+  paintOwnershipHold(host);
+  const pull = (offset) => {
+    adminApi("/admin/user/" + userId + "/servers?offset=" + offset + "&limit=50").then((res) => {
+      if (!res.ok) throw new Error("fail");
+      return res.json();
+    }).then((data) => {
+      if (ownershipUserId !== userId) {
+        ownershipLoading = false;
+        return;
+      }
+      const rows = (data && data.servers) || [];
+      ownershipRows = ownershipRows.concat(rows);
+      if (data && data.has_more && ownershipRows.length < 1000) {
+        pull(ownershipRows.length);
+        return;
+      }
+      ownershipLoading = false;
+      paintOwnershipRows();
+    }).catch(() => {
+      if (ownershipUserId !== userId) {
+        ownershipLoading = false;
+        return;
+      }
+      ownershipLoading = false;
+      host.innerHTML = "";
+      host.appendChild(adminEl("div", "users-empty", "Could not load servers."));
+    });
+  };
+  pull(0);
+}
+
+function selectOwnershipServer(row) {
+  if (!row || !row.id) return;
+  const ownerId = Number(row.owner_id || 0);
+  if (ownerId && ownerId !== ownershipUserId) {
+    openServersOwnershipServer(row.id);
+    return;
+  }
+  ownershipServerId = row.id;
+  ownershipServer = null;
+  paintOwnershipRows();
+  loadOwnershipServer(row.id);
+}
+
+function paintServersOwnershipView(main) {
+  main.className = "is-users is-servers is-servers-ownership";
+  main.innerHTML = "";
+  const close = adminEl("button", "", "Close");
+  close.type = "button";
+  close.id = "admin-ownership-close";
+  close.addEventListener("click", closeServersOwnership);
+  main.appendChild(close);
+  const board = adminEl("div", "users-search");
+  board.id = "admin-ownership-board";
+  const left = adminEl("div", "users-stack is-right");
+  left.id = "admin-ownership-user";
+  paintServersOwnershipUser(left);
+  board.appendChild(left);
+  const mid = adminEl("div", "users-stack is-mid");
+  const card = usersCard({ fill: true });
+  const list = adminEl("div", "users-search-list");
+  list.id = "admin-ownership-list";
+  card.appendChild(list);
+  mid.appendChild(card);
+  board.appendChild(mid);
+  const right = adminEl("div", "users-stack is-right");
+  right.id = "admin-ownership-server";
+  paintServersOwnershipServer(right);
+  board.appendChild(right);
+  main.appendChild(board);
+}
+
+function fillOwnershipFromServer(serverId) {
+  const host = document.getElementById("admin-ownership-server");
+  const list = document.getElementById("admin-ownership-list");
+  if (host) serversSelectEmpty(host);
+  if (list) paintOwnershipHold(list);
+  adminApi("/admin/server/" + encodeURIComponent(serverId)).then((res) => {
+    if (!res.ok) throw new Error("fail");
+    return res.json();
+  }).then((data) => {
+    if (ownershipServerId !== serverId) return;
+    ownershipServer = (data && data.server) || null;
+    const ownerId = ownershipServer && ownershipServer.owner_id;
+    ownershipUserId = ownerId || 0;
+    ownershipUser = null;
+    paintServersOwnershipServer(host);
+    if (ownerId) {
+      loadOwnershipUser(ownerId);
+      loadOwnershipList(ownerId);
+      return;
+    }
+    if (list) {
+      list.innerHTML = "";
+      list.appendChild(adminEl("div", "users-empty", "User is not in any servers."));
+    }
+  }).catch(() => {
+    if (ownershipServerId !== serverId) return;
+    if (host) {
+      host.innerHTML = "";
+      host.appendChild(adminEl("div", "users-empty", "Could not load server."));
+    }
+  });
+}
+
+function openServersOwnershipUser(userId) {
+  if (!userId) return;
+  ownershipUserId = userId;
+  ownershipUser = null;
+  ownershipServerId = "";
+  ownershipServer = null;
+  ownershipRows = [];
+  if (adminPage !== "servers" || adminSection !== "ownership") {
+    showAdminPage("servers", "ownership");
+    return;
+  }
+  const main = document.getElementById("admin-main");
+  if (!main) return;
+  paintServersOwnershipView(main);
+  loadOwnershipUser(userId);
+  loadOwnershipList(userId);
+}
+
+function openServersOwnershipServer(serverId) {
+  if (!serverId) return;
+  ownershipServerId = serverId;
+  ownershipServer = null;
+  ownershipUserId = 0;
+  ownershipUser = null;
+  ownershipRows = [];
+  if (adminPage !== "servers" || adminSection !== "ownership") {
+    showAdminPage("servers", "ownership");
+    return;
+  }
+  const main = document.getElementById("admin-main");
+  if (!main) return;
+  paintServersOwnershipView(main);
+  fillOwnershipFromServer(serverId);
+}
+
+function paintServersOwnership(main) {
+  if (ownershipUserId || ownershipServerId) {
+    paintServersOwnershipView(main);
+    if (ownershipUserId) {
+      loadOwnershipUser(ownershipUserId);
+      loadOwnershipList(ownershipUserId);
+    } else if (ownershipServerId) {
+      fillOwnershipFromServer(ownershipServerId);
+    }
+    if (ownershipUserId && ownershipServerId) loadOwnershipServer(ownershipServerId);
+    return;
+  }
+  main.className = "is-servers";
+  main.appendChild(adminPageHead({
+    crumbs: ["Admin", "Servers", "Track Ownership"],
+    title: "Track Ownership",
+    clock: "est"
+  }));
+  if (!adminTracked.length && !adminTrackedServers.length) {
+    main.appendChild(adminEl("div", "users-empty", "Track a user or server from Search first."));
+    return;
+  }
+  main.appendChild(adminEl("div", "users-empty", "Select a tracked user or server."));
+}
+
 function paintServers(main, sectionId) {
   if (sectionId === "layout") return paintServersLayout(main);
   if (sectionId === "members") return paintServersMembers(main);
+  if (sectionId === "ownership") return paintServersOwnership(main);
   paintServersSearch(main);
 }
 
@@ -1325,7 +1630,7 @@ registerAdminPage({
     { id: "search", label: "Search", icon: "grid" },
     { id: "layout", label: "Layout", icon: "share" },
     { id: "members", label: "Members", icon: "users" },
-    { id: "ownership", label: "Track Ownership", icon: "eye", later: true }
+    { id: "ownership", label: "Track Ownership", icon: "eye" }
   ],
   paint: paintServers
 });
@@ -1340,6 +1645,15 @@ if (typeof registerAdminTrackedServerOpen === "function") {
   });
   registerAdminTrackedServerOpen("servers", "members", (serverId) => {
     openServersMembers(serverId);
+  });
+  registerAdminTrackedServerOpen("servers", "ownership", (serverId) => {
+    openServersOwnershipServer(serverId);
+  });
+}
+
+if (typeof registerAdminTrackedOpen === "function") {
+  registerAdminTrackedOpen("servers", "ownership", (userId) => {
+    openServersOwnershipUser(userId);
   });
 }
 

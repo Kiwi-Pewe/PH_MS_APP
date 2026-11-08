@@ -1454,6 +1454,7 @@ def admin_user_servers(
             "id": server.id,
             "name": server.name,
             "icon_url": server_icon_url(server),
+            "owner_id": server.owner_id,
             "owner": server.owner_id == user_id,
         })
     total = user_server_counts(database, [user_id]).get(user_id, 0)

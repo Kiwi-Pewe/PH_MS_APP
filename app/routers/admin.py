@@ -982,6 +982,8 @@ def admin_feedback(
         query = query.filter(Feedback_report.feedback_type.in_(("bug", "report")))
     elif bucket == "feedback":
         query = query.filter(Feedback_report.feedback_type.in_(("inquiry", "feature")))
+    elif bucket == "auto":
+        query = query.filter(Feedback_report.feedback_type.in_(("auto", "automod")))
     text = (q or "").strip()
     field = (by or "").strip().lower()
     if text:

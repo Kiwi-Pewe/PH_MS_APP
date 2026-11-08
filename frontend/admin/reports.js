@@ -5,12 +5,37 @@ const REPORTS_BY = [
   { id: "display_name", label: "Display name", hint: "Display name" }
 ];
 
+const REPORTS_VIEWS = {
+  search: {
+    scope: "search",
+    crumbs: ["Admin", "Reports", "Search"],
+    title: "Search",
+    note: "Search bug reports and user or server reports.",
+    list: "Reports"
+  },
+  feedback: {
+    scope: "feedback",
+    crumbs: ["Admin", "Reports", "Feedback"],
+    title: "Feedback",
+    note: "General inquiries and feature requests.",
+    list: "Feedback"
+  },
+  auto: {
+    scope: "auto",
+    crumbs: ["Admin", "Reports", "Auto Reports"],
+    title: "Auto Reports",
+    note: "Reports made by auto moderation.",
+    list: "Auto Reports"
+  }
+};
+
 let reportsBy = "id";
 let reportsQuery = "";
 let reportsFlaggedOnly = false;
 let reportsStatus = "";
 let reportsAssign = "";
 let reportsUrgency = "";
+let reportsScope = "search";
 let reportsOffset = 0;
 let reportsHasMore = false;
 let reportsLoading = false;
@@ -125,7 +150,7 @@ function loadReportsList(more) {
   params.set("q", reportsQuery);
   params.set("sort", "id");
   params.set("order", "asc");
-  params.set("scope", "search");
+  params.set("scope", reportsScope);
   params.set("flagged", reportsFlaggedOnly ? "1" : "0");
   params.set("status", reportsStatus);
   params.set("assign", reportsAssign);
@@ -159,11 +184,12 @@ function queueReportsSearch() {
 }
 
 function paintReportsSearch(main) {
+  const view = REPORTS_VIEWS[reportsScope] || REPORTS_VIEWS.search;
   main.className = "is-users is-reports";
   main.appendChild(adminPageHead({
-    crumbs: ["Admin", "Reports", "Search"],
-    title: "Search",
-    note: "Search bug reports and user or server reports.",
+    crumbs: view.crumbs,
+    title: view.title,
+    note: view.note,
     clock: "est"
   }));
   const board = adminEl("div", "users-search");
@@ -247,7 +273,7 @@ function paintReportsSearch(main) {
   left.appendChild(search);
   board.appendChild(left);
   const mid = adminEl("div", "users-stack is-mid");
-  const listCard = usersCard({ title: "Reports", fill: true });
+  const listCard = usersCard({ title: view.list, fill: true });
   const list = adminEl("div", "users-entry-list");
   list.id = "reports-search-list";
   listCard.appendChild(list);
@@ -263,29 +289,13 @@ function paintReportsSearch(main) {
   loadReportsList(false);
 }
 
-function paintReportsFeedback(main) {
-  main.className = "is-reports";
-  main.appendChild(adminPageHead({
-    crumbs: ["Admin", "Reports", "Feedback"],
-    title: "Feedback",
-    note: "General inquiries and feature requests.",
-    clock: "est"
-  }));
-}
-
-function paintReportsAuto(main) {
-  main.className = "is-reports";
-  main.appendChild(adminPageHead({
-    crumbs: ["Admin", "Reports", "Auto Reports"],
-    title: "Auto Reports",
-    note: "Reports made by auto moderation.",
-    clock: "est"
-  }));
-}
-
 function paintReports(main, sectionId) {
-  if (sectionId === "feedback") return paintReportsFeedback(main);
-  if (sectionId === "auto") return paintReportsAuto(main);
+  reportsScope = REPORTS_VIEWS[sectionId] ? sectionId : "search";
+  reportsOpenId = 0;
+  reportsEvents = [];
+  reportsRows = [];
+  reportsOffset = 0;
+  reportsHasMore = false;
   paintReportsSearch(main);
 }
 

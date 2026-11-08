@@ -91,13 +91,15 @@ function openReportsHistory(reportId) {
 }
 
 function loadReportsList(more) {
-  if (reportsLoading) return;
+  if (more && reportsLoading) return;
   if (more && !reportsHasMore) return;
   if (!more) {
+    reportsLoading = false;
     reportsOffset = 0;
     reportsRows = [];
     reportsHasMore = false;
   }
+  if (reportsLoading) return;
   reportsLoading = true;
   const params = new URLSearchParams();
   params.set("by", reportsBy);
@@ -121,6 +123,11 @@ function loadReportsList(more) {
     paintReportsLog();
   }).catch(() => {
     reportsLoading = false;
+    const host = document.getElementById("reports-search-list");
+    if (host && !more) {
+      host.innerHTML = "";
+      host.appendChild(adminEl("div", "users-empty", "Could not load reports."));
+    }
   });
 }
 
@@ -138,7 +145,7 @@ function paintReportsSearch(main) {
     clock: "est"
   }));
   const board = adminEl("div", "users-search");
-  const left = adminEl("div", "users-stack is-left");
+  const left = adminEl("div", "users-stack is-left is-filters");
   const search = usersCard({ fill: true });
   const fields = adminEl("div", "users-search-fields");
   fields.appendChild(adminEl("div", "users-field-k", "Search by"));
@@ -191,13 +198,9 @@ function paintReportsSearch(main) {
   board.appendChild(right);
   main.appendChild(board);
   main.appendChild(adminEl("div", "overview-page-foot", "Snapshot data · Updates every 5 minutes"));
-  if (reportsRows.length) {
-    paintReportsRows();
-    paintReportsLog();
-  } else {
-    paintReportsLog();
-    loadReportsList(false);
-  }
+  paintReportsRows();
+  paintReportsLog();
+  loadReportsList(false);
 }
 
 function paintReportsFeedback(main) {

@@ -75,11 +75,12 @@ function showPlaceSidebar(kind) {
     server: "server-sidebar-view",
     settings: "settings-sidebar-view",
     profile: "profile-sidebar-view",
-    community: "community-sidebar-view"
+    community: "community-sidebar-view",
+    news: "news-sidebar-view"
   };
   const shown = map[kind];
   if (!shown) return;
-  ["dm-sidebar-view", "server-sidebar-view", "settings-sidebar-view", "profile-sidebar-view", "community-sidebar-view"].forEach((id) => {
+  ["dm-sidebar-view", "server-sidebar-view", "settings-sidebar-view", "profile-sidebar-view", "community-sidebar-view", "news-sidebar-view"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.style.display = id === shown ? "flex" : "none";
   });
@@ -119,6 +120,7 @@ function beginPlace(opts) {
   if (opts.serverSettings && typeof closeServerSettingsChrome === "function") closeServerSettingsChrome();
   if (opts.channelSettings && typeof closeChannelSettingsChrome === "function") closeChannelSettingsChrome();
   if (opts.view !== "community" && typeof closeCommunitiesChrome === "function") closeCommunitiesChrome();
+  if (opts.view !== "news" && typeof closeNewsChrome === "function") closeNewsChrome();
   applyPlaceChrome(opts);
   return currentPlaceToken();
 }
@@ -175,6 +177,10 @@ document.querySelectorAll("#topbar .tab").forEach(btn => {
     }
     if (btn.dataset.tab === "communities") {
       if (typeof openCommunities === "function") await openCommunities();
+      return;
+    }
+    if (btn.dataset.tab === "news") {
+      if (typeof openNews === "function") await openNews();
       return;
     }
     if (btn.dataset.tab === "messages") {

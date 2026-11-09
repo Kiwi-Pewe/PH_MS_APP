@@ -28,7 +28,8 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=504">
+<link rel="stylesheet" href="app.css?v=505">
+<link rel="stylesheet" href="news.css?v=1">
 </head>
 <body>
 
@@ -42,8 +43,9 @@
       <button class="tab" data-tab="settings">Settings</button>
       <button class="tab" data-tab="communities" type="button" id="communities-tab">Communities<span class="mail-badge" id="community-phone-tab-badge" hidden></span></button>
       <button class="tab is-later" type="button" disabled>Games</button>
-      <button class="tab is-later" type="button" disabled>Announcements</button>
+      <button class="tab" data-tab="news" type="button" id="news-tab">News<span class="mail-badge" id="news-tab-badge">1</span></button>
     </div>
+    <div id="news-broadcast">Broadcast</div>
     <div id="connection-status" hidden>Connection lost. Reconnecting…</div>
     <div class="tabs top-right">
       <button class="tab" type="button" id="mail-tab">Mail<span class="mail-badge" id="mail-badge" hidden>0</span></button>
@@ -158,6 +160,15 @@
         <div id="profile-sidebar-header">Pages</div>
         <div id="profile-page-list"></div>
         <div id="profile-page-tools"></div>
+      </div>
+
+      <div id="news-sidebar-view" style="display:none;">
+        <div id="news-nav">
+          <div class="community-nav-label">News</div>
+          <button class="nav-item active" type="button" data-news-row="announcements">Announcements</button>
+          <button class="nav-item" type="button" data-news-row="donate">Donate</button>
+          <button class="nav-item" type="button" data-news-row="events">Events</button>
+        </div>
       </div>
 
       <div id="community-sidebar-view" style="display:none;">
@@ -1095,6 +1106,41 @@
             <span id="community-filter-picker-count">0/1</span>
           </div>
           <div id="community-filter-picker-pills" class="community-filter-picker-pills"></div>
+        </div>
+      </div>
+
+      <div class="main-view" id="view-news">
+        <div id="news-pane-announcements" class="news-pane">
+          <div class="news-announce-bar">
+            <input type="search" class="search-box" placeholder="Search" disabled>
+          </div>
+          <div class="news-announce-list">
+            <article class="news-announce-card is-later">
+              <div class="news-announce-head">
+                <div class="news-announce-title">Title</div>
+                <div class="news-announce-date">Newest first</div>
+              </div>
+              <div class="news-announce-body">Site-wide News. Comments and reactions use the same chrome as a server announcements channel.</div>
+              <div class="news-announce-foot">
+                <span>0 comments</span>
+                <span>Reactions</span>
+              </div>
+            </article>
+            <div class="news-end">You're up to date!</div>
+          </div>
+        </div>
+        <div id="news-pane-events" class="news-pane" hidden>
+          <div class="calendar-toolbar">
+            <div class="calendar-month-nav">
+              <button type="button" class="icon-btn" id="news-calendar-prev" title="Previous month">&#8249;</button>
+              <span id="news-calendar-label">Month</span>
+              <button type="button" class="icon-btn" id="news-calendar-next" title="Next month">&#8250;</button>
+            </div>
+            <div class="calendar-toolbar-actions">
+              <button type="button" class="calendar-view-btn is-on">Month</button>
+            </div>
+          </div>
+          <div id="news-calendar-grid" class="calendar-grid"></div>
         </div>
       </div>
 
@@ -2236,6 +2282,20 @@
     </article>
   </div>
 
+  <div id="news-donate-overlay" hidden>
+    <div id="news-donate-card" role="dialog" aria-modal="true" aria-labelledby="news-donate-title">
+      <div class="news-donate-head" id="news-donate-title">Leaving Oneira</div>
+      <div class="news-donate-body">
+        <p>You are about to leave Oneira and open Ko-fi in a new tab.</p>
+        <p>Disclaimer will be set later.</p>
+      </div>
+      <div class="news-donate-foot">
+        <button type="button" class="ghost-btn" id="news-donate-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="news-donate-continue" disabled>Continue</button>
+      </div>
+    </div>
+  </div>
+
   <div id="leave-party-overlay" hidden>
     <div id="leave-party-modal" class="leave-party-modal" role="dialog" aria-modal="true" aria-labelledby="leave-party-title">
       <div class="leave-party-header">
@@ -2922,8 +2982,9 @@
       </div>
     </div>
 <script src="boot.js?v=157"></script>
-<script src="app-shell.js?v=77"></script>
+<script src="app-shell.js?v=78"></script>
 <script src="communities.js?v=46"></script>
+<script src="news.js?v=1"></script>
 <script src="community-posts.js?v=4"></script>
 <script src="community-rooms.js?v=7"></script>
 <script src="community-search.js?v=2"></script>

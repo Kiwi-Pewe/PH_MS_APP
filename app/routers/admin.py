@@ -5,8 +5,8 @@ from app.models import (
     UserInfo, Feedback_report, Feedback_event, Admin_user_note, Servers, Server_members,
     Server_bans, Friend_request, Account_warn, Site_ban, Active_Sessions, Message,
     Community_lock, Server_lock,
-    Channel_messages, Server_channels, Server_categories, Server_roles, Server_role_members, Community_post, Community_room,
-    Community_room_member, Community_room_message, Community_phone_wait, Community_phone_call,
+    Channel_messages, Server_channels, Server_categories, Server_roles, Server_role_members, Community_post, Community_comment, Community_room,
+    Community_room_member, Community_room_message, Community_phone_wait, Community_phone_call, Community_phone_message,
     Block_user,
 )
 from app.database import get_db, SessionLocal
@@ -24,6 +24,7 @@ from app.routers.moderation import iso_dt
 from app.routers.reactions import reactions_for_messages
 from app.routers.roles import name_color_roles_by_user, nicknames_for_users, clean_role_color
 from app.r2 import delete_attachment, post_attachments_public, attachment_public
+from app.routers.community_posts import author_map, comment_counts, pack_community_comment, pack_community_post
 from app.routers.feed import notify_feed_alert
 from app.routers.realtime import active_connections, presence_status
 from app.site_moderation import (
@@ -1125,6 +1126,8 @@ def admin_user(
     sort: str = "id",
     order: str = "asc",
     flagged: int = 0,
+    locked: int = 0,
+    lock: str = "",
     offset: int = 0,
     limit: int = PAGE_SIZE,
     database: Session = Depends(get_db),
@@ -1149,6 +1152,16 @@ def admin_user(
             Community_lock,
             and_(Community_lock.user_id == UserInfo.id, Community_lock.kind == "flagged"),
         )
+    if locked:
+        kinds = COMMUNITY_LOCKS
+        lock_kind = (lock or "").strip().lower()
+        if lock_kind in COMMUNITY_LOCKS:
+            kinds = (lock_kind,)
+        query = query.filter(
+            UserInfo.id.in_(
+                database.query(Community_lock.user_id).filter(Community_lock.kind.in_(kinds))
+            )
+        )
     query = query.order_by(UserInfo.id.asc())
     accounts, has_more = take_page(query, offset, limit)
     counts = user_server_counts(database, [account.id for account in accounts])
@@ -1168,6 +1181,269 @@ def admin_user(
 def admin_user_detail(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     require_oneira_admin(current_user)
     return {"user": load_admin_user(database, user_id)}
+
+
+def community_topic_list(raw):
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(item) for item in parsed if str(item or "").strip()]
+
+
+def pack_admin_face(account):
+    if not account:
+        return {}
+    return {
+        "id": account.id,
+        "username": account.username or "",
+        "display_name": public_display_name(account),
+        "avatar": public_avatar(account),
+    }
+
+
+def pack_admin_chat_line(row, people, text):
+    person = people.get(row.author_id) or {}
+    return {
+        "id": row.id,
+        "author_id": row.author_id,
+        "actor_username": person.get("username") or "",
+        "actor_display_name": person.get("display_name") or person.get("username") or "",
+        "avatar": person.get("avatar") or {},
+        "message": text or "",
+        "changes": [],
+        "created_at": str(row.created_at) if row.created_at else None,
+    }
+
+
+@router.get("/admin/user/{user_id}/posts")
+def admin_user_posts(
+    user_id: int,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    rows = (
+        database.query(Community_post)
+        .filter(Community_post.author_id == user_id)
+        .order_by(Community_post.created_at.desc(), Community_post.id.desc())
+        .limit(80)
+        .all()
+    )
+    people = author_map(database, [user_id])
+    counts = comment_counts(database, [row.id for row in rows])
+    packed = []
+    for row in rows:
+        item = pack_community_post(row, people, current_user.id, replies=counts.get(row.id, 0))
+        item["id"] = row.id
+        packed.append(item)
+    return {"posts": packed}
+
+
+@router.get("/admin/community/post/{code}")
+def admin_community_post(
+    code: str,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    row = database.query(Community_post).filter(Community_post.code == (code or "").strip()).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    comments = (
+        database.query(Community_comment)
+        .filter(Community_comment.post_id == row.id)
+        .order_by(Community_comment.created_at.asc(), Community_comment.id.asc())
+        .all()
+    )
+    people = author_map(database, [row.author_id] + [item.author_id for item in comments])
+    packed = pack_community_post(row, people, current_user.id, replies=len(comments), comments=[
+        pack_community_comment(item, people, current_user.id) for item in comments
+    ])
+    packed["id"] = row.id
+    return {"post": packed}
+
+
+@router.get("/admin/user/{user_id}/rooms")
+def admin_user_rooms(
+    user_id: int,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    member_ids = [
+        room_id for (room_id,) in database.query(Community_room_member.room_id).filter(Community_room_member.user_id == user_id).all()
+    ]
+    rows = []
+    if member_ids:
+        rows = (
+            database.query(Community_room)
+            .filter(or_(Community_room.owner_id == user_id, Community_room.id.in_(member_ids)))
+            .order_by(Community_room.active_at.desc(), Community_room.id.desc())
+            .limit(80)
+            .all()
+        )
+    else:
+        rows = (
+            database.query(Community_room)
+            .filter(Community_room.owner_id == user_id)
+            .order_by(Community_room.active_at.desc(), Community_room.id.desc())
+            .limit(80)
+            .all()
+        )
+    counts = {}
+    ids = [row.id for row in rows]
+    if ids:
+        counts = dict(
+            database.query(Community_room_member.room_id, func.count(Community_room_member.id))
+            .filter(Community_room_member.room_id.in_(ids))
+            .group_by(Community_room_member.room_id)
+            .all()
+        )
+    packed = []
+    for row in rows:
+        packed.append({
+            "id": row.id,
+            "name": row.name or "",
+            "about": row.about or "",
+            "topics": community_topic_list(row.topics),
+            "owner_id": row.owner_id,
+            "owner": row.owner_id == user_id,
+            "member_count": int(counts.get(row.id) or 0),
+            "created_at": str(row.created_at) if row.created_at else None,
+            "active_at": str(row.active_at) if row.active_at else None,
+        })
+    return {"rooms": packed}
+
+
+@router.get("/admin/community/room/{room_id}")
+def admin_community_room(
+    room_id: int,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    row = database.query(Community_room).filter(Community_room.id == room_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Room not found.")
+    members = database.query(Community_room_member).filter(Community_room_member.room_id == row.id).all()
+    messages = (
+        database.query(Community_room_message)
+        .filter(Community_room_message.room_id == row.id)
+        .order_by(Community_room_message.created_at.asc(), Community_room_message.id.asc())
+        .limit(80)
+        .all()
+    )
+    user_ids = [row.owner_id] + [item.user_id for item in members] + [item.author_id for item in messages]
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_([uid for uid in set(user_ids) if uid])).all() if user_ids else []
+    faces = {account.id: pack_admin_face(account) for account in accounts}
+    people = author_map(database, [item.author_id for item in messages])
+    return {
+        "room": {
+            "id": row.id,
+            "name": row.name or "",
+            "about": row.about or "",
+            "topics": community_topic_list(row.topics),
+            "owner_id": row.owner_id,
+            "owner": faces.get(row.owner_id) or {},
+            "member_count": len(members),
+            "members": [faces.get(item.user_id) or {"id": item.user_id} for item in members],
+            "created_at": str(row.created_at) if row.created_at else None,
+            "active_at": str(row.active_at) if row.active_at else None,
+        },
+        "events": [pack_admin_chat_line(item, people, item.content) for item in messages],
+    }
+
+
+@router.get("/admin/user/{user_id}/phone")
+def admin_user_phone(
+    user_id: int,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    account = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="User not found.")
+    waiting = database.query(Community_phone_wait).filter(Community_phone_wait.user_id == user_id).first()
+    calls = (
+        database.query(Community_phone_call)
+        .filter(or_(Community_phone_call.user_a == user_id, Community_phone_call.user_b == user_id))
+        .order_by(Community_phone_call.active_at.desc(), Community_phone_call.id.desc())
+        .limit(80)
+        .all()
+    )
+    ids = []
+    for call in calls:
+        ids.append(call.user_a)
+        ids.append(call.user_b)
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(list(set(ids)))).all() if ids else []
+    faces = {item.id: pack_admin_face(item) for item in accounts}
+    packed = []
+    if waiting:
+        packed.append({
+            "id": 0,
+            "kind": "wait",
+            "status": "waiting",
+            "started_at": str(waiting.started_at) if waiting.started_at else None,
+            "active_at": str(waiting.started_at) if waiting.started_at else None,
+            "other": {},
+        })
+    for call in calls:
+        other_id = call.user_b if call.user_a == user_id else call.user_a
+        packed.append({
+            "id": call.id,
+            "kind": "call",
+            "status": call.status or "",
+            "started_at": str(call.started_at) if call.started_at else None,
+            "active_at": str(call.active_at) if call.active_at else None,
+            "other": faces.get(other_id) or {"id": other_id},
+        })
+    return {"calls": packed}
+
+
+@router.get("/admin/community/phone/{call_id}")
+def admin_community_phone(
+    call_id: int,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    call = database.query(Community_phone_call).filter(Community_phone_call.id == call_id).first()
+    if not call:
+        raise HTTPException(status_code=404, detail="Phone record not found.")
+    messages = (
+        database.query(Community_phone_message)
+        .filter(Community_phone_message.call_id == call.id)
+        .order_by(Community_phone_message.created_at.asc(), Community_phone_message.id.asc())
+        .limit(80)
+        .all()
+    )
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_([call.user_a, call.user_b])).all()
+    faces = {account.id: pack_admin_face(account) for account in accounts}
+    people = author_map(database, [item.author_id for item in messages] + [call.user_a, call.user_b])
+    return {
+        "call": {
+            "id": call.id,
+            "kind": "call",
+            "status": call.status or "",
+            "started_at": str(call.started_at) if call.started_at else None,
+            "active_at": str(call.active_at) if call.active_at else None,
+            "user_a": faces.get(call.user_a) or {"id": call.user_a},
+            "user_b": faces.get(call.user_b) or {"id": call.user_b},
+        },
+        "events": [pack_admin_chat_line(item, people, item.content) for item in messages],
+    }
 
 
 def pack_admin_reports(database, rows):

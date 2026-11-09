@@ -886,6 +886,40 @@ def ensure_news_tables():
             conn.rollback()
 
 
+def ensure_kofi_tables():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS kofi_settings ("
+                "id INTEGER PRIMARY KEY, "
+                "verification_token VARCHAR, "
+                "page_url VARCHAR, "
+                "disclaimer VARCHAR, "
+                "connected_at DATETIME)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS kofi_payments ("
+                "id INTEGER PRIMARY KEY, "
+                "message_id VARCHAR UNIQUE, "
+                "transaction_id VARCHAR, "
+                "kind VARCHAR NOT NULL, "
+                "from_name VARCHAR, "
+                "amount VARCHAR, "
+                "currency VARCHAR, "
+                "is_public BOOLEAN DEFAULT 1, "
+                "paid_at DATETIME, "
+                "created_at DATETIME, "
+                "tier_name VARCHAR)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_load_indexes():
     statements = (
         "CREATE INDEX IF NOT EXISTS ix_channel_messages_channel_id ON channel_messages (channel_id, id)",

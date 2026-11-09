@@ -241,22 +241,40 @@ function paintNewsAnnouncements(main) {
   loadNewsPosts();
 }
 
-function newsDonateWeekBars() {
-  const bars = [];
-  const now = new Date();
-  for (let i = 6; i >= 0; i -= 1) {
-    const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
-    bars.push({
-      label: ADMIN_MONTHS[day.getUTCMonth()] + " " + day.getUTCDate(),
-      value: 0
-    });
-  }
-  return bars;
+function newsDonateWhen(raw) {
+  if (typeof usersWhen === "function") return usersWhen(raw);
+  return raw || "—";
 }
 
-function paintNewsDonate(main) {
+function newsDonateDelta(now, prev, suffix) {
+  if (typeof overviewPct === "function") return overviewPct(now, prev, suffix);
+  return { text: "0% " + suffix, tone: "flat" };
+}
+
+function paintNewsDonate(main, stats) {
+  if (stats === undefined) {
+    paintNewsDonate(main, null);
+    adminApi("/admin/kofi/stats").then((response) => response.ok ? response.json() : null).then((data) => {
+      if (adminPage !== "news" || adminSection !== "donate") return;
+      const host = document.getElementById("admin-main");
+      if (!host) return;
+      host.innerHTML = "";
+      paintNewsDonate(host, data || {});
+    }).catch(() => {});
+    return;
+  }
+  const data = stats || {};
+  const bars = (data.bars && data.bars.length) ? data.bars.map((bar) => ({
+    label: bar.label,
+    value: Number(bar.value) || 0
+  })) : [{ label: "—", value: 0 }];
+  const max = Math.max.apply(null, bars.map((bar) => Number(bar.value) || 0).concat([1]));
+  const incomeDelta = newsDonateDelta(data.income_24h_raw, data.income_prev_raw, "vs previous day");
+  const weekDelta = newsDonateDelta(data.week_raw, data.prev_week_raw, "vs previous week");
+  const dayCount = Number(data.payments_24h) || 0;
+  const donationsShare = dayCount ? Math.round(((Number(data.donations_24h) || 0) * 1000) / dayCount) / 10 : 0;
+  const subsShare = dayCount ? Math.round(((Number(data.subscriptions_24h) || 0) * 1000) / dayCount) / 10 : 0;
   main.className = "is-fit";
-  const bars = newsDonateWeekBars();
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "News", "Donate"],
     title: "Donate",
@@ -265,76 +283,83 @@ function paintNewsDonate(main) {
     range: "compared with previous day"
   }));
   main.appendChild(adminBanner(
-    "Ko-fi webhook idle",
-    "0 payments recorded. Totals begin when Ko-fi can POST to Oneira."
+    data.connected ? "Ko-fi connected" : "Ko-fi webhook idle",
+    adminNum(data.donations || 0) + " donations · " + adminNum(data.subscriptions || 0) + " membership payments."
   ));
   adminKpiRow(main, [
     {
       label: "Income",
-      value: "$0.00",
+      value: data.income || "$0.00",
       icon: "activity",
       detail: "Donations + memberships",
-      delta: "0% vs previous day",
-      tone: "flat"
+      delta: incomeDelta.text,
+      tone: incomeDelta.tone
     },
     {
       label: "Donations",
-      value: "0",
+      value: adminNum(data.donations),
       icon: "plus",
       detail: "One-off tips",
-      delta: "0 in the last 24h",
-      tone: "flat"
+      delta: adminNum(data.donations_24h) + " in the last 24h",
+      tone: Number(data.donations_24h) > 0 ? "up" : "flat"
     },
     {
       label: "Subscriptions",
-      value: "0",
+      value: adminNum(data.subscriptions),
       icon: "users",
       detail: "Membership payments",
-      delta: "0 in the last 24h",
-      tone: "flat"
+      delta: adminNum(data.subscriptions_24h) + " in the last 24h",
+      tone: Number(data.subscriptions_24h) > 0 ? "up" : "flat"
     },
     {
       label: "Last 24h",
-      value: "$0.00",
+      value: data.income_24h || "$0.00",
       icon: "chart",
       detail: "Income in this window",
-      delta: "0% vs previous day",
-      tone: "flat"
+      delta: incomeDelta.text,
+      tone: incomeDelta.tone
     }
   ]);
   const dash = adminEl("div", "overview-dash");
   const left = adminEl("div", "overview-stack");
   const growthPanel = adminPanel({ title: "Income", meta: "Last 7 days" });
   const line = adminEl("div", "overview-growth-line");
-  const total = adminEl("div", "overview-growth-n", "$0.00");
+  const total = adminEl("div", "overview-growth-n", data.week || "$0.00");
   total.appendChild(adminEl("span", "", "this week"));
   line.appendChild(total);
-  line.appendChild(adminEl("div", "overview-delta is-flat", "0% vs previous week"));
+  line.appendChild(adminEl("div", "overview-delta is-" + weekDelta.tone, weekDelta.text));
   growthPanel.body.appendChild(line);
   growthPanel.body.appendChild(adminBarChart({
-    max: 1,
-    scale: ["1", "0.5", "0"],
+    max: max,
+    scale: [String(max), String(Math.round(max / 2 * 10) / 10), "0"],
     bars: bars
   }));
   left.appendChild(growthPanel.panel);
+  const recentRows = (data.recent || []).map((row) => [
+    row.kind || "—",
+    row.from_name || "Anonymous",
+    row.amount || "$0.00",
+    newsDonateWhen(row.paid_at),
+    row.is_public ? "Public" : "Private"
+  ]);
   const recent = adminPanel({
     title: "Recent payments",
-    meta: "Latest 0",
+    meta: "Latest " + adminNum(recentRows.length),
     foot: "From Ko-fi · webhook only"
   });
   recent.body.appendChild(adminTable(
     ["Type", "From", "Amount", "When", "Public"],
-    [["No payments yet", "", "", "", ""]]
+    recentRows.length ? recentRows : [["No payments yet", "", "", "", ""]]
   ));
   left.appendChild(recent.panel);
   const right = adminEl("div", "overview-stack");
   const mix = adminPanel({ title: "Mix", meta: "Last 24h" });
   mix.body.appendChild(adminPulse(
     [
-      { label: "Webhook", pill: "Idle" },
-      { label: "Donations", value: "0", delta: "0%", tone: "flat" },
-      { label: "Subscriptions", value: "0", delta: "0%", tone: "flat" },
-      { label: "Public payments", value: "0", delta: "0 of 0", tone: "flat" }
+      { label: "Webhook", pill: data.connected ? "Connected" : "Idle" },
+      { label: "Donations", value: adminNum(data.donations_24h), delta: donationsShare + "%", tone: "flat" },
+      { label: "Subscriptions", value: adminNum(data.subscriptions_24h), delta: subsShare + "%", tone: "flat" },
+      { label: "Public payments", value: adminNum(data.public_24h), delta: adminNum(data.public_24h) + " of " + adminNum(dayCount), tone: "flat" }
     ],
     "Shop orders and commissions are not counted on this page."
   ));

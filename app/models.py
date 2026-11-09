@@ -945,6 +945,30 @@ class News_seen(Base):
     seen_at = Column(DateTime, nullable=False)
 
 
+class Kofi_settings(Base):
+    __tablename__ = "kofi_settings"
+    id = Column(Integer, primary_key=True)
+    verification_token = Column(String, nullable=True)
+    page_url = Column(String, nullable=True)
+    disclaimer = Column(String, nullable=True)
+    connected_at = Column(DateTime, nullable=True)
+
+
+class Kofi_payment(Base):
+    __tablename__ = "kofi_payments"
+    id = Column(Integer, primary_key=True)
+    message_id = Column(String, unique=True)
+    transaction_id = Column(String, nullable=True)
+    kind = Column(String, nullable=False)
+    from_name = Column(String, nullable=True)
+    amount = Column(String, nullable=True)
+    currency = Column(String, nullable=True)
+    is_public = Column(Boolean, default=True)
+    paid_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    tier_name = Column(String, nullable=True)
+
+
 class Connection_nonce(Base):
     __tablename__ = "connection_nonces"
     nonce = Column(String, primary_key=True)

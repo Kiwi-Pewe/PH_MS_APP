@@ -285,6 +285,8 @@ let adminModConfirm = null;
 function closeAdminMod() {
   const overlay = document.getElementById("admin-mod-overlay");
   if (overlay) overlay.hidden = true;
+  const confirm = document.getElementById("admin-mod-confirm");
+  if (confirm) confirm.disabled = false;
   adminModConfirm = null;
 }
 

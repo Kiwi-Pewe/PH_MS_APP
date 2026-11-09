@@ -211,6 +211,7 @@ function applyIncomingNewsPost(row) {
     return;
   }
   setNewsBadge(newsUnread + 1);
+  if (typeof playOneiraAlert === "function") playOneiraAlert();
 }
 
 function paintNewsMonth() {

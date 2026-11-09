@@ -241,33 +241,116 @@ function paintNewsAnnouncements(main) {
   loadNewsPosts();
 }
 
+function newsDonateWeekBars() {
+  const bars = [];
+  const now = new Date();
+  for (let i = 6; i >= 0; i -= 1) {
+    const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
+    bars.push({
+      label: ADMIN_MONTHS[day.getUTCMonth()] + " " + day.getUTCDate(),
+      value: 0
+    });
+  }
+  return bars;
+}
+
 function paintNewsDonate(main) {
-  main.className = "is-news";
+  main.className = "is-fit";
+  const bars = newsDonateWeekBars();
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "News", "Donate"],
     title: "Donate",
-    note: "Ko-fi opens in a new tab after a leave-site card. Rewards are not offered yet.",
-    clock: "est"
+    note: "Ko-fi income for Oneira. Donations and memberships are the two sources that count here.",
+    filter: "Last 24 hours",
+    range: "compared with previous day"
   }));
-  const panel = adminPanel({ title: "Ko-fi", meta: "Off Oneira", fill: true });
-  panel.body.appendChild(adminEl("div", "users-field-k", "Ko-fi page"));
-  const url = adminEl("input", "admin-mod-input");
-  url.type = "text";
-  url.placeholder = "Ko-fi link";
-  url.disabled = true;
-  panel.body.appendChild(url);
-  panel.body.appendChild(adminEl("div", "users-field-k", "Disclaimer"));
-  const area = adminEl("textarea", "admin-mod-reason");
-  area.rows = 5;
-  area.placeholder = "Disclaimer will be set later.";
-  area.disabled = true;
-  panel.body.appendChild(area);
-  const preview = adminEl("button", "admin-mod-confirm");
-  preview.type = "button";
-  preview.textContent = "Preview leave-site card";
-  preview.addEventListener("click", () => openNewsDonateCard(true));
-  panel.body.appendChild(preview);
-  main.appendChild(panel.panel);
+  main.appendChild(adminBanner(
+    "Ko-fi webhook idle",
+    "0 payments recorded. Totals begin when Ko-fi can POST to Oneira."
+  ));
+  adminKpiRow(main, [
+    {
+      label: "Income",
+      value: "$0.00",
+      icon: "activity",
+      detail: "Donations + memberships",
+      delta: "0% vs previous day",
+      tone: "flat"
+    },
+    {
+      label: "Donations",
+      value: "0",
+      icon: "plus",
+      detail: "One-off tips",
+      delta: "0 in the last 24h",
+      tone: "flat"
+    },
+    {
+      label: "Subscriptions",
+      value: "0",
+      icon: "users",
+      detail: "Membership payments",
+      delta: "0 in the last 24h",
+      tone: "flat"
+    },
+    {
+      label: "Last 24h",
+      value: "$0.00",
+      icon: "chart",
+      detail: "Income in this window",
+      delta: "0% vs previous day",
+      tone: "flat"
+    }
+  ]);
+  const dash = adminEl("div", "overview-dash");
+  const left = adminEl("div", "overview-stack");
+  const growthPanel = adminPanel({ title: "Income", meta: "Last 7 days" });
+  const line = adminEl("div", "overview-growth-line");
+  const total = adminEl("div", "overview-growth-n", "$0.00");
+  total.appendChild(adminEl("span", "", "this week"));
+  line.appendChild(total);
+  line.appendChild(adminEl("div", "overview-delta is-flat", "0% vs previous week"));
+  growthPanel.body.appendChild(line);
+  growthPanel.body.appendChild(adminBarChart({
+    max: 1,
+    scale: ["1", "0.5", "0"],
+    bars: bars
+  }));
+  left.appendChild(growthPanel.panel);
+  const recent = adminPanel({
+    title: "Recent payments",
+    meta: "Latest 0",
+    foot: "From Ko-fi · webhook only"
+  });
+  recent.body.appendChild(adminTable(
+    ["Type", "From", "Amount", "When", "Public"],
+    [["No payments yet", "", "", "", ""]]
+  ));
+  left.appendChild(recent.panel);
+  const right = adminEl("div", "overview-stack");
+  const mix = adminPanel({ title: "Mix", meta: "Last 24h" });
+  mix.body.appendChild(adminPulse(
+    [
+      { label: "Webhook", pill: "Idle" },
+      { label: "Donations", value: "0", delta: "0%", tone: "flat" },
+      { label: "Subscriptions", value: "0", delta: "0%", tone: "flat" },
+      { label: "Public payments", value: "0", delta: "0 of 0", tone: "flat" }
+    ],
+    "Shop orders and commissions are not counted on this page."
+  ));
+  right.appendChild(mix.panel);
+  const noting = adminPanel({ title: "Worth noting", meta: "Today" });
+  noting.body.appendChild(adminNotes([
+    {
+      title: "History",
+      copy: "Ko-fi does not send payments from before the webhook. This page only shows what Oneira has received."
+    }
+  ]));
+  right.appendChild(noting.panel);
+  dash.appendChild(left);
+  dash.appendChild(right);
+  main.appendChild(dash);
+  main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
 function paintNewsEvents(main) {

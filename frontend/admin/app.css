@@ -652,3 +652,12 @@
   opacity: 0.7;
   cursor: default;
 }
+
+.admin-settings-fields {
+  gap: 10px;
+}
+
+.admin-settings-fields .admin-mod-confirm {
+  margin-left: 0;
+  align-self: flex-start;
+}

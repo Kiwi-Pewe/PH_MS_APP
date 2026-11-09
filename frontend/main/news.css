@@ -8,20 +8,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 14px;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  background: var(--panel-alt);
-  color: var(--text-dim);
-  font-size: 13px;
-  font-weight: 700;
-  opacity: 0.55;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-#news-broadcast[hidden] { display: none; }
+#news-broadcast:not(:empty) {
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--panel-alt);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
 
 #news-sidebar-view {
   flex: 1 1 auto;

@@ -33,6 +33,7 @@ window.addEventListener("load", () => {
       }
       connectSocket();
       if (typeof loadCommunityPhone === "function") loadCommunityPhone();
+      if (typeof loadNewsBadge === "function") loadNewsBadge();
     })
     .catch(() => {
       const path = window.location.pathname || "";
@@ -745,6 +746,10 @@ function connectSocket() {
 
     if (data.type === "schedule_block_deleted" && typeof removeScheduleBlock === "function") {
       if (Number(currentChannelId) === Number(data.channel_id)) removeScheduleBlock(data.block_id);
+    }
+
+    if (data.type === "news_created" && typeof applyIncomingNewsPost === "function") {
+      applyIncomingNewsPost(data.post);
     }
 
     if (data.type === "announcement_created") {

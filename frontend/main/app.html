@@ -29,7 +29,7 @@
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
 <link rel="stylesheet" href="app.css?v=505">
-<link rel="stylesheet" href="news.css?v=2">
+<link rel="stylesheet" href="news.css?v=4">
 </head>
 <body>
 
@@ -43,7 +43,7 @@
       <button class="tab" data-tab="settings">Settings</button>
       <button class="tab" data-tab="communities" type="button" id="communities-tab">Communities<span class="mail-badge" id="community-phone-tab-badge" hidden></span></button>
       <button class="tab is-later" type="button" disabled>Games</button>
-      <button class="tab" data-tab="news" type="button" id="news-tab">News<span class="mail-badge" id="news-tab-badge">1</span></button>
+      <button class="tab" data-tab="news" type="button" id="news-tab">News<span class="mail-badge" id="news-tab-badge" hidden></span></button>
     </div>
     <div id="news-broadcast"></div>
     <div id="connection-status" hidden>Connection lost. Reconnecting…</div>
@@ -1112,22 +1112,9 @@
       <div class="main-view" id="view-news">
         <div id="news-pane-announcements" class="news-pane">
           <div class="news-announce-bar">
-            <input type="search" class="search-box" placeholder="Search" disabled>
+            <input type="search" id="news-search-input" class="search-box" placeholder="Search" autocomplete="off" spellcheck="false">
           </div>
-          <div class="news-announce-list">
-            <article class="news-announce-card is-later">
-              <div class="news-announce-head">
-                <div class="news-announce-title">Title</div>
-                <div class="news-announce-date">Newest first</div>
-              </div>
-              <div class="news-announce-body">Site-wide News. Comments and reactions use the same chrome as a server announcements channel.</div>
-              <div class="news-announce-foot">
-                <span>0 comments</span>
-                <span>Reactions</span>
-              </div>
-            </article>
-            <div class="news-end">You're up to date!</div>
-          </div>
+          <div id="news-posts" class="news-announce-list"></div>
         </div>
         <div id="news-pane-events" class="news-pane" hidden>
           <div class="calendar-toolbar">
@@ -2981,10 +2968,10 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=157"></script>
+<script src="boot.js?v=158"></script>
 <script src="app-shell.js?v=78"></script>
 <script src="communities.js?v=46"></script>
-<script src="news.js?v=1"></script>
+<script src="news.js?v=3"></script>
 <script src="community-posts.js?v=4"></script>
 <script src="community-rooms.js?v=7"></script>
 <script src="community-search.js?v=2"></script>

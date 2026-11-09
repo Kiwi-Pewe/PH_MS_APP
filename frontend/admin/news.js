@@ -26,6 +26,142 @@ function paintNewsMonth(host) {
   }
 }
 
+let newsPosts = [];
+let newsQuery = "";
+let newsSearchTimer = 0;
+let newsPosting = false;
+
+function newsWhen(raw) {
+  if (typeof usersWhen === "function") return usersWhen(raw);
+  return raw || "—";
+}
+
+function paintNewsPostCard(row) {
+  const card = adminEl("article", "news-announce-card");
+  const head = adminEl("div", "news-announce-head");
+  const top = adminEl("div", "news-announce-top");
+  const face = adminEl("div", "users-entry-face");
+  if (typeof usersFace === "function") usersFace(face, row, row.display_name || row.username);
+  const names = adminEl("div", "news-announce-meta");
+  names.appendChild(adminEl("div", "news-announce-name", row.display_name || row.username || "kiwi"));
+  names.appendChild(adminEl("div", "news-announce-date", newsWhen(row.created_at)));
+  top.appendChild(face);
+  top.appendChild(names);
+  head.appendChild(top);
+  const title = adminEl("div", "news-announce-title", row.title || "—");
+  if (row.edited) title.appendChild(adminEl("span", "edited-tag", "edited"));
+  head.appendChild(title);
+  card.appendChild(head);
+  const body = String(row.body || "").trim();
+  card.appendChild(adminEl("div", "news-announce-body", body || "No additional information"));
+  const foot = adminEl("div", "news-announce-foot");
+  foot.appendChild(adminEl("span", "", adminNum(row.comment_count) + " comments"));
+  foot.appendChild(adminEl("span", "", "Reactions"));
+  card.appendChild(foot);
+  return card;
+}
+
+function paintNewsPostList() {
+  const host = document.getElementById("news-admin-posts");
+  if (!host) return;
+  host.innerHTML = "";
+  newsPosts.forEach((row) => host.appendChild(paintNewsPostCard(row)));
+  host.appendChild(adminEl("div", "news-end", newsPosts.length ? "You're up to date!" : (newsQuery ? "No announcements matched that search." : "You're up to date!")));
+}
+
+function loadNewsPosts() {
+  const params = new URLSearchParams();
+  if (newsQuery) params.set("q", newsQuery);
+  const qs = params.toString();
+  adminApi("/news/posts" + (qs ? "?" + qs : "")).then((response) => {
+    if (!response.ok) return null;
+    return response.json();
+  }).then((data) => {
+    newsPosts = (data && data.posts) || [];
+    paintNewsPostList();
+  }).catch(() => {
+    const host = document.getElementById("news-admin-posts");
+    if (!host) return;
+    host.innerHTML = "";
+    host.appendChild(adminEl("div", "news-end", "Could not load announcements."));
+  });
+}
+
+function showNewsComposer(on) {
+  const idle = document.getElementById("news-composer-idle");
+  const edit = document.getElementById("news-composer-editing");
+  if (idle) idle.hidden = !!on;
+  if (edit) edit.hidden = !on;
+  if (on) {
+    const title = document.getElementById("news-title-input");
+    const body = document.getElementById("news-body-input");
+    if (title) {
+      title.value = "";
+      title.focus();
+    }
+    if (body) {
+      body.value = "";
+      body.style.height = "";
+    }
+    const comments = document.getElementById("news-comments-input");
+    if (comments) comments.checked = true;
+    const err = document.getElementById("news-compose-error");
+    if (err) {
+      err.hidden = true;
+      err.textContent = "";
+    }
+  }
+}
+
+function submitNewsPost() {
+  if (newsPosting) return;
+  const titleEl = document.getElementById("news-title-input");
+  const bodyEl = document.getElementById("news-body-input");
+  const commentsEl = document.getElementById("news-comments-input");
+  const err = document.getElementById("news-compose-error");
+  const title = titleEl ? titleEl.value.trim() : "";
+  const body = bodyEl ? bodyEl.value.trim() : "";
+  if (!title || !body) {
+    if (err) {
+      err.textContent = "Title and body are required.";
+      err.hidden = false;
+    }
+    return;
+  }
+  newsPosting = true;
+  const save = document.getElementById("news-post-btn");
+  if (save) save.disabled = true;
+  adminApi("/news/posts", {
+    method: "POST",
+    body: {
+      title: title,
+      body: body,
+      comments_open: !commentsEl || commentsEl.checked
+    }
+  }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+    newsPosting = false;
+    if (save) save.disabled = false;
+    if (!result.ok) {
+      const detail = result.data && result.data.detail;
+      if (err) {
+        err.textContent = typeof detail === "string" ? detail : "Could not post that announcement.";
+        err.hidden = false;
+      }
+      return;
+    }
+    if (result.data && result.data.id) newsPosts.unshift(result.data);
+    showNewsComposer(false);
+    paintNewsPostList();
+  }).catch(() => {
+    newsPosting = false;
+    if (save) save.disabled = false;
+    if (err) {
+      err.textContent = "Could not post that announcement.";
+      err.hidden = false;
+    }
+  });
+}
+
 function paintNewsAnnouncements(main) {
   main.className = "is-news";
   main.appendChild(adminPageHead({
@@ -34,32 +170,75 @@ function paintNewsAnnouncements(main) {
     note: "Post site-wide News. Everyone is alerted, and a red count stays on the News tab until they open it.",
     clock: "est"
   }));
-  const bar = adminEl("div", "news-composer-bar is-later");
+  const bar = adminEl("div", "news-composer-bar");
+  const idle = adminEl("div", "news-composer-idle");
+  idle.id = "news-composer-idle";
   const search = adminEl("input", "news-search");
   search.type = "search";
   search.placeholder = "Search";
-  search.disabled = true;
+  search.value = newsQuery;
+  search.addEventListener("input", () => {
+    newsQuery = search.value || "";
+    window.clearTimeout(newsSearchTimer);
+    newsSearchTimer = window.setTimeout(() => loadNewsPosts(), 250);
+  });
+  const create = adminEl("button", "admin-mod-confirm");
+  create.type = "button";
+  create.textContent = "New Post";
+  create.addEventListener("click", () => showNewsComposer(true));
+  idle.appendChild(search);
+  idle.appendChild(create);
+  bar.appendChild(idle);
+  const edit = adminEl("div", "news-composer-editing");
+  edit.id = "news-composer-editing";
+  edit.hidden = true;
+  const titleRow = adminEl("div", "news-compose-title-row");
+  const cancel = adminEl("button", "news-compose-x", "×");
+  cancel.type = "button";
+  cancel.title = "Cancel";
+  cancel.addEventListener("click", () => showNewsComposer(false));
+  const title = adminEl("input", "news-title-input");
+  title.id = "news-title-input";
+  title.type = "text";
+  title.maxLength = 200;
+  title.placeholder = "Title";
+  titleRow.appendChild(cancel);
+  titleRow.appendChild(title);
+  edit.appendChild(titleRow);
+  const body = adminEl("textarea", "news-body-input");
+  body.id = "news-body-input";
+  body.rows = 5;
+  body.placeholder = "Enter a message...";
+  body.addEventListener("input", () => {
+    body.style.height = "auto";
+    body.style.height = Math.max(body.scrollHeight, 120) + "px";
+  });
+  edit.appendChild(body);
+  const tools = adminEl("div", "news-compose-tools");
+  const commentsLine = adminEl("div", "admin-report-check");
+  commentsLine.appendChild(adminEl("span", "", "Comments"));
+  const comments = usersToggle(true);
+  comments.input.id = "news-comments-input";
+  commentsLine.appendChild(comments.label);
+  tools.appendChild(commentsLine);
   const post = adminEl("button", "admin-mod-confirm");
   post.type = "button";
-  post.textContent = "New Post";
-  post.disabled = true;
-  bar.appendChild(search);
-  bar.appendChild(post);
+  post.id = "news-post-btn";
+  post.textContent = "Post";
+  post.addEventListener("click", submitNewsPost);
+  tools.appendChild(post);
+  edit.appendChild(tools);
+  const err = adminEl("p", "news-compose-error");
+  err.id = "news-compose-error";
+  err.hidden = true;
+  edit.appendChild(err);
+  bar.appendChild(edit);
   main.appendChild(bar);
   const list = adminEl("div", "news-announce-list");
-  const card = adminEl("div", "news-announce-card is-later");
-  const head = adminEl("div", "news-announce-head");
-  head.appendChild(adminEl("div", "news-announce-title", "Title"));
-  head.appendChild(adminEl("div", "news-announce-date", "Newest first"));
-  card.appendChild(head);
-  card.appendChild(adminEl("div", "news-announce-body", "Announcement body. Pictures, emoji, video, comments, and reactions use the same chrome as a server announcements channel."));
-  const foot = adminEl("div", "news-announce-foot");
-  foot.appendChild(adminEl("span", "", "0 comments"));
-  foot.appendChild(adminEl("span", "", "Reactions"));
-  card.appendChild(foot);
-  list.appendChild(card);
-  list.appendChild(adminEl("div", "news-end", "You're up to date!"));
+  list.id = "news-admin-posts";
   main.appendChild(list);
+  paintNewsPostList();
+  loadNewsPosts();
 }
 
 function paintNewsDonate(main) {

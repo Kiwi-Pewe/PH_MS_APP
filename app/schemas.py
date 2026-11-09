@@ -882,6 +882,12 @@ class List_thread_create(BaseModel):
     item_id: int
     content: str
 
+class News_create(BaseModel):
+    title: str
+    body: str = ""
+    comments_open: bool = True
+
+
 class Edit_announcement(BaseModel):
     post_id: int
     title: str

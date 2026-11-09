@@ -14,9 +14,110 @@
 .news-composer-bar {
   flex: 0 0 auto;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+
+.news-composer-idle {
+  display: flex;
   gap: 10px;
   align-items: center;
-  margin-bottom: 12px;
+}
+
+.news-composer-idle[hidden],
+.news-composer-editing[hidden] { display: none; }
+
+.news-composer-editing {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.news-compose-title-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.news-compose-x {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--rail);
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.news-title-input,
+.news-body-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--rail);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.news-body-input {
+  min-height: 120px;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.news-compose-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.news-compose-tools .admin-report-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.news-compose-tools .admin-mod-confirm {
+  margin-left: auto;
+}
+
+.news-compose-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.news-announce-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.news-announce-meta {
+  min-width: 0;
+}
+
+.news-announce-name {
+  font-weight: 700;
+}
+
+.news-announce-card .users-entry-face {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
 }
 
 .news-search {
@@ -55,6 +156,13 @@
 .news-announce-title {
   font-size: 16px;
   font-weight: 700;
+}
+
+.news-announce-title .edited-tag {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
 }
 
 .news-announce-date,

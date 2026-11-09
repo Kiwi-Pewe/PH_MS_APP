@@ -857,6 +857,35 @@ def ensure_connection_columns():
             conn.rollback()
 
 
+def ensure_news_tables():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS news_posts ("
+                "id INTEGER PRIMARY KEY, "
+                "title VARCHAR, "
+                "body VARCHAR, "
+                "sender_id INTEGER, "
+                "created_at DATETIME, "
+                "comment_count INTEGER DEFAULT 0, "
+                "attachment VARCHAR, "
+                "edited BOOLEAN DEFAULT 0, "
+                "comments_open BOOLEAN DEFAULT 1)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS news_seen ("
+                "user_id INTEGER PRIMARY KEY, "
+                "seen_at DATETIME NOT NULL)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_load_indexes():
     statements = (
         "CREATE INDEX IF NOT EXISTS ix_channel_messages_channel_id ON channel_messages (channel_id, id)",

@@ -926,6 +926,25 @@ class Community_phone_notice(Base):
     text = Column(String, nullable=False)
 
 
+class News_post(Base):
+    __tablename__ = "news_posts"
+    id = Column(Integer, primary_key=True)
+    title = Column(String)
+    body = Column(String)
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    comment_count = Column(Integer, default=0)
+    attachment = Column(String, nullable=True)
+    edited = Column(Boolean, default=False)
+    comments_open = Column(Boolean, default=True)
+
+
+class News_seen(Base):
+    __tablename__ = "news_seen"
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    seen_at = Column(DateTime, nullable=False)
+
+
 class Connection_nonce(Base):
     __tablename__ = "connection_nonces"
     nonce = Column(String, primary_key=True)

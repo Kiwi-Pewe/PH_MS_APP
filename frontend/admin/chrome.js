@@ -306,6 +306,7 @@ function openAdminMod(opts) {
   confirm.textContent = (opts && opts.confirm) || "Confirm";
   cancel.textContent = (opts && opts.cancel) || "Cancel";
   confirm.classList.toggle("is-danger", !!(opts && opts.danger));
+  confirm.disabled = !!(opts && opts.disabled);
   body.innerHTML = "";
   if (opts && opts.body) body.appendChild(opts.body);
   adminModError("");

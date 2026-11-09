@@ -654,10 +654,37 @@
 }
 
 .admin-settings-fields {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
 .admin-settings-fields .admin-mod-confirm {
   margin-left: 0;
   align-self: flex-start;
+}
+
+.admin-settings-connect {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-settings-connect-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-settings-connect-name {
+  font-weight: 700;
+}
+
+.admin-settings-connect-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.admin-settings-connect .admin-mod-confirm {
+  margin-left: 0;
+  align-self: auto;
 }

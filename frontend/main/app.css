@@ -13229,6 +13229,12 @@ button.voice-more-row:disabled,
 #community-nav::-webkit-scrollbar-track,
 #community-nav::-webkit-scrollbar-corner { background: transparent; }
 #community-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.community-nav-brand {
+  padding: 8px 10px 10px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
 .community-nav-label {
   padding: 14px 10px 6px;
   font-size: 13px;
@@ -13237,14 +13243,28 @@ button.voice-more-row:disabled,
   text-transform: uppercase;
   color: var(--text);
 }
-#community-nav .nav-item { padding-left: 10px; gap: 8px; }
+#community-nav .nav-item {
+  min-height: 36px;
+  padding: 6px 12px;
+  gap: 10px;
+  border-radius: 8px;
+}
 #community-nav .nav-item svg {
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
 }
+#community-nav .nav-item.active::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: 0 0 auto;
+}
 #community-nav .community-nav-group {
-  padding-top: 12px;
+  padding: 16px 10px 6px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -14010,9 +14030,9 @@ button.voice-more-row:disabled,
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 16px;
-  padding: 16px 20px 16px 16px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+  padding: 20px 28px 20px 24px;
   box-sizing: border-box;
 }
 .community-feed-main {
@@ -14021,55 +14041,71 @@ button.voice-more-row:disabled,
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 680px;
+  max-width: none;
 }
 .community-feed-head {
   flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 4px 2px 12px;
+  gap: 16px;
+  min-height: 64px;
+  padding: 0 0 16px;
 }
 .community-feed-titles { min-width: 0; }
-.community-feed-head .community-list-title { margin: 0; text-align: left; }
+.community-feed-head .community-list-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.15;
+  text-align: left;
+}
 .community-feed-head .community-list-help {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
+  font-size: 14px;
   font-style: italic;
   text-align: left;
 }
-.community-feed-head .community-search-shell {
-  flex: 0 1 240px;
-  width: 240px;
-  max-width: 100%;
+.community-feed-search {
+  flex: 0 0 260px;
+  width: 260px;
+  max-width: 42%;
+  min-height: 40px;
   border-radius: 999px;
   background: var(--panel);
+  padding: 4px 12px 4px 10px;
+}
+.community-feed-search-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--text-dim);
 }
 .community-feed-composer {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px 16px 12px;
+  gap: 0;
+  padding: 16px 18px 12px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--panel);
   cursor: text;
 }
 .community-feed-composer-top {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
+  padding-bottom: 14px;
 }
 .community-feed-composer-copy { min-width: 0; flex: 1 1 auto; }
 .community-feed-composer-prompt {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text);
 }
 .community-feed-composer-sub {
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: 13px;
   color: var(--text-dim);
 }
@@ -14077,26 +14113,28 @@ button.voice-more-row:disabled,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 .community-feed-composer-icons {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 .community-feed-tool {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-dim);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.community-feed-tool svg { width: 20px; height: 20px; }
+.community-feed-tool svg { width: 22px; height: 22px; }
 .community-feed-tool:hover { color: var(--text); background: var(--panel-alt); }
 .community-feed-tool:disabled {
   opacity: 0.4;
@@ -14107,26 +14145,30 @@ button.voice-more-row:disabled,
 .community-feed-composer-end {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-left: auto;
+  gap: 10px;
+  flex: 0 0 auto;
 }
 .community-feed-audience {
-  height: 28px;
-  padding: 0 10px;
+  height: 32px;
+  padding: 0 8px;
   border: 0;
   background: transparent;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   opacity: 0.45;
   cursor: default;
 }
-.community-feed-composer .community-create-post {
+#community-create-post.community-create-post {
   width: auto;
-  min-width: 72px;
+  max-width: none;
+  min-width: 88px;
+  height: 36px;
   margin: 0;
-  padding: 6px 16px;
+  padding: 0 20px;
   border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
 }
 .community-feed-list-bar {
   flex: 0 0 auto;
@@ -14134,10 +14176,10 @@ button.voice-more-row:disabled,
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 14px 2px 8px;
+  padding: 18px 4px 12px;
 }
 #community-feed-list-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-dim);
 }
@@ -14147,7 +14189,7 @@ button.voice-more-row:disabled,
   border: 0;
   background: transparent;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   opacity: 0.45;
   cursor: default;
@@ -14158,7 +14200,7 @@ button.voice-more-row:disabled,
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: 0 0 12px;
+  padding: 0 0 16px;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -14166,14 +14208,18 @@ button.voice-more-row:disabled,
 .community-feed-scroll::-webkit-scrollbar-track,
 .community-feed-scroll::-webkit-scrollbar-corner { background: transparent; }
 .community-feed-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.community-feed-scroll > .community-list-end {
+  margin: 18px 0 0;
+  font-size: 12px;
+}
 .community-feed-aside {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 4px;
+  gap: 16px;
+  padding: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -14181,14 +14227,17 @@ button.voice-more-row:disabled,
 .community-feed-aside::-webkit-scrollbar-track,
 .community-feed-aside::-webkit-scrollbar-corner { background: transparent; }
 .community-feed-aside::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-.community-feed-slot { flex: 0 0 48px; min-height: 48px; }
+.community-feed-slot {
+  flex: 0 0 80px;
+  min-height: 80px;
+}
 .community-feed-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 16px 18px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--panel);
 }
 .community-feed-card-head {
@@ -14198,42 +14247,46 @@ button.voice-more-row:disabled,
 }
 .community-feed-card-head h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   color: var(--text);
 }
 .community-feed-live {
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
 .community-feed-trend {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 6px 0;
+  gap: 12px;
+  padding: 8px 0;
 }
-.community-feed-trend.is-later { opacity: 0.55; }
+.community-feed-trend.is-later { opacity: 0.7; }
 .community-feed-trend-n {
   font-size: 11px;
   font-weight: 800;
   color: var(--text-dim);
-  padding-top: 2px;
+  padding-top: 3px;
+  min-width: 18px;
 }
 .community-feed-trend-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text);
 }
 .community-feed-trend-meta {
+  margin-top: 2px;
   font-size: 12px;
   color: var(--text-dim);
 }
 .community-feed-card-empty {
-  margin: 0;
+  margin: 4px 0 8px;
+  min-height: 48px;
   font-size: 13px;
+  line-height: 1.45;
   color: var(--text-dim);
 }
 .community-feed-card-link,
@@ -14244,7 +14297,7 @@ button.voice-more-row:disabled,
   border: 0;
   background: transparent;
   color: var(--accent);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 .community-feed-card-link:disabled {
@@ -14253,17 +14306,34 @@ button.voice-more-row:disabled,
   color: var(--text-dim);
 }
 .community-feed-card-action {
-  margin-top: 4px;
-  height: 32px;
-  padding: 0 12px;
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin-top: 0;
+  height: 36px;
+  padding: 0 16px;
   border-radius: 999px;
   background: var(--accent);
   color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.community-feed-interest {
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.community-feed-interest-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .community-feed-interest-about {
   margin: 0;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--text-dim);
 }
 .community-feed-interest-topics {
@@ -14628,7 +14698,7 @@ button.voice-more-row:disabled,
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 #community-post-list > .community-list-help { text-align: center; }
 #community-rooms-list {
@@ -14645,7 +14715,7 @@ button.voice-more-row:disabled,
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--panel);
 }
 .community-post:not(.is-detail) { cursor: pointer; }
@@ -14656,7 +14726,7 @@ button.voice-more-row:disabled,
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 14px 16px 0;
+  padding: 16px 20px 0;
   background: transparent;
   border-bottom: 0;
 }
@@ -14684,7 +14754,13 @@ button.voice-more-row:disabled,
   color: var(--text-dim);
   font-size: 13px;
 }
-.community-post-more { margin-left: auto; }
+.community-post-more {
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  color: var(--text-dim);
+}
 .community-post-face {
   position: relative;
   flex: 0 0 auto;
@@ -14715,8 +14791,8 @@ button.voice-more-row:disabled,
   flex-wrap: wrap;
 }
 .community-post-name {
-  font-weight: 700;
-  font-size: 14px;
+  font-weight: 800;
+  font-size: 15px;
   color: var(--text);
 }
 .community-post-handle,
@@ -14728,13 +14804,13 @@ button.voice-more-row:disabled,
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 8px 16px 10px;
+  gap: 12px;
+  padding: 10px 20px 12px;
   background: transparent;
 }
 .community-post-body {
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -14750,7 +14826,7 @@ button.voice-more-row:disabled,
   justify-content: flex-start;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 0 10px 10px;
+  padding: 0 12px 12px;
   background: transparent;
   border-top: 0;
 }
@@ -14826,9 +14902,11 @@ button.voice-more-row:disabled,
 .community-post-acts {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 4px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 420px;
 }
 .community-post-mid .post-media,
 .community-post-mid .community-post-media {
@@ -14909,16 +14987,16 @@ button.voice-more-row:disabled,
 .community-post-act {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 32px;
+  gap: 6px;
+  min-height: 36px;
   padding: 0 8px;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
-.community-post-act svg { width: 18px; height: 18px; }
+.community-post-act svg { width: 20px; height: 20px; }
 .community-post-act-n:empty { display: none; }
 .community-post-act:hover { color: var(--text); background: var(--panel-alt); }
 .community-post-act.is-on { color: var(--accent); }

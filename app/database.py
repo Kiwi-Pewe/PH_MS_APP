@@ -895,11 +895,22 @@ def ensure_kofi_tables():
                 "verification_token VARCHAR, "
                 "page_url VARCHAR, "
                 "disclaimer VARCHAR, "
-                "connected_at DATETIME)"
+                "connected_at DATETIME, "
+                "last_webhook_at DATETIME, "
+                "last_webhook_ok BOOLEAN DEFAULT 0)"
             ))
             conn.commit()
         except Exception:
             conn.rollback()
+        for column, coltype in (
+            ("last_webhook_at", "DATETIME"),
+            ("last_webhook_ok", "BOOLEAN"),
+        ):
+            try:
+                conn.execute(text("ALTER TABLE kofi_settings ADD COLUMN " + column + " " + coltype))
+                conn.commit()
+            except Exception:
+                conn.rollback()
         try:
             conn.execute(text(
                 "CREATE TABLE IF NOT EXISTS kofi_payments ("

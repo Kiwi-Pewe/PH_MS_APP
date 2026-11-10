@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from hmac import compare_digest
+from urllib.parse import parse_qs
 import json
 
 from app.models import UserInfo, Kofi_settings, Kofi_payment
@@ -31,12 +32,85 @@ def kofi_row(database):
     return row
 
 
+def clean_kofi_token(value):
+    return str(value or "").strip().strip('"').strip("'").strip()
+
+
 def kofi_token_ok(stored, given):
-    a = (stored or "").strip()
-    b = (given or "").strip()
+    a = clean_kofi_token(stored)
+    b = clean_kofi_token(given)
     if not a or not b or len(a) != len(b):
         return False
     return compare_digest(a, b)
+
+
+def decode_kofi_json(raw):
+    if isinstance(raw, dict):
+        return raw
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    for _ in range(2):
+        try:
+            data = json.loads(text)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
+        if isinstance(data, dict):
+            return data
+        if isinstance(data, str):
+            text = data.strip()
+            continue
+        return None
+    return None
+
+
+def payload_from_text(text):
+    stripped = (text or "").strip()
+    if stripped.startswith("{"):
+        data = decode_kofi_json(stripped)
+        if data:
+            if data.get("verification_token") or data.get("type") or data.get("message_id"):
+                return data
+            inner = decode_kofi_json(data.get("data"))
+            if inner:
+                return inner
+    parsed = parse_qs(text or "", keep_blank_values=True)
+    if parsed.get("data"):
+        data = decode_kofi_json(parsed.get("data")[0])
+        if data:
+            return data
+    if parsed.get("verification_token") or parsed.get("type"):
+        return {key: (values[0] if values else "") for key, values in parsed.items()}
+    return None
+
+
+async def read_kofi_payload(request: Request):
+    body = await request.body()
+    text = body.decode("utf-8", errors="replace") if body else ""
+    data = payload_from_text(text)
+    if data:
+        return data
+    query = str(request.url.query or "")
+    if query:
+        return payload_from_text(query)
+    return None
+
+
+def normalize_kofi_kind(raw):
+    text = str(raw or "").strip().lower().replace("_", " ")
+    if text in ("subscription", "membership"):
+        return "Subscription"
+    if text in ("shop order", "shoporder"):
+        return "Shop Order"
+    if text == "commission":
+        return "Commission"
+    return "Donation"
+
+
+def stamp_kofi_webhook(database, row, ok):
+    row.last_webhook_at = datetime.utcnow()
+    row.last_webhook_ok = bool(ok)
+    database.commit()
 
 
 def parse_kofi_time(raw):
@@ -80,11 +154,13 @@ def pack_kofi_status(row):
     return {
         "connected": bool(row and (row.verification_token or "").strip()),
         "connected_at": str(row.connected_at) if row and row.connected_at else None,
+        "last_webhook_at": str(row.last_webhook_at) if row and row.last_webhook_at else None,
+        "last_webhook_ok": bool(row.last_webhook_ok) if row else False,
     }
 
 
 def income_query(database):
-    return database.query(Kofi_payment).filter(Kofi_payment.kind.in_(INCOME_KINDS))
+    return database.query(Kofi_payment)
 
 
 def sum_payments(rows):
@@ -105,15 +181,17 @@ def pack_kofi_stats(database, row):
     prev = now - timedelta(hours=48)
     week = now - timedelta(days=7)
     prev_week = now - timedelta(days=14)
-    all_rows = income_query(database).order_by(Kofi_payment.paid_at.desc(), Kofi_payment.id.desc()).all()
-    day_rows = kofi_window(database, day, now)
-    prev_day_rows = kofi_window(database, prev, day)
-    week_rows = kofi_window(database, week, now)
-    prev_week_rows = kofi_window(database, prev_week, week)
-    donations = [item for item in all_rows if item.kind == "Donation"]
-    subs = [item for item in all_rows if item.kind == "Subscription"]
-    donations_24h = len([item for item in day_rows if item.kind == "Donation"])
-    subs_24h = len([item for item in day_rows if item.kind == "Subscription"])
+    def income_only(rows):
+        return [item for item in rows if normalize_kofi_kind(item.kind) in INCOME_KINDS]
+    all_rows = income_only(income_query(database).order_by(Kofi_payment.paid_at.desc(), Kofi_payment.id.desc()).all())
+    day_rows = income_only(kofi_window(database, day, now))
+    prev_day_rows = income_only(kofi_window(database, prev, day))
+    week_rows = income_only(kofi_window(database, week, now))
+    prev_week_rows = income_only(kofi_window(database, prev_week, week))
+    donations = [item for item in all_rows if normalize_kofi_kind(item.kind) == "Donation"]
+    subs = [item for item in all_rows if normalize_kofi_kind(item.kind) == "Subscription"]
+    donations_24h = len([item for item in day_rows if normalize_kofi_kind(item.kind) == "Donation"])
+    subs_24h = len([item for item in day_rows if normalize_kofi_kind(item.kind) == "Subscription"])
     public_24h = len([item for item in day_rows if item.is_public])
     income = sum_payments(all_rows)
     income_24h = sum_payments(day_rows)
@@ -156,6 +234,8 @@ def pack_kofi_stats(database, row):
         "payments_24h": len(day_rows),
         "bars": bars,
         "recent": recent,
+        "last_webhook_at": str(row.last_webhook_at) if row and row.last_webhook_at else None,
+        "last_webhook_ok": bool(row.last_webhook_ok) if row else False,
     }
 
 
@@ -184,7 +264,7 @@ def admin_kofi_connect(
     current_user: UserInfo = Depends(get_current_user),
 ):
     require_oneira_admin(current_user)
-    token = (body.verification_token or "").strip()
+    token = clean_kofi_token(body.verification_token)
     if not token:
         raise HTTPException(status_code=400, detail="Verification token is required.")
     if len(token) > 200:
@@ -209,51 +289,33 @@ def admin_kofi_disconnect(
     return pack_kofi_status(row)
 
 
-@router.post("/kofi/webhook")
 async def kofi_webhook(request: Request, database: Session = Depends(get_db)):
-    payload_data = None
-    content = (request.headers.get("content-type") or "").lower()
-    if "application/json" in content:
-        body = await request.json()
-        if isinstance(body, dict) and body.get("verification_token"):
-            payload_data = body
-        elif isinstance(body, dict) and body.get("data"):
-            raw = body.get("data")
-            if isinstance(raw, dict):
-                payload_data = raw
-            else:
-                try:
-                    payload_data = json.loads(raw)
-                except (TypeError, ValueError, json.JSONDecodeError):
-                    payload_data = None
-    else:
-        form = await request.form()
-        raw = form.get("data") or ""
-        if raw:
-            try:
-                payload_data = json.loads(raw)
-            except (TypeError, ValueError, json.JSONDecodeError):
-                payload_data = None
-    if not isinstance(payload_data, dict):
-        raise HTTPException(status_code=400, detail="Invalid Ko-fi payload.")
+    if request.method == "GET":
+        return {"ok": True}
     row = kofi_row(database)
+    payload_data = await read_kofi_payload(request)
+    if not isinstance(payload_data, dict):
+        stamp_kofi_webhook(database, row, False)
+        raise HTTPException(status_code=400, detail="Invalid Ko-fi payload.")
     if not kofi_token_ok(row.verification_token, payload_data.get("verification_token")):
+        stamp_kofi_webhook(database, row, False)
         raise HTTPException(status_code=401, detail="Invalid Ko-fi token.")
     message_id = str(payload_data.get("message_id") or "").strip()
     transaction_id = str(payload_data.get("kofi_transaction_id") or "").strip() or None
     if message_id:
         existing = database.query(Kofi_payment).filter(Kofi_payment.message_id == message_id).first()
         if existing:
+            stamp_kofi_webhook(database, row, True)
             return {"ok": True}
     if transaction_id:
         existing = database.query(Kofi_payment).filter(Kofi_payment.transaction_id == transaction_id).first()
         if existing:
+            stamp_kofi_webhook(database, row, True)
             return {"ok": True}
-    kind = str(payload_data.get("type") or "").strip() or "Donation"
     payment = Kofi_payment(
         message_id=message_id or ("kofi-" + datetime.utcnow().strftime("%Y%m%d%H%M%S%f")),
         transaction_id=transaction_id,
-        kind=kind,
+        kind=normalize_kofi_kind(payload_data.get("type")),
         from_name=str(payload_data.get("from_name") or "").strip() or None,
         amount=str(payload_data.get("amount") or "").strip() or "0",
         currency=str(payload_data.get("currency") or "USD").strip() or "USD",
@@ -263,5 +325,9 @@ async def kofi_webhook(request: Request, database: Session = Depends(get_db)):
         tier_name=str(payload_data.get("tier_name") or "").strip() or None,
     )
     database.add(payment)
-    database.commit()
+    stamp_kofi_webhook(database, row, True)
     return {"ok": True}
+
+
+router.add_api_route("/kofi/webhook", kofi_webhook, methods=["GET", "POST"])
+router.add_api_route("/kofi/webhook/", kofi_webhook, methods=["GET", "POST"])

@@ -65,7 +65,11 @@ function paintSettingsKofi(main, status) {
   const row = adminEl("div", "admin-settings-connect");
   const copy = adminEl("div", "admin-settings-connect-copy");
   copy.appendChild(adminEl("div", "admin-settings-connect-name", "Ko-fi"));
-  copy.appendChild(adminEl("div", "admin-settings-connect-sub", connected ? "Webhook is on. Donations and memberships will land on Donate." : "Paste the verification token from Ko-fi → Webhooks."));
+  let sub = connected ? "Webhook is on. Donations and memberships will land on Donate." : "Paste the verification token from Ko-fi → Webhooks.";
+  if (status && status.last_webhook_at) {
+    sub = status.last_webhook_ok ? "Last webhook was accepted." : "A webhook arrived but was not accepted. Check the verification token.";
+  }
+  copy.appendChild(adminEl("div", "admin-settings-connect-sub", sub));
   row.appendChild(copy);
   const action = adminEl("button", connected ? "admin-mod-cancel" : "admin-mod-confirm");
   action.type = "button";

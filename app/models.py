@@ -952,6 +952,8 @@ class Kofi_settings(Base):
     page_url = Column(String, nullable=True)
     disclaimer = Column(String, nullable=True)
     connected_at = Column(DateTime, nullable=True)
+    last_webhook_at = Column(DateTime, nullable=True)
+    last_webhook_ok = Column(Boolean, default=False)
 
 
 class Kofi_payment(Base):

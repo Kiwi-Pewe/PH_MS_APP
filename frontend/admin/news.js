@@ -282,8 +282,10 @@ function paintNewsDonate(main, stats) {
     filter: "Last 24 hours",
     range: "compared with previous day"
   }));
+  let bannerLead = data.connected ? "Ko-fi connected" : "Ko-fi webhook idle";
+  if (data.last_webhook_at && !data.last_webhook_ok) bannerLead = "Ko-fi webhook rejected";
   main.appendChild(adminBanner(
-    data.connected ? "Ko-fi connected" : "Ko-fi webhook idle",
+    bannerLead,
     adminNum(data.donations || 0) + " donations · " + adminNum(data.subscriptions || 0) + " membership payments."
   ));
   adminKpiRow(main, [

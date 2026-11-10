@@ -128,7 +128,7 @@ function paintCommunityHiddenServers() {
   heading.textContent = "Hidden servers";
   const body = document.createElement("div");
   body.className = "settings-opt-desc";
-  body.textContent = "Servers you hid stay out of Server Finder. Click one to show it again.";
+  body.textContent = "Click a server to show it again.";
   text.appendChild(heading);
   text.appendChild(body);
   const pills = document.createElement("div");
@@ -181,37 +181,17 @@ function communityFinderPrefSelect(key, options, title, desc) {
   return settingsOpt(title, desc, select);
 }
 
-function appendCommunityFinderBlacklist(section) {
-  if (!section) return;
-  const save = (method, path, payload) => saveCommunityFinderPrefs(method, "/community_finder_settings" + path, payload);
-  const black = communityFinderSubblock("Server Finder");
-  const blurb = document.createElement("p");
-  blurb.className = "settings-blurb";
-  blurb.textContent = "Servers from other people that match your blacklist are covered on your screen until you click them. Your own servers are never covered.";
-  black.appendChild(blurb);
-  black.appendChild(paintCommunityFilterList("word", "Words", "Covers any listing whose name or description contains one of these words.", "Add a word", communityFinderPrefs.words, save));
-  black.appendChild(paintCommunityFilterList("tag", "Tags", "Covers any listing that has one of these tags.", "Add a tag", communityFinderPrefs.tags, save));
-  black.appendChild(communityFinderPrefToggle("blacklist_hide", "Hide blacklisted listings", "Listings that match your blacklist are removed from Server Finder instead of being covered."));
-  if (communityFinderPrefsStatus) {
-    const status = document.createElement("div");
-    status.className = "settings-form-status";
-    status.textContent = communityFinderPrefsStatus;
-    black.appendChild(status);
-  }
-  section.appendChild(black);
-}
-
 function appendCommunityFinderGeneral(section) {
   if (!section) return;
   const list = communityFinderSubblock("Server list");
-  list.appendChild(communityFinderPrefSelect("explicit", COMMUNITY_FINDER_EXPLICIT, "Explicit servers", "What to do with listings marked Explicit. Cover and Hide only apply to the cards on the page."));
-  list.appendChild(communityFinderPrefSelect("sort", COMMUNITY_FINDER_SORTS, "Sort servers", "The order listings appear in on Server Finder."));
-  list.appendChild(communityFinderPrefToggle("hide_joined", "Hide servers you've joined", "Servers you already belong to are removed from Server Finder."));
-  list.appendChild(communityFinderPrefToggle("hide_apply", "Hide servers that require an application", "Listings that use Apply instead of Join are removed from Server Finder."));
+  list.appendChild(communityFinderPrefSelect("explicit", COMMUNITY_FINDER_EXPLICIT, "Explicit servers", "Do nothing, cover, or hide."));
+  list.appendChild(communityFinderPrefSelect("sort", COMMUNITY_FINDER_SORTS, "Sort servers", "How listings are ordered."));
+  list.appendChild(communityFinderPrefToggle("hide_joined", "Hide servers you've joined", "Hide servers you already belong to."));
+  list.appendChild(communityFinderPrefToggle("hide_apply", "Hide servers that require an application", "Hide listings that require an application."));
   list.appendChild(paintCommunityHiddenServers());
   section.appendChild(list);
   const join = communityFinderSubblock("Join");
-  join.appendChild(communityFinderPrefToggle("confirm_join", "Confirm before joining", "Asks you to confirm before Join adds you to a server."));
+  join.appendChild(communityFinderPrefToggle("confirm_join", "Confirm before joining", "Ask before joining a server."));
   section.appendChild(join);
 }
 

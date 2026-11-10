@@ -65,6 +65,80 @@ async function saveCommunityPostPrefs(method, path, payload) {
   refreshCommunityPostsAfterPrefs();
 }
 
+function communityMergeLabels() {
+  const seen = {};
+  const out = [];
+  for (let i = 0; i < arguments.length; i += 1) {
+    (arguments[i] || []).forEach((label) => {
+      const key = String(label || "").trim().toLowerCase();
+      if (!key || seen[key]) return;
+      seen[key] = true;
+      out.push(String(label).trim());
+    });
+  }
+  return out;
+}
+
+function communityBlacklistWords() {
+  return communityMergeLabels(
+    communityPostPrefs && communityPostPrefs.words,
+    typeof communityRoomPrefs !== "undefined" && communityRoomPrefs.words,
+    typeof communityPhonePrefs !== "undefined" && communityPhonePrefs.words,
+    typeof communityFinderPrefs !== "undefined" && communityFinderPrefs.words
+  );
+}
+
+function communityBlacklistTopics() {
+  return communityMergeLabels(
+    communityPostPrefs && communityPostPrefs.topics,
+    typeof communityRoomPrefs !== "undefined" && communityRoomPrefs.topics,
+    typeof communityFinderPrefs !== "undefined" && communityFinderPrefs.tags
+  );
+}
+
+async function communityBlacklistJob(run) {
+  try {
+    await run();
+    return "";
+  } catch (e) {
+    return e.message || "Could not save.";
+  }
+}
+
+async function saveCommunityBlacklistFilter(method, path, payload) {
+  communityPostPrefsStatus = "";
+  const kind = payload && payload.kind;
+  const label = payload && payload.label;
+  const errors = [];
+  if (kind === "word") {
+    errors.push(await communityBlacklistJob(async () => applyCommunityPostPrefs(await communityPostPrefsRequest(method, "/filters", { kind: "word", label }))));
+    if (typeof communityRoomPrefsRequest === "function" && typeof applyCommunityRoomPrefs === "function") {
+      errors.push(await communityBlacklistJob(async () => applyCommunityRoomPrefs(await communityRoomPrefsRequest(method, "/community_room_settings/filters", { kind: "word", label }))));
+    }
+    if (typeof communityPhonePrefsRequest === "function" && typeof applyCommunityPhonePrefs === "function") {
+      errors.push(await communityBlacklistJob(async () => applyCommunityPhonePrefs(await communityPhonePrefsRequest(method, "/filters", { kind: "word", label }))));
+    }
+    if (typeof communityFinderPrefsRequest === "function" && typeof applyCommunityFinderPrefs === "function") {
+      errors.push(await communityBlacklistJob(async () => applyCommunityFinderPrefs(await communityFinderPrefsRequest(method, "/community_finder_settings/filters", { kind: "word", label }))));
+    }
+  } else if (kind === "topic") {
+    errors.push(await communityBlacklistJob(async () => applyCommunityPostPrefs(await communityPostPrefsRequest(method, "/filters", { kind: "topic", label }))));
+    if (typeof communityRoomPrefsRequest === "function" && typeof applyCommunityRoomPrefs === "function") {
+      errors.push(await communityBlacklistJob(async () => applyCommunityRoomPrefs(await communityRoomPrefsRequest(method, "/community_room_settings/filters", { kind: "topic", label }))));
+    }
+    if (typeof communityFinderPrefsRequest === "function" && typeof applyCommunityFinderPrefs === "function") {
+      errors.push(await communityBlacklistJob(async () => applyCommunityFinderPrefs(await communityFinderPrefsRequest(method, "/community_finder_settings/filters", { kind: "tag", label }))));
+    }
+  }
+  communityPostPrefsStatus = errors.filter(Boolean)[0] || "";
+  paintOpenCommunitySettings();
+  refreshCommunityPostsAfterPrefs();
+  if (typeof paintCommunityRooms === "function") paintCommunityRooms();
+  if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
+  if (typeof refreshCommunityFinderAfterPrefs === "function") refreshCommunityFinderAfterPrefs();
+  if (typeof paintCommunityPhoneBadge === "function") paintCommunityPhoneBadge();
+}
+
 function paintCommunityFilterList(kind, title, desc, placeholder, rows, save) {
   const wrap = document.createElement("div");
   wrap.className = "settings-opt community-filter-list";
@@ -152,10 +226,10 @@ function appendCommunityPostGeneral(section) {
     { value: "newest", label: "Newest first" }
   ], communityCommentSort(), false);
   sort.addEventListener("change", () => saveCommunityPostPrefs("PATCH", "", { comment_sort: sort.value }));
-  block.appendChild(settingsOpt("Sort comments", "The order comments appear in when you open a post.", sort));
+  block.appendChild(settingsOpt("Sort comments", "Oldest or newest first.", sort));
   block.appendChild(settingsOpt(
     "Show blacklisted words in search",
-    "Posts that match your blacklist appear in your post search results, still covered.",
+    "Include blacklisted posts in search.",
     settingsToggle(communityPostPrefs.search_blacklist, false, (on) => saveCommunityPostPrefs("PATCH", "", { search_blacklist: on }))
   ));
   const status = communitySettingsStatus(communityPostPrefsStatus);
@@ -163,22 +237,25 @@ function appendCommunityPostGeneral(section) {
   section.appendChild(block);
 }
 
-function appendCommunityPostBlacklist(section) {
-  const block = communitySettingsSubblock("Posts");
-  const blurb = document.createElement("p");
-  blurb.className = "settings-blurb";
-  blurb.textContent = "Posts from other people that match your blacklist are covered as explicit on your screen until you click them. Your own posts and comments are never covered.";
-  block.appendChild(blurb);
-  block.appendChild(paintCommunityFilterList("word", "Words", "Covers any post or comment that contains one of these words.", "Add a word", communityPostPrefs.words, saveCommunityPostPrefs));
-  block.appendChild(paintCommunityFilterList("topic", "Topics", "Covers any post that has one of these topics.", "Add a topic", communityPostPrefs.topics, saveCommunityPostPrefs));
-  block.appendChild(settingsOpt(
+function appendCommunitySharedBlacklist(section) {
+  section.appendChild(paintCommunityFilterList("word", "Words", "Cover anything that uses these words.", "Add a word", communityBlacklistWords(), saveCommunityBlacklistFilter));
+  section.appendChild(paintCommunityFilterList("topic", "Topics", "Cover anything in these topics.", "Add a topic", communityBlacklistTopics(), saveCommunityBlacklistFilter));
+  section.appendChild(settingsOpt(
     "Hide blacklisted posts",
-    "Posts that match your blacklist are removed from Following, Timeline, and Explore instead of being covered.",
+    "Remove matching posts.",
     settingsToggle(communityPostPrefs.blacklist_hide, false, (on) => saveCommunityPostPrefs("PATCH", "", { blacklist_hide: on }))
   ));
+  if (typeof communityRoomPrefToggle === "function") {
+    section.appendChild(communityRoomPrefToggle("blacklist_hide", "Hide blacklisted rooms", "Remove matching rooms."));
+  }
+  if (typeof communityFinderPrefToggle === "function") {
+    section.appendChild(communityFinderPrefToggle("blacklist_hide", "Hide blacklisted listings", "Remove matching listings."));
+  }
+  if (typeof communityPhonePrefToggle === "function") {
+    section.appendChild(communityPhonePrefToggle("cover_media", "Cover media from matches", "Cover images and videos from matches."));
+  }
   const status = communitySettingsStatus(communityPostPrefsStatus);
-  if (status) block.appendChild(status);
-  section.appendChild(block);
+  if (status) section.appendChild(status);
 }
 
 function paintCommunityGeneralSettings() {
@@ -200,11 +277,6 @@ function paintCommunityFavoriteTopics() {
   page.replaceChildren();
   const section = document.createElement("section");
   section.className = "settings-block has-sections";
-  const block = communitySettingsSubblock("Favorite Topics");
-  const blurb = document.createElement("p");
-  blurb.className = "settings-blurb";
-  blurb.textContent = "Topics you follow. Timeline shows public posts in these topics from anyone. Grow your circle suggests people from up to three of them.";
-  block.appendChild(blurb);
   const wrap = document.createElement("div");
   wrap.className = "settings-opt community-filter-list";
   const text = document.createElement("div");
@@ -214,7 +286,7 @@ function paintCommunityFavoriteTopics() {
   heading.textContent = "Topics";
   const body = document.createElement("div");
   body.className = "settings-opt-desc";
-  body.textContent = "Add the subjects you want on Timeline. Topic names can have spaces. Hashtags stay in the post body as #one_word.";
+  body.textContent = "enter up to 5 topics that you find interesting, and they will appear within your timeline.";
   const add = document.createElement("div");
   add.className = "community-filter-add-row";
   const input = document.createElement("input");
@@ -243,8 +315,7 @@ function paintCommunityFavoriteTopics() {
   text.appendChild(add);
   text.appendChild(pills);
   wrap.appendChild(text);
-  block.appendChild(wrap);
-  section.appendChild(block);
+  section.appendChild(wrap);
   page.appendChild(section);
 }
 
@@ -254,10 +325,7 @@ function paintCommunityBlacklistSettings() {
   page.replaceChildren();
   const section = document.createElement("section");
   section.className = "settings-block has-sections";
-  appendCommunityPostBlacklist(section);
-  if (typeof appendCommunityRoomBlacklist === "function") appendCommunityRoomBlacklist(section);
-  if (typeof appendCommunityPhoneBlacklist === "function") appendCommunityPhoneBlacklist(section);
-  if (typeof appendCommunityFinderBlacklist === "function") appendCommunityFinderBlacklist(section);
+  appendCommunitySharedBlacklist(section);
   page.appendChild(section);
 }
 

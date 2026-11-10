@@ -259,7 +259,7 @@ function paintCommunityHiddenRooms() {
   heading.textContent = "Hidden rooms";
   const body = document.createElement("div");
   body.className = "settings-opt-desc";
-  body.textContent = "Rooms you hid stay out of your room list. Click one to show it again.";
+  body.textContent = "Click a room to show it again.";
   text.appendChild(heading);
   text.appendChild(body);
   const pills = document.createElement("div");
@@ -316,41 +316,21 @@ function communityRoomPrefSelect(key, options, title, desc) {
   return settingsOpt(title, desc, select);
 }
 
-function appendCommunityRoomBlacklist(section) {
-  if (!section) return;
-  const save = (method, path, payload) => saveCommunityRoomPrefs(method, "/community_room_settings" + path, payload);
-  const black = communityRoomSubblock("Rooms");
-  const blurb = document.createElement("p");
-  blurb.className = "settings-blurb";
-  blurb.textContent = "Rooms from other people that match your blacklist are covered on your screen until you click them. Matching messages get the explicit cover. Your own rooms are never covered.";
-  black.appendChild(blurb);
-  black.appendChild(paintCommunityFilterList("word", "Words", "Covers any room whose name or description contains one of these words, and any room message that contains one.", "Add a word", communityRoomPrefs.words, save));
-  black.appendChild(paintCommunityFilterList("topic", "Topics", "Covers any room that has one of these topics.", "Add a topic", communityRoomPrefs.topics, save));
-  black.appendChild(communityRoomPrefToggle("blacklist_hide", "Hide blacklisted rooms", "Rooms that match your blacklist are removed from your room list instead of being covered."));
-  if (communityRoomPrefsStatus) {
-    const status = document.createElement("div");
-    status.className = "settings-form-status";
-    status.textContent = communityRoomPrefsStatus;
-    black.appendChild(status);
-  }
-  section.appendChild(black);
-}
-
 function appendCommunityRoomGeneral(section) {
   if (!section) return;
   const list = communityRoomSubblock("Room list");
-  list.appendChild(communityRoomPrefSelect("sort", COMMUNITY_ROOM_SORTS, "Sort rooms", "The order rooms appear in on the Rooms page."));
-  list.appendChild(communityRoomPrefToggle("hide_full", "Hide full rooms", "Rooms that have no open spots are removed from your room list."));
-  list.appendChild(communityRoomPrefToggle("hide_joined", "Hide rooms you've joined", "Rooms you are in are removed from your room list. They stay in your community rail."));
+  list.appendChild(communityRoomPrefSelect("sort", COMMUNITY_ROOM_SORTS, "Sort rooms", "Newest, recently active, or by how many people are in them."));
+  list.appendChild(communityRoomPrefToggle("hide_full", "Hide full rooms", "Hide rooms with no open spots."));
+  list.appendChild(communityRoomPrefToggle("hide_joined", "Hide rooms you've joined", "Hide rooms you are already in."));
   list.appendChild(paintCommunityHiddenRooms());
   section.appendChild(list);
   const chat = communityRoomSubblock("Room chat");
-  chat.appendChild(communityRoomPrefSelect("sound", COMMUNITY_ROOM_SOUNDS, "Message sound", "Which new room messages play a sound. Muted rooms never play one."));
-  chat.appendChild(communityRoomPrefToggle("unread_counts", "Show unread counts", "Shows a red count next to rooms in your community rail that have new messages."));
-  chat.appendChild(communityRoomPrefToggle("cover_media", "Cover media in rooms", "Covers images and videos other people send in rooms until you click them."));
-  chat.appendChild(communityRoomPrefToggle("allow_mentions", "Allow mentions in rooms", "Lets people in your rooms mention you."));
-  chat.appendChild(communityRoomPrefToggle("show_members", "Show member list when opening a room", "Opens the member list beside the chat when you open a room."));
-  chat.appendChild(communityRoomPrefToggle("confirm_leave", "Confirm before leaving a room", "Asks you to confirm before you leave a room."));
+  chat.appendChild(communityRoomPrefSelect("sound", COMMUNITY_ROOM_SOUNDS, "Message sound", "Sound for new room messages."));
+  chat.appendChild(communityRoomPrefToggle("unread_counts", "Show unread counts", "Show unread counts on rooms."));
+  chat.appendChild(communityRoomPrefToggle("cover_media", "Cover media in rooms", "Cover images and videos in rooms."));
+  chat.appendChild(communityRoomPrefToggle("allow_mentions", "Allow mentions in rooms", "Let people mention you in rooms."));
+  chat.appendChild(communityRoomPrefToggle("show_members", "Show member list when opening a room", "Open the member list with the room."));
+  chat.appendChild(communityRoomPrefToggle("confirm_leave", "Confirm before leaving a room", "Ask before leaving a room."));
   section.appendChild(chat);
 }
 

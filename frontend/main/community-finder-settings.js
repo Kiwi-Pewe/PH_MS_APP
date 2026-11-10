@@ -69,7 +69,7 @@ function loadCommunityFinderPrefs() {
     } finally {
       communityFinderPrefsLoading = null;
     }
-    if (communitySettingsSection === "finder" && communitySettingsOpen()) paintCommunityFinderSettings();
+    if (typeof paintOpenCommunitySettings === "function") paintOpenCommunitySettings();
   })();
   return communityFinderPrefsLoading;
 }
@@ -90,7 +90,7 @@ async function saveCommunityFinderPrefs(method, path, payload) {
   } catch (e) {
     communityFinderPrefsStatus = e.message || "Could not save.";
   }
-  if (communitySettingsSection === "finder" && communitySettingsOpen()) paintCommunityFinderSettings();
+  if (typeof paintOpenCommunitySettings === "function") paintOpenCommunitySettings();
   refreshCommunityFinderAfterPrefs();
 }
 
@@ -181,17 +181,13 @@ function communityFinderPrefSelect(key, options, title, desc) {
   return settingsOpt(title, desc, select);
 }
 
-function paintCommunityFinderSettings() {
-  const page = document.getElementById("community-settings-page");
-  if (!page || communitySettingsSection !== "finder") return;
-  page.replaceChildren();
-  const section = document.createElement("section");
-  section.className = "settings-block has-sections";
+function appendCommunityFinderBlacklist(section) {
+  if (!section) return;
   const save = (method, path, payload) => saveCommunityFinderPrefs(method, "/community_finder_settings" + path, payload);
-  const black = communityFinderSubblock("Blacklist");
+  const black = communityFinderSubblock("Server Finder");
   const blurb = document.createElement("p");
   blurb.className = "settings-blurb";
-  blurb.textContent = "Servers from other people that match your blacklist are covered on your screen until you click them.";
+  blurb.textContent = "Servers from other people that match your blacklist are covered on your screen until you click them. Your own servers are never covered.";
   black.appendChild(blurb);
   black.appendChild(paintCommunityFilterList("word", "Words", "Covers any listing whose name or description contains one of these words.", "Add a word", communityFinderPrefs.words, save));
   black.appendChild(paintCommunityFilterList("tag", "Tags", "Covers any listing that has one of these tags.", "Add a tag", communityFinderPrefs.tags, save));
@@ -203,7 +199,11 @@ function paintCommunityFinderSettings() {
     black.appendChild(status);
   }
   section.appendChild(black);
-  const list = communityFinderSubblock("List");
+}
+
+function appendCommunityFinderGeneral(section) {
+  if (!section) return;
+  const list = communityFinderSubblock("Server list");
   list.appendChild(communityFinderPrefSelect("explicit", COMMUNITY_FINDER_EXPLICIT, "Explicit servers", "What to do with listings marked Explicit. Cover and Hide only apply to the cards on the page."));
   list.appendChild(communityFinderPrefSelect("sort", COMMUNITY_FINDER_SORTS, "Sort servers", "The order listings appear in on Server Finder."));
   list.appendChild(communityFinderPrefToggle("hide_joined", "Hide servers you've joined", "Servers you already belong to are removed from Server Finder."));
@@ -213,5 +213,8 @@ function paintCommunityFinderSettings() {
   const join = communityFinderSubblock("Join");
   join.appendChild(communityFinderPrefToggle("confirm_join", "Confirm before joining", "Asks you to confirm before Join adds you to a server."));
   section.appendChild(join);
-  page.appendChild(section);
+}
+
+function paintCommunityFinderSettings() {
+  if (typeof paintOpenCommunitySettings === "function") paintOpenCommunitySettings();
 }

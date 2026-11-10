@@ -8,7 +8,7 @@ async function loadCommunityPhonePrefs() {
   } catch (e) {
     return;
   }
-  if (communitySettingsSection === "phone" && communitySettingsOpen()) paintCommunityPhoneSettings();
+  if (typeof paintOpenCommunitySettings === "function") paintOpenCommunitySettings();
 }
 
 async function saveCommunityPhonePrefs(method, path, payload) {
@@ -26,7 +26,7 @@ async function saveCommunityPhonePrefs(method, path, payload) {
   } catch (e) {
     communityPhonePrefsStatus = e.message || "Could not save.";
   }
-  paintCommunityPhoneSettings();
+  if (typeof paintOpenCommunitySettings === "function") paintOpenCommunitySettings();
   if (typeof paintCommunityPhoneBadge === "function") paintCommunityPhoneBadge();
   if (communityPhoneCall && typeof loadCommunityPhone === "function") loadCommunityPhone();
 }
@@ -49,13 +49,9 @@ function communityPhoneSubblock(title) {
   return block;
 }
 
-function paintCommunityPhoneSettings() {
-  const page = document.getElementById("community-settings-page");
-  if (!page || communitySettingsSection !== "phone") return;
-  page.replaceChildren();
-  const section = document.createElement("section");
-  section.className = "settings-block has-sections";
-  const black = communityPhoneSubblock("Blacklist");
+function appendCommunityPhoneBlacklist(section) {
+  if (!section) return;
+  const black = communityPhoneSubblock("Phone a User");
   const blurb = document.createElement("p");
   blurb.className = "settings-blurb";
   blurb.textContent = "Messages from the person you are paired with that match your blacklist are covered on your screen until you click them.";
@@ -69,6 +65,10 @@ function paintCommunityPhoneSettings() {
     black.appendChild(status);
   }
   section.appendChild(black);
+}
+
+function appendCommunityPhoneGeneral(section) {
+  if (!section) return;
   const privacy = communityPhoneSubblock("Privacy");
   privacy.appendChild(settingsOpt(
     "Hide my profile from matches",
@@ -77,7 +77,7 @@ function paintCommunityPhoneSettings() {
   ));
   privacy.appendChild(communityPhonePrefToggle("allow_friend", "Allow friend requests from matches", "Lets the person you are paired with send you a friend request."));
   section.appendChild(privacy);
-  const chat = communityPhoneSubblock("Chat");
+  const chat = communityPhoneSubblock("Phone chat");
   chat.appendChild(communityPhonePrefToggle("match_sound", "Match sound", "Plays a sound when Find someone pairs you with someone."));
   const sound = settingsSelect([
     { value: "all", label: "All messages" },
@@ -89,5 +89,8 @@ function paintCommunityPhoneSettings() {
   chat.appendChild(communityPhonePrefToggle("confirm_end", "Confirm before ending a chat", "Asks you to confirm before End Chat ends the chat."));
   chat.appendChild(communityPhonePrefToggle("auto_find", "Find someone again after a chat ends", "Starts a new search when a chat ends, unless you ended it yourself."));
   section.appendChild(chat);
-  page.appendChild(section);
+}
+
+function paintCommunityPhoneSettings() {
+  if (typeof paintOpenCommunitySettings === "function") paintOpenCommunitySettings();
 }

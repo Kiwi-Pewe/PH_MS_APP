@@ -86,7 +86,7 @@ async function ensureCommunityRoomPrefs() {
 }
 
 function repaintCommunityRoomsAfterPrefs(reloadChat) {
-  if (communitySettingsSection === "rooms" && communitySettingsOpen()) paintCommunityRoomSettings();
+  if (typeof paintOpenCommunitySettings === "function") paintOpenCommunitySettings();
   if (typeof paintCommunityRooms === "function") paintCommunityRooms();
   if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
   if (reloadChat && communityOpenRoom && typeof loadCommunityRoomChat === "function") loadCommunityRoomChat(communityOpenRoom);
@@ -316,17 +316,13 @@ function communityRoomPrefSelect(key, options, title, desc) {
   return settingsOpt(title, desc, select);
 }
 
-function paintCommunityRoomSettings() {
-  const page = document.getElementById("community-settings-page");
-  if (!page || communitySettingsSection !== "rooms") return;
-  page.replaceChildren();
-  const section = document.createElement("section");
-  section.className = "settings-block has-sections";
+function appendCommunityRoomBlacklist(section) {
+  if (!section) return;
   const save = (method, path, payload) => saveCommunityRoomPrefs(method, "/community_room_settings" + path, payload);
-  const black = communityRoomSubblock("Blacklist");
+  const black = communityRoomSubblock("Rooms");
   const blurb = document.createElement("p");
   blurb.className = "settings-blurb";
-  blurb.textContent = "Rooms from other people that match your blacklist are covered on your screen until you click them.";
+  blurb.textContent = "Rooms from other people that match your blacklist are covered on your screen until you click them. Matching messages get the explicit cover. Your own rooms are never covered.";
   black.appendChild(blurb);
   black.appendChild(paintCommunityFilterList("word", "Words", "Covers any room whose name or description contains one of these words, and any room message that contains one.", "Add a word", communityRoomPrefs.words, save));
   black.appendChild(paintCommunityFilterList("topic", "Topics", "Covers any room that has one of these topics.", "Add a topic", communityRoomPrefs.topics, save));
@@ -338,13 +334,17 @@ function paintCommunityRoomSettings() {
     black.appendChild(status);
   }
   section.appendChild(black);
+}
+
+function appendCommunityRoomGeneral(section) {
+  if (!section) return;
   const list = communityRoomSubblock("Room list");
   list.appendChild(communityRoomPrefSelect("sort", COMMUNITY_ROOM_SORTS, "Sort rooms", "The order rooms appear in on the Rooms page."));
   list.appendChild(communityRoomPrefToggle("hide_full", "Hide full rooms", "Rooms that have no open spots are removed from your room list."));
   list.appendChild(communityRoomPrefToggle("hide_joined", "Hide rooms you've joined", "Rooms you are in are removed from your room list. They stay in your community rail."));
   list.appendChild(paintCommunityHiddenRooms());
   section.appendChild(list);
-  const chat = communityRoomSubblock("Chat");
+  const chat = communityRoomSubblock("Room chat");
   chat.appendChild(communityRoomPrefSelect("sound", COMMUNITY_ROOM_SOUNDS, "Message sound", "Which new room messages play a sound. Muted rooms never play one."));
   chat.appendChild(communityRoomPrefToggle("unread_counts", "Show unread counts", "Shows a red count next to rooms in your community rail that have new messages."));
   chat.appendChild(communityRoomPrefToggle("cover_media", "Cover media in rooms", "Covers images and videos other people send in rooms until you click them."));
@@ -352,5 +352,8 @@ function paintCommunityRoomSettings() {
   chat.appendChild(communityRoomPrefToggle("show_members", "Show member list when opening a room", "Opens the member list beside the chat when you open a room."));
   chat.appendChild(communityRoomPrefToggle("confirm_leave", "Confirm before leaving a room", "Asks you to confirm before you leave a room."));
   section.appendChild(chat);
-  page.appendChild(section);
+}
+
+function paintCommunityRoomSettings() {
+  if (typeof paintOpenCommunitySettings === "function") paintOpenCommunitySettings();
 }

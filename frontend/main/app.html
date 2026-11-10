@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=508">
+<link rel="stylesheet" href="app.css?v=509">
 <link rel="stylesheet" href="news.css?v=6">
 </head>
 <body>
@@ -1026,14 +1026,7 @@
                 </div>
               </div>
               <div class="community-feed-composer-tools">
-                <div class="community-feed-composer-icons">
-                  <button type="button" class="community-feed-tool" id="community-feed-tool-image" title="Photo or video" aria-label="Photo or video"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></button>
-                  <button type="button" class="community-feed-tool" id="community-feed-tool-emoji" title="Emoji" aria-label="Emoji"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></button>
-                  <button type="button" class="community-feed-tool" disabled title="Poll" aria-label="Poll"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg></button>
-                  <button type="button" class="community-feed-tool" disabled title="Hashtag" aria-label="Hashtag"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg></button>
-                </div>
                 <div class="community-feed-composer-end">
-                  <button type="button" class="community-feed-audience" disabled>Everyone</button>
                   <button type="button" class="community-create-post" id="community-create-post">Create a post</button>
                 </div>
               </div>
@@ -1047,51 +1040,86 @@
               <p class="community-list-end">You have reached the end of the list.</p>
             </div>
             <aside class="community-feed-aside">
-              <section class="community-feed-card">
+              <section class="community-feed-card" id="community-feed-trending">
                 <div class="community-feed-card-head">
                   <h3>Trending on Oneira</h3>
                 </div>
-                <div class="community-feed-trend is-later">
+                <button type="button" class="community-feed-trend is-later" disabled>
                   <span class="community-feed-trend-n">01</span>
-                  <div>
-                    <div class="community-feed-trend-name">#Oneira</div>
-                    <div class="community-feed-trend-meta">Popular hashtags later</div>
-                  </div>
-                </div>
-                <div class="community-feed-trend is-later">
+                  <span class="community-feed-trend-copy">
+                    <span class="community-feed-trend-name">#GameDevelopment</span>
+                    <span class="community-feed-trend-meta">2.4k posts · Trending now</span>
+                  </span>
+                </button>
+                <button type="button" class="community-feed-trend is-later" disabled>
                   <span class="community-feed-trend-n">02</span>
-                  <div>
-                    <div class="community-feed-trend-name">#GameDevelopment</div>
-                    <div class="community-feed-trend-meta">Popular hashtags later</div>
-                  </div>
-                </div>
-                <div class="community-feed-trend is-later">
+                  <span class="community-feed-trend-copy">
+                    <span class="community-feed-trend-name">#DigitalArt</span>
+                    <span class="community-feed-trend-meta">1.8k posts · Trending now</span>
+                  </span>
+                </button>
+                <button type="button" class="community-feed-trend is-later" disabled>
                   <span class="community-feed-trend-n">03</span>
-                  <div>
-                    <div class="community-feed-trend-name">#DigitalArt</div>
-                    <div class="community-feed-trend-meta">Popular hashtags later</div>
-                  </div>
-                </div>
+                  <span class="community-feed-trend-copy">
+                    <span class="community-feed-trend-name">#OneiraUpdate</span>
+                    <span class="community-feed-trend-meta">846 posts · Trending now</span>
+                  </span>
+                </button>
                 <button type="button" class="community-feed-card-link" disabled>Explore topics</button>
               </section>
-              <section class="community-feed-card">
+              <section class="community-feed-card" id="community-feed-grow">
                 <div class="community-feed-card-head">
                   <h3>Grow your circle</h3>
                 </div>
-                <p class="community-feed-card-empty">People to follow will show here.</p>
+                <div class="community-feed-person is-later">
+                  <div class="community-post-face">A</div>
+                  <div class="community-feed-person-copy">
+                    <div class="community-feed-person-name">Ava Cole</div>
+                    <div class="community-feed-person-handle">@ava</div>
+                  </div>
+                  <button type="button" class="community-feed-follow" disabled>Follow</button>
+                </div>
+                <div class="community-feed-person is-later">
+                  <div class="community-post-face">J</div>
+                  <div class="community-feed-person-copy">
+                    <div class="community-feed-person-name">Jordan Hale</div>
+                    <div class="community-feed-person-handle">@jordan</div>
+                  </div>
+                  <button type="button" class="community-feed-follow" disabled>Follow</button>
+                </div>
+                <div class="community-feed-person is-later">
+                  <div class="community-post-face">R</div>
+                  <div class="community-feed-person-copy">
+                    <div class="community-feed-person-name">Riley Moss</div>
+                    <div class="community-feed-person-handle">@riley</div>
+                  </div>
+                  <button type="button" class="community-feed-follow" disabled>Follow</button>
+                </div>
                 <button type="button" class="community-feed-card-link" disabled>Find more people</button>
               </section>
               <section class="community-feed-card community-feed-interest" id="community-feed-interest">
-                <div class="community-feed-interest-copy">
-                  <div class="community-feed-card-head">
-                    <span class="community-feed-live">Room</span>
-                    <h3 id="community-feed-interest-name">Rooms</h3>
-                  </div>
-                  <p class="community-feed-interest-about" id="community-feed-interest-about">The most active room will show here.</p>
-                  <div class="community-feed-interest-topics" id="community-feed-interest-topics"></div>
+                <div class="community-feed-live-row">
+                  <span class="community-feed-live">Live</span>
+                  <span class="community-feed-live-kicker" id="community-feed-interest-kicker">Room</span>
                 </div>
-                <button type="button" class="community-feed-card-action" id="community-feed-browse-rooms">Browse rooms</button>
+                <h3 id="community-feed-interest-name">The Lounge</h3>
+                <p class="community-feed-interest-about" id="community-feed-interest-about">Name, description, and topics from the most active room will show here.</p>
+                <div class="community-feed-interest-topics" id="community-feed-interest-topics"></div>
+                <div class="community-feed-interest-foot">
+                  <div class="community-feed-faces" id="community-feed-interest-faces">
+                    <span class="community-feed-face-dot"></span>
+                    <span class="community-feed-face-dot"></span>
+                    <span class="community-feed-face-dot"></span>
+                  </div>
+                  <button type="button" class="community-feed-card-action" id="community-feed-browse-rooms">Browse rooms</button>
+                </div>
               </section>
+              <nav class="community-feed-legal">
+                <button type="button" disabled>Community guidelines</button>
+                <button type="button" disabled>Privacy</button>
+                <button type="button" disabled>Terms</button>
+                <button type="button" disabled>Feedback</button>
+              </nav>
             </aside>
           </div>
         </div>
@@ -3046,7 +3074,7 @@
     </div>
 <script src="boot.js?v=159"></script>
 <script src="app-shell.js?v=78"></script>
-<script src="communities.js?v=48"></script>
+<script src="communities.js?v=49"></script>
 <script src="news.js?v=6"></script>
 <script src="community-posts.js?v=5"></script>
 <script src="community-rooms.js?v=8"></script>

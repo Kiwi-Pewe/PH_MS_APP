@@ -15,9 +15,21 @@ function communityPostStamp(raw) {
   return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
+function communityPostAge(raw) {
+  const date = new Date(raw || "");
+  if (isNaN(date.getTime())) return "";
+  const sec = Math.max(0, (Date.now() - date.getTime()) / 1000);
+  if (sec < 45) return "now";
+  if (sec < 3600) return Math.floor(sec / 60) + "m";
+  if (sec < 86400) return Math.floor(sec / 3600) + "h";
+  if (sec < 86400 * 7) return Math.floor(sec / 86400) + "d";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 function communityPostReady(row) {
   const post = Object.assign({}, row || {});
   post.time = communityPostStamp(post.created_at);
+  post.age = communityPostAge(post.created_at);
   post.comments = (post.comments || []).map((item) => {
     const comment = Object.assign({}, item);
     comment.time = communityPostStamp(comment.created_at);

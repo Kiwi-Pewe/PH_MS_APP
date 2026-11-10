@@ -73,8 +73,14 @@ function communityRowTitle(id) {
 
 function communityRowHelp(id) {
   if (id === "timeline") return "Public posts in topics you follow.";
-  if (id === "explore") return "All Posts from all user";
-  return "This page contains your own posts, as well as people you follow";
+  if (id === "explore") return "All posts from everyone.";
+  return "Your people. Your conversations.";
+}
+
+function communityFeedListLabel(id) {
+  if (id === "timeline") return "Latest in your topics";
+  if (id === "explore") return "Latest on Oneira";
+  return "Latest from your circle";
 }
 
 function showCommunityRow(id) {
@@ -113,6 +119,7 @@ function showCommunityRow(id) {
   if (pane === "posts") {
     paintCommunityPosts();
     if (typeof loadCommunityPosts === "function") loadCommunityPosts(communityRow, true);
+    if (typeof loadCommunityRooms === "function") loadCommunityRooms();
   }
   if (pane === "rooms") {
     paintCommunityRooms();
@@ -124,11 +131,53 @@ function showCommunityRow(id) {
   } else if (typeof paintCommunityPhoneBadge === "function") paintCommunityPhoneBadge();
 }
 
+function paintCommunityFeedComposer() {
+  const face = document.getElementById("community-feed-composer-face");
+  const prompt = document.getElementById("community-feed-composer-prompt");
+  const name = myDisplayName || myUsername || "there";
+  if (prompt) prompt.textContent = "What's on your mind, " + name + "?";
+  if (!face) return;
+  face.replaceChildren();
+  if (typeof paintUserFace === "function") {
+    paintUserFace(face, { id: myUserId, username: myUsername, display_name: myDisplayName }, { userId: myUserId, name: name });
+  } else {
+    face.textContent = communityLetter(name);
+  }
+}
+
+function paintCommunityFeedAside() {
+  const nameEl = document.getElementById("community-feed-interest-name");
+  const aboutEl = document.getElementById("community-feed-interest-about");
+  const topicsEl = document.getElementById("community-feed-interest-topics");
+  if (!nameEl || !aboutEl) return;
+  const rows = (communityRooms || []).filter((row) => row && !row.hidden);
+  rows.sort((a, b) => (Number(b.n) || 0) - (Number(a.n) || 0) || String(b.active_at || "").localeCompare(String(a.active_at || "")));
+  const room = rows[0];
+  if (topicsEl) topicsEl.replaceChildren();
+  if (!room) {
+    nameEl.textContent = "Rooms";
+    aboutEl.textContent = "The most active room will show here.";
+    return;
+  }
+  nameEl.textContent = room.name || "Room";
+  aboutEl.textContent = room.about || "No description yet.";
+  (room.topics || []).forEach((topic) => {
+    const pill = document.createElement("span");
+    pill.className = "community-tag";
+    pill.textContent = topic;
+    if (topicsEl) topicsEl.appendChild(pill);
+  });
+}
+
 function paintCommunityPosts() {
   const title = document.getElementById("community-post-title");
   if (title) title.textContent = communityRowTitle(communityRow);
   const help = document.getElementById("community-post-help");
   if (help) help.textContent = communityRowHelp(communityRow);
+  const listLabel = document.getElementById("community-feed-list-label");
+  if (listLabel) listLabel.textContent = communityFeedListLabel(communityRow);
+  paintCommunityFeedComposer();
+  paintCommunityFeedAside();
   const list = document.getElementById("community-post-list");
   if (!list) return;
   list.replaceChildren();
@@ -262,19 +311,23 @@ function fillCommunityPostHead(host, post, opts) {
   handleEl.className = "community-post-handle";
   handleEl.textContent = "@" + person.handle;
   names.appendChild(nameEl);
-  names.appendChild(handleEl);
-  who.appendChild(face);
-  who.appendChild(names);
-  if (post && post.time) {
-    const rule = document.createElement("span");
-    rule.className = "community-post-rule";
-    rule.textContent = "|";
+  const meta = document.createElement("div");
+  meta.className = "community-post-meta";
+  meta.appendChild(handleEl);
+  if (post && (post.age || post.time)) {
+    const dot = document.createElement("span");
+    dot.className = "community-post-dot";
+    dot.textContent = "·";
     const timeEl = document.createElement("span");
     timeEl.className = "community-post-time";
-    timeEl.textContent = post.time;
-    who.appendChild(rule);
-    who.appendChild(timeEl);
+    timeEl.textContent = post.age || post.time;
+    if (post.time) timeEl.title = post.time;
+    meta.appendChild(dot);
+    meta.appendChild(timeEl);
   }
+  names.appendChild(meta);
+  who.appendChild(face);
+  who.appendChild(names);
   const more = document.createElement("button");
   more.type = "button";
   more.className = "icon-btn community-post-more";
@@ -363,41 +416,62 @@ function fillCommunityPostContent(host, post) {
   }
 }
 
+function communityPostActIcon(path) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const d = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  d.setAttribute("fill", "currentColor");
+  d.setAttribute("d", path);
+  svg.appendChild(d);
+  return svg;
+}
+
 function fillCommunityPostActs(host, post, opts) {
   if (!host) return;
   opts = opts || {};
   host.replaceChildren();
-  [
-    ["replies", "Reply", post && post.replies],
-    ["reposts", "Repost", post && post.reposts],
-    ["likes", "Like", post && post.likes],
-    ["dislikes", "Dislike", post && post.dislikes]
-  ].forEach((item) => {
+  const acts = [
+    ["replies", "Reply", "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"],
+    ["reposts", "Repost", "M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"],
+    ["likes", "Like", "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"],
+    ["dislikes", "Dislike", "M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"],
+    ["share", "Share", "M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"]
+  ];
+  acts.forEach((item) => {
     const key = item[0];
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "community-post-act";
-    const paint = () => {
-      const n = Number(post && post[key]) || 0;
-      btn.textContent = item[1] + (n ? " " + n : "");
-    };
-    paint();
+    btn.title = item[1];
+    btn.setAttribute("aria-label", item[1]);
+    btn.appendChild(communityPostActIcon(item[2]));
+    const n = Number(post && post[key]) || 0;
+    if (key !== "share") {
+      const count = document.createElement("span");
+      count.className = "community-post-act-n";
+      count.textContent = n ? String(n) : "";
+      btn.appendChild(count);
+    }
     if (key === "likes" || key === "dislikes") {
       btn.classList.toggle("is-on", !!(post && (key === "likes" ? post.liked : post.disliked)));
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         if (typeof voteCommunityPost === "function") voteCommunityPost(post, key === "likes" ? "like" : "dislike");
       });
-    } else if (key !== "replies") btn.disabled = true;
-    else btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (opts.detail) {
-        const input = document.getElementById("community-post-comment-input");
-        if (input) input.focus();
-      } else {
-        openCommunityPost(post);
-      }
-    });
+    } else if (key === "replies") {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (opts.detail) {
+          const input = document.getElementById("community-post-comment-input");
+          if (input) input.focus();
+        } else {
+          openCommunityPost(post);
+        }
+      });
+    } else {
+      btn.disabled = true;
+    }
     host.appendChild(btn);
   });
 }
@@ -968,8 +1042,8 @@ function paintCommunityRoomNav() {
   host.hidden = joined.length === 0;
   if (!joined.length) return;
   const label = document.createElement("div");
-  label.className = "community-nav-label";
-  label.textContent = "Rooms";
+  label.className = "community-nav-label community-nav-group";
+  label.textContent = "In rooms";
   host.appendChild(label);
   joined.forEach((row) => {
     const key = String(row.id);
@@ -2055,6 +2129,17 @@ document.getElementById("community-sidebar-view").addEventListener("click", (e) 
   if (id) showCommunityRow(id);
 });
 document.getElementById("community-create-post").addEventListener("click", () => openCommunityCompose());
+const communityFeedComposer = document.getElementById("community-feed-composer");
+if (communityFeedComposer) {
+  communityFeedComposer.addEventListener("click", (e) => {
+    if (e.target.closest("button[disabled]")) return;
+    openCommunityCompose();
+  });
+}
+const communityFeedBrowseRooms = document.getElementById("community-feed-browse-rooms");
+if (communityFeedBrowseRooms) {
+  communityFeedBrowseRooms.addEventListener("click", () => showCommunityRow("rooms"));
+}
 document.getElementById("community-compose-cancel").addEventListener("click", () => closeCommunityCompose());
 document.getElementById("community-compose-submit").addEventListener("click", () => submitCommunityPost());
 document.getElementById("community-compose-overlay").addEventListener("mousedown", (e) => {

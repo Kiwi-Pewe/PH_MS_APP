@@ -38,6 +38,7 @@ async function loadCommunityRooms() {
   if (typeof syncCommunityRoomHidden === "function") syncCommunityRoomHidden();
   if (typeof paintCommunityRooms === "function") paintCommunityRooms();
   if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
+  if (typeof paintCommunityFeedAside === "function") paintCommunityFeedAside();
 }
 
 function showCommunityRoomSaveError(message) {

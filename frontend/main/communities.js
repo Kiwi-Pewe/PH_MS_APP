@@ -133,9 +133,7 @@ function showCommunityRow(id) {
 
 function paintCommunityFeedComposer() {
   const face = document.getElementById("community-feed-composer-face");
-  const prompt = document.getElementById("community-feed-composer-prompt");
   const name = myDisplayName || myUsername || "there";
-  if (prompt) prompt.textContent = "What's on your mind, " + name + "?";
   if (!face) return;
   face.replaceChildren();
   if (typeof paintUserFace === "function") {
@@ -434,7 +432,7 @@ function fillCommunityPostActs(host, post, opts) {
   const acts = [
     ["replies", "Reply", "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"],
     ["reposts", "Repost", "M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"],
-    ["likes", "Like", "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"],
+    ["likes", "Like", "M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"],
     ["dislikes", "Dislike", "M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"],
     ["share", "Share", "M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"]
   ];
@@ -446,11 +444,10 @@ function fillCommunityPostActs(host, post, opts) {
     btn.title = item[1];
     btn.setAttribute("aria-label", item[1]);
     btn.appendChild(communityPostActIcon(item[2]));
-    const n = Number(post && post[key]) || 0;
     if (key !== "share") {
       const count = document.createElement("span");
       count.className = "community-post-act-n";
-      count.textContent = n ? String(n) : "";
+      count.textContent = String(Number(post && post[key]) || 0);
       btn.appendChild(count);
     }
     if (key === "likes" || key === "dislikes") {

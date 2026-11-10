@@ -4,18 +4,17 @@ function communityTagKey(raw) {
   return String(raw || "").replace(/^#+/, "").trim();
 }
 
-function communityPostTags(post) {
+function communityPostHashtags(post) {
   const tags = [];
   const seen = {};
   const add = (raw) => {
-    const word = communityTagKey(raw);
-    if (!word) return;
+    const word = communityTagKey(raw).replace(/\s+/g, "");
+    if (!word || !/^[A-Za-z0-9_]+$/.test(word)) return;
     const key = word.toLowerCase();
     if (seen[key]) return;
     seen[key] = true;
     tags.push(word);
   };
-  (post && post.topics || []).forEach(add);
   (post && post.hashtags || []).forEach(add);
   const body = String((post && post.body) || "");
   const re = /#([A-Za-z0-9_]+)/g;
@@ -24,10 +23,24 @@ function communityPostTags(post) {
   return tags;
 }
 
-function communityRankTags(posts) {
+function communityPostTopics(post) {
+  const topics = [];
+  const seen = {};
+  (post && post.topics || []).forEach((raw) => {
+    const word = String(raw || "").trim().replace(/\s+/g, " ");
+    if (!word) return;
+    const key = word.toLowerCase();
+    if (seen[key]) return;
+    seen[key] = true;
+    topics.push(word);
+  });
+  return topics;
+}
+
+function communityRankHashtags(posts) {
   const counts = {};
   (posts || []).forEach((post) => {
-    communityPostTags(post).forEach((word) => {
+    communityPostHashtags(post).forEach((word) => {
       const key = word.toLowerCase();
       if (!counts[key]) counts[key] = { tag: word, n: 0 };
       counts[key].n += 1;
@@ -35,6 +48,19 @@ function communityRankTags(posts) {
     });
   });
   return Object.keys(counts).map((key) => counts[key]).sort((a, b) => b.n - a.n || a.tag.localeCompare(b.tag));
+}
+
+function communityRankTopics(posts) {
+  const counts = {};
+  (posts || []).forEach((post) => {
+    communityPostTopics(post).forEach((word) => {
+      const key = word.toLowerCase();
+      if (!counts[key]) counts[key] = { topic: word, n: 0 };
+      counts[key].n += 1;
+      counts[key].topic = word;
+    });
+  });
+  return Object.keys(counts).map((key) => counts[key]).sort((a, b) => b.n - a.n || a.topic.localeCompare(b.topic));
 }
 
 function communityFeedSamplePosts() {
@@ -54,17 +80,17 @@ function communityFeedSamplePosts() {
 function communityFeedMyTopics(posts) {
   const mineId = myUserId;
   const minePosts = (posts || []).filter((post) => post && (post.mine || (mineId && post.author_id === mineId)));
-  return communityRankTags(minePosts.length ? minePosts : posts).slice(0, 3);
+  return communityRankTopics(minePosts.length ? minePosts : posts).slice(0, 3);
 }
 
 function communityFeedPeopleForTopic(posts, topic, limit) {
-  const key = communityTagKey(topic).toLowerCase();
+  const key = String(topic || "").trim().toLowerCase();
   const people = [];
   const seen = {};
   (posts || []).forEach((post) => {
     const id = post && post.author_id;
     if (!id || (myUserId && id === myUserId) || seen[id]) return;
-    const has = communityPostTags(post).some((word) => word.toLowerCase() === key);
+    const has = communityPostTopics(post).some((word) => word.toLowerCase() === key);
     if (!has) return;
     seen[id] = true;
     people.push(post);
@@ -77,10 +103,10 @@ function communityFeedSharedTopics(post, posts) {
   const mine = {};
   (posts || []).forEach((row) => {
     if (!(row && (row.mine || (mineId && row.author_id === mineId)))) return;
-    communityPostTags(row).forEach((word) => { mine[word.toLowerCase()] = word; });
+    communityPostTopics(row).forEach((word) => { mine[word.toLowerCase()] = word; });
   });
   const shared = [];
-  communityPostTags(post).forEach((word) => {
+  communityPostTopics(post).forEach((word) => {
     const key = word.toLowerCase();
     if (mine[key] && shared.indexOf(mine[key]) < 0) shared.push(mine[key]);
   });
@@ -155,7 +181,7 @@ function paintCommunityFeedTrending(posts) {
   const host = document.getElementById("community-feed-trend-list");
   if (!host) return;
   host.replaceChildren();
-  const ranked = communityRankTags(posts).slice(0, 3);
+  const ranked = communityRankHashtags(posts).slice(0, 3);
   if (!ranked.length) {
     const empty = document.createElement("p");
     empty.className = "community-feed-card-empty";
@@ -265,7 +291,7 @@ async function openCommunityTopicsCard() {
   host.replaceChildren();
   overlay.hidden = false;
   if (!communityExploreSample.length) await loadCommunityExploreSample();
-  const ranked = communityRankTags(communityFeedSamplePosts()).slice(0, 10);
+  const ranked = communityRankHashtags(communityFeedSamplePosts()).slice(0, 10);
   if (!ranked.length) {
     const empty = document.createElement("p");
     empty.className = "community-list-help";
@@ -296,9 +322,9 @@ async function openCommunityPeopleCard() {
     const block = document.createElement("section");
     block.className = "community-feed-people-topic";
     const title = document.createElement("h3");
-    title.textContent = item.tag;
+    title.textContent = item.topic;
     block.appendChild(title);
-    const people = communityFeedPeopleForTopic(posts, item.tag, 5);
+    const people = communityFeedPeopleForTopic(posts, item.topic, 5);
     if (!people.length) {
       const empty = document.createElement("p");
       empty.className = "community-list-help";

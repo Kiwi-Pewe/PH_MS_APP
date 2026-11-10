@@ -144,19 +144,28 @@ function paintCommunityFeedComposer() {
 }
 
 function paintCommunityFeedAside() {
+  const card = document.getElementById("community-feed-interest");
   const nameEl = document.getElementById("community-feed-interest-name");
   const aboutEl = document.getElementById("community-feed-interest-about");
   const topicsEl = document.getElementById("community-feed-interest-topics");
+  const liveRow = card ? card.querySelector(".community-feed-live-row") : null;
+  const faces = document.getElementById("community-feed-interest-faces");
   if (!nameEl || !aboutEl) return;
-  const rows = (communityRooms || []).filter((row) => row && !row.hidden);
-  rows.sort((a, b) => (Number(b.n) || 0) - (Number(a.n) || 0) || String(b.active_at || "").localeCompare(String(a.active_at || "")));
-  const room = rows[0];
+  const listed = (communityRooms || []).filter((row) => row && !row.hidden);
+  listed.sort((a, b) => String(b.active_at || "").localeCompare(String(a.active_at || "")) || (Number(b.n) || 0) - (Number(a.n) || 0));
+  const room = listed[0];
   if (topicsEl) topicsEl.replaceChildren();
   if (!room) {
-    nameEl.textContent = "The Lounge";
-    aboutEl.textContent = "Name, description, and topics from the most active room will show here.";
+    nameEl.textContent = "No rooms found.";
+    aboutEl.hidden = true;
+    aboutEl.textContent = "";
+    if (liveRow) liveRow.hidden = true;
+    if (faces) faces.hidden = true;
     return;
   }
+  aboutEl.hidden = false;
+  if (liveRow) liveRow.hidden = false;
+  if (faces) faces.hidden = false;
   nameEl.textContent = room.name || "Room";
   aboutEl.textContent = room.about || "No description yet.";
   (room.topics || []).forEach((topic) => {

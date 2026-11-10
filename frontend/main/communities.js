@@ -176,6 +176,7 @@ function paintCommunityPosts() {
   if (listLabel) listLabel.textContent = communityFeedListLabel(communityRow);
   paintCommunityFeedComposer();
   paintCommunityFeedAside();
+  if (typeof paintCommunityFeedRail === "function") paintCommunityFeedRail();
   const list = document.getElementById("community-post-list");
   if (!list) return;
   list.replaceChildren();

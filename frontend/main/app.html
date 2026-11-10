@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=509">
+<link rel="stylesheet" href="app.css?v=510">
 <link rel="stylesheet" href="news.css?v=6">
 </head>
 <body>
@@ -1018,18 +1018,12 @@
               </div>
             </div>
             <div class="community-feed-composer" id="community-feed-composer">
-              <div class="community-feed-composer-top">
-                <div class="community-post-face" id="community-feed-composer-face"></div>
-                <div class="community-feed-composer-copy">
-                  <div class="community-feed-composer-prompt" id="community-feed-composer-prompt">Click to create a post</div>
-                  <div class="community-feed-composer-sub">Opens the Create a post card.</div>
-                </div>
+              <div class="community-post-face" id="community-feed-composer-face"></div>
+              <div class="community-feed-composer-copy">
+                <div class="community-feed-composer-prompt" id="community-feed-composer-prompt">Click to create a post</div>
+                <div class="community-feed-composer-sub">Opens the Create a post card.</div>
               </div>
-              <div class="community-feed-composer-tools">
-                <div class="community-feed-composer-end">
-                  <button type="button" class="community-create-post" id="community-create-post">Create a post</button>
-                </div>
-              </div>
+              <button type="button" class="community-create-post" id="community-create-post">Create a post</button>
             </div>
             <div class="community-feed-list-bar">
               <span id="community-feed-list-label">Latest from your circle</span>
@@ -1044,58 +1038,15 @@
                 <div class="community-feed-card-head">
                   <h3>Trending on Oneira</h3>
                 </div>
-                <button type="button" class="community-feed-trend is-later" disabled>
-                  <span class="community-feed-trend-n">01</span>
-                  <span class="community-feed-trend-copy">
-                    <span class="community-feed-trend-name">#GameDevelopment</span>
-                    <span class="community-feed-trend-meta">2.4k posts · Trending now</span>
-                  </span>
-                </button>
-                <button type="button" class="community-feed-trend is-later" disabled>
-                  <span class="community-feed-trend-n">02</span>
-                  <span class="community-feed-trend-copy">
-                    <span class="community-feed-trend-name">#DigitalArt</span>
-                    <span class="community-feed-trend-meta">1.8k posts · Trending now</span>
-                  </span>
-                </button>
-                <button type="button" class="community-feed-trend is-later" disabled>
-                  <span class="community-feed-trend-n">03</span>
-                  <span class="community-feed-trend-copy">
-                    <span class="community-feed-trend-name">#OneiraUpdate</span>
-                    <span class="community-feed-trend-meta">846 posts · Trending now</span>
-                  </span>
-                </button>
-                <button type="button" class="community-feed-card-link" disabled>Explore topics</button>
+                <div id="community-feed-trend-list"></div>
+                <button type="button" class="community-feed-card-link" id="community-feed-explore-topics">Explore topics</button>
               </section>
               <section class="community-feed-card" id="community-feed-grow">
                 <div class="community-feed-card-head">
                   <h3>Grow your circle</h3>
                 </div>
-                <div class="community-feed-person is-later">
-                  <div class="community-post-face">A</div>
-                  <div class="community-feed-person-copy">
-                    <div class="community-feed-person-name">Ava Cole</div>
-                    <div class="community-feed-person-handle">@ava</div>
-                  </div>
-                  <button type="button" class="community-feed-follow" disabled>Follow</button>
-                </div>
-                <div class="community-feed-person is-later">
-                  <div class="community-post-face">J</div>
-                  <div class="community-feed-person-copy">
-                    <div class="community-feed-person-name">Jordan Hale</div>
-                    <div class="community-feed-person-handle">@jordan</div>
-                  </div>
-                  <button type="button" class="community-feed-follow" disabled>Follow</button>
-                </div>
-                <div class="community-feed-person is-later">
-                  <div class="community-post-face">R</div>
-                  <div class="community-feed-person-copy">
-                    <div class="community-feed-person-name">Riley Moss</div>
-                    <div class="community-feed-person-handle">@riley</div>
-                  </div>
-                  <button type="button" class="community-feed-follow" disabled>Follow</button>
-                </div>
-                <button type="button" class="community-feed-card-link" disabled>Find more people</button>
+                <div id="community-feed-grow-list"></div>
+                <button type="button" class="community-feed-card-link" id="community-feed-find-people">Find more people</button>
               </section>
               <section class="community-feed-card community-feed-interest" id="community-feed-interest">
                 <div class="community-feed-live-row">
@@ -2335,6 +2286,32 @@
     </div>
   </div>
 
+  <div id="community-topics-overlay" hidden>
+    <div id="community-topics-card" class="community-compose-card community-feed-subcard" role="dialog" aria-modal="true" aria-labelledby="community-topics-title">
+      <div class="community-compose-header">
+        <span id="community-topics-title" class="community-compose-title">Explore topics</span>
+      </div>
+      <div class="community-compose-body" id="community-topics-list"></div>
+      <div class="community-compose-footer">
+        <button type="button" class="ghost-btn" id="community-topics-cancel">Cancel</button>
+        <span></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="community-people-overlay" hidden>
+    <div id="community-people-card" class="community-compose-card community-feed-subcard" role="dialog" aria-modal="true" aria-labelledby="community-people-title">
+      <div class="community-compose-header">
+        <span id="community-people-title" class="community-compose-title">Find more people</span>
+      </div>
+      <div class="community-compose-body" id="community-people-list"></div>
+      <div class="community-compose-footer">
+        <button type="button" class="ghost-btn" id="community-people-cancel">Cancel</button>
+        <span></span>
+      </div>
+    </div>
+  </div>
+
   <div id="community-settings-overlay" hidden>
     <div id="community-settings-card" role="dialog" aria-modal="true" aria-labelledby="community-settings-heading">
       <div id="community-settings-top">
@@ -3074,11 +3051,12 @@
     </div>
 <script src="boot.js?v=159"></script>
 <script src="app-shell.js?v=78"></script>
-<script src="communities.js?v=49"></script>
+<script src="communities.js?v=50"></script>
 <script src="news.js?v=6"></script>
 <script src="community-posts.js?v=5"></script>
 <script src="community-rooms.js?v=8"></script>
-<script src="community-search.js?v=2"></script>
+<script src="community-search.js?v=3"></script>
+<script src="community-feed.js?v=1"></script>
 <script src="community-settings.js?v=7"></script>
 <script src="community-room-settings.js?v=2"></script>
 <script src="community-phone.js?v=4"></script>

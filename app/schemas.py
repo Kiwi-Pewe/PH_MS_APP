@@ -892,6 +892,11 @@ class Kofi_connect(BaseModel):
     verification_token: str
 
 
+class Kofi_card(BaseModel):
+    page_url: str = ""
+    disclaimer: str = ""
+
+
 class Edit_announcement(BaseModel):
     post_id: int
     title: str

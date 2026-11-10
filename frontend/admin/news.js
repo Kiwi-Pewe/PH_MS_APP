@@ -448,12 +448,22 @@ function paintNewsBroadcast(main) {
   main.appendChild(panel.panel);
 }
 
-function openNewsDonateCard(fromAdmin) {
+function fillNewsDonateCard(disclaimer, href) {
+  const note = document.getElementById("news-donate-disclaimer");
+  const text = String(disclaimer || "").trim();
+  if (note) note.textContent = text || "Disclaimer will be set later.";
+  const go = document.getElementById("news-donate-continue");
+  if (!go) return;
+  const url = String(href || "").trim();
+  go.dataset.href = url;
+  go.disabled = !(url && text);
+}
+
+function openNewsDonateCard(disclaimer, href) {
+  fillNewsDonateCard(disclaimer, href);
   const overlay = document.getElementById("news-donate-overlay");
   if (!overlay) return;
   overlay.hidden = false;
-  const continueBtn = document.getElementById("news-donate-continue");
-  if (continueBtn) continueBtn.disabled = true;
 }
 
 function closeNewsDonateCard() {
@@ -486,4 +496,10 @@ document.addEventListener("click", (event) => {
 const newsDonateCancel = document.getElementById("news-donate-cancel");
 if (newsDonateCancel) newsDonateCancel.addEventListener("click", closeNewsDonateCard);
 const newsDonateContinue = document.getElementById("news-donate-continue");
-if (newsDonateContinue) newsDonateContinue.addEventListener("click", closeNewsDonateCard);
+if (newsDonateContinue) {
+  newsDonateContinue.addEventListener("click", () => {
+    const href = newsDonateContinue.dataset.href || "";
+    if (href) window.open(href, "_blank", "noopener,noreferrer");
+    closeNewsDonateCard();
+  });
+}

@@ -2,11 +2,11 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from hmac import compare_digest
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse
 import json
 
 from app.models import UserInfo, Kofi_settings, Kofi_payment
-from app.schemas import Kofi_connect
+from app.schemas import Kofi_connect, Kofi_card
 from app.database import get_db
 from app.auth import get_current_user
 
@@ -150,12 +150,42 @@ def format_kofi_money(amount, currency="USD"):
     return text + " " + code
 
 
+def normalize_kofi_page(url):
+    text = (url or "").strip()
+    if not text:
+        return ""
+    if "://" not in text:
+        text = "https://" + text
+    parsed = urlparse(text)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https":
+        raise HTTPException(status_code=400, detail="Ko-fi link must use https.")
+    if host not in ("ko-fi.com", "www.ko-fi.com"):
+        raise HTTPException(status_code=400, detail="Link must be a Ko-fi page.")
+    path = parsed.path or "/"
+    return "https://ko-fi.com" + path + (("?" + parsed.query) if parsed.query else "")
+
+
+def pack_kofi_card(row):
+    url = (row.page_url if row else "") or ""
+    disclaimer = (row.disclaimer if row else "") or ""
+    return {
+        "page_url": url,
+        "disclaimer": disclaimer,
+        "ready": bool(url.strip() and disclaimer.strip()),
+    }
+
+
 def pack_kofi_status(row):
+    card = pack_kofi_card(row)
     return {
         "connected": bool(row and (row.verification_token or "").strip()),
         "connected_at": str(row.connected_at) if row and row.connected_at else None,
         "last_webhook_at": str(row.last_webhook_at) if row and row.last_webhook_at else None,
         "last_webhook_ok": bool(row.last_webhook_ok) if row else False,
+        "page_url": card["page_url"],
+        "disclaimer": card["disclaimer"],
+        "ready": card["ready"],
     }
 
 
@@ -274,6 +304,31 @@ def admin_kofi_connect(
     row.connected_at = datetime.utcnow()
     database.commit()
     return pack_kofi_status(row)
+
+
+@router.post("/admin/kofi/card")
+def admin_kofi_card(
+    body: Kofi_card,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    disclaimer = (body.disclaimer or "").strip()
+    if len(disclaimer) > 4000:
+        raise HTTPException(status_code=400, detail="Disclaimer is too long.")
+    row = kofi_row(database)
+    row.page_url = normalize_kofi_page(body.page_url) or None
+    row.disclaimer = disclaimer or None
+    database.commit()
+    return pack_kofi_status(row)
+
+
+@router.get("/kofi/card")
+def public_kofi_card(
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    return pack_kofi_card(kofi_row(database))
 
 
 @router.post("/admin/kofi/disconnect")

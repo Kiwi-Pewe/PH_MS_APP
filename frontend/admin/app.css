@@ -688,3 +688,30 @@
   margin-left: 0;
   align-self: auto;
 }
+
+.admin-settings-stack {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-settings-actions .admin-mod-confirm,
+.admin-settings-actions .admin-mod-cancel {
+  margin-left: 0;
+}
+
+.admin-settings-error {
+  margin: 0;
+  color: var(--danger, #c45c5c);
+  font-size: 13px;
+}

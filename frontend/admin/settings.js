@@ -77,29 +77,63 @@ function paintSettingsKofi(main, status) {
   action.addEventListener("click", connected ? disconnectSettingsKofi : openSettingsKofiConnect);
   row.appendChild(action);
   link.body.appendChild(row);
-  main.appendChild(link.panel);
+  const stack = adminEl("div", "admin-settings-stack");
+  stack.appendChild(link.panel);
   const card = adminPanel({ title: "Leave-site card", meta: "News → Donate" });
   card.body.classList.add("admin-settings-fields");
   card.body.appendChild(adminEl("div", "users-field-k", "Ko-fi page"));
   const url = adminEl("input", "admin-mod-input");
-  url.type = "text";
-  url.placeholder = "Ko-fi link";
-  url.disabled = true;
+  url.type = "url";
+  url.placeholder = "https://ko-fi.com/yourpage";
+  url.value = (status && status.page_url) || "";
   card.body.appendChild(url);
   card.body.appendChild(adminEl("div", "users-field-k", "Disclaimer"));
   const area = adminEl("textarea", "admin-mod-reason");
   area.rows = 5;
   area.placeholder = "Shown on the leave-site card before Ko-fi opens.";
-  area.disabled = true;
+  area.value = (status && status.disclaimer) || "";
   card.body.appendChild(area);
-  const preview = adminEl("button", "admin-mod-confirm");
+  const err = adminEl("p", "admin-settings-error");
+  err.hidden = true;
+  card.body.appendChild(err);
+  const actions = adminEl("div", "admin-settings-actions");
+  const save = adminEl("button", "admin-mod-confirm");
+  save.type = "button";
+  save.textContent = "Save";
+  save.addEventListener("click", () => {
+    err.hidden = true;
+    err.textContent = "";
+    save.disabled = true;
+    adminApi("/admin/kofi/card", {
+      method: "POST",
+      body: { page_url: url.value, disclaimer: area.value }
+    }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+      save.disabled = false;
+      if (!result.ok) {
+        const detail = result.data && result.data.detail;
+        err.textContent = typeof detail === "string" ? detail : "Could not save the leave-site card.";
+        err.hidden = false;
+        return;
+      }
+      if (result.data && result.data.page_url != null) url.value = result.data.page_url;
+      if (result.data && result.data.disclaimer != null) area.value = result.data.disclaimer;
+    }).catch(() => {
+      save.disabled = false;
+      err.textContent = "Could not save the leave-site card.";
+      err.hidden = false;
+    });
+  });
+  const preview = adminEl("button", "admin-mod-cancel");
   preview.type = "button";
   preview.textContent = "Preview leave-site card";
   preview.addEventListener("click", () => {
-    if (typeof openNewsDonateCard === "function") openNewsDonateCard(true);
+    if (typeof openNewsDonateCard === "function") openNewsDonateCard(area.value, url.value);
   });
-  card.body.appendChild(preview);
-  main.appendChild(card.panel);
+  actions.appendChild(save);
+  actions.appendChild(preview);
+  card.body.appendChild(actions);
+  stack.appendChild(card.panel);
+  main.appendChild(stack);
 }
 
 function paintAdminSettings(main, sectionId) {

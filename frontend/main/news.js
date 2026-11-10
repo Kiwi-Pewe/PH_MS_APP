@@ -6,6 +6,7 @@ let newsQuery = "";
 let newsSearchTimer = 0;
 let newsUnread = 0;
 let newsLoaded = false;
+let newsKofiCard = null;
 
 const NEWS_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -18,12 +19,37 @@ function closeNewsDonate() {
   if (overlay) overlay.hidden = true;
 }
 
+function fillNewsDonateCard(disclaimer, href) {
+  const note = document.getElementById("news-donate-disclaimer");
+  const text = String(disclaimer || "").trim();
+  if (note) note.textContent = text || "Disclaimer will be set later.";
+  const go = document.getElementById("news-donate-continue");
+  if (!go) return;
+  const url = String(href || "").trim();
+  go.dataset.href = url;
+  go.disabled = !(url && text);
+}
+
+function loadNewsKofiCard() {
+  return fetch("https://" + serverAddress + "/kofi/card", { credentials: "include" }).then((response) => {
+    if (!response.ok) return null;
+    return response.json();
+  }).then((data) => {
+    newsKofiCard = data || null;
+    return newsKofiCard;
+  }).catch(() => null);
+}
+
 function openNewsDonate() {
   const overlay = document.getElementById("news-donate-overlay");
   if (!overlay) return;
+  const card = newsKofiCard || {};
+  fillNewsDonateCard(card.disclaimer, card.page_url);
   overlay.hidden = false;
-  const go = document.getElementById("news-donate-continue");
-  if (go) go.disabled = true;
+  loadNewsKofiCard().then((data) => {
+    if (overlay.hidden) return;
+    fillNewsDonateCard(data && data.disclaimer, data && data.page_url);
+  });
 }
 
 function newsViewOpen() {
@@ -327,7 +353,13 @@ if (newsDonateOverlay) {
     if (e.target && e.target.id === "news-donate-overlay") closeNewsDonate();
   });
 }
-["news-donate-cancel", "news-donate-continue"].forEach((id) => {
-  const btn = document.getElementById(id);
-  if (btn) btn.addEventListener("click", () => closeNewsDonate());
-});
+const newsDonateCancel = document.getElementById("news-donate-cancel");
+if (newsDonateCancel) newsDonateCancel.addEventListener("click", closeNewsDonate);
+const newsDonateContinue = document.getElementById("news-donate-continue");
+if (newsDonateContinue) {
+  newsDonateContinue.addEventListener("click", () => {
+    const href = newsDonateContinue.dataset.href || "";
+    if (href) window.open(href, "_blank", "noopener,noreferrer");
+    closeNewsDonate();
+  });
+}

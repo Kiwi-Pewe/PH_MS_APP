@@ -167,7 +167,7 @@ function communityRoomBlacklisted(row) {
   if (!row || (typeof communityRoomMine === "function" && communityRoomMine(row))) return false;
   if (communityRoomWordHit(row.name) || communityRoomWordHit(row.about)) return true;
   if (!communityRoomPrefs.topics.length) return false;
-  const wanted = new Set(communityRoomPrefs.topics);
+  const wanted = new Set((communityRoomPrefs.topics || []).map((item) => String(item || "").toLowerCase()));
   return (row.topics || []).some((topic) => wanted.has(String(topic || "").split(/\s+/).filter(Boolean).join(" ").toLowerCase()));
 }
 
@@ -331,6 +331,12 @@ function appendCommunityRoomGeneral(section) {
   chat.appendChild(communityRoomPrefToggle("allow_mentions", "Allow mentions in rooms", "Let people mention you in rooms."));
   chat.appendChild(communityRoomPrefToggle("show_members", "Show member list when opening a room", "Open the member list with the room."));
   chat.appendChild(communityRoomPrefToggle("confirm_leave", "Confirm before leaving a room", "Ask before leaving a room."));
+  if (communityRoomPrefsStatus) {
+    const status = document.createElement("div");
+    status.className = "settings-form-status";
+    status.textContent = communityRoomPrefsStatus;
+    chat.appendChild(status);
+  }
   section.appendChild(chat);
 }
 

@@ -72,6 +72,12 @@ function appendCommunityPhoneGeneral(section) {
   chat.appendChild(communityPhonePrefToggle("unread_count", "Show unread count", "Show unread messages."));
   chat.appendChild(communityPhonePrefToggle("confirm_end", "Confirm before ending a chat", "Ask before ending a chat."));
   chat.appendChild(communityPhonePrefToggle("auto_find", "Find someone again after a chat ends", "Search again when a chat ends."));
+  if (communityPhonePrefsStatus) {
+    const status = document.createElement("div");
+    status.className = "settings-form-status";
+    status.textContent = communityPhonePrefsStatus;
+    chat.appendChild(status);
+  }
   section.appendChild(chat);
 }
 

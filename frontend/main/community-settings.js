@@ -126,8 +126,9 @@ async function saveCommunityBlacklistFilter(method, path, payload) {
     if (typeof communityRoomPrefsRequest === "function" && typeof applyCommunityRoomPrefs === "function") {
       errors.push(await communityBlacklistJob(async () => applyCommunityRoomPrefs(await communityRoomPrefsRequest(method, "/community_room_settings/filters", { kind: "topic", label }))));
     }
-    if (typeof communityFinderPrefsRequest === "function" && typeof applyCommunityFinderPrefs === "function") {
-      errors.push(await communityBlacklistJob(async () => applyCommunityFinderPrefs(await communityFinderPrefsRequest(method, "/community_finder_settings/filters", { kind: "tag", label }))));
+    if (method === "DELETE" && typeof communityFinderPrefsRequest === "function" && typeof applyCommunityFinderPrefs === "function") {
+      const finderErr = await communityBlacklistJob(async () => applyCommunityFinderPrefs(await communityFinderPrefsRequest(method, "/community_finder_settings/filters", { kind: "tag", label })));
+      if (finderErr && finderErr !== "That is not a tag.") errors.push(finderErr);
     }
   }
   communityPostPrefsStatus = errors.filter(Boolean)[0] || "";
@@ -135,8 +136,10 @@ async function saveCommunityBlacklistFilter(method, path, payload) {
   refreshCommunityPostsAfterPrefs();
   if (typeof paintCommunityRooms === "function") paintCommunityRooms();
   if (typeof paintCommunityRoomNav === "function") paintCommunityRoomNav();
+  if (typeof communityOpenRoom !== "undefined" && communityOpenRoom && typeof loadCommunityRoomChat === "function") loadCommunityRoomChat(communityOpenRoom);
   if (typeof refreshCommunityFinderAfterPrefs === "function") refreshCommunityFinderAfterPrefs();
   if (typeof paintCommunityPhoneBadge === "function") paintCommunityPhoneBadge();
+  if (typeof communityPhoneCall !== "undefined" && communityPhoneCall && typeof loadCommunityPhone === "function") loadCommunityPhone();
 }
 
 function paintCommunityFilterList(kind, title, desc, placeholder, rows, save) {

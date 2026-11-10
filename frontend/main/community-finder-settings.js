@@ -192,6 +192,12 @@ function appendCommunityFinderGeneral(section) {
   section.appendChild(list);
   const join = communityFinderSubblock("Join");
   join.appendChild(communityFinderPrefToggle("confirm_join", "Confirm before joining", "Ask before joining a server."));
+  if (communityFinderPrefsStatus) {
+    const status = document.createElement("div");
+    status.className = "settings-form-status";
+    status.textContent = communityFinderPrefsStatus;
+    join.appendChild(status);
+  }
   section.appendChild(join);
 }
 

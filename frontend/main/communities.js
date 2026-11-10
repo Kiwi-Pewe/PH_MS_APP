@@ -155,6 +155,7 @@ function paintCommunityFeedAside() {
   listed.sort((a, b) => String(b.active_at || "").localeCompare(String(a.active_at || "")) || (Number(b.n) || 0) - (Number(a.n) || 0));
   const room = listed[0];
   if (topicsEl) topicsEl.replaceChildren();
+  if (faces) faces.replaceChildren();
   if (!room) {
     nameEl.textContent = "No rooms found.";
     aboutEl.hidden = true;
@@ -165,7 +166,6 @@ function paintCommunityFeedAside() {
   }
   aboutEl.hidden = false;
   if (liveRow) liveRow.hidden = false;
-  if (faces) faces.hidden = false;
   nameEl.textContent = room.name || "Room";
   aboutEl.textContent = room.about || "No description yet.";
   (room.topics || []).forEach((topic) => {
@@ -173,6 +173,32 @@ function paintCommunityFeedAside() {
     pill.className = "community-tag";
     pill.textContent = topic;
     if (topicsEl) topicsEl.appendChild(pill);
+  });
+  const people = (room.faces || []).slice(0, 5);
+  if (faces) faces.hidden = !people.length;
+  people.forEach((person) => {
+    if (!faces) return;
+    const wrap = document.createElement("div");
+    wrap.className = "community-feed-face-wrap";
+    const face = document.createElement("button");
+    face.type = "button";
+    face.className = "community-feed-face community-post-face is-person";
+    const shown = (person && (person.display_name || person.username)) || "User";
+    if (typeof paintUserFace === "function") paintUserFace(face, person, { userId: person && person.id, name: shown });
+    else face.textContent = communityLetter(shown);
+    face.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (person && person.id && typeof openMiniProfile === "function") openMiniProfile(person.id, face);
+    });
+    face.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!person || !person.id || typeof showProfileContextMenu !== "function") return;
+      showProfileContextMenu(e, person.id, person.username || "", !!(myUserId && person.id === myUserId), false);
+    });
+    wrap.appendChild(face);
+    faces.appendChild(wrap);
   });
 }
 

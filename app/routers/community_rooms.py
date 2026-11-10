@@ -47,6 +47,7 @@ COMMUNITY_ROOM_TOPIC_MAX = 3
 COMMUNITY_ROOM_TOPIC_LEN = 40
 COMMUNITY_ROOM_CAP = 15
 COMMUNITY_ROOM_PAGE = 25
+COMMUNITY_ROOM_FACE_MAX = 5
 COMMUNITY_ROOM_JOIN_MAX = 5
 ROOM_JOIN_FULL = "You can only be in 5 rooms at once."
 ROOM_FILTER_KINDS = {"word": "room_word", "topic": "room_topic"}
@@ -185,7 +186,47 @@ def joined_room_ids(database, user_id, room_ids):
     return {room_id for (room_id,) in rows}
 
 
-def pack_community_room(row, viewer_id, people, counts, joined):
+def room_face_map(database, room_ids, viewer_id):
+    ids = [item for item in room_ids if item]
+    if not ids:
+        return {}
+    blocked = blocked_user_ids(database, viewer_id)
+    rows = (
+        database.query(Community_room_member)
+        .filter(Community_room_member.room_id.in_(ids))
+        .order_by(Community_room_member.joined_at.desc(), Community_room_member.id.desc())
+        .all()
+    )
+    picked = {}
+    user_ids = []
+    for row in rows:
+        if row.user_id in blocked:
+            continue
+        bucket = picked.setdefault(row.room_id, [])
+        if len(bucket) >= COMMUNITY_ROOM_FACE_MAX:
+            continue
+        bucket.append(row.user_id)
+        user_ids.append(row.user_id)
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(set(user_ids))).all() if user_ids else []
+    lookup = {account.id: account for account in accounts}
+    out = {}
+    for room_id, members in picked.items():
+        faces = []
+        for user_id in members:
+            account = lookup.get(user_id)
+            if not account:
+                continue
+            faces.append({
+                "id": account.id,
+                "username": account.username or "",
+                "display_name": (getattr(account, "display_name", None) or "").strip(),
+                "avatar": public_avatar(account),
+            })
+        out[room_id] = faces
+    return out
+
+
+def pack_community_room(row, viewer_id, people, counts, joined, faces):
     return {
         "id": row.id,
         "name": row.name or "",
@@ -195,6 +236,7 @@ def pack_community_room(row, viewer_id, people, counts, joined):
         "owned": row.owner_id == viewer_id,
         "joined": row.id in joined,
         "n": int(counts.get(row.id, 0)),
+        "faces": faces.get(row.id, []),
         "created_at": str(row.created_at) if row.created_at else "",
         "active_at": str(row.active_at) if row.active_at else "",
     }
@@ -205,7 +247,8 @@ def pack_community_rooms(database, rows, viewer_id):
     people = room_people(database, [row.owner_id for row in rows])
     counts = member_counts(database, ids)
     joined = joined_room_ids(database, viewer_id, ids)
-    return [pack_community_room(row, viewer_id, people, counts, joined) for row in rows]
+    faces = room_face_map(database, ids, viewer_id)
+    return [pack_community_room(row, viewer_id, people, counts, joined, faces) for row in rows]
 
 
 def community_room_text_hit(row, messages, needle, blocked):

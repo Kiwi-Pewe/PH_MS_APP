@@ -945,6 +945,12 @@ class News_seen(Base):
     seen_at = Column(DateTime, nullable=False)
 
 
+class News_settings(Base):
+    __tablename__ = "news_settings"
+    id = Column(Integer, primary_key=True)
+    broadcast = Column(String, nullable=True)
+
+
 class Kofi_settings(Base):
     __tablename__ = "kofi_settings"
     id = Column(Integer, primary_key=True)

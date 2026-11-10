@@ -884,6 +884,15 @@ def ensure_news_tables():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS news_settings ("
+                "id INTEGER PRIMARY KEY, "
+                "broadcast VARCHAR)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_kofi_tables():

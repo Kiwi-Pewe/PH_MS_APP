@@ -19,15 +19,46 @@ function closeNewsDonate() {
   if (overlay) overlay.hidden = true;
 }
 
+function fillNewsMarkdown(el, text) {
+  if (!el) return;
+  el.replaceChildren();
+  const source = String(text || "");
+  if (!source) return;
+  if (typeof mdAppend === "function") mdAppend(el, source);
+  else if (typeof fillMentionText === "function") fillMentionText(el, source, {}, {}, { rich: true });
+  else el.textContent = source;
+}
+
 function fillNewsDonateCard(disclaimer, href) {
   const note = document.getElementById("news-donate-disclaimer");
   const text = String(disclaimer || "").trim();
-  if (note) note.textContent = text || "Disclaimer will be set later.";
+  if (note) {
+    if (text) fillNewsMarkdown(note, text);
+    else note.textContent = "Disclaimer will be set later.";
+  }
   const go = document.getElementById("news-donate-continue");
   if (!go) return;
   const url = String(href || "").trim();
   go.dataset.href = url;
   go.disabled = !(url && text);
+}
+
+function paintNewsBroadcastBanner(message) {
+  const host = document.getElementById("news-broadcast");
+  if (!host) return;
+  const text = String(message || "").trim();
+  host.replaceChildren();
+  if (!text) return;
+  fillNewsMarkdown(host, text);
+}
+
+function loadNewsBroadcast() {
+  fetch("https://" + serverAddress + "/news/broadcast", { credentials: "include" }).then((response) => {
+    if (!response.ok) return null;
+    return response.json();
+  }).then((data) => {
+    paintNewsBroadcastBanner(data && data.message);
+  }).catch(() => {});
 }
 
 function loadNewsKofiCard() {
@@ -176,7 +207,7 @@ function paintNewsPostCard(row) {
     if (row.body) {
       const body = document.createElement("div");
       body.className = "announce-post-body";
-      body.textContent = row.body;
+      fillNewsMarkdown(body, row.body);
       content.appendChild(body);
     }
   }

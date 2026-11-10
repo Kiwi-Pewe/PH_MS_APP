@@ -181,7 +181,6 @@
   padding: 14px;
   font-size: 14px;
   line-height: 1.5;
-  white-space: pre-wrap;
 }
 
 .news-end {
@@ -268,11 +267,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px dashed var(--border);
+  border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
-  color: var(--text-dim);
-  font-weight: 700;
+  color: var(--text);
+  font-weight: 600;
+  padding: 0 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .news-broadcast-actions {
@@ -323,10 +326,63 @@
   gap: 12px;
 }
 
-.news-donate-body p {
+.news-donate-body p,
+.news-donate-md {
   margin: 0;
   font-size: 16px;
   line-height: 1.5;
+}
+
+.news-donate-rule {
+  height: 1px;
+  background: var(--border);
+}
+
+.news-donate-k {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.md-bold { font-weight: 700; }
+.md-italic { font-style: italic; }
+.md-under { text-decoration: underline; }
+.md-strike { text-decoration: line-through; }
+.md-h1, .md-h2, .md-h3, .md-sub, .md-quote, .md-list, .md-codeblock { display: block; }
+.md-h1 { font-size: 1.45em; font-weight: 800; line-height: 1.25; }
+.md-h2 { font-size: 1.25em; font-weight: 800; line-height: 1.25; }
+.md-h3 { font-size: 1.1em; font-weight: 700; line-height: 1.3; }
+.md-sub { font-size: 0.8em; color: var(--text-dim); }
+.md-quote {
+  border-left: 3px solid var(--border);
+  padding-left: 8px;
+}
+
+.md-code, .md-codeblock {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--rail);
+  border-radius: 4px;
+}
+.md-code { padding: 0 4px; }
+.md-codeblock { margin: 4px 0; padding: 8px; white-space: pre-wrap; }
+
+.news-broadcast-preview {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.news-broadcast-preview .md-h1,
+.news-broadcast-preview .md-h2,
+.news-broadcast-preview .md-h3,
+.news-broadcast-preview .md-sub,
+.news-broadcast-preview .md-quote,
+.news-broadcast-preview .md-list,
+.news-broadcast-preview .md-codeblock {
+  display: inline;
+  font-size: inherit;
 }
 
 .news-donate-foot {

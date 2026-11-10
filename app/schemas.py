@@ -888,6 +888,10 @@ class News_create(BaseModel):
     comments_open: bool = True
 
 
+class News_broadcast(BaseModel):
+    message: str = ""
+
+
 class Kofi_connect(BaseModel):
     verification_token: str
 

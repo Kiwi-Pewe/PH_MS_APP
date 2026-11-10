@@ -2,8 +2,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from app.models import UserInfo, News_post, News_seen
-from app.schemas import News_create
+from app.models import UserInfo, News_post, News_seen, News_settings
+from app.schemas import News_create, News_broadcast
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import post_attachments_public, require_post_body
@@ -50,6 +50,48 @@ async def fanout_news(payload, exclude_user_id=None):
         if exclude_user_id and user_id == exclude_user_id:
             continue
         await notify_user(user_id, payload)
+
+
+def news_settings_row(database):
+    row = database.query(News_settings).filter(News_settings.id == 1).first()
+    if row:
+        return row
+    row = News_settings(id=1)
+    database.add(row)
+    database.commit()
+    database.refresh(row)
+    return row
+
+
+def pack_news_broadcast(row):
+    message = ((row.broadcast if row else "") or "").strip()
+    return {"message": message}
+
+
+@router.get("/news/broadcast")
+def get_news_broadcast(
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    return pack_news_broadcast(news_settings_row(database))
+
+
+@router.post("/news/broadcast")
+async def save_news_broadcast(
+    body: News_broadcast,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    message = (body.message or "").strip()
+    if len(message) > 500:
+        raise HTTPException(status_code=400, detail="Broadcast is too long.")
+    row = news_settings_row(database)
+    row.broadcast = message or None
+    database.commit()
+    packed = pack_news_broadcast(row)
+    await fanout_news({"type": "news_broadcast", "message": packed["message"]})
+    return packed
 
 
 @router.get("/news/posts")

@@ -36,6 +36,16 @@ function newsWhen(raw) {
   return raw || "—";
 }
 
+function fillNewsMarkdown(el, text) {
+  if (!el) return;
+  el.replaceChildren();
+  const source = String(text || "");
+  if (!source) return;
+  if (typeof mdAppend === "function") mdAppend(el, source);
+  else if (typeof fillMentionText === "function") fillMentionText(el, source, {}, {}, { rich: true });
+  else el.textContent = source;
+}
+
 function paintNewsPostCard(row) {
   const card = adminEl("article", "news-announce-card");
   const head = adminEl("div", "news-announce-head");
@@ -52,8 +62,11 @@ function paintNewsPostCard(row) {
   if (row.edited) title.appendChild(adminEl("span", "edited-tag", "edited"));
   head.appendChild(title);
   card.appendChild(head);
-  const body = String(row.body || "").trim();
-  card.appendChild(adminEl("div", "news-announce-body", body || "No additional information"));
+  const body = adminEl("div", "news-announce-body");
+  const source = String(row.body || "").trim();
+  if (source) fillNewsMarkdown(body, source);
+  else body.textContent = "No additional information";
+  card.appendChild(body);
   const foot = adminEl("div", "news-announce-foot");
   foot.appendChild(adminEl("span", "", adminNum(row.comment_count) + " comments"));
   foot.appendChild(adminEl("span", "", "Reactions"));
@@ -415,6 +428,19 @@ function paintNewsEvents(main) {
   paintNewsMonth(grid);
 }
 
+function paintNewsBroadcastPreview(host, text) {
+  if (!host) return;
+  host.replaceChildren();
+  const source = String(text || "").trim();
+  if (!source) {
+    host.textContent = "Broadcast";
+    host.classList.add("is-later");
+    return;
+  }
+  host.classList.remove("is-later");
+  fillNewsMarkdown(host, source);
+}
+
 function paintNewsBroadcast(main) {
   main.className = "is-news";
   main.appendChild(adminPageHead({
@@ -423,35 +449,93 @@ function paintNewsBroadcast(main) {
     note: "Stapled to the top rail between the page tabs and Feedback. Stays up until you clear it.",
     clock: "est"
   }));
-  const preview = adminEl("div", "news-broadcast-preview is-later");
-  preview.appendChild(adminEl("span", "", "Broadcast"));
+  const preview = adminEl("div", "news-broadcast-preview");
+  preview.id = "news-broadcast-preview";
   main.appendChild(preview);
   const panel = adminPanel({ title: "Alert", fill: true });
   panel.body.appendChild(adminEl("div", "users-field-k", "Message"));
   const area = adminEl("textarea", "admin-mod-reason");
+  area.id = "news-broadcast-input";
   area.rows = 5;
+  area.maxLength = 500;
   area.placeholder = "Maintenance window, outage, or other site-wide notice";
-  area.disabled = true;
+  area.addEventListener("input", () => paintNewsBroadcastPreview(preview, area.value));
   panel.body.appendChild(area);
+  const err = adminEl("p", "admin-settings-error");
+  err.id = "news-broadcast-error";
+  err.hidden = true;
+  panel.body.appendChild(err);
   const row = adminEl("div", "news-broadcast-actions");
   const clear = adminEl("button", "admin-mod-cancel");
   clear.type = "button";
   clear.textContent = "Clear";
-  clear.disabled = true;
   const save = adminEl("button", "admin-mod-confirm");
   save.type = "button";
   save.textContent = "Save";
-  save.disabled = true;
+  function showBroadcastError(text) {
+    err.textContent = text || "";
+    err.hidden = !text;
+  }
+  function applyBroadcastMessage(message) {
+    area.value = message || "";
+    paintNewsBroadcastPreview(preview, area.value);
+  }
+  clear.addEventListener("click", () => {
+    showBroadcastError("");
+    clear.disabled = true;
+    save.disabled = true;
+    adminApi("/news/broadcast", { method: "POST", body: { message: "" } }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+      clear.disabled = false;
+      save.disabled = false;
+      if (!result.ok) {
+        const detail = result.data && result.data.detail;
+        showBroadcastError(typeof detail === "string" ? detail : "Could not clear the broadcast.");
+        return;
+      }
+      applyBroadcastMessage("");
+    }).catch(() => {
+      clear.disabled = false;
+      save.disabled = false;
+      showBroadcastError("Could not clear the broadcast.");
+    });
+  });
+  save.addEventListener("click", () => {
+    showBroadcastError("");
+    clear.disabled = true;
+    save.disabled = true;
+    adminApi("/news/broadcast", { method: "POST", body: { message: area.value } }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+      clear.disabled = false;
+      save.disabled = false;
+      if (!result.ok) {
+        const detail = result.data && result.data.detail;
+        showBroadcastError(typeof detail === "string" ? detail : "Could not save the broadcast.");
+        return;
+      }
+      applyBroadcastMessage(result.data && result.data.message);
+    }).catch(() => {
+      clear.disabled = false;
+      save.disabled = false;
+      showBroadcastError("Could not save the broadcast.");
+    });
+  });
   row.appendChild(clear);
   row.appendChild(save);
   panel.body.appendChild(row);
   main.appendChild(panel.panel);
+  paintNewsBroadcastPreview(preview, "");
+  adminApi("/news/broadcast").then((response) => response.ok ? response.json() : null).then((data) => {
+    if (adminPage !== "news" || adminSection !== "broadcast") return;
+    applyBroadcastMessage(data && data.message);
+  }).catch(() => {});
 }
 
 function fillNewsDonateCard(disclaimer, href) {
   const note = document.getElementById("news-donate-disclaimer");
   const text = String(disclaimer || "").trim();
-  if (note) note.textContent = text || "Disclaimer will be set later.";
+  if (note) {
+    if (text) fillNewsMarkdown(note, text);
+    else note.textContent = "Disclaimer will be set later.";
+  }
   const go = document.getElementById("news-donate-continue");
   if (!go) return;
   const url = String(href || "").trim();

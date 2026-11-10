@@ -19,7 +19,18 @@
   background: var(--panel-alt);
   color: var(--text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
+}
+
+#news-broadcast .md-h1,
+#news-broadcast .md-h2,
+#news-broadcast .md-h3,
+#news-broadcast .md-sub,
+#news-broadcast .md-quote,
+#news-broadcast .md-list,
+#news-broadcast .md-codeblock {
+  display: inline;
+  font-size: inherit;
 }
 
 #news-sidebar-view {
@@ -229,10 +240,24 @@
   gap: 12px;
 }
 
-.news-donate-body p {
+.news-donate-body p,
+.news-donate-md {
   margin: 0;
   font-size: 15px;
   line-height: 1.5;
+}
+
+.news-donate-rule {
+  height: 1px;
+  background: var(--border);
+}
+
+.news-donate-k {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
 
 .news-donate-foot {

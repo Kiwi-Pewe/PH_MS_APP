@@ -34,6 +34,7 @@ window.addEventListener("load", () => {
       connectSocket();
       if (typeof loadCommunityPhone === "function") loadCommunityPhone();
       if (typeof loadNewsBadge === "function") loadNewsBadge();
+      if (typeof loadNewsBroadcast === "function") loadNewsBroadcast();
     })
     .catch(() => {
       const path = window.location.pathname || "";
@@ -750,6 +751,10 @@ function connectSocket() {
 
     if (data.type === "news_created" && typeof applyIncomingNewsPost === "function") {
       applyIncomingNewsPost(data.post);
+    }
+
+    if (data.type === "news_broadcast" && typeof paintNewsBroadcastBanner === "function") {
+      paintNewsBroadcastBanner(data.message);
     }
 
     if (data.type === "announcement_created") {

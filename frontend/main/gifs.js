@@ -108,44 +108,78 @@ async function uploadGifStillIfNeeded(intent, file) {
   }
 }
 
-function showAttentionLiveFallback(entry) {
-  if (!entry.live || !entry.img) return;
-  if (entry.img.getAttribute("src") === entry.live) return;
-  entry.img.src = entry.live;
+function placeFrameCanvas(entry, canvas) {
+  if (entry.frameCanvas && entry.frameCanvas.parentNode) entry.frameCanvas.remove();
+  entry.frameCanvas = canvas;
+  canvas.hidden = true;
+  if (entry.img && entry.img.className) canvas.className = entry.img.className;
+  canvas.setAttribute("aria-hidden", "true");
+  if (entry.img && entry.img.parentNode) entry.img.parentNode.insertBefore(canvas, entry.img);
+  else if (entry.host) entry.host.appendChild(canvas);
+}
+
+function showFrameCanvas(entry) {
+  if (!entry.frameCanvas) return;
+  entry.frameCanvas.hidden = false;
+  if (entry.img) {
+    entry.img.hidden = true;
+    entry.img.removeAttribute("src");
+  }
+}
+
+function hideFrameCanvas(entry) {
+  if (entry.frameCanvas) entry.frameCanvas.hidden = true;
+  if (entry.img) entry.img.hidden = false;
+}
+
+function paintProbeFrame(entry, probe, allowExport) {
+  const canvas = document.createElement("canvas");
+  canvas.width = probe.naturalWidth || 1;
+  canvas.height = probe.naturalHeight || 1;
+  canvas.getContext("2d").drawImage(probe, 0, 0);
+  if (allowExport) {
+    try {
+      entry.canvasUrl = canvas.toDataURL("image/webp");
+      entry.canvasBusy = false;
+      if (entry.showing === "still") {
+        hideFrameCanvas(entry);
+        entry.img.src = entry.canvasUrl;
+      }
+      return;
+    } catch (e) {}
+  }
+  placeFrameCanvas(entry, canvas);
+  entry.frameReady = true;
+  entry.canvasBusy = false;
+  if (entry.showing === "still") showFrameCanvas(entry);
 }
 
 function canvasStillFor(entry) {
   if (entry.canvasUrl) {
-    if (entry.showing === "still") entry.img.src = entry.canvasUrl;
-    return;
-  }
-  if (entry.canvasBusy || entry.canvasFailed) {
-    if (entry.canvasFailed && entry.showing === "still") showAttentionLiveFallback(entry);
-    return;
-  }
-  entry.canvasBusy = true;
-  const probe = new Image();
-  probe.crossOrigin = "anonymous";
-  probe.onload = () => {
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = probe.naturalWidth || 1;
-      canvas.height = probe.naturalHeight || 1;
-      canvas.getContext("2d").drawImage(probe, 0, 0);
-      entry.canvasUrl = canvas.toDataURL("image/webp");
-      if (entry.showing === "still") entry.img.src = entry.canvasUrl;
-    } catch (e) {
-      entry.canvasFailed = true;
-      if (entry.showing === "still") showAttentionLiveFallback(entry);
+    if (entry.showing === "still") {
+      hideFrameCanvas(entry);
+      entry.img.src = entry.canvasUrl;
     }
-    entry.canvasBusy = false;
+    return;
+  }
+  if (entry.frameReady) {
+    if (entry.showing === "still") showFrameCanvas(entry);
+    return;
+  }
+  if (entry.canvasBusy) return;
+  entry.canvasBusy = true;
+  const cors = new Image();
+  cors.crossOrigin = "anonymous";
+  cors.onload = () => paintProbeFrame(entry, cors, true);
+  cors.onerror = () => {
+    const probe = new Image();
+    probe.onload = () => paintProbeFrame(entry, probe, false);
+    probe.onerror = () => {
+      entry.canvasBusy = false;
+    };
+    probe.src = entry.live;
   };
-  probe.onerror = () => {
-    entry.canvasBusy = false;
-    entry.canvasFailed = true;
-    if (entry.showing === "still") showAttentionLiveFallback(entry);
-  };
-  probe.src = entry.live;
+  cors.src = entry.live;
 }
 
 function attentionSrcIsLive(entry) {
@@ -154,30 +188,35 @@ function attentionSrcIsLive(entry) {
 }
 
 function showAttentionStill(entry) {
+  entry.showing = "still";
   if (entry.canvasUrl) {
-    entry.showing = "still";
+    hideFrameCanvas(entry);
+    entry.img.onerror = null;
     entry.img.src = entry.canvasUrl;
     return;
   }
-  if (entry.showing === "still" && entry.img.getAttribute("src") && !attentionSrcIsLive(entry)) return;
-  entry.showing = "still";
+  if (entry.frameReady) {
+    showFrameCanvas(entry);
+    return;
+  }
   if (entry.still && !entry.stillFailed) {
+    hideFrameCanvas(entry);
     entry.img.onerror = () => {
       entry.img.onerror = null;
       entry.stillFailed = true;
-      showAttentionLiveFallback(entry);
       canvasStillFor(entry);
     };
     entry.img.src = entry.still;
+    canvasStillFor(entry);
     return;
   }
-  showAttentionLiveFallback(entry);
   canvasStillFor(entry);
 }
 
 function showAttentionLive(entry) {
-  if (entry.showing === "live") return;
+  if (entry.showing === "live" && attentionSrcIsLive(entry) && entry.img && !entry.img.hidden) return;
   entry.showing = "live";
+  hideFrameCanvas(entry);
   entry.img.onerror = null;
   entry.img.src = entry.live;
 }
@@ -215,6 +254,8 @@ function teardownAttention(entry) {
       entry.img.removeEventListener("mouseleave", entry.onLeave);
     }
   }
+  if (entry.frameCanvas && entry.frameCanvas.parentNode) entry.frameCanvas.remove();
+  entry.frameCanvas = null;
   if (entry.img && entry.img._attention === entry) entry.img._attention = null;
   attentionGifs.delete(entry);
 }
@@ -268,7 +309,8 @@ function bindAttentionGif(img, opts) {
     stillFailed: false,
     canvasUrl: "",
     canvasBusy: false,
-    canvasFailed: false,
+    frameReady: false,
+    frameCanvas: null,
     observer: null,
     onEnter: null,
     onLeave: null
@@ -303,7 +345,6 @@ function bindAttentionGif(img, opts) {
   img._attention = entry;
   attentionGifs.add(entry);
   ensureAttentionListeners();
-  if (entry.live) img.src = entry.live;
   entry.update();
 }
 

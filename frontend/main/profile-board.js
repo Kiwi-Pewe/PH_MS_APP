@@ -88,6 +88,7 @@ const PROFILE_TILE_TYPES = {
   gallery: { w: 6, h: 6, minW: 3, minH: 3, maxW: 9, maxH: 9, label: "Gallery" },
   comments: { w: 12, h: 10, minW: 8, minH: 6, maxW: 24, maxH: 18, label: "Comments" },
   display_server: { w: 10, h: 8, minW: 6, minH: 4, maxW: 16, maxH: 18, label: "Display Server" },
+  chat_room: { w: 14, h: 12, minW: 10, minH: 8, maxW: 24, maxH: 20, label: "Chat Room" },
   steam_profile: { w: 12, h: 7, minW: 8, minH: 5, maxW: 12, maxH: 7, label: "Profile" },
   steam_playing_now: { w: 10, h: 4, minW: 7, minH: 4, maxW: 10, maxH: 6, label: "Playing Now" },
   steam_recently_played: { w: 12, h: 8, minW: 7, minH: 6, maxW: 16, maxH: 16, label: "Recently Played" },
@@ -698,6 +699,14 @@ function defaultProfileTileProps(type, existing) {
       owner_can_post: !!prev.owner_can_post
     }, chrome);
   }
+  if (type === "chat_room") {
+    const mode = prev.mode === "profile" ? "profile" : "rooms";
+    return Object.assign({
+      title: String(prev.title || "").trim() || (mode === "profile" ? "Profile chat" : "Chat rooms"),
+      mode,
+      owner_rooms: !!prev.owner_rooms
+    }, chrome);
+  }
   if (type === "display_server") {
     const ids = [];
     const seen = {};
@@ -796,7 +805,7 @@ function profileHasFixedTitle(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "display_name" || type === "meter" || type === "member_since" || type === "friends" || type === "link_tree" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "mutuals" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "chat_room" || type === "display_name" || type === "meter" || type === "member_since" || type === "friends" || type === "link_tree" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "mutuals" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
 }
 
 function profileTextChrome(props, type) {
@@ -5918,6 +5927,10 @@ function paintProfileTileContent(tile, el) {
     paintProfileDisplayServer(tile, el);
     return;
   }
+  if (tile.type === "chat_room") {
+    if (typeof paintProfileChatRoom === "function") paintProfileChatRoom(tile, el);
+    return;
+  }
   if (tile.type === "clock") {
     paintProfileClock(tile, el);
     return;
@@ -6176,7 +6189,7 @@ function renderProfileBoard() {
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
         if (typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) return;
-        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock" || tile.type === "frame" || tile.type === "meter") {
+        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "chat_room" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock" || tile.type === "frame" || tile.type === "meter") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

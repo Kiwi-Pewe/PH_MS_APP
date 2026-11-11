@@ -67,7 +67,8 @@ const PROFILE_PALETTE = [
     label: "Community",
     items: [
       { type: "comments", label: "Comments" },
-      { type: "display_server", label: "Display Server" }
+      { type: "display_server", label: "Display Server" },
+      { type: "chat_room", label: "Chat Room" }
     ]
   },
   {
@@ -621,7 +622,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "chat_room" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
 }
 
 function profileHasLinkSettings(type) {
@@ -675,6 +676,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "display_server") {
     fillDisplayServerOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "chat_room") {
+    fillChatRoomOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "divider") {
@@ -2044,6 +2049,74 @@ function fillGalleryOptions(box, draft, onChange, hintEl) {
 
   mode.select.addEventListener("change", () => {
     draft.mode = mode.select.value === "slideshow" ? "slideshow" : "manual";
+    paintExtras();
+    onChange();
+  });
+  paintExtras();
+}
+
+function fillChatRoomOptions(box, draft, onChange, hintEl) {
+  draft.mode = draft.mode === "profile" ? "profile" : "rooms";
+  draft.owner_rooms = !!draft.owner_rooms;
+  draft.title = String(draft.title || "").trim() || (draft.mode === "profile" ? "Profile chat" : "Chat rooms");
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = "Title";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.maxLength = 48;
+  nameInput.value = draft.title;
+  nameInput.placeholder = draft.mode === "profile" ? "Profile chat" : "Chat rooms";
+  profileOptHint(nameLabel, "Label at the top of this tile.", hintEl);
+  nameInput.addEventListener("input", () => {
+    draft.title = nameInput.value;
+    onChange();
+  });
+  nameLabel.appendChild(nameInput);
+  box.appendChild(nameLabel);
+  const modeBlock = profileOptSection(box);
+  const mode = profileSelectField("Mode", [
+    { value: "rooms", label: "Chat rooms" },
+    { value: "profile", label: "Profile chat" }
+  ], draft.mode);
+  profileOptHint(mode.label, "Chat rooms lists rooms you are in. Profile chat is a thread on this profile.", hintEl);
+  modeBlock.appendChild(mode.label);
+  const extras = document.createElement("div");
+  extras.className = "profile-opt-mode-extras";
+  modeBlock.appendChild(extras);
+  function paintExtras() {
+    extras.innerHTML = "";
+    if (draft.mode === "rooms") {
+      const row = settingsOpt(
+        "Only rooms we're both in",
+        "",
+        settingsToggle(draft.owner_rooms, false, (on) => {
+          draft.owner_rooms = on;
+          onChange();
+        })
+      );
+      profileOptHint(row, "Off: every room you have joined. On: only rooms you and this profile owner share.", hintEl);
+      extras.appendChild(row);
+      return;
+    }
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "ghost-btn";
+    clear.textContent = "Clear";
+    const row = settingsOpt(
+      "Clear chat history",
+      "Removes every message in this profile chat for everyone.",
+      clear
+    );
+    profileOptHint(row, "Wipes the 25-message history on this profile.", hintEl);
+    extras.appendChild(row);
+  }
+  mode.select.addEventListener("change", () => {
+    draft.mode = mode.select.value === "profile" ? "profile" : "rooms";
+    if (!String(draft.title || "").trim() || draft.title === "Chat rooms" || draft.title === "Profile chat") {
+      draft.title = draft.mode === "profile" ? "Profile chat" : "Chat rooms";
+      nameInput.value = draft.title;
+      nameInput.placeholder = draft.title;
+    }
     paintExtras();
     onChange();
   });

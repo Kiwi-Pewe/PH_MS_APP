@@ -29,7 +29,7 @@ TILE_TYPES = {
     "connections", "featured_friend", "mutuals",
     "frame", "color_block", "icon", "meter", "clock", "countdown",
     "image", "video", "music", "embed", "gallery", "slideshow",
-    "comments", "display_server", "server_list", "featured_server",
+    "comments", "display_server", "server_list", "featured_server", "chat_room",
     "achievements", "recently_played", "favorite_game", "currently_playing",
     "want_to_play", "games_played", "game_stats", "library", "review",
     "steam_profile", "steam_playing_now", "steam_recently_played",
@@ -56,6 +56,7 @@ LIST_MAX_ITEMS = 20
 PROFILE_COMMENT_MAX = 1000
 PROFILE_COMMENT_PAGE = 6
 DISPLAY_SERVER_MAX = 20
+CHAT_ROOM_MODES = {"rooms", "profile"}
 SERVER_ID_RE = re.compile(r"^[234679ACDEFGHJKLMNPQRTUVWXYZ]{10}$")
 LINK_MAX = 12
 LINK_USER_MAX = 32
@@ -237,6 +238,7 @@ def tile_bounds(kind, props=None):
         "slideshow": (3, 3, 9, 9),
         "comments": (8, 6, 24, 18),
         "display_server": (6, 4, 16, 18),
+        "chat_room": (10, 8, 24, 20),
         "server_list": (6, 4, 16, 18),
         "featured_server": (6, 4, 16, 18),
         "achievements": (8, 3, 24, 12),
@@ -303,6 +305,7 @@ def default_sizes(kind):
         "slideshow": (6, 6),
         "comments": (12, 10),
         "display_server": (10, 8),
+        "chat_room": (14, 12),
         "server_list": (10, 8),
         "featured_server": (10, 8),
         "achievements": (12, 5),
@@ -862,6 +865,20 @@ def normalize_gallery_props(data):
     out["transition"] = "fade" if data.get("transition") == "fade" else "cut"
     out["speed"] = clamp_int(data.get("speed"), GALLERY_SPEED_MIN, GALLERY_SPEED_MAX, GALLERY_SPEED_DEF)
     out["shuffle"] = bool(data.get("shuffle"))
+    return out
+
+
+def normalize_chat_room_props(data):
+    mode = str(data.get("mode") or "").strip().lower()
+    if mode not in CHAT_ROOM_MODES:
+        mode = "rooms"
+    title = clip_text(data.get("title"), BODY_TITLE_MAX).strip()
+    if not title:
+        title = "Profile chat" if mode == "profile" else "Chat rooms"
+    out = normalize_text_chrome(data, 14, True)
+    out["mode"] = mode
+    out["title"] = title
+    out["owner_rooms"] = bool(data.get("owner_rooms"))
     return out
 
 
@@ -1475,6 +1492,8 @@ def normalize_props(kind, props, banner_fallback):
         return out
     if kind == "display_server":
         return normalize_display_server_props(data)
+    if kind == "chat_room":
+        return normalize_chat_room_props(data)
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
     if kind == "steam_profile":

@@ -495,18 +495,30 @@ function bindFeedUserChrome(el, alert) {
   });
 }
 
+function feedJoinedServer(serverId) {
+  if (serverId == null || serverId === "") return false;
+  const list = typeof serverList !== "undefined" ? serverList : [];
+  return list.some((row) => row && String(row.id) === String(serverId));
+}
+
 function feedAlertCanJump(alert) {
   if (!alert) return false;
   const kind = String(alert.alert_type || "").toLowerCase();
   const ctx = feedAlertContext(alert);
+  const surface = String((ctx && ctx.kind) || "").toLowerCase();
   if (kind === "widget_comment") return alert.owner_id != null || ctx.owner_id != null;
   if (kind === "friend_accept" || kind === "friend_deny" || kind === "dm_request" || kind === "dm_request_accept") return !!alert.sender_id;
   if (kind === "feedback_status" || kind === "report_status") return true;
   if (kind === "ban" || kind === "kick") return false;
-  if (kind === "application_submitted" || feedFamilyOf(alert) === "moderation") return !!alert.server_id;
-  if (kind === "event_invite" || kind === "event_created") return !!(ctx.event_id || ctx.channel_id || alert.server_id);
+  if (kind === "application_submitted" || feedFamilyOf(alert) === "moderation") return feedJoinedServer(alert.server_id);
+  if (kind === "event_invite" || kind === "event_created") {
+    return feedJoinedServer(alert.server_id) && !!(ctx.event_id || ctx.channel_id || alert.server_id);
+  }
   if (kind === "reaction" || kind === "reply" || kind === "post_comment") {
-    return !!(ctx.message_id || ctx.post_id || ctx.item_id || ctx.event_id || ctx.channel_id || ctx.party_id || alert.sender_id || alert.server_id);
+    const partyOrDm = surface === "dm" || surface === "party" || !!ctx.party_id
+      || (!alert.server_id && !!alert.sender_id && (kind === "reaction" || kind === "reply"));
+    if (!partyOrDm && alert.server_id && !feedJoinedServer(alert.server_id)) return false;
+    return !!(ctx.message_id || ctx.post_id || ctx.item_id || ctx.event_id || ctx.channel_id || ctx.party_id || alert.sender_id || (alert.server_id && feedJoinedServer(alert.server_id)));
   }
   return false;
 }
@@ -523,6 +535,7 @@ function feedFindChannel(channelId) {
 }
 
 async function feedOpenServerChannel(serverId, channelId) {
+  if (!feedJoinedServer(serverId)) return false;
   if (channelId && typeof currentServerId !== "undefined" && String(currentServerId) === String(serverId)) {
     if (typeof currentChannelId !== "undefined" && Number(currentChannelId) === Number(channelId)) return true;
     const channel = feedFindChannel(channelId);
@@ -571,7 +584,7 @@ async function jumpFeedAlert(alert) {
   }
   if (kind === "ban" || kind === "kick") return;
   if (kind === "application_submitted" || feedFamilyOf(alert) === "moderation") {
-    if (serverId && typeof openServer === "function") openServer(serverId);
+    if (feedJoinedServer(serverId) && typeof openServer === "function") openServer(serverId);
     return;
   }
   if (kind === "event_invite" || kind === "event_created" || surface === "calendar_event") {

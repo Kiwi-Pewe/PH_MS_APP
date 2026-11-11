@@ -90,6 +90,15 @@ function showPlaceSidebar(kind) {
 
 function applyPlaceChrome(opts) {
   opts = opts || {};
+  if (opts.sidebar && opts.sidebar !== "server" && typeof selectRailIcon === "function") {
+    if (opts.sidebar === "home") {
+      if (typeof selectedRailIcon === "undefined" || selectedRailIcon !== "home") {
+        selectRailIcon("home", document.getElementById("home-icon"));
+      }
+    } else {
+      selectRailIcon(null);
+    }
+  }
   if (opts.sidebar) showPlaceSidebar(opts.sidebar);
   if (opts.view) switchMainView(opts.view);
   if (opts.topbar != null && typeof setTopbarTab === "function") setTopbarTab(opts.topbar);

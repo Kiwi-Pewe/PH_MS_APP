@@ -502,6 +502,7 @@ function feedAlertCanJump(alert) {
   if (kind === "widget_comment") return alert.owner_id != null || ctx.owner_id != null;
   if (kind === "friend_accept" || kind === "friend_deny" || kind === "dm_request" || kind === "dm_request_accept") return !!alert.sender_id;
   if (kind === "feedback_status" || kind === "report_status") return true;
+  if (kind === "ban" || kind === "kick") return false;
   if (kind === "application_submitted" || feedFamilyOf(alert) === "moderation") return !!alert.server_id;
   if (kind === "event_invite" || kind === "event_created") return !!(ctx.event_id || ctx.channel_id || alert.server_id);
   if (kind === "reaction" || kind === "reply" || kind === "post_comment") {
@@ -568,6 +569,7 @@ async function jumpFeedAlert(alert) {
     if (typeof openFeedbackCard === "function") openFeedbackCard();
     return;
   }
+  if (kind === "ban" || kind === "kick") return;
   if (kind === "application_submitted" || feedFamilyOf(alert) === "moderation") {
     if (serverId && typeof openServer === "function") openServer(serverId);
     return;

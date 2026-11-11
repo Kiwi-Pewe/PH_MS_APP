@@ -274,11 +274,15 @@ function applyServerBanner(serverId, banner) {
 }
 
 function selectRailIcon(id, iconEl) {
-  selectedRailIcon = id;
+  selectedRailIcon = id == null || id === "" ? null : id;
   document.querySelectorAll(".rail-icon").forEach(i => i.classList.remove("active"));
-  const el = iconEl || (id === "home"
+  if (selectedRailIcon == null) {
+    if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();
+    return;
+  }
+  const el = iconEl || (selectedRailIcon === "home"
     ? document.getElementById("home-icon")
-    : document.querySelector(`.rail-icon.server-icon[data-server-id="${CSS.escape(String(id))}"]`));
+    : document.querySelector(`.rail-icon.server-icon[data-server-id="${CSS.escape(String(selectedRailIcon))}"]`));
   if (el) el.classList.add("active");
   if (typeof refreshAttentionGifs === "function") refreshAttentionGifs();
 }

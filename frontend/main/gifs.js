@@ -108,12 +108,21 @@ async function uploadGifStillIfNeeded(intent, file) {
   }
 }
 
+function showAttentionLiveFallback(entry) {
+  if (!entry.live || !entry.img) return;
+  if (entry.img.getAttribute("src") === entry.live) return;
+  entry.img.src = entry.live;
+}
+
 function canvasStillFor(entry) {
   if (entry.canvasUrl) {
     if (entry.showing === "still") entry.img.src = entry.canvasUrl;
     return;
   }
-  if (entry.canvasBusy) return;
+  if (entry.canvasBusy || entry.canvasFailed) {
+    if (entry.canvasFailed && entry.showing === "still") showAttentionLiveFallback(entry);
+    return;
+  }
   entry.canvasBusy = true;
   const probe = new Image();
   probe.crossOrigin = "anonymous";
@@ -125,11 +134,16 @@ function canvasStillFor(entry) {
       canvas.getContext("2d").drawImage(probe, 0, 0);
       entry.canvasUrl = canvas.toDataURL("image/webp");
       if (entry.showing === "still") entry.img.src = entry.canvasUrl;
-    } catch (e) {}
+    } catch (e) {
+      entry.canvasFailed = true;
+      if (entry.showing === "still") showAttentionLiveFallback(entry);
+    }
     entry.canvasBusy = false;
   };
   probe.onerror = () => {
     entry.canvasBusy = false;
+    entry.canvasFailed = true;
+    if (entry.showing === "still") showAttentionLiveFallback(entry);
   };
   probe.src = entry.live;
 }
@@ -140,21 +154,24 @@ function attentionSrcIsLive(entry) {
 }
 
 function showAttentionStill(entry) {
-  if (entry.showing === "still" && entry.img.getAttribute("src") && !attentionSrcIsLive(entry)) return;
-  entry.showing = "still";
   if (entry.canvasUrl) {
+    entry.showing = "still";
     entry.img.src = entry.canvasUrl;
     return;
   }
+  if (entry.showing === "still" && entry.img.getAttribute("src") && !attentionSrcIsLive(entry)) return;
+  entry.showing = "still";
   if (entry.still && !entry.stillFailed) {
     entry.img.onerror = () => {
       entry.img.onerror = null;
       entry.stillFailed = true;
+      showAttentionLiveFallback(entry);
       canvasStillFor(entry);
     };
     entry.img.src = entry.still;
     return;
   }
+  showAttentionLiveFallback(entry);
   canvasStillFor(entry);
 }
 
@@ -251,6 +268,7 @@ function bindAttentionGif(img, opts) {
     stillFailed: false,
     canvasUrl: "",
     canvasBusy: false,
+    canvasFailed: false,
     observer: null,
     onEnter: null,
     onLeave: null
@@ -285,6 +303,7 @@ function bindAttentionGif(img, opts) {
   img._attention = entry;
   attentionGifs.add(entry);
   ensureAttentionListeners();
+  if (entry.live) img.src = entry.live;
   entry.update();
 }
 

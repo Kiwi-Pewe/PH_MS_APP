@@ -216,6 +216,8 @@
   flex: 1 1 auto; min-height: 0; width: 100%;
   display: flex; flex-direction: column; align-items: center; gap: 16px;
   overflow-y: auto;
+  padding: 8px 0;
+  box-sizing: border-box;
 }
 .server-icon-wrap {
   position: relative;
@@ -2757,7 +2759,7 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 }
 
 #announcements-posts,
-#feed-posts { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+#feed-posts { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
 .announce-posts-spacer { flex: 1 0 auto; }
 .announce-post.is-highlight { box-shadow: inset 3px 0 0 var(--accent-submenu); }
 

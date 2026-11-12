@@ -166,8 +166,14 @@ function paintProfileChatRoomComposer(state) {
     e.preventDefault();
     fire();
   });
+  const leftRule = document.createElement("div");
+  leftRule.className = "profile-chat-room-compose-rule";
+  const rightRule = document.createElement("div");
+  rightRule.className = "profile-chat-room-compose-rule";
   row.appendChild(plus);
+  row.appendChild(leftRule);
   row.appendChild(input);
+  row.appendChild(rightRule);
   row.appendChild(emoji);
   row.appendChild(send);
   state.input = input;
@@ -433,25 +439,19 @@ function paintProfileChatRoom(tile, el) {
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   const showTitle = props.show_title !== false;
   const root = document.createElement("div");
-  root.className = "profile-chat-room";
+  root.className = "profile-chat-room" + (showTitle ? " has-title" : "");
   if (showTitle) {
     const head = document.createElement("div");
-    head.className = "oneira-wall-head";
+    head.className = "profile-chat-room-head";
     const title = document.createElement("div");
     title.className = "oneira-wall-title";
     title.textContent = profileChatRoomTitle(props);
     head.appendChild(title);
-    const topRule = document.createElement("div");
-    topRule.className = "oneira-wall-rule";
     root.appendChild(head);
-    root.appendChild(topRule);
   }
   const body = document.createElement("div");
   body.className = "profile-chat-room-body";
-  const botRule = document.createElement("div");
-  botRule.className = "oneira-wall-rule";
   root.appendChild(body);
-  root.appendChild(botRule);
   const ownerId = profileChatOwnerId();
   const state = {
     mode: profileChatRoomMode(props),

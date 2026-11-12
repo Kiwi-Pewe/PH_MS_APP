@@ -68,7 +68,8 @@ const PROFILE_PALETTE = [
     items: [
       { type: "comments", label: "Comments" },
       { type: "display_server", label: "Display Server" },
-      { type: "chat_room", label: "Chat Room" }
+      { type: "chat_room", label: "Chat Room" },
+      { type: "phone", label: "Phone" }
     ]
   },
   {
@@ -622,7 +623,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "chat_room" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "chat_room" || type === "phone" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
 }
 
 function profileHasLinkSettings(type) {
@@ -680,6 +681,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "chat_room") {
     fillChatRoomOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "phone") {
+    fillPhoneOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "divider") {
@@ -2122,6 +2127,16 @@ function fillChatRoomOptions(box, draft, onChange, hintEl) {
     onChange();
   });
   paintExtras();
+}
+
+function fillPhoneOptions(box, draft, onChange, hintEl) {
+  if (draft.show_title == null) draft.show_title = true;
+  draft.title = String(draft.title || "").trim() || "Phone";
+  fillBodyTitleOptions(box, draft, onChange, hintEl, {
+    placeholder: "Phone",
+    nameHint: "Label at the top of this tile.",
+    toggleHint: "Show the name in the top band of this widget."
+  });
 }
 
 function fillCommentsOptions(box, draft, onChange, hintEl) {

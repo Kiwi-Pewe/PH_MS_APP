@@ -52,11 +52,19 @@ function communityPhonePartnerHidden() {
   return !partner || !!partner.hidden || !(Number(partner.id) > 0);
 }
 
-function communityPhoneOnScreen() {
+function communityPhonePageOpen() {
   if (typeof isCommunitiesOpen === "undefined" || !isCommunitiesOpen) return false;
   const landing = document.getElementById("community-pane-garterphone");
   const chat = document.getElementById("community-pane-phone-chat");
   return !!((landing && !landing.hidden) || (chat && !chat.hidden));
+}
+
+function communityPhoneOnScreen() {
+  if (communityPhonePageOpen()) return true;
+  if (typeof isProfileOpen !== "undefined" && isProfileOpen && typeof profilePhoneTiles === "function") {
+    return profilePhoneTiles().length > 0;
+  }
+  return false;
 }
 
 function communityPhoneComposerOpen() {
@@ -375,7 +383,7 @@ function applyCommunityPhoneState(data, opts) {
     : [];
   armCommunityPhoneTimer(body);
   armCommunityPhoneWiden(body);
-  if (communityPhoneOnScreen() || (typeof communityRow !== "undefined" && communityRow === "garterphone" && typeof isCommunitiesOpen !== "undefined" && isCommunitiesOpen)) {
+  if (communityPhonePageOpen() || (typeof communityRow !== "undefined" && communityRow === "garterphone" && typeof isCommunitiesOpen !== "undefined" && isCommunitiesOpen)) {
     showCommunityPhone();
   } else {
     paintCommunityPhoneBadge();
@@ -383,6 +391,7 @@ function applyCommunityPhoneState(data, opts) {
     paintCommunityPhoneFriend();
   }
   if (opts && opts.alert && communityPhoneCall && !hadCall) playCommunityPhoneAlert("match");
+  if (typeof paintProfilePhoneTiles === "function") paintProfilePhoneTiles();
 }
 
 async function loadCommunityPhone(opts) {
@@ -490,11 +499,12 @@ function applyCommunityPhoneEnded(data) {
   communityPhoneUnread = 0;
   communityPhoneFriendNote = "";
   communityPhoneWarning = (data && data.warning) || communityPhoneWarning;
-  if (communityPhoneOnScreen() || (typeof communityRow !== "undefined" && communityRow === "garterphone")) showCommunityPhone();
+  if (communityPhonePageOpen() || (typeof communityRow !== "undefined" && communityRow === "garterphone")) showCommunityPhone();
   else {
     paintCommunityPhoneBadge();
     paintCommunityPhoneLanding();
   }
+  if (typeof paintProfilePhoneTiles === "function") paintProfilePhoneTiles();
   if (hadCall && !selfEnded && communityPhonePrefs.auto_find) {
     startCommunityPhone();
     return;
@@ -513,6 +523,7 @@ function applyCommunityPhoneMessage(data) {
   if (data.id && communityPhoneMessages.some((row) => row.id === data.id)) return;
   communityPhoneMessages.push(mapCommunityPhoneMessage(data));
   paintCommunityPhoneChat();
+  if (typeof paintProfilePhoneTiles === "function") paintProfilePhoneTiles();
   seeCommunityPhone();
   if (communityPhoneCall) communityPhoneCall.active_at = new Date().toISOString();
   armCommunityPhoneTimer({ call: communityPhoneCall });
@@ -631,13 +642,15 @@ function openCommunityPhoneMenu(e) {
   }, rows);
 }
 
-async function sendCommunityPhoneMessage() {
-  const input = document.getElementById("composer-input");
+async function sendCommunityPhoneMessage(fromInput, textOnly) {
+  const input = fromInput || document.getElementById("composer-input");
   const content = input ? input.value.trim() : "";
-  if ((!content && !pendingAttach) || !communityPhoneCall || !ws || ws.readyState !== 1) return;
-  if (pendingAttach && pendingAttach.busy) return;
+  if (textOnly) {
+    if (!content || !communityPhoneCall || !ws || ws.readyState !== 1) return;
+  } else if ((!content && !pendingAttach) || !communityPhoneCall || !ws || ws.readyState !== 1) return;
+  if (!textOnly && pendingAttach && pendingAttach.busy) return;
   let attachment = null;
-  if (pendingAttach) {
+  if (!textOnly && pendingAttach) {
     try {
       attachment = await uploadPendingIfNeeded();
     } catch (err) {
@@ -670,15 +683,18 @@ async function sendCommunityPhoneMessage() {
     avatar: typeof faceForUser === "function" ? faceForUser(myUserId) : null
   }));
   paintCommunityPhoneChat();
+  if (typeof paintProfilePhoneTiles === "function") paintProfilePhoneTiles();
   if (communityPhoneCall) {
     communityPhoneCall.active_at = new Date().toISOString();
     armCommunityPhoneTimer({ call: communityPhoneCall });
   }
   if (input) input.value = "";
-  if (typeof clearPendingAttach === "function") clearPendingAttach();
-  if (typeof clearPendingReply === "function") clearPendingReply();
-  if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
-  if (typeof autoGrowComposer === "function") autoGrowComposer();
+  if (!textOnly) {
+    if (typeof clearPendingAttach === "function") clearPendingAttach();
+    if (typeof clearPendingReply === "function") clearPendingReply();
+    if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
+    if (typeof autoGrowComposer === "function") autoGrowComposer();
+  }
 }
 
 const communityPhoneStart = document.getElementById("community-garter-start");

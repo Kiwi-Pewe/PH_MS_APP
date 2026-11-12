@@ -15589,7 +15589,8 @@ button.voice-more-row:disabled,
 #community-settings-nav::-webkit-scrollbar-thumb,
 #community-settings-main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-.profile-tile.is-chat_room {
+.profile-tile.is-chat_room,
+.profile-tile.is-phone {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -15597,19 +15598,31 @@ button.voice-more-row:disabled,
   min-height: 0;
   overflow: hidden;
 }
-.profile-tile.is-chat_room.has-widget-pad { padding: 0; }
-.profile-tile.is-editing.is-chat_room { user-select: none; }
-.profile-tile.is-editing.is-chat_room .profile-chat-room { pointer-events: none; }
+.profile-tile.is-chat_room.has-widget-pad,
+.profile-tile.is-phone.has-widget-pad { padding: 0; }
+.profile-tile.is-editing.is-chat_room,
+.profile-tile.is-editing.is-phone { user-select: none; }
+.profile-tile.is-editing.is-chat_room .profile-chat-room,
+.profile-tile.is-editing.is-phone .profile-phone { pointer-events: none; }
 .profile-tile.is-editing.is-chat_room .profile-chat-room-card,
 .profile-tile.is-editing.is-chat_room .profile-chat-room-compose,
 .profile-tile.is-editing.is-chat_room .profile-chat-room-input,
 .profile-tile.is-editing.is-chat_room .profile-chat-room-chat-head,
-.profile-tile.is-editing.is-chat_room .ghost-btn {
+.profile-tile.is-editing.is-chat_room .ghost-btn,
+.profile-tile.is-editing.is-phone .profile-chat-room-compose,
+.profile-tile.is-editing.is-phone .profile-chat-room-input,
+.profile-tile.is-editing.is-phone .profile-chat-room-chat-head,
+.profile-tile.is-editing.is-phone .ghost-btn,
+.profile-tile.is-editing.is-phone .pill-btn,
+.profile-tile.is-editing.is-phone .call-leave,
+.profile-tile.is-editing.is-phone .community-search,
+.profile-tile.is-editing.is-phone .community-filter-pill {
   pointer-events: auto;
   user-select: text;
   cursor: auto;
 }
-.profile-tile.is-editing.is-chat_room textarea.profile-chat-room-input {
+.profile-tile.is-editing.is-chat_room textarea.profile-chat-room-input,
+.profile-tile.is-editing.is-phone textarea.profile-chat-room-input {
   pointer-events: auto;
   cursor: text;
 }
@@ -15644,9 +15657,42 @@ button.voice-more-row:disabled,
   background: var(--rail);
   border-bottom: 1px solid var(--border);
 }
-.profile-tile.is-chat_room[data-title-align="left"] .oneira-wall-title { text-align: left; width: 100%; }
-.profile-tile.is-chat_room[data-title-align="center"] .oneira-wall-title { text-align: center; width: 100%; }
-.profile-tile.is-chat_room[data-title-align="right"] .oneira-wall-title { text-align: right; width: 100%; }
+.profile-tile.is-chat_room[data-title-align="left"] .oneira-wall-title,
+.profile-tile.is-phone[data-title-align="left"] .oneira-wall-title { text-align: left; width: 100%; }
+.profile-tile.is-chat_room[data-title-align="center"] .oneira-wall-title,
+.profile-tile.is-phone[data-title-align="center"] .oneira-wall-title { text-align: center; width: 100%; }
+.profile-tile.is-chat_room[data-title-align="right"] .oneira-wall-title,
+.profile-tile.is-phone[data-title-align="right"] .oneira-wall-title { text-align: right; width: 100%; }
+.profile-phone-landing {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.profile-phone-chat-head {
+  justify-content: space-between;
+  gap: 8px;
+}
+.profile-phone-chat-head .profile-chat-room-chat-title {
+  flex: 0 1 auto;
+  cursor: pointer;
+}
+.profile-phone-chat-head .profile-chat-room-chat-title.is-hidden-caller { cursor: default; }
+.profile-phone-friend {
+  position: static;
+  left: auto;
+  top: auto;
+  transform: none;
+  max-width: none;
+  pointer-events: auto;
+  flex: 1 1 auto;
+}
+.profile-phone-chat-head .call-leave {
+  flex: 0 0 auto;
+  height: 30px;
+}
 .profile-chat-room-body {
   min-height: 0;
   min-width: 0;

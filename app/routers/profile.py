@@ -30,7 +30,7 @@ TILE_TYPES = {
     "connections", "featured_friend", "mutuals",
     "frame", "color_block", "icon", "meter", "clock", "countdown",
     "image", "video", "music", "embed", "gallery", "slideshow",
-    "comments", "display_server", "server_list", "featured_server", "chat_room",
+    "comments", "display_server", "server_list", "featured_server", "chat_room", "phone",
     "achievements", "recently_played", "favorite_game", "currently_playing",
     "want_to_play", "games_played", "game_stats", "library", "review",
     "steam_profile", "steam_playing_now", "steam_recently_played",
@@ -242,6 +242,7 @@ def tile_bounds(kind, props=None):
         "comments": (8, 6, 24, 18),
         "display_server": (6, 4, 16, 18),
         "chat_room": (10, 8, 24, 20),
+        "phone": (10, 8, 24, 20),
         "server_list": (6, 4, 16, 18),
         "featured_server": (6, 4, 16, 18),
         "achievements": (8, 3, 24, 12),
@@ -309,6 +310,7 @@ def default_sizes(kind):
         "comments": (12, 10),
         "display_server": (10, 8),
         "chat_room": (14, 12),
+        "phone": (14, 12),
         "server_list": (10, 8),
         "featured_server": (10, 8),
         "achievements": (12, 5),
@@ -882,6 +884,17 @@ def normalize_chat_room_props(data):
     out["mode"] = mode
     out["title"] = title
     out["owner_rooms"] = bool(data.get("owner_rooms"))
+    shown = data.get("show_title")
+    out["show_title"] = True if shown is None else bool(shown)
+    align = str(data.get("title_align") or "")
+    out["title_align"] = align if align in ("left", "center", "right") else "left"
+    return out
+
+
+def normalize_phone_props(data):
+    title = clip_text(data.get("title"), BODY_TITLE_MAX).strip() or "Phone"
+    out = normalize_text_chrome(data, 14, True)
+    out["title"] = title
     shown = data.get("show_title")
     out["show_title"] = True if shown is None else bool(shown)
     align = str(data.get("title_align") or "")
@@ -1501,6 +1514,8 @@ def normalize_props(kind, props, banner_fallback):
         return normalize_display_server_props(data)
     if kind == "chat_room":
         return normalize_chat_room_props(data)
+    if kind == "phone":
+        return normalize_phone_props(data)
     if kind == "member_since":
         return normalize_text_chrome(data, 14, True)
     if kind == "steam_profile":

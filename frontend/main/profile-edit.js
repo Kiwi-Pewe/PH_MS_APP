@@ -69,7 +69,8 @@ const PROFILE_PALETTE = [
       { type: "comments", label: "Comments" },
       { type: "display_server", label: "Display Server" },
       { type: "chat_room", label: "Chat Room" },
-      { type: "phone", label: "Phone" }
+      { type: "phone", label: "Phone" },
+      { type: "posts", label: "Posts" }
     ]
   },
   {
@@ -623,7 +624,7 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "chat_room" || type === "phone" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
+  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "chat_room" || type === "phone" || type === "posts" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
 }
 
 function profileHasLinkSettings(type) {
@@ -685,6 +686,10 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "phone") {
     fillPhoneOptions(box, draft, onChange, hintEl);
+    return;
+  }
+  if (tile.type === "posts") {
+    fillPostsOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "divider") {
@@ -2137,6 +2142,44 @@ function fillPhoneOptions(box, draft, onChange, hintEl) {
     nameHint: "Label at the top of this tile.",
     toggleHint: "Show the name in the top band of this widget."
   });
+}
+
+function fillPostsOptions(box, draft, onChange, hintEl) {
+  if (draft.show_title == null) draft.show_title = true;
+  draft.title = String(draft.title || "").trim() || "Posts";
+  draft.feed = draft.feed === "following" || draft.feed === "timeline" ? draft.feed : "explore";
+  draft.search = String(draft.search || "");
+  fillBodyTitleOptions(box, draft, onChange, hintEl, {
+    placeholder: "Posts",
+    nameHint: "Label at the top of this tile.",
+    toggleHint: "Show the name in the top band of this widget."
+  });
+  const feedBlock = profileOptSection(box);
+  const feed = profileSelectField("Feed", [
+    { value: "explore", label: "Explore" },
+    { value: "following", label: "Following" },
+    { value: "timeline", label: "Timeline" }
+  ], draft.feed);
+  profileOptHint(feed.label, "Which Communities list this widget shows.", hintEl);
+  feed.select.addEventListener("change", () => {
+    draft.feed = feed.select.value === "following" || feed.select.value === "timeline" ? feed.select.value : "explore";
+    onChange();
+  });
+  feedBlock.appendChild(feed.label);
+  const searchLabel = document.createElement("label");
+  searchLabel.textContent = "Search";
+  const searchInput = document.createElement("input");
+  searchInput.type = "text";
+  searchInput.maxLength = 80;
+  searchInput.value = draft.search;
+  searchInput.placeholder = "Topics, @users, or #hashtags";
+  profileOptHint(searchLabel, "Filter this list. @name is an account. #tag is a hashtag.", hintEl);
+  searchInput.addEventListener("input", () => {
+    draft.search = searchInput.value;
+    onChange();
+  });
+  searchLabel.appendChild(searchInput);
+  feedBlock.appendChild(searchLabel);
 }
 
 function fillCommentsOptions(box, draft, onChange, hintEl) {

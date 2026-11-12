@@ -10,7 +10,7 @@ from app.auth import validate_session
 from app.r2 import attachment_public
 from app.routers import account, boot, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation, feedback, admin, emojis, notify_prefs, audit, feed, pins, search, lists, calendar, doc_entries, media_items, schedule, voice, connections, youtube_link, channel_follows, communities, webhooks, news, kofi
 from pydantic import ValidationError
-from app.routers.realtime import active_connections, heartbeat, notify_presence, notify_status_line, safe_send_json, set_viewer_focus
+from app.routers.realtime import active_connections, drop_profile_chat_viewer, heartbeat, notify_presence, notify_status_line, safe_send_json, set_viewer_focus, unwatch_profile_chat, watch_profile_chat
 from app.routers.messages import send_message
 from app.routers.parties import message_party, leave_party
 from app.routers.servers import message_server_channel
@@ -426,6 +426,10 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     current_user.id,
                     clip_text(current_user.profile_status, STATUS_MAX).strip(),
                 )
+            elif data["type"] == "profile_chat_view":
+                watch_profile_chat(data.get("owner_id"), current_user.id)
+            elif data["type"] == "profile_chat_leave":
+                unwatch_profile_chat(data.get("owner_id"), current_user.id)
 
     except WebSocketDisconnect:
         pass
@@ -443,5 +447,6 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
         if active_connections.get(current_user.id) is socket:
             del active_connections[current_user.id]
             set_viewer_focus(current_user.id, None)
+            drop_profile_chat_viewer(current_user.id)
             await notify_presence(database, current_user.id, "offline")
             asyncio.create_task(release_temporary_members(current_user.id))

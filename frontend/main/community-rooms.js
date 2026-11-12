@@ -140,6 +140,7 @@ function applyCommunityRoomRoster(data) {
 
 function applyCommunityRoomMessage(data) {
   if (!data) return;
+  if (typeof applyProfileChatRoomMessage === "function") applyProfileChatRoomMessage(data);
   if (data.sender_id && typeof isUserBlocked === "function" && isUserBlocked(data.sender_id)) return;
   if (String(communityOpenRoom) !== String(data.room_id)) {
     if (typeof noteCommunityRoomUnread === "function") noteCommunityRoomUnread(data);
@@ -152,6 +153,7 @@ function applyCommunityRoomMessage(data) {
 }
 
 function ackCommunityRoomMessage(tempId, id) {
+  if (typeof ackProfileChatRoomMessage === "function") ackProfileChatRoomMessage(tempId, id);
   const row = communityRoomMessages.find((item) => item.tempId === tempId);
   if (!row) return false;
   row.id = id;
@@ -159,6 +161,7 @@ function ackCommunityRoomMessage(tempId, id) {
 }
 
 function dropCommunityRoomTemp(tempId) {
+  if (typeof dropProfileChatRoomTemp === "function") dropProfileChatRoomTemp(tempId);
   const before = communityRoomMessages.length;
   communityRoomMessages = communityRoomMessages.filter((row) => row.tempId !== tempId);
   if (communityRoomMessages.length === before) return false;
@@ -271,6 +274,7 @@ async function saveCommunityRoomClose(row) {
 
 function applyCommunityRoomClosed(data) {
   if (!data) return;
+  if (typeof applyProfileChatRoomClosed === "function") applyProfileChatRoomClosed(data);
   dropCommunityRoom(data.room_id);
 }
 

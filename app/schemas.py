@@ -168,6 +168,10 @@ class Profile_comment_watch_in(BaseModel):
     watching: bool = False
 
 
+class Profile_chat_in(BaseModel):
+    content: str = ""
+
+
 class Profile_identity_in(BaseModel):
     status: str = ""
     pronouns: str = ""

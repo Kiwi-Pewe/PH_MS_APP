@@ -15629,7 +15629,6 @@ button.voice-more-row:disabled,
   font: inherit;
   cursor: pointer;
 }
-.profile-chat-room-card.is-later { opacity: 0.45; }
 .profile-chat-room-card .community-room-head,
 .profile-chat-room-card .community-room-mid,
 .profile-chat-room-card .community-room-foot {
@@ -15669,6 +15668,11 @@ button.voice-more-row:disabled,
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
+  padding: 8px 6px;
+}
+.profile-chat-room-log .msg-cluster {
+  padding-left: 8px;
+  padding-right: 8px;
 }
 .profile-chat-room-compose {
   flex: 0 0 auto;

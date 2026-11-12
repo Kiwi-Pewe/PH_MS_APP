@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 import json
@@ -6,16 +6,17 @@ import re
 import uuid
 import random
 import colorsys
-from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Block_user, Servers, Server_members
+from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Profile_chat, Block_user, Servers, Server_members, Community_room, Community_room_member
 from app.routers.connections import load_steam_achievements, load_steam_badges, load_steam_card, load_steam_playing, load_steam_recent, load_steam_library
 from app.routers.youtube_link import load_youtube_card, load_youtube_video_card, load_youtube_live_card, load_youtube_playlists_card, load_youtube_playlist_start, load_youtube_liked_card, load_youtube_subscriptions_card, load_youtube_comments_card, load_youtube_live_chat_card, load_youtube_super_chat_card
-from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in
+from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in, Profile_chat_in
 from app.database import get_db
 from app.auth import get_current_user
-from app.privacy import are_friends, can_see_full_profile
+from app.privacy import are_friends, can_see_full_profile, drop_blocked_rows
 from app.routers.account import parse_display_name_history
-from app.routers.realtime import notify_user
-from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for, still_url_for, still_url_from_public
+from app.routers.realtime import notify_user, profile_chat_viewer_ids, watch_profile_chat
+from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for, still_url_for, still_url_from_public, require_message_body
+from app.site_moderation import mask_message_payloads
 
 router = APIRouter()
 
@@ -55,6 +56,8 @@ LIST_ITEM_MAX = 200
 LIST_MAX_ITEMS = 20
 PROFILE_COMMENT_MAX = 1000
 PROFILE_COMMENT_PAGE = 6
+PROFILE_CHAT_MAX = 2000
+PROFILE_CHAT_KEEP = 25
 DISPLAY_SERVER_MAX = 20
 CHAT_ROOM_MODES = {"rooms", "profile"}
 SERVER_ID_RE = re.compile(r"^[234679ACDEFGHJKLMNPQRTUVWXYZ]{10}$")
@@ -2404,3 +2407,167 @@ def list_pinned_profile_servers(user_id: int, ids: str = "", current_user: UserI
             "icon_url": public_url_for(server.icon_key) if getattr(server, "icon_key", None) else "",
         })
     return {"servers": out}
+
+
+def profile_owner_or_404(database, user_id):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return owner
+
+
+def can_use_profile_chat(database, viewer, owner):
+    if not viewer or not owner:
+        return False
+    if viewer.id == owner.id:
+        return True
+    if not can_see_full_profile(database, viewer, owner):
+        return False
+    if users_are_blocked(database, viewer.id, owner.id):
+        return False
+    return True
+
+
+def serialize_profile_chat(row, sender):
+    return {
+        "id": row.id,
+        "owner_id": row.owner_id,
+        "sender_id": row.sender_id,
+        "username": sender.username if sender else "Unknown",
+        "display_name": public_display_name(sender) if sender else "Unknown",
+        "content": row.content or "",
+        "timestamp": str(row.created_at) if row.created_at else "",
+        "avatar": public_avatar(sender) if sender else slim_identity_media({}),
+        "edited": False,
+        "reactions": [],
+        "attachment": None,
+        "mentioned": False,
+        "mention_users": {},
+        "reply_to": None,
+    }
+
+
+def trim_profile_chat(database, owner_id):
+    keep_ids = [
+        row.id
+        for row in (
+            database.query(Profile_chat)
+            .filter(Profile_chat.owner_id == owner_id)
+            .order_by(Profile_chat.id.desc())
+            .limit(PROFILE_CHAT_KEEP)
+            .all()
+        )
+    ]
+    extra = database.query(Profile_chat).filter(Profile_chat.owner_id == owner_id)
+    if keep_ids:
+        extra = extra.filter(Profile_chat.id.notin_(keep_ids))
+        extra.delete(synchronize_session=False)
+        return
+    extra.delete(synchronize_session=False)
+
+
+async def fanout_profile_chat(owner_id, payload, exclude_user_id=None):
+    for uid in profile_chat_viewer_ids(owner_id):
+        if uid == exclude_user_id:
+            continue
+        await notify_user(uid, payload)
+
+
+@router.get("/profile/{user_id}/chat_rooms")
+def list_profile_widget_rooms(
+    user_id: int,
+    shared: bool = Query(default=False),
+    current_user: UserInfo = Depends(get_current_user),
+    database: Session = Depends(get_db),
+):
+    owner = profile_owner_or_404(database, user_id)
+    if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    from app.routers.community_rooms import joined_room_ids, pack_community_rooms
+    mine = [
+        room_id
+        for (room_id,) in database.query(Community_room_member.room_id).filter(
+            Community_room_member.user_id == current_user.id
+        ).all()
+        if room_id
+    ]
+    if not mine:
+        return {"rooms": []}
+    rows = (
+        database.query(Community_room)
+        .filter(Community_room.id.in_(mine))
+        .order_by(Community_room.active_at.desc(), Community_room.id.desc())
+        .all()
+    )
+    rows = drop_blocked_rows(database, current_user.id, rows, "owner_id")
+    if shared:
+        both = joined_room_ids(database, owner.id, [row.id for row in rows])
+        rows = [row for row in rows if row.id in both]
+    return {"rooms": pack_community_rooms(database, rows, current_user.id)}
+
+
+@router.get("/profile/{user_id}/chat")
+def list_profile_chat(
+    user_id: int,
+    current_user: UserInfo = Depends(get_current_user),
+    database: Session = Depends(get_db),
+):
+    owner = profile_owner_or_404(database, user_id)
+    if not can_use_profile_chat(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot see this profile.")
+    watch_profile_chat(owner.id, current_user.id)
+    rows = (
+        database.query(Profile_chat)
+        .filter(Profile_chat.owner_id == owner.id)
+        .order_by(Profile_chat.id.desc())
+        .limit(PROFILE_CHAT_KEEP)
+        .all()
+    )
+    rows.reverse()
+    rows = drop_blocked_rows(database, current_user.id, rows, "sender_id")
+    sender_ids = list({row.sender_id for row in rows})
+    accounts = database.query(UserInfo).filter(UserInfo.id.in_(sender_ids)).all() if sender_ids else []
+    lookup = {account.id: account for account in accounts}
+    packed = [serialize_profile_chat(row, lookup.get(row.sender_id)) for row in rows]
+    mask_message_payloads(database, packed)
+    return {"owner_id": owner.id, "messages": packed}
+
+
+@router.post("/profile/{user_id}/chat")
+async def create_profile_chat(
+    user_id: int,
+    body: Profile_chat_in,
+    current_user: UserInfo = Depends(get_current_user),
+    database: Session = Depends(get_db),
+):
+    owner = profile_owner_or_404(database, user_id)
+    if not can_use_profile_chat(database, current_user, owner):
+        raise HTTPException(status_code=403, detail="You cannot chat here.")
+    text = clip_text(body.content, PROFILE_CHAT_MAX)
+    require_message_body(text, None)
+    row = Profile_chat(owner_id=owner.id, sender_id=current_user.id, content=text.strip())
+    database.add(row)
+    database.flush()
+    trim_profile_chat(database, owner.id)
+    database.commit()
+    database.refresh(row)
+    watch_profile_chat(owner.id, current_user.id)
+    packed = serialize_profile_chat(row, current_user)
+    mask_message_payloads(database, [packed])
+    await fanout_profile_chat(owner.id, {"type": "profile_chat", "owner_id": owner.id, "message": packed}, exclude_user_id=current_user.id)
+    return packed
+
+
+@router.delete("/profile/{user_id}/chat")
+async def clear_profile_chat(
+    user_id: int,
+    current_user: UserInfo = Depends(get_current_user),
+    database: Session = Depends(get_db),
+):
+    owner = profile_owner_or_404(database, user_id)
+    if current_user.id != owner.id:
+        raise HTTPException(status_code=403, detail="Only the profile owner can clear this chat.")
+    database.query(Profile_chat).filter(Profile_chat.owner_id == owner.id).delete(synchronize_session=False)
+    database.commit()
+    await fanout_profile_chat(owner.id, {"type": "profile_chat_cleared", "owner_id": owner.id}, exclude_user_id=current_user.id)
+    return {"ok": True}

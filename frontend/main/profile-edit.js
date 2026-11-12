@@ -2102,6 +2102,11 @@ function fillChatRoomOptions(box, draft, onChange, hintEl) {
     clear.type = "button";
     clear.className = "ghost-btn";
     clear.textContent = "Clear";
+    clear.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof clearProfileChatHistory === "function") clearProfileChatHistory();
+    });
     const row = settingsOpt(
       "Clear chat history",
       "Removes every message in this profile chat for everyone.",

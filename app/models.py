@@ -533,6 +533,16 @@ class Profile_comment(Base):
     __table_args__ = (Index("ix_profile_comments_owner_created", "owner_id", "created_at"),)
 
 
+class Profile_chat(Base):
+    __tablename__ = "profile_chats"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (Index("ix_profile_chats_owner_created", "owner_id", "created_at", "id"),)
+
+
 class Profile_comment_watch(Base):
     __tablename__ = "profile_comment_watches"
     id = Column(Integer, primary_key=True)

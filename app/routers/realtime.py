@@ -7,6 +7,54 @@ import asyncio
 
 active_connections = {}
 viewer_focus = {}
+profile_chat_viewers = {}
+
+
+def watch_profile_chat(owner_id, user_id):
+    try:
+        owner_id = int(owner_id)
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return
+    if not owner_id or not user_id:
+        return
+    profile_chat_viewers.setdefault(owner_id, set()).add(user_id)
+
+
+def unwatch_profile_chat(owner_id, user_id):
+    try:
+        owner_id = int(owner_id)
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return
+    found = profile_chat_viewers.get(owner_id)
+    if not found:
+        return
+    found.discard(user_id)
+    if not found:
+        profile_chat_viewers.pop(owner_id, None)
+
+
+def drop_profile_chat_viewer(user_id):
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return
+    empty = []
+    for owner_id, found in profile_chat_viewers.items():
+        found.discard(user_id)
+        if not found:
+            empty.append(owner_id)
+    for owner_id in empty:
+        profile_chat_viewers.pop(owner_id, None)
+
+
+def profile_chat_viewer_ids(owner_id):
+    try:
+        owner_id = int(owner_id)
+    except (TypeError, ValueError):
+        return []
+    return list(profile_chat_viewers.get(owner_id) or [])
 
 
 def set_viewer_focus(user_id, channel_id):

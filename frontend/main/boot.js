@@ -255,6 +255,14 @@ function connectSocket() {
       if (typeof applyCommunityRoomClosed === "function") applyCommunityRoomClosed(data);
     }
 
+    if (data.type === "profile_chat" && typeof applyProfileChatMessage === "function") {
+      applyProfileChatMessage(data);
+    }
+
+    if (data.type === "profile_chat_cleared" && typeof applyProfileChatCleared === "function") {
+      applyProfileChatCleared(data);
+    }
+
     if (data.type === "phone_matched") {
       if (typeof loadCommunityPhone === "function") loadCommunityPhone({ alert: true });
     }

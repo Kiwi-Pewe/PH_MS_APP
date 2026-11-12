@@ -84,6 +84,7 @@ function openMiniProfileEditorPage() {
 }
 
 function applyProfilePayload(data) {
+  if (typeof leaveProfileChatWatch === "function") leaveProfileChatWatch();
   profileUser = data.user || null;
   profileOwnerId = profileUser ? profileUser.id : null;
   if (profileUser && typeof rememberUserStatus === "function") rememberUserStatus(profileUser.id, profileUser.status);
@@ -135,6 +136,7 @@ function hideProfileChromeBits() {
 
 function closeProfileChrome() {
   if (typeof pauseAllOneiraPlayers === "function") pauseAllOneiraPlayers();
+  if (typeof leaveProfileChatWatch === "function") leaveProfileChatWatch();
   if (!isProfileOpen) {
     hideProfileChromeBits();
     return true;

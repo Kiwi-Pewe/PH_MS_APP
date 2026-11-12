@@ -8,6 +8,55 @@ function profileChatRoomTitle(props) {
   return profileChatRoomMode(props) === "profile" ? "Profile chat" : "Chat rooms";
 }
 
+function profileChatOwnerId() {
+  return typeof profileOwnerId !== "undefined" ? profileOwnerId : null;
+}
+
+function profileChatBusy() {
+  return !!(typeof profileEditing !== "undefined" && profileEditing);
+}
+
+function profileChatTiles() {
+  return Array.from(document.querySelectorAll(".profile-tile.is-chat_room"));
+}
+
+function mapProfileChatMessage(msg, kind) {
+  const mapped = {
+    id: msg.id,
+    tempId: msg.temp_id || msg.tempId,
+    chatKind: kind || "profile",
+    isMine: msg.sender_id === myUserId || msg.username === myUsername,
+    senderId: msg.sender_id,
+    username: msg.username || "",
+    nickname: msg.display_name || msg.nickname || msg.username || "",
+    content: msg.content || "",
+    attachment: typeof parseAttachment === "function" ? parseAttachment(msg.attachment) : (msg.attachment || null),
+    time: typeof parseUtcTimestamp === "function" ? parseUtcTimestamp(msg.timestamp) : new Date(msg.timestamp),
+    edited: !!msg.edited,
+    reactions: msg.reactions || [],
+    avatar: msg.avatar || null,
+    replyTo: msg.reply_to || msg.replyTo || null,
+    mentioned: !!msg.mentioned
+  };
+  if (typeof applyMentionFields === "function") applyMentionFields(mapped, msg);
+  if (kind === "room" && typeof communityRoomMessageView === "function") return communityRoomMessageView(mapped);
+  return mapped;
+}
+
+function paintProfileChatLog(log, messages) {
+  if (!log) return;
+  log.replaceChildren();
+  if (!messages || !messages.length) {
+    const empty = document.createElement("div");
+    empty.className = "profile-chat-room-empty";
+    empty.textContent = "There's no messages yet.";
+    log.appendChild(empty);
+    return;
+  }
+  if (typeof renderClusteredMessages === "function") renderClusteredMessages(log, messages);
+  log.scrollTop = log.scrollHeight;
+}
+
 function paintProfileChatRoomCard(row) {
   const card = document.createElement("button");
   card.type = "button";
@@ -18,10 +67,10 @@ function paintProfileChatRoomCard(row) {
   titleWrap.className = "community-room-title";
   const name = document.createElement("div");
   name.className = "community-room-name";
-  name.textContent = row.name;
+  name.textContent = row.name || "Room";
   const by = document.createElement("div");
   by.className = "community-room-by";
-  by.textContent = "By: " + row.owner;
+  by.textContent = "By: " + (row.handle || "user");
   titleWrap.appendChild(name);
   titleWrap.appendChild(by);
   head.appendChild(titleWrap);
@@ -29,7 +78,7 @@ function paintProfileChatRoomCard(row) {
   mid.className = "community-room-mid";
   const about = document.createElement("div");
   about.className = "community-room-about" + (row.about ? "" : " is-empty");
-  about.textContent = row.about || "no description given...";
+  about.textContent = row.about || "No description.";
   mid.appendChild(about);
   const foot = document.createElement("div");
   foot.className = "community-room-foot";
@@ -43,7 +92,7 @@ function paintProfileChatRoomCard(row) {
   });
   const meta = document.createElement("div");
   meta.className = "community-room-meta";
-  meta.textContent = String(row.count || 0) + " / 15";
+  meta.textContent = String(row.n || 0) + " / 15";
   foot.appendChild(pills);
   foot.appendChild(meta);
   card.appendChild(head);
@@ -52,7 +101,7 @@ function paintProfileChatRoomCard(row) {
   return card;
 }
 
-function paintProfileChatRoomComposer(placeholder) {
+function paintProfileChatRoomComposer(placeholder, onSend, enabled) {
   const row = document.createElement("div");
   row.className = "profile-chat-room-compose";
   const plus = document.createElement("button");
@@ -64,7 +113,7 @@ function paintProfileChatRoomComposer(placeholder) {
   input.className = "profile-chat-room-input";
   input.rows = 1;
   input.placeholder = placeholder;
-  input.disabled = true;
+  input.disabled = !enabled;
   const emoji = document.createElement("button");
   emoji.type = "button";
   emoji.className = "icon-btn";
@@ -74,7 +123,20 @@ function paintProfileChatRoomComposer(placeholder) {
   send.type = "button";
   send.className = "pill-btn";
   send.textContent = "Send";
-  send.disabled = true;
+  send.disabled = !enabled;
+  function fire() {
+    if (!enabled || typeof onSend !== "function") return;
+    onSend(input);
+  }
+  send.addEventListener("click", (e) => {
+    e.stopPropagation();
+    fire();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    e.preventDefault();
+    fire();
+  });
   row.appendChild(plus);
   row.appendChild(input);
   row.appendChild(emoji);
@@ -82,7 +144,7 @@ function paintProfileChatRoomComposer(placeholder) {
   return row;
 }
 
-function paintProfileChatRoomThread(host, title, showBack, onBack) {
+function paintProfileChatRoomThread(host, state, title, showBack, onBack) {
   host.replaceChildren();
   const head = document.createElement("div");
   head.className = "profile-chat-room-chat-head";
@@ -103,25 +165,32 @@ function paintProfileChatRoomThread(host, title, showBack, onBack) {
   head.appendChild(name);
   const log = document.createElement("div");
   log.className = "profile-chat-room-log";
-  const empty = document.createElement("div");
-  empty.className = "profile-chat-room-empty";
-  empty.textContent = "There's no messages yet.";
-  log.appendChild(empty);
   host.appendChild(head);
   host.appendChild(log);
-  host.appendChild(paintProfileChatRoomComposer("Message " + title));
+  host.appendChild(paintProfileChatRoomComposer("Message " + title, (input) => {
+    if (state.mode === "profile") sendProfileChatMessage(state, input);
+    else sendProfileChatRoomMessage(state, input);
+  }, !profileChatBusy()));
+  state.log = log;
+  paintProfileChatLog(log, state.messages);
 }
 
-function paintProfileChatRoomPicker(host, onPick) {
+function paintProfileChatRoomPicker(host, state, rooms, onPick) {
   host.replaceChildren();
+  state.log = null;
+  state.roomId = null;
+  state.messages = [];
+  if (!rooms.length) {
+    const empty = document.createElement("div");
+    empty.className = "profile-chat-room-empty";
+    empty.textContent = "No rooms found";
+    host.appendChild(empty);
+    return;
+  }
   const list = document.createElement("div");
   list.className = "profile-chat-room-list";
-  [
-    { name: "Room name", owner: "username", about: "", topics: ["topic"], count: 1 },
-    { name: "Room name", owner: "username", about: "", topics: ["topic"], count: 3 }
-  ].forEach((row) => {
+  rooms.forEach((row) => {
     const card = paintProfileChatRoomCard(row);
-    card.classList.add("is-later");
     card.addEventListener("click", (e) => {
       e.stopPropagation();
       if (host.closest(".is-editing") || host.closest(".is-opt-preview")) return;
@@ -130,6 +199,192 @@ function paintProfileChatRoomPicker(host, onPick) {
     list.appendChild(card);
   });
   host.appendChild(list);
+}
+
+function profileChatWatch(ownerId) {
+  if (!ownerId || !ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({ type: "profile_chat_view", owner_id: ownerId }));
+}
+
+function leaveProfileChatWatch() {
+  const ownerId = profileChatOwnerId();
+  if (ownerId && ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: "profile_chat_leave", owner_id: ownerId }));
+  }
+}
+
+async function loadProfileChatRooms(ownerId, shared) {
+  const response = await profileApi(
+    "/profile/" + encodeURIComponent(ownerId) + "/chat_rooms" + (shared ? "?shared=true" : "")
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return [];
+  return data.rooms || [];
+}
+
+async function loadProfileChatThread(ownerId) {
+  const response = await profileApi("/profile/" + encodeURIComponent(ownerId) + "/chat");
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return [];
+  profileChatWatch(ownerId);
+  return (data.messages || []).map((row) => mapProfileChatMessage(row, "profile"));
+}
+
+async function loadProfileWidgetRoomMessages(roomId) {
+  const response = await fetch("https://" + serverAddress + "/community_rooms/" + encodeURIComponent(roomId) + "/messages", {
+    credentials: "include"
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return [];
+  return (data.messages || []).map((row) => {
+    if (typeof mapCommunityRoomMessage === "function") return mapCommunityRoomMessage(row);
+    return mapProfileChatMessage(row, "room");
+  });
+}
+
+async function sendProfileChatRoomMessage(state, input) {
+  const content = input ? String(input.value || "").trim() : "";
+  if (!content || !state.roomId || !ws || ws.readyState !== 1 || profileChatBusy()) return;
+  const tempId = typeof nextMessageTempId === "function" ? nextMessageTempId() : ("tmp-" + Date.now());
+  const stored = typeof encodeMentions === "function" ? encodeMentions(content, false) : content;
+  ws.send(JSON.stringify({
+    type: "room_message",
+    room_id: state.roomId,
+    content: content,
+    temp_id: tempId
+  }));
+  const mapped = typeof mapCommunityRoomMessage === "function"
+    ? mapCommunityRoomMessage({
+      temp_id: tempId,
+      sender_id: myUserId,
+      username: myUsername || "",
+      display_name: typeof myDisplayName !== "undefined" ? myDisplayName : "",
+      content: stored,
+      timestamp: new Date().toISOString(),
+      avatar: typeof faceForUser === "function" ? faceForUser(myUserId) : null
+    })
+    : mapProfileChatMessage({
+      temp_id: tempId,
+      sender_id: myUserId,
+      username: myUsername || "",
+      content: stored,
+      timestamp: new Date().toISOString()
+    }, "room");
+  state.messages.push(mapped);
+  paintProfileChatLog(state.log, state.messages);
+  if (typeof communityOpenRoom !== "undefined" && String(communityOpenRoom) === String(state.roomId)) {
+    communityRoomMessages.push(mapped);
+    if (typeof paintCommunityRoomChat === "function") paintCommunityRoomChat();
+  }
+  if (input) input.value = "";
+}
+
+async function sendProfileChatMessage(state, input) {
+  const content = input ? String(input.value || "").trim() : "";
+  const ownerId = profileChatOwnerId();
+  if (!content || !ownerId || profileChatBusy()) return;
+  if (input) input.value = "";
+  try {
+    const response = await profileApi("/profile/" + encodeURIComponent(ownerId) + "/chat", {
+      method: "POST",
+      body: JSON.stringify({ content: content })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error((data && data.detail) || "Could not send.");
+    applyProfileChatMessage({ owner_id: ownerId, message: data });
+  } catch (err) {
+    window.alert(err.message || "Could not send.");
+  }
+}
+
+function applyProfileChatRoomMessage(data) {
+  if (!data || !data.room_id) return;
+  if (data.sender_id && typeof isUserBlocked === "function" && isUserBlocked(data.sender_id)) return;
+  const mapped = typeof mapCommunityRoomMessage === "function"
+    ? mapCommunityRoomMessage(data)
+    : mapProfileChatMessage(data, "room");
+  profileChatTiles().forEach((el) => {
+    const state = el._profileChat;
+    if (!state || state.mode !== "rooms" || String(state.roomId) !== String(data.room_id)) return;
+    if (data.id && state.messages.some((row) => row.id === data.id)) return;
+    if (data.temp_id && state.messages.some((row) => row.tempId === data.temp_id)) return;
+    state.messages.push(mapped);
+    paintProfileChatLog(state.log, state.messages);
+  });
+}
+
+function ackProfileChatRoomMessage(tempId, id) {
+  if (!tempId) return;
+  profileChatTiles().forEach((el) => {
+    const state = el._profileChat;
+    if (!state || !state.messages) return;
+    const row = state.messages.find((item) => item.tempId === tempId);
+    if (row) row.id = id;
+  });
+}
+
+function dropProfileChatRoomTemp(tempId) {
+  if (!tempId) return false;
+  let hit = false;
+  profileChatTiles().forEach((el) => {
+    const state = el._profileChat;
+    if (!state || !state.messages) return;
+    const before = state.messages.length;
+    state.messages = state.messages.filter((row) => row.tempId !== tempId);
+    if (state.messages.length === before) return;
+    hit = true;
+    paintProfileChatLog(state.log, state.messages);
+  });
+  return hit;
+}
+
+function applyProfileChatRoomClosed(data) {
+  if (!data || data.room_id == null) return;
+  profileChatTiles().forEach((el) => {
+    const state = el._profileChat;
+    if (!state || state.mode !== "rooms") return;
+    if (String(state.roomId) !== String(data.room_id)) return;
+    if (typeof state.showPicker === "function") state.showPicker();
+  });
+}
+
+function applyProfileChatMessage(data) {
+  const ownerId = data && data.owner_id;
+  const msg = data && data.message;
+  if (!ownerId || !msg || String(ownerId) !== String(profileChatOwnerId() || "")) return;
+  if (msg.sender_id && typeof isUserBlocked === "function" && isUserBlocked(msg.sender_id)) return;
+  const mapped = mapProfileChatMessage(msg, "profile");
+  profileChatTiles().forEach((el) => {
+    const state = el._profileChat;
+    if (!state || state.mode !== "profile") return;
+    if (mapped.id && state.messages.some((row) => row.id === mapped.id)) return;
+    state.messages.push(mapped);
+    while (state.messages.length > 25) state.messages.shift();
+    paintProfileChatLog(state.log, state.messages);
+  });
+}
+
+function applyProfileChatCleared(data) {
+  const ownerId = data && data.owner_id;
+  if (ownerId && String(ownerId) !== String(profileChatOwnerId() || "")) return;
+  profileChatTiles().forEach((el) => {
+    const state = el._profileChat;
+    if (!state || state.mode !== "profile") return;
+    state.messages = [];
+    paintProfileChatLog(state.log, state.messages);
+  });
+}
+
+async function clearProfileChatHistory() {
+  const ownerId = profileChatOwnerId();
+  if (!ownerId) return;
+  const response = await profileApi("/profile/" + encodeURIComponent(ownerId) + "/chat", { method: "DELETE" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    window.alert((data && data.detail) || "Could not clear chat history.");
+    return;
+  }
+  applyProfileChatCleared({ owner_id: ownerId });
 }
 
 function paintProfileChatRoom(tile, el) {
@@ -155,14 +410,64 @@ function paintProfileChatRoom(tile, el) {
   root.appendChild(rule);
   root.appendChild(body);
   el.appendChild(root);
-  if (profileChatRoomMode(props) === "profile") {
-    paintProfileChatRoomThread(body, profileChatRoomTitle(props), false);
+  const ownerId = profileChatOwnerId();
+  const state = {
+    mode: profileChatRoomMode(props),
+    roomId: null,
+    messages: [],
+    log: null,
+    gen: 0,
+    showPicker: null
+  };
+  el._profileChat = state;
+  if (!ownerId) {
+    const empty = document.createElement("div");
+    empty.className = "profile-chat-room-empty";
+    empty.textContent = "No rooms found";
+    body.appendChild(empty);
+    return;
+  }
+  if (state.mode === "profile") {
+    paintProfileChatRoomThread(body, state, profileChatRoomTitle(props), false);
+    const gen = ++state.gen;
+    loadProfileChatThread(ownerId).then((rows) => {
+      if (el._profileChat !== state || state.gen !== gen) return;
+      state.messages = rows;
+      paintProfileChatLog(state.log, state.messages);
+    }).catch(() => {});
     return;
   }
   function showPicker() {
-    paintProfileChatRoomPicker(body, (row) => {
-      paintProfileChatRoomThread(body, row.name, true, showPicker);
+    const gen = ++state.gen;
+    state.roomId = null;
+    state.messages = [];
+    body.replaceChildren();
+    loadProfileChatRooms(ownerId, !!props.owner_rooms).then((rooms) => {
+      if (el._profileChat !== state || state.gen !== gen) return;
+      paintProfileChatRoomPicker(body, state, rooms, (row) => {
+        if (profileChatBusy()) return;
+        openProfileChatRoom(body, state, row);
+      });
+    }).catch(() => {
+      if (el._profileChat !== state || state.gen !== gen) return;
+      paintProfileChatRoomPicker(body, state, [], null);
     });
   }
+  state.showPicker = showPicker;
   showPicker();
+}
+
+function openProfileChatRoom(body, state, row) {
+  state.roomId = row.id;
+  state.messages = [];
+  paintProfileChatRoomThread(body, state, row.name || "Room", true, state.showPicker);
+  const gen = ++state.gen;
+  loadProfileWidgetRoomMessages(row.id).then((rows) => {
+    if (state.gen !== gen) return;
+    state.messages = rows;
+    paintProfileChatLog(state.log, state.messages);
+  }).catch(() => {
+    if (state.gen !== gen) return;
+    if (typeof state.showPicker === "function") state.showPicker();
+  });
 }

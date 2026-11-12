@@ -3543,7 +3543,7 @@ function fillClockOptions(box, draft, onChange, hintEl) {
 }
 
 function fillButtonOptions(box, draft, onChange, hintEl) {
-  if (draft.action !== "page" && draft.action !== "friend") draft.action = "link";
+  if (draft.action !== "page" && draft.action !== "friend" && draft.action !== "create_post") draft.action = "link";
   draft.label = String(draft.label || "Button");
   const nameLabel = document.createElement("label");
   nameLabel.textContent = "Label";
@@ -3563,7 +3563,8 @@ function fillButtonOptions(box, draft, onChange, hintEl) {
   const fn = profileSelectField("Function", [
     { value: "link", label: "External Link" },
     { value: "page", label: "Page Transfer" },
-    { value: "friend", label: "Add Friend" }
+    { value: "friend", label: "Add Friend" },
+    { value: "create_post", label: "Create a post" }
   ], draft.action);
   profileOptHint(fn.label, "What happens when someone presses the button.", hintEl);
   box.appendChild(fn.label);

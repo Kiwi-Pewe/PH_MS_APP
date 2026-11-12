@@ -639,7 +639,7 @@ function defaultProfileTileProps(type, existing) {
   }
   if (type === "mutuals") return Object.assign({}, chrome);
   if (type === "button") {
-    const action = prev.action === "page" || prev.action === "friend" ? prev.action : "link";
+    const action = prev.action === "page" || prev.action === "friend" || prev.action === "create_post" ? prev.action : "link";
     return Object.assign({
       label: prev.label || "Button",
       action,
@@ -1441,6 +1441,18 @@ function bindProfileButtonAction(btn, tile) {
       });
     };
     run();
+    return;
+  }
+  if (props.action === "create_post") {
+    if (typeof openCommunityCompose !== "function") {
+      btn.disabled = true;
+      return;
+    }
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openCommunityCompose();
+    });
   }
 }
 

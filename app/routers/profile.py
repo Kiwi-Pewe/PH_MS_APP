@@ -884,6 +884,8 @@ def normalize_chat_room_props(data):
     out["owner_rooms"] = bool(data.get("owner_rooms"))
     shown = data.get("show_title")
     out["show_title"] = True if shown is None else bool(shown)
+    align = str(data.get("title_align") or "")
+    out["title_align"] = align if align in ("left", "center", "right") else "left"
     return out
 
 

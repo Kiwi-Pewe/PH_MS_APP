@@ -119,6 +119,7 @@ function paintProfileChatRoomCard(row) {
 
 function setProfileChatComposer(state, enabled, placeholder) {
   state.canSend = !!enabled;
+  if (state.root) state.root.classList.toggle("has-compose", !!enabled);
   if (state.input) {
     state.input.placeholder = placeholder || "Message";
     state.input.disabled = !enabled;
@@ -438,6 +439,12 @@ function paintProfileChatRoom(tile, el) {
   if (chrome && typeof applyProfileTextPaint === "function") applyProfileTextPaint(el, chrome);
   if (typeof applyProfileWidgetSurface === "function") applyProfileWidgetSurface(el, tile);
   const showTitle = props.show_title !== false;
+  if (showTitle) {
+    const align = props.title_align === "center" || props.title_align === "right" ? props.title_align : "left";
+    el.dataset.titleAlign = align;
+  } else {
+    delete el.dataset.titleAlign;
+  }
   const root = document.createElement("div");
   root.className = "profile-chat-room" + (showTitle ? " has-title" : "");
   if (showTitle) {
@@ -462,7 +469,8 @@ function paintProfileChatRoom(tile, el) {
     sendBtn: null,
     canSend: false,
     gen: 0,
-    showPicker: null
+    showPicker: null,
+    root
   };
   root.appendChild(paintProfileChatRoomComposer(state));
   el.appendChild(root);

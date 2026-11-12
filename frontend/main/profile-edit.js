@@ -2058,35 +2058,13 @@ function fillGalleryOptions(box, draft, onChange, hintEl) {
 function fillChatRoomOptions(box, draft, onChange, hintEl) {
   draft.mode = draft.mode === "profile" ? "profile" : "rooms";
   draft.owner_rooms = !!draft.owner_rooms;
-  draft.show_title = draft.show_title == null ? true : !!draft.show_title;
+  if (draft.show_title == null) draft.show_title = true;
   draft.title = String(draft.title || "").trim() || (draft.mode === "profile" ? "Profile chat" : "Chat rooms");
-  const titleExtras = document.createElement("div");
-  titleExtras.className = "profile-opt-border-extras" + (draft.show_title ? " is-open" : "");
-  const nameLabel = document.createElement("label");
-  nameLabel.textContent = "Title";
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.maxLength = 48;
-  nameInput.value = draft.title;
-  nameInput.placeholder = draft.mode === "profile" ? "Profile chat" : "Chat rooms";
-  profileOptHint(nameLabel, "Label at the top of this tile.", hintEl);
-  nameInput.addEventListener("input", () => {
-    draft.title = nameInput.value;
-    onChange();
+  const titleFields = fillBodyTitleOptions(box, draft, onChange, hintEl, {
+    placeholder: draft.mode === "profile" ? "Profile chat" : "Chat rooms",
+    nameHint: "Label at the top of this tile.",
+    toggleHint: "Show the name in the top band of this widget."
   });
-  nameLabel.appendChild(nameInput);
-  titleExtras.appendChild(nameLabel);
-  const titleBlock = document.createElement("div");
-  titleBlock.className = "profile-opt-border-block";
-  const titleToggle = settingsOpt("Title", "", settingsToggle(draft.show_title, false, (on) => {
-    draft.show_title = on;
-    titleExtras.classList.toggle("is-open", on);
-    onChange();
-  }));
-  profileOptHint(titleToggle, "Show the name in the top band of this widget.", hintEl);
-  titleBlock.appendChild(titleToggle);
-  titleBlock.appendChild(titleExtras);
-  box.appendChild(titleBlock);
   const modeBlock = profileOptSection(box);
   const mode = profileSelectField("Mode", [
     { value: "rooms", label: "Chat rooms" },
@@ -2101,7 +2079,7 @@ function fillChatRoomOptions(box, draft, onChange, hintEl) {
     extras.innerHTML = "";
     if (draft.mode === "rooms") {
       const row = settingsOpt(
-        "Only rooms this profile owner is in",
+        "Only show rooms you're in.",
         "",
         settingsToggle(draft.owner_rooms, false, (on) => {
           draft.owner_rooms = on;
@@ -2135,8 +2113,10 @@ function fillChatRoomOptions(box, draft, onChange, hintEl) {
     draft.mode = mode.select.value === "profile" ? "profile" : "rooms";
     if (!String(draft.title || "").trim() || draft.title === "Chat rooms" || draft.title === "Profile chat") {
       draft.title = draft.mode === "profile" ? "Profile chat" : "Chat rooms";
-      nameInput.value = draft.title;
-      nameInput.placeholder = draft.title;
+      if (titleFields && titleFields.nameInput) {
+        titleFields.nameInput.value = draft.title;
+        titleFields.nameInput.placeholder = draft.title;
+      }
     }
     paintExtras();
     onChange();
@@ -3144,7 +3124,8 @@ function fillMeterOptions(box, draft, onChange, hintEl) {
   box.appendChild(add);
 }
 
-function fillBodyTitleOptions(box, draft, onChange, hintEl) {
+function fillBodyTitleOptions(box, draft, onChange, hintEl, spec) {
+  spec = spec || {};
   draft.show_title = !!draft.show_title;
   if (draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = "left";
   draft.title = String(draft.title || "");
@@ -3157,8 +3138,8 @@ function fillBodyTitleOptions(box, draft, onChange, hintEl) {
   nameInput.type = "text";
   nameInput.maxLength = 48;
   nameInput.value = draft.title;
-  nameInput.placeholder = "About";
-  profileOptHint(nameLabel, "Label above the body. Double-click still edits the body.", hintEl);
+  nameInput.placeholder = spec.placeholder || "About";
+  profileOptHint(nameLabel, spec.nameHint || "Label above the body. Double-click still edits the body.", hintEl);
   nameInput.addEventListener("input", () => {
     draft.title = nameInput.value;
     onChange();
@@ -3201,10 +3182,11 @@ function fillBodyTitleOptions(box, draft, onChange, hintEl) {
       onChange();
     })
   );
-  profileOptHint(toggleRow, "Add a labeled heading and divider above the body.", hintEl);
+  profileOptHint(toggleRow, spec.toggleHint || "Add a labeled heading and divider above the body.", hintEl);
   block.appendChild(toggleRow);
   block.appendChild(extras);
   box.appendChild(block);
+  return { nameInput };
 }
 
 function fillLocalTimeOptions(box, draft, onChange, hintEl) {

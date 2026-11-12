@@ -701,11 +701,13 @@ function defaultProfileTileProps(type, existing) {
   }
   if (type === "chat_room") {
     const mode = prev.mode === "profile" ? "profile" : "rooms";
+    const titleAlign = prev.title_align === "center" || prev.title_align === "right" ? prev.title_align : "left";
     return Object.assign({
       title: String(prev.title || "").trim() || (mode === "profile" ? "Profile chat" : "Chat rooms"),
       mode,
       owner_rooms: !!prev.owner_rooms,
-      show_title: prev.show_title == null ? true : !!prev.show_title
+      show_title: prev.show_title == null ? true : !!prev.show_title,
+      title_align: titleAlign
     }, chrome);
   }
   if (type === "display_server") {

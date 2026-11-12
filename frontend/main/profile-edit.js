@@ -2058,7 +2058,10 @@ function fillGalleryOptions(box, draft, onChange, hintEl) {
 function fillChatRoomOptions(box, draft, onChange, hintEl) {
   draft.mode = draft.mode === "profile" ? "profile" : "rooms";
   draft.owner_rooms = !!draft.owner_rooms;
+  draft.show_title = draft.show_title == null ? true : !!draft.show_title;
   draft.title = String(draft.title || "").trim() || (draft.mode === "profile" ? "Profile chat" : "Chat rooms");
+  const titleExtras = document.createElement("div");
+  titleExtras.className = "profile-opt-border-extras" + (draft.show_title ? " is-open" : "");
   const nameLabel = document.createElement("label");
   nameLabel.textContent = "Title";
   const nameInput = document.createElement("input");
@@ -2072,7 +2075,18 @@ function fillChatRoomOptions(box, draft, onChange, hintEl) {
     onChange();
   });
   nameLabel.appendChild(nameInput);
-  box.appendChild(nameLabel);
+  titleExtras.appendChild(nameLabel);
+  const titleBlock = document.createElement("div");
+  titleBlock.className = "profile-opt-border-block";
+  const titleToggle = settingsOpt("Title", "", settingsToggle(draft.show_title, false, (on) => {
+    draft.show_title = on;
+    titleExtras.classList.toggle("is-open", on);
+    onChange();
+  }));
+  profileOptHint(titleToggle, "Show the name in the top band of this widget.", hintEl);
+  titleBlock.appendChild(titleToggle);
+  titleBlock.appendChild(titleExtras);
+  box.appendChild(titleBlock);
   const modeBlock = profileOptSection(box);
   const mode = profileSelectField("Mode", [
     { value: "rooms", label: "Chat rooms" },
@@ -2087,33 +2101,35 @@ function fillChatRoomOptions(box, draft, onChange, hintEl) {
     extras.innerHTML = "";
     if (draft.mode === "rooms") {
       const row = settingsOpt(
-        "Only rooms we're both in",
+        "Only rooms this profile owner is in",
         "",
         settingsToggle(draft.owner_rooms, false, (on) => {
           draft.owner_rooms = on;
           onChange();
         })
       );
-      profileOptHint(row, "Off: every room you have joined. On: only rooms you and this profile owner share.", hintEl);
+      profileOptHint(row, "Off: rooms you have joined. On: rooms this profile owner is in.", hintEl);
       extras.appendChild(row);
       return;
     }
+    const wrap = document.createElement("div");
+    wrap.className = "profile-chat-clear";
+    const note = document.createElement("div");
+    note.className = "settings-opt-desc";
+    note.textContent = "Removes every message in this profile chat for everyone.";
     const clear = document.createElement("button");
     clear.type = "button";
-    clear.className = "ghost-btn";
-    clear.textContent = "Clear";
+    clear.className = "settings-danger-btn";
+    clear.textContent = "Clear chat history";
+    profileOptHint(clear, "Wipes the 25-message history on this profile.", hintEl);
     clear.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (typeof clearProfileChatHistory === "function") clearProfileChatHistory();
     });
-    const row = settingsOpt(
-      "Clear chat history",
-      "Removes every message in this profile chat for everyone.",
-      clear
-    );
-    profileOptHint(row, "Wipes the 25-message history on this profile.", hintEl);
-    extras.appendChild(row);
+    wrap.appendChild(note);
+    wrap.appendChild(clear);
+    extras.appendChild(wrap);
   }
   mode.select.addEventListener("change", () => {
     draft.mode = mode.select.value === "profile" ? "profile" : "rooms";

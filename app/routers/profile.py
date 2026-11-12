@@ -882,6 +882,8 @@ def normalize_chat_room_props(data):
     out["mode"] = mode
     out["title"] = title
     out["owner_rooms"] = bool(data.get("owner_rooms"))
+    shown = data.get("show_title")
+    out["show_title"] = True if shown is None else bool(shown)
     return out
 
 
@@ -2483,26 +2485,24 @@ def list_profile_widget_rooms(
     owner = profile_owner_or_404(database, user_id)
     if current_user.id != owner.id and not can_see_full_profile(database, current_user, owner):
         raise HTTPException(status_code=403, detail="You cannot see this profile.")
-    from app.routers.community_rooms import joined_room_ids, pack_community_rooms
-    mine = [
+    from app.routers.community_rooms import pack_community_rooms
+    who = owner.id if shared else current_user.id
+    found = [
         room_id
         for (room_id,) in database.query(Community_room_member.room_id).filter(
-            Community_room_member.user_id == current_user.id
+            Community_room_member.user_id == who
         ).all()
         if room_id
     ]
-    if not mine:
+    if not found:
         return {"rooms": []}
     rows = (
         database.query(Community_room)
-        .filter(Community_room.id.in_(mine))
+        .filter(Community_room.id.in_(found))
         .order_by(Community_room.active_at.desc(), Community_room.id.desc())
         .all()
     )
     rows = drop_blocked_rows(database, current_user.id, rows, "owner_id")
-    if shared:
-        both = joined_room_ids(database, owner.id, [row.id for row in rows])
-        rows = [row for row in rows if row.id in both]
     return {"rooms": pack_community_rooms(database, rows, current_user.id)}
 
 

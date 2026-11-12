@@ -704,7 +704,8 @@ function defaultProfileTileProps(type, existing) {
     return Object.assign({
       title: String(prev.title || "").trim() || (mode === "profile" ? "Profile chat" : "Chat rooms"),
       mode,
-      owner_rooms: !!prev.owner_rooms
+      owner_rooms: !!prev.owner_rooms,
+      show_title: prev.show_title == null ? true : !!prev.show_title
     }, chrome);
   }
   if (type === "display_server") {

@@ -539,6 +539,7 @@ class Profile_chat(Base):
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     content = Column(String)
+    attachment = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     __table_args__ = (Index("ix_profile_chats_owner_created", "owner_id", "created_at", "id"),)
 

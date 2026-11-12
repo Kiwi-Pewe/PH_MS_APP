@@ -38,6 +38,7 @@ def ensure_attachment_columns():
         "forum_messages",
         "announcements",
         "forum_posts",
+        "profile_chats",
     )
     with engine.connect() as conn:
         for table in tables:

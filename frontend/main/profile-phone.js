@@ -19,7 +19,22 @@ function bindProfilePhonePointer(el) {
   el.addEventListener("click", stop);
 }
 
+function paintProfilePhoneAttachPreviews() {
+  profilePhoneTiles().forEach((el) => {
+    const state = el._profilePhone;
+    if (state && state.attachPreview && typeof fillAttachPreview === "function") {
+      fillAttachPreview(state.attachPreview);
+    }
+  });
+}
+
 function paintProfilePhoneComposer(state) {
+  const wrap = document.createElement("div");
+  wrap.className = "profile-chat-room-compose-wrap";
+  const preview = document.createElement("div");
+  preview.className = "attach-preview";
+  preview.hidden = true;
+  bindProfilePhonePointer(preview);
   const row = document.createElement("div");
   row.className = "profile-chat-room-compose";
   bindProfilePhonePointer(row);
@@ -27,25 +42,43 @@ function paintProfilePhoneComposer(state) {
   plus.type = "button";
   plus.className = "icon-btn profile-chat-room-icon";
   plus.textContent = "+";
-  plus.disabled = true;
-  plus.tabIndex = -1;
+  plus.title = "Attach image or video";
+  plus.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (plus.disabled || profilePhonePreview(wrap)) return;
+    if (typeof attachDestination !== "undefined") attachDestination = "composer";
+    if (typeof openMediaPicker === "function") openMediaPicker();
+  });
   const input = document.createElement("textarea");
   input.className = "profile-chat-room-input";
   input.rows = 1;
   input.placeholder = "Message";
+  input.addEventListener("paste", (e) => {
+    const files = e.clipboardData && e.clipboardData.files;
+    if (!files || !files.length) return;
+    e.preventDefault();
+    if (typeof attachDestination !== "undefined") attachDestination = "composer";
+    if (typeof setPendingFile === "function") setPendingFile(files[0]);
+  });
   const emoji = document.createElement("button");
   emoji.type = "button";
   emoji.className = "icon-btn profile-chat-room-icon";
   emoji.textContent = "\u{1F600}";
-  emoji.disabled = true;
-  emoji.tabIndex = -1;
+  emoji.title = "Emoji";
+  emoji.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (emoji.disabled || profilePhonePreview(wrap)) return;
+    if (typeof openEmojiPicker === "function") openEmojiPicker(emoji, input, e.clientX, e.clientY);
+  });
   const send = document.createElement("button");
   send.type = "button";
   send.className = "pill-btn profile-chat-room-send";
   send.textContent = "Send";
   function fire() {
-    if (profilePhonePreview(row) || input.disabled) return;
-    if (typeof sendCommunityPhoneMessage === "function") sendCommunityPhoneMessage(input, true);
+    if (profilePhonePreview(wrap) || input.disabled) return;
+    if (typeof sendCommunityPhoneMessage === "function") sendCommunityPhoneMessage(input);
   }
   send.addEventListener("click", (e) => {
     e.preventDefault();
@@ -68,9 +101,14 @@ function paintProfilePhoneComposer(state) {
   row.appendChild(rightRule);
   row.appendChild(emoji);
   row.appendChild(send);
+  wrap.appendChild(preview);
+  wrap.appendChild(row);
   state.input = input;
   state.sendBtn = send;
-  return row;
+  state.plusBtn = plus;
+  state.emojiBtn = emoji;
+  state.attachPreview = preview;
+  return wrap;
 }
 
 function paintProfilePhoneLanding(host, state) {
@@ -322,6 +360,8 @@ function syncProfilePhoneChat(state) {
     state.input.disabled = false;
   }
   if (state.sendBtn) state.sendBtn.disabled = false;
+  if (state.plusBtn) state.plusBtn.disabled = false;
+  if (state.emojiBtn) state.emojiBtn.disabled = false;
 }
 
 function syncProfilePhone(state) {
@@ -342,6 +382,8 @@ function syncProfilePhone(state) {
   }
   if (state.input) state.input.disabled = true;
   if (state.sendBtn) state.sendBtn.disabled = true;
+  if (state.plusBtn) state.plusBtn.disabled = true;
+  if (state.emojiBtn) state.emojiBtn.disabled = true;
   syncProfilePhoneLanding(state);
 }
 

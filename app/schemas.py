@@ -168,20 +168,22 @@ class Profile_comment_watch_in(BaseModel):
     watching: bool = False
 
 
-class Profile_chat_in(BaseModel):
-    content: str = ""
-
-
-class Profile_identity_in(BaseModel):
-    status: str = ""
-    pronouns: str = ""
-
 class Attachment_in(BaseModel):
     key: str
     mime: str
     size: int
     name: str = ""
     explicit: bool = False
+
+
+class Profile_chat_in(BaseModel):
+    content: str = ""
+    attachment: Attachment_in | None = None
+
+
+class Profile_identity_in(BaseModel):
+    status: str = ""
+    pronouns: str = ""
 
 class Feedback_status(BaseModel):
     status: str

@@ -285,6 +285,7 @@ function renderAttachPreviews() {
   fillAttachPreview(document.getElementById("composer-attach-preview"));
   fillAttachPreview(document.getElementById("channel-composer-attach-preview"));
   if (typeof paintProfileChatAttachPreviews === "function") paintProfileChatAttachPreviews();
+  if (typeof paintProfilePhoneAttachPreviews === "function") paintProfilePhoneAttachPreviews();
 }
 
 function fillAttachPreview(host) {

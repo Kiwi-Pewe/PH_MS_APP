@@ -15,7 +15,7 @@ from app.auth import get_current_user
 from app.privacy import are_friends, can_see_full_profile, drop_blocked_rows
 from app.routers.account import parse_display_name_history
 from app.routers.realtime import notify_user, profile_chat_viewer_ids, watch_profile_chat
-from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for, still_url_for, still_url_from_public, require_message_body
+from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for, still_url_for, still_url_from_public, require_message_body, store_attachment, attachment_public
 from app.site_moderation import mask_message_payloads
 
 router = APIRouter()
@@ -2459,7 +2459,7 @@ def serialize_profile_chat(row, sender):
         "avatar": public_avatar(sender) if sender else slim_identity_media({}),
         "edited": False,
         "reactions": [],
-        "attachment": None,
+        "attachment": attachment_public(row.attachment),
         "mentioned": False,
         "mention_users": {},
         "reply_to": None,
@@ -2561,8 +2561,9 @@ async def create_profile_chat(
     if not can_use_profile_chat(database, current_user, owner):
         raise HTTPException(status_code=403, detail="You cannot chat here.")
     text = clip_text(body.content, PROFILE_CHAT_MAX)
-    require_message_body(text, None)
-    row = Profile_chat(owner_id=owner.id, sender_id=current_user.id, content=text.strip())
+    stored = store_attachment(body.attachment, current_user)
+    require_message_body(text, stored)
+    row = Profile_chat(owner_id=owner.id, sender_id=current_user.id, content=text.strip(), attachment=stored)
     database.add(row)
     database.flush()
     trim_profile_chat(database, owner.id)

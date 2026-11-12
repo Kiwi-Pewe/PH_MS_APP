@@ -126,7 +126,7 @@ function setProfileChatComposer(state, enabled, placeholder) {
     state.input.disabled = !enabled;
   }
   if (state.sendBtn) state.sendBtn.disabled = !enabled;
-  if (state.plusBtn) state.plusBtn.disabled = !enabled || state.mode === "profile";
+  if (state.plusBtn) state.plusBtn.disabled = !enabled;
   if (state.emojiBtn) state.emojiBtn.disabled = !enabled;
 }
 
@@ -195,6 +195,13 @@ function paintProfileChatRoomComposer(state) {
     if (e.key !== "Enter" || e.shiftKey) return;
     e.preventDefault();
     fire();
+  });
+  input.addEventListener("paste", (e) => {
+    const files = e.clipboardData && e.clipboardData.files;
+    if (!files || !files.length) return;
+    e.preventDefault();
+    if (typeof attachDestination !== "undefined") attachDestination = "composer";
+    if (typeof setPendingFile === "function") setPendingFile(files[0]);
   });
   const leftRule = document.createElement("div");
   leftRule.className = "profile-chat-room-compose-rule";
@@ -375,18 +382,28 @@ async function sendProfileChatRoomMessage(state, input) {
 async function sendProfileChatMessage(state, input) {
   const content = input ? String(input.value || "").trim() : "";
   const ownerId = profileChatOwnerId();
-  if (!content || !ownerId) return;
+  if ((!content && !pendingAttach) || !ownerId) return;
+  if (pendingAttach && pendingAttach.busy) return;
+  let attachment = null;
+  if (pendingAttach && typeof uploadPendingIfNeeded === "function") {
+    try {
+      attachment = await uploadPendingIfNeeded();
+    } catch (err) {
+      return;
+    }
+  }
   if (input) input.value = "";
   try {
     const response = await profileApi("/profile/" + encodeURIComponent(ownerId) + "/chat", {
       method: "POST",
-      body: JSON.stringify({ content: content })
+      body: JSON.stringify({ content: content, attachment: attachment })
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error((data && data.detail) || "Could not send.");
+    if (!response.ok) return;
+    if (typeof clearPendingAttach === "function") clearPendingAttach();
     applyProfileChatMessage({ owner_id: ownerId, message: data });
   } catch (err) {
-    window.alert(err.message || "Could not send.");
+    return;
   }
 }
 

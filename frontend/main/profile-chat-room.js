@@ -53,6 +53,7 @@ function mapProfileChatMessage(msg, kind) {
 
 function paintProfileChatLog(log, messages) {
   if (!log) return;
+  if (typeof applyChatLogSelfSide === "function") applyChatLogSelfSide(log);
   log.replaceChildren();
   if (!messages || !messages.length) {
     const empty = document.createElement("div");
@@ -205,7 +206,9 @@ function paintProfileChatRoomThread(host, state, title, showBack, onBack) {
     host.appendChild(head);
   }
   const log = document.createElement("div");
-  log.className = "profile-chat-room-log self-right";
+  log.className = "profile-chat-room-log";
+  if (typeof applyChatLogSelfSide === "function") applyChatLogSelfSide(log);
+  else log.classList.add("self-right");
   host.appendChild(log);
   state.log = log;
   paintProfileChatLog(log, state.messages);

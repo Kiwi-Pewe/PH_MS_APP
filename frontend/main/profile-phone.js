@@ -199,7 +199,9 @@ function paintProfilePhoneChat(host, state) {
   const starter = document.createElement("p");
   starter.className = "community-phone-starter";
   const log = document.createElement("div");
-  log.className = "profile-chat-room-log self-right";
+  log.className = "profile-chat-room-log";
+  if (typeof applyChatLogSelfSide === "function") applyChatLogSelfSide(log);
+  else log.classList.add("self-right");
   host.appendChild(head);
   host.appendChild(starter);
   host.appendChild(log);

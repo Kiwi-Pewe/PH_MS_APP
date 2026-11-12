@@ -341,6 +341,15 @@ function applyAppearanceChrome(prefs) {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("self-right", selfRight);
   });
+  document.querySelectorAll(".profile-chat-room-log").forEach((el) => {
+    el.classList.toggle("self-right", selfRight);
+  });
+}
+
+function applyChatLogSelfSide(el) {
+  if (!el) return;
+  const selfRight = !appearancePrefs || appearancePrefs.self_side !== "left";
+  el.classList.toggle("self-right", selfRight);
 }
 
 function rerenderOpenChats() {

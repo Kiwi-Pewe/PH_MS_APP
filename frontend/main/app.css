@@ -2387,6 +2387,7 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   position: relative;
   flex: 1;
   min-width: 0;
+  min-height: 36px;
   align-self: stretch;
   display: flex;
   overflow: hidden;
@@ -2564,11 +2565,11 @@ html.legacy-chat-input #mention-picker { display: none !important; }
 .md-highlight { border-radius: 2px; padding: 0 1px; }
 .composer-highlight .md-size { font-size: inherit; }
 #composer textarea, #channel-composer textarea, .edit-composer textarea {
-  flex: 1; width: 100%; min-width: 0; box-sizing: border-box;
+  flex: 1; width: 100%; min-width: 0; min-height: 36px; box-sizing: border-box;
   background: transparent; border: none; color: var(--text); font-size: 14px;
   font-family: inherit; padding: 8px 6px; resize: none; overflow-y: auto;
   scrollbar-gutter: stable;
-  line-height: 1.4; max-height: calc(1.4em * 5); /* caps growth at 5 lines, then scrolls */
+  line-height: 1.4; max-height: calc(1.4em * 5);
 }
 .composer-field textarea {
   color: transparent;
@@ -15659,12 +15660,13 @@ button.voice-more-row:disabled,
   grid-template-rows: 48px minmax(0, 1fr);
 }
 .profile-chat-room.has-compose {
-  grid-template-rows: minmax(0, 1fr) 52px;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 .profile-chat-room.has-title.has-compose {
-  grid-template-rows: 48px minmax(0, 1fr) 52px;
+  grid-template-rows: 48px minmax(0, 1fr) auto;
 }
-.profile-chat-room:not(.has-compose) .profile-chat-room-compose {
+.profile-chat-room:not(.has-compose) .profile-chat-room-compose-wrap,
+.profile-chat-room:not(.has-compose) > .profile-chat-room-compose {
   display: none;
 }
 .profile-chat-room-head {
@@ -15833,14 +15835,22 @@ button.voice-more-row:disabled,
 .profile-chat-room-log .bubble-line {
   font-size: 13px;
 }
+.profile-chat-room-compose-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--rail);
+  border-top: 1px solid var(--border);
+}
+.profile-chat-room-compose-wrap .attach-preview {
+  margin: 8px 10px 0;
+}
 .profile-chat-room-compose {
   display: flex;
   align-items: center;
   gap: 0;
   min-height: 52px;
   padding: 8px 10px;
-  border-top: 1px solid var(--border);
-  background: var(--rail);
   box-sizing: border-box;
 }
 .profile-chat-room-compose-rule {

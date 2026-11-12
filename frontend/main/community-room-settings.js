@@ -200,7 +200,7 @@ function communityRoomVisibleRows() {
   const prefs = communityRoomPrefs;
   const rows = communityRooms.filter((row) => {
     if (!row || row.hidden) return false;
-    if (prefs.hide_joined && row.joined) return false;
+    if (row.joined) return false;
     if (prefs.hide_full && !row.joined && Number(row.n) >= 15) return false;
     if (prefs.blacklist_hide && communityRoomBlacklisted(row)) return false;
     return true;

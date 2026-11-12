@@ -224,8 +224,9 @@ async function sendChatMessage() {
 
 function autoGrowComposer() {
   const el = document.getElementById("composer-input");
+  if (!el) return;
   el.style.height = "auto";
-  el.style.height = el.scrollHeight + "px";
+  el.style.height = Math.max(36, el.scrollHeight) + "px";
 }
 
 document.getElementById("composer-input").addEventListener("input", autoGrowComposer);
@@ -314,8 +315,9 @@ async function sendChannelMessage() {
 
 function autoGrowChannelComposer() {
   const el = document.getElementById("channel-composer-input");
+  if (!el) return;
   el.style.height = "auto";
-  el.style.height = el.scrollHeight + "px";
+  el.style.height = Math.max(36, el.scrollHeight) + "px";
 }
 
 document.getElementById("channel-composer-input").addEventListener("input", autoGrowChannelComposer);

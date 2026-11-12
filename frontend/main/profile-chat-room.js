@@ -126,9 +126,26 @@ function setProfileChatComposer(state, enabled, placeholder) {
     state.input.disabled = !enabled;
   }
   if (state.sendBtn) state.sendBtn.disabled = !enabled;
+  if (state.plusBtn) state.plusBtn.disabled = !enabled || state.mode === "profile";
+  if (state.emojiBtn) state.emojiBtn.disabled = !enabled;
+}
+
+function paintProfileChatAttachPreviews() {
+  profileChatTiles().forEach((el) => {
+    const state = el._profileChat;
+    if (state && state.attachPreview && typeof fillAttachPreview === "function") {
+      fillAttachPreview(state.attachPreview);
+    }
+  });
 }
 
 function paintProfileChatRoomComposer(state) {
+  const wrap = document.createElement("div");
+  wrap.className = "profile-chat-room-compose-wrap";
+  const preview = document.createElement("div");
+  preview.className = "attach-preview";
+  preview.hidden = true;
+  bindProfileChatPointer(preview);
   const row = document.createElement("div");
   row.className = "profile-chat-room-compose";
   bindProfileChatPointer(row);
@@ -136,8 +153,14 @@ function paintProfileChatRoomComposer(state) {
   plus.type = "button";
   plus.className = "icon-btn profile-chat-room-icon";
   plus.textContent = "+";
-  plus.disabled = true;
-  plus.tabIndex = -1;
+  plus.title = "Attach image or video";
+  plus.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!state.canSend || plus.disabled || profileChatPreview(wrap)) return;
+    if (typeof attachDestination !== "undefined") attachDestination = "composer";
+    if (typeof openMediaPicker === "function") openMediaPicker();
+  });
   const input = document.createElement("textarea");
   input.className = "profile-chat-room-input";
   input.rows = 1;
@@ -146,14 +169,19 @@ function paintProfileChatRoomComposer(state) {
   emoji.type = "button";
   emoji.className = "icon-btn profile-chat-room-icon";
   emoji.textContent = "\u{1F600}";
-  emoji.disabled = true;
-  emoji.tabIndex = -1;
+  emoji.title = "Emoji";
+  emoji.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!state.canSend || emoji.disabled || profileChatPreview(wrap)) return;
+    if (typeof openEmojiPicker === "function") openEmojiPicker(emoji, input, e.clientX, e.clientY);
+  });
   const send = document.createElement("button");
   send.type = "button";
   send.className = "pill-btn profile-chat-room-send";
   send.textContent = "Send";
   function fire() {
-    if (!state.canSend || profileChatPreview(row) || input.disabled) return;
+    if (!state.canSend || profileChatPreview(wrap) || input.disabled) return;
     if (state.mode === "profile") sendProfileChatMessage(state, input);
     else sendProfileChatRoomMessage(state, input);
   }
@@ -178,9 +206,14 @@ function paintProfileChatRoomComposer(state) {
   row.appendChild(rightRule);
   row.appendChild(emoji);
   row.appendChild(send);
+  wrap.appendChild(preview);
+  wrap.appendChild(row);
   state.input = input;
   state.sendBtn = send;
-  return row;
+  state.plusBtn = plus;
+  state.emojiBtn = emoji;
+  state.attachPreview = preview;
+  return wrap;
 }
 
 function paintProfileChatRoomThread(host, state, title, showBack, onBack) {
@@ -291,13 +324,23 @@ async function loadProfileWidgetRoomMessages(roomId) {
 
 async function sendProfileChatRoomMessage(state, input) {
   const content = input ? String(input.value || "").trim() : "";
-  if (!content || !state.roomId || !ws || ws.readyState !== 1) return;
+  if ((!content && !pendingAttach) || !state.roomId || !ws || ws.readyState !== 1) return;
+  if (pendingAttach && pendingAttach.busy) return;
+  let attachment = null;
+  if (pendingAttach && typeof uploadPendingIfNeeded === "function") {
+    try {
+      attachment = await uploadPendingIfNeeded();
+    } catch (err) {
+      return;
+    }
+  }
   const tempId = typeof nextMessageTempId === "function" ? nextMessageTempId() : ("tmp-" + Date.now());
   const stored = typeof encodeMentions === "function" ? encodeMentions(content, false) : content;
   ws.send(JSON.stringify({
     type: "room_message",
     room_id: state.roomId,
     content: content,
+    attachment: attachment,
     temp_id: tempId
   }));
   const mapped = typeof mapCommunityRoomMessage === "function"
@@ -307,6 +350,7 @@ async function sendProfileChatRoomMessage(state, input) {
       username: myUsername || "",
       display_name: typeof myDisplayName !== "undefined" ? myDisplayName : "",
       content: stored,
+      attachment: attachment,
       timestamp: new Date().toISOString(),
       avatar: typeof faceForUser === "function" ? faceForUser(myUserId) : null
     })
@@ -315,6 +359,7 @@ async function sendProfileChatRoomMessage(state, input) {
       sender_id: myUserId,
       username: myUsername || "",
       content: stored,
+      attachment: attachment,
       timestamp: new Date().toISOString()
     }, "room");
   state.messages.push(mapped);
@@ -324,6 +369,7 @@ async function sendProfileChatRoomMessage(state, input) {
     if (typeof paintCommunityRoomChat === "function") paintCommunityRoomChat();
   }
   if (input) input.value = "";
+  if (typeof clearPendingAttach === "function") clearPendingAttach();
 }
 
 async function sendProfileChatMessage(state, input) {

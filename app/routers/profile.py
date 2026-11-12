@@ -2436,7 +2436,7 @@ def serialize_profile_chat(row, sender):
         "username": sender.username if sender else "Unknown",
         "display_name": public_display_name(sender) if sender else "Unknown",
         "content": row.content or "",
-        "timestamp": str(row.created_at) if row.created_at else "",
+        "timestamp": (row.created_at.isoformat() + "Z") if row.created_at else "",
         "avatar": public_avatar(sender) if sender else slim_identity_media({}),
         "edited": False,
         "reactions": [],

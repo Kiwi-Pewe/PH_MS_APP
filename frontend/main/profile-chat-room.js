@@ -12,8 +12,16 @@ function profileChatOwnerId() {
   return typeof profileOwnerId !== "undefined" ? profileOwnerId : null;
 }
 
-function profileChatBusy() {
-  return !!(typeof profileEditing !== "undefined" && profileEditing);
+function profileChatPreview(el) {
+  return !!(el && el.closest && el.closest(".is-opt-preview"));
+}
+
+function bindProfileChatPointer(el) {
+  if (!el) return;
+  const stop = (e) => e.stopPropagation();
+  el.addEventListener("pointerdown", stop);
+  el.addEventListener("mousedown", stop);
+  el.addEventListener("click", stop);
 }
 
 function profileChatTiles() {
@@ -53,14 +61,22 @@ function paintProfileChatLog(log, messages) {
     log.appendChild(empty);
     return;
   }
-  if (typeof renderClusteredMessages === "function") renderClusteredMessages(log, messages);
+  try {
+    if (typeof renderClusteredMessages === "function") renderClusteredMessages(log, messages);
+  } catch (err) {
+    const empty = document.createElement("div");
+    empty.className = "profile-chat-room-empty";
+    empty.textContent = "There's no messages yet.";
+    log.appendChild(empty);
+  }
   log.scrollTop = log.scrollHeight;
 }
 
 function paintProfileChatRoomCard(row) {
-  const card = document.createElement("button");
-  card.type = "button";
+  const card = document.createElement("div");
   card.className = "community-room profile-chat-room-card";
+  card.setAttribute("role", "button");
+  card.tabIndex = 0;
   const head = document.createElement("div");
   head.className = "community-room-head";
   const titleWrap = document.createElement("div");
@@ -101,38 +117,41 @@ function paintProfileChatRoomCard(row) {
   return card;
 }
 
-function paintProfileChatRoomComposer(placeholder, onSend, enabled) {
+function paintProfileChatRoomComposer(placeholder, onSend) {
   const row = document.createElement("div");
   row.className = "profile-chat-room-compose";
+  bindProfileChatPointer(row);
   const plus = document.createElement("button");
   plus.type = "button";
   plus.className = "icon-btn";
   plus.textContent = "+";
   plus.disabled = true;
+  plus.tabIndex = -1;
   const input = document.createElement("textarea");
   input.className = "profile-chat-room-input";
-  input.rows = 1;
+  input.rows = 2;
   input.placeholder = placeholder;
-  input.disabled = !enabled;
   const emoji = document.createElement("button");
   emoji.type = "button";
   emoji.className = "icon-btn";
   emoji.textContent = "\u{1F600}";
   emoji.disabled = true;
+  emoji.tabIndex = -1;
   const send = document.createElement("button");
   send.type = "button";
   send.className = "pill-btn";
   send.textContent = "Send";
-  send.disabled = !enabled;
   function fire() {
-    if (!enabled || typeof onSend !== "function") return;
+    if (profileChatPreview(row) || typeof onSend !== "function") return;
     onSend(input);
   }
   send.addEventListener("click", (e) => {
+    e.preventDefault();
     e.stopPropagation();
     fire();
   });
   input.addEventListener("keydown", (e) => {
+    e.stopPropagation();
     if (e.key !== "Enter" || e.shiftKey) return;
     e.preventDefault();
     fire();
@@ -153,7 +172,9 @@ function paintProfileChatRoomThread(host, state, title, showBack, onBack) {
     back.type = "button";
     back.className = "ghost-btn";
     back.textContent = "Rooms";
+    bindProfileChatPointer(back);
     back.addEventListener("click", (e) => {
+      e.preventDefault();
       e.stopPropagation();
       if (typeof onBack === "function") onBack();
     });
@@ -164,13 +185,13 @@ function paintProfileChatRoomThread(host, state, title, showBack, onBack) {
   name.textContent = title;
   head.appendChild(name);
   const log = document.createElement("div");
-  log.className = "profile-chat-room-log";
+  log.className = "profile-chat-room-log self-right";
   host.appendChild(head);
   host.appendChild(log);
   host.appendChild(paintProfileChatRoomComposer("Message " + title, (input) => {
     if (state.mode === "profile") sendProfileChatMessage(state, input);
     else sendProfileChatRoomMessage(state, input);
-  }, !profileChatBusy()));
+  }));
   state.log = log;
   paintProfileChatLog(log, state.messages);
 }
@@ -191,10 +212,17 @@ function paintProfileChatRoomPicker(host, state, rooms, onPick) {
   list.className = "profile-chat-room-list";
   rooms.forEach((row) => {
     const card = paintProfileChatRoomCard(row);
-    card.addEventListener("click", (e) => {
+    bindProfileChatPointer(card);
+    const pick = (e) => {
+      e.preventDefault();
       e.stopPropagation();
-      if (host.closest(".is-editing") || host.closest(".is-opt-preview")) return;
+      if (profileChatPreview(host)) return;
       if (typeof onPick === "function") onPick(row);
+    };
+    card.addEventListener("click", pick);
+    card.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      pick(e);
     });
     list.appendChild(card);
   });
@@ -244,7 +272,7 @@ async function loadProfileWidgetRoomMessages(roomId) {
 
 async function sendProfileChatRoomMessage(state, input) {
   const content = input ? String(input.value || "").trim() : "";
-  if (!content || !state.roomId || !ws || ws.readyState !== 1 || profileChatBusy()) return;
+  if (!content || !state.roomId || !ws || ws.readyState !== 1) return;
   const tempId = typeof nextMessageTempId === "function" ? nextMessageTempId() : ("tmp-" + Date.now());
   const stored = typeof encodeMentions === "function" ? encodeMentions(content, false) : content;
   ws.send(JSON.stringify({
@@ -282,7 +310,7 @@ async function sendProfileChatRoomMessage(state, input) {
 async function sendProfileChatMessage(state, input) {
   const content = input ? String(input.value || "").trim() : "";
   const ownerId = profileChatOwnerId();
-  if (!content || !ownerId || profileChatBusy()) return;
+  if (!content || !ownerId) return;
   if (input) input.value = "";
   try {
     const response = await profileApi("/profile/" + encodeURIComponent(ownerId) + "/chat", {
@@ -445,7 +473,7 @@ function paintProfileChatRoom(tile, el) {
     loadProfileChatRooms(ownerId, !!props.owner_rooms).then((rooms) => {
       if (el._profileChat !== state || state.gen !== gen) return;
       paintProfileChatRoomPicker(body, state, rooms, (row) => {
-        if (profileChatBusy()) return;
+        if (profileChatPreview(body)) return;
         openProfileChatRoom(body, state, row);
       });
     }).catch(() => {

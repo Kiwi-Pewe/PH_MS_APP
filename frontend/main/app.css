@@ -15592,14 +15592,33 @@ button.voice-more-row:disabled,
 .profile-tile.is-chat_room {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+.profile-tile.is-editing.is-chat_room { user-select: none; }
+.profile-tile.is-editing.is-chat_room .profile-chat-room { pointer-events: none; }
+.profile-tile.is-editing.is-chat_room .profile-chat-room-card,
+.profile-tile.is-editing.is-chat_room .profile-chat-room-compose,
+.profile-tile.is-editing.is-chat_room .profile-chat-room-input,
+.profile-tile.is-editing.is-chat_room .profile-chat-room-chat-head,
+.profile-tile.is-editing.is-chat_room .ghost-btn {
+  pointer-events: auto;
+  user-select: text;
+  cursor: auto;
+}
+.profile-tile.is-editing.is-chat_room textarea.profile-chat-room-input {
+  pointer-events: auto;
+  cursor: text;
 }
 .profile-chat-room {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
+  height: 100%;
   padding: 10px 12px 8px;
   box-sizing: border-box;
 }
@@ -15622,19 +15641,44 @@ button.voice-more-row:disabled,
   padding-bottom: 4px;
 }
 .profile-chat-room-card {
-  appearance: none;
+  flex: 0 0 auto;
   width: 100%;
-  text-align: left;
-  color: inherit;
-  font: inherit;
+  max-width: 100%;
+  box-sizing: border-box;
   cursor: pointer;
 }
 .profile-chat-room-card .community-room-head,
 .profile-chat-room-card .community-room-mid,
 .profile-chat-room-card .community-room-foot {
+  flex: 0 0 auto;
   padding: 8px 10px;
 }
-.profile-chat-room-card .community-room-name { font-size: 14px; }
+.profile-chat-room-card .community-room-title {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.profile-chat-room-card .community-room-name {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.profile-chat-room-card .community-room-by {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.profile-chat-room-card .community-room-about {
+  font-size: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
 .profile-chat-room-empty {
   flex: 1 1 auto;
   display: flex;
@@ -15671,8 +15715,20 @@ button.voice-more-row:disabled,
   padding: 8px 6px;
 }
 .profile-chat-room-log .msg-cluster {
-  padding-left: 8px;
-  padding-right: 8px;
+  padding-left: 4px;
+  padding-right: 4px;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+.profile-chat-room-log .cluster-body { max-width: 100%; }
+.profile-chat-room-log .cluster-avatar {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+}
+.profile-chat-room-log .cluster-name,
+.profile-chat-room-log .bubble-line {
+  font-size: 13px;
 }
 .profile-chat-room-compose {
   flex: 0 0 auto;
@@ -15688,14 +15744,14 @@ button.voice-more-row:disabled,
 .profile-chat-room-input {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 36px;
+  max-height: 72px;
   resize: none;
   border: 0;
+  outline: none;
   background: transparent;
   color: var(--text);
   font: inherit;
+  font-size: 13px;
   line-height: 1.35;
-}
-.profile-tile.is-editing .profile-chat-room-card,
-.profile-tile.is-editing .profile-chat-room-compose {
-  pointer-events: none;
 }

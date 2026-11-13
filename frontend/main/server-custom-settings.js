@@ -73,9 +73,6 @@ function paintServerCustomSettingsTabs() {
 }
 
 function paintServerCustomSettingsNav() {
-  const label = document.getElementById("server-custom-settings-index-label");
-  const row = serverCustomSettingsRow();
-  if (label) label.textContent = (row && row.title) || "Section";
   document.querySelectorAll("#server-custom-settings-nav [data-custom-settings-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-custom-settings-tab") === serverCustomSettingsTab);
   });
@@ -101,20 +98,6 @@ function paintServerCustomSettingsVisibility() {
       if (typeof markServerCustomDirty === "function") markServerCustomDirty();
     }));
   }
-  const view = typeof serverCustomViewAccess === "function" ? serverCustomViewAccess(row) : "everyone";
-  document.querySelectorAll("#server-custom-settings-view [data-view]").forEach((btn) => {
-    const key = btn.getAttribute("data-view");
-    btn.classList.toggle("is-on", key === view);
-  });
-}
-
-function setServerCustomSettingsView(view) {
-  const row = serverCustomSettingsRow();
-  if (!row || (view !== "everyone" && view !== "staff" && view !== "owner")) return;
-  if (typeof applyServerCustomViewAccess === "function") applyServerCustomViewAccess(row, view);
-  else row.view_access = view;
-  if (typeof markServerCustomDirty === "function") markServerCustomDirty();
-  paintServerCustomSettingsVisibility();
 }
 
 function serverCustomSettingsEditIds(row) {
@@ -262,14 +245,6 @@ if (serverCustomSettingsNav) {
     if (!btn || !serverCustomSettingsNav.contains(btn)) return;
     serverCustomSettingsTab = btn.getAttribute("data-custom-settings-tab") || "visibility";
     paintServerCustomSettingsOverlay();
-  });
-}
-const serverCustomSettingsView = document.getElementById("server-custom-settings-view");
-if (serverCustomSettingsView) {
-  serverCustomSettingsView.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-view]");
-    if (!btn || btn.disabled || !serverCustomSettingsView.contains(btn)) return;
-    setServerCustomSettingsView(btn.getAttribute("data-view"));
   });
 }
 const serverCustomSettingsEnable = document.getElementById("server-custom-settings-perms-enable-all");

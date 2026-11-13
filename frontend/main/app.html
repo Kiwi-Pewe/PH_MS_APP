@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=534">
+<link rel="stylesheet" href="app.css?v=535">
 <link rel="stylesheet" href="news.css?v=6">
 </head>
 <body>
@@ -1681,11 +1681,11 @@
     <div id="server-custom-settings-card" class="community-compose-card" role="dialog" aria-modal="true" aria-labelledby="server-custom-settings-title">
     <div id="server-custom-settings-header" class="community-compose-header">
       <span id="server-custom-settings-title" class="community-compose-title">Settings</span>
+      <span id="server-custom-settings-split" aria-hidden="true">|</span>
       <div id="server-custom-settings-tabs" class="tabs"></div>
     </div>
     <div id="server-custom-settings-body" class="community-compose-body">
       <aside id="server-custom-settings-index">
-        <div id="server-custom-settings-index-label"></div>
         <nav id="server-custom-settings-nav">
           <button type="button" class="server-settings-nav-item active" data-custom-settings-tab="visibility">Visibility</button>
           <button type="button" class="server-settings-nav-item" data-custom-settings-tab="permissions">Permissions</button>
@@ -1698,28 +1698,6 @@
             <div class="server-settings-field-title">Listed</div>
             <p class="server-settings-help">Show this section in the server Sections list.</p>
             <div id="server-custom-settings-listed-host"></div>
-          </div>
-          <div class="server-settings-field">
-            <div class="server-settings-field-title" id="server-custom-settings-view-label">Who can view</div>
-            <p class="server-settings-help">People who cannot view this section will not see it in the list.</p>
-            <div id="server-custom-settings-view" class="settings-radio-list" role="radiogroup" aria-labelledby="server-custom-settings-view-label">
-              <button type="button" class="settings-radio" data-view="everyone">
-                <span class="settings-radio-dot"></span>
-                <span>Everyone</span>
-              </button>
-              <button type="button" class="settings-radio" data-view="staff">
-                <span class="settings-radio-dot"></span>
-                <span>Staff</span>
-              </button>
-              <button type="button" class="settings-radio" data-view="owner">
-                <span class="settings-radio-dot"></span>
-                <span>Owner</span>
-              </button>
-              <button type="button" class="settings-radio is-later" data-view="roles" disabled>
-                <span class="settings-radio-dot"></span>
-                <span>Roles</span>
-              </button>
-            </div>
           </div>
         </div>
         <div id="server-custom-settings-permissions" class="server-settings-page" hidden>
@@ -3222,7 +3200,7 @@
 <script src="profile-identity.js?v=19"></script>
 <script src="profile-edit.js?v=133"></script>
 <script src="server-custom-sections.js?v=9"></script>
-<script src="server-custom-settings.js?v=2"></script>
+<script src="server-custom-settings.js?v=3"></script>
 <script src="context-menus.js?v=111"></script>
 <script src="conversations.js?v=77"></script>
 <script src="chat-render.js?v=76"></script>

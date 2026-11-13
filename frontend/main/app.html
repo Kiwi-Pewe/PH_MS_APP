@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=524">
+<link rel="stylesheet" href="app.css?v=525">
 <link rel="stylesheet" href="news.css?v=6">
 </head>
 <body>
@@ -1238,11 +1238,26 @@
         <button type="button" class="server-settings-nav-item" data-tab="emojis">Emojis</button>
         <button type="button" class="server-settings-nav-item" data-tab="integrations">Integrations</button>
         <button type="button" class="server-settings-nav-item" data-tab="audit">Audit Log</button>
+        <button type="button" class="server-settings-nav-item" id="server-settings-custom-open">Custom Sections</button>
       </nav>
       <div id="server-settings-index-foot" hidden>
         <div class="server-settings-index-divider"></div>
         <button type="button" id="server-settings-transfer" class="server-settings-nav-item" hidden>Transfer Ownership</button>
         <button type="button" id="server-settings-delete" class="server-settings-nav-item is-danger" hidden>Delete Server</button>
+      </div>
+    </aside>
+    <aside id="server-custom-palette" hidden>
+      <div class="profile-palette-title">Pieces</div>
+      <div id="server-custom-palette-body"></div>
+    </aside>
+    <aside id="server-custom-pages" hidden>
+      <div id="server-custom-pages-header">Sections</div>
+      <div id="server-custom-page-list"></div>
+      <div id="server-custom-page-add-wrap">
+        <button type="button" class="settings-row-btn profile-page-add" id="server-custom-page-add">+</button>
+      </div>
+      <div id="server-custom-page-tools">
+        <button type="button" class="profile-page-item profile-more-tab" id="server-custom-page-settings" disabled>Settings</button>
       </div>
     </aside>
     <section id="server-settings-main">
@@ -1619,7 +1634,60 @@
         <p id="server-audit-empty" class="server-settings-help" hidden>No audit entries yet.</p>
         <p id="server-audit-status" class="server-settings-help" hidden></p>
       </div>
+
+      <div id="server-settings-custom" class="server-settings-page" hidden>
+        <div class="server-custom-top">
+          <div id="server-custom-actions">
+            <button type="button" id="server-custom-cancel" class="settings-row-btn">Cancel</button>
+            <button type="button" id="server-custom-save" class="pill-btn">Save</button>
+          </div>
+        </div>
+        <div id="server-custom-preview" hidden></div>
+        <div id="server-custom-board-scroll">
+          <div id="server-custom-board-fit">
+            <div id="server-custom-board"></div>
+          </div>
+        </div>
+      </div>
     </section>
+  </div>
+
+  <div id="server-custom-create-overlay" hidden>
+    <div id="server-custom-create-card" class="community-compose-card" role="dialog" aria-modal="true" aria-labelledby="server-custom-create-title">
+      <div class="community-compose-header">
+        <span id="server-custom-create-title" class="community-compose-title">New Section</span>
+      </div>
+      <div class="community-compose-body">
+        <label class="server-modal-label" for="server-custom-create-name">Name</label>
+        <input type="text" id="server-custom-create-name" class="server-settings-input" maxlength="32" placeholder="Section name" autocomplete="off">
+        <label class="server-modal-label" for="server-custom-create-about">Description</label>
+        <textarea id="server-custom-create-about" class="server-settings-input server-settings-textarea" rows="5" maxlength="200" placeholder="What this section is for"></textarea>
+        <div class="private-toggle-row">
+          <div class="private-toggle-label">
+            <span>Admin Only</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="server-custom-create-admin">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <p class="private-toggle-desc">Only staff can open this section.</p>
+        </div>
+        <div class="private-toggle-row">
+          <div class="private-toggle-label">
+            <span>Private</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="server-custom-create-private">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <p class="private-toggle-desc">Hidden from people who should not see it.</p>
+        </div>
+      </div>
+      <div class="community-compose-footer">
+        <button type="button" class="ghost-btn" id="server-custom-create-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="server-custom-create-save">Create</button>
+      </div>
+    </div>
   </div>
 
   <div id="channel-settings-overlay" hidden>
@@ -3059,9 +3127,9 @@
 <script src="community-finder-settings.js?v=4"></script>
 <script src="feed.js?v=25"></script>
 <script src="settings.js?v=31"></script>
-<script src="server-settings.js?v=54"></script>
+<script src="server-settings.js?v=55"></script>
 <script src="server-listing.js?v=3"></script>
-<script src="server-roles.js?v=41"></script>
+<script src="server-roles.js?v=42"></script>
 <script src="server-moderation.js?v=7"></script>
 <script src="server-members.js?v=12"></script>
 <script src="settings-account.js?v=10"></script>
@@ -3090,6 +3158,7 @@
 <script src="profile.js?v=25"></script>
 <script src="profile-identity.js?v=19"></script>
 <script src="profile-edit.js?v=130"></script>
+<script src="server-custom-sections.js?v=1"></script>
 <script src="context-menus.js?v=111"></script>
 <script src="conversations.js?v=77"></script>
 <script src="chat-render.js?v=76"></script>

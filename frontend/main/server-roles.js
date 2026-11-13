@@ -1542,6 +1542,7 @@ async function showServerSettingsTab(tab) {
   const emojis = document.getElementById("server-settings-emojis");
   const integrations = document.getElementById("server-settings-integrations");
   const audit = document.getElementById("server-settings-audit");
+  const custom = document.getElementById("server-settings-custom");
   if (overview) overview.hidden = tab !== "overview";
   if (roles) roles.hidden = tab !== "roles";
   if (members) members.hidden = tab !== "members";
@@ -1551,6 +1552,10 @@ async function showServerSettingsTab(tab) {
   if (emojis) emojis.hidden = tab !== "emojis";
   if (integrations) integrations.hidden = tab !== "integrations";
   if (audit) audit.hidden = tab !== "audit";
+  if (custom) custom.hidden = true;
+  if (typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen && typeof hideServerCustomSectionsChrome === "function") {
+    hideServerCustomSectionsChrome();
+  }
   document.querySelectorAll("#server-settings-nav .server-settings-nav-item[data-tab]").forEach((btn) => {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
   });

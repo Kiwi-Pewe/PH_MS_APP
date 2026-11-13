@@ -234,6 +234,7 @@ function paintServerSettingsAccess() {
   const emojisBtn = document.querySelector('#server-settings-nav [data-tab="emojis"]');
   const integrationsBtn = document.querySelector('#server-settings-nav [data-tab="integrations"]');
   const auditBtn = document.querySelector('#server-settings-nav [data-tab="audit"]');
+  const customBtn = document.getElementById("server-settings-custom-open");
   const deleteBtn = document.getElementById("server-settings-delete");
   const transferBtn = document.getElementById("server-settings-transfer");
   const foot = document.getElementById("server-settings-index-foot");
@@ -246,6 +247,7 @@ function paintServerSettingsAccess() {
   const allowEmojis = canOpenServerEmojis();
   const allowIntegrations = canOpenServerIntegrations();
   const allowAudit = canOpenServerAudit();
+  const allowCustom = canUpdateServer();
   const allowDelete = canDeleteServer();
   if (overviewBtn) {
     overviewBtn.disabled = !allowOverview;
@@ -282,6 +284,10 @@ function paintServerSettingsAccess() {
   if (auditBtn) {
     auditBtn.disabled = !allowAudit;
     auditBtn.classList.toggle("is-later", !allowAudit);
+  }
+  if (customBtn) {
+    customBtn.disabled = !allowCustom;
+    customBtn.classList.toggle("is-later", !allowCustom);
   }
   if (foot) foot.hidden = !allowDelete;
   if (deleteBtn) {
@@ -1246,6 +1252,11 @@ function openServerSettings() {
 }
 
 function closeServerSettingsChrome() {
+  if (typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen && typeof serverCustomDirty !== "undefined" && serverCustomDirty) {
+    if (!window.confirm("Discard section changes?")) return false;
+  }
+  if (typeof hideServerCustomSectionsChrome === "function") hideServerCustomSectionsChrome();
+  if (typeof serverCustomDirty !== "undefined") serverCustomDirty = false;
   isServerSettingsOpen = false;
   if (typeof closeGraphicMaterial === "function") closeGraphicMaterial();
   if (typeof closeEditApplication === "function") closeEditApplication();
@@ -1264,6 +1275,10 @@ function closeServerSettingsChrome() {
 }
 
 document.getElementById("server-settings-close").addEventListener("click", () => {
+  if (typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen) {
+    if (typeof leaveServerCustomSections === "function") leaveServerCustomSections();
+    return;
+  }
   closeServerSettingsChrome();
 });
 
@@ -1419,7 +1434,16 @@ document.addEventListener("keydown", (e) => {
   if (webhookDelete && !webhookDelete.hidden) return;
   const palette = document.getElementById("gradient-palette-overlay");
   if (palette && !palette.hidden) return;
+  const customCreate = document.getElementById("server-custom-create-overlay");
+  if (customCreate && !customCreate.hidden) {
+    if (typeof closeServerCustomCreate === "function") closeServerCustomCreate();
+    return;
+  }
   if (!isServerSettingsOpen) return;
   if (typeof activeMenuEl !== "undefined" && activeMenuEl) return;
+  if (typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen) {
+    if (typeof leaveServerCustomSections === "function") leaveServerCustomSections();
+    return;
+  }
   closeServerSettingsChrome();
 });

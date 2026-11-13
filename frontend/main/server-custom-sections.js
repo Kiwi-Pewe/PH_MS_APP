@@ -265,7 +265,6 @@ function serverCustomHasRolePerm(row, field) {
 function canSeeServerCustomSection(row) {
   if (!row) return false;
   if (row.private && String(currentServerOwnerId) !== String(myUserId)) return false;
-  if (row.admin_only && !(typeof canUpdateServer === "function" && canUpdateServer())) return false;
   if (Array.isArray(row.view_role_ids)) return serverCustomHasRolePerm(row, "view_role_ids");
   const view = serverCustomViewAccess(row);
   if (view === "owner" && String(currentServerOwnerId) !== String(myUserId)) return false;

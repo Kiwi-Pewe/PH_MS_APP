@@ -656,15 +656,11 @@
   overflow-y: auto;
 }
 #server-custom-settings-general.server-settings-page,
-#server-custom-settings-visibility.server-settings-page,
 #server-custom-settings-permissions.server-settings-page {
   max-width: none;
   padding: 20px 24px 28px;
 }
-#server-custom-settings-explicit-host,
-#server-custom-settings-admin-host,
-#server-custom-settings-private-host { margin-top: 4px; }
-#server-custom-settings-listed-host { margin-top: 4px; }
+#server-custom-settings-general-host .settings-opt { padding-left: 0; padding-right: 0; }
 #server-custom-view-board.is-view-only .profile-tile { pointer-events: none; }
 
 .channel-perms-layout {

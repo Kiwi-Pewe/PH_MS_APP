@@ -85,54 +85,55 @@ function paintServerCustomSettingsNav() {
 
 function paintServerCustomSettingsPages() {
   const general = document.getElementById("server-custom-settings-general");
-  const vis = document.getElementById("server-custom-settings-visibility");
   const perms = document.getElementById("server-custom-settings-permissions");
   if (general) general.hidden = serverCustomSettingsTab !== "general";
-  if (vis) vis.hidden = serverCustomSettingsTab !== "visibility";
   if (perms) perms.hidden = serverCustomSettingsTab !== "permissions";
   if (serverCustomSettingsTab === "permissions") paintServerCustomSettingsPermissions();
-  else if (serverCustomSettingsTab === "visibility") paintServerCustomSettingsVisibility();
   else paintServerCustomSettingsGeneral();
 }
 
-function paintServerCustomSettingsToggle(hostId, on, apply) {
-  const host = document.getElementById(hostId);
-  if (!host) return;
-  host.replaceChildren();
-  if (typeof settingsToggle !== "function") return;
-  host.appendChild(settingsToggle(!!on, false, (next) => {
-    apply(!!next);
-    if (typeof markServerCustomDirty === "function") markServerCustomDirty();
-  }));
+function paintServerCustomSettingsOpt(host, title, desc, on, apply) {
+  if (!host || typeof settingsOpt !== "function" || typeof settingsToggle !== "function") return;
+  host.appendChild(settingsOpt(
+    title,
+    desc,
+    settingsToggle(!!on, false, (next) => {
+      apply(!!next);
+      if (typeof markServerCustomDirty === "function") markServerCustomDirty();
+      paintServerCustomSettingsGeneral();
+    })
+  ));
 }
 
 function paintServerCustomSettingsGeneral() {
   const row = serverCustomSettingsRow();
-  if (!row) return;
-  paintServerCustomSettingsToggle("server-custom-settings-explicit-host", row.explicit, (on) => {
-    row.explicit = on;
-  });
-  paintServerCustomSettingsToggle("server-custom-settings-admin-host", row.admin_only, (on) => {
-    row.admin_only = on;
-    row.view_access = row.private ? "owner" : (on ? "staff" : "everyone");
-  });
-  paintServerCustomSettingsToggle("server-custom-settings-private-host", row.private, (on) => {
-    row.private = on;
-    row.view_access = on ? "owner" : (row.admin_only ? "staff" : "everyone");
-  });
-}
-
-function paintServerCustomSettingsVisibility() {
-  const row = serverCustomSettingsRow();
-  const host = document.getElementById("server-custom-settings-listed-host");
+  const host = document.getElementById("server-custom-settings-general-host");
   if (!row || !host) return;
   host.replaceChildren();
-  if (typeof settingsToggle === "function") {
-    host.appendChild(settingsToggle(row.listed !== false, false, (on) => {
-      row.listed = !!on;
-      if (typeof markServerCustomDirty === "function") markServerCustomDirty();
-    }));
-  }
+  paintServerCustomSettingsOpt(
+    host,
+    "Listed",
+    "Show this section in the server Sections list.",
+    row.listed !== false,
+    (on) => { row.listed = on; }
+  );
+  paintServerCustomSettingsOpt(
+    host,
+    "Explicit",
+    "People must confirm before they open this section.",
+    !!row.explicit,
+    (on) => { row.explicit = on; }
+  );
+  paintServerCustomSettingsOpt(
+    host,
+    "Private Section",
+    "Only people with access can see this section when it is private.",
+    !!row.private,
+    (on) => {
+      row.private = on;
+      row.view_access = on ? "owner" : "everyone";
+    }
+  );
 }
 
 const SERVER_CUSTOM_SETTINGS_PERMS = [

@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=537">
+<link rel="stylesheet" href="app.css?v=538">
 <link rel="stylesheet" href="news.css?v=6">
 </head>
 <body>
@@ -1701,36 +1701,13 @@
       <aside id="server-custom-settings-index">
         <nav id="server-custom-settings-nav">
           <button type="button" class="server-settings-nav-item active" data-custom-settings-tab="general">General</button>
-          <button type="button" class="server-settings-nav-item" data-custom-settings-tab="visibility">Visibility</button>
           <button type="button" class="server-settings-nav-item" data-custom-settings-tab="permissions">Permissions</button>
         </nav>
       </aside>
       <section id="server-custom-settings-main">
         <div id="server-custom-settings-general" class="server-settings-page">
           <h2 class="server-settings-page-title">General</h2>
-          <div class="server-settings-field">
-            <div class="server-settings-field-title">Explicit</div>
-            <p class="server-settings-help">People must confirm before they open this section.</p>
-            <div id="server-custom-settings-explicit-host"></div>
-          </div>
-          <div class="server-settings-field">
-            <div class="server-settings-field-title">Admin Only</div>
-            <p class="server-settings-help">Only staff can open this section.</p>
-            <div id="server-custom-settings-admin-host"></div>
-          </div>
-          <div class="server-settings-field">
-            <div class="server-settings-field-title">Private</div>
-            <p class="server-settings-help">Hidden from people who should not see it.</p>
-            <div id="server-custom-settings-private-host"></div>
-          </div>
-        </div>
-        <div id="server-custom-settings-visibility" class="server-settings-page" hidden>
-          <h2 class="server-settings-page-title">Visibility</h2>
-          <div class="server-settings-field">
-            <div class="server-settings-field-title">Listed</div>
-            <p class="server-settings-help">Show this section in the server Sections list.</p>
-            <div id="server-custom-settings-listed-host"></div>
-          </div>
+          <div id="server-custom-settings-general-host"></div>
         </div>
         <div id="server-custom-settings-permissions" class="server-settings-page" hidden>
           <h2 class="server-settings-page-title">Permissions</h2>
@@ -3231,8 +3208,8 @@
 <script src="profile.js?v=25"></script>
 <script src="profile-identity.js?v=19"></script>
 <script src="profile-edit.js?v=133"></script>
-<script src="server-custom-sections.js?v=11"></script>
-<script src="server-custom-settings.js?v=5"></script>
+<script src="server-custom-sections.js?v=12"></script>
+<script src="server-custom-settings.js?v=6"></script>
 <script src="context-menus.js?v=111"></script>
 <script src="conversations.js?v=77"></script>
 <script src="chat-render.js?v=76"></script>

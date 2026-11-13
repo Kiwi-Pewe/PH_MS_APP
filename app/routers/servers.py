@@ -493,18 +493,29 @@ def normalize_server_custom_sections(raw):
             else:
                 view = "everyone"
         listed = True if "listed" not in row else bool(row.get("listed"))
-        edit_ids = []
-        seen_roles = set()
-        raw_roles = row.get("edit_role_ids") or []
-        if isinstance(raw_roles, list):
-            for rid in raw_roles:
+        def pack_role_ids(raw):
+            ids = []
+            seen_roles = set()
+            if not isinstance(raw, list):
+                return ids
+            for rid in raw:
                 key = str(rid or "").strip()[:24]
                 if not key or key in seen_roles:
                     continue
                 seen_roles.add(key)
-                edit_ids.append(key)
-                if len(edit_ids) >= 80:
+                ids.append(key)
+                if len(ids) >= 80:
                     break
+            return ids
+        if "view_role_ids" in row:
+            view_ids = pack_role_ids(row.get("view_role_ids"))
+        else:
+            view_ids = ["members"] if view == "everyone" else []
+        if "interact_role_ids" in row:
+            interact_ids = pack_role_ids(row.get("interact_role_ids"))
+        else:
+            interact_ids = ["members"]
+        edit_ids = pack_role_ids(row.get("edit_role_ids"))
         out.append({
             "id": sid,
             "title": title,
@@ -513,6 +524,8 @@ def normalize_server_custom_sections(raw):
             "private": view == "owner",
             "view_access": view,
             "listed": listed,
+            "view_role_ids": view_ids,
+            "interact_role_ids": interact_ids,
             "edit_role_ids": edit_ids,
             "tiles": tiles,
         })

@@ -46,6 +46,12 @@ function cloneServerCustomRows(rows) {
     const copy = Object.assign({}, row);
     applyServerCustomViewAccess(copy, serverCustomViewAccess(row));
     copy.listed = row.listed !== false;
+    copy.view_role_ids = Array.isArray(row.view_role_ids)
+      ? row.view_role_ids.map((id) => String(id))
+      : (serverCustomViewAccess(row) === "everyone" ? ["members"] : []);
+    copy.interact_role_ids = Array.isArray(row.interact_role_ids)
+      ? row.interact_role_ids.map((id) => String(id))
+      : ["members"];
     copy.edit_role_ids = Array.isArray(row.edit_role_ids)
       ? row.edit_role_ids.map((id) => String(id))
       : [];
@@ -234,12 +240,42 @@ function applyServerCustomSections(serverId, rows) {
   }
 }
 
+function myServerCustomRoleKeys() {
+  const keys = ["members"];
+  const people = typeof serverSectionMembersSource === "function" ? serverSectionMembersSource() : [];
+  const me = people.find((member) => String(member.id) === String(myUserId));
+  (me && me.role_ids ? me.role_ids : []).forEach((id) => {
+    const key = String(id);
+    if (keys.indexOf(key) < 0) keys.push(key);
+  });
+  return keys;
+}
+
+function serverCustomHasRolePerm(row, field) {
+  if (!row) return false;
+  if (String(currentServerOwnerId) === String(myUserId)) return true;
+  const allowed = Array.isArray(row[field]) ? row[field].map((id) => String(id)) : [];
+  const mine = myServerCustomRoleKeys();
+  return allowed.some((id) => mine.indexOf(id) >= 0);
+}
+
 function canSeeServerCustomSection(row) {
   if (!row) return false;
+  if (Array.isArray(row.view_role_ids)) return serverCustomHasRolePerm(row, "view_role_ids");
   const view = serverCustomViewAccess(row);
   if (view === "owner" && String(currentServerOwnerId) !== String(myUserId)) return false;
   if (view === "staff" && !(typeof canUpdateServer === "function" && canUpdateServer())) return false;
   return true;
+}
+
+function canInteractServerCustomSection(row) {
+  if (!row) return false;
+  return serverCustomHasRolePerm(row, "interact_role_ids");
+}
+
+function canEditServerCustomSection(row) {
+  if (!row) return false;
+  return serverCustomHasRolePerm(row, "edit_role_ids");
 }
 
 function listedServerCustomSections() {
@@ -842,6 +878,8 @@ function submitServerCustomCreate() {
     view_access: "everyone",
     admin_only: false,
     private: false,
+    view_role_ids: ["members"],
+    interact_role_ids: ["members"],
     edit_role_ids: [],
     tiles: []
   };

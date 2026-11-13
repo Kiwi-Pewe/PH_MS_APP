@@ -25,7 +25,12 @@ function isServerWidgetPaint() {
 }
 
 function profileBoardIsEditing() {
-  if (isServerWidgetBoard()) return true;
+  if (isServerWidgetBoard()) {
+    if (typeof currentServerCustomPage === "function" && typeof canEditServerCustomSection === "function") {
+      return canEditServerCustomSection(currentServerCustomPage());
+    }
+    return true;
+  }
   return !!(typeof profileEditing !== "undefined" && profileEditing && typeof profileIsOwn !== "undefined" && profileIsOwn);
 }
 
@@ -6312,6 +6317,13 @@ function renderProfileBoard() {
   board.innerHTML = "";
   board.classList.remove("is-mini-profile-page");
   board.classList.toggle("is-editing", profileBoardIsEditing());
+  const livePage = isServerCustomLiveView() && typeof currentServerCustomLivePage === "function"
+    ? currentServerCustomLivePage()
+    : null;
+  board.classList.toggle(
+    "is-view-only",
+    !!(livePage && typeof canInteractServerCustomSection === "function" && !canInteractServerCustomSection(livePage))
+  );
   board.style.gap = PROFILE_GAP + "px";
   if (!isServerWidgetBoard() && !isServerCustomLiveView()) syncProfilePaletteForPage();
   const layout = profileDraft || profileSavedLayout;

@@ -661,6 +661,7 @@
   padding: 20px 24px 28px;
 }
 #server-custom-settings-listed-host { margin-top: 4px; }
+#server-custom-view-board.is-view-only .profile-tile { pointer-events: none; }
 
 .channel-perms-layout {
   display: flex;

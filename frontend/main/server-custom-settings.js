@@ -100,8 +100,49 @@ function paintServerCustomSettingsVisibility() {
   }
 }
 
-function serverCustomSettingsEditIds(row) {
-  return Array.isArray(row && row.edit_role_ids) ? row.edit_role_ids.map((id) => String(id)) : [];
+const SERVER_CUSTOM_SETTINGS_PERMS = [
+  {
+    id: "view",
+    field: "view_role_ids",
+    title: "View this section",
+    desc: "See this section on the Sections list and open the page."
+  },
+  {
+    id: "interact",
+    field: "interact_role_ids",
+    title: "Interact",
+    desc: "Use buttons, comments, Staff, and spoiler covers on this section."
+  },
+  {
+    id: "edit",
+    field: "edit_role_ids",
+    title: "Edit widgets",
+    desc: "Place, move, and edit widgets on this section."
+  }
+];
+
+function serverCustomSettingsRoleChoices() {
+  const roles = [];
+  const source = typeof serverCustomRoleRows === "function" ? serverCustomRoleRows() : [];
+  source.forEach((role) => {
+    if (!role) return;
+    if (role.builtin || String(role.id) === "members" || role.is_members) return;
+    roles.push({
+      id: String(role.id),
+      name: role.name || "Role",
+      color: role.color || "#99aab5"
+    });
+  });
+  roles.unshift({
+    id: "members",
+    name: "Members",
+    color: "#99aab5"
+  });
+  return roles;
+}
+
+function serverCustomSettingsPermIds(row, field) {
+  return Array.isArray(row && row[field]) ? row[field].map((id) => String(id)) : [];
 }
 
 function paintServerCustomSettingsPermissions() {
@@ -112,17 +153,11 @@ function paintServerCustomSettingsPermissions() {
   const enable = document.getElementById("server-custom-settings-perms-enable-all");
   const clear = document.getElementById("server-custom-settings-perms-clear-all");
   if (!row || !list || !body) return;
-  const roles = typeof serverCustomRoleRows === "function" ? serverCustomRoleRows() : [];
+  const roles = serverCustomSettingsRoleChoices();
   if (!roles.some((role) => String(role.id) === String(serverCustomSettingsRoleId))) {
-    serverCustomSettingsRoleId = roles[0] ? String(roles[0].id) : "";
+    serverCustomSettingsRoleId = "members";
   }
   list.replaceChildren();
-  if (!roles.length) {
-    const empty = document.createElement("div");
-    empty.className = "server-settings-help";
-    empty.textContent = "No roles to pick yet.";
-    list.appendChild(empty);
-  }
   roles.forEach((role) => {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -142,80 +177,62 @@ function paintServerCustomSettingsPermissions() {
     });
     list.appendChild(btn);
   });
-  const selected = roles.find((role) => String(role.id) === String(serverCustomSettingsRoleId));
-  if (title) title.textContent = selected ? (selected.name || "Role") : "Role";
-  if (enable) enable.disabled = !roles.length;
-  if (clear) clear.disabled = !roles.length;
+  const selected = roles.find((role) => String(role.id) === String(serverCustomSettingsRoleId)) || roles[0];
+  if (title) title.textContent = selected ? (selected.name || "Role") : "Members";
+  if (enable) enable.disabled = !selected;
+  if (clear) clear.disabled = !selected;
   body.replaceChildren();
-  if (!selected) {
-    const note = document.createElement("div");
-    note.className = "placeholder-panel";
-    note.textContent = "Add a role to set who can edit this section. The owner can always edit.";
-    body.appendChild(note);
-    return;
-  }
-  const picked = {};
-  serverCustomSettingsEditIds(row).forEach((id) => { picked[id] = true; });
+  if (!selected) return;
   const section = document.createElement("div");
   section.className = "channel-perms-section";
   const heading = document.createElement("div");
   heading.className = "channel-perms-section-title";
   heading.textContent = "General";
   section.appendChild(heading);
-  const live = document.createElement("div");
-  live.className = "channel-perms-row";
-  const liveText = document.createElement("div");
-  liveText.className = "channel-perms-row-text";
-  const liveTitle = document.createElement("div");
-  liveTitle.className = "channel-perms-row-title";
-  liveTitle.textContent = "Edit widgets";
-  const liveDesc = document.createElement("div");
-  liveDesc.className = "channel-perms-row-desc";
-  liveDesc.textContent = "Place, move, and edit widgets on this section.";
-  liveText.appendChild(liveTitle);
-  liveText.appendChild(liveDesc);
-  live.appendChild(liveText);
-  if (typeof settingsToggle === "function") {
-    live.appendChild(settingsToggle(!!picked[String(selected.id)], false, (on) => {
-      setServerCustomSettingsRoleEdit(String(selected.id), on);
-    }));
-  }
-  section.appendChild(live);
-  const later = document.createElement("div");
-  later.className = "channel-perms-row is-later";
-  const laterText = document.createElement("div");
-  laterText.className = "channel-perms-row-text";
-  const laterTitle = document.createElement("div");
-  laterTitle.className = "channel-perms-row-title";
-  laterTitle.textContent = "View when unlisted";
-  const laterDesc = document.createElement("div");
-  laterDesc.className = "channel-perms-row-desc";
-  laterDesc.textContent = "Open this section even when it is not listed.";
-  laterText.appendChild(laterTitle);
-  laterText.appendChild(laterDesc);
-  later.appendChild(laterText);
-  if (typeof settingsToggle === "function") {
-    later.appendChild(settingsToggle(false, true, null));
-  }
-  section.appendChild(later);
+  SERVER_CUSTOM_SETTINGS_PERMS.forEach((perm) => {
+    const line = document.createElement("div");
+    line.className = "channel-perms-row";
+    const text = document.createElement("div");
+    text.className = "channel-perms-row-text";
+    const name = document.createElement("div");
+    name.className = "channel-perms-row-title";
+    name.textContent = perm.title;
+    const desc = document.createElement("div");
+    desc.className = "channel-perms-row-desc";
+    desc.textContent = perm.desc;
+    text.appendChild(name);
+    text.appendChild(desc);
+    line.appendChild(text);
+    const on = serverCustomSettingsPermIds(row, perm.field).indexOf(String(selected.id)) >= 0;
+    if (typeof settingsToggle === "function") {
+      line.appendChild(settingsToggle(on, false, (next) => {
+        setServerCustomSettingsRolePerm(perm.field, String(selected.id), next);
+      }));
+    }
+    section.appendChild(line);
+  });
   body.appendChild(section);
 }
 
-function setServerCustomSettingsRoleEdit(roleId, on) {
+function setServerCustomSettingsRolePerm(field, roleId, on) {
   const row = serverCustomSettingsRow();
-  if (!row || !roleId) return;
-  const next = serverCustomSettingsEditIds(row).filter((id) => id !== roleId);
+  if (!row || !field || !roleId) return;
+  const next = serverCustomSettingsPermIds(row, field).filter((id) => id !== roleId);
   if (on) next.push(roleId);
-  row.edit_role_ids = next;
+  row[field] = next;
   if (typeof markServerCustomDirty === "function") markServerCustomDirty();
   paintServerCustomSettingsPermissions();
 }
 
-function setServerCustomSettingsEditAll(on) {
+function setServerCustomSettingsPermsAll(on) {
   const row = serverCustomSettingsRow();
-  if (!row) return;
-  const roles = typeof serverCustomRoleRows === "function" ? serverCustomRoleRows() : [];
-  row.edit_role_ids = on ? roles.map((role) => String(role.id)) : [];
+  const roleId = String(serverCustomSettingsRoleId || "");
+  if (!row || !roleId) return;
+  SERVER_CUSTOM_SETTINGS_PERMS.forEach((perm) => {
+    const next = serverCustomSettingsPermIds(row, perm.field).filter((id) => id !== roleId);
+    if (on) next.push(roleId);
+    row[perm.field] = next;
+  });
   if (typeof markServerCustomDirty === "function") markServerCustomDirty();
   paintServerCustomSettingsPermissions();
 }
@@ -249,9 +266,9 @@ if (serverCustomSettingsNav) {
 }
 const serverCustomSettingsEnable = document.getElementById("server-custom-settings-perms-enable-all");
 if (serverCustomSettingsEnable) {
-  serverCustomSettingsEnable.addEventListener("click", () => setServerCustomSettingsEditAll(true));
+  serverCustomSettingsEnable.addEventListener("click", () => setServerCustomSettingsPermsAll(true));
 }
 const serverCustomSettingsClear = document.getElementById("server-custom-settings-perms-clear-all");
 if (serverCustomSettingsClear) {
-  serverCustomSettingsClear.addEventListener("click", () => setServerCustomSettingsEditAll(false));
+  serverCustomSettingsClear.addEventListener("click", () => setServerCustomSettingsPermsAll(false));
 }

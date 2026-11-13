@@ -577,10 +577,10 @@
 }
 #server-custom-settings-overlay[hidden] { display: none !important; }
 #server-custom-settings-card {
-  width: 960px;
+  width: 640px;
   max-width: calc(100vw - 48px);
-  height: min(720px, calc(100vh - 48px));
-  max-height: calc(100vh - 48px);
+  height: auto;
+  max-height: 82vh;
 }
 #server-custom-settings-header {
   flex-direction: column;
@@ -615,9 +615,12 @@
   padding: 0;
   overflow: hidden;
 }
+#server-custom-settings-card .channel-perms-layout {
+  min-height: 0;
+}
 #server-custom-settings-index {
-  flex: 0 0 200px;
-  width: 200px;
+  flex: 0 0 168px;
+  width: 168px;
   min-height: 0;
   display: flex;
   flex-direction: column;

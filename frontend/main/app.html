@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=532">
+<link rel="stylesheet" href="app.css?v=533">
 <link rel="stylesheet" href="news.css?v=6">
 </head>
 <body>
@@ -1678,10 +1678,12 @@
   </div>
 
   <div id="server-custom-settings-overlay" hidden>
-    <div id="server-custom-settings-top">
+    <div id="server-custom-settings-card" class="community-compose-card" role="dialog" aria-modal="true" aria-labelledby="server-custom-settings-title">
+    <div id="server-custom-settings-header" class="community-compose-header">
+      <span id="server-custom-settings-title" class="community-compose-title">Settings</span>
       <div id="server-custom-settings-tabs" class="tabs"></div>
     </div>
-    <div id="server-custom-settings-body">
+    <div id="server-custom-settings-body" class="community-compose-body">
       <aside id="server-custom-settings-index">
         <div id="server-custom-settings-index-label"></div>
         <nav id="server-custom-settings-nav">
@@ -1690,10 +1692,6 @@
         </nav>
       </aside>
       <section id="server-custom-settings-main">
-        <button type="button" id="server-custom-settings-close" title="Close">
-          <span aria-hidden="true">&times;</span>
-          <span>ESC</span>
-        </button>
         <div id="server-custom-settings-visibility" class="server-settings-page">
           <h2 class="server-settings-page-title">Visibility</h2>
           <div class="server-settings-field">
@@ -1747,6 +1745,11 @@
           </div>
         </div>
       </section>
+    </div>
+    <div class="community-compose-footer">
+      <button type="button" class="ghost-btn" id="server-custom-settings-cancel">Cancel</button>
+      <button type="button" class="pill-btn" id="server-custom-settings-done">Done</button>
+    </div>
     </div>
   </div>
 
@@ -3219,7 +3222,7 @@
 <script src="profile-identity.js?v=19"></script>
 <script src="profile-edit.js?v=133"></script>
 <script src="server-custom-sections.js?v=9"></script>
-<script src="server-custom-settings.js?v=1"></script>
+<script src="server-custom-settings.js?v=2"></script>
 <script src="context-menus.js?v=111"></script>
 <script src="conversations.js?v=77"></script>
 <script src="chat-render.js?v=76"></script>

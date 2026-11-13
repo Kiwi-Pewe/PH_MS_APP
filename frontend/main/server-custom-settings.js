@@ -241,9 +241,19 @@ const serverCustomSettingsBtn = document.getElementById("server-custom-page-sett
 if (serverCustomSettingsBtn) {
   serverCustomSettingsBtn.addEventListener("click", () => openServerCustomSettings());
 }
-const serverCustomSettingsClose = document.getElementById("server-custom-settings-close");
-if (serverCustomSettingsClose) {
-  serverCustomSettingsClose.addEventListener("click", () => closeServerCustomSettings());
+const serverCustomSettingsOverlay = document.getElementById("server-custom-settings-overlay");
+if (serverCustomSettingsOverlay) {
+  serverCustomSettingsOverlay.addEventListener("mousedown", (e) => {
+    if (e.target && e.target.id === "server-custom-settings-overlay") closeServerCustomSettings();
+  });
+}
+const serverCustomSettingsCancel = document.getElementById("server-custom-settings-cancel");
+if (serverCustomSettingsCancel) {
+  serverCustomSettingsCancel.addEventListener("click", () => closeServerCustomSettings());
+}
+const serverCustomSettingsDone = document.getElementById("server-custom-settings-done");
+if (serverCustomSettingsDone) {
+  serverCustomSettingsDone.addEventListener("click", () => closeServerCustomSettings());
 }
 const serverCustomSettingsNav = document.getElementById("server-custom-settings-nav");
 if (serverCustomSettingsNav) {

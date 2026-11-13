@@ -1434,6 +1434,11 @@ document.addEventListener("keydown", (e) => {
   if (webhookDelete && !webhookDelete.hidden) return;
   const palette = document.getElementById("gradient-palette-overlay");
   if (palette && !palette.hidden) return;
+  const customSettings = document.getElementById("server-custom-settings-overlay");
+  if (customSettings && !customSettings.hidden) {
+    if (typeof closeServerCustomSettings === "function") closeServerCustomSettings();
+    return;
+  }
   const customCreate = document.getElementById("server-custom-create-overlay");
   if (customCreate && !customCreate.hidden) {
     if (typeof closeServerCustomCreate === "function") closeServerCustomCreate();

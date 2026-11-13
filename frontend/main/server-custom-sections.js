@@ -26,9 +26,29 @@ function serverCustomSavedList() {
   return cloneServerCustomRows(serverCustomSaved[id]);
 }
 
+function serverCustomViewAccess(row) {
+  const view = row && row.view_access;
+  if (view === "staff" || view === "owner" || view === "everyone") return view;
+  if (row && row.private) return "owner";
+  if (row && row.admin_only) return "staff";
+  return "everyone";
+}
+
+function applyServerCustomViewAccess(row, view) {
+  const next = view === "staff" || view === "owner" ? view : "everyone";
+  row.view_access = next;
+  row.admin_only = next === "staff";
+  row.private = next === "owner";
+}
+
 function cloneServerCustomRows(rows) {
   return (rows || []).map((row) => {
     const copy = Object.assign({}, row);
+    applyServerCustomViewAccess(copy, serverCustomViewAccess(row));
+    copy.listed = row.listed !== false;
+    copy.edit_role_ids = Array.isArray(row.edit_role_ids)
+      ? row.edit_role_ids.map((id) => String(id))
+      : [];
     copy.tiles = (row.tiles || []).map((tile) => {
       const next = Object.assign({}, tile);
       try {
@@ -216,14 +236,15 @@ function applyServerCustomSections(serverId, rows) {
 
 function canSeeServerCustomSection(row) {
   if (!row) return false;
-  if (row.admin_only && !(typeof canUpdateServer === "function" && canUpdateServer())) return false;
-  if (row.private && String(currentServerOwnerId) !== String(myUserId)) return false;
+  const view = serverCustomViewAccess(row);
+  if (view === "owner" && String(currentServerOwnerId) !== String(myUserId)) return false;
+  if (view === "staff" && !(typeof canUpdateServer === "function" && canUpdateServer())) return false;
   return true;
 }
 
 function listedServerCustomSections() {
   if (!currentServerId) return [];
-  return (serverCustomSaved[currentServerId] || []).filter(canSeeServerCustomSection);
+  return (serverCustomSaved[currentServerId] || []).filter((row) => row.listed !== false && canSeeServerCustomSection(row));
 }
 
 function currentServerCustomLivePage() {
@@ -363,6 +384,7 @@ function hideServerCustomSectionsChrome() {
   if (pages) pages.hidden = true;
   if (page) page.hidden = true;
   closeServerCustomCreate();
+  if (typeof closeServerCustomSettings === "function") closeServerCustomSettings();
 }
 
 function leaveServerCustomSections() {
@@ -533,6 +555,8 @@ function paintServerCustomPages() {
     host.appendChild(btn);
   });
   if (add) add.disabled = serverCustomDraft.length >= SERVER_CUSTOM_SECTION_MAX;
+  if (typeof paintServerCustomSettingsBtn === "function") paintServerCustomSettingsBtn();
+  if (typeof paintServerCustomSettingsOverlay === "function") paintServerCustomSettingsOverlay();
 }
 
 function serverCustomCell() {
@@ -738,8 +762,6 @@ function serverCustomCreateEls() {
     heading: document.getElementById("server-custom-create-title"),
     name: document.getElementById("server-custom-create-name"),
     about: document.getElementById("server-custom-create-about"),
-    admin: document.getElementById("server-custom-create-admin"),
-    priv: document.getElementById("server-custom-create-private"),
     confirm: document.getElementById("server-custom-create-save")
   };
 }
@@ -754,8 +776,6 @@ function fillServerCustomCreateFields(row) {
   const els = serverCustomCreateEls();
   if (els.name) els.name.value = row && row.title ? row.title : "";
   if (els.about) els.about.value = row && row.about ? row.about : "";
-  if (els.admin) els.admin.checked = !!(row && row.admin_only);
-  if (els.priv) els.priv.checked = !!(row && row.private);
 }
 
 function openServerCustomCreate() {
@@ -795,9 +815,7 @@ function readServerCustomCreateFields() {
   }
   return {
     title,
-    about: String((els.about && els.about.value) || "").trim(),
-    admin_only: !!(els.admin && els.admin.checked),
-    private: !!(els.priv && els.priv.checked)
+    about: String((els.about && els.about.value) || "").trim()
   };
 }
 
@@ -809,8 +827,6 @@ function submitServerCustomCreate() {
     if (!row) return;
     row.title = fields.title;
     row.about = fields.about;
-    row.admin_only = fields.admin_only;
-    row.private = fields.private;
     markServerCustomDirty();
     closeServerCustomCreate();
     paintServerCustomPages();
@@ -822,8 +838,11 @@ function submitServerCustomCreate() {
     id: serverCustomNewId(),
     title: fields.title,
     about: fields.about,
-    admin_only: fields.admin_only,
-    private: fields.private,
+    listed: true,
+    view_access: "everyone",
+    admin_only: false,
+    private: false,
+    edit_role_ids: [],
     tiles: []
   };
   serverCustomDraft.push(row);

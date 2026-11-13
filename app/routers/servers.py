@@ -484,12 +484,36 @@ def normalize_server_custom_sections(raw):
             packed = normalize_server_custom_tile(tile)
             if packed:
                 tiles.append(packed)
+        view = str(row.get("view_access") or "").strip().lower()
+        if view not in ("everyone", "staff", "owner"):
+            if row.get("private"):
+                view = "owner"
+            elif row.get("admin_only"):
+                view = "staff"
+            else:
+                view = "everyone"
+        listed = True if "listed" not in row else bool(row.get("listed"))
+        edit_ids = []
+        seen_roles = set()
+        raw_roles = row.get("edit_role_ids") or []
+        if isinstance(raw_roles, list):
+            for rid in raw_roles:
+                key = str(rid or "").strip()[:24]
+                if not key or key in seen_roles:
+                    continue
+                seen_roles.add(key)
+                edit_ids.append(key)
+                if len(edit_ids) >= 80:
+                    break
         out.append({
             "id": sid,
             "title": title,
             "about": str(row.get("about") or "").strip()[:200],
-            "admin_only": bool(row.get("admin_only")),
-            "private": bool(row.get("private")),
+            "admin_only": view == "staff",
+            "private": view == "owner",
+            "view_access": view,
+            "listed": listed,
+            "edit_role_ids": edit_ids,
             "tiles": tiles,
         })
         if len(out) >= SERVER_CUSTOM_SECTION_MAX:

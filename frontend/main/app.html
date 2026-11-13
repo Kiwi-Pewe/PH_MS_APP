@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=531">
+<link rel="stylesheet" href="app.css?v=532">
 <link rel="stylesheet" href="news.css?v=6">
 </head>
 <body>
@@ -1264,7 +1264,7 @@
       <div id="server-custom-page-list"></div>
       <div id="server-custom-page-tools">
         <button type="button" class="settings-row-btn profile-page-add" id="server-custom-page-add">Add Section</button>
-        <button type="button" class="profile-page-item profile-more-tab" id="server-custom-page-settings" disabled>Settings</button>
+        <button type="button" class="profile-page-item profile-more-tab" id="server-custom-page-settings">Settings</button>
       </div>
     </aside>
     <section id="server-settings-main">
@@ -1669,31 +1669,84 @@
         <input type="text" id="server-custom-create-name" class="server-settings-input" maxlength="32" placeholder="Section name" autocomplete="off">
         <label class="server-modal-label" for="server-custom-create-about">Description</label>
         <textarea id="server-custom-create-about" class="server-settings-input server-settings-textarea" rows="5" maxlength="200" placeholder="What this section is for"></textarea>
-        <div class="private-toggle-row">
-          <div class="private-toggle-label">
-            <span>Admin Only</span>
-            <label class="toggle-switch">
-              <input type="checkbox" id="server-custom-create-admin">
-              <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            </label>
-          </div>
-          <p class="private-toggle-desc">Only staff can open this section.</p>
-        </div>
-        <div class="private-toggle-row">
-          <div class="private-toggle-label">
-            <span>Private</span>
-            <label class="toggle-switch">
-              <input type="checkbox" id="server-custom-create-private">
-              <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            </label>
-          </div>
-          <p class="private-toggle-desc">Hidden from people who should not see it.</p>
-        </div>
       </div>
       <div class="community-compose-footer">
         <button type="button" class="ghost-btn" id="server-custom-create-cancel">Cancel</button>
         <button type="button" class="pill-btn" id="server-custom-create-save">Create</button>
       </div>
+    </div>
+  </div>
+
+  <div id="server-custom-settings-overlay" hidden>
+    <div id="server-custom-settings-top">
+      <div id="server-custom-settings-tabs" class="tabs"></div>
+    </div>
+    <div id="server-custom-settings-body">
+      <aside id="server-custom-settings-index">
+        <div id="server-custom-settings-index-label"></div>
+        <nav id="server-custom-settings-nav">
+          <button type="button" class="server-settings-nav-item active" data-custom-settings-tab="visibility">Visibility</button>
+          <button type="button" class="server-settings-nav-item" data-custom-settings-tab="permissions">Permissions</button>
+        </nav>
+      </aside>
+      <section id="server-custom-settings-main">
+        <button type="button" id="server-custom-settings-close" title="Close">
+          <span aria-hidden="true">&times;</span>
+          <span>ESC</span>
+        </button>
+        <div id="server-custom-settings-visibility" class="server-settings-page">
+          <h2 class="server-settings-page-title">Visibility</h2>
+          <div class="server-settings-field">
+            <div class="server-settings-field-title">Listed</div>
+            <p class="server-settings-help">Show this section in the server Sections list.</p>
+            <div id="server-custom-settings-listed-host"></div>
+          </div>
+          <div class="server-settings-field">
+            <div class="server-settings-field-title" id="server-custom-settings-view-label">Who can view</div>
+            <p class="server-settings-help">People who cannot view this section will not see it in the list.</p>
+            <div id="server-custom-settings-view" class="settings-radio-list" role="radiogroup" aria-labelledby="server-custom-settings-view-label">
+              <button type="button" class="settings-radio" data-view="everyone">
+                <span class="settings-radio-dot"></span>
+                <span>Everyone</span>
+              </button>
+              <button type="button" class="settings-radio" data-view="staff">
+                <span class="settings-radio-dot"></span>
+                <span>Staff</span>
+              </button>
+              <button type="button" class="settings-radio" data-view="owner">
+                <span class="settings-radio-dot"></span>
+                <span>Owner</span>
+              </button>
+              <button type="button" class="settings-radio is-later" data-view="roles" disabled>
+                <span class="settings-radio-dot"></span>
+                <span>Roles</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="server-custom-settings-permissions" class="server-settings-page" hidden>
+          <h2 class="server-settings-page-title">Permissions</h2>
+          <p class="server-settings-help" id="server-custom-settings-perms-blurb">Choose a role, then set whether that role can edit this section’s widgets.</p>
+          <div class="channel-perms-layout">
+            <aside class="channel-perms-roles" aria-label="Roles">
+              <div class="channel-perms-roles-head">
+                <div class="channel-perms-roles-title">Roles</div>
+              </div>
+              <div id="server-custom-settings-perms-role-list" class="channel-perms-role-list"></div>
+            </aside>
+            <div class="channel-perms-editor">
+              <div class="channel-perms-editor-head">
+                <div id="server-custom-settings-perms-role-name" class="channel-perms-editor-title">Role</div>
+                <div class="channel-perms-editor-actions">
+                  <button type="button" class="ghost-btn" id="server-custom-settings-perms-enable-all">Enable all</button>
+                  <button type="button" class="ghost-btn" id="server-custom-settings-perms-clear-all">Clear all</button>
+                </div>
+              </div>
+              <div id="server-custom-settings-perms-body" class="channel-perms-body"></div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -3134,7 +3187,7 @@
 <script src="community-finder-settings.js?v=4"></script>
 <script src="feed.js?v=25"></script>
 <script src="settings.js?v=31"></script>
-<script src="server-settings.js?v=55"></script>
+<script src="server-settings.js?v=56"></script>
 <script src="server-listing.js?v=3"></script>
 <script src="server-roles.js?v=42"></script>
 <script src="server-moderation.js?v=7"></script>
@@ -3165,7 +3218,8 @@
 <script src="profile.js?v=25"></script>
 <script src="profile-identity.js?v=19"></script>
 <script src="profile-edit.js?v=133"></script>
-<script src="server-custom-sections.js?v=8"></script>
+<script src="server-custom-sections.js?v=9"></script>
+<script src="server-custom-settings.js?v=1"></script>
 <script src="context-menus.js?v=111"></script>
 <script src="conversations.js?v=77"></script>
 <script src="chat-render.js?v=76"></script>

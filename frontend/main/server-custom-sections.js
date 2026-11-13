@@ -10,6 +10,7 @@ let serverCustomHostHomes = {};
 let serverCustomOverviewToken = 0;
 let serverCustomViewId = "";
 let serverCustomFormId = "";
+const serverCustomExplicitRevealed = new Set();
 const SERVER_CUSTOM_HOST_IDS = {
   overview: "server-overview",
   members: "server-members-section",
@@ -52,6 +53,9 @@ function cloneServerCustomRows(rows) {
     copy.view_role_ids = Array.isArray(row.view_role_ids)
       ? row.view_role_ids.map((id) => String(id))
       : (serverCustomViewAccess(row) === "everyone" ? ["members"] : []);
+    copy.view_private_role_ids = Array.isArray(row.view_private_role_ids)
+      ? row.view_private_role_ids.map((id) => String(id))
+      : [];
     copy.interact_role_ids = Array.isArray(row.interact_role_ids)
       ? row.interact_role_ids.map((id) => String(id))
       : ["members"];
@@ -238,8 +242,9 @@ function applyServerCustomSections(serverId, rows) {
   if (serverCustomViewId && !listedServerCustomSections().some((row) => row.id === serverCustomViewId)) {
     serverCustomViewId = "";
     if (typeof openServerOverview === "function") openServerOverview();
-  } else if (serverCustomViewId && typeof renderProfileBoard === "function") {
-    renderProfileBoard();
+  } else if (serverCustomViewId) {
+    paintServerCustomExplicitCover(currentServerCustomLivePage());
+    if (typeof renderProfileBoard === "function") renderProfileBoard();
   }
 }
 
@@ -264,7 +269,7 @@ function serverCustomHasRolePerm(row, field) {
 
 function canSeeServerCustomSection(row) {
   if (!row) return false;
-  if (row.private && String(currentServerOwnerId) !== String(myUserId)) return false;
+  if (row.private) return serverCustomHasRolePerm(row, "view_private_role_ids");
   if (Array.isArray(row.view_role_ids)) return serverCustomHasRolePerm(row, "view_role_ids");
   const view = serverCustomViewAccess(row);
   if (view === "owner" && String(currentServerOwnerId) !== String(myUserId)) return false;
@@ -313,6 +318,14 @@ function paintServerCustomSectionRows() {
     label.textContent = row.title || "Section";
     btn.appendChild(icon);
     btn.appendChild(label);
+    const mark = document.createElement("span");
+    mark.className = "community-explicit";
+    if (typeof paintCommunityExplicit === "function") paintCommunityExplicit(mark, row);
+    else {
+      mark.hidden = !row.explicit;
+      mark.textContent = row.explicit ? "EXPLICIT" : "";
+    }
+    btn.appendChild(mark);
     btn.addEventListener("click", () => openServerCustomSection(row.id));
     host.appendChild(btn);
   });
@@ -368,11 +381,7 @@ async function openServerCustomSection(id) {
   const title = document.getElementById("channel-header-title");
   if (title) title.textContent = row.title || "Section";
   if (typeof setHeaderDescription === "function") setHeaderDescription("channel-header-desc", row.about || "");
-  if (typeof explicitSectionNeedsGate === "function" && explicitSectionNeedsGate(row)) {
-    if (typeof showExplicitSectionGate === "function") showExplicitSectionGate(row);
-    return;
-  }
-  if (typeof hideExplicitSectionGate === "function") hideExplicitSectionGate();
+  paintServerCustomExplicitCover(row);
   if (typeof renderProfileBoard === "function") renderProfileBoard();
   if (typeof serverSectionMembersSource === "function" && !serverSectionMembersSource().length) {
     try {
@@ -388,9 +397,35 @@ async function openServerCustomSection(id) {
   }
 }
 
+function serverCustomExplicitKey(row) {
+  return String(currentServerId || "") + ":" + String((row && row.id) || "");
+}
+
+function serverCustomExplicitCovered(row) {
+  return !!(row && row.explicit && !serverCustomExplicitRevealed.has(serverCustomExplicitKey(row)));
+}
+
+function paintServerCustomExplicitCover(row) {
+  const page = document.getElementById("server-custom-section");
+  const cover = document.getElementById("server-custom-explicit-cover");
+  const on = serverCustomExplicitCovered(row);
+  if (cover) cover.hidden = !on;
+  if (page) page.classList.toggle("is-covered", on);
+}
+
+function hideServerCustomExplicitCover() {
+  paintServerCustomExplicitCover(null);
+}
+
+function revealServerCustomExplicitCover() {
+  const row = typeof currentServerCustomLivePage === "function" ? currentServerCustomLivePage() : null;
+  if (row) serverCustomExplicitRevealed.add(serverCustomExplicitKey(row));
+  paintServerCustomExplicitCover(row);
+}
+
 function clearServerCustomLiveView() {
   serverCustomViewId = "";
-  if (typeof hideExplicitSectionGate === "function") hideExplicitSectionGate();
+  hideServerCustomExplicitCover();
 }
 
 function serverCustomNewId() {
@@ -528,12 +563,15 @@ function paintServerCustomPalette() {
       btn.type = "button";
       btn.className = "profile-palette-item" + (live ? "" : " is-later");
       btn.textContent = serverCustomWidgetLabel(item.type);
-      btn.disabled = !live;
-      if (live) {
+      const page = currentServerCustomPage();
+      const canEdit = !!(page && (typeof canEditServerCustomSection !== "function" || canEditServerCustomSection(page)));
+      btn.disabled = !live || !canEdit;
+      if (live && canEdit) {
         btn.addEventListener("click", () => {
-          const page = currentServerCustomPage();
-          if (!page || typeof placeProfileTile !== "function") return;
-          placeProfileTile(page, item.type);
+          const next = currentServerCustomPage();
+          if (!next || typeof placeProfileTile !== "function") return;
+          if (typeof canEditServerCustomSection === "function" && !canEditServerCustomSection(next)) return;
+          placeProfileTile(next, item.type);
           markServerCustomDirty();
           if (typeof renderProfileBoard === "function") renderProfileBoard();
         });
@@ -890,6 +928,7 @@ function submitServerCustomCreate() {
     admin_only: false,
     private: false,
     view_role_ids: ["members"],
+    view_private_role_ids: [],
     interact_role_ids: ["members"],
     edit_role_ids: [],
     tiles: []
@@ -988,5 +1027,13 @@ if (serverCustomCreateName) {
       e.preventDefault();
       submitServerCustomCreate();
     }
+  });
+}
+const serverCustomExplicitCover = document.getElementById("server-custom-explicit-cover");
+if (serverCustomExplicitCover) {
+  serverCustomExplicitCover.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    revealServerCustomExplicitCover();
   });
 }

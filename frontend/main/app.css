@@ -419,7 +419,8 @@
   line-height: 1;
   opacity: 0.85;
 }
-.server-section-label { flex: 1 1 auto; min-width: 0; }
+.server-section-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.server-section-row .community-explicit { margin-left: auto; flex: 0 0 auto; }
 
 .category-block { margin-bottom: 14px; }
 .category-block:last-child { margin-bottom: 4px; }
@@ -655,12 +656,12 @@
   min-height: 0;
   overflow-y: auto;
 }
-#server-custom-settings-general.server-settings-page,
+#server-custom-settings-overview.server-settings-page,
 #server-custom-settings-permissions.server-settings-page {
   max-width: none;
   padding: 20px 24px 28px;
 }
-#server-custom-settings-general-host .settings-opt { padding-left: 0; padding-right: 0; }
+#server-custom-settings-overview-host .settings-opt { padding-left: 0; padding-right: 0; }
 #server-custom-view-board.is-view-only .profile-tile { pointer-events: none; }
 
 .channel-perms-layout {
@@ -4677,7 +4678,13 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   flex: 1; min-height: 0; display: none; flex-direction: column;
   overflow: hidden;
   background: var(--bg);
+  position: relative;
 }
+#server-custom-section.is-covered #server-custom-view-scroll { pointer-events: none; }
+#server-custom-explicit-cover {
+  border-radius: 0;
+}
+#server-custom-explicit-cover[hidden] { display: none !important; }
 #server-custom-view-scroll {
   flex: 1 1 auto;
   min-height: 0;

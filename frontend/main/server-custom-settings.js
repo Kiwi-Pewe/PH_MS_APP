@@ -1,6 +1,8 @@
 let serverCustomSettingsId = "";
-let serverCustomSettingsTab = "general";
+let serverCustomSettingsTab = "overview";
 let serverCustomSettingsRoleId = "";
+let serverCustomSettingsSnapshot = null;
+let serverCustomSettingsWasDirty = false;
 
 function isServerCustomSettingsOpen() {
   const overlay = document.getElementById("server-custom-settings-overlay");
@@ -18,9 +20,47 @@ function paintServerCustomSettingsBtn() {
   btn.disabled = !serverCustomDraft.length;
 }
 
-function closeServerCustomSettings() {
+function closeServerCustomSettings(restore) {
+  if (restore) restoreServerCustomSettingsSnapshot();
+  serverCustomSettingsSnapshot = null;
   const overlay = document.getElementById("server-custom-settings-overlay");
   if (overlay) overlay.hidden = true;
+}
+
+function serverCustomSettingsSnapRows() {
+  return (typeof serverCustomDraft !== "undefined" ? serverCustomDraft : []).map((row) => ({
+    id: row.id,
+    title: row.title || "",
+    about: row.about || "",
+    listed: row.listed !== false,
+    explicit: !!row.explicit,
+    private: !!row.private,
+    view_access: row.view_access || "everyone",
+    view_role_ids: Array.isArray(row.view_role_ids) ? row.view_role_ids.slice() : [],
+    view_private_role_ids: Array.isArray(row.view_private_role_ids) ? row.view_private_role_ids.slice() : [],
+    interact_role_ids: Array.isArray(row.interact_role_ids) ? row.interact_role_ids.slice() : [],
+    edit_role_ids: Array.isArray(row.edit_role_ids) ? row.edit_role_ids.slice() : []
+  }));
+}
+
+function restoreServerCustomSettingsSnapshot() {
+  (serverCustomSettingsSnapshot || []).forEach((snap) => {
+    const row = serverCustomDraft.find((item) => item.id === snap.id);
+    if (!row) return;
+    row.title = snap.title;
+    row.about = snap.about;
+    row.listed = snap.listed;
+    row.explicit = snap.explicit;
+    row.private = snap.private;
+    row.view_access = snap.view_access;
+    row.view_role_ids = snap.view_role_ids.slice();
+    row.view_private_role_ids = snap.view_private_role_ids.slice();
+    row.interact_role_ids = snap.interact_role_ids.slice();
+    row.edit_role_ids = snap.edit_role_ids.slice();
+  });
+  if (typeof serverCustomDirty !== "undefined") serverCustomDirty = serverCustomSettingsWasDirty;
+  if (typeof paintServerCustomSave === "function") paintServerCustomSave();
+  if (typeof paintServerCustomPages === "function") paintServerCustomPages();
 }
 
 function openServerCustomSettings() {
@@ -31,6 +71,8 @@ function openServerCustomSettings() {
   if (!serverCustomDraft.some((row) => row.id === serverCustomSettingsId)) {
     serverCustomSettingsId = serverCustomDraft[0].id;
   }
+  serverCustomSettingsWasDirty = !!serverCustomDirty;
+  serverCustomSettingsSnapshot = serverCustomSettingsSnapRows();
   const overlay = document.getElementById("server-custom-settings-overlay");
   if (overlay) overlay.hidden = false;
   if (typeof loadServerRoles === "function") {
@@ -84,12 +126,24 @@ function paintServerCustomSettingsNav() {
 }
 
 function paintServerCustomSettingsPages() {
-  const general = document.getElementById("server-custom-settings-general");
+  if (serverCustomSettingsTab !== "overview" && serverCustomSettingsTab !== "permissions") {
+    serverCustomSettingsTab = "overview";
+  }
+  const overview = document.getElementById("server-custom-settings-overview");
   const perms = document.getElementById("server-custom-settings-permissions");
-  if (general) general.hidden = serverCustomSettingsTab !== "general";
+  if (overview) overview.hidden = serverCustomSettingsTab !== "overview";
   if (perms) perms.hidden = serverCustomSettingsTab !== "permissions";
   if (serverCustomSettingsTab === "permissions") paintServerCustomSettingsPermissions();
-  else paintServerCustomSettingsGeneral();
+  else paintServerCustomSettingsOverview();
+}
+
+function fillServerCustomSettingsIdentity() {
+  const row = serverCustomSettingsRow();
+  const name = document.getElementById("server-custom-settings-name");
+  const about = document.getElementById("server-custom-settings-about");
+  if (!row) return;
+  if (name && document.activeElement !== name) name.value = row.title || "";
+  if (about && document.activeElement !== about) about.value = row.about || "";
 }
 
 function paintServerCustomSettingsOpt(host, title, desc, on, apply) {
@@ -100,15 +154,15 @@ function paintServerCustomSettingsOpt(host, title, desc, on, apply) {
     settingsToggle(!!on, false, (next) => {
       apply(!!next);
       if (typeof markServerCustomDirty === "function") markServerCustomDirty();
-      paintServerCustomSettingsGeneral();
     })
   ));
 }
 
-function paintServerCustomSettingsGeneral() {
+function paintServerCustomSettingsOverview() {
   const row = serverCustomSettingsRow();
-  const host = document.getElementById("server-custom-settings-general-host");
+  const host = document.getElementById("server-custom-settings-overview-host");
   if (!row || !host) return;
+  fillServerCustomSettingsIdentity();
   host.replaceChildren();
   paintServerCustomSettingsOpt(
     host,
@@ -120,14 +174,14 @@ function paintServerCustomSettingsGeneral() {
   paintServerCustomSettingsOpt(
     host,
     "Explicit",
-    "People must confirm before they open this section.",
+    "Labels this section as containing graphic material.",
     !!row.explicit,
     (on) => { row.explicit = on; }
   );
   paintServerCustomSettingsOpt(
     host,
     "Private Section",
-    "Only people with access can see this section when it is private.",
+    "Only viewable by the owner and select roles.",
     !!row.private,
     (on) => {
       row.private = on;
@@ -142,6 +196,12 @@ const SERVER_CUSTOM_SETTINGS_PERMS = [
     field: "view_role_ids",
     title: "View this section",
     desc: "See this section on the Sections list and open the page."
+  },
+  {
+    id: "view_private",
+    field: "view_private_role_ids",
+    title: "View Private Sections",
+    desc: "See this section when it is private."
   },
   {
     id: "interact",
@@ -292,23 +352,23 @@ if (serverCustomSettingsBtn) {
 const serverCustomSettingsOverlay = document.getElementById("server-custom-settings-overlay");
 if (serverCustomSettingsOverlay) {
   serverCustomSettingsOverlay.addEventListener("mousedown", (e) => {
-    if (e.target && e.target.id === "server-custom-settings-overlay") closeServerCustomSettings();
+    if (e.target && e.target.id === "server-custom-settings-overlay") closeServerCustomSettings(true);
   });
 }
 const serverCustomSettingsCancel = document.getElementById("server-custom-settings-cancel");
 if (serverCustomSettingsCancel) {
-  serverCustomSettingsCancel.addEventListener("click", () => closeServerCustomSettings());
+  serverCustomSettingsCancel.addEventListener("click", () => closeServerCustomSettings(true));
 }
 const serverCustomSettingsDone = document.getElementById("server-custom-settings-done");
 if (serverCustomSettingsDone) {
-  serverCustomSettingsDone.addEventListener("click", () => closeServerCustomSettings());
+  serverCustomSettingsDone.addEventListener("click", () => closeServerCustomSettings(false));
 }
 const serverCustomSettingsNav = document.getElementById("server-custom-settings-nav");
 if (serverCustomSettingsNav) {
   serverCustomSettingsNav.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-custom-settings-tab]");
     if (!btn || !serverCustomSettingsNav.contains(btn)) return;
-    serverCustomSettingsTab = btn.getAttribute("data-custom-settings-tab") || "general";
+    serverCustomSettingsTab = btn.getAttribute("data-custom-settings-tab") || "overview";
     paintServerCustomSettingsOverlay();
   });
 }
@@ -319,4 +379,32 @@ if (serverCustomSettingsEnable) {
 const serverCustomSettingsClear = document.getElementById("server-custom-settings-perms-clear-all");
 if (serverCustomSettingsClear) {
   serverCustomSettingsClear.addEventListener("click", () => setServerCustomSettingsPermsAll(false));
+}
+const serverCustomSettingsName = document.getElementById("server-custom-settings-name");
+if (serverCustomSettingsName) {
+  serverCustomSettingsName.addEventListener("input", () => {
+    const row = serverCustomSettingsRow();
+    if (!row) return;
+    row.title = serverCustomSettingsName.value.slice(0, 32);
+    if (typeof markServerCustomDirty === "function") markServerCustomDirty();
+    paintServerCustomSettingsTabs();
+    if (typeof paintServerCustomPages === "function") paintServerCustomPages();
+  });
+  serverCustomSettingsName.addEventListener("blur", () => {
+    const row = serverCustomSettingsRow();
+    if (!row) return;
+    const next = (row.title || "").trim();
+    row.title = next || "Section";
+    serverCustomSettingsName.value = row.title;
+    if (typeof paintServerCustomPages === "function") paintServerCustomPages();
+  });
+}
+const serverCustomSettingsAbout = document.getElementById("server-custom-settings-about");
+if (serverCustomSettingsAbout) {
+  serverCustomSettingsAbout.addEventListener("input", () => {
+    const row = serverCustomSettingsRow();
+    if (!row) return;
+    row.about = serverCustomSettingsAbout.value.slice(0, 200);
+    if (typeof markServerCustomDirty === "function") markServerCustomDirty();
+  });
 }

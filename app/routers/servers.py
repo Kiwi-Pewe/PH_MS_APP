@@ -511,6 +511,7 @@ def normalize_server_custom_sections(raw):
             view_ids = pack_role_ids(row.get("view_role_ids"))
         else:
             view_ids = ["members"] if view == "everyone" else []
+        view_private_ids = pack_role_ids(row.get("view_private_role_ids"))
         if "interact_role_ids" in row:
             interact_ids = pack_role_ids(row.get("interact_role_ids"))
         else:
@@ -532,6 +533,7 @@ def normalize_server_custom_sections(raw):
             "view_access": view,
             "listed": listed,
             "view_role_ids": view_ids,
+            "view_private_role_ids": view_private_ids,
             "interact_role_ids": interact_ids,
             "edit_role_ids": edit_ids,
             "tiles": tiles,

@@ -34,14 +34,21 @@ function serverCustomNewId() {
 }
 
 function serverCustomBuiltinRows() {
-  const rows = [{ kind: "overview", id: "overview", title: "Overview" }];
-  if (currentServerData && currentServerData.show_members_in_channel_list) {
-    rows.push({ kind: "members", id: "members", title: "Members" });
-  }
-  if (currentServerData && currentServerData.applications_enabled) {
-    rows.push({ kind: "applications", id: "applications", title: "Applications" });
-  }
-  return rows;
+  return [
+    { kind: "overview", id: "overview", title: "Overview", listed: true },
+    {
+      kind: "members",
+      id: "members",
+      title: "Members",
+      listed: !!(currentServerData && currentServerData.show_members_in_channel_list)
+    },
+    {
+      kind: "applications",
+      id: "applications",
+      title: "Applications",
+      listed: !!(currentServerData && currentServerData.applications_enabled)
+    }
+  ];
 }
 
 function hideServerCustomSectionsChrome() {
@@ -155,7 +162,7 @@ function paintServerCustomPages() {
   builtins.forEach((row) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "profile-page-item is-later" + (serverCustomSelected.kind === row.kind ? " is-on" : "");
+    btn.className = "profile-page-item" + (row.listed ? "" : " is-later") + (serverCustomSelected.kind === row.kind ? " is-on" : "");
     const name = document.createElement("span");
     name.textContent = row.title;
     btn.appendChild(name);
@@ -188,47 +195,85 @@ function paintServerCustomPages() {
   if (add) add.disabled = serverCustomDraft.length >= SERVER_CUSTOM_SECTION_MAX;
 }
 
+function serverCustomCell() {
+  return typeof PROFILE_ROW_H === "number" ? PROFILE_ROW_H : 36;
+}
+
+function serverCustomCols() {
+  return typeof PROFILE_COLS === "number" ? PROFILE_COLS : 32;
+}
+
+function syncServerCustomBoardScale() {
+  const scroll = document.getElementById("server-custom-board-scroll");
+  const fit = document.getElementById("server-custom-board-fit");
+  const board = document.getElementById("server-custom-board");
+  if (!scroll || !board || !isServerCustomSectionsOpen) return;
+  const cell = serverCustomCell();
+  const cols = serverCustomCols();
+  const padX = 40;
+  const designW = cols * cell + padX;
+  const designH = Math.max(board.offsetHeight, 1);
+  const availW = Math.max(1, scroll.clientWidth);
+  const scale = availW / designW;
+  board.style.transformOrigin = "top left";
+  board.style.transform = "scale(" + scale + ")";
+  if (fit) {
+    fit.style.width = Math.round(designW * scale) + "px";
+    fit.style.height = Math.round(designH * scale) + "px";
+  }
+}
+
+function bindServerCustomBoardScale() {
+  const scroll = document.getElementById("server-custom-board-scroll");
+  if (!scroll || scroll.dataset.scaleBound === "1") return;
+  scroll.dataset.scaleBound = "1";
+  if (typeof ResizeObserver === "undefined") {
+    window.addEventListener("resize", () => syncServerCustomBoardScale());
+    return;
+  }
+  const observer = new ResizeObserver(() => syncServerCustomBoardScale());
+  observer.observe(scroll);
+}
+
+function serverCustomEmptyText() {
+  if (serverCustomSelected.kind === "custom") return "Drop pieces from the palette onto this page.";
+  const row = serverCustomBuiltinRows().find((item) => item.kind === serverCustomSelected.kind);
+  if (row && !row.listed) return "This section is not listed on the server.";
+  return "This built-in section is not editable.";
+}
+
 function paintServerCustomGrid(board) {
   board.replaceChildren();
+  board.style.transform = "none";
   const rows = 18;
+  const cell = serverCustomCell();
+  const cols = serverCustomCols();
+  board.style.width = (cols * cell) + "px";
+  board.style.minHeight = (16 + rows * cell + 48) + "px";
   const overlay = document.createElement("div");
   overlay.className = "profile-grid-overlay";
   overlay.setAttribute("aria-hidden", "true");
-  overlay.style.gridTemplateRows = "repeat(" + rows + ", 36px)";
-  const count = 32 * rows;
+  overlay.style.gridTemplateColumns = "repeat(" + cols + ", " + cell + "px)";
+  overlay.style.gridTemplateRows = "repeat(" + rows + ", " + cell + "px)";
+  overlay.style.width = (cols * cell) + "px";
+  overlay.style.height = (rows * cell) + "px";
+  const count = cols * rows;
   for (let i = 0; i < count; i++) overlay.appendChild(document.createElement("div"));
   board.appendChild(overlay);
-}
-
-function paintServerCustomBuiltin(kind) {
-  const preview = document.getElementById("server-custom-preview");
-  if (!preview) return;
-  preview.replaceChildren();
-  const srcId = kind === "members"
-    ? "server-members-section"
-    : kind === "applications"
-      ? "server-applications-section"
-      : "server-overview";
-  const src = document.getElementById(srcId);
-  if (!src) return;
-  const copy = src.cloneNode(true);
-  copy.removeAttribute("id");
-  copy.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
-  copy.style.display = "block";
-  copy.style.pointerEvents = "none";
-  preview.appendChild(copy);
+  const empty = document.createElement("div");
+  empty.className = "profile-board-empty";
+  empty.textContent = serverCustomEmptyText();
+  board.appendChild(empty);
 }
 
 function paintServerCustomMain() {
-  const preview = document.getElementById("server-custom-preview");
   const scroll = document.getElementById("server-custom-board-scroll");
   const board = document.getElementById("server-custom-board");
-  if (!preview || !scroll || !board) return;
-  const custom = serverCustomSelected.kind === "custom";
-  preview.hidden = custom;
-  scroll.hidden = !custom;
-  if (custom) paintServerCustomGrid(board);
-  else paintServerCustomBuiltin(serverCustomSelected.kind);
+  if (!scroll || !board) return;
+  scroll.hidden = false;
+  bindServerCustomBoardScale();
+  paintServerCustomGrid(board);
+  window.requestAnimationFrame(() => syncServerCustomBoardScale());
 }
 
 function openServerCustomCreate() {

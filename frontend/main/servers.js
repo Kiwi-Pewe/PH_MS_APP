@@ -1225,7 +1225,9 @@ function applyChannelsReordered(channels) {
 function hideChannelSurfaces() {
   ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "event-page", "channel-body", "channel-composer", "server-overview", "server-members-section", "server-applications-section"].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.style.display = "none";
+    if (!el) return;
+    if (el.parentElement && el.parentElement.id === "server-custom-preview") return;
+    el.style.display = "none";
   });
   if (typeof openEventId !== "undefined" && openEventId) openEventId = null;
 }

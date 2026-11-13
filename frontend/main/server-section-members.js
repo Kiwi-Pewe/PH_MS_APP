@@ -21,6 +21,7 @@ function paintServerSectionMembersRow() {
   const shown = serverShowsMembersSection();
   row.hidden = !shown;
   if (!shown && serverMembersSectionOpen()) {
+    if (typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen) return;
     if (typeof openServerOverview === "function") openServerOverview();
     else {
       const page = document.getElementById("server-members-section");

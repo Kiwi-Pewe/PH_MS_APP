@@ -24,6 +24,7 @@ function paintServerSectionApplicationsRow() {
   const shown = serverShowsApplicationsSection();
   row.hidden = !shown;
   if (!shown && serverApplicationsSectionOpen()) {
+    if (typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen) return;
     if (typeof openServerOverview === "function") openServerOverview();
     else {
       const page = document.getElementById("server-applications-section");
@@ -279,7 +280,8 @@ async function fetchServerSectionApplications(group, offset) {
 }
 
 async function loadServerSectionApplications(force) {
-  if (!currentServerId || !serverShowsApplicationsSection()) return;
+  if (!currentServerId) return;
+  if (!serverShowsApplicationsSection() && !(typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen)) return;
   if (!force && serverSectionApplicationsLoadedFor === currentServerId) {
     paintServerSectionApplicationsList();
     return;
@@ -301,7 +303,8 @@ async function loadServerSectionApplications(force) {
 }
 
 async function loadMoreServerSectionApplications(group) {
-  if (!currentServerId || !serverShowsApplicationsSection() || !serverApplicationsSectionOpen()) return;
+  if (!currentServerId || !serverApplicationsSectionOpen()) return;
+  if (!serverShowsApplicationsSection() && !(typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen)) return;
   const pending = group === "pending";
   if (pending) {
     if (!serverSectionPendingMore || serverSectionPendingLoading) return;

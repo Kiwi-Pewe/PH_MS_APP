@@ -9095,6 +9095,22 @@ a.profile-link-row:hover { color: var(--accent); }
   flex-direction: column;
   align-items: center;
 }
+#server-custom-board-scroll[hidden] { display: none; }
+#server-custom-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+#server-custom-preview[hidden] { display: none; }
+#server-custom-preview #server-overview,
+#server-custom-preview #server-members-section,
+#server-custom-preview #server-applications-section {
+  flex: 1 1 auto;
+  min-height: 0;
+}
 #server-custom-board-fit { flex: 0 0 auto; position: relative; }
 #server-custom-board {
   display: grid;

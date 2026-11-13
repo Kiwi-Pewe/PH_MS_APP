@@ -6,6 +6,13 @@ let serverCustomDraft = [];
 let serverCustomDirty = false;
 let serverCustomSelected = { kind: "overview", id: "" };
 let serverCustomLastTab = "overview";
+let serverCustomHostHomes = {};
+let serverCustomOverviewToken = 0;
+const SERVER_CUSTOM_HOST_IDS = {
+  overview: "server-overview",
+  members: "server-members-section",
+  applications: "server-applications-section"
+};
 
 function canOpenServerCustomSections() {
   return typeof canUpdateServer === "function" && canUpdateServer();
@@ -53,6 +60,7 @@ function serverCustomBuiltinRows() {
 
 function hideServerCustomSectionsChrome() {
   isServerCustomSectionsOpen = false;
+  restoreServerCustomHosts();
   const overlay = document.getElementById("server-settings-overlay");
   if (overlay) overlay.classList.remove("is-custom-sections");
   const palette = document.getElementById("server-custom-palette");
@@ -235,11 +243,111 @@ function bindServerCustomBoardScale() {
   observer.observe(scroll);
 }
 
-function serverCustomEmptyText() {
-  if (serverCustomSelected.kind === "custom") return "Drop pieces from the palette onto this page.";
-  const row = serverCustomBuiltinRows().find((item) => item.kind === serverCustomSelected.kind);
-  if (row && !row.listed) return "This section is not listed on the server.";
-  return "This built-in section is not editable.";
+function rememberServerCustomHost(el) {
+  if (!el || serverCustomHostHomes[el.id]) return;
+  serverCustomHostHomes[el.id] = {
+    parent: el.parentNode,
+    next: el.nextSibling,
+    display: el.style.display
+  };
+}
+
+function putServerCustomHostHome(el) {
+  const home = el && serverCustomHostHomes[el.id];
+  if (!el || !home || !home.parent) return;
+  if (home.next && home.next.parentNode === home.parent) home.parent.insertBefore(el, home.next);
+  else home.parent.appendChild(el);
+}
+
+function restoreServerCustomHosts() {
+  Object.keys(SERVER_CUSTOM_HOST_IDS).forEach((kind) => {
+    const el = document.getElementById(SERVER_CUSTOM_HOST_IDS[kind]);
+    const home = el && serverCustomHostHomes[el.id];
+    if (!el || !home) return;
+    putServerCustomHostHome(el);
+    el.style.display = home.display || "none";
+  });
+  serverCustomHostHomes = {};
+  if (typeof overviewStopTick === "function") overviewStopTick();
+}
+
+function parkServerCustomHost(kind) {
+  const preview = document.getElementById("server-custom-preview");
+  const want = SERVER_CUSTOM_HOST_IDS[kind];
+  if (!preview || !want) return;
+  Object.keys(SERVER_CUSTOM_HOST_IDS).forEach((key) => {
+    const el = document.getElementById(SERVER_CUSTOM_HOST_IDS[key]);
+    if (el) rememberServerCustomHost(el);
+  });
+  Object.keys(SERVER_CUSTOM_HOST_IDS).forEach((key) => {
+    const el = document.getElementById(SERVER_CUSTOM_HOST_IDS[key]);
+    if (!el) return;
+    if (SERVER_CUSTOM_HOST_IDS[key] === want) {
+      preview.appendChild(el);
+      el.style.display = "flex";
+      return;
+    }
+    putServerCustomHostHome(el);
+    el.style.display = "none";
+  });
+  if (kind !== "overview" && typeof overviewStopTick === "function") overviewStopTick();
+}
+
+async function fillServerCustomOverview() {
+  if (!currentServerId || typeof overviewPaintPlaceholders !== "function") return;
+  const token = ++serverCustomOverviewToken;
+  const serverId = currentServerId;
+  overviewPaintPlaceholders();
+  const fetchJson = typeof overviewFetchJson === "function" ? overviewFetchJson : null;
+  if (!fetchJson) return;
+  const [membersPayload, rolesPayload, postsPayload, eventsPayload] = await Promise.all([
+    fetchJson(`https://${serverAddress}/get_server_members/${serverId}`),
+    fetchJson(`https://${serverAddress}/get_server_roles/${serverId}`),
+    fetchJson(`https://${serverAddress}/server_overview/${serverId}`),
+    fetchJson(`https://${serverAddress}/get_event_rows/${serverId}`)
+  ]);
+  if (token !== serverCustomOverviewToken) return;
+  if (!isServerCustomSectionsOpen || serverCustomSelected.kind !== "overview") return;
+  if (String(currentServerId) !== String(serverId)) return;
+  const members = (membersPayload && membersPayload.members) || [];
+  const roles = (rolesPayload && rolesPayload.roles) || [];
+  const posts = (postsPayload && postsPayload.posts) || [];
+  const events = (eventsPayload && eventsPayload.events) || [];
+  const windows = typeof overviewEventWindows === "function" ? overviewEventWindows(events) : [];
+  overviewPaintStaff(members, roles);
+  overviewPaintMembers(members);
+  overviewPaintTimezone();
+  overviewPaintAbout();
+  overviewPaintPost(posts);
+  overviewPaintCurrentEvent(windows);
+  overviewPaintUpcoming(windows);
+  if (typeof overviewStartTick === "function") overviewStartTick();
+}
+
+async function fillServerCustomMembers() {
+  if (!currentServerId || typeof paintServerSectionMembersList !== "function") return;
+  paintServerSectionMembersList();
+  if (typeof serverSectionMembersSource === "function" && serverSectionMembersSource().length) return;
+  try {
+    const response = await fetch(
+      `https://${serverAddress}/get_server_members/${encodeURIComponent(currentServerId)}`,
+      { credentials: "include" }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!isServerCustomSectionsOpen || serverCustomSelected.kind !== "members") return;
+    if (!response.ok) return;
+    if (typeof applyServerMembers === "function") applyServerMembers(currentServerId, data.members || []);
+    paintServerSectionMembersList();
+  } catch (e) {}
+}
+
+async function fillServerCustomApplications() {
+  if (!currentServerId || typeof paintServerSectionApplicationsList !== "function") return;
+  if (typeof serverSectionApplicationsLoadedFor !== "undefined" && serverSectionApplicationsLoadedFor !== currentServerId) {
+    if (typeof resetServerSectionApplicationLists === "function") resetServerSectionApplicationLists();
+  }
+  paintServerSectionApplicationsList();
+  if (typeof loadServerSectionApplications === "function") await loadServerSectionApplications(true);
 }
 
 function paintServerCustomGrid(board) {
@@ -262,13 +370,26 @@ function paintServerCustomGrid(board) {
   board.appendChild(overlay);
   const empty = document.createElement("div");
   empty.className = "profile-board-empty";
-  empty.textContent = serverCustomEmptyText();
+  empty.textContent = "Drop pieces from the palette onto this page.";
   board.appendChild(empty);
 }
 
 function paintServerCustomMain() {
   const scroll = document.getElementById("server-custom-board-scroll");
+  const preview = document.getElementById("server-custom-preview");
   const board = document.getElementById("server-custom-board");
+  const kind = serverCustomSelected.kind;
+  if (kind === "overview" || kind === "members" || kind === "applications") {
+    if (scroll) scroll.hidden = true;
+    if (preview) preview.hidden = false;
+    parkServerCustomHost(kind);
+    if (kind === "overview") fillServerCustomOverview();
+    else if (kind === "members") fillServerCustomMembers();
+    else fillServerCustomApplications();
+    return;
+  }
+  restoreServerCustomHosts();
+  if (preview) preview.hidden = true;
   if (!scroll || !board) return;
   scroll.hidden = false;
   bindServerCustomBoardScale();

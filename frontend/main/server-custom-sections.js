@@ -9,6 +9,7 @@ let serverCustomLastTab = "overview";
 let serverCustomHostHomes = {};
 let serverCustomOverviewToken = 0;
 let serverCustomViewId = "";
+let serverCustomFormId = "";
 const SERVER_CUSTOM_HOST_IDS = {
   overview: "server-overview",
   members: "server-members-section",
@@ -516,6 +517,19 @@ function paintServerCustomPages() {
       paintServerCustomPages();
       paintServerCustomMain();
     });
+    btn.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof openContextMenu !== "function") return;
+      const sectionId = row.id;
+      openContextMenu(e.clientX, e.clientY, {
+        avatarText: (row.title || "?").slice(0, 1),
+        title: row.title || "Section"
+      }, [
+        { label: "Edit", onSelect: () => openServerCustomEdit(sectionId) },
+        { label: "Remove", danger: true, onSelect: () => removeServerCustomSection(sectionId) }
+      ]);
+    });
     host.appendChild(btn);
   });
   if (add) add.disabled = serverCustomDraft.length >= SERVER_CUSTOM_SECTION_MAX;
@@ -718,49 +732,117 @@ function paintServerCustomMain() {
   }
 }
 
+function serverCustomCreateEls() {
+  return {
+    overlay: document.getElementById("server-custom-create-overlay"),
+    heading: document.getElementById("server-custom-create-title"),
+    name: document.getElementById("server-custom-create-name"),
+    about: document.getElementById("server-custom-create-about"),
+    admin: document.getElementById("server-custom-create-admin"),
+    priv: document.getElementById("server-custom-create-private"),
+    confirm: document.getElementById("server-custom-create-save")
+  };
+}
+
+function paintServerCustomCreateChrome(editing) {
+  const els = serverCustomCreateEls();
+  if (els.heading) els.heading.textContent = editing ? "Edit Section" : "New Section";
+  if (els.confirm) els.confirm.textContent = editing ? "Save" : "Create";
+}
+
+function fillServerCustomCreateFields(row) {
+  const els = serverCustomCreateEls();
+  if (els.name) els.name.value = row && row.title ? row.title : "";
+  if (els.about) els.about.value = row && row.about ? row.about : "";
+  if (els.admin) els.admin.checked = !!(row && row.admin_only);
+  if (els.priv) els.priv.checked = !!(row && row.private);
+}
+
 function openServerCustomCreate() {
   if (serverCustomDraft.length >= SERVER_CUSTOM_SECTION_MAX) return;
-  const overlay = document.getElementById("server-custom-create-overlay");
-  const name = document.getElementById("server-custom-create-name");
-  const about = document.getElementById("server-custom-create-about");
-  const admin = document.getElementById("server-custom-create-admin");
-  const priv = document.getElementById("server-custom-create-private");
-  if (name) name.value = "";
-  if (about) about.value = "";
-  if (admin) admin.checked = false;
-  if (priv) priv.checked = false;
-  if (overlay) overlay.hidden = false;
-  if (name) name.focus();
+  serverCustomFormId = "";
+  paintServerCustomCreateChrome(false);
+  fillServerCustomCreateFields(null);
+  const els = serverCustomCreateEls();
+  if (els.overlay) els.overlay.hidden = false;
+  if (els.name) els.name.focus();
+}
+
+function openServerCustomEdit(id) {
+  const row = serverCustomDraft.find((item) => item.id === id);
+  if (!row) return;
+  serverCustomFormId = row.id;
+  paintServerCustomCreateChrome(true);
+  fillServerCustomCreateFields(row);
+  const els = serverCustomCreateEls();
+  if (els.overlay) els.overlay.hidden = false;
+  if (els.name) els.name.focus();
 }
 
 function closeServerCustomCreate() {
+  serverCustomFormId = "";
+  paintServerCustomCreateChrome(false);
   const overlay = document.getElementById("server-custom-create-overlay");
   if (overlay) overlay.hidden = true;
 }
 
-function submitServerCustomCreate() {
-  if (serverCustomDraft.length >= SERVER_CUSTOM_SECTION_MAX) return;
-  const nameInput = document.getElementById("server-custom-create-name");
-  const aboutInput = document.getElementById("server-custom-create-about");
-  const admin = document.getElementById("server-custom-create-admin");
-  const priv = document.getElementById("server-custom-create-private");
-  const title = String((nameInput && nameInput.value) || "").trim();
+function readServerCustomCreateFields() {
+  const els = serverCustomCreateEls();
+  const title = String((els.name && els.name.value) || "").trim();
   if (!title) {
-    if (nameInput) nameInput.focus();
+    if (els.name) els.name.focus();
+    return null;
+  }
+  return {
+    title,
+    about: String((els.about && els.about.value) || "").trim(),
+    admin_only: !!(els.admin && els.admin.checked),
+    private: !!(els.priv && els.priv.checked)
+  };
+}
+
+function submitServerCustomCreate() {
+  const fields = readServerCustomCreateFields();
+  if (!fields) return;
+  if (serverCustomFormId) {
+    const row = serverCustomDraft.find((item) => item.id === serverCustomFormId);
+    if (!row) return;
+    row.title = fields.title;
+    row.about = fields.about;
+    row.admin_only = fields.admin_only;
+    row.private = fields.private;
+    markServerCustomDirty();
+    closeServerCustomCreate();
+    paintServerCustomPages();
+    paintServerCustomMain();
     return;
   }
+  if (serverCustomDraft.length >= SERVER_CUSTOM_SECTION_MAX) return;
   const row = {
     id: serverCustomNewId(),
-    title,
-    about: String((aboutInput && aboutInput.value) || "").trim(),
-    admin_only: !!(admin && admin.checked),
-    private: !!(priv && priv.checked),
+    title: fields.title,
+    about: fields.about,
+    admin_only: fields.admin_only,
+    private: fields.private,
     tiles: []
   };
   serverCustomDraft.push(row);
   serverCustomSelected = { kind: "custom", id: row.id };
   markServerCustomDirty();
   closeServerCustomCreate();
+  paintServerCustomPalette();
+  paintServerCustomPages();
+  paintServerCustomMain();
+}
+
+function removeServerCustomSection(id) {
+  const next = serverCustomDraft.filter((item) => item.id !== id);
+  if (next.length === serverCustomDraft.length) return;
+  serverCustomDraft = next;
+  if (serverCustomSelected.kind === "custom" && serverCustomSelected.id === id) {
+    serverCustomSelected = { kind: "overview", id: "" };
+  }
+  markServerCustomDirty();
   paintServerCustomPalette();
   paintServerCustomPages();
   paintServerCustomMain();

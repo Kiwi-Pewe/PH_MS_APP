@@ -16,6 +16,14 @@ function isServerWidgetBoard() {
   return !!(typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen && typeof serverCustomSelected !== "undefined" && serverCustomSelected && serverCustomSelected.kind === "custom");
 }
 
+function isServerCustomLiveView() {
+  return !!(typeof serverCustomViewId !== "undefined" && serverCustomViewId && !(typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen));
+}
+
+function isServerWidgetPaint() {
+  return isServerWidgetBoard() || isServerCustomLiveView();
+}
+
 function profileBoardIsEditing() {
   if (isServerWidgetBoard()) return true;
   return !!(typeof profileEditing !== "undefined" && profileEditing && typeof profileIsOwn !== "undefined" && profileIsOwn);
@@ -27,6 +35,13 @@ function profileBoardHosts() {
       scroll: document.getElementById("server-custom-board-scroll"),
       fit: document.getElementById("server-custom-board-fit"),
       board: document.getElementById("server-custom-board")
+    };
+  }
+  if (isServerCustomLiveView()) {
+    return {
+      scroll: document.getElementById("server-custom-view-scroll"),
+      fit: document.getElementById("server-custom-view-fit"),
+      board: document.getElementById("server-custom-view-board")
     };
   }
   return {
@@ -549,7 +564,8 @@ function defaultTextChrome(type, prev) {
     shadow_spread: clampProfileSpan(row.shadow_spread, 0, 24),
     shadow_color: profileBorderColor(row.shadow_color) || "#000000",
     shadow_opacity: clampProfilePercent(row.shadow_opacity, 35),
-    shadow_inset: !!row.shadow_inset
+    shadow_inset: !!row.shadow_inset,
+    spoiler: !!row.spoiler
   }, defaultBorderChrome(type, row));
 }
 
@@ -1108,7 +1124,7 @@ function profileOwnerAliases() {
 }
 
 function profileOwnerMemberSince() {
-  if (isServerWidgetBoard()) {
+  if (isServerWidgetPaint()) {
     const raw = currentServerData && currentServerData.created_at;
     if (!raw) return "";
     const date = new Date(raw);
@@ -1123,7 +1139,7 @@ function profileOwnerMemberSince() {
 }
 
 function profileOwnerName() {
-  if (isServerWidgetBoard()) {
+  if (isServerWidgetPaint()) {
     const listed = (typeof serverList !== "undefined" ? serverList : []).find((row) => row && String(row.id) === String(currentServerId));
     return (listed && listed.name) || (currentServerData && currentServerData.name) || "Server";
   }
@@ -1132,7 +1148,7 @@ function profileOwnerName() {
 }
 
 function profileOwnerHandle() {
-  if (isServerWidgetBoard()) return "";
+  if (isServerWidgetPaint()) return "";
   if (!profileUser) return myUsername || "";
   return profileUser.username || "";
 }
@@ -1592,7 +1608,7 @@ function profileLocalDateText(zone, monthStyle, yearStyle) {
 }
 
 function profileLocalTimeZone(tile) {
-  if (isServerWidgetBoard()) {
+  if (isServerWidgetPaint()) {
     const zone = String((currentServerData && currentServerData.timezone) || "").trim();
     if (profileTimezoneValid(zone)) return zone;
     return "America/New_York";
@@ -1720,7 +1736,7 @@ function paintProfileLocalTime(tile, el) {
   } else {
     const empty = document.createElement("div");
     empty.className = "profile-local-empty";
-    empty.textContent = isServerWidgetBoard()
+    empty.textContent = isServerWidgetPaint()
       ? "Time unavailable."
       : (profileIsOwn ? "Could not read your local time." : "Time unavailable.");
     body.appendChild(empty);
@@ -2037,13 +2053,13 @@ function paintProfileClock(tile, el) {
 }
 
 function paintProfileFriends(host, tile) {
-  const people = isServerWidgetBoard()
+  const people = isServerWidgetPaint()
     ? (typeof serverCustomStaffPeople === "function" ? serverCustomStaffPeople(tile) : [])
     : (profileFriends || []);
   if (!people.length) {
     const empty = document.createElement("div");
     empty.className = "settings-opt-desc";
-    empty.textContent = isServerWidgetBoard() ? "No staff to show yet." : "No friends to show yet.";
+    empty.textContent = isServerWidgetPaint() ? "No staff to show yet." : "No friends to show yet.";
     host.appendChild(empty);
     return;
   }
@@ -5783,7 +5799,34 @@ function paintSteamBadges(tile, el) {
   el.appendChild(card);
 }
 
+function applyProfileSpoilerCover(el, tile) {
+  if (!el || !tile || !(tile.props && tile.props.spoiler)) return;
+  const preview = el.classList.contains("is-opt-preview") || !!(el.closest && el.closest(".profile-opt-preview"));
+  const cover = document.createElement("button");
+  cover.type = "button";
+  cover.className = "profile-spoiler-cover";
+  cover.textContent = "Spoiler";
+  if (profileBoardIsEditing() && !preview) {
+    cover.tabIndex = -1;
+    cover.style.pointerEvents = "none";
+  } else {
+    cover.addEventListener("pointerdown", (e) => e.stopPropagation());
+    cover.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      cover.remove();
+    });
+  }
+  el.classList.add("has-spoiler-cover");
+  el.appendChild(cover);
+}
+
 function paintProfileTileContent(tile, el) {
+  paintProfileTileFace(tile, el);
+  applyProfileSpoilerCover(el, tile);
+}
+
+function paintProfileTileFace(tile, el) {
   el.innerHTML = "";
   el.classList.remove("has-title-band");
   el.classList.toggle("is-compact-row", Number(tile.h) === 1);
@@ -5860,7 +5903,7 @@ function paintProfileTileContent(tile, el) {
     return;
   }
   if (tile.type === "banner") {
-    if (isServerWidgetBoard()) {
+    if (isServerWidgetPaint()) {
       const url = String((currentServerData && currentServerData.banner_url) || "").trim();
       el.style.background = url ? "transparent" : "#43b581";
       applyProfileTileBorder(el, tile);
@@ -5888,7 +5931,7 @@ function paintProfileTileContent(tile, el) {
   if (tile.type === "avatar") {
     const face = document.createElement("div");
     face.className = "profile-tile-avatar";
-    if (isServerWidgetBoard()) {
+    if (isServerWidgetPaint()) {
       const url = String((currentServerData && currentServerData.icon_url) || "").trim();
       if (url) {
         const media = { url: url, still_url: (currentServerData && currentServerData.icon_still_url) || "" };
@@ -5922,13 +5965,13 @@ function paintProfileTileContent(tile, el) {
     const name = document.createElement("div");
     name.className = "profile-tile-name";
     const typedName = tile.props && tile.props.identity && tile.props.identity.display_name;
-    const shownName = isServerWidgetBoard()
+    const shownName = isServerWidgetPaint()
       ? profileOwnerName()
       : (typedName != null && String(typedName).trim() ? String(typedName).trim() : profileOwnerName());
     name.textContent = shownName;
     row.appendChild(name);
-    const aliases = isServerWidgetBoard() ? [] : profileOwnerAliases();
-    const showAliases = !isServerWidgetBoard() && (!tile.props || tile.props.show_aliases !== false);
+    const aliases = isServerWidgetPaint() ? [] : profileOwnerAliases();
+    const showAliases = !isServerWidgetPaint() && (!tile.props || tile.props.show_aliases !== false);
     if (showAliases && aliases.length) {
       const arrow = document.createElement("button");
       arrow.type = "button";
@@ -5948,7 +5991,7 @@ function paintProfileTileContent(tile, el) {
       row.appendChild(arrow);
     }
     el.appendChild(row);
-    if (!isServerWidgetBoard()) {
+    if (!isServerWidgetPaint()) {
     const handle = document.createElement("div");
     handle.className = "profile-tile-handle";
     let handleText = "@" + profileOwnerHandle();
@@ -5973,7 +6016,7 @@ function paintProfileTileContent(tile, el) {
     applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
     const head = document.createElement("div");
     head.className = "profile-tile-head";
-    head.textContent = isServerWidgetBoard() ? "Creation Date" : "Member since";
+    head.textContent = isServerWidgetPaint() ? "Creation Date" : "Member since";
     el.appendChild(head);
     const date = document.createElement("div");
     date.className = "profile-since-date";
@@ -6083,7 +6126,7 @@ function paintProfileTileContent(tile, el) {
     return;
   }
   if (tile.type === "friends") {
-    mountProfileFixedTitle(el, isServerWidgetBoard() ? "Staff" : "Friends");
+    mountProfileFixedTitle(el, isServerWidgetPaint() ? "Staff" : "Friends");
     applyProfileWidgetSurface(el, tile);
     applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
     applyProfileFriendSize(el, tile);
@@ -6270,11 +6313,13 @@ function renderProfileBoard() {
   board.classList.remove("is-mini-profile-page");
   board.classList.toggle("is-editing", profileBoardIsEditing());
   board.style.gap = PROFILE_GAP + "px";
-  if (!isServerWidgetBoard()) syncProfilePaletteForPage();
+  if (!isServerWidgetBoard() && !isServerCustomLiveView()) syncProfilePaletteForPage();
   const layout = profileDraft || profileSavedLayout;
   const page = isServerWidgetBoard() && typeof currentProfilePage === "function"
     ? currentProfilePage()
-    : profilePageById(layout, profileActivePageId);
+    : (isServerCustomLiveView() && typeof currentServerCustomLivePage === "function"
+      ? currentServerCustomLivePage()
+      : profilePageById(layout, profileActivePageId));
   if (page && isMiniProfilePageId(page.id)) {
     paintMiniProfileEditorPage(board);
     syncProfileBoardScale();
@@ -6370,10 +6415,10 @@ function renderProfileBoard() {
         if (typeof showProfileTileMenu === "function") showProfileTileMenu(e, tile);
       });
     }
-    if (!profileEditing && profileIsOwn && typeof bindProfileQuickEdit === "function") {
+    if (!profileEditing && profileIsOwn && !isServerCustomLiveView() && typeof bindProfileQuickEdit === "function") {
       bindProfileQuickEdit(el, tile);
     }
-    if (!profileEditing && !profileIsOwn && typeof bindProfileVisitorAvatar === "function") {
+    if (!profileEditing && !profileIsOwn && !isServerWidgetPaint() && typeof bindProfileVisitorAvatar === "function") {
       bindProfileVisitorAvatar(el, tile);
     }
     board.appendChild(el);

@@ -664,6 +664,7 @@ function renderServerSidebar(data) {
   if (typeof paintEventRailRows === "function") paintEventRailRows();
   if (typeof refreshEventRows === "function") refreshEventRows();
   if (typeof paintVoiceRails === "function") paintVoiceRails();
+  if (typeof paintServerCustomSectionRows === "function") paintServerCustomSectionRows();
 }
 
 function rememberServerChannel(serverId, channelId) {
@@ -1224,7 +1225,8 @@ function applyChannelsReordered(channels) {
 }
 
 function hideChannelSurfaces() {
-  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "event-page", "channel-body", "channel-composer", "server-overview", "server-members-section", "server-applications-section"].forEach((id) => {
+  if (typeof clearServerCustomLiveView === "function") clearServerCustomLiveView();
+  ["announcements-view", "forums-view", "docs-view", "lists-view", "calendar-view", "doc-channel-view", "media-channel-view", "schedule-view", "event-page", "channel-body", "channel-composer", "server-overview", "server-members-section", "server-applications-section", "server-custom-section"].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     if (el.parentElement && el.parentElement.id === "server-custom-preview") return;

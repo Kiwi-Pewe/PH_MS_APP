@@ -8,6 +8,7 @@ let serverCustomSelected = { kind: "overview", id: "" };
 let serverCustomLastTab = "overview";
 let serverCustomHostHomes = {};
 let serverCustomOverviewToken = 0;
+let serverCustomViewId = "";
 const SERVER_CUSTOM_HOST_IDS = {
   overview: "server-overview",
   members: "server-members-section",
@@ -54,7 +55,8 @@ const SERVER_CUSTOM_WIDGET_DROP = {
   phone: true,
   connections: true,
   featured_friend: true,
-  mutuals: true
+  mutuals: true,
+  spoiler: true
 };
 
 function serverCustomWidgetAllowed(type) {
@@ -180,6 +182,7 @@ function runServerCustomPageTransfer(target) {
   if (id === "overview" && typeof openServerOverview === "function") openServerOverview();
   else if (id === "members" && typeof openServerMembersSection === "function") openServerMembersSection();
   else if (id === "applications" && typeof openServerApplicationsSection === "function") openServerApplicationsSection();
+  else openServerCustomSection(id);
 }
 
 function markServerCustomDirty() {
@@ -195,11 +198,131 @@ function paintServerCustomSave() {
 function applyServerCustomSections(serverId, rows) {
   if (!serverId) return;
   serverCustomSaved[serverId] = cloneServerCustomRows(Array.isArray(rows) ? rows : []);
-  if (String(currentServerId) === String(serverId) && isServerCustomSectionsOpen && !serverCustomDirty) {
+  if (String(currentServerId) !== String(serverId)) return;
+  if (isServerCustomSectionsOpen && !serverCustomDirty) {
     serverCustomDraft = serverCustomSavedList();
     paintServerCustomPages();
     paintServerCustomMain();
   }
+  paintServerCustomSectionRows();
+  if (serverCustomViewId && !listedServerCustomSections().some((row) => row.id === serverCustomViewId)) {
+    serverCustomViewId = "";
+    if (typeof openServerOverview === "function") openServerOverview();
+  } else if (serverCustomViewId && typeof renderProfileBoard === "function") {
+    renderProfileBoard();
+  }
+}
+
+function canSeeServerCustomSection(row) {
+  if (!row) return false;
+  if (row.admin_only && !(typeof canUpdateServer === "function" && canUpdateServer())) return false;
+  if (row.private && String(currentServerOwnerId) !== String(myUserId)) return false;
+  return true;
+}
+
+function listedServerCustomSections() {
+  if (!currentServerId) return [];
+  return (serverCustomSaved[currentServerId] || []).filter(canSeeServerCustomSection);
+}
+
+function currentServerCustomLivePage() {
+  if (!serverCustomViewId || !currentServerId) return null;
+  const row = (serverCustomSaved[currentServerId] || []).find((item) => item.id === serverCustomViewId);
+  if (!row) return null;
+  if (!Array.isArray(row.tiles)) row.tiles = [];
+  return row;
+}
+
+function paintServerCustomSectionRows() {
+  const host = document.getElementById("server-custom-section-rows");
+  if (!host) return;
+  host.replaceChildren();
+  listedServerCustomSections().forEach((row) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "server-section-row";
+    btn.id = "server-section-custom-" + row.id;
+    const icon = document.createElement("span");
+    icon.className = "server-section-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.innerHTML = "&#9638;";
+    const label = document.createElement("span");
+    label.className = "server-section-label";
+    label.textContent = row.title || "Section";
+    btn.appendChild(icon);
+    btn.appendChild(label);
+    btn.addEventListener("click", () => openServerCustomSection(row.id));
+    host.appendChild(btn);
+  });
+  if (serverCustomViewId) {
+    const active = document.getElementById("server-section-custom-" + serverCustomViewId);
+    if (active) active.classList.add("active");
+  }
+}
+
+function prepareServerCustomLiveChrome() {
+  if (typeof switchMainView === "function") switchMainView("channel");
+  if (typeof abandonMessageEdit === "function") abandonMessageEdit();
+  if (typeof abandonAnnouncementEdit === "function") abandonAnnouncementEdit();
+  if (typeof abandonForumEdit === "function") abandonForumEdit();
+  if (typeof clearPendingAttach === "function") clearPendingAttach();
+  if (typeof clearPendingReply === "function") clearPendingReply();
+  if (typeof closePinsPanel === "function") closePinsPanel();
+  if (typeof hideDocsChrome === "function") hideDocsChrome();
+  if (typeof hideDocChannelChrome === "function") hideDocChannelChrome();
+  if (typeof hideMediaChannelChrome === "function") hideMediaChannelChrome();
+  if (typeof hideScheduleChrome === "function") hideScheduleChrome();
+  if (typeof hideEventBack === "function") hideEventBack();
+  if (typeof hideExplicitChannelGate === "function") hideExplicitChannelGate();
+  if (typeof closeVoiceStage === "function") closeVoiceStage();
+  if (typeof overviewStopTick === "function") overviewStopTick();
+  openForumPostId = null;
+  const forumBack = document.getElementById("forum-back-btn");
+  if (forumBack) forumBack.style.display = "none";
+  const eventPageBack = document.getElementById("event-page-back");
+  if (eventPageBack) eventPageBack.style.display = "none";
+  const forumOpener = document.getElementById("forum-thread-opener");
+  if (forumOpener) {
+    forumOpener.hidden = true;
+    forumOpener.replaceChildren();
+  }
+  currentChannelId = null;
+  currentChannelType = null;
+  currentChannelName = null;
+  document.querySelectorAll(".channel-row.active").forEach((row) => row.classList.remove("active"));
+  if (typeof hideChannelSurfaces === "function") hideChannelSurfaces();
+  const voiceView = document.getElementById("voice-view");
+  if (voiceView) voiceView.style.display = "none";
+}
+
+async function openServerCustomSection(id) {
+  const row = listedServerCustomSections().find((item) => item.id === id);
+  if (!currentServerId || !row) return;
+  prepareServerCustomLiveChrome();
+  serverCustomViewId = id;
+  const page = document.getElementById("server-custom-section");
+  if (page) page.style.display = "flex";
+  if (typeof markServerSectionActive === "function") markServerSectionActive("server-section-custom-" + id);
+  const title = document.getElementById("channel-header-title");
+  if (title) title.textContent = row.title || "Section";
+  if (typeof setHeaderDescription === "function") setHeaderDescription("channel-header-desc", row.about || "");
+  if (typeof renderProfileBoard === "function") renderProfileBoard();
+  if (typeof serverSectionMembersSource === "function" && !serverSectionMembersSource().length) {
+    try {
+      const response = await fetch(
+        `https://${serverAddress}/get_server_members/${encodeURIComponent(currentServerId)}`,
+        { credentials: "include" }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || serverCustomViewId !== id) return;
+      if (typeof applyServerMembers === "function") applyServerMembers(currentServerId, data.members || []);
+      if (typeof renderProfileBoard === "function") renderProfileBoard();
+    } catch (e) {}
+  }
+}
+
+function clearServerCustomLiveView() {
+  serverCustomViewId = "";
 }
 
 function serverCustomNewId() {
@@ -659,12 +782,9 @@ async function saveServerCustomSections() {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save sections.");
-    serverCustomSaved[currentServerId] = cloneServerCustomRows(data.custom_sections || serverCustomDraft);
-    serverCustomDraft = serverCustomSavedList();
     serverCustomDirty = false;
+    applyServerCustomSections(currentServerId, data.custom_sections || serverCustomDraft);
     paintServerCustomSave();
-    paintServerCustomPages();
-    paintServerCustomMain();
   } catch (e) {
     window.alert(e.message || "Could not save sections.");
   } finally {

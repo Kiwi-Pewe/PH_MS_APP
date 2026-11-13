@@ -4576,6 +4576,34 @@ html.no-chat-bubbles .msg-cluster.self .reaction-pill.mine {
   padding: 16px 20px; overflow: auto;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
+#server-custom-section {
+  flex: 1; min-height: 0; display: none; flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+#server-custom-view-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#server-custom-view-fit { flex: 0 0 auto; position: relative; }
+#server-custom-view-board {
+  display: grid;
+  grid-template-columns: repeat(32, 36px);
+  grid-auto-rows: 36px;
+  gap: 0;
+  width: calc(32 * 36px);
+  padding: 16px 20px 48px;
+  position: relative;
+  align-content: start;
+  box-sizing: content-box;
+  transform-origin: top left;
+}
+#server-custom-section-rows { display: flex; flex-direction: column; }
 #server-members-section {
   flex: 1; min-height: 0; display: none; flex-direction: column;
   padding: 16px 20px; overflow: auto;
@@ -6437,6 +6465,25 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   position: relative; z-index: 1;
   box-sizing: border-box;
 }
+.profile-spoiler-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: none;
+  border-radius: inherit;
+  background: rgba(8, 8, 12, 0.82);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.profile-spoiler-cover:hover { background: rgba(8, 8, 12, 0.9); }
 .profile-tile.is-banner {
   border: none; border-radius: 12px;
 }

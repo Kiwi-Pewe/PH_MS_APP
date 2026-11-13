@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=530">
+<link rel="stylesheet" href="app.css?v=531">
 <link rel="stylesheet" href="news.css?v=6">
 </head>
 <body>
@@ -130,6 +130,7 @@
               <span class="server-section-icon" aria-hidden="true">&#9745;</span>
               <span class="server-section-label">Applications</span>
             </button>
+            <div id="server-custom-section-rows"></div>
           </div>
           <div class="server-sidebar-group-label" id="server-channels-label">Channels</div>
           <div id="category-list"></div>
@@ -784,6 +785,14 @@
             <div id="server-applications-reviewed-rule" hidden></div>
             <div id="server-applications-reviewed"></div>
             <button type="button" id="server-applications-reviewed-more" class="ghost-btn" hidden>Load More</button>
+          </div>
+        </div>
+
+        <div id="server-custom-section" style="display:none;">
+          <div id="server-custom-view-scroll">
+            <div id="server-custom-view-fit">
+              <div id="server-custom-view-board"></div>
+            </div>
           </div>
         </div>
 
@@ -3152,11 +3161,11 @@
 <script src="profile-chat-room.js?v=10"></script>
 <script src="profile-phone.js?v=3"></script>
 <script src="profile-posts.js?v=1"></script>
-<script src="profile-board.js?v=145"></script>
+<script src="profile-board.js?v=146"></script>
 <script src="profile.js?v=25"></script>
 <script src="profile-identity.js?v=19"></script>
-<script src="profile-edit.js?v=132"></script>
-<script src="server-custom-sections.js?v=6"></script>
+<script src="profile-edit.js?v=133"></script>
+<script src="server-custom-sections.js?v=7"></script>
 <script src="context-menus.js?v=111"></script>
 <script src="conversations.js?v=77"></script>
 <script src="chat-render.js?v=76"></script>
@@ -3182,7 +3191,7 @@
 <script src="embeds.js?v=48"></script>
 <script src="mentions.js?v=24"></script>
 <script src="explicit-channel.js?v=1"></script>
-<script src="servers.js?v=143"></script>
+<script src="servers.js?v=144"></script>
 <script src="voice.js?v=25"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=5"></script>

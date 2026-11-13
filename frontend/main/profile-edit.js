@@ -24,7 +24,6 @@ const PROFILE_PALETTE = [
       { type: "body", label: "Body" },
       { type: "footnote", label: "Footnote" },
       { type: "list", label: "List" },
-      { type: "spoiler", label: "Spoiler" },
       { type: "button", label: "Button" }
     ]
   },
@@ -642,7 +641,21 @@ function fillTextFormatOptions(box, draft, type, onChange, hintEl) {
 }
 
 function profileHasWidgetSettings(type) {
-  return type === "banner" || type === "avatar" || type === "image" || type === "video" || type === "music" || type === "embed" || type === "gallery" || type === "comments" || type === "display_server" || type === "chat_room" || type === "phone" || type === "posts" || type === "divider" || type === "rail" || type === "frame" || type === "meter" || type === "display_name" || type === "link_tree" || type === "friends" || type === "button" || type === "local_time" || type === "details" || type === "body" || type === "icon" || type === "clock" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
+  return !!(typeof PROFILE_TILE_TYPES !== "undefined" && PROFILE_TILE_TYPES[type]);
+}
+
+function fillSpoilerOption(box, draft, onChange, hintEl) {
+  draft.spoiler = !!draft.spoiler;
+  const row = settingsOpt(
+    "Spoiler",
+    "",
+    settingsToggle(draft.spoiler, false, (on) => {
+      draft.spoiler = on;
+      onChange();
+    })
+  );
+  profileOptHint(row, "Cover this widget until someone clicks the banner.", hintEl);
+  box.appendChild(row);
 }
 
 function profileHasLinkSettings(type) {
@@ -3954,6 +3967,7 @@ function openProfileTileOptions(tile) {
     left.innerHTML = '';
     left.classList.remove('is-wide');
     if (tab === 'widget') {
+      fillSpoilerOption(left, draft, paintPreview, hintEl);
       fillWidgetOptions(left, tile, draft, paintPreview, hintEl);
     } else if (tab === 'text' && profileHasTextFormat(tile.type)) {
       fillTextFormatOptions(left, draft, tile.type, paintPreview, hintEl);

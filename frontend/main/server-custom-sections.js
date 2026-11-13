@@ -46,6 +46,9 @@ function cloneServerCustomRows(rows) {
     const copy = Object.assign({}, row);
     applyServerCustomViewAccess(copy, serverCustomViewAccess(row));
     copy.listed = row.listed !== false;
+    copy.explicit = !!row.explicit;
+    copy.admin_only = !!row.admin_only;
+    copy.private = !!row.private;
     copy.view_role_ids = Array.isArray(row.view_role_ids)
       ? row.view_role_ids.map((id) => String(id))
       : (serverCustomViewAccess(row) === "everyone" ? ["members"] : []);
@@ -261,6 +264,8 @@ function serverCustomHasRolePerm(row, field) {
 
 function canSeeServerCustomSection(row) {
   if (!row) return false;
+  if (row.private && String(currentServerOwnerId) !== String(myUserId)) return false;
+  if (row.admin_only && !(typeof canUpdateServer === "function" && canUpdateServer())) return false;
   if (Array.isArray(row.view_role_ids)) return serverCustomHasRolePerm(row, "view_role_ids");
   const view = serverCustomViewAccess(row);
   if (view === "owner" && String(currentServerOwnerId) !== String(myUserId)) return false;
@@ -364,6 +369,11 @@ async function openServerCustomSection(id) {
   const title = document.getElementById("channel-header-title");
   if (title) title.textContent = row.title || "Section";
   if (typeof setHeaderDescription === "function") setHeaderDescription("channel-header-desc", row.about || "");
+  if (typeof explicitSectionNeedsGate === "function" && explicitSectionNeedsGate(row)) {
+    if (typeof showExplicitSectionGate === "function") showExplicitSectionGate(row);
+    return;
+  }
+  if (typeof hideExplicitSectionGate === "function") hideExplicitSectionGate();
   if (typeof renderProfileBoard === "function") renderProfileBoard();
   if (typeof serverSectionMembersSource === "function" && !serverSectionMembersSource().length) {
     try {
@@ -381,6 +391,7 @@ async function openServerCustomSection(id) {
 
 function clearServerCustomLiveView() {
   serverCustomViewId = "";
+  if (typeof hideExplicitSectionGate === "function") hideExplicitSectionGate();
 }
 
 function serverCustomNewId() {
@@ -875,6 +886,7 @@ function submitServerCustomCreate() {
     title: fields.title,
     about: fields.about,
     listed: true,
+    explicit: false,
     view_access: "everyone",
     admin_only: false,
     private: false,

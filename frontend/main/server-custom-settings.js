@@ -1,5 +1,5 @@
 let serverCustomSettingsId = "";
-let serverCustomSettingsTab = "visibility";
+let serverCustomSettingsTab = "general";
 let serverCustomSettingsRoleId = "";
 
 function isServerCustomSettingsOpen() {
@@ -33,10 +33,15 @@ function openServerCustomSettings() {
   }
   const overlay = document.getElementById("server-custom-settings-overlay");
   if (overlay) overlay.hidden = false;
-  if (typeof loadServerRoles === "function" && serverRolesLoadedFor !== currentServerId) {
-    loadServerRoles().then(() => {
-      if (isServerCustomSettingsOpen()) paintServerCustomSettingsOverlay();
-    }).catch(() => {});
+  if (typeof loadServerRoles === "function") {
+    const loaded = typeof serverRolesLoadedFor !== "undefined" && serverRolesLoadedFor === currentServerId;
+    const hasRoles = (typeof serverRolesDraft !== "undefined" && serverRolesDraft && serverRolesDraft.length)
+      || (typeof serverRolesSaved !== "undefined" && serverRolesSaved && serverRolesSaved.length);
+    if (!loaded || !hasRoles) {
+      loadServerRoles().then(() => {
+        if (isServerCustomSettingsOpen()) paintServerCustomSettingsOverlay();
+      }).catch(() => {});
+    }
   }
   paintServerCustomSettingsOverlay();
 }
@@ -79,12 +84,42 @@ function paintServerCustomSettingsNav() {
 }
 
 function paintServerCustomSettingsPages() {
+  const general = document.getElementById("server-custom-settings-general");
   const vis = document.getElementById("server-custom-settings-visibility");
   const perms = document.getElementById("server-custom-settings-permissions");
+  if (general) general.hidden = serverCustomSettingsTab !== "general";
   if (vis) vis.hidden = serverCustomSettingsTab !== "visibility";
   if (perms) perms.hidden = serverCustomSettingsTab !== "permissions";
   if (serverCustomSettingsTab === "permissions") paintServerCustomSettingsPermissions();
-  else paintServerCustomSettingsVisibility();
+  else if (serverCustomSettingsTab === "visibility") paintServerCustomSettingsVisibility();
+  else paintServerCustomSettingsGeneral();
+}
+
+function paintServerCustomSettingsToggle(hostId, on, apply) {
+  const host = document.getElementById(hostId);
+  if (!host) return;
+  host.replaceChildren();
+  if (typeof settingsToggle !== "function") return;
+  host.appendChild(settingsToggle(!!on, false, (next) => {
+    apply(!!next);
+    if (typeof markServerCustomDirty === "function") markServerCustomDirty();
+  }));
+}
+
+function paintServerCustomSettingsGeneral() {
+  const row = serverCustomSettingsRow();
+  if (!row) return;
+  paintServerCustomSettingsToggle("server-custom-settings-explicit-host", row.explicit, (on) => {
+    row.explicit = on;
+  });
+  paintServerCustomSettingsToggle("server-custom-settings-admin-host", row.admin_only, (on) => {
+    row.admin_only = on;
+    row.view_access = row.private ? "owner" : (on ? "staff" : "everyone");
+  });
+  paintServerCustomSettingsToggle("server-custom-settings-private-host", row.private, (on) => {
+    row.private = on;
+    row.view_access = on ? "owner" : (row.admin_only ? "staff" : "everyone");
+  });
 }
 
 function paintServerCustomSettingsVisibility() {
@@ -122,22 +157,34 @@ const SERVER_CUSTOM_SETTINGS_PERMS = [
 ];
 
 function serverCustomSettingsRoleChoices() {
+  const source = (typeof serverRolesDraft !== "undefined" && serverRolesDraft && serverRolesDraft.length)
+    ? serverRolesDraft
+    : ((typeof serverRolesSaved !== "undefined" && serverRolesSaved) || []);
   const roles = [];
-  const source = typeof serverCustomRoleRows === "function" ? serverCustomRoleRows() : [];
+  let members = null;
   source.forEach((role) => {
     if (!role) return;
-    if (role.builtin || String(role.id) === "members" || role.is_members) return;
-    roles.push({
+    const row = {
       id: String(role.id),
-      name: role.name || "Role",
+      name: role.name || (role.builtin || role.is_members ? "Members" : "Role"),
       color: role.color || "#99aab5"
+    };
+    if (role.builtin || role.is_members || String(role.id) === "members") {
+      members = row;
+      members.id = "members";
+      members.name = role.name || "Members";
+      return;
+    }
+    roles.push(row);
+  });
+  if (members) roles.unshift(members);
+  else {
+    roles.unshift({
+      id: "members",
+      name: "Members",
+      color: "#99aab5"
     });
-  });
-  roles.unshift({
-    id: "members",
-    name: "Members",
-    color: "#99aab5"
-  });
+  }
   return roles;
 }
 
@@ -260,7 +307,7 @@ if (serverCustomSettingsNav) {
   serverCustomSettingsNav.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-custom-settings-tab]");
     if (!btn || !serverCustomSettingsNav.contains(btn)) return;
-    serverCustomSettingsTab = btn.getAttribute("data-custom-settings-tab") || "visibility";
+    serverCustomSettingsTab = btn.getAttribute("data-custom-settings-tab") || "general";
     paintServerCustomSettingsOverlay();
   });
 }

@@ -516,12 +516,19 @@ def normalize_server_custom_sections(raw):
         else:
             interact_ids = ["members"]
         edit_ids = pack_role_ids(row.get("edit_role_ids"))
+        admin_only = bool(row.get("admin_only")) if "admin_only" in row else view == "staff"
+        private = bool(row.get("private")) if "private" in row else view == "owner"
+        if private:
+            view = "owner"
+        elif admin_only:
+            view = "staff"
         out.append({
             "id": sid,
             "title": title,
             "about": str(row.get("about") or "").strip()[:200],
-            "admin_only": view == "staff",
-            "private": view == "owner",
+            "admin_only": admin_only,
+            "private": private,
+            "explicit": bool(row.get("explicit")),
             "view_access": view,
             "listed": listed,
             "view_role_ids": view_ids,

@@ -622,6 +622,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "server_type": getattr(server, "server_type", None) or "",
         "tags": parse_server_tags(getattr(server, "tags", None)),
         "timezone": getattr(server, "timezone", None) or "",
+        "created_at": iso_dt(getattr(server, "created_at", None)) if getattr(server, "created_at", None) else None,
         "default_notifications": server_default_notifications(server),
         "permissions": permissions,
         "highest_role": actor_highest_role(database, server, current_user.id),

@@ -26,7 +26,161 @@ function serverCustomSavedList() {
 }
 
 function cloneServerCustomRows(rows) {
-  return (rows || []).map((row) => Object.assign({}, row));
+  return (rows || []).map((row) => {
+    const copy = Object.assign({}, row);
+    copy.tiles = (row.tiles || []).map((tile) => {
+      const next = Object.assign({}, tile);
+      try {
+        next.props = tile.props ? JSON.parse(JSON.stringify(tile.props)) : {};
+      } catch (e) {
+        next.props = Object.assign({}, tile.props || {});
+      }
+      return next;
+    });
+    return copy;
+  });
+}
+
+function currentServerCustomPage() {
+  if (!serverCustomSelected || serverCustomSelected.kind !== "custom") return null;
+  const row = serverCustomDraft.find((item) => item.id === serverCustomSelected.id);
+  if (!row) return null;
+  if (!Array.isArray(row.tiles)) row.tiles = [];
+  return row;
+}
+
+const SERVER_CUSTOM_WIDGET_DROP = {
+  display_server: true,
+  chat_room: true,
+  phone: true,
+  connections: true,
+  featured_friend: true,
+  mutuals: true
+};
+
+function serverCustomWidgetAllowed(type) {
+  if (!type || SERVER_CUSTOM_WIDGET_DROP[type]) return false;
+  if (String(type).indexOf("steam_") === 0 || String(type).indexOf("youtube_") === 0) return false;
+  return !!(typeof PROFILE_TILE_TYPES !== "undefined" && PROFILE_TILE_TYPES[type]);
+}
+
+function serverCustomWidgetLabel(type) {
+  if (type === "member_since") return "Creation Date";
+  if (type === "friends") return "Staff";
+  return (typeof PROFILE_TILE_TYPES !== "undefined" && PROFILE_TILE_TYPES[type] && PROFILE_TILE_TYPES[type].label) || type;
+}
+
+function serverCustomRoleRows() {
+  const rows = (typeof serverRolesSaved !== "undefined" && serverRolesSaved.length)
+    ? serverRolesSaved
+    : ((typeof serverRolesDraft !== "undefined" && serverRolesDraft) || []);
+  return rows.slice().sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0) || String(a.id).localeCompare(String(b.id)));
+}
+
+function fillServerStaffRoleOptions(box, draft, onChange, hintEl) {
+  const roles = serverCustomRoleRows();
+  const picked = {};
+  (Array.isArray(draft.role_ids) ? draft.role_ids : []).forEach((id) => { picked[String(id)] = true; });
+  const label = document.createElement("div");
+  label.className = "profile-opt-field-label";
+  label.textContent = "Roles";
+  box.appendChild(label);
+  if (!roles.length) {
+    const empty = document.createElement("div");
+    empty.className = "settings-opt-desc";
+    empty.textContent = "No roles to pick yet.";
+    box.appendChild(empty);
+    return;
+  }
+  roles.forEach((role) => {
+    const id = String(role.id);
+    const row = settingsOpt(
+      role.name || "Role",
+      "",
+      settingsToggle(!!picked[id], false, (on) => {
+        picked[id] = on;
+        draft.role_ids = roles.map((item) => String(item.id)).filter((key) => picked[key]);
+        onChange();
+      })
+    );
+    if (hintEl && typeof profileOptHint === "function") {
+      profileOptHint(row, "People with this role appear on Staff, in this list’s order.", hintEl);
+    }
+    box.appendChild(row);
+  });
+}
+
+function serverCustomStaffPeople(tile) {
+  const wanted = {};
+  ((tile && tile.props && tile.props.role_ids) || []).forEach((id) => { wanted[String(id)] = true; });
+  const keys = Object.keys(wanted);
+  if (!keys.length) return [];
+  const order = {};
+  serverCustomRoleRows().forEach((role, index) => {
+    order[String(role.id)] = index;
+  });
+  const members = typeof serverSectionMembersSource === "function" ? serverSectionMembersSource() : [];
+  const seen = {};
+  const people = [];
+  members.forEach((member) => {
+    const ids = (member.role_ids || []).map((id) => String(id));
+    const hits = ids.filter((id) => wanted[id]);
+    if (!hits.length) return;
+    const key = String(member.id);
+    if (seen[key]) return;
+    seen[key] = true;
+    let rank = 9999;
+    hits.forEach((id) => {
+      const n = order[id];
+      if (n != null && n < rank) rank = n;
+    });
+    people.push({ member, rank });
+  });
+  people.sort((a, b) => a.rank - b.rank || String((a.member.display_name || a.member.username || "")).localeCompare(String(b.member.display_name || b.member.username || ""), undefined, { sensitivity: "base" }));
+  return people.map((row) => row.member);
+}
+
+function serverCustomTransferTargets() {
+  const rows = [];
+  (typeof serverCustomBuiltinRows === "function" ? serverCustomBuiltinRows() : []).forEach((row) => {
+    rows.push({ value: "section:" + row.id, label: row.title + (row.listed ? "" : " (not listed)") });
+  });
+  serverCustomDraft.forEach((row) => {
+    rows.push({ value: "section:" + row.id, label: row.title || "Section" });
+  });
+  const cats = (currentServerData && currentServerData.categories) || [];
+  cats.forEach((cat) => {
+    (cat.channels || []).forEach((channel) => {
+      rows.push({
+        value: "channel:" + channel.id,
+        label: (cat.name ? cat.name + " / " : "") + (channel.name || "Channel")
+      });
+    });
+  });
+  return rows;
+}
+
+function runServerCustomPageTransfer(target) {
+  const raw = String(target || "");
+  const split = raw.indexOf(":");
+  if (split < 0) return;
+  const kind = raw.slice(0, split);
+  const id = raw.slice(split + 1);
+  if (kind === "channel") {
+    const cats = (currentServerData && currentServerData.categories) || [];
+    let channel = null;
+    cats.forEach((cat) => {
+      (cat.channels || []).forEach((row) => {
+        if (String(row.id) === String(id)) channel = row;
+      });
+    });
+    if (channel && typeof selectChannel === "function") selectChannel(channel);
+    return;
+  }
+  if (kind !== "section") return;
+  if (id === "overview" && typeof openServerOverview === "function") openServerOverview();
+  else if (id === "members" && typeof openServerMembersSection === "function") openServerMembersSection();
+  else if (id === "applications" && typeof openServerApplicationsSection === "function") openServerApplicationsSection();
 }
 
 function markServerCustomDirty() {
@@ -125,16 +279,29 @@ function enterServerCustomSections() {
   paintServerCustomPalette();
   paintServerCustomPages();
   paintServerCustomMain();
+  if (typeof loadServerRoles === "function" && serverRolesLoadedFor !== currentServerId) loadServerRoles();
+  if (typeof serverSectionMembersSource === "function" && !serverSectionMembersSource().length) {
+    fetch(`https://${serverAddress}/get_server_members/${encodeURIComponent(currentServerId)}`, { credentials: "include" })
+      .then((response) => response.json().catch(() => ({})))
+      .then((data) => {
+        if (typeof applyServerMembers === "function") applyServerMembers(currentServerId, data.members || []);
+        if (isServerCustomSectionsOpen && typeof renderProfileBoard === "function") renderProfileBoard();
+      })
+      .catch(() => {});
+  }
 }
 
 function paintServerCustomPalette() {
   const host = document.getElementById("server-custom-palette-body");
   if (!host) return;
   host.replaceChildren();
+  const live = !!(serverCustomSelected && serverCustomSelected.kind === "custom");
   const groups = typeof PROFILE_PALETTE !== "undefined" ? PROFILE_PALETTE : [];
   groups.forEach((group) => {
     if (group.id === "games") return;
-    if (group.connection && typeof profileHasConnection === "function" && !profileHasConnection(group.connection)) return;
+    if (group.connection) return;
+    const kept = (group.items || []).filter((item) => serverCustomWidgetAllowed(item.type));
+    if (!kept.length) return;
     const wrap = document.createElement("div");
     wrap.className = "profile-palette-group";
     const toggle = document.createElement("button");
@@ -147,12 +314,21 @@ function paintServerCustomPalette() {
     const items = document.createElement("div");
     items.className = "profile-palette-items";
     toggle.addEventListener("click", () => wrap.classList.toggle("is-open"));
-    (group.items || []).forEach((item) => {
+    kept.forEach((item) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "profile-palette-item is-later";
-      btn.textContent = item.label;
-      btn.disabled = true;
+      btn.className = "profile-palette-item" + (live ? "" : " is-later");
+      btn.textContent = serverCustomWidgetLabel(item.type);
+      btn.disabled = !live;
+      if (live) {
+        btn.addEventListener("click", () => {
+          const page = currentServerCustomPage();
+          if (!page || typeof placeProfileTile !== "function") return;
+          placeProfileTile(page, item.type);
+          markServerCustomDirty();
+          if (typeof renderProfileBoard === "function") renderProfileBoard();
+        });
+      }
       items.appendChild(btn);
     });
     wrap.appendChild(toggle);
@@ -176,6 +352,7 @@ function paintServerCustomPages() {
     btn.appendChild(name);
     btn.addEventListener("click", () => {
       serverCustomSelected = { kind: row.kind, id: row.id };
+      paintServerCustomPalette();
       paintServerCustomPages();
       paintServerCustomMain();
     });
@@ -195,6 +372,7 @@ function paintServerCustomPages() {
     btn.appendChild(name);
     btn.addEventListener("click", () => {
       serverCustomSelected = { kind: "custom", id: row.id };
+      paintServerCustomPalette();
       paintServerCustomPages();
       paintServerCustomMain();
     });
@@ -392,9 +570,12 @@ function paintServerCustomMain() {
   if (preview) preview.hidden = true;
   if (!scroll || !board) return;
   scroll.hidden = false;
-  bindServerCustomBoardScale();
-  paintServerCustomGrid(board);
-  window.requestAnimationFrame(() => syncServerCustomBoardScale());
+  if (typeof renderProfileBoard === "function") renderProfileBoard();
+  else {
+    bindServerCustomBoardScale();
+    paintServerCustomGrid(board);
+    window.requestAnimationFrame(() => syncServerCustomBoardScale());
+  }
 }
 
 function openServerCustomCreate() {
@@ -433,12 +614,14 @@ function submitServerCustomCreate() {
     title,
     about: String((aboutInput && aboutInput.value) || "").trim(),
     admin_only: !!(admin && admin.checked),
-    private: !!(priv && priv.checked)
+    private: !!(priv && priv.checked),
+    tiles: []
   };
   serverCustomDraft.push(row);
   serverCustomSelected = { kind: "custom", id: row.id };
   markServerCustomDirty();
   closeServerCustomCreate();
+  paintServerCustomPalette();
   paintServerCustomPages();
   paintServerCustomMain();
 }

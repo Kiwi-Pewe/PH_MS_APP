@@ -183,10 +183,18 @@ function profileHasConnection(provider) {
 }
 
 function currentProfilePage() {
+  if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard() && typeof currentServerCustomPage === "function") {
+    return currentServerCustomPage();
+  }
   return profilePageById(profileDraft, profileActivePageId);
 }
 
 function markProfileDirty() {
+  if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
+    if (typeof markServerCustomDirty === "function") markServerCustomDirty();
+    renderProfileBoard();
+    return;
+  }
   profileDirty = true;
   renderProfileBoard();
   renderProfilePages();
@@ -274,7 +282,7 @@ function renderProfilePalette() {
 }
 
 function profileBoardPoint(clientX, clientY) {
-  const board = document.getElementById("profile-board");
+  const board = typeof profileBoardElement === "function" ? profileBoardElement() : document.getElementById("profile-board");
   const rect = board.getBoundingClientRect();
   const scale = profileBoardScale || 1;
   const styles = window.getComputedStyle(board);
@@ -402,17 +410,27 @@ function bindProfileTileDrag(el, tile, handle) {
     const rerender = !dragging || dist >= 6;
     if (dragging) {
       if (dist < 6) {
-        if (typeof editProfileIdentity === "function") editProfileIdentity(tile, e);
+        if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
+          if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);
+        } else if (typeof editProfileIdentity === "function") editProfileIdentity(tile, e);
       } else {
         const next = moveTarget(e.clientX, e.clientY);
         const did = group.length
           ? tryMoveFrameGroup(tile, group.map(member => member.tile), next.x, next.y)
           : tryMoveTile(tile, next.x, next.y);
-        if (did) profileDirty = true;
+        if (did) {
+          if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
+            if (typeof markServerCustomDirty === "function") markServerCustomDirty();
+          } else profileDirty = true;
+        }
       }
     } else if (dist >= 3) {
       const size = resizeTarget(e.clientX, e.clientY);
-      if (tryResizeTile(tile, size.w, size.h)) profileDirty = true;
+      if (tryResizeTile(tile, size.w, size.h)) {
+        if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
+          if (typeof markServerCustomDirty === "function") markServerCustomDirty();
+        } else profileDirty = true;
+      }
     }
     mode = null;
     const grouped = group.length > 0;
@@ -446,7 +464,7 @@ function bindProfileTileDrag(el, tile, handle) {
     group = [];
     if (typeof profileFrameMovesContents === "function" && profileFrameMovesContents(tile)) {
       const page = currentProfilePage();
-      const board = document.getElementById("profile-board");
+      const board = typeof profileBoardElement === "function" ? profileBoardElement() : document.getElementById("profile-board");
       group = (typeof profileFrameMembers === "function" ? profileFrameMembers(page, tile) : []).map(member => ({
         tile: member,
         x: member.x,
@@ -645,10 +663,24 @@ function bindDraftReaders(box, draft, readValues, onChange) {
 function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   const fake = { type: tile.type, props: draft };
   if (tile.type === "banner") {
+    if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
+      const note = document.createElement("div");
+      note.className = "settings-opt-desc";
+      note.textContent = "This banner uses the server banner. Change it in Server Settings.";
+      box.appendChild(note);
+      return;
+    }
     fillBannerOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "avatar") {
+    if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
+      const note = document.createElement("div");
+      note.className = "settings-opt-desc";
+      note.textContent = "This picture uses the server icon. Change it in Server Settings.";
+      box.appendChild(note);
+      return;
+    }
     fillAvatarOptions(box, draft, onChange, hintEl);
     return;
   }
@@ -728,6 +760,13 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     return;
   }
   if (tile.type === "display_name") {
+    if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
+      const note = document.createElement("div");
+      note.className = "settings-opt-desc";
+      note.textContent = "This name is the server name. Change it in Server Settings.";
+      box.appendChild(note);
+      return;
+    }
     bindDraftReaders(box, draft, fillNameClusterOptions(box, fake, hintEl), onChange);
     return;
   }
@@ -737,6 +776,9 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "friends") {
     fillFriendsOptions(box, draft, onChange, hintEl);
+    if (typeof fillServerStaffRoleOptions === "function" && typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
+      fillServerStaffRoleOptions(box, draft, onChange, hintEl);
+    }
     return;
   }
   if (tile.type === "button") {
@@ -3248,8 +3290,10 @@ function fillBodyTitleOptions(box, draft, onChange, hintEl, spec) {
 }
 
 function fillLocalTimeOptions(box, draft, onChange, hintEl) {
-  const zone = profileTimezoneGuess();
-  if (profileTimezoneValid(zone)) draft.timezone = zone;
+  if (!(typeof isServerWidgetBoard === "function" && isServerWidgetBoard())) {
+    const zone = profileTimezoneGuess();
+    if (profileTimezoneValid(zone)) draft.timezone = zone;
+  }
   if (draft.time_format !== "24" && draft.time_format !== "system") draft.time_format = "12";
   draft.show_date = !!draft.show_date;
   if (draft.month_style !== "name") draft.month_style = "num";
@@ -3543,7 +3587,10 @@ function fillClockOptions(box, draft, onChange, hintEl) {
 }
 
 function fillButtonOptions(box, draft, onChange, hintEl) {
-  if (draft.action !== "page" && draft.action !== "friend" && draft.action !== "create_post") draft.action = "link";
+  const serverBoard = typeof isServerWidgetBoard === "function" && isServerWidgetBoard();
+  if (serverBoard) {
+    if (draft.action !== "page") draft.action = "link";
+  } else if (draft.action !== "page" && draft.action !== "friend" && draft.action !== "create_post") draft.action = "link";
   draft.label = String(draft.label || "Button");
   const nameLabel = document.createElement("label");
   nameLabel.textContent = "Label";
@@ -3560,12 +3607,18 @@ function fillButtonOptions(box, draft, onChange, hintEl) {
   nameLabel.appendChild(nameInput);
   box.appendChild(nameLabel);
 
-  const fn = profileSelectField("Function", [
-    { value: "link", label: "External Link" },
-    { value: "page", label: "Page Transfer" },
-    { value: "friend", label: "Add Friend" },
-    { value: "create_post", label: "Create a post" }
-  ], draft.action);
+  const fnChoices = serverBoard
+    ? [
+      { value: "link", label: "External Link" },
+      { value: "page", label: "Page Transfer" }
+    ]
+    : [
+      { value: "link", label: "External Link" },
+      { value: "page", label: "Page Transfer" },
+      { value: "friend", label: "Add Friend" },
+      { value: "create_post", label: "Create a post" }
+    ];
+  const fn = profileSelectField("Function", fnChoices, draft.action);
   profileOptHint(fn.label, "What happens when someone presses the button.", hintEl);
   box.appendChild(fn.label);
   const extras = document.createElement("div");
@@ -3590,20 +3643,22 @@ function fillButtonOptions(box, draft, onChange, hintEl) {
       return;
     }
     if (draft.action === "page") {
-      const pages = ((profileDraft && profileDraft.pages) || []).map(page => ({
-        value: page.id,
-        label: page.title + (page.visibility === "owner" ? " (only you)" : "")
-      }));
+      const pages = serverBoard && typeof serverCustomTransferTargets === "function"
+        ? serverCustomTransferTargets()
+        : ((profileDraft && profileDraft.pages) || []).map(page => ({
+          value: page.id,
+          label: page.title + (page.visibility === "owner" ? " (only you)" : "")
+        }));
       if (!pages.length) {
         const empty = document.createElement("div");
         empty.className = "profile-opt-empty";
-        empty.textContent = "No pages to send people to yet.";
+        empty.textContent = serverBoard ? "No sections or channels to send people to yet." : "No pages to send people to yet.";
         extras.appendChild(empty);
         return;
       }
       if (!pages.some(page => page.value === draft.page_id)) draft.page_id = pages[0].value;
-      const pageField = profileSelectField("Page", pages, draft.page_id);
-      profileOptHint(pageField.label, "Switches to this page on the profile.", hintEl);
+      const pageField = profileSelectField(serverBoard ? "Destination" : "Page", pages, draft.page_id);
+      profileOptHint(pageField.label, serverBoard ? "Opens this section or channel." : "Switches to this page on the profile.", hintEl);
       pageField.select.addEventListener("change", () => {
         draft.page_id = pageField.select.value;
         onChange();
@@ -3637,7 +3692,9 @@ function fillFriendsOptions(box, draft, onChange, hintEl) {
   const val = document.createElement("div");
   val.className = "profile-opt-slider-val";
   val.textContent = slider.value;
-  profileOptHint(slider, "Scale the picture and name for every friend.", hintEl);
+  profileOptHint(slider, (typeof isServerWidgetBoard === "function" && isServerWidgetBoard())
+    ? "Scale the picture and name for every staff member."
+    : "Scale the picture and name for every friend.", hintEl);
   slider.addEventListener("input", () => {
     draft.friend_size = Number(slider.value) || 5;
     val.textContent = String(draft.friend_size);
@@ -3785,7 +3842,9 @@ function openProfileTileOptions(tile) {
   top.className = 'profile-opt-top';
   const name = document.createElement('div');
   name.className = 'profile-opt-name';
-  name.textContent = (PROFILE_TILE_TYPES[tile.type] && PROFILE_TILE_TYPES[tile.type].label) || tile.type;
+  name.textContent = (typeof isServerWidgetBoard === "function" && isServerWidgetBoard() && typeof serverCustomWidgetLabel === "function")
+    ? serverCustomWidgetLabel(tile.type)
+    : ((PROFILE_TILE_TYPES[tile.type] && PROFILE_TILE_TYPES[tile.type].label) || tile.type);
   const split = document.createElement('div');
   split.className = 'profile-opt-split';
   split.textContent = '|';
@@ -4072,7 +4131,9 @@ function openProfileTileOptions(tile) {
       }
     }
     if (tile.type === "avatar" || tile.type === "banner") {
-      if (typeof applyIdentityDraft === "function") applyIdentityDraft(tile.type, draft);
+      if (!(typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) && typeof applyIdentityDraft === "function") {
+        applyIdentityDraft(tile.type, draft);
+      }
     } else {
       dropProfileImageDraft(draft);
     }
@@ -4108,6 +4169,9 @@ function openProfileTileOptions(tile) {
 
 function showProfileTileMenu(e, tile) {
   const meta = PROFILE_TILE_TYPES[tile.type] || { label: "Element" };
+  const menuLabel = (typeof isServerWidgetBoard === "function" && isServerWidgetBoard() && typeof serverCustomWidgetLabel === "function")
+    ? serverCustomWidgetLabel(tile.type)
+    : (meta.label || "Element");
   if (typeof openContextMenu !== "function") return;
   const items = [];
   if (tile.type !== "display_name" && typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) {
@@ -4160,8 +4224,8 @@ function showProfileTileMenu(e, tile) {
     }
   );
   openContextMenu(e.clientX, e.clientY, {
-    avatarText: (meta.label || "?").slice(0, 1),
-    title: meta.label
+    avatarText: (menuLabel || "?").slice(0, 1),
+    title: menuLabel
   }, items);
 }
 

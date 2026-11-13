@@ -12,8 +12,36 @@ function profileCellSize() {
   return PROFILE_ROW_H;
 }
 
+function isServerWidgetBoard() {
+  return !!(typeof isServerCustomSectionsOpen !== "undefined" && isServerCustomSectionsOpen && typeof serverCustomSelected !== "undefined" && serverCustomSelected && serverCustomSelected.kind === "custom");
+}
+
+function profileBoardIsEditing() {
+  if (isServerWidgetBoard()) return true;
+  return !!(typeof profileEditing !== "undefined" && profileEditing && typeof profileIsOwn !== "undefined" && profileIsOwn);
+}
+
+function profileBoardHosts() {
+  if (isServerWidgetBoard()) {
+    return {
+      scroll: document.getElementById("server-custom-board-scroll"),
+      fit: document.getElementById("server-custom-board-fit"),
+      board: document.getElementById("server-custom-board")
+    };
+  }
+  return {
+    scroll: document.getElementById("profile-board-scroll"),
+    fit: document.getElementById("profile-board-fit"),
+    board: document.getElementById("profile-board")
+  };
+}
+
+function profileBoardElement() {
+  return profileBoardHosts().board;
+}
+
 function profileBoardPad() {
-  const board = document.getElementById("profile-board");
+  const board = profileBoardElement();
   if (!board) return { x: 40, y: 16 };
   const styles = window.getComputedStyle(board);
   return {
@@ -23,9 +51,10 @@ function profileBoardPad() {
 }
 
 function syncProfileBoardScale() {
-  const scroll = document.getElementById("profile-board-scroll");
-  const fit = document.getElementById("profile-board-fit");
-  const board = document.getElementById("profile-board");
+  const hosts = profileBoardHosts();
+  const scroll = hosts.scroll;
+  const fit = hosts.fit;
+  const board = hosts.board;
   if (!scroll || !board) return;
   if (board.classList.contains("is-mini-profile-page")) {
     board.style.transform = "none";
@@ -51,7 +80,7 @@ function syncProfileBoardScale() {
 }
 
 function bindProfileBoardScale() {
-  const scroll = document.getElementById("profile-board-scroll");
+  const scroll = profileBoardHosts().scroll;
   if (!scroll || scroll.dataset.scaleBound === "1") return;
   scroll.dataset.scaleBound = "1";
   if (typeof ResizeObserver === "undefined") {
@@ -615,7 +644,10 @@ function defaultProfileTileProps(type, existing) {
       link_size: clampProfileLinkSize(prev.link_size)
     }, chrome);
   }
-  if (type === "friends") return Object.assign({ friend_size: clampProfileEntrySize(prev.friend_size) }, chrome);
+  if (type === "friends") {
+    const roles = Array.isArray(prev.role_ids) ? prev.role_ids.map((id) => String(id)).filter(Boolean) : [];
+    return Object.assign({ friend_size: clampProfileEntrySize(prev.friend_size), role_ids: roles }, chrome);
+  }
   if (type === "youtube_subscriptions") return Object.assign({ channel_size: clampProfileEntrySize(prev.channel_size) }, chrome);
   if (type === "featured_friend") {
     const n = Number(prev.user_id);
@@ -799,7 +831,7 @@ function resetProfileTile(tile) {
   tile.z_index = 0;
   tile.props = defaultProfileTileProps(tile.type, tile.props);
   if (tile.x + tile.w > PROFILE_COLS) tile.x = Math.max(0, PROFILE_COLS - tile.w);
-  const page = profilePageById(profileDraft, profileActivePageId);
+  const page = typeof currentProfilePage === "function" ? currentProfilePage() : profilePageById(profileDraft, profileActivePageId);
   if (page && profileColliders(page, tile, tile.id).length) {
     const spot = profileFirstFit(page, tile.w, tile.h, tile.id);
     tile.x = spot.x;
@@ -1076,6 +1108,13 @@ function profileOwnerAliases() {
 }
 
 function profileOwnerMemberSince() {
+  if (isServerWidgetBoard()) {
+    const raw = currentServerData && currentServerData.created_at;
+    if (!raw) return "";
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
   const raw = profileUser && profileUser.member_since;
   if (!raw) return "";
   const date = new Date(raw);
@@ -1084,11 +1123,16 @@ function profileOwnerMemberSince() {
 }
 
 function profileOwnerName() {
+  if (isServerWidgetBoard()) {
+    const listed = (typeof serverList !== "undefined" ? serverList : []).find((row) => row && String(row.id) === String(currentServerId));
+    return (listed && listed.name) || (currentServerData && currentServerData.name) || "Server";
+  }
   if (!profileUser) return myDisplayName || myUsername || "—";
   return profileUser.display_name || profileUser.username || "—";
 }
 
 function profileOwnerHandle() {
+  if (isServerWidgetBoard()) return "";
   if (!profileUser) return myUsername || "";
   return profileUser.username || "";
 }
@@ -1378,7 +1422,7 @@ function profileButtonLabel(tile, relation) {
 function bindProfileButtonAction(btn, tile) {
   const props = tile.props || {};
   const preview = btn.closest(".profile-opt-preview");
-  const editing = !!(profileEditing && profileIsOwn);
+  const editing = profileBoardIsEditing();
   if (preview || editing) {
     btn.disabled = true;
     return;
@@ -1397,6 +1441,15 @@ function bindProfileButtonAction(btn, tile) {
     return;
   }
   if (props.action === "page") {
+    if (typeof runServerCustomPageTransfer === "function" && String(props.page_id || "").indexOf(":") >= 0) {
+      const target = String(props.page_id || "");
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        runServerCustomPageTransfer(target);
+      });
+      return;
+    }
     const page = profileVisiblePages().find(row => row.id === props.page_id);
     if (!page) {
       btn.disabled = true;
@@ -1539,6 +1592,11 @@ function profileLocalDateText(zone, monthStyle, yearStyle) {
 }
 
 function profileLocalTimeZone(tile) {
+  if (isServerWidgetBoard()) {
+    const zone = String((currentServerData && currentServerData.timezone) || "").trim();
+    if (profileTimezoneValid(zone)) return zone;
+    return "America/New_York";
+  }
   if (profileIsOwn) {
     const guess = profileTimezoneGuess();
     if (profileTimezoneValid(guess)) return guess;
@@ -1662,7 +1720,9 @@ function paintProfileLocalTime(tile, el) {
   } else {
     const empty = document.createElement("div");
     empty.className = "profile-local-empty";
-    empty.textContent = profileIsOwn ? "Could not read your local time." : "Time unavailable.";
+    empty.textContent = isServerWidgetBoard()
+      ? "Time unavailable."
+      : (profileIsOwn ? "Could not read your local time." : "Time unavailable.");
     body.appendChild(empty);
   }
   el.appendChild(body);
@@ -1976,12 +2036,14 @@ function paintProfileClock(tile, el) {
   syncProfileLocalTimeClock();
 }
 
-function paintProfileFriends(host) {
-  const people = profileFriends || [];
+function paintProfileFriends(host, tile) {
+  const people = isServerWidgetBoard()
+    ? (typeof serverCustomStaffPeople === "function" ? serverCustomStaffPeople(tile) : [])
+    : (profileFriends || []);
   if (!people.length) {
     const empty = document.createElement("div");
     empty.className = "settings-opt-desc";
-    empty.textContent = "No friends to show yet.";
+    empty.textContent = isServerWidgetBoard() ? "No staff to show yet." : "No friends to show yet.";
     host.appendChild(empty);
     return;
   }
@@ -2042,7 +2104,9 @@ function bindProfileTextField(area, tile, onValue) {
   area.addEventListener("input", () => {
     tile.props = tile.props || {};
     onValue(area.value);
-    profileDirty = true;
+    if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
+      if (typeof markServerCustomDirty === "function") markServerCustomDirty();
+    } else profileDirty = true;
   });
 }
 
@@ -5796,6 +5860,22 @@ function paintProfileTileContent(tile, el) {
     return;
   }
   if (tile.type === "banner") {
+    if (isServerWidgetBoard()) {
+      const url = String((currentServerData && currentServerData.banner_url) || "").trim();
+      el.style.background = url ? "transparent" : "#43b581";
+      applyProfileTileBorder(el, tile);
+      if (url) {
+        const media = { url: url, still_url: (currentServerData && currentServerData.banner_still_url) || "" };
+        if (typeof paintIdentityMedia === "function") {
+          paintIdentityMedia(el, media, { attention: "profile", attentionHost: el });
+        } else {
+          el.style.backgroundImage = "url(" + JSON.stringify(url) + ")";
+          el.style.backgroundSize = "cover";
+          el.style.backgroundPosition = "center";
+        }
+      }
+      return;
+    }
     el.style.background = (tile.props && tile.props.color) || "#1e6b8a";
     applyProfileTileBorder(el, tile);
     if (typeof paintIdentityMedia === "function") {
@@ -5808,11 +5888,26 @@ function paintProfileTileContent(tile, el) {
   if (tile.type === "avatar") {
     const face = document.createElement("div");
     face.className = "profile-tile-avatar";
-    const media = typeof identityMediaForPaint === "function" ? identityMediaForPaint("avatar", tile) : null;
-    if (typeof identityHasImage === "function" && identityHasImage(media) && typeof paintIdentityMedia === "function") {
-      paintIdentityMedia(face, media, { circle: true, attention: "user", attentionHost: face });
+    if (isServerWidgetBoard()) {
+      const url = String((currentServerData && currentServerData.icon_url) || "").trim();
+      if (url) {
+        const media = { url: url, still_url: (currentServerData && currentServerData.icon_still_url) || "" };
+        if (typeof paintIdentityMedia === "function") {
+          paintIdentityMedia(face, media, { circle: true, attention: "user", attentionHost: face });
+        } else {
+          face.style.backgroundImage = "url(" + JSON.stringify(url) + ")";
+          face.style.backgroundSize = "cover";
+        }
+      } else {
+        face.textContent = typeof avatarLetter === "function" ? avatarLetter(profileOwnerName()) : (profileOwnerName() || "?").slice(0, 1);
+      }
     } else {
-      face.textContent = typeof avatarLetter === "function" ? avatarLetter(profileOwnerName()) : (profileOwnerName() || "?").slice(0, 1);
+      const media = typeof identityMediaForPaint === "function" ? identityMediaForPaint("avatar", tile) : null;
+      if (typeof identityHasImage === "function" && identityHasImage(media) && typeof paintIdentityMedia === "function") {
+        paintIdentityMedia(face, media, { circle: true, attention: "user", attentionHost: face });
+      } else {
+        face.textContent = typeof avatarLetter === "function" ? avatarLetter(profileOwnerName()) : (profileOwnerName() || "?").slice(0, 1);
+      }
     }
     applyProfileTileBorder(el, tile, face);
     el.appendChild(face);
@@ -5827,11 +5922,13 @@ function paintProfileTileContent(tile, el) {
     const name = document.createElement("div");
     name.className = "profile-tile-name";
     const typedName = tile.props && tile.props.identity && tile.props.identity.display_name;
-    const shownName = typedName != null && String(typedName).trim() ? String(typedName).trim() : profileOwnerName();
+    const shownName = isServerWidgetBoard()
+      ? profileOwnerName()
+      : (typedName != null && String(typedName).trim() ? String(typedName).trim() : profileOwnerName());
     name.textContent = shownName;
     row.appendChild(name);
-    const aliases = profileOwnerAliases();
-    const showAliases = !tile.props || tile.props.show_aliases !== false;
+    const aliases = isServerWidgetBoard() ? [] : profileOwnerAliases();
+    const showAliases = !isServerWidgetBoard() && (!tile.props || tile.props.show_aliases !== false);
     if (showAliases && aliases.length) {
       const arrow = document.createElement("button");
       arrow.type = "button";
@@ -5851,6 +5948,7 @@ function paintProfileTileContent(tile, el) {
       row.appendChild(arrow);
     }
     el.appendChild(row);
+    if (!isServerWidgetBoard()) {
     const handle = document.createElement("div");
     handle.className = "profile-tile-handle";
     let handleText = "@" + profileOwnerHandle();
@@ -5867,6 +5965,7 @@ function paintProfileTileContent(tile, el) {
       status.textContent = profileOwnerStatus() || (profileEditing && profileIsOwn ? "Status" : "");
       if (status.textContent) el.appendChild(status);
     }
+    }
     applyProfileWidgetSurface(el, tile);
     return;
   }
@@ -5874,7 +5973,7 @@ function paintProfileTileContent(tile, el) {
     applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
     const head = document.createElement("div");
     head.className = "profile-tile-head";
-    head.textContent = "Member since";
+    head.textContent = isServerWidgetBoard() ? "Creation Date" : "Member since";
     el.appendChild(head);
     const date = document.createElement("div");
     date.className = "profile-since-date";
@@ -5984,13 +6083,13 @@ function paintProfileTileContent(tile, el) {
     return;
   }
   if (tile.type === "friends") {
-    mountProfileFixedTitle(el, "Friends");
+    mountProfileFixedTitle(el, isServerWidgetBoard() ? "Staff" : "Friends");
     applyProfileWidgetSurface(el, tile);
     applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
     applyProfileFriendSize(el, tile);
     const body = document.createElement("div");
     body.className = "profile-tile-body";
-    paintProfileFriends(body);
+    paintProfileFriends(body, tile);
     el.appendChild(body);
   }
 }
@@ -6163,17 +6262,19 @@ function repaintProfileYoutubeTiles(force) {
 }
 
 function renderProfileBoard() {
-  const board = document.getElementById("profile-board");
+  const board = profileBoardElement();
   if (!board) return;
   bindProfileBoardScale();
   board.style.transform = "none";
   board.innerHTML = "";
   board.classList.remove("is-mini-profile-page");
-  board.classList.toggle("is-editing", !!(profileEditing && profileIsOwn));
+  board.classList.toggle("is-editing", profileBoardIsEditing());
   board.style.gap = PROFILE_GAP + "px";
-  syncProfilePaletteForPage();
+  if (!isServerWidgetBoard()) syncProfilePaletteForPage();
   const layout = profileDraft || profileSavedLayout;
-  const page = profilePageById(layout, profileActivePageId);
+  const page = isServerWidgetBoard() && typeof currentProfilePage === "function"
+    ? currentProfilePage()
+    : profilePageById(layout, profileActivePageId);
   if (page && isMiniProfilePageId(page.id)) {
     paintMiniProfileEditorPage(board);
     syncProfileBoardScale();
@@ -6184,11 +6285,11 @@ function renderProfileBoard() {
     if (tile.type !== "banner") return;
     if (tile.h > 5) tile.h = 3;
   });
-  if (profileEditing && profileIsOwn) paintProfileGrid(board, page);
+  if (profileBoardIsEditing()) paintProfileGrid(board, page);
   if (!tiles.length) {
     const empty = document.createElement("div");
     empty.className = "profile-board-empty";
-    empty.textContent = profileEditing
+    empty.textContent = profileBoardIsEditing()
       ? "Drop pieces from the palette onto this page."
       : "Nothing on this page yet.";
     board.appendChild(empty);
@@ -6220,20 +6321,20 @@ function renderProfileBoard() {
     tile.w = size.w;
     tile.h = size.h;
     const el = document.createElement("div");
-    el.className = "profile-tile is-" + tile.type + (profileEditing ? " is-editing" : "") + (tile.allow_overlap ? " allows-overlap" : "");
+    el.className = "profile-tile is-" + tile.type + (profileBoardIsEditing() ? " is-editing" : "") + (tile.allow_overlap ? " allows-overlap" : "");
     el.dataset.tileId = tile.id;
     el.style.zIndex = tile.type === "frame" ? String(stack + 1) : String(200 + stack);
     applyProfileTileStyle(el, tile);
     paintProfileTileContent(tile, el);
-    if (profileEditing && profileIsOwn && typeof bindProfileTileDrag === "function") {
+    if (profileBoardIsEditing() && typeof bindProfileTileDrag === "function") {
       const handle = document.createElement("div");
       handle.className = "profile-resize";
       el.appendChild(handle);
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
-        if (typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) return;
-        if (tile.type === "banner" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "chat_room" || tile.type === "phone" || tile.type === "posts" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock" || tile.type === "frame" || tile.type === "meter") {
+        if (!isServerWidgetBoard() && typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) return;
+        if (tile.type === "banner" || tile.type === "avatar" || tile.type === "display_name" || tile.type === "member_since" || tile.type === "friends" || tile.type === "button" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "chat_room" || tile.type === "phone" || tile.type === "posts" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock" || tile.type === "frame" || tile.type === "meter") {
           e.preventDefault();
           e.stopPropagation();
           if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);

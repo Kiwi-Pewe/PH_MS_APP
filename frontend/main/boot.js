@@ -479,6 +479,10 @@ function connectSocket() {
       if (typeof applyServerName === "function") applyServerName(data.server_id, data.name || "");
     }
 
+    if (data.type === "server_custom_sections_updated") {
+      if (typeof applyServerCustomSections === "function") applyServerCustomSections(data.server_id, data.custom_sections || []);
+    }
+
     if (data.type === "server_owner_updated") {
       if (typeof applyServerOwner === "function") applyServerOwner(data.server_id, data.owner_id);
     }

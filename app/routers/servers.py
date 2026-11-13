@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from app.models import UserInfo, Servers, Server_members, Server_notifications, Server_categories, Server_channels, Server_channel_role_perms, Server_category_role_perms, Channel_messages, Channel_last_viewed, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Doc_page, Doc_entry, Media_item, Media_comment, Message_pin, List_item, List_check, List_thread_message, Calendar_event, Calendar_event_rsvp, Calendar_event_comment, Schedule_block, Active_Sessions, Channel_follow, Audit_log
-from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_tags_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_application_form_update, Server_members_channel_list_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
+from app.schemas import Server_create, Server_message, Category_create, Channel_create, Reorder_server_rail, Reorder_category, Reorder_channel, Channel_update, Category_update, Server_icon_update, Server_banner_update, Server_name_update, Server_about_update, Server_url_update, Server_type_update, Server_tags_update, Server_timezone_update, Server_notifications_update, Server_privacy_update, Server_application_form_update, Server_members_channel_list_update, Server_custom_sections_update, Server_delete, Server_channel_memory, Server_nickname_update, Server_transfer
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, SERVER_KEY_RE, attachment_public, delete_attachment, delete_r2_object, normalize_mime, public_url_for, require_message_body, still_url_for, store_attachment
@@ -415,6 +415,87 @@ def server_banner_fields(server):
         "banner_color": (getattr(server, "banner_color", None) or "") if server else "",
     }
 
+
+SERVER_CUSTOM_SECTION_MAX = 3
+SERVER_CUSTOM_TILE_DROP = {
+    "display_server", "chat_room", "phone", "connections", "featured_friend", "mutuals",
+}
+
+
+def parse_server_custom_sections(raw):
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        return normalize_server_custom_sections(raw)
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return []
+    return normalize_server_custom_sections(data)
+
+
+def normalize_server_custom_tile(raw):
+    if not isinstance(raw, dict):
+        return None
+    kind = str(raw.get("type") or "").strip()
+    if not kind or kind in SERVER_CUSTOM_TILE_DROP:
+        return None
+    if kind.startswith("steam_") or kind.startswith("youtube_"):
+        return None
+    tile_id = str(raw.get("id") or "").strip()[:24]
+    if not tile_id:
+        return None
+    def cell(value, lo, hi, fallback):
+        try:
+            n = int(value)
+        except Exception:
+            n = fallback
+        return max(lo, min(hi, n))
+    props = raw.get("props")
+    if not isinstance(props, dict):
+        props = {}
+    return {
+        "id": tile_id,
+        "type": kind,
+        "x": cell(raw.get("x"), 0, 31, 0),
+        "y": cell(raw.get("y"), 0, 200, 0),
+        "w": cell(raw.get("w"), 1, 32, 1),
+        "h": cell(raw.get("h"), 1, 81, 1),
+        "allow_overlap": bool(raw.get("allow_overlap")),
+        "z_index": cell(raw.get("z_index"), 0, 100, 0),
+        "props": props,
+    }
+
+
+def normalize_server_custom_sections(raw):
+    rows = raw if isinstance(raw, list) else []
+    out = []
+    seen = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        sid = str(row.get("id") or "").strip()[:16]
+        title = str(row.get("title") or "").strip()[:32]
+        if not sid or not title or sid in seen:
+            continue
+        seen.add(sid)
+        tiles = []
+        for tile in (row.get("tiles") or []):
+            packed = normalize_server_custom_tile(tile)
+            if packed:
+                tiles.append(packed)
+        out.append({
+            "id": sid,
+            "title": title,
+            "about": str(row.get("about") or "").strip()[:200],
+            "admin_only": bool(row.get("admin_only")),
+            "private": bool(row.get("private")),
+            "tiles": tiles,
+        })
+        if len(out) >= SERVER_CUSTOM_SECTION_MAX:
+            break
+    return out
+
 @router.post("/create_server")
 def create_server(server_name: Server_create, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
     server_id_chars = "234679ACDEFGHJKLMNPQRTUVWXYZ"
@@ -629,6 +710,7 @@ def get_server_contents(server_id: str, database: Session = Depends(get_db), cur
         "timeout_until": iso_dt(timeout_until_for(in_server)),
         "last_channel_id": getattr(in_server, "last_channel_id", None),
         "show_members_in_channel_list": bool(getattr(server, "show_members_in_channel_list", False)),
+        "custom_sections": parse_server_custom_sections(getattr(server, "custom_sections", None)),
         **server_privacy_fields(server),
         **server_banner_fields(server)
     }
@@ -842,6 +924,22 @@ async def update_server_about(body: Server_about_update, database: Session = Dep
         exclude_user_id=current_user.id,
     )
     return {"ok": True, "about": about}
+
+
+@router.post("/update_server_custom_sections")
+async def update_server_custom_sections(body: Server_custom_sections_update, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
+    server = require_server_member(database, body.server_id, current_user.id)
+    require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
+    sections = normalize_server_custom_sections(body.sections)
+    server.custom_sections = json.dumps(sections)
+    database.commit()
+    await server_broadcast(
+        server_id=server.id,
+        payload={"type": "server_custom_sections_updated", "server_id": server.id, "custom_sections": sections},
+        database=database,
+        exclude_user_id=current_user.id,
+    )
+    return {"ok": True, "custom_sections": sections}
 
 
 @router.post("/update_server_url")

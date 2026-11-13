@@ -410,9 +410,9 @@ function bindProfileTileDrag(el, tile, handle) {
     const rerender = !dragging || dist >= 6;
     if (dragging) {
       if (dist < 6) {
-        if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
-          if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);
-        } else if (typeof editProfileIdentity === "function") editProfileIdentity(tile, e);
+        if (!(typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) && typeof editProfileIdentity === "function") {
+          editProfileIdentity(tile, e);
+        }
       } else {
         const next = moveTarget(e.clientX, e.clientY);
         const did = group.length

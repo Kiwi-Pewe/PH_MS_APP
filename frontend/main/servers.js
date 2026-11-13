@@ -341,6 +341,7 @@ function applyServerContents(serverId, data, opts) {
   if (typeof paintServerSectionMembersRow === "function") paintServerSectionMembersRow();
   if (typeof paintServerMembersChannelListToggle === "function") paintServerMembersChannelListToggle();
   if (typeof paintServerSectionApplicationsRow === "function") paintServerSectionApplicationsRow();
+  if (typeof applyServerCustomSections === "function") applyServerCustomSections(serverId, data.custom_sections || []);
 }
 
 function mapChannelHistory(messages) {

@@ -450,6 +450,10 @@ class Server_members_channel_list_update(BaseModel):
     server_id: str
     show_members_in_channel_list: bool = False
 
+class Server_custom_sections_update(BaseModel):
+    server_id: str
+    sections: list[dict] = []
+
 class Server_notify_prefs_update(BaseModel):
     server_id: str
     muted: bool | None = None

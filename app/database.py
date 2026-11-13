@@ -356,6 +356,11 @@ def ensure_server_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE servers ADD COLUMN custom_sections VARCHAR"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_channel_columns():

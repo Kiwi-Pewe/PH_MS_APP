@@ -21,8 +21,7 @@ function canOpenServerCustomSections() {
 function serverCustomSavedList() {
   const id = currentServerId;
   if (!id) return [];
-  const rows = serverCustomSaved[id];
-  return Array.isArray(rows) ? rows.map((row) => Object.assign({}, row)) : [];
+  return cloneServerCustomRows(serverCustomSaved[id]);
 }
 
 function cloneServerCustomRows(rows) {
@@ -185,6 +184,22 @@ function runServerCustomPageTransfer(target) {
 
 function markServerCustomDirty() {
   serverCustomDirty = true;
+  paintServerCustomSave();
+}
+
+function paintServerCustomSave() {
+  const btn = document.getElementById("server-custom-save");
+  if (btn) btn.hidden = !serverCustomDirty;
+}
+
+function applyServerCustomSections(serverId, rows) {
+  if (!serverId) return;
+  serverCustomSaved[serverId] = cloneServerCustomRows(Array.isArray(rows) ? rows : []);
+  if (String(currentServerId) === String(serverId) && isServerCustomSectionsOpen && !serverCustomDirty) {
+    serverCustomDraft = serverCustomSavedList();
+    paintServerCustomPages();
+    paintServerCustomMain();
+  }
 }
 
 function serverCustomNewId() {
@@ -231,6 +246,7 @@ function leaveServerCustomSections() {
   if (serverCustomDirty && !window.confirm("Discard section changes?")) return false;
   serverCustomDraft = serverCustomSavedList();
   serverCustomDirty = false;
+  paintServerCustomSave();
   hideServerCustomSectionsChrome();
   if (typeof showServerSettingsTab === "function") showServerSettingsTab(serverCustomLastTab || "overview");
   return true;
@@ -246,6 +262,7 @@ function enterServerCustomSections() {
   isServerCustomSectionsOpen = true;
   serverCustomDraft = serverCustomSavedList();
   serverCustomDirty = false;
+  paintServerCustomSave();
   serverCustomSelected = { kind: "overview", id: "overview" };
   const overlay = document.getElementById("server-settings-overlay");
   if (overlay) overlay.classList.add("is-custom-sections");
@@ -626,16 +643,40 @@ function submitServerCustomCreate() {
   paintServerCustomMain();
 }
 
-function saveServerCustomSections() {
-  if (!currentServerId) return;
-  serverCustomSaved[currentServerId] = cloneServerCustomRows(serverCustomDraft);
-  serverCustomDirty = false;
+async function saveServerCustomSections() {
+  if (!currentServerId || !serverCustomDirty) return;
+  const btn = document.getElementById("server-custom-save");
+  if (btn) btn.disabled = true;
+  try {
+    const response = await fetch(`https://${serverAddress}/update_server_custom_sections`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        server_id: currentServerId,
+        sections: cloneServerCustomRows(serverCustomDraft)
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not save sections.");
+    serverCustomSaved[currentServerId] = cloneServerCustomRows(data.custom_sections || serverCustomDraft);
+    serverCustomDraft = serverCustomSavedList();
+    serverCustomDirty = false;
+    paintServerCustomSave();
+    paintServerCustomPages();
+    paintServerCustomMain();
+  } catch (e) {
+    window.alert(e.message || "Could not save sections.");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function cancelServerCustomSections() {
   if (serverCustomDirty && !window.confirm("Discard section changes?")) return;
   serverCustomDraft = serverCustomSavedList();
   serverCustomDirty = false;
+  paintServerCustomSave();
   hideServerCustomSectionsChrome();
   if (typeof showServerSettingsTab === "function") showServerSettingsTab(serverCustomLastTab || "overview");
 }

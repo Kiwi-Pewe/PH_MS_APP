@@ -9087,6 +9087,13 @@ a.profile-link-row:hover { color: var(--accent); }
   padding: 20px 72px 12px 24px;
 }
 #server-custom-actions { display: flex; align-items: center; gap: 8px; }
+#server-custom-save {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+#server-custom-save:hover { background: var(--accent-hover); }
+#server-custom-save[hidden] { display: none; }
 #server-custom-board-scroll {
   flex: 1 1 auto;
   min-height: 0;

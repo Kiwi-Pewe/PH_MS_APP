@@ -2122,7 +2122,7 @@ function armProfileTileTyping(el) {
 function paintProfileHeader(tile, el) {
   const level = Math.max(1, Math.min(3, Number((tile.props && tile.props.level) || 1)));
   const text = (tile.props && tile.props.text) || "";
-  if (profileEditing && profileIsOwn) {
+  if (profileBoardIsEditing()) {
     const area = document.createElement("textarea");
     area.className = "profile-tile-header is-level-" + level;
     area.value = text;
@@ -2144,7 +2144,7 @@ function paintProfileCopy(tile, el, kind) {
   const text = (tile.props && tile.props.text) || "";
   const max = kind === "footnote" ? 300 : (Number(tile.maxChars) > 0 ? Number(tile.maxChars) : 1000);
   const emptyLabel = kind === "footnote" ? "Footnote" : kind === "bio" ? "Write something about yourself." : "Write something.";
-  if (profileEditing && profileIsOwn) {
+  if (profileBoardIsEditing()) {
     const area = document.createElement("textarea");
     area.className = kind === "footnote" ? "profile-tile-footnote" : "profile-tile-copy";
     area.value = text;
@@ -2164,7 +2164,7 @@ function paintProfileCopy(tile, el, kind) {
 function paintProfileList(tile, el) {
   const items = Array.isArray(tile.props && tile.props.items) ? tile.props.items : [];
   const style = (tile.props && tile.props.style) === "number" ? "number" : "bullet";
-  if (profileEditing && profileIsOwn) {
+  if (profileBoardIsEditing()) {
     const area = document.createElement("textarea");
     area.className = "profile-tile-list-edit";
     area.value = items.join("\n");
@@ -2196,7 +2196,7 @@ function paintProfileList(tile, el) {
 function paintProfileSpoiler(tile, el) {
   const title = (tile.props && tile.props.title) || "";
   const text = (tile.props && tile.props.text) || "";
-  if (profileEditing && profileIsOwn) {
+  if (profileBoardIsEditing()) {
     const head = document.createElement("input");
     head.type = "text";
     head.className = "profile-spoiler-title";
@@ -6333,7 +6333,20 @@ function renderProfileBoard() {
       bindProfileTileDrag(el, tile, handle);
       el.addEventListener("dblclick", (e) => {
         if (e.target.closest(".profile-resize")) return;
-        if (!isServerWidgetBoard() && typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) return;
+        if (isServerWidgetBoard()) {
+          if (!profileTileIsText(tile.type)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const field = e.target.closest("textarea, input");
+          if (field) {
+            el.classList.add("is-typing");
+            field.focus();
+            return;
+          }
+          armProfileTileTyping(el);
+          return;
+        }
+        if (typeof isMiniProfileIdentityTile === "function" && isMiniProfileIdentityTile(tile.type)) return;
         if (tile.type === "banner" || tile.type === "avatar" || tile.type === "display_name" || tile.type === "member_since" || tile.type === "friends" || tile.type === "button" || tile.type === "image" || tile.type === "video" || tile.type === "music" || tile.type === "embed" || tile.type === "gallery" || tile.type === "comments" || tile.type === "display_server" || tile.type === "chat_room" || tile.type === "phone" || tile.type === "posts" || tile.type === "link_tree" || tile.type === "local_time" || tile.type === "details" || tile.type === "icon" || tile.type === "clock" || tile.type === "frame" || tile.type === "meter") {
           e.preventDefault();
           e.stopPropagation();

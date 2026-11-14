@@ -2082,14 +2082,14 @@ html.ui-density-compact .server-section-row { padding: 5px 8px; }
 html.ui-density-compact #server-sections { margin-bottom: 6px; padding-bottom: 6px; }
 html.ui-density-compact #member-list-body { padding: 8px 6px 8px; }
 html.ui-density-compact .member-group-header { padding: 4px 8px 2px; }
-html.ui-density-compact .member-row { padding: 2px 6px; gap: 6px; }
+html.ui-density-compact .member-row { height: 44px; min-height: 44px; padding: 0 8px; gap: 10px; }
 html.ui-density-compact .friend-row { padding: 4px 6px; }
 html.ui-density-compact .dm-item .avatar-dot,
-html.ui-density-compact .member-row .avatar-dot,
 html.ui-density-compact .friend-row .avatar-dot {
   width: 24px; height: 24px; flex: none; font-size: 11px;
 }
-html.ui-density-compact #dm-rows .dm-item .avatar-dot {
+html.ui-density-compact #dm-rows .dm-item .avatar-dot,
+html.ui-density-compact .member-row .avatar-dot {
   width: 32px; height: 32px; font-size: 13px;
 }
 
@@ -2109,14 +2109,14 @@ html.ui-density-spacious .server-section-row { padding: 10px 8px; }
 html.ui-density-spacious #server-sections { margin-bottom: 14px; padding-bottom: 12px; }
 html.ui-density-spacious #member-list-body { padding: 20px 10px 16px; }
 html.ui-density-spacious .member-group-header { padding: 12px 8px 6px; }
-html.ui-density-spacious .member-row { padding: 10px 8px; gap: 10px; }
+html.ui-density-spacious .member-row { height: 60px; min-height: 60px; padding: 0 8px; gap: 12px; }
 html.ui-density-spacious .friend-row { padding: 12px 8px; }
 html.ui-density-spacious .dm-item .avatar-dot,
-html.ui-density-spacious .member-row .avatar-dot,
 html.ui-density-spacious .friend-row .avatar-dot {
   width: 40px; height: 40px; flex: none; font-size: 15px;
 }
-html.ui-density-spacious #dm-rows .dm-item .avatar-dot {
+html.ui-density-spacious #dm-rows .dm-item .avatar-dot,
+html.ui-density-spacious .member-row .avatar-dot {
   width: 48px; height: 48px; font-size: 17px;
 }
 
@@ -3619,15 +3619,26 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 }
 .member-group-header:first-child { margin-top: 0; padding-top: 8px; }
 .member-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px; border-radius: 6px; color: var(--text);
+  display: flex; align-items: center; align-self: stretch;
+  box-sizing: border-box;
+  height: 52px; min-height: 52px; gap: 12px;
+  padding: 0 8px; border-radius: 6px; color: var(--text);
 }
 .member-row:hover { background: var(--panel-alt); }
 .member-row.offline { color: var(--offline); }
 .member-row.offline .member-name,
 .member-row.offline .member-status-line { color: var(--offline); }
 .member-row.offline .avatar-dot { opacity: 0.45; }
-.member-row .avatar-dot { position: relative; width: 40px; height: 40px; }
+.member-row .avatar-dot {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  aspect-ratio: 1;
+  align-self: center;
+  font-size: 15px;
+  overflow: visible;
+}
 .member-row .status-dot {
   position: absolute; width: 10px; height: 10px; border-radius: 50%;
   border: 2px solid var(--panel); right: -2px; bottom: -2px; z-index: 1;
@@ -3637,9 +3648,19 @@ html.hide-reactions .announce-add-reaction-btn { display: none !important; }
 .status-dot.status-away { background: var(--away); }
 .status-dot.status-dnd { background: var(--danger); }
 .status-dot.status-offline { background: var(--offline); }
-.member-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.member-name { flex: 0 1 auto; min-width: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.member-status-line { font-size: 13px; line-height: 1.3; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-text {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+}
+.member-name {
+  flex: 0 1 auto; min-width: 0;
+  font-size: 16px; font-weight: 600; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.member-status-line {
+  font-size: 13px; line-height: 1.2; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 /* Sits once at the very top of message history — signals "you've
    reached the start, nothing more to load" and hosts quick actions.
    Rebuilt on every renderMessages() call along with the rest of the

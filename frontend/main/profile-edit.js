@@ -32,7 +32,9 @@ const PROFILE_PALETTE = [
     label: "Social",
     items: [
       { type: "friends", label: "Friends" },
-      { type: "link_tree", label: "Link Tree" }
+      { type: "link_tree", label: "Link Tree" },
+      { type: "chat_room", label: "Chat Room" },
+      { type: "phone", label: "Phone" }
     ]
   },
   {
@@ -64,8 +66,6 @@ const PROFILE_PALETTE = [
     items: [
       { type: "comments", label: "Comments" },
       { type: "display_server", label: "Display Server" },
-      { type: "chat_room", label: "Chat Room" },
-      { type: "phone", label: "Phone" },
       { type: "posts", label: "Posts" }
     ]
   },

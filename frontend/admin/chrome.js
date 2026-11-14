@@ -373,10 +373,10 @@ function ensureAdminProfileLayer() {
       "../shared/embed-frame.js?v=1",
       "../shared/gallery-frame.js?v=1",
       "profile-bridge.js?v=3",
-      "../main/profile-identity.js?v=19",
+      "../main/profile-identity.js?v=21",
       "../main/profile-comments.js?v=9",
-      "../main/profile-board.js?v=154",
-      "../main/mini-profile.js?v=45"
+      "../main/profile-board.js?v=155",
+      "../main/mini-profile.js?v=47"
     ])).then(() => {
       if (typeof adminSyncProfileOwner === "function") adminSyncProfileOwner();
     });

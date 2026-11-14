@@ -4336,7 +4336,9 @@ function showProfileTileMenu(e, tile) {
       label: "Edit " + miniProfileIdentitySubject(tile.type),
       onSelect: () => {
         if (typeof openMiniProfileEditorPage === "function") openMiniProfileEditorPage();
-        openProfileTileOptions(tile);
+        window.requestAnimationFrame(() => {
+          if (typeof editMiniProfileMedia === "function") editMiniProfileMedia(tile.type);
+        });
       }
     });
   } else if (profileTileHasOptions(tile.type)) {

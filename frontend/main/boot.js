@@ -608,6 +608,13 @@ function connectSocket() {
       if (typeof noteFriendPresenceForToast === "function") noteFriendPresenceForToast(data);
     }
 
+    if (data.type === "presence_self") {
+      if (typeof writeOwnPresence === "function") writeOwnPresence(data.status);
+      else if (typeof rememberOwnPresence === "function") rememberOwnPresence();
+      if (typeof paintOwnPresence === "function") paintOwnPresence();
+      else if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
+    }
+
     if (data.type === "status_line" && typeof applyUserStatusLine === "function") {
       applyUserStatusLine(data.user_id, data.status_line || "");
     }

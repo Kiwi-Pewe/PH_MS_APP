@@ -67,10 +67,14 @@ function showMiniProfileIdentityMenu(e, type) {
   }, [
     { label: "Edit " + subject, onSelect: () => {
       openMiniProfileEditorPage();
-      const tile = typeof findIdentityBoardTile === "function"
-        ? findIdentityBoardTile(type)
-        : { type: type, props: {} };
-      if (typeof openProfileTileOptions === "function") openProfileTileOptions(tile);
+      window.requestAnimationFrame(() => {
+        if (type === "display_name") {
+          const input = document.getElementById("profile-options-name");
+          if (input) input.focus();
+          return;
+        }
+        if (typeof editMiniProfileMedia === "function") editMiniProfileMedia(type);
+      });
     } }
   ]);
 }
@@ -103,6 +107,7 @@ function applyProfilePayload(data) {
   profileDirty = false;
   if (profileIsOwn) {
     if (typeof rememberOwnIdentity === "function") rememberOwnIdentity(profileSavedLayout);
+    if (typeof rememberOwnPresence === "function") rememberOwnPresence(profileSavedLayout);
     if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
   }
   const pages = profileDraft.pages || [];

@@ -1749,6 +1749,14 @@ def normalize_mini_profile(raw_mini, banner_fallback):
                 "props": normalize_mini_body_props({"text": leftover}, banner_fallback),
             })
     chrome["widgets"] = widgets
+    chrome["show_status"] = data.get("show_status") is not False
+    chrome["show_pronouns"] = data.get("show_pronouns") is not False
+    mode = str(data.get("presence") or "online").strip().lower()
+    if mode == "idle":
+        mode = "away"
+    if mode not in ("online", "away", "dnd", "invisible"):
+        mode = "online"
+    chrome["presence"] = mode
     return chrome
 
 

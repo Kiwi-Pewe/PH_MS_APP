@@ -6278,15 +6278,31 @@ function syncProfilePaletteForPage() {
 function paintMiniProfileEditorPage(board) {
   board.classList.add("is-mini-profile-page");
   board.classList.remove("is-editing");
+  const wrap = document.createElement("div");
+  wrap.className = "mini-profile-editor";
   const host = document.createElement("div");
   host.className = "mini-profile-card is-page";
+  wrap.appendChild(host);
+  board.appendChild(wrap);
+  const editing = !!(profileEditing && profileIsOwn);
   if (typeof paintMiniProfileInto === "function") {
     paintMiniProfileInto(host, miniProfileDataFromOpenProfile(), {
       page: true,
-      editing: !!(profileEditing && profileIsOwn)
+      editing: editing
     });
   }
-  board.appendChild(host);
+  if (editing && typeof buildProfileOptionsPanel === "function") {
+    wrap.appendChild(buildProfileOptionsPanel());
+  }
+}
+
+function refreshMiniProfileEditorCard() {
+  const host = document.querySelector("#profile-board .mini-profile-card.is-page");
+  if (!host || typeof paintMiniProfileInto !== "function") return;
+  paintMiniProfileInto(host, miniProfileDataFromOpenProfile(), {
+    page: true,
+    editing: !!(profileEditing && profileIsOwn)
+  });
 }
 
 function leftoverProfileBioText(layout) {
@@ -6307,6 +6323,11 @@ function miniProfileStore(layout) {
     if (leftover) host.mini_profile.text = leftover;
   }
   if (!Array.isArray(host.mini_profile.widgets)) host.mini_profile.widgets = [];
+  if (host.mini_profile.show_status == null) host.mini_profile.show_status = true;
+  if (host.mini_profile.show_pronouns == null) host.mini_profile.show_pronouns = true;
+  if (!host.mini_profile.presence) host.mini_profile.presence = (typeof ownPresenceMode === "function")
+    ? ownPresenceMode()
+    : "online";
   return host.mini_profile;
 }
 
@@ -6381,7 +6402,9 @@ function miniProfileDataFromOpenProfile() {
     },
     banner_color: banner,
     identity: layout.identity || null,
-    presence: "online",
+    presence: (typeof ownPresenceMode === "function") ? ownPresenceMode() : (store.presence || "online"),
+    show_status: store.show_status !== false,
+    show_pronouns: store.show_pronouns !== false,
     is_self: true,
     in_server: false,
     note: "",

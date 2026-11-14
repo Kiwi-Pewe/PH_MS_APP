@@ -195,7 +195,9 @@ function miniWarmData(userId) {
     },
     banner_color: banner,
     identity: layout.identity || null,
-    presence: "offline",
+    presence: store.presence || "offline",
+    show_status: store.show_status !== false,
+    show_pronouns: store.show_pronouns !== false,
     is_self: !!(typeof profileIsOwn !== "undefined" && profileIsOwn),
     in_server: false,
     note: "",
@@ -341,8 +343,209 @@ function bindMiniProfileEditTarget(el, type, editing) {
   el.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (typeof showMiniProfileIdentityMenu === "function") showMiniProfileIdentityMenu(e, type);
+    if (type === "display_name") {
+      focusProfileOptionsName();
+      return;
+    }
+    if (typeof editMiniProfileMedia === "function") editMiniProfileMedia(type);
   });
+}
+
+function focusProfileOptionsName() {
+  const input = document.getElementById("profile-options-name");
+  if (input) input.focus();
+}
+
+function profileOptionsField(labelText, input) {
+  const label = document.createElement("label");
+  label.className = "profile-options-field";
+  label.appendChild(document.createTextNode(labelText));
+  label.appendChild(input);
+  return label;
+}
+
+function profileOptionsToggleBlock(title, checked, field) {
+  const block = document.createElement("div");
+  block.className = "profile-name-opt";
+  const extras = document.createElement("div");
+  extras.className = "profile-opt-border-extras" + (checked ? " is-open" : "");
+  if (field) extras.appendChild(field);
+  const row = settingsOpt(
+    title,
+    "",
+    settingsToggle(checked, false, (on) => {
+      extras.classList.toggle("is-open", on);
+    })
+  );
+  block.appendChild(row);
+  if (field) block.appendChild(extras);
+  return block;
+}
+
+function paintProfileOptionsPresence() {
+  const list = document.getElementById("profile-options-presence");
+  if (!list) return;
+  const mode = typeof ownPresenceMode === "function" ? ownPresenceMode() : "online";
+  list.querySelectorAll("[data-presence]").forEach((btn) => {
+    btn.classList.toggle("is-on", btn.dataset.presence === mode);
+  });
+}
+
+async function commitProfileOptionsName(input) {
+  const nextName = String((input && input.value) || "").trim();
+  const currentName = typeof profileOwnerName === "function" ? profileOwnerName() : "";
+  if (!nextName || nextName === currentName) {
+    if (input) input.value = currentName;
+    return;
+  }
+  if (nextName.length > 32) {
+    window.alert("Display name must be 1–32 characters.");
+    if (input) input.value = currentName;
+    return;
+  }
+  try {
+    if (typeof postAccount !== "function") throw new Error("Could not save.");
+    const data = await postAccount("/account_display_name", { value: nextName });
+    if (profileUser) {
+      profileUser.display_name = data.display_name || nextName;
+      if (Array.isArray(data.aliases)) profileUser.aliases = data.aliases;
+    }
+    if (typeof applyLocalIdentity === "function") applyLocalIdentity(data);
+    if (typeof refreshMiniProfileEditorCard === "function") refreshMiniProfileEditorCard();
+  } catch (e) {
+    window.alert(e.message || "Could not save.");
+    if (input) input.value = currentName;
+  }
+}
+
+async function commitProfileOptionsIdentity() {
+  const statusInput = document.getElementById("profile-options-status");
+  const pronounsInput = document.getElementById("profile-options-pronouns");
+  const status = statusInput ? statusInput.value : (typeof profileOwnerStatus === "function" ? profileOwnerStatus() : "");
+  const pronouns = pronounsInput ? pronounsInput.value : (typeof profileOwnerPronouns === "function" ? profileOwnerPronouns() : "");
+  try {
+    if (typeof saveProfileIdentity === "function") {
+      await saveProfileIdentity({ status: status, pronouns: pronouns });
+    }
+    if (profileUser) {
+      profileUser.status = status;
+      profileUser.pronouns = pronouns;
+    }
+    if (typeof refreshMiniProfileEditorCard === "function") refreshMiniProfileEditorCard();
+  } catch (e) {
+    window.alert(e.message || "Could not save.");
+  }
+}
+
+function buildProfileOptionsPanel() {
+  const store = typeof miniProfileStore === "function" ? miniProfileStore() : {};
+  const panel = document.createElement("div");
+  panel.className = "profile-options-panel";
+  const title = document.createElement("div");
+  title.className = "profile-options-title";
+  title.textContent = "Profile Options";
+  const body = document.createElement("div");
+  body.className = "profile-options-body";
+
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.id = "profile-options-name";
+  nameInput.maxLength = 32;
+  nameInput.value = typeof profileOwnerName === "function" ? profileOwnerName() : "";
+  nameInput.addEventListener("input", () => {
+    if (profileUser) profileUser.display_name = nameInput.value;
+    if (typeof refreshMiniProfileEditorCard === "function") refreshMiniProfileEditorCard();
+  });
+  nameInput.addEventListener("blur", () => commitProfileOptionsName(nameInput));
+  body.appendChild(profileOptionsField("Display name", nameInput));
+
+  const statusInput = document.createElement("input");
+  statusInput.type = "text";
+  statusInput.id = "profile-options-status";
+  statusInput.maxLength = 80;
+  statusInput.value = typeof profileOwnerStatus === "function" ? profileOwnerStatus() : "";
+  const statusLabel = profileOptionsField("Status", statusInput);
+  const showStatus = store.show_status !== false;
+  const statusBlock = profileOptionsToggleBlock("Show status", showStatus, statusLabel);
+  const statusToggle = statusBlock.querySelector("input[type=\"checkbox\"]");
+  statusInput.addEventListener("input", () => {
+    if (profileUser) profileUser.status = statusInput.value;
+    if (typeof refreshMiniProfileEditorCard === "function") refreshMiniProfileEditorCard();
+  });
+  statusInput.addEventListener("blur", () => commitProfileOptionsIdentity());
+  if (statusToggle) {
+    statusToggle.addEventListener("change", () => {
+      store.show_status = !!statusToggle.checked;
+      if (typeof markProfileDirty === "function") markProfileDirty();
+      if (typeof refreshMiniProfileEditorCard === "function") refreshMiniProfileEditorCard();
+    });
+  }
+  body.appendChild(statusBlock);
+
+  const pronounsInput = document.createElement("input");
+  pronounsInput.type = "text";
+  pronounsInput.id = "profile-options-pronouns";
+  pronounsInput.maxLength = 32;
+  pronounsInput.value = typeof profileOwnerPronouns === "function" ? profileOwnerPronouns() : "";
+  const pronounsLabel = profileOptionsField("Pronouns", pronounsInput);
+  const showPronouns = store.show_pronouns !== false;
+  const pronounsBlock = profileOptionsToggleBlock("Show pronouns", showPronouns, pronounsLabel);
+  const pronounsToggle = pronounsBlock.querySelector("input[type=\"checkbox\"]");
+  pronounsInput.addEventListener("input", () => {
+    if (profileUser) profileUser.pronouns = pronounsInput.value;
+    if (typeof refreshMiniProfileEditorCard === "function") refreshMiniProfileEditorCard();
+  });
+  pronounsInput.addEventListener("blur", () => commitProfileOptionsIdentity());
+  if (pronounsToggle) {
+    pronounsToggle.addEventListener("change", () => {
+      store.show_pronouns = !!pronounsToggle.checked;
+      if (typeof markProfileDirty === "function") markProfileDirty();
+      if (typeof refreshMiniProfileEditorCard === "function") refreshMiniProfileEditorCard();
+    });
+  }
+  body.appendChild(pronounsBlock);
+
+  const presenceTitle = document.createElement("div");
+  presenceTitle.className = "profile-options-group-title";
+  presenceTitle.textContent = "Online status";
+  body.appendChild(presenceTitle);
+  const presenceList = document.createElement("div");
+  presenceList.className = "profile-options-presence";
+  presenceList.id = "profile-options-presence";
+  const choices = typeof PRESENCE_CHOICES !== "undefined" ? PRESENCE_CHOICES : [
+    { id: "online", label: "Online" },
+    { id: "away", label: "Away" },
+    { id: "dnd", label: "Do Not Disturb" },
+    { id: "invisible", label: "Invisible" }
+  ];
+  choices.forEach((row) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "profile-options-presence-btn";
+    btn.dataset.presence = row.id;
+    const pip = document.createElement("span");
+    pip.className = "status-dot status-" + (typeof presencePipClass === "function" ? presencePipClass(row.id) : row.id);
+    const label = document.createElement("span");
+    label.textContent = row.label;
+    btn.appendChild(pip);
+    btn.appendChild(label);
+    btn.addEventListener("click", () => {
+      if (typeof applyOwnPresenceMode === "function") applyOwnPresenceMode(row.id);
+      else paintProfileOptionsPresence();
+    });
+    presenceList.appendChild(btn);
+  });
+  body.appendChild(presenceList);
+
+  panel.appendChild(title);
+  panel.appendChild(body);
+  window.requestAnimationFrame(() => paintProfileOptionsPresence());
+  return panel;
+}
+
+function miniProfileShowFlag(data, key) {
+  if (data && data[key] != null) return data[key] !== false;
+  return true;
 }
 
 function startMiniProfileBioEdit(el) {
@@ -414,9 +617,12 @@ function paintMiniProfileInto(card, data, opts) {
   card.classList.toggle("is-editing", editing);
   const user = data.user || {};
   const name = user.display_name || user.username || "";
-  const presence = data.presence === "online" || data.presence === "away" || data.presence === "dnd"
-    ? data.presence
+  const presenceRaw = String(data.presence || "").toLowerCase();
+  const presence = presenceRaw === "online" || presenceRaw === "away" || presenceRaw === "dnd"
+    ? presenceRaw
     : "offline";
+  const showStatus = miniProfileShowFlag(data, "show_status");
+  const showPronouns = miniProfileShowFlag(data, "show_pronouns");
 
   const banner = document.createElement("div");
   banner.className = "mini-profile-banner";
@@ -449,14 +655,14 @@ function paintMiniProfileInto(card, data, opts) {
 
   const side = document.createElement("div");
   side.className = "mini-profile-side";
-  if (user.status || editing) {
+  if (showStatus && (user.status || editing) && (presence !== "offline" || editing)) {
     if (user.id && typeof rememberUserStatus === "function") rememberUserStatus(user.id, user.status);
     const status = document.createElement("div");
     status.className = "mini-profile-status" + (user.status ? "" : " is-empty");
     status.textContent = user.status || "Status";
     side.appendChild(status);
   }
-  if (user.pronouns || editing) {
+  if (showPronouns && (user.pronouns || editing)) {
     const pronouns = document.createElement("div");
     pronouns.className = "mini-profile-pronouns" + (user.pronouns ? "" : " is-empty");
     pronouns.textContent = user.pronouns || "Pronouns";
@@ -483,7 +689,7 @@ function paintMiniProfileInto(card, data, opts) {
     nameEl.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (typeof showMiniProfileIdentityMenu === "function") showMiniProfileIdentityMenu(e, "display_name");
+      focusProfileOptionsName();
     });
   }
   nameRow.appendChild(nameEl);

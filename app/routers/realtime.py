@@ -4,10 +4,13 @@ from app.models import Server_members, Party_members, Friend_request, UserInfo
 from sqlalchemy import or_
 from starlette.websockets import WebSocketDisconnect
 import asyncio
+import json
 
 active_connections = {}
 viewer_focus = {}
 profile_chat_viewers = {}
+presence_choice = {}
+PRESENCE_MODES = ("online", "away", "dnd", "invisible")
 
 
 def watch_profile_chat(owner_id, user_id):
@@ -72,8 +75,77 @@ def viewer_is_watching_channel(user_id, channel_id):
     except (TypeError, ValueError):
         return False
 
+def normalize_presence_mode(raw):
+    mode = str(raw or "").strip().lower()
+    if mode == "idle":
+        mode = "away"
+    if mode in PRESENCE_MODES:
+        return mode
+    return "online"
+
+
+def presence_from_layout(raw_layout):
+    layout = {}
+    if isinstance(raw_layout, dict):
+        layout = raw_layout
+    else:
+        try:
+            parsed = json.loads(raw_layout or "")
+        except Exception:
+            parsed = {}
+        if isinstance(parsed, dict):
+            layout = parsed
+    mini = layout.get("mini_profile") if isinstance(layout.get("mini_profile"), dict) else {}
+    return normalize_presence_mode(mini.get("presence"))
+
+
+def remember_presence_choice(user):
+    if not user:
+        return "online"
+    mode = presence_from_layout(getattr(user, "profile_layout", None))
+    presence_choice[user.id] = mode
+    return mode
+
+
+def persist_presence_choice(user, database, raw_status):
+    mode = normalize_presence_mode(raw_status)
+    presence_choice[user.id] = mode
+    raw = getattr(user, "profile_layout", None) or ""
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        parsed = None
+    if not isinstance(parsed, dict):
+        return mode
+    mini = parsed.get("mini_profile") if isinstance(parsed.get("mini_profile"), dict) else {}
+    mini["presence"] = mode
+    parsed["mini_profile"] = mini
+    user.profile_layout = json.dumps(parsed)
+    database.add(user)
+    database.commit()
+    return mode
+
+
+def presence_own(user_id):
+    if user_id not in active_connections:
+        return "offline"
+    return normalize_presence_mode(presence_choice.get(user_id) or "online")
+
+
 def presence_status(user_id):
-    return "online" if user_id in active_connections else "offline"
+    if user_id not in active_connections:
+        return "offline"
+    mode = presence_own(user_id)
+    if mode == "invisible":
+        return "offline"
+    if mode in ("online", "away", "dnd"):
+        return mode
+    return "online"
+
+
+def set_user_presence(database, user, raw_status):
+    persist_presence_choice(user, database, raw_status)
+    return presence_status(user.id)
 
 def serialize_member(user, is_owner, hoist_role=None, name_role=None, highest_role=None, timeout_until=None, timeout_reason=None, nickname=None, role_ids=None, display_name=None):
     payload = {

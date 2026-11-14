@@ -20,7 +20,7 @@ from app.routers.profile import (
     public_avatar,
     public_display_name,
 )
-from app.routers.realtime import presence_status
+from app.routers.realtime import presence_own, presence_status
 from app.routers.roles import (
     actor_highest_role,
     assigned_roles_for_user,
@@ -212,6 +212,7 @@ def get_mini_profile(user_id: int, server_id: str | None = None, current_user: U
     layout = ensure_layout(owner, database)
     banner, _about = layout_banner_and_about(layout)
     is_self = current_user.id == owner.id
+    store = (layout or {}).get("mini_profile") if isinstance((layout or {}).get("mini_profile"), dict) else {}
     payload = {
         "user": {
             "id": owner.id,
@@ -223,7 +224,9 @@ def get_mini_profile(user_id: int, server_id: str | None = None, current_user: U
         },
         "banner_color": banner,
         "identity": normalize_identity((layout or {}).get("identity")),
-        "presence": presence_status(owner.id),
+        "presence": presence_own(owner.id) if is_self else presence_status(owner.id),
+        "show_status": store.get("show_status") is not False,
+        "show_pronouns": store.get("show_pronouns") is not False,
         "is_self": is_self,
         "note": "" if is_self else load_note(database, current_user.id, owner.id),
         "widgets": mini_widgets_payload(database, owner, current_user.id, layout),

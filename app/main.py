@@ -10,7 +10,7 @@ from app.auth import validate_session
 from app.r2 import attachment_public
 from app.routers import account, boot, messages, friends, parties, servers, invites, announcements, forums, docs, embeds, uploads, deletion, editing, reactions, mentions, messaging_settings, appearance, accessibility, language_time, profile, roles, mini_profiles, moderation, feedback, admin, emojis, notify_prefs, audit, feed, pins, search, lists, calendar, doc_entries, media_items, schedule, voice, connections, youtube_link, channel_follows, communities, webhooks, news, kofi
 from pydantic import ValidationError
-from app.routers.realtime import active_connections, drop_profile_chat_viewer, heartbeat, notify_presence, notify_status_line, safe_send_json, set_viewer_focus, unwatch_profile_chat, watch_profile_chat
+from app.routers.realtime import active_connections, drop_profile_chat_viewer, heartbeat, notify_presence, notify_status_line, presence_status, remember_presence_choice, safe_send_json, set_user_presence, set_viewer_focus, unwatch_profile_chat, watch_profile_chat
 from app.routers.messages import send_message
 from app.routers.parties import message_party, leave_party
 from app.routers.servers import message_server_channel
@@ -145,8 +145,10 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
     await socket.accept()
     was_online = current_user.id in active_connections
     active_connections[current_user.id] = socket
+    own_mode = remember_presence_choice(current_user)
+    await safe_send_json(socket, {"type": "presence_self", "status": own_mode}, current_user.id)
     if not was_online:
-        await notify_presence(database, current_user.id, "online")
+        await notify_presence(database, current_user.id, presence_status(current_user.id))
     heartbeat_task = asyncio.create_task(heartbeat(socket))
     try:
         while True:
@@ -426,6 +428,10 @@ async def connect_user(socket: WebSocket, session_id: str = Cookie(None), databa
                     current_user.id,
                     clip_text(current_user.profile_status, STATUS_MAX).strip(),
                 )
+            elif data["type"] == "presence":
+                database.refresh(current_user)
+                public = set_user_presence(database, current_user, data.get("status"))
+                await notify_presence(database, current_user.id, public)
             elif data["type"] == "profile_chat_view":
                 watch_profile_chat(data.get("owner_id"), current_user.id)
             elif data["type"] == "profile_chat_leave":

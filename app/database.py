@@ -1,3 +1,4 @@
+import json
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -263,6 +264,7 @@ def ensure_account_columns():
             conn.commit()
         except Exception:
             conn.rollback()
+        erase_placeholder_profile_pages()
         try:
             conn.execute(text(
                 "UPDATE users SET created_at = ("
@@ -276,6 +278,44 @@ def ensure_account_columns():
             conn.execute(text("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
             conn.commit()
         except Exception:
+            conn.rollback()
+
+
+def erase_placeholder_profile_pages():
+    drop = {"servers", "friends", "applications", "events"}
+    with engine.connect() as conn:
+        try:
+            rows = conn.execute(text("SELECT id, profile_layout FROM users WHERE profile_layout IS NOT NULL AND profile_layout != ''")).fetchall()
+        except Exception:
+            conn.rollback()
+            return
+        changed = False
+        for uid, raw in rows:
+            try:
+                data = json.loads(raw or "{}")
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(data, dict):
+                continue
+            pages = data.get("pages")
+            if not isinstance(pages, list):
+                continue
+            kept = []
+            removed = False
+            for page in pages:
+                pid = str((page or {}).get("id") or "").strip().lower() if isinstance(page, dict) else ""
+                if pid in drop:
+                    removed = True
+                    continue
+                kept.append(page)
+            if not removed:
+                continue
+            data["pages"] = kept
+            conn.execute(text("UPDATE users SET profile_layout = :layout WHERE id = :uid"), {"layout": json.dumps(data), "uid": uid})
+            changed = True
+        if changed:
+            conn.commit()
+        else:
             conn.rollback()
 
 

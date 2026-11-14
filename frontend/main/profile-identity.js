@@ -326,8 +326,85 @@ function paintUserFace(host, source, opts) {
 
 function presencePipClass(status) {
   const raw = String(status || "").toLowerCase();
+  if (raw === "invisible") return "offline";
   if (raw === "online" || raw === "away" || raw === "dnd") return raw;
   return "offline";
+}
+
+const PRESENCE_CHOICES = [
+  { id: "online", label: "Online" },
+  { id: "away", label: "Away" },
+  { id: "dnd", label: "Do Not Disturb" },
+  { id: "invisible", label: "Invisible" }
+];
+
+let myPresenceMode = "online";
+
+function normalizePresenceMode(raw) {
+  const mode = String(raw || "").trim().toLowerCase();
+  if (mode === "idle") return "away";
+  if (mode === "online" || mode === "away" || mode === "dnd" || mode === "invisible") return mode;
+  return "online";
+}
+
+function ownPresenceMode() {
+  return normalizePresenceMode(myPresenceMode);
+}
+
+function ownPresenceLabel(mode) {
+  const row = PRESENCE_CHOICES.find((item) => item.id === mode);
+  return (row && row.label) || "Online";
+}
+
+function rememberOwnPresence(layout) {
+  const host = layout || profileSavedLayout || profileDraft || {};
+  const store = host.mini_profile && typeof host.mini_profile === "object" ? host.mini_profile : {};
+  myPresenceMode = normalizePresenceMode(store.presence);
+  if (typeof paintOwnPresence === "function") paintOwnPresence();
+}
+
+function writeOwnPresence(mode) {
+  const next = normalizePresenceMode(mode);
+  myPresenceMode = next;
+  if (typeof profileIsOwn === "undefined" || !profileIsOwn) return;
+  function patch(layout) {
+    if (!layout || typeof layout !== "object") return;
+    if (!layout.mini_profile || typeof layout.mini_profile !== "object") layout.mini_profile = {};
+    layout.mini_profile.presence = next;
+  }
+  patch(typeof profileDraft !== "undefined" ? profileDraft : null);
+  patch(typeof profileSavedLayout !== "undefined" ? profileSavedLayout : null);
+}
+
+function paintOwnPresence() {
+  const mode = ownPresenceMode();
+  const pipClass = presencePipClass(mode);
+  const footerPip = document.querySelector("#account-footer .status-dot");
+  if (footerPip) footerPip.className = "status-dot status-" + pipClass;
+  const label = document.getElementById("footer-status-label") || document.querySelector("#account-footer .status-label");
+  if (label) label.textContent = ownPresenceLabel(mode);
+}
+
+function applyOwnPresenceMode(mode) {
+  writeOwnPresence(mode);
+  if (typeof ws !== "undefined" && ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: "presence", status: ownPresenceMode() }));
+  }
+  paintOwnPresence();
+  if (typeof refreshMiniProfileEditorCard === "function") refreshMiniProfileEditorCard();
+  if (typeof paintProfileOptionsPresence === "function") paintProfileOptionsPresence();
+}
+
+function editMiniProfileMedia(kind) {
+  if (kind !== "avatar" && kind !== "banner") return;
+  if (typeof openIdentityPicker !== "function") return;
+  const current = typeof getIdentityMedia === "function" ? getIdentityMedia(kind) : {};
+  openIdentityPicker(kind, current, (media) => {
+    if (typeof applyIdentityDraft === "function") applyIdentityDraft(kind, media);
+    if (typeof markProfileDirty === "function") markProfileDirty();
+    if (typeof refreshMiniProfileEditorCard === "function") refreshMiniProfileEditorCard();
+    if (typeof paintOwnFooterAvatar === "function") paintOwnFooterAvatar();
+  });
 }
 
 function personPresence(person) {
@@ -437,9 +514,9 @@ function paintOwnFooterAvatar() {
   const opts = { name: myDisplayName || myUsername };
   const footer = document.querySelector("#account-footer .avatar-dot");
   if (footer) paintUserFace(footer, source, opts);
-  // Settings sidebar card uses the same face when Settings is open.
   const card = document.querySelector("#settings-user-card .avatar-dot");
   if (card) paintUserFace(card, source, opts);
+  paintOwnPresence();
 }
 
 async function flushIdentityUploads(layout) {

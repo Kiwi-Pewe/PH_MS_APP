@@ -211,13 +211,14 @@ async function sendChatMessage() {
       deleted: false
     } : null
   });
-  renderMessages();
+  renderMessages({ jumpToLatest: true });
   bumpConversation(openChatType, openChatId, openChatName, false);
   input.value = "";
   clearPendingAttach();
   clearPendingReply();
   if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
   autoGrowComposer();
+  if (typeof pinChatToBottom === "function") pinChatToBottom(document.getElementById("chat-body"));
   if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   if (typeof hideMentionPicker === "function") hideMentionPicker();
 }
@@ -303,12 +304,13 @@ async function sendChannelMessage() {
       deleted: false
     } : null
   });
-  renderChannelMessages();
+  renderChannelMessages({ jumpToLatest: true });
   input.value = "";
   clearPendingAttach();
   clearPendingReply();
   if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
   autoGrowChannelComposer();
+  if (typeof pinChatToBottom === "function") pinChatToBottom(document.getElementById("channel-body"));
   if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   if (typeof hideMentionPicker === "function") hideMentionPicker();
 }

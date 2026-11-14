@@ -4,13 +4,65 @@
 
 const lastReadMessageIds = {};
 let chatNewMarker = { kind: null, id: null, unreadCount: 0, useCursor: false, messageId: null };
+const chatFollowBottom = {};
+let chatStickLock = 0;
 
 function chatReadKey(kind, id) {
   return String(kind || "") + ":" + String(id);
 }
 
+function chatScrollHostId(el) {
+  return el && el.id ? el.id : "";
+}
+
+function chatSetFollow(el, on) {
+  const id = chatScrollHostId(el);
+  if (!id) return;
+  chatFollowBottom[id] = !!on;
+}
+
+function chatShouldFollow(el) {
+  const id = chatScrollHostId(el);
+  if (!id) return true;
+  if (!Object.prototype.hasOwnProperty.call(chatFollowBottom, id)) return true;
+  return !!chatFollowBottom[id];
+}
+
+function chatIsNearBottom(el) {
+  if (!el) return true;
+  const slack = Math.max(72, Math.round(el.clientHeight * 0.12));
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= slack;
+}
+
+function markChatFollowLatest(kind) {
+  if (kind === "dm" || kind === "party") {
+    chatSetFollow(document.getElementById("chat-body"), true);
+    return;
+  }
+  chatSetFollow(document.getElementById("channel-body"), true);
+  chatSetFollow(document.getElementById("voice-chat-messages"), true);
+}
+
+function pinChatToBottom(el) {
+  if (!el || !chatShouldFollow(el)) return;
+  chatStickLock += 1;
+  const apply = () => {
+    if (!chatShouldFollow(el)) return;
+    el.scrollTop = el.scrollHeight;
+  };
+  apply();
+  requestAnimationFrame(() => {
+    apply();
+    requestAnimationFrame(() => {
+      apply();
+      chatStickLock = Math.max(0, chatStickLock - 1);
+    });
+  });
+}
+
 function captureNewMessagesIntent(kind, id, extra) {
   extra = extra || {};
+  markChatFollowLatest(kind);
   chatNewMarker = {
     kind: kind,
     id: id,
@@ -109,13 +161,40 @@ function appendChatDecorators(wrap, msg, lastDateRef) {
 }
 
 function scrollFeedToNewOrEnd(scrollEl, opts) {
-  if (!scrollEl || (opts && opts.preserveScroll)) return;
-  const line = scrollEl.querySelector(".new-messages-divider");
-  if (line) {
-    line.scrollIntoView({ block: "center" });
-    return;
+  if (!scrollEl) return;
+  opts = opts || {};
+  if (opts.jumpToLatest) chatSetFollow(scrollEl, true);
+  if (opts.preserveScroll && !chatShouldFollow(scrollEl)) return;
+  if (!opts.jumpToLatest && !chatShouldFollow(scrollEl)) return;
+  pinChatToBottom(scrollEl);
+}
+
+function bindChatStickHost(scrollEl, wrapEl) {
+  if (!scrollEl || scrollEl.dataset.chatStickBound === "1") return;
+  scrollEl.dataset.chatStickBound = "1";
+  scrollEl.addEventListener("scroll", () => {
+    if (chatStickLock) return;
+    chatSetFollow(scrollEl, chatIsNearBottom(scrollEl));
+  }, { passive: true });
+  const growEl = wrapEl || scrollEl;
+  if (typeof ResizeObserver !== "undefined") {
+    const ro = new ResizeObserver(() => {
+      if (chatShouldFollow(scrollEl)) pinChatToBottom(scrollEl);
+    });
+    ro.observe(growEl);
+    if (wrapEl && wrapEl !== scrollEl) ro.observe(scrollEl);
   }
-  scrollEl.scrollTop = scrollEl.scrollHeight;
+  growEl.addEventListener("load", (e) => {
+    const tag = e.target && e.target.tagName;
+    if (tag !== "IMG" && tag !== "VIDEO" && tag !== "IFRAME") return;
+    if (chatShouldFollow(scrollEl)) pinChatToBottom(scrollEl);
+  }, true);
+}
+
+function bindChatStickScroll() {
+  bindChatStickHost(document.getElementById("chat-body"), document.getElementById("chat-messages"));
+  bindChatStickHost(document.getElementById("channel-body"), document.getElementById("channel-messages"));
+  bindChatStickHost(document.getElementById("voice-chat-messages"), document.getElementById("voice-chat-messages"));
 }
 
 function renderClusteredMessages(wrap, messages) {
@@ -832,3 +911,5 @@ function buildChannelStartCard(name) {
   card.appendChild(desc);
   return card;
 }
+
+bindChatStickScroll();

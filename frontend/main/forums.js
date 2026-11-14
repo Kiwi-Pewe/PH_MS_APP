@@ -583,6 +583,7 @@ async function openForumPost(post) {
   if (typeof clearPendingAttach === "function") clearPendingAttach();
   if (typeof resetTypingOnLeave === "function") resetTypingOnLeave();
   applyOpenForumPostState(post);
+  if (typeof markChatFollowLatest === "function") markChatFollowLatest("forum");
 
   document.getElementById("forums-view").style.display = "none";
   document.getElementById("channel-body").style.display = "flex";

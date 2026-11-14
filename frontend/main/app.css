@@ -422,10 +422,10 @@
 .server-section-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .server-section-row .community-explicit { margin-left: auto; flex: 0 0 auto; }
 
-.category-block { margin-bottom: 22px; }
+.category-block { margin-bottom: 18px; }
 .category-block:last-child { margin-bottom: 8px; }
 .category-header {
-  display: flex; align-items: center; gap: 6px; padding: 10px 6px 6px;
+  display: flex; align-items: center; gap: 6px; padding: 14px 6px 4px;
   font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-dim); cursor: pointer; user-select: none;
 }
@@ -442,8 +442,8 @@
 }
 .category-add-btn:hover { color: var(--text); background: var(--panel-alt); }
 
-.category-channels { display: flex; flex-direction: column; gap: 3px; padding-top: 4px; }
-.channel-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; font-size: 16px; line-height: 1.25; min-height: 36px; box-sizing: border-box; }
+.category-channels { display: flex; flex-direction: column; gap: 1px; padding-top: 2px; }
+.channel-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; font-size: 16px; line-height: 1.25; min-height: 30px; box-sizing: border-box; }
 .channel-row:hover, .channel-row.active { background: var(--panel-alt); color: var(--text); }
 .channel-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .channel-row.has-unread .channel-label { color: var(--text); font-weight: 600; }
@@ -2082,8 +2082,8 @@ html.ui-density-compact #dm-rows .dm-item { height: 44px; min-height: 44px; padd
 html.ui-density-compact #server-sidebar-header { padding: 8px 10px; }
 html.ui-density-compact #server-sidebar-body { padding: 6px 4px; }
 html.ui-density-compact .category-block { margin-bottom: 12px; }
-html.ui-density-compact .category-header { padding: 6px 6px 4px; font-size: 11px; }
-html.ui-density-compact .channel-row { padding: 5px 8px; font-size: 15px; }
+html.ui-density-compact .category-header { padding: 10px 6px 2px; font-size: 11px; }
+html.ui-density-compact .channel-row { padding: 3px 8px; font-size: 15px; min-height: 28px; }
 html.ui-density-compact .server-section-row { padding: 5px 8px; }
 html.ui-density-compact #server-sections { margin-bottom: 6px; padding-bottom: 6px; }
 html.ui-density-compact #member-list-body { padding: 8px 6px 8px; }
@@ -2108,9 +2108,9 @@ html.ui-density-spacious .dm-item { height: 52px; min-height: 52px; padding: 0 8
 html.ui-density-spacious #dm-rows .dm-item { height: 60px; min-height: 60px; gap: 12px; }
 html.ui-density-spacious #server-sidebar-header { padding: 16px 14px; }
 html.ui-density-spacious #server-sidebar-body { padding: 14px 10px; }
-html.ui-density-spacious .category-block { margin-bottom: 28px; }
-html.ui-density-spacious .category-header { padding: 14px 6px 8px; font-size: 13px; }
-html.ui-density-spacious .channel-row { padding: 9px 8px; font-size: 17px; }
+html.ui-density-spacious .category-block { margin-bottom: 24px; }
+html.ui-density-spacious .category-header { padding: 18px 6px 6px; font-size: 13px; }
+html.ui-density-spacious .channel-row { padding: 6px 8px; font-size: 17px; min-height: 34px; }
 html.ui-density-spacious .server-section-row { padding: 10px 8px; }
 html.ui-density-spacious #server-sections { margin-bottom: 14px; padding-bottom: 12px; }
 html.ui-density-spacious #member-list-body { padding: 20px 10px 16px; }

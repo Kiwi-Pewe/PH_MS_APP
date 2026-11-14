@@ -167,6 +167,7 @@ STARTER_PAGES = (
     ("help", "Help Page", "owner"),
 )
 MINI_PROFILE_PAGE_ID = "mini_profile"
+DEFAULT_PROFILE_BANNER = "#1e6b8a"
 
 # Midnight Purple background family sits around hue 265.
 PURPLE_HUE_MIN = 250
@@ -396,7 +397,7 @@ def seed_layout():
                 "id": page_id,
                 "title": title,
                 "visibility": vis,
-                "tiles": [],
+                "tiles": default_profile_tiles(DEFAULT_PROFILE_BANNER) if page_id == "profile" else [],
             }
             for page_id, title, vis in STARTER_PAGES
         ],
@@ -406,13 +407,19 @@ def seed_layout():
     }
 
 
-def default_profile_tiles(banner_hex):
+def default_profile_tiles(banner_hex=None):
+    color = banner_hex or DEFAULT_PROFILE_BANNER
     return [
-        {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 32, "h": 3, "props": {"color": banner_hex}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "avatar", "x": 14, "y": 3, "w": 4, "h": 4, "props": {}, "allow_overlap": True},
-        {"id": new_id("tile"), "type": "display_name", "x": 13, "y": 6, "w": 5, "h": 2, "props": {}, "allow_overlap": True},
-        {"id": new_id("tile"), "type": "local_time", "x": 13, "y": 10, "w": 6, "h": 2, "props": {}, "allow_overlap": False},
-        {"id": new_id("tile"), "type": "friends", "x": 26, "y": 10, "w": 6, "h": 11, "props": {}, "allow_overlap": False},
+        {"id": new_id("tile"), "type": "banner", "x": 0, "y": 0, "w": 32, "h": 3, "allow_overlap": False, "props": {"color": color}},
+        {"id": new_id("tile"), "type": "avatar", "x": 14, "y": 1, "w": 4, "h": 4, "allow_overlap": True, "props": {}},
+        {"id": new_id("tile"), "type": "divider", "x": 0, "y": 7, "w": 32, "h": 1, "allow_overlap": False, "props": {"style": "solid", "orientation": "horizontal"}},
+        {"id": new_id("tile"), "type": "display_name", "x": 14, "y": 5, "w": 4, "h": 2, "allow_overlap": False, "props": {"show_status": False, "show_pronouns": False, "show_aliases": False, "text_align": "center"}},
+        {"id": new_id("tile"), "type": "member_since", "x": 1, "y": 4, "w": 6, "h": 3, "allow_overlap": False, "props": {"show_title": True, "title": "Member since", "title_align": "left"}},
+        {"id": new_id("tile"), "type": "header", "x": 9, "y": 8, "w": 14, "h": 2, "allow_overlap": False, "props": {"text": "General Info", "level": 1, "text_align": "center", "text_size": 14}},
+        {"id": new_id("tile"), "type": "friends", "x": 2, "y": 10, "w": 6, "h": 15, "allow_overlap": False, "props": {"mode": "all", "friend_size": 5, "show_title": True, "title": "Friends", "title_align": "left", "show_background": True}},
+        {"id": new_id("tile"), "type": "body", "x": 9, "y": 10, "w": 14, "h": 5, "allow_overlap": False, "props": {"text": "write something about yourself!", "show_title": True, "title": "about me", "title_align": "center"}},
+        {"id": new_id("tile"), "type": "display_server", "x": 24, "y": 10, "w": 6, "h": 15, "allow_overlap": False, "props": {"mode": "all", "title": "Server List", "show_title": True, "title_align": "left", "show_background": True}},
+        {"id": new_id("tile"), "type": "comments", "x": 9, "y": 16, "w": 14, "h": 11, "allow_overlap": False, "props": {"friends_only": False, "owner_can_post": False, "show_title": True, "title": "profile comments", "title_align": "center", "show_background": True}},
     ]
 
 

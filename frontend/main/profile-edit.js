@@ -4393,6 +4393,37 @@ const PROFILE_PAGE_LAYOUT_NAMES = {
   blank: ""
 };
 
+const DEFAULT_PROFILE_BANNER = "#1e6b8a";
+
+function defaultProfilePageTiles() {
+  const nid = (typeof profileNewId === "function")
+    ? profileNewId
+    : (prefix) => prefix + "_" + Math.random().toString(16).slice(2, 10);
+  const tile = (type, x, y, w, h, overlap, props) => ({
+    id: nid("tile"),
+    type,
+    x,
+    y,
+    w,
+    h,
+    allow_overlap: !!overlap,
+    z_index: 0,
+    props: Object.assign({}, props || {})
+  });
+  return [
+    tile("banner", 0, 0, 32, 3, false, { color: DEFAULT_PROFILE_BANNER }),
+    tile("avatar", 14, 1, 4, 4, true, {}),
+    tile("divider", 0, 7, 32, 1, false, { style: "solid", orientation: "horizontal" }),
+    tile("display_name", 14, 5, 4, 2, false, { show_status: false, show_pronouns: false, show_aliases: false, text_align: "center" }),
+    tile("member_since", 1, 4, 6, 3, false, { show_title: true, title: "Member since", title_align: "left" }),
+    tile("header", 9, 8, 14, 2, false, { text: "General Info", level: 1, text_align: "center", text_size: 14 }),
+    tile("friends", 2, 10, 6, 15, false, { mode: "all", friend_size: 5, show_title: true, title: "Friends", title_align: "left", show_background: true }),
+    tile("body", 9, 10, 14, 5, false, { text: "write something about yourself!", show_title: true, title: "about me", title_align: "center" }),
+    tile("display_server", 24, 10, 6, 15, false, { mode: "all", title: "Server List", show_title: true, title_align: "left", show_background: true }),
+    tile("comments", 9, 16, 14, 11, false, { friends_only: false, owner_can_post: false, show_title: true, title: "profile comments", title_align: "center", show_background: true })
+  ];
+}
+
 let profilePageModalMode = "create";
 let profilePageModalId = "";
 
@@ -4478,7 +4509,7 @@ function submitProfilePageModal() {
       id: profileNewId("page"),
       title: title.slice(0, 32),
       visibility: owner ? "owner" : "public",
-      tiles: []
+      tiles: selected.value === "profile" ? defaultProfilePageTiles() : []
     };
     const publics = pages.filter(row => row.visibility !== "owner");
     const privates = pages.filter(row => row.visibility === "owner");

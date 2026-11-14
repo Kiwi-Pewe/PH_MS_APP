@@ -674,7 +674,7 @@ function bindDraftReaders(box, draft, readValues, onChange) {
 }
 
 function fillWidgetTitleOptions(box, tile, draft, onChange, hintEl) {
-  if (tile.type === "frame" || tile.type === "spoiler") return;
+  if (tile.type === "frame" || tile.type === "spoiler" || tile.type === "video" || tile.type === "music") return;
   if (tile.type === "body" || tile.type === "chat_room" || tile.type === "phone" || tile.type === "posts") return;
   if (tile.type === "youtube_channel" && typeof isMiniProfilePageId === "function" && isMiniProfilePageId(profileActivePageId)) {
     draft.show_title = false;

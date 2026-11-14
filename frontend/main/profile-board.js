@@ -580,6 +580,8 @@ function profileTitleSpec(type) {
   const map = {
     frame: { skip: true },
     spoiler: { skip: true },
+    video: { skip: true },
+    music: { skip: true },
     body: { defaultOn: false, placeholder: "About" },
     bio: { defaultOn: true, fallback: "About" },
     comments: { defaultOn: true, fallback: "Comments" },
@@ -618,7 +620,7 @@ function profileTitleSpec(type) {
 
 function attachProfileTitle(type, prev, props) {
   if (!props) props = {};
-  if (type === "frame" || type === "spoiler") return props;
+  if (type === "frame" || type === "spoiler" || type === "video" || type === "music") return props;
   const spec = profileTitleSpec(type);
   const titleAlign = prev.title_align === "center" || prev.title_align === "right"
     ? prev.title_align
@@ -666,7 +668,7 @@ function mountProfileTitleBand(el, tile, fallback, defaultOn, defaultAlign) {
 
 function finishProfileTitleBand(el, tile) {
   if (!el || !tile) return;
-  if (tile.type === "frame" || tile.type === "spoiler") return;
+  if (tile.type === "frame" || tile.type === "spoiler" || tile.type === "video" || tile.type === "music") return;
   if (tile.type === "chat_room" || tile.type === "phone" || tile.type === "posts") return;
   if (el.classList.contains("has-title-band")) return;
   const spec = profileTitleSpec(tile.type);
@@ -6116,11 +6118,16 @@ function paintProfileTileFace(tile, el) {
     return;
   }
   if (tile.type === "member_since") {
+    el.classList.add("is-text-chrome");
     applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
+    applyProfileWidgetSurface(el, tile);
+    const body = document.createElement("div");
+    body.className = "profile-tile-body";
     const date = document.createElement("div");
     date.className = "profile-since-date";
     date.textContent = profileOwnerMemberSince() || "—";
-    el.appendChild(date);
+    body.appendChild(date);
+    el.appendChild(body);
     return;
   }
   const host = profileUsesTextChrome(tile.type) ? mountProfileTextChrome(el, tile) : el;

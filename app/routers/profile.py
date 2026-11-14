@@ -73,6 +73,56 @@ DIVIDER_STYLES = {"solid", "dashed", "dotted"}
 BUTTON_ACTIONS = {"link", "page", "friend", "create_post"}
 BUTTON_LABEL_MAX = 48
 BODY_TITLE_MAX = 48
+WIDGET_TITLE_SKIP = {"frame", "spoiler", "video", "music"}
+WIDGET_TITLE_DEFAULT_ON = {
+    "bio", "comments", "display_server", "member_since", "friends", "link_tree",
+    "chat_room", "phone", "posts", "youtube_subscriptions", "youtube_memberships",
+}
+WIDGET_TITLE_FALLBACK = {
+    "bio": "About",
+    "comments": "Comments",
+    "display_server": "Server List",
+    "member_since": "Member since",
+    "friends": "Friends",
+    "link_tree": "Links",
+    "chat_room": "Chat rooms",
+    "phone": "Phone",
+    "posts": "Posts",
+    "meter": "Meter",
+    "steam_profile": "Steam profile",
+    "steam_playing_now": "Currently playing",
+    "steam_recently_played": "Recently played",
+    "steam_library": "Library",
+    "steam_achievements": "Achievements",
+    "steam_badges": "Badges",
+    "youtube_channel": "YouTube",
+    "youtube_video": "YouTube video",
+    "youtube_uploads": "Uploads",
+    "youtube_live_now": "Live Now",
+    "youtube_playlists": "Playlists",
+    "youtube_liked": "Liked videos",
+    "youtube_subscriptions": "Subscriptions",
+    "youtube_comments": "YouTube comments",
+    "youtube_live_chat": "Live chat",
+    "youtube_super_chat": "Super Chat",
+    "youtube_memberships": "Memberships",
+    "local_time": "Local Time",
+    "details": "Local Time",
+    "featured_friend": "Featured friend",
+    "featured_server": "Featured server",
+    "connections": "Connections",
+    "mutuals": "Mutuals",
+    "gallery": "Gallery",
+    "image": "Image",
+    "icon": "Icon",
+    "embed": "Embed",
+    "button": "Button",
+    "list": "List",
+}
+WIDGET_TITLE_ALIGN = {
+    "steam_profile": "center",
+    "youtube_channel": "center",
+}
 TILE_Z_MIN = 0
 TILE_Z_MAX = 100
 CLOCK_MODES = {"world", "countdown", "timer"}
@@ -1354,8 +1404,43 @@ def normalize_youtube_live_props(data):
     return out
 
 
+def apply_widget_title(kind, data, out):
+    if not isinstance(out, dict):
+        return out
+    if kind in WIDGET_TITLE_SKIP:
+        if kind in ("video", "music", "frame"):
+            out.pop("show_title", None)
+            out.pop("title_align", None)
+            if kind in ("video", "music"):
+                out.pop("title", None)
+        return out
+    shown = data.get("show_title")
+    default_on = kind in WIDGET_TITLE_DEFAULT_ON
+    if kind == "clock" and shown is None and str(data.get("label") or "").strip():
+        default_on = True
+    out["show_title"] = default_on if shown is None else bool(shown)
+    title = clip_text(data.get("title"), BODY_TITLE_MAX).strip()
+    if not title:
+        title = clip_text(data.get("label"), BODY_TITLE_MAX).strip()
+    if not title:
+        title = clip_text(out.get("title"), BODY_TITLE_MAX).strip()
+    if not title:
+        title = WIDGET_TITLE_FALLBACK.get(kind, "")
+    out["title"] = title
+    align = str(data.get("title_align") or "")
+    fallback_align = WIDGET_TITLE_ALIGN.get(kind, "left")
+    out["title_align"] = align if align in ("left", "center", "right") else fallback_align
+    return out
+
+
 def normalize_props(kind, props, banner_fallback):
     data = props if isinstance(props, dict) else {}
+    out = normalize_props_core(kind, data, banner_fallback)
+    apply_widget_title(kind, data, out)
+    return out
+
+
+def normalize_props_core(kind, data, banner_fallback):
     if kind == "banner":
         out = {
             "color": clean_hex(data.get("color"), banner_fallback or random_banner_hex()),

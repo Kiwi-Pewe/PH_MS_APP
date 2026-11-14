@@ -2,6 +2,7 @@ let newsCal = new Date();
 newsCal.setDate(1);
 let newsRow = "announcements";
 let newsPosts = [];
+let newsEvents = [];
 let newsQuery = "";
 let newsSearchTimer = 0;
 let newsUnread = 0;
@@ -9,6 +10,34 @@ let newsLoaded = false;
 let newsKofiCard = null;
 
 const NEWS_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const NEWS_EVENT_COLORS = {
+  red: "#ed4245",
+  orange: "#f26522",
+  yellow: "#fee75c",
+  green: "#23a559"
+};
+
+function newsParseWhen(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return null;
+  const iso = /Z|[+-]\d{2}:?\d{2}$/.test(text) ? text.replace(" ", "T") : text.replace(" ", "T") + "Z";
+  const when = new Date(iso);
+  return Number.isNaN(when.getTime()) ? null : when;
+}
+
+function newsDayKey(raw) {
+  const when = newsParseWhen(raw);
+  if (!when) return "";
+  return when.getFullYear() + "-" + String(when.getMonth() + 1).padStart(2, "0") + "-" + String(when.getDate()).padStart(2, "0");
+}
+
+function newsLocalDayKey(day) {
+  return day.getFullYear() + "-" + String(day.getMonth() + 1).padStart(2, "0") + "-" + String(day.getDate()).padStart(2, "0");
+}
+
+function newsEventHex(color) {
+  return NEWS_EVENT_COLORS[color] || NEWS_EVENT_COLORS.orange;
+}
 
 function closeNewsChrome() {
   closeNewsDonate();
@@ -189,28 +218,36 @@ function paintNewsPostCard(row) {
   card.appendChild(head);
   card.appendChild(mid);
   card.appendChild(foot);
-  if (typeof fillAnnouncePostContent === "function") fillAnnouncePostContent(card, row);
-  else {
-    const titleRow = document.createElement("div");
-    titleRow.className = "announce-post-title-row";
-    const title = document.createElement("div");
-    title.className = "announce-post-title";
-    title.textContent = row.title || "";
-    titleRow.appendChild(title);
-    if (row.edited) {
-      const tag = document.createElement("span");
-      tag.className = "edited-tag";
-      tag.textContent = "edited";
-      titleRow.appendChild(tag);
-    }
-    headline.appendChild(titleRow);
-    if (row.body) {
-      const body = document.createElement("div");
-      body.className = "announce-post-body";
-      fillNewsMarkdown(body, row.body);
-      content.appendChild(body);
-    }
+  const titleRow = document.createElement("div");
+  titleRow.className = "announce-post-title-row";
+  const title = document.createElement("div");
+  title.className = "announce-post-title";
+  title.style.textAlign = row.title_align || "left";
+  fillNewsMarkdown(title, row.title || "");
+  titleRow.appendChild(title);
+  if (row.edited) {
+    const tag = document.createElement("span");
+    tag.className = "edited-tag";
+    tag.textContent = "edited";
+    titleRow.appendChild(tag);
   }
+  headline.appendChild(titleRow);
+  if (row.event && row.event.name) {
+    const chip = document.createElement("div");
+    chip.className = "news-event-chip is-" + (row.event.color || "orange");
+    chip.style.background = newsEventHex(row.event.color);
+    chip.textContent = row.event.name;
+    headline.appendChild(chip);
+  }
+  if (row.body) {
+    const body = document.createElement("div");
+    body.className = "announce-post-body";
+    body.style.textAlign = row.body_align || "left";
+    fillNewsMarkdown(body, row.body);
+    content.appendChild(body);
+  }
+  const media = typeof buildPostMedia === "function" ? buildPostMedia(row.attachment) : null;
+  if (media) content.appendChild(media);
   return card;
 }
 
@@ -230,6 +267,10 @@ function prependNewsPost(row) {
   if (!row || !row.id) return;
   if (newsPosts.some((item) => Number(item.id) === Number(row.id))) return;
   newsPosts.unshift(row);
+  if (row.event && row.event.starts_at && !newsEvents.some((item) => Number(item.id) === Number(row.id))) {
+    newsEvents.push(row.event);
+    if (newsRow === "events") paintNewsMonth();
+  }
   if (!newsViewOpen() || newsRow !== "announcements") return;
   const host = document.getElementById("news-posts");
   if (!host) return;
@@ -283,6 +324,13 @@ function paintNewsMonth() {
     head.textContent = name;
     host.appendChild(head);
   });
+  const byDay = {};
+  newsEvents.forEach((row) => {
+    const key = newsDayKey(row.starts_at);
+    if (!key) return;
+    if (!byDay[key]) byDay[key] = [];
+    byDay[key].push(row);
+  });
   const first = new Date(newsCal.getFullYear(), newsCal.getMonth(), 1);
   const start = new Date(first);
   start.setDate(1 - first.getDay());
@@ -303,8 +351,25 @@ function paintNewsMonth() {
     number.textContent = String(day.getDate());
     top.appendChild(number);
     cell.appendChild(top);
+    (byDay[newsLocalDayKey(day)] || []).forEach((row) => {
+      const item = document.createElement("div");
+      item.className = "news-cal-item is-" + (row.color || "orange");
+      item.style.background = newsEventHex(row.color);
+      item.textContent = row.name || "Event";
+      cell.appendChild(item);
+    });
     host.appendChild(cell);
   }
+}
+
+function loadNewsEvents() {
+  fetch("https://" + serverAddress + "/news/events", { credentials: "include" }).then((response) => {
+    if (!response.ok) return null;
+    return response.json();
+  }).then((data) => {
+    newsEvents = (data && data.events) || [];
+    if (newsRow === "events") paintNewsMonth();
+  }).catch(() => {});
 }
 
 function showNewsRow(id) {
@@ -321,7 +386,10 @@ function showNewsRow(id) {
   const events = document.getElementById("news-pane-events");
   if (announce) announce.hidden = newsRow !== "announcements";
   if (events) events.hidden = newsRow !== "events";
-  if (newsRow === "events") paintNewsMonth();
+  if (newsRow === "events") {
+    paintNewsMonth();
+    loadNewsEvents();
+  }
   if (newsRow === "announcements") loadNewsPosts();
 }
 

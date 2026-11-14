@@ -916,11 +916,32 @@ def ensure_news_tables():
                 "comment_count INTEGER DEFAULT 0, "
                 "attachment VARCHAR, "
                 "edited BOOLEAN DEFAULT 0, "
-                "comments_open BOOLEAN DEFAULT 1)"
+                "comments_open BOOLEAN DEFAULT 1, "
+                "title_align VARCHAR DEFAULT 'left', "
+                "body_align VARCHAR DEFAULT 'left', "
+                "event_name VARCHAR, "
+                "event_starts DATETIME, "
+                "event_ends DATETIME, "
+                "event_description VARCHAR, "
+                "event_color VARCHAR)"
             ))
             conn.commit()
         except Exception:
             conn.rollback()
+        for statement in (
+            "ALTER TABLE news_posts ADD COLUMN title_align VARCHAR DEFAULT 'left'",
+            "ALTER TABLE news_posts ADD COLUMN body_align VARCHAR DEFAULT 'left'",
+            "ALTER TABLE news_posts ADD COLUMN event_name VARCHAR",
+            "ALTER TABLE news_posts ADD COLUMN event_starts DATETIME",
+            "ALTER TABLE news_posts ADD COLUMN event_ends DATETIME",
+            "ALTER TABLE news_posts ADD COLUMN event_description VARCHAR",
+            "ALTER TABLE news_posts ADD COLUMN event_color VARCHAR",
+        ):
+            try:
+                conn.execute(text(statement))
+                conn.commit()
+            except Exception:
+                conn.rollback()
         try:
             conn.execute(text(
                 "CREATE TABLE IF NOT EXISTS news_seen ("

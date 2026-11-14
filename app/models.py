@@ -949,6 +949,13 @@ class News_post(Base):
     attachment = Column(String, nullable=True)
     edited = Column(Boolean, default=False)
     comments_open = Column(Boolean, default=True)
+    title_align = Column(String, default="left")
+    body_align = Column(String, default="left")
+    event_name = Column(String, nullable=True)
+    event_starts = Column(DateTime, nullable=True)
+    event_ends = Column(DateTime, nullable=True)
+    event_description = Column(String, nullable=True)
+    event_color = Column(String, nullable=True)
 
 
 class News_seen(Base):

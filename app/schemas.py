@@ -897,10 +897,22 @@ class List_thread_create(BaseModel):
     item_id: int
     content: str
 
+class News_event_in(BaseModel):
+    name: str
+    starts_at: str
+    ends_at: str
+    description: str = ""
+    color: str = "orange"
+
+
 class News_create(BaseModel):
     title: str
     body: str = ""
     comments_open: bool = True
+    title_align: str = "left"
+    body_align: str = "left"
+    attachments: list[Attachment_in] = []
+    event: News_event_in | None = None
 
 
 class News_broadcast(BaseModel):

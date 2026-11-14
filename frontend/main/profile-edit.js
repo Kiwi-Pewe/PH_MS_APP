@@ -4452,6 +4452,9 @@ function updateProfilePageModal() {
     const page = typeof profilePageById === "function" ? profilePageById(profileDraft, profilePageModalId) : null;
     const same = !!page && (page.visibility === "owner") === owner;
     sideOk = same || typeof profileSideOpen !== "function" || profileSideOpen(pages, owner);
+    if (page && page.visibility !== "owner" && owner && typeof profilePublicCount === "function" && profilePublicCount(pages) <= 1) {
+      sideOk = false;
+    }
   }
   els.confirm.disabled = !name || (profilePageModalMode === "create" && !selected) || !sideOk;
 }
@@ -4470,7 +4473,10 @@ function openProfilePageCreate() {
   if (els.layouts) els.layouts.hidden = false;
   document.querySelectorAll('input[name="page-layout"]').forEach(radio => { radio.checked = false; });
   if (els.name) els.name.value = "";
-  if (els.priv) els.priv.checked = false;
+  if (els.priv) {
+    els.priv.checked = false;
+    els.priv.disabled = false;
+  }
   if (els.confirm) els.confirm.textContent = "Create Page";
   updateProfilePageModal();
   els.overlay.style.display = "flex";
@@ -4487,7 +4493,12 @@ function openProfilePageModify(pageId) {
   if (els.title) els.title.textContent = "Options";
   if (els.layouts) els.layouts.hidden = true;
   if (els.name) els.name.value = page.title || "";
-  if (els.priv) els.priv.checked = page.visibility === "owner";
+  if (els.priv) {
+    els.priv.checked = page.visibility === "owner";
+    const pages = (profileDraft && profileDraft.pages) || [];
+    const lastPublic = page.visibility !== "owner" && typeof profilePublicCount === "function" && profilePublicCount(pages) <= 1;
+    els.priv.disabled = lastPublic;
+  }
   if (els.confirm) els.confirm.textContent = "Save";
   updateProfilePageModal();
   els.overlay.style.display = "flex";
@@ -4522,6 +4533,7 @@ function submitProfilePageModal() {
     if (!page || (typeof profilePageFixed === "function" && profilePageFixed(page))) return;
     const same = (page.visibility === "owner") === owner;
     if (!same && typeof profileSideOpen === "function" && !profileSideOpen(pages, owner)) return;
+    if (!same && owner && page.visibility !== "owner" && typeof profilePublicCount === "function" && profilePublicCount(pages) <= 1) return;
     page.title = title.slice(0, 32);
     if (!same) {
       page.visibility = owner ? "owner" : "public";
@@ -4537,14 +4549,77 @@ function submitProfilePageModal() {
   markProfileDirty();
 }
 
-function removeProfilePage(pageId) {
-  if (pageId === "profile" || (typeof isMiniProfilePageId === "function" && isMiniProfilePageId(pageId))) return;
+function openProfilePageDeleteConfirm(page) {
+  if (!page || (typeof profilePageFixed === "function" && profilePageFixed(page))) return;
   const pages = (profileDraft && profileDraft.pages) || [];
-  const next = pages.filter(page => page.id !== pageId);
+  if (typeof profileCanRemovePage === "function" && !profileCanRemovePage(page, pages)) return;
+  document.querySelectorAll(".profile-page-delete-overlay").forEach((node) => node.remove());
+  const overlay = document.createElement("div");
+  overlay.className = "mini-sub-overlay profile-page-delete-overlay";
+  const box = document.createElement("div");
+  box.className = "leave-party-modal mini-sub-modal";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
+  const header = document.createElement("div");
+  header.className = "leave-party-header";
+  const name = document.createElement("span");
+  name.className = "leave-party-title";
+  name.textContent = "Delete Page";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "icon-btn";
+  close.title = "Close";
+  close.textContent = "\u00d7";
+  header.appendChild(name);
+  header.appendChild(close);
+  const main = document.createElement("div");
+  main.className = "leave-party-main";
+  const body = document.createElement("p");
+  body.className = "leave-party-body";
+  const title = String(page.title || "this page").trim() || "this page";
+  body.textContent = "Delete \"" + title + "\"? This page and its widgets will be removed.";
+  main.appendChild(body);
+  const footer = document.createElement("div");
+  footer.className = "leave-party-footer";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "ghost-btn";
+  cancel.textContent = "Cancel";
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.className = "deny-btn";
+  confirm.textContent = "Delete Page";
+  footer.appendChild(cancel);
+  footer.appendChild(confirm);
+  box.appendChild(header);
+  box.appendChild(main);
+  box.appendChild(footer);
+  overlay.appendChild(box);
+  const drop = () => overlay.remove();
+  close.addEventListener("click", drop);
+  cancel.addEventListener("click", drop);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) drop();
+  });
+  confirm.addEventListener("click", () => {
+    drop();
+    removeProfilePage(page.id);
+  });
+  document.body.appendChild(overlay);
+}
+
+function removeProfilePage(pageId) {
+  if (typeof isMiniProfilePageId === "function" && isMiniProfilePageId(pageId)) return;
+  const pages = (profileDraft && profileDraft.pages) || [];
+  const page = pages.find((row) => row.id === pageId);
+  if (!page) return;
+  if (typeof profileCanRemovePage === "function" && !profileCanRemovePage(page, pages)) return;
+  const next = pages.filter((row) => row.id !== pageId);
   if (next.length === pages.length) return;
   profileDraft.pages = next;
   if (profileActivePageId === pageId) {
-    profileActivePageId = next[0] ? next[0].id : "profile";
+    const publics = next.filter((row) => row.visibility !== "owner");
+    profileActivePageId = (publics[0] || next[0] || {}).id || "profile";
   }
   markProfileDirty();
 }

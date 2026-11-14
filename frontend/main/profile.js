@@ -168,7 +168,17 @@ let profilePageDragId = "";
 let profilePageSuppressClick = false;
 
 function profilePageFixed(page) {
-  return !!page && (page.id === "profile" || isMiniProfilePageId(page.id));
+  return !!page && isMiniProfilePageId(page.id);
+}
+
+function profilePublicCount(pages) {
+  return (pages || []).filter((page) => page.visibility !== "owner").length;
+}
+
+function profileCanRemovePage(page, pages) {
+  if (!page || isMiniProfilePageId(page.id)) return false;
+  if (page.visibility === "owner") return true;
+  return profilePublicCount(pages) > 1;
 }
 
 function profileSideOpen(pages, owner) {
@@ -258,6 +268,7 @@ function placeProfilePage(movedId, targetId, after) {
   if (profilePageFixed(moved) && (moved.visibility === "owner") !== wantOwner) return;
   const sameSide = (moved.visibility === "owner") === wantOwner;
   if (!sameSide && !profileSideOpen(pages, wantOwner)) return;
+  if (!sameSide && wantOwner && moved.visibility !== "owner" && profilePublicCount(pages) <= 1) return;
   moved.visibility = wantOwner ? "owner" : "public";
   const publics = pages.filter(page => page.visibility !== "owner" && page.id !== moved.id);
   const privates = pages.filter(page => page.visibility === "owner" && page.id !== moved.id);
@@ -337,12 +348,18 @@ function renderProfilePages() {
       e.preventDefault();
       e.stopPropagation();
       if (typeof openContextMenu !== "function") return;
+      const canRemove = profileCanRemovePage(page, layout.pages || []);
       openContextMenu(e.clientX, e.clientY, {
         avatarText: (page.title || "?").slice(0, 1),
         title: page.title
       }, [
         { label: "Options", onSelect: () => { if (typeof openProfilePageModify === "function") openProfilePageModify(page.id); } },
-        { label: "Remove", danger: true, onSelect: () => { if (typeof removeProfilePage === "function") removeProfilePage(page.id); } }
+        {
+          label: "Remove",
+          danger: true,
+          disabled: !canRemove,
+          onSelect: () => { if (canRemove && typeof openProfilePageDeleteConfirm === "function") openProfilePageDeleteConfirm(page); }
+        }
       ]);
     });
     bindProfilePageDrag(row, page, host);

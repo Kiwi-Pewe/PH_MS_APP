@@ -161,10 +161,7 @@ LINK_PLATFORMS = (
 
 STARTER_PAGES = (
     ("profile", "Profile", "public"),
-    ("games", "Games", "public"),
-    ("gallery", "Gallery", "public"),
     ("mini_profile", "Mini Profile", "owner"),
-    ("help", "Help Page", "owner"),
 )
 MINI_PROFILE_PAGE_ID = "mini_profile"
 DEFAULT_PROFILE_BANNER = "#1e6b8a"
@@ -1877,6 +1874,24 @@ def ensure_mini_profile_page(pages):
     return out
 
 
+def ensure_public_page(pages):
+    out = list(pages or [])
+    for page in out:
+        if page.get("id") != MINI_PROFILE_PAGE_ID and page.get("visibility") != "owner":
+            return out
+    for page in out:
+        if page.get("id") != MINI_PROFILE_PAGE_ID:
+            page["visibility"] = "public"
+            return out
+    out.insert(0, {
+        "id": "profile",
+        "title": "Profile",
+        "visibility": "public",
+        "tiles": default_profile_tiles(DEFAULT_PROFILE_BANNER),
+    })
+    return out
+
+
 def normalize_layout(raw):
     data = raw if isinstance(raw, dict) else {}
     pages_in = data.get("pages")
@@ -1913,7 +1928,7 @@ def normalize_layout(raw):
             pages.append(page)
     if not pages:
         return seed_layout()
-    out = {"grid_cols": GRID_COLS, "pages": ensure_mini_profile_page(pages)}
+    out = {"grid_cols": GRID_COLS, "pages": ensure_public_page(ensure_mini_profile_page(pages))}
     raw_mini = data.get("mini_profile") if isinstance(data.get("mini_profile"), dict) else {}
     if not str(raw_mini.get("text") or "").strip():
         for page in pages_in:
@@ -1970,7 +1985,7 @@ def ensure_layout(user, database: Session):
         database.commit()
         return layout
     had_mini = any(page.get("id") == MINI_PROFILE_PAGE_ID for page in (layout.get("pages") or []))
-    layout["pages"] = ensure_mini_profile_page(layout.get("pages"))
+    layout["pages"] = ensure_public_page(ensure_mini_profile_page(layout.get("pages")))
     if layout_col_count(raw) != GRID_COLS or not had_mini:
         user.profile_layout = json.dumps(layout)
         database.commit()
@@ -1989,7 +2004,7 @@ def public_pages(layout):
 def identity_only_layout(layout):
     source = None
     for page in layout.get("pages") or []:
-        if page.get("id") == "profile":
+        if page.get("visibility") != "owner":
             source = page
             break
     if not source and layout.get("pages"):

@@ -878,6 +878,11 @@
   color: var(--text-dim);
   cursor: pointer;
 }
+#dm-rows .dm-item {
+  height: 52px;
+  min-height: 52px;
+  gap: 12px;
+}
 .dm-item:hover, .dm-item.active { background: var(--panel-alt); color: var(--text); }
 .dm-item .avatar-dot {
   position: relative;
@@ -890,6 +895,11 @@
   font-size: 13px;
   line-height: 1;
   overflow: visible;
+}
+#dm-rows .dm-item .avatar-dot {
+  width: 40px;
+  height: 40px;
+  font-size: 15px;
 }
 .dm-item .status-dot {
   position: absolute;
@@ -2062,6 +2072,7 @@ html.ui-density-compact .nav-item { padding: 4px 10px; }
 html.ui-density-compact #secondary-nav { padding: 8px 8px 6px; }
 html.ui-density-compact #secondary-body { padding: 8px 8px; }
 html.ui-density-compact .dm-item { height: 36px; min-height: 36px; padding: 0 6px; gap: 8px; }
+html.ui-density-compact #dm-rows .dm-item { height: 44px; min-height: 44px; padding: 0 8px; gap: 10px; }
 html.ui-density-compact #server-sidebar-header { padding: 8px 10px; }
 html.ui-density-compact #server-sidebar-body { padding: 6px 4px; }
 html.ui-density-compact .category-block { margin-bottom: 8px; }
@@ -2078,6 +2089,9 @@ html.ui-density-compact .member-row .avatar-dot,
 html.ui-density-compact .friend-row .avatar-dot {
   width: 24px; height: 24px; flex: none; font-size: 11px;
 }
+html.ui-density-compact #dm-rows .dm-item .avatar-dot {
+  width: 32px; height: 32px; font-size: 13px;
+}
 
 html.ui-density-spacious #server-rail { padding: 16px 0; gap: 16px; }
 html.ui-density-spacious #server-list { gap: 22px; }
@@ -2085,6 +2099,7 @@ html.ui-density-spacious .nav-item { padding: 12px 10px; }
 html.ui-density-spacious #secondary-nav { padding: 16px 10px 12px; }
 html.ui-density-spacious #secondary-body { padding: 16px 12px; }
 html.ui-density-spacious .dm-item { height: 52px; min-height: 52px; padding: 0 8px; gap: 12px; }
+html.ui-density-spacious #dm-rows .dm-item { height: 60px; min-height: 60px; gap: 12px; }
 html.ui-density-spacious #server-sidebar-header { padding: 16px 14px; }
 html.ui-density-spacious #server-sidebar-body { padding: 14px 10px; }
 html.ui-density-spacious .category-block { margin-bottom: 20px; }
@@ -2100,6 +2115,9 @@ html.ui-density-spacious .dm-item .avatar-dot,
 html.ui-density-spacious .member-row .avatar-dot,
 html.ui-density-spacious .friend-row .avatar-dot {
   width: 40px; height: 40px; flex: none; font-size: 15px;
+}
+html.ui-density-spacious #dm-rows .dm-item .avatar-dot {
+  width: 48px; height: 48px; font-size: 17px;
 }
 
 html.chat-compact .cluster-avatar { display: none; }

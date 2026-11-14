@@ -116,6 +116,14 @@ function applyProfilePayload(data) {
   }
 }
 
+function profilePublicLandingId() {
+  const pages = (profileDraft && profileDraft.pages) || [];
+  const publicPage = pages.find((page) => page && page.visibility !== "owner" && page.id !== MINI_PROFILE_PAGE_ID);
+  if (publicPage) return publicPage.id;
+  const named = pages.find((page) => page && page.id === "profile");
+  return (named && named.id) || (pages[0] && pages[0].id) || "profile";
+}
+
 async function loadOwnProfile() {
   const response = await profileApi("/profile_layout");
   if (!response.ok) throw new Error("Could not load profile.");
@@ -417,6 +425,7 @@ async function openUserProfile(userId, preload) {
   profileEditing = false;
   if (cached) {
     applyProfilePayload(cached);
+    if (isMiniProfilePageId(profileActivePageId)) profileActivePageId = profilePublicLandingId();
     paintProfileChrome();
     if (typeof syncAppAddress === "function") syncAppAddress();
   }
@@ -433,6 +442,7 @@ async function openUserProfile(userId, preload) {
     return;
   }
   if (!placeIsCurrent(token)) return;
+  if (isMiniProfilePageId(profileActivePageId)) profileActivePageId = profilePublicLandingId();
   paintProfileChrome();
   if (typeof syncAppAddress === "function") syncAppAddress();
 }
@@ -661,4 +671,13 @@ bindBlockedUsersSubmenu();
 document.getElementById("profile-edit-btn").addEventListener("click", enterProfileEdit);
 document.getElementById("profile-cancel-btn").addEventListener("click", () => exitProfileEdit(true));
 document.getElementById("profile-save-btn").addEventListener("click", () => saveProfileLayout());
-document.getElementById("footer-profile-btn").addEventListener("click", () => openOwnProfile());
+document.getElementById("footer-profile-btn").addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!myUserId || typeof openMiniProfile !== "function") return;
+  if (typeof miniProfileOpen !== "undefined" && miniProfileOpen && Number(miniProfileUserId) === Number(myUserId)) {
+    closeMiniProfile();
+    return;
+  }
+  openMiniProfile(myUserId, e.currentTarget);
+});

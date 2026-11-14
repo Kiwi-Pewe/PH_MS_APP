@@ -54,8 +54,6 @@ function mountProfileComments(host, tile) {
   const titleText = profileCommentsTitle(props);
   const root = document.createElement("div");
   root.className = "oneira-wall";
-  const topPager = document.createElement("div");
-  topPager.className = "oneira-wall-pager";
   if (showTitle && (titleText || (typeof profileEditing !== "undefined" && profileEditing && typeof profileIsOwn !== "undefined" && profileIsOwn))) {
     const align = props.title_align === "center" || props.title_align === "right" ? props.title_align : "left";
     host.classList.add("has-title-band");
@@ -67,7 +65,6 @@ function mountProfileComments(host, tile) {
     title.textContent = titleText || "Title";
     if (!titleText) title.classList.add("is-empty");
     head.appendChild(title);
-    head.appendChild(topPager);
     host.appendChild(head);
   } else {
     delete host.dataset.titleAlign;
@@ -86,8 +83,6 @@ function mountProfileComments(host, tile) {
   const empty = document.createElement("div");
   empty.className = "oneira-wall-empty";
   empty.textContent = "No comments yet.";
-  const botRule = document.createElement("div");
-  botRule.className = "oneira-wall-rule";
   const foot = document.createElement("div");
   foot.className = "oneira-wall-foot";
   const notifyLabel = document.createElement("label");
@@ -105,9 +100,8 @@ function mountProfileComments(host, tile) {
   root.appendChild(compose);
   root.appendChild(list);
   root.appendChild(empty);
-  root.appendChild(botRule);
-  root.appendChild(foot);
   host.appendChild(root);
+  host.appendChild(foot);
 
   let page = 1;
   let pages = 1;
@@ -294,8 +288,8 @@ function mountProfileComments(host, tile) {
     compose.hidden = !(canPost || ownerComposer);
     notifyLabel.hidden = isOwner;
     notifyBox.checked = watching;
-    paintPager(topPager);
     paintPager(botPager);
+    foot.hidden = !!(notifyLabel.hidden && botPager.hidden);
     list.innerHTML = "";
     if (loading && !rows.length) {
       empty.hidden = false;

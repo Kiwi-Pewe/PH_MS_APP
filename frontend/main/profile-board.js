@@ -3813,6 +3813,7 @@ function paintYoutubeMemberships(tile, el) {
     flow.appendChild(row);
   });
   body.appendChild(flow);
+  el.appendChild(body);
   if (layout.pages > 1) {
     const foot = document.createElement("div");
     foot.className = "youtube-uploads-foot";
@@ -3841,9 +3842,8 @@ function paintYoutubeMemberships(tile, el) {
     foot.appendChild(prev);
     foot.appendChild(count);
     foot.appendChild(next);
-    body.appendChild(foot);
+    el.appendChild(foot);
   }
-  el.appendChild(body);
 }
 
 function youtubeCommentUrl(videoId, commentId) {

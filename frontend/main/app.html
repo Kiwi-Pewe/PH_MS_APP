@@ -2028,8 +2028,8 @@
        Cancel-button treatment as the category modal. The type picker is
        four accordion groups (only one open at a time — see the JS
        toggle logic) rather than one flat list, since we have more than
-       double Discord's three built-in types. Deferred types
-       (Events/Calendar, Tournaments, Watch Party) appear greyed out
+       double Discord's three built-in types.        Deferred types
+       (Events/Calendar, Groups, Watch Party) appear greyed out
        with a disabled radio and a "(Coming Soon)" tag rather than being
        hidden entirely — see this session's design discussion. Group
        names ("Organization", "Planning & Events") are acknowledged
@@ -2098,9 +2098,9 @@
                 <span class="channel-type-desc">Talk together, with camera/screen share</span>
               </label>
               <label class="channel-type-option disabled">
-                <input type="radio" name="channel-type" value="tournaments" disabled>
-                <span class="channel-type-name">&#127942; Tournaments <em>(Coming Soon)</em></span>
-                <span class="channel-type-desc">Bracket-based tournaments tied to a voice channel</span>
+                <input type="radio" name="channel-type" value="groups" disabled>
+                <span class="channel-type-name">&#128101; Groups <em>(Coming Soon)</em></span>
+                <span class="channel-type-desc">A single channel for a lot of voice chats only.</span>
               </label>
             </div>
           </div>
@@ -3246,7 +3246,7 @@
 <script src="embeds.js?v=48"></script>
 <script src="mentions.js?v=24"></script>
 <script src="explicit-channel.js?v=3"></script>
-<script src="servers.js?v=144"></script>
+<script src="servers.js?v=145"></script>
 <script src="voice.js?v=25"></script>
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=5"></script>

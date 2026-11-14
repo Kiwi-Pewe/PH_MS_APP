@@ -13,6 +13,7 @@ function channelTypeIcon(channelType) {
   if (kind === "events") return "\u{1F4C5}";
   if (kind === "scheduling") return "\u{1F552}";
   if (kind === "docs") return "\u{1F4D5}";
+  if (kind === "groups") return "\u{1F465}";
   if (kind === "tournaments") return "\u{1F3C6}";
   if (kind === "watchparty") return "\u{1F3A6}";
   return "#";
@@ -29,6 +30,7 @@ function channelTypeSidebarLabel(channelType) {
   if (kind === "events") return "Events Channel";
   if (kind === "scheduling") return "Scheduling Channel";
   if (kind === "docs") return "Docs Channel";
+  if (kind === "groups") return "Groups Channel";
   if (kind === "tournaments") return "Tournaments Channel";
   if (kind === "watchparty") return "Watch Party Channel";
   return "Text Channel";

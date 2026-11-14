@@ -443,8 +443,9 @@
 .category-add-btn:hover { color: var(--text); background: var(--panel-alt); }
 
 .category-channels { display: flex; flex-direction: column; gap: 3px; padding-top: 4px; }
-.channel-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; font-size: 16px; line-height: 1.25; }
+.channel-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px; color: var(--text-dim); cursor: pointer; font-size: 16px; line-height: 1.25; min-height: 36px; box-sizing: border-box; }
 .channel-row:hover, .channel-row.active { background: var(--panel-alt); color: var(--text); }
+.channel-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .channel-row.has-unread .channel-label { color: var(--text); font-weight: 600; }
 .channel-mention-badge {
   margin-left: auto; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
@@ -468,12 +469,15 @@
   color: var(--text-dim);
   font-size: 16px;
   line-height: 1;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   cursor: pointer;
   margin-left: 4px;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 .channel-row > .channel-settings-btn:first-of-type,
 .channel-row .channel-label + .channel-settings-btn { margin-left: auto; }
@@ -481,7 +485,9 @@
 .channel-row:hover .channel-settings-btn,
 .channel-row.active .channel-settings-btn,
 .category-header:hover .channel-settings-btn {
-  display: flex;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 .channel-settings-btn:hover { color: var(--text); background: var(--panel); }
 .category-header .channel-settings-btn { margin-left: 0; }

@@ -5,17 +5,30 @@
 // ==================================================================
 
 const ONLINE_TOAST_PREF_KEY = "oneira_notify_friends_online";
+const MAIL_TOAST_PREF_KEY = "oneira_notify_mail";
 const ONLINE_TOAST_MS = 3000;
 const friendOnlineById = {};
 
-function friendsOnlineToastsEnabled() {
-  const raw = localStorage.getItem(ONLINE_TOAST_PREF_KEY);
+function toastPrefEnabled(key) {
+  const raw = localStorage.getItem(key);
   if (raw === null) return true;
   return raw !== "0" && raw !== "false";
 }
 
+function friendsOnlineToastsEnabled() {
+  return toastPrefEnabled(ONLINE_TOAST_PREF_KEY);
+}
+
 function setFriendsOnlineToastsEnabled(on) {
   localStorage.setItem(ONLINE_TOAST_PREF_KEY, on ? "1" : "0");
+}
+
+function mailToastsEnabled() {
+  return toastPrefEnabled(MAIL_TOAST_PREF_KEY);
+}
+
+function setMailToastsEnabled(on) {
+  localStorage.setItem(MAIL_TOAST_PREF_KEY, on ? "1" : "0");
 }
 
 function rememberFriendsForOnlineToasts(onlineList, offlineList) {
@@ -62,15 +75,16 @@ function onlineToastStack() {
   return stack;
 }
 
-function showFriendOnlineToast(friend) {
-  if (!friend) return;
-  const name = friend.display_name || friend.username || "Friend";
+function showAppToast(opts) {
+  if (!opts) return;
+  const name = opts.title || "";
   const toast = document.createElement("div");
   toast.className = "online-toast";
   const face = document.createElement("div");
   face.className = "online-toast-avatar avatar-dot";
-  if (typeof paintUserFace === "function") {
-    paintUserFace(face, friend, { name: name, userId: friend.id });
+  const user = opts.user;
+  if (user && typeof paintUserFace === "function") {
+    paintUserFace(face, user, { name: name, userId: user.id });
   } else {
     face.textContent = typeof avatarLetter === "function" ? avatarLetter(name) : (name[0] || "?").toUpperCase();
   }
@@ -81,7 +95,7 @@ function showFriendOnlineToast(friend) {
   title.textContent = name;
   const line = document.createElement("div");
   line.className = "online-toast-line";
-  line.textContent = "is now online";
+  line.textContent = opts.line || "";
   copy.appendChild(title);
   copy.appendChild(line);
   toast.appendChild(face);
@@ -93,6 +107,32 @@ function showFriendOnlineToast(friend) {
     toast.classList.add("is-out");
     window.setTimeout(() => toast.remove(), 280);
   }, ONLINE_TOAST_MS);
+}
+
+function showFriendOnlineToast(friend) {
+  if (!friend) return;
+  const name = friend.display_name || friend.username || "Friend";
+  showAppToast({
+    user: friend,
+    title: name,
+    line: "is now online"
+  });
+}
+
+function showMailToast(alert) {
+  if (!alert || !mailToastsEnabled()) return;
+  const name = typeof feedSenderLabel === "function" ? feedSenderLabel(alert) : "Mail";
+  const line = typeof feedAlertBody === "function" ? feedAlertBody(alert) : "New notification";
+  showAppToast({
+    user: alert.sender_id ? {
+      id: alert.sender_id,
+      avatar: alert.sender_avatar,
+      username: alert.sender_username,
+      display_name: alert.sender_display_name
+    } : null,
+    title: name,
+    line: line
+  });
 }
 
 function noteFriendPresenceForToast(data) {

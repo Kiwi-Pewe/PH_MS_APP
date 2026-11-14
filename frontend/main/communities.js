@@ -540,7 +540,7 @@ function deleteCommunityPost(post) {
   if (typeof removeCommunityPost === "function") removeCommunityPost(post);
 }
 
-function openCommunityPostMenu(e, post) {
+async function openCommunityPostMenu(e, post) {
   e.preventDefault();
   e.stopPropagation();
   if (typeof openContextMenu !== "function") return;
@@ -553,8 +553,9 @@ function openCommunityPostMenu(e, post) {
       danger: true,
       onSelect: () => deleteCommunityPost(post)
     });
-  } else {
-    rows.push({ label: "Follow", disabled: true });
+  } else if (typeof communityFollowMenuOption === "function") {
+    const follow = await communityFollowMenuOption(post && post.author_id);
+    if (follow) rows.push(follow);
   }
   rows.push({
     label: "Copy Post Link",

@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=539">
+<link rel="stylesheet" href="app.css?v=540">
 <link rel="stylesheet" href="news.css?v=6">
 </head>
 <body>
@@ -42,7 +42,7 @@
       <button class="tab" data-tab="profile">Profile</button>
       <button class="tab" data-tab="settings">Settings</button>
       <button class="tab" data-tab="communities" type="button" id="communities-tab">Communities<span class="mail-badge" id="community-phone-tab-badge" hidden></span></button>
-      <button class="tab is-later" type="button" disabled>Games</button>
+      <button class="tab is-later" type="button" disabled hidden>Games</button>
       <button class="tab" data-tab="news" type="button" id="news-tab">News<span class="mail-badge" id="news-tab-badge" hidden></span></button>
     </div>
     <div id="news-broadcast"></div>
@@ -1578,7 +1578,7 @@
       <div id="server-settings-integrations" class="server-settings-page server-integrations-page" hidden>
         <h2 class="server-settings-page-title">Integrations</h2>
 
-        <section class="server-integrations-section" aria-labelledby="server-integrations-bots-title">
+        <section class="server-integrations-section" aria-labelledby="server-integrations-bots-title" hidden>
           <div class="server-integrations-section-head">
             <h3 id="server-integrations-bots-title" class="server-integrations-section-title">Bots and Apps</h3>
           </div>
@@ -1595,7 +1595,7 @@
           <p id="server-integrations-webhooks-empty" class="server-settings-help">No webhooks.</p>
         </section>
 
-        <section class="server-integrations-section" aria-labelledby="server-integrations-twitch-title">
+        <section class="server-integrations-section" aria-labelledby="server-integrations-twitch-title" hidden>
           <div class="server-integrations-section-head">
             <h3 id="server-integrations-twitch-title" class="server-integrations-section-title">Twitch</h3>
             <button type="button" id="server-integrations-twitch-enable" class="ghost-btn" disabled>Enable</button>
@@ -1604,7 +1604,7 @@
           <p id="server-integrations-twitch-empty" class="server-settings-help">No Twitch channel linked.</p>
         </section>
 
-        <section class="server-integrations-section" aria-labelledby="server-integrations-youtube-title">
+        <section class="server-integrations-section" aria-labelledby="server-integrations-youtube-title" hidden>
           <div class="server-integrations-section-head">
             <h3 id="server-integrations-youtube-title" class="server-integrations-section-title">YouTube</h3>
             <button type="button" id="server-integrations-youtube-enable" class="ghost-btn" disabled>Enable</button>
@@ -2984,7 +2984,7 @@
     <div id="notify-sound-modal" class="leave-party-modal notify-sound-modal" role="dialog" aria-modal="true" aria-labelledby="notify-sound-title">
       <div class="leave-party-header notify-sound-header">
         <span id="notify-sound-title" class="leave-party-title">Notification sounds</span>
-        <p class="notify-sound-lead">You can preview, change, add and remove sounds for your notifications here.</p>
+        <p class="notify-sound-lead">You can preview and change sounds for your notifications here.</p>
         <div class="notify-sound-tabs" role="tablist">
           <button type="button" class="notify-sound-tab is-on" data-sound-tab="pings">Pings &amp; Messages</button>
           <button type="button" class="notify-sound-tab" data-sound-tab="calls">Incoming Calls</button>
@@ -3110,10 +3110,10 @@
 </div>
 <script src="state.js?v=73"></script>
 <script src="appearance.js?v=16"></script>
-<script src="accessibility.js?v=12"></script>
-<script src="gifs.js?v=6"></script>
-<script src="language-time.js?v=1"></script>
-<script src="util.js?v=53"></script>
+<script src="accessibility.js?v=13"></script>
+<script src="gifs.js?v=7"></script>
+<script src="language-time.js?v=3"></script>
+<script src="util.js?v=54"></script>
 <script src="media.js?v=64"></script>
 <script src="post-media.js?v=61"></script>
     <div id="voice-share-overlay" hidden>
@@ -3161,40 +3161,40 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=161"></script>
+<script src="boot.js?v=162"></script>
 <script src="app-shell.js?v=79"></script>
-<script src="communities.js?v=52"></script>
+<script src="communities.js?v=53"></script>
 <script src="news.js?v=6"></script>
-<script src="community-posts.js?v=5"></script>
+<script src="community-posts.js?v=6"></script>
 <script src="community-rooms.js?v=9"></script>
 <script src="community-search.js?v=3"></script>
 <script src="community-feed.js?v=2"></script>
-<script src="community-settings.js?v=10"></script>
+<script src="community-settings.js?v=11"></script>
 <script src="community-room-settings.js?v=6"></script>
 <script src="community-phone.js?v=5"></script>
 <script src="community-phone-settings.js?v=5"></script>
 <script src="community-finder-settings.js?v=4"></script>
-<script src="feed.js?v=25"></script>
-<script src="settings.js?v=31"></script>
+<script src="feed.js?v=26"></script>
+<script src="settings.js?v=38"></script>
 <script src="server-settings.js?v=56"></script>
 <script src="server-listing.js?v=3"></script>
-<script src="server-roles.js?v=42"></script>
+<script src="server-roles.js?v=43"></script>
 <script src="server-moderation.js?v=7"></script>
 <script src="server-members.js?v=12"></script>
-<script src="settings-account.js?v=10"></script>
-<script src="settings-privacy.js?v=11"></script>
+<script src="settings-account.js?v=11"></script>
+<script src="settings-privacy.js?v=12"></script>
 <script src="feed-settings.js?v=5"></script>
 <script src="settings-messaging.js?v=8"></script>
-<script src="settings-notifications.js?v=13"></script>
-<script src="settings-appearance.js?v=12"></script>
+<script src="settings-notifications.js?v=14"></script>
+<script src="settings-appearance.js?v=13"></script>
 <script src="settings-voice.js?v=6"></script>
 <script src="settings-system.js?v=3"></script>
-<script src="settings-language.js?v=2"></script>
+<script src="settings-language.js?v=4"></script>
 <script src="settings-games.js?v=2"></script>
 <script src="settings-activity.js?v=3"></script>
 <script src="settings-overlay.js?v=3"></script>
 <script src="settings-apps.js?v=8"></script>
-<script src="settings-accessibility.js?v=7"></script>
+<script src="settings-accessibility.js?v=8"></script>
 <script src="../shared/media-player.js?v=6"></script>
 <script src="../shared/music-player.js?v=2"></script>
 <script src="../shared/embed-frame.js?v=1"></script>
@@ -3209,27 +3209,27 @@
 <script src="profile-edit.js?v=133"></script>
 <script src="server-custom-sections.js?v=14"></script>
 <script src="server-custom-settings.js?v=8"></script>
-<script src="context-menus.js?v=111"></script>
+<script src="context-menus.js?v=112"></script>
 <script src="conversations.js?v=77"></script>
 <script src="chat-render.js?v=76"></script>
 <script src="chat-history.js?v=52"></script>
 <script src="chat-compose.js?v=67"></script>
 <script src="typing.js?v=4"></script>
 <script src="emoji-data.js?v=1"></script>
-<script src="emoji-picker.js?v=58"></script>
-<script src="online-toast.js?v=1"></script>
+<script src="emoji-picker.js?v=59"></script>
+<script src="online-toast.js?v=2"></script>
 <script src="friends.js?v=50"></script>
 <script src="parties.js?v=47"></script>
 <script src="invites.js?v=51"></script>
 <script src="server-invites.js?v=7"></script>
 <script src="server-bans.js?v=3"></script>
 <script src="server-privacy.js?v=9"></script>
-<script src="server-emojis.js?v=3"></script>
+<script src="server-emojis.js?v=4"></script>
 <script src="server-integrations.js?v=2"></script>
 <script src="server-audit.js?v=12"></script>
 <script src="server-delete.js?v=2"></script>
 <script src="account-delete.js?v=1"></script>
-<script src="server-notify.js?v=6"></script>
+<script src="server-notify.js?v=7"></script>
 <script src="markdown.js?v=8"></script>
 <script src="embeds.js?v=48"></script>
 <script src="mentions.js?v=24"></script>
@@ -3239,7 +3239,7 @@
 <script src="voice-stream.js?v=8"></script>
 <script src="call.js?v=5"></script>
 <script src="server-dnd.js?v=4"></script>
-<script src="channel-settings.js?v=31"></script>
+<script src="channel-settings.js?v=32"></script>
 <script src="pins.js?v=4"></script>
 <script src="search.js?v=10"></script>
 <script src="members.js?v=30"></script>
@@ -3250,9 +3250,9 @@
 <script src="comments.js?v=57"></script>
 <script src="forums.js?v=71"></script>
 <script src="lists.js?v=6"></script>
-<script src="calendar.js?v=8"></script>
-<script src="calendar-event.js?v=8"></script>
-<script src="overview.js?v=7"></script>
+<script src="calendar.js?v=9"></script>
+<script src="calendar-event.js?v=9"></script>
+<script src="overview.js?v=8"></script>
 <script src="server-section-members.js?v=3"></script>
 <script src="server-section-applications.js?v=7"></script>
 <script src="schedule.js?v=10"></script>

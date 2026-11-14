@@ -104,7 +104,7 @@ function calendarShortTime(date) {
 }
 
 function calendarLongWhen(date) {
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(typeof languageTimeLocale === "function" ? languageTimeLocale() : "en-US", {
     timeZone: calendarActiveZone(),
     weekday: "short",
     month: "short",
@@ -256,7 +256,7 @@ function renderCalendar() {
   if (monthPill) monthPill.classList.toggle("is-on", calendarView === "month");
   if (upcomingPill) upcomingPill.classList.toggle("is-on", calendarView === "upcoming");
   if (label) {
-    label.textContent = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date(calendarYear, calendarMonth, 1));
+    label.textContent = new Intl.DateTimeFormat(typeof languageTimeLocale === "function" ? languageTimeLocale() : "en-US", { month: "long", year: "numeric" }).format(new Date(calendarYear, calendarMonth, 1));
   }
   const addBtn = document.getElementById("calendar-add");
   if (addBtn) addBtn.hidden = !canCreateEvents();
@@ -769,7 +769,7 @@ function calendarClock(date, zone) {
 }
 
 function calendarWeekday(date, zone) {
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(typeof languageTimeLocale === "function" ? languageTimeLocale() : "en-US", {
     timeZone: zone || "UTC",
     weekday: "long",
     month: "short",

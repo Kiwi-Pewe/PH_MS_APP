@@ -494,7 +494,7 @@ function paintEventMeta(event) {
   const whenText = document.createElement("div");
   if (start) {
     const day = document.createElement("div");
-    day.textContent = new Intl.DateTimeFormat("en-US", {
+    day.textContent = new Intl.DateTimeFormat(typeof languageTimeLocale === "function" ? languageTimeLocale() : "en-US", {
       timeZone: local, weekday: "long", month: "short", day: "numeric",
     }).format(start);
     const clock = document.createElement("div");

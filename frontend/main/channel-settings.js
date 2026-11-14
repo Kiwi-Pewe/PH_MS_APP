@@ -33,7 +33,6 @@ const CHANNEL_SETTINGS_GENERAL_IDS = [
   "manage_channels",
   "manage_webhooks",
   "mention_everyone",
-  "moderate_channels",
   "bypass_slowmode",
 ];
 

@@ -5,9 +5,11 @@ const COMMUNITY_SETTINGS_SECTIONS = {
 };
 
 let communitySettingsSection = "general";
-let communityPostPrefs = { words: [], topics: [], comment_sort: "oldest", search_blacklist: false, blacklist_hide: false };
+let communityPostPrefs = { words: [], topics: [], favorite_topics: [], comment_sort: "oldest", search_blacklist: false, blacklist_hide: false };
 let communityPostPrefsLoaded = false;
 let communityPostPrefsStatus = "";
+let communityFollowIds = {};
+let communityFollowsLoaded = false;
 
 function communityCommentSort() {
   return communityPostPrefs.comment_sort === "newest" ? "newest" : "oldest";
@@ -18,6 +20,7 @@ function applyCommunityPostPrefs(data) {
   communityPostPrefs = {
     words: Array.isArray(data.words) ? data.words : [],
     topics: Array.isArray(data.topics) ? data.topics : [],
+    favorite_topics: Array.isArray(data.favorite_topics) ? data.favorite_topics : [],
     comment_sort: data.comment_sort === "newest" ? "newest" : "oldest",
     search_blacklist: !!data.search_blacklist,
     blacklist_hide: !!data.blacklist_hide
@@ -43,8 +46,63 @@ async function loadCommunityPostPrefs() {
   } catch (e) {
     return;
   }
+  if (typeof loadCommunityFollows === "function") loadCommunityFollows();
   paintOpenCommunitySettings();
   if (communityOpenPost && typeof paintCommunityPostThread === "function") paintCommunityPostThread();
+}
+
+function applyCommunityFollows(data) {
+  communityFollowIds = {};
+  (data && data.ids ? data.ids : []).forEach((id) => {
+    communityFollowIds[String(id)] = true;
+  });
+  communityFollowsLoaded = true;
+}
+
+function communityFollowsUser(userId) {
+  return !!communityFollowIds[String(userId)];
+}
+
+async function loadCommunityFollows() {
+  try {
+    const response = await fetch(`https://${serverAddress}/community_follow`, { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return;
+    applyCommunityFollows(data);
+  } catch (e) {
+    return;
+  }
+}
+
+async function setCommunityFollow(userId, on) {
+  const id = Number(userId);
+  if (!id || (typeof myUserId !== "undefined" && Number(id) === Number(myUserId))) return;
+  try {
+    const response = await fetch(`https://${serverAddress}/community_follow`, {
+      method: on ? "POST" : "DELETE",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: id })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return;
+    applyCommunityFollows(data);
+  } catch (e) {
+    return;
+  }
+  if (typeof communityRow !== "undefined" && communityRow === "following" && typeof loadCommunityPosts === "function") {
+    loadCommunityPosts("following", false);
+  }
+}
+
+async function communityFollowMenuOption(userId) {
+  if (!userId || (typeof myUserId !== "undefined" && Number(userId) === Number(myUserId))) return null;
+  if (!communityFollowsLoaded) await loadCommunityFollows();
+  const on = communityFollowsUser(userId);
+  return {
+    label: on ? "Unfollow" : "Follow",
+    onSelect: () => setCommunityFollow(userId, !on)
+  };
 }
 
 function refreshCommunityPostsAfterPrefs() {
@@ -289,7 +347,9 @@ function paintCommunityFavoriteTopics() {
   heading.textContent = "Topics";
   const body = document.createElement("div");
   body.className = "settings-opt-desc";
-  body.textContent = "enter up to 5 topics that you find interesting, and they will appear within your timeline.";
+  body.textContent = "Enter up to 5 topics that you find interesting, and they will appear within your timeline.";
+  const rows = communityPostPrefs.favorite_topics || [];
+  const full = rows.length >= 5;
   const add = document.createElement("div");
   add.className = "community-filter-add-row";
   const input = document.createElement("input");
@@ -298,26 +358,50 @@ function paintCommunityFavoriteTopics() {
   input.maxLength = 40;
   input.autocomplete = "off";
   input.spellcheck = false;
-  input.placeholder = "Add a topic";
-  input.disabled = true;
+  input.placeholder = full ? "Five topics already saved" : "Add a topic";
+  input.disabled = full;
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "pill-btn";
   btn.textContent = "Add";
-  btn.disabled = true;
+  btn.disabled = full;
+  const submit = () => {
+    const label = String(input.value || "").trim();
+    if (!label || full) return;
+    saveCommunityPostPrefs("POST", "/favorite_topics", { label });
+  };
+  btn.addEventListener("click", submit);
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    submit();
+  });
   add.appendChild(input);
   add.appendChild(btn);
   const pills = document.createElement("div");
   pills.className = "community-filter-pills";
-  const empty = document.createElement("div");
-  empty.className = "settings-opt-desc";
-  empty.textContent = "No favorite topics.";
-  pills.appendChild(empty);
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "settings-opt-desc";
+    empty.textContent = "No favorite topics.";
+    pills.appendChild(empty);
+  }
+  rows.forEach((label) => {
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "community-tag is-on community-filter-pill";
+    pill.title = "Remove";
+    pill.textContent = label + " ×";
+    pill.addEventListener("click", () => saveCommunityPostPrefs("DELETE", "/favorite_topics", { label }));
+    pills.appendChild(pill);
+  });
   text.appendChild(heading);
   text.appendChild(body);
   text.appendChild(add);
   text.appendChild(pills);
   wrap.appendChild(text);
+  const status = communitySettingsStatus(communityPostPrefsStatus);
+  if (status) wrap.appendChild(status);
   section.appendChild(wrap);
   page.appendChild(section);
 }

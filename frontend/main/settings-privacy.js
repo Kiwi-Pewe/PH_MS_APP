@@ -143,12 +143,6 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   blurb.className = "settings-blurb";
   blurb.textContent = "Oneira chooses not to collect any extra data. We do not gather analytics, personalize from your activity, or sell information. The only information we keep is what is needed to create and maintain your account, servers, chats, and messages.";
   intro.appendChild(blurb);
-  intro.appendChild(settingsOpt(
-    "Allow my voice to be recorded in Clips",
-    "Allows your voice to be included when someone in the same voice channel uses Clips.",
-    settingsToggle(false, true),
-    settingsLaterNote("Clips")
-  ));
   const relatedHow = document.createElement("div");
   relatedHow.className = "settings-related-wrap";
   const relatedHowLabel = document.createElement("div");
@@ -230,21 +224,6 @@ async function renderDataPrivacySettings(pane, jumpChildId) {
   ));
   profile.appendChild(relatedProfile);
   block.appendChild(profile);
-
-  const voice = document.createElement("div");
-  voice.className = "settings-subblock";
-  voice.id = settingsTargetId("voice-e2ee");
-  const voiceTitle = document.createElement("h3");
-  voiceTitle.className = "settings-subblock-title";
-  voiceTitle.textContent = "Voice End-to-end Encryption";
-  voice.appendChild(voiceTitle);
-  voice.appendChild(settingsOpt(
-    "Enable persistent verification codes",
-    "Gives your current device persistent verification codes. If this setting is on, your friends only have to verify your device once, instead of every time you enter a voice call.",
-    settingsToggle(false, true),
-    settingsLaterNote("Voice")
-  ));
-  block.appendChild(voice);
 
   const account = document.createElement("div");
   account.className = "settings-subblock";

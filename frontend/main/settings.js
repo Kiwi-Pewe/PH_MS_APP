@@ -20,7 +20,6 @@ const SETTINGS_GENERAL_CATALOG = [
         label: "Data & Privacy",
         children: [
           { id: "profile-privacy", label: "Profile Privacy" },
-          { id: "voice-e2ee", label: "Voice end-to-end encryption" },
           { id: "account-actions", label: "Account" }
         ]
       },
@@ -37,9 +36,7 @@ const SETTINGS_GENERAL_CATALOG = [
         label: "Notifications",
         children: [
           { id: "notifications-overview", label: "Overview" },
-          { id: "notifications-sounds", label: "Sounds" },
-          { id: "notifications-badges", label: "Badges" },
-          { id: "notifications-advanced", label: "Advanced" }
+          { id: "notifications-sounds", label: "Sounds" }
         ]
       }
     ]
@@ -54,8 +51,7 @@ const SETTINGS_GENERAL_CATALOG = [
           { id: "theme", label: "Theme" },
           { id: "messages-look", label: "Messages" },
           { id: "chat-box", label: "Chat Box" },
-          { id: "appearance-search", label: "Search" },
-          { id: "streamer-mode", label: "Streamer Mode" }
+          { id: "appearance-search", label: "Search" }
         ]
       },
       {
@@ -77,16 +73,7 @@ const SETTINGS_GENERAL_CATALOG = [
           { id: "text-readability", label: "Text Readability" },
           { id: "visual-density", label: "Visual Density" },
           { id: "color-contrast", label: "Color & Contrast" },
-          { id: "reduced-motion", label: "Reduced Motion" },
-          { id: "audio-screen-reader", label: "Audio & Screen Reader" }
-        ]
-      },
-      {
-        id: "system",
-        label: "System",
-        children: [
-          { id: "system-general", label: "General" },
-          { id: "default-keybinds", label: "Default Keybinds" }
+          { id: "reduced-motion", label: "Reduced Motion" }
         ]
       },
       {
@@ -100,23 +87,7 @@ const SETTINGS_GENERAL_CATALOG = [
     ]
   },
   {
-    label: "Games & Apps",
-    stage: 3,
     items: [
-      { id: "registered-games", label: "Registered Games", children: [
-        { id: "current-game", label: "Current Game" },
-        { id: "added-games", label: "Added Games" }
-      ]},
-      { id: "activity-privacy", label: "Activity Privacy", children: [
-        { id: "what-activity", label: "What Activity I Share" },
-        { id: "join-games", label: "Who Can Join My Games" }
-      ]},
-      { id: "game-overlay", label: "Game Overlay", children: [
-        { id: "overlay", label: "Overlay" },
-        { id: "overlay-lock", label: "Overlay Lock" },
-        { id: "voice-widget", label: "Voice Widget" },
-        { id: "overlay-notifications", label: "Notifications" }
-      ]},
       { id: "connected-apps", label: "Connected Apps", children: [
         { id: "connections", label: "Connections" },
         { id: "authorized-apps", label: "Authorized Apps" }
@@ -137,8 +108,7 @@ const SETTINGS_USER_CATALOG = [
         id: "profile",
         label: "Profile",
         children: [
-          { id: "display-name", label: "Display Name" },
-          { id: "avatar", label: "Avatar" }
+          { id: "display-name", label: "Display Name" }
         ]
       }
     ]
@@ -166,7 +136,6 @@ function settingsParentOf(id) {
 function settingsPlaceholderNote(item) {
   if (item.parked === "voice") return "Not Implemented currently. (requires Voice)";
   if (item.id === "developer") return "Not Implemented currently. (requires Developer options)";
-  if (item.id === "avatar") return "Not Implemented currently. (requires avatar upload)";
   if (item.stage === 3) return "Not Implemented currently. (requires this section)";
   return "Not Implemented currently. (requires this section)";
 }

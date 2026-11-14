@@ -541,14 +541,4 @@ function paintAppearanceSection(block, info, persist, themeTab, setTab) {
   search.appendChild(searchTitle);
   paintAppearanceSearch(search, info, persist);
   block.appendChild(search);
-
-  const streamer = document.createElement("div");
-  streamer.className = "settings-subblock";
-  streamer.id = settingsTargetId("streamer-mode");
-  const streamerTitle = document.createElement("h3");
-  streamerTitle.className = "settings-subblock-title";
-  streamerTitle.textContent = "Streamer Mode";
-  streamer.appendChild(streamerTitle);
-  paintAppearanceStreamer(streamer);
-  block.appendChild(streamer);
 }

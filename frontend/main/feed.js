@@ -456,18 +456,27 @@ function pushMailSessionAlert(alert) {
 function noteIncomingFeedAlert(alert) {
   if (!alert || alert.id == null) return;
   const kind = String(alert.alert_type || "").toLowerCase();
-  if (kind !== "dm_request" && typeof feedAlertTypeEnabled === "function" && !feedAlertTypeEnabled(alert.alert_type)) return;
-  pushMailSessionAlert(alert);
-  if (feedAlertRows.some((row) => row.id === alert.id)) {
-    feedAlertRows = feedAlertRows.map((row) => (row.id === alert.id ? alert : row));
-  } else {
-    feedAlertRows = [alert].concat(feedAlertRows);
+  const listed = kind === "dm_request" || typeof feedAlertTypeEnabled !== "function" || feedAlertTypeEnabled(alert.alert_type);
+  if (listed) {
+    pushMailSessionAlert(alert);
+    if (feedAlertRows.some((row) => row.id === alert.id)) {
+      feedAlertRows = feedAlertRows.map((row) => (row.id === alert.id ? alert : row));
+    } else {
+      feedAlertRows = [alert].concat(feedAlertRows);
+    }
+    const feedView = document.getElementById("view-feed");
+    if (feedView && feedView.classList.contains("active")) {
+      paintFeedPosts({ preserveScroll: true });
+    }
+    if (typeof showMailToast === "function") showMailToast(alert);
   }
-  const feedView = document.getElementById("view-feed");
-  if (feedView && feedView.classList.contains("active")) {
-    paintFeedPosts({ preserveScroll: true });
+  if (kind === "reaction") {
+    if (typeof reactionNotifySoundOn !== "function" || reactionNotifySoundOn()) {
+      if (typeof playOneiraAlert === "function") playOneiraAlert();
+    }
+  } else if (listed) {
+    if (typeof playOneiraAlert === "function") playOneiraAlert();
   }
-  if (typeof playOneiraAlert === "function") playOneiraAlert();
 }
 
 function applyFeedAlertPrefsLocally() {

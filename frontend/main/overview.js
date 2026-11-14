@@ -71,12 +71,12 @@ function overviewClockParts(zone) {
   try {
     const now = new Date();
     return {
-      time: new Intl.DateTimeFormat("en-US", {
+      time: new Intl.DateTimeFormat(typeof languageTimeLocale === "function" ? languageTimeLocale() : "en-US", {
         timeZone: zone,
         hour: "numeric",
         minute: "2-digit",
       }).format(now),
-      date: new Intl.DateTimeFormat("en-US", {
+      date: new Intl.DateTimeFormat(typeof languageTimeLocale === "function" ? languageTimeLocale() : "en-US", {
         timeZone: zone,
         weekday: "short",
         month: "short",

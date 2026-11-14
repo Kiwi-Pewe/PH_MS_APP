@@ -70,7 +70,10 @@ function refreshCustomEmojiInMessages(row) {
       span.appendChild(img);
     }
     img.alt = label;
-    if (row.image_url) img.src = row.image_url;
+    if (row.image_url) {
+      if (typeof bindAnimatedEmoji === "function") bindAnimatedEmoji(img, row.image_url);
+      else img.src = row.image_url;
+    }
   });
 }
 
@@ -132,8 +135,11 @@ function buildCustomEmojiImg(item, className) {
   const img = document.createElement("img");
   img.className = className || "emoji-cell-img";
   img.alt = ":" + item.name + ":";
-  img.src = item.image_url || "";
   img.draggable = false;
+  if (item.image_url) {
+    if (typeof bindAnimatedEmoji === "function") bindAnimatedEmoji(img, item.image_url);
+    else img.src = item.image_url;
+  }
   return img;
 }
 
@@ -147,8 +153,9 @@ function appendCustomEmojiNode(el, name, id) {
     const img = document.createElement("img");
     img.className = "msg-custom-emoji-img";
     img.alt = ":" + (cached.name || name) + ":";
-    img.src = cached.image_url;
     img.draggable = false;
+    if (typeof bindAnimatedEmoji === "function") bindAnimatedEmoji(img, cached.image_url);
+    else img.src = cached.image_url;
     span.appendChild(img);
   } else {
     span.textContent = ":" + name + ":";
@@ -158,8 +165,9 @@ function appendCustomEmojiNode(el, name, id) {
       const img = document.createElement("img");
       img.className = "msg-custom-emoji-img";
       img.alt = ":" + (row.name || name) + ":";
-      img.src = row.image_url;
       img.draggable = false;
+      if (typeof bindAnimatedEmoji === "function") bindAnimatedEmoji(img, row.image_url);
+      else img.src = row.image_url;
       span.appendChild(img);
     });
   }

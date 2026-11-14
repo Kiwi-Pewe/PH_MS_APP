@@ -34,6 +34,7 @@ LIVE_ROLE_PERMS = (
     "view_list", "create_list", "manage_list", "remove_list", "complete_list", "reorder_list",
     "manage_emoji",
     "change_nickname", "manage_nicknames",
+    "form_responses", "poll_results",
 )
 
 MEMBERS_DEFAULT_PERMS = (

@@ -38,18 +38,21 @@ function paintLanguageSection(host, info, persist) {
   pick.className = "settings-language-pick";
   const flag = document.createElement("span");
   flag.className = "settings-language-flag";
-  flag.textContent = "\u{1F1FA}\u{1F1F8}";
-  const select = settingsSelect(
-    [{ value: "en-US", label: "English, US" }],
-    info.language || "en-US",
-    false
-  );
+  const current = (info.language && typeof LANGUAGE_CODES !== "undefined" && LANGUAGE_CODES[info.language])
+    ? info.language
+    : (typeof languageTimeLocale === "function" ? languageTimeLocale() : "en-US");
+  flag.textContent = typeof languageTimeFlag === "function" ? languageTimeFlag(current) : "\u{1F1FA}\u{1F1F8}";
+  const options = (typeof LANGUAGE_OPTIONS !== "undefined" ? LANGUAGE_OPTIONS : [{ value: "en-US", label: "English, US" }])
+    .map((row) => ({ value: row.value, label: row.label }));
+  const select = settingsSelect(options, current, false);
   select.classList.add("settings-language-select");
-  select.addEventListener("change", () => persist({ language: select.value }));
+  select.addEventListener("change", () => {
+    if (typeof languageTimeFlag === "function") flag.textContent = languageTimeFlag(select.value);
+    persist({ language: select.value });
+  });
   pick.appendChild(flag);
   pick.appendChild(select);
   host.appendChild(pick);
-  host.appendChild(settingsLaterNote("translations"));
 }
 
 function paintTimeFormatSection(host, info, persist) {

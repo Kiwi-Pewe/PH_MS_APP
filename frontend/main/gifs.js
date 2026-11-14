@@ -34,6 +34,22 @@ function shouldPlayGifsWhenFocused() {
   return true;
 }
 
+function shouldPlayAnimatedEmoji() {
+  if (typeof accessibilityPrefs !== "undefined" && accessibilityPrefs && accessibilityPrefs.animated_emoji === false) {
+    return false;
+  }
+  return true;
+}
+
+function bindAnimatedEmoji(img, url) {
+  if (!img || !url) return;
+  if (isGifSrc(url)) {
+    bindAttentionGif(img, { live: url, kind: "emoji", host: img });
+    return;
+  }
+  img.src = url;
+}
+
 function reduceMotionOn() {
   return !!(document.documentElement && document.documentElement.classList.contains("reduced-motion"));
 }
@@ -226,6 +242,10 @@ function attentionWantsLive(entry) {
   if (entry.kind === "voice") {
     if (reduceMotionOn()) return false;
     return !!(shouldPlayGifsWhenFocused() && entry.speaking);
+  }
+  if (entry.kind === "emoji") {
+    if (reduceMotionOn()) return false;
+    return shouldPlayAnimatedEmoji();
   }
   if (entry.hovering) return true;
   if (reduceMotionOn() && entry.kind !== "profile") return false;

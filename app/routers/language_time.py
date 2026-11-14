@@ -8,13 +8,44 @@ from app.auth import get_current_user
 
 router = APIRouter()
 
-LANGUAGES = {"en-US"}
+LANGUAGES = {
+    "en-US",
+    "en-GB",
+    "es-ES",
+    "es-419",
+    "fr",
+    "de",
+    "it",
+    "pt-BR",
+    "nl",
+    "pl",
+    "sv-SE",
+    "da",
+    "fi",
+    "no",
+    "cs",
+    "hu",
+    "ro",
+    "bg",
+    "el",
+    "ru",
+    "uk",
+    "tr",
+    "vi",
+    "th",
+    "hi",
+    "id",
+    "ja",
+    "ko",
+    "zh-CN",
+    "zh-TW",
+}
 TIME_FORMATS = {"auto", "12", "24"}
 
 
 def language_time_defaults():
     return {
-        "language": "en-US",
+        "language": "",
         "time_format": "auto",
     }
 
@@ -22,8 +53,8 @@ def language_time_defaults():
 def normalize_language_time(raw):
     data = raw if isinstance(raw, dict) else {}
     out = language_time_defaults()
-    language = str(data.get("language") or "en-US")
-    out["language"] = language if language in LANGUAGES else "en-US"
+    language = str(data.get("language") or "").strip()
+    out["language"] = language if language in LANGUAGES else ""
     clock = str(data.get("time_format") or "auto")
     out["time_format"] = clock if clock in TIME_FORMATS else "auto"
     return out

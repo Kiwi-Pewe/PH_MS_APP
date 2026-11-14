@@ -270,6 +270,10 @@ class Community_filter_entry(BaseModel):
     label: str = ""
 
 
+class Community_follow_in(BaseModel):
+    user_id: int
+
+
 class Community_post_prefs(BaseModel):
     comment_sort: str | None = None
     search_blacklist: bool | None = None

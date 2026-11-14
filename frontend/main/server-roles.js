@@ -42,20 +42,19 @@ const SERVER_ROLE_PERMS = [
       { id: "kick_members", title: "Kick members", desc: "Allows you to kick members from the server." },
       { id: "ban_members", title: "Ban members", desc: "Allows you to ban members from the server." },
       { id: "timeout_members", title: "Timeout members", desc: "Allows you to timeout members on the server." },
-      { id: "manage_groups", title: "Manage groups", desc: "Allows you to create new groups and edit or delete existing ones.", later: "Groups" },
       { id: "manage_channels", title: "Manage channels", desc: "Allows you to create new channels and edit or delete existing ones." },
       { id: "manage_webhooks", title: "Manage webhooks", desc: "Allows you to create new webhooks and edit or delete existing ones." },
       { id: "mention_everyone", title: "Can mention @everyone and @here", desc: "Allows you to use @everyone and @here mentions." },
-      { id: "moderate_channels", title: "Access moderator view", desc: "Allows you to access the moderator view to see all private replies.", later: "Private replies" },
       { id: "bypass_slowmode", title: "Slowmode exception", desc: "This role is exempt from any slowmode restrictions." }
     ]
   },
   {
     title: "Recruitment permissions",
+    hidden: true,
     rows: [
-      { id: "view_applications", title: "View applications", desc: "Allows you to view server and game applications.", later: "Communities" },
-      { id: "approve_applications", title: "Approve applications", desc: "Allows you to approve server and game applications.", later: "Communities" },
-      { id: "edit_applications", title: "Edit applications", desc: "Allows you to edit the server and game applications, and toggle accepting applications.", later: "Communities" },
+      { id: "view_applications", title: "View applications", desc: "Allows you to view server and game applications.", hidden: true },
+      { id: "approve_applications", title: "Approve applications", desc: "Allows you to approve server and game applications.", hidden: true },
+      { id: "edit_applications", title: "Edit applications", desc: "Allows you to edit the server and game applications, and toggle accepting applications.", hidden: true },
       { id: "lfm_interest", title: "Indicate Find Players interest", desc: "Allows you to indicate interest in a player instead of an upvote.", hidden: true },
       { id: "lfm_status", title: "Modify Find Players status", desc: "Allows you to modify the Find Player status for the server listing card.", hidden: true }
     ]
@@ -74,12 +73,11 @@ const SERVER_ROLE_PERMS = [
       { id: "read_messages", title: "Read messages", desc: "Allows you to read chat messages." },
       { id: "send_messages", title: "Send messages", desc: "Allows you to send chat messages." },
       { id: "upload_chat_media", title: "Upload media", desc: "Allows you to upload images and videos to chat messages." },
-      { id: "create_chat_threads", title: "Create threads", desc: "Allows you to create threads in the channel.", later: "Threads" },
-      { id: "reply_chat_threads", title: "Send messages in threads", desc: "Allows you to reply to threads in the channel.", later: "Threads" },
-      { id: "private_messages", title: "Send private messages", desc: "Allows members to send private messages and privately reply to messages.", later: "Private replies" },
+      { id: "create_chat_threads", title: "Create threads", desc: "Allows you to create threads in the channel.", hidden: true },
+      { id: "reply_chat_threads", title: "Send messages in threads", desc: "Allows you to reply to threads in the channel.", hidden: true },
       { id: "manage_messages", title: "Manage messages", desc: "Allows you to delete chat messages by other members." },
       { id: "pin_messages", title: "Pin messages", desc: "Allows you to pin and unpin messages in chat." },
-      { id: "manage_chat_threads", title: "Manage threads", desc: "Allow you to archive and restore threads.", later: "Threads" }
+      { id: "manage_chat_threads", title: "Manage threads", desc: "Allow you to archive and restore threads.", hidden: true }
     ]
   },
   {
@@ -136,12 +134,12 @@ const SERVER_ROLE_PERMS = [
     rows: [
       { id: "hear_voice", title: "Hear voice", desc: "Allows you to listen to voice chat." },
       { id: "talk_voice", title: "Add voice", desc: "Allows you to talk in voice chat." },
-      { id: "manage_voice_rooms", title: "Manage Voice Rooms", desc: "Allows you to create, rename, and delete voice rooms.", later: "Tournaments" },
+      { id: "manage_voice_rooms", title: "Manage Voice Rooms", desc: "Allows you to create, rename, and delete voice rooms.", hidden: true },
       { id: "move_voice", title: "Move members", desc: "Allows you to move members to other voice channels and disconnect them." },
-      { id: "broadcast_voice", title: "Broadcast", desc: "Allows you to broadcast your voice to voice rooms lower in the hierarchy when speaking in voice chat.", later: "Tournaments" },
-      { id: "whisper_voice", title: "Whisper", desc: "Allows you to direct your voice to specific users.", later: "Tournaments" },
-      { id: "priority_speaker", title: "Priority speaker", desc: "Allows you to prioritize your voice when speaking in voice chat.", later: "Voice" },
-      { id: "voice_activity", title: "Use voice activity", desc: "Allows you to use voice activity input mode for voice chats.", later: "Voice" },
+      { id: "broadcast_voice", title: "Broadcast", desc: "Allows you to broadcast your voice to voice rooms lower in the hierarchy when speaking in voice chat.", hidden: true },
+      { id: "whisper_voice", title: "Whisper", desc: "Allows you to direct your voice to specific users.", hidden: true },
+      { id: "priority_speaker", title: "Priority speaker", desc: "Allows you to prioritize your voice when speaking in voice chat.", hidden: true },
+      { id: "voice_activity", title: "Use voice activity", desc: "Allows you to use voice activity input mode for voice chats.", hidden: true },
       { id: "mute_members", title: "Mute members", desc: "Allows you to mute members in voice chat." },
       { id: "deafen_members", title: "Deafen members", desc: "Allows you to deafen members in voice chat." },
       { id: "voice_messages", title: "Send messages", desc: "Allows you to send chat messages in the voice channel." }
@@ -149,10 +147,11 @@ const SERVER_ROLE_PERMS = [
   },
   {
     title: "Competitive permissions",
+    hidden: true,
     rows: [
-      { id: "create_scrims", title: "Create scrims", desc: "Allows you to create matchmaking scrims.", later: "Tournaments" },
-      { id: "manage_tournaments", title: "Create tournaments", desc: "Allows you to use the server to create and manage tournaments.", later: "Tournaments" },
-      { id: "register_tournaments", title: "Register for tournaments", desc: "Allows you to register the server for tournaments.", later: "Tournaments" }
+      { id: "create_scrims", title: "Create scrims", desc: "Allows you to create matchmaking scrims.", hidden: true },
+      { id: "manage_tournaments", title: "Create tournaments", desc: "Allows you to use the server to create and manage tournaments.", hidden: true },
+      { id: "register_tournaments", title: "Register for tournaments", desc: "Allows you to register the server for tournaments.", hidden: true }
     ]
   },
   {
@@ -166,8 +165,8 @@ const SERVER_ROLE_PERMS = [
   {
     title: "Form permissions",
     rows: [
-      { id: "form_responses", title: "Form responses", desc: "Allows you to view all form responses.", later: "Forms" },
-      { id: "poll_results", title: "Poll results", desc: "Allows you to view all poll results.", later: "Forms" }
+      { id: "form_responses", title: "Form responses", desc: "Allows you to view all form responses." },
+      { id: "poll_results", title: "Poll results", desc: "Allows you to view all poll results." }
     ]
   },
   {
@@ -183,9 +182,10 @@ const SERVER_ROLE_PERMS = [
   },
   {
     title: "Bracket permissions",
+    hidden: true,
     rows: [
-      { id: "view_brackets", title: "View brackets", desc: "Allows you to view tournament brackets.", later: "Tournaments" },
-      { id: "report_scores", title: "Report scores", desc: "Allows you to report match scores on behalf of your server.", later: "Tournaments" }
+      { id: "view_brackets", title: "View brackets", desc: "Allows you to view tournament brackets.", hidden: true },
+      { id: "report_scores", title: "Report scores", desc: "Allows you to report match scores on behalf of your server.", hidden: true }
     ]
   },
   {
@@ -198,25 +198,28 @@ const SERVER_ROLE_PERMS = [
   },
   {
     title: "Bot permissions",
+    hidden: true,
     rows: [
-      { id: "manage_bots", title: "Manage bots", desc: "Allows you to create and edit bots for automated workflows.", later: "Bots" }
+      { id: "manage_bots", title: "Manage bots", desc: "Allows you to create and edit bots for automated workflows.", hidden: true }
     ]
   },
   {
     title: "XP permissions",
+    hidden: true,
     rows: [
-      { id: "manage_xp", title: "Manage server XP", desc: "Allows you to manage XP on server members.", later: "Server XP" }
+      { id: "manage_xp", title: "Manage server XP", desc: "Allows you to manage XP on server members.", hidden: true }
     ]
   },
   {
     title: "Stream permissions",
+    hidden: true,
     rows: [
-      { id: "view_streams", title: "View streams", desc: "Allows you to view streams.", later: "Stream channels" },
-      { id: "join_stream_voice", title: "Join voice", desc: "Allows you to listen to voice chat in the stream channel.", later: "Stream channels" },
-      { id: "add_stream", title: "Add stream", desc: "Allows you to add a stream and also talk in the stream channel.", later: "Stream channels" },
-      { id: "stream_messages", title: "Send messages", desc: "Allows you to send messages in the stream channel.", later: "Stream channels" },
-      { id: "stream_voice", title: "Add voice", desc: "Allows you to talk in the stream channel.", later: "Stream channels" },
-      { id: "stream_vad", title: "Use voice activity detection", desc: "Allows you to use voice activity input mode for talking in stream channels.", later: "Stream channels" }
+      { id: "view_streams", title: "View streams", desc: "Allows you to view streams.", hidden: true },
+      { id: "join_stream_voice", title: "Join voice", desc: "Allows you to listen to voice chat in the stream channel.", hidden: true },
+      { id: "add_stream", title: "Add stream", desc: "Allows you to add a stream and also talk in the stream channel.", hidden: true },
+      { id: "stream_messages", title: "Send messages", desc: "Allows you to send messages in the stream channel.", hidden: true },
+      { id: "stream_voice", title: "Add voice", desc: "Allows you to talk in the stream channel.", hidden: true },
+      { id: "stream_vad", title: "Use voice activity detection", desc: "Allows you to use voice activity input mode for talking in stream channels.", hidden: true }
     ]
   }
 ];
@@ -1122,14 +1125,15 @@ function paintServerRolesEditor() {
 
   SERVER_ROLE_PERMS.forEach((group) => {
     if (group.hidden) return;
+    const visible = (group.rows || []).filter((row) => !row.hidden);
+    if (!visible.length) return;
     const block = document.createElement("div");
     block.className = "server-roles-group";
     const heading = document.createElement("div");
     heading.className = "server-roles-group-title";
     heading.textContent = group.title;
     block.appendChild(heading);
-    group.rows.forEach((row) => {
-      if (row.hidden) return;
+    visible.forEach((row) => {
       block.appendChild(roleOptRow(
         row.title,
         row.desc,

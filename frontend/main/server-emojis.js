@@ -150,7 +150,10 @@ function paintServerEmojisTable() {
     const preview = document.createElement("img");
     preview.className = "server-emojis-preview";
     preview.alt = "";
-    preview.src = emoji.image_url || "";
+    if (emoji.image_url) {
+      if (typeof bindAnimatedEmoji === "function") bindAnimatedEmoji(preview, emoji.image_url);
+      else preview.src = emoji.image_url;
+    }
     const nameEl = document.createElement("span");
     nameEl.className = "server-emojis-name";
     nameEl.textContent = ":" + emoji.name + ":";
@@ -298,8 +301,11 @@ function openEmojiEdit(emoji) {
   emojiEditDraft = emoji;
   heading.textContent = ":" + (emoji.name || "emoji") + ":";
   if (preview) {
-    preview.src = emoji.image_url || "";
     preview.alt = ":" + (emoji.name || "emoji") + ":";
+    if (emoji.image_url) {
+      if (typeof bindAnimatedEmoji === "function") bindAnimatedEmoji(preview, emoji.image_url);
+      else preview.src = emoji.image_url;
+    }
   }
   name.value = emoji.name || "";
   if (byName) byName.textContent = uploader.display_name || uploader.username || "Unknown";

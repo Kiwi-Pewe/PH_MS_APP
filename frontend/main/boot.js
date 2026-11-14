@@ -35,6 +35,8 @@ window.addEventListener("load", () => {
       if (typeof loadCommunityPhone === "function") loadCommunityPhone();
       if (typeof loadNewsBadge === "function") loadNewsBadge();
       if (typeof loadNewsBroadcast === "function") loadNewsBroadcast();
+      if (typeof applyNotificationRuntimePrefs === "function") applyNotificationRuntimePrefs();
+      if (typeof loadFeedAlertPrefs === "function") loadFeedAlertPrefs().catch(() => {});
     })
     .catch(() => {
       const path = window.location.pathname || "";

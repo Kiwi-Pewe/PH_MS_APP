@@ -554,11 +554,15 @@ async function showProfileContextMenu(e, id, username, isSelf, inParty) {
     }
   }
   const relation = isSelf ? { self: true } : await fetchRelationship(id);
+  const follow = (!isSelf && typeof communityFollowMenuOption === "function")
+    ? await communityFollowMenuOption(id)
+    : null;
   const options = isSelf ? [
     { label: "Profile", onSelect: () => openUserProfile(id) },
     { label: "Settings", onSelect: () => console.log("Open settings from context menu — not implemented yet") }
   ] : [
     { label: "Profile", onSelect: () => openUserProfile(id) },
+    follow,
     friendMenuOption(id, username, relation),
     muteMenuOption("dm", id),
     dmMenuOption(id, username, relation),

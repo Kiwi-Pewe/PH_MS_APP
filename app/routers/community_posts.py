@@ -23,7 +23,7 @@ from app.r2 import (
     still_url_for,
     store_attachment,
 )
-from app.schemas import Community_comment_create, Community_filter_entry, Community_post_create, Community_post_prefs
+from app.schemas import Community_comment_create, Community_filter_entry, Community_follow_in, Community_post_create, Community_post_prefs
 from app.site_moderation import refuse_community_lock
 
 router = APIRouter()
@@ -276,6 +276,9 @@ COMMUNITY_FILTER_KINDS = {"word": "mute_word", "topic": "mute_topic"}
 COMMUNITY_FILTER_MAX = 100
 COMMUNITY_FILTER_LEN = 40
 COMMUNITY_PREF_KIND = "post_pref"
+COMMUNITY_FOLLOW_TOPIC_KIND = "follow_topic"
+COMMUNITY_FOLLOW_USER_KIND = "follow_user"
+COMMUNITY_FAVORITE_TOPIC_MAX = 5
 COMMUNITY_COMMENT_SORTS = ("oldest", "newest")
 
 
@@ -287,18 +290,27 @@ def clean_filter_label(value):
 
 
 def load_post_filters(database, user_id):
-    found = {"words": [], "topics": [], "comment_sort": "oldest", "search_blacklist": False, "blacklist_hide": False}
+    found = {
+        "words": [],
+        "topics": [],
+        "favorite_topics": [],
+        "comment_sort": "oldest",
+        "search_blacklist": False,
+        "blacklist_hide": False,
+    }
     if not user_id:
         return found
     rows = database.query(Community_edge).filter(
         Community_edge.user_id == user_id,
-        Community_edge.kind.in_(("mute_word", "mute_topic", COMMUNITY_PREF_KIND)),
+        Community_edge.kind.in_(("mute_word", "mute_topic", COMMUNITY_PREF_KIND, COMMUNITY_FOLLOW_TOPIC_KIND)),
     ).order_by(Community_edge.created_at.asc(), Community_edge.id.asc()).all()
     for edge in rows:
         if edge.kind == "mute_word" and edge.label:
             found["words"].append(edge.label)
         elif edge.kind == "mute_topic" and edge.label:
             found["topics"].append(edge.label)
+        elif edge.kind == COMMUNITY_FOLLOW_TOPIC_KIND and edge.label:
+            found["favorite_topics"].append(edge.mode or edge.label)
         elif edge.kind == COMMUNITY_PREF_KIND:
             if edge.label == "comment_sort" and edge.mode in COMMUNITY_COMMENT_SORTS:
                 found["comment_sort"] = edge.mode
@@ -307,6 +319,26 @@ def load_post_filters(database, user_id):
             elif edge.label == "blacklist_hide":
                 found["blacklist_hide"] = edge.mode == "on"
     return found
+
+
+def favorite_topic_labels(database, user_id):
+    rows = database.query(Community_edge).filter(
+        Community_edge.user_id == user_id,
+        Community_edge.kind == COMMUNITY_FOLLOW_TOPIC_KIND,
+    ).all()
+    return [edge.label for edge in rows if edge.label]
+
+
+def community_follow_ids(database, user_id):
+    rows = database.query(Community_edge.target_id).filter(
+        Community_edge.user_id == user_id,
+        Community_edge.kind == COMMUNITY_FOLLOW_USER_KIND,
+    ).all()
+    return [int(row[0]) for row in rows if row[0]]
+
+
+def pack_community_follows(database, user_id):
+    return {"ids": community_follow_ids(database, user_id)}
 
 
 def filter_word_hit(text, words):
@@ -489,8 +521,10 @@ def list_community_posts(
     if kind not in COMMUNITY_LENSES:
         kind = "explore"
     as_of = community_stamp(before)
-    if kind == "timeline":
+    wanted_topics = favorite_topic_labels(database, current_user.id) if kind == "timeline" else []
+    if kind == "timeline" and not wanted_topics:
         return {"posts": [], "as_of": as_of.isoformat()}
+    follow_ids = [current_user.id] + community_follow_ids(database, current_user.id) if kind == "following" else None
     kinds = community_search_has(has)
     searching = community_search_on(q, author, mentions, topic, kinds)
     filters = load_post_filters(database, current_user.id)
@@ -503,8 +537,8 @@ def list_community_posts(
             return {"posts": [], "as_of": as_of.isoformat()}
         query = database.query(Community_post, UserInfo).join(UserInfo, UserInfo.id == Community_post.author_id)
         query = query.filter(Community_post.created_at <= as_of)
-        if kind == "following":
-            query = query.filter(Community_post.author_id == current_user.id)
+        if follow_ids is not None:
+            query = query.filter(Community_post.author_id.in_(follow_ids))
         else:
             query = query.filter(Community_post.followers_only.is_(False))
         if author_account is not None:
@@ -518,6 +552,8 @@ def list_community_posts(
                 continue
             if not community_topic_hit(row.topics, topic):
                 continue
+            if wanted_topics and not filter_topic_hit(row.topics, wanted_topics):
+                continue
             if not community_has_match([row.body], [row.attachments], kinds):
                 continue
             if not community_mentions_any([row.body], mention_account):
@@ -529,16 +565,21 @@ def list_community_posts(
                 break
     else:
         query = database.query(Community_post).filter(Community_post.created_at <= as_of)
-        if kind == "following":
-            query = query.filter(Community_post.author_id == current_user.id)
+        if follow_ids is not None:
+            query = query.filter(Community_post.author_id.in_(follow_ids))
         else:
             query = query.filter(Community_post.followers_only.is_(False))
         ordered = query.order_by(Community_post.created_at.desc(), Community_post.id.desc())
-        if filters["blacklist_hide"] and (filters["words"] or filters["topics"]):
+        need_scan = bool(wanted_topics) or (filters["blacklist_hide"] and (filters["words"] or filters["topics"]))
+        if need_scan:
             blocked = blocked_user_ids(database, current_user.id)
             rows = []
             for row in ordered.yield_per(40):
-                if row.author_id in blocked or post_row_blacklisted(row, current_user.id, filters):
+                if row.author_id in blocked:
+                    continue
+                if filters["blacklist_hide"] and post_row_blacklisted(row, current_user.id, filters):
+                    continue
+                if wanted_topics and not filter_topic_hit(row.topics, wanted_topics):
                     continue
                 rows.append(row)
                 if len(rows) >= COMMUNITY_POST_PAGE:
@@ -761,3 +802,102 @@ def update_community_post_settings(
         save_post_pref(database, current_user.id, "blacklist_hide", "on" if body.blacklist_hide else "off")
     database.commit()
     return load_post_filters(database, current_user.id)
+
+
+@router.post("/community_post_settings/favorite_topics")
+def add_community_favorite_topic(
+    body: Community_filter_entry,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    display = " ".join(str(body.label or "").split())[:COMMUNITY_FILTER_LEN].rstrip()
+    label = clean_filter_label(display)
+    if not label:
+        raise HTTPException(status_code=400, detail="Type a topic first.")
+    rows = database.query(Community_edge).filter(
+        Community_edge.user_id == current_user.id,
+        Community_edge.kind == COMMUNITY_FOLLOW_TOPIC_KIND,
+    ).all()
+    if not any(edge.label == label for edge in rows):
+        if len(rows) >= COMMUNITY_FAVORITE_TOPIC_MAX:
+            raise HTTPException(status_code=400, detail="You can choose up to 5 topics.")
+        database.add(Community_edge(
+            user_id=current_user.id,
+            kind=COMMUNITY_FOLLOW_TOPIC_KIND,
+            target_id=0,
+            label=label,
+            mode=display,
+        ))
+        database.commit()
+    return load_post_filters(database, current_user.id)
+
+
+@router.delete("/community_post_settings/favorite_topics")
+def remove_community_favorite_topic(
+    body: Community_filter_entry,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    label = clean_filter_label(body.label)
+    database.query(Community_edge).filter(
+        Community_edge.user_id == current_user.id,
+        Community_edge.kind == COMMUNITY_FOLLOW_TOPIC_KIND,
+        Community_edge.target_id == 0,
+        Community_edge.label == label,
+    ).delete(synchronize_session=False)
+    database.commit()
+    return load_post_filters(database, current_user.id)
+
+
+@router.get("/community_follow")
+def list_community_follows(
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    return pack_community_follows(database, current_user.id)
+
+
+@router.post("/community_follow")
+def add_community_follow(
+    body: Community_follow_in,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    user_id = int(body.user_id or 0)
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You already see your own posts.")
+    person = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="User not found.")
+    existing = database.query(Community_edge).filter(
+        Community_edge.user_id == current_user.id,
+        Community_edge.kind == COMMUNITY_FOLLOW_USER_KIND,
+        Community_edge.target_id == user_id,
+        Community_edge.label == "",
+    ).first()
+    if not existing:
+        database.add(Community_edge(
+            user_id=current_user.id,
+            kind=COMMUNITY_FOLLOW_USER_KIND,
+            target_id=user_id,
+            label="",
+        ))
+        database.commit()
+    return pack_community_follows(database, current_user.id)
+
+
+@router.delete("/community_follow")
+def remove_community_follow(
+    body: Community_follow_in,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    user_id = int(body.user_id or 0)
+    database.query(Community_edge).filter(
+        Community_edge.user_id == current_user.id,
+        Community_edge.kind == COMMUNITY_FOLLOW_USER_KIND,
+        Community_edge.target_id == user_id,
+        Community_edge.label == "",
+    ).delete(synchronize_session=False)
+    database.commit()
+    return pack_community_follows(database, current_user.id)

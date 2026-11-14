@@ -1,12 +1,11 @@
-// ==================================================================
-// settings-notifications.js - Notifications. Reaction + sound prefs
-// save. Friends-online toasts are live (localStorage pref). Desktop
-// toasts, OS badge, email, mobile delay, and TTS wait. Sound files
-// are not in the app yet — prefs still save; Preview stays grey.
-// ==================================================================
-
 function notificationSettingsUrl(path) {
   return `https://${serverAddress}${path}`;
+}
+
+let notifyReactionsPref = "all";
+
+function reactionNotifySoundOn() {
+  return notifyReactionsPref !== "off";
 }
 
 async function loadNotificationSettings() {
@@ -28,9 +27,22 @@ async function postNotification(path, body) {
   return data;
 }
 
+function applyLoadedNotificationPrefs(info) {
+  if (!info) return;
+  oneiraSoundMuteAll = !!info.sound_mute_all;
+  notifyReactionsPref = info.notify_reactions || "all";
+}
+
+async function applyNotificationRuntimePrefs() {
+  try {
+    applyLoadedNotificationPrefs(await loadNotificationSettings());
+  } catch (e) {}
+}
+
 async function renderNotificationSettings(pane, jumpChildId) {
   pane.innerHTML = "";
   let info;
+  let feedPrefs = typeof defaultFeedAlertPrefs === "function" ? defaultFeedAlertPrefs() : {};
   try {
     info = await loadNotificationSettings();
   } catch (e) {
@@ -40,6 +52,10 @@ async function renderNotificationSettings(pane, jumpChildId) {
     pane.appendChild(note);
     return;
   }
+  applyLoadedNotificationPrefs(info);
+  try {
+    if (typeof loadFeedAlertPrefs === "function") feedPrefs = await loadFeedAlertPrefs();
+  } catch (e) {}
 
   const block = document.createElement("section");
   block.className = "settings-block has-sections";
@@ -56,17 +72,15 @@ async function renderNotificationSettings(pane, jumpChildId) {
   overviewTitle.className = "settings-subblock-title";
   overviewTitle.textContent = "Overview";
   overview.appendChild(overviewTitle);
+
+  const mailOn = typeof mailToastsEnabled === "function" ? mailToastsEnabled() : true;
+  const mailToggle = settingsToggle(mailOn, false, (on) => {
+    if (typeof setMailToastsEnabled === "function") setMailToastsEnabled(on);
+  });
   overview.appendChild(settingsOpt(
     "Enable Mail Notifications",
     "Shows a toast when you receive Mail.",
-    settingsToggle(true, true),
-    settingsLaterNote("the app")
-  ));
-  overview.appendChild(settingsOpt(
-    "Enable Taskbar Flashing",
-    "Flashes the app in your taskbar when you have new notifications.",
-    settingsToggle(true, true),
-    settingsLaterNote("desktop app")
+    mailToggle
   ));
 
   const notifySplit = document.createElement("div");
@@ -89,12 +103,46 @@ async function renderNotificationSettings(pane, jumpChildId) {
     friendsOnlineToggle
   ));
 
-  [
-    ["Friendship Anniversary", "friendship anniversaries"],
-    ["Server Events", "server events"]
-  ].forEach(row => {
-    overview.appendChild(settingsOpt(row[0], "", settingsToggle(true, true), settingsLaterNote(row[1])));
+  const reactionsOn = notifyReactionsPref !== "off";
+  const reactionToggle = settingsToggle(reactionsOn, false, async (on) => {
+    const previous = notifyReactionsPref;
+    const value = on ? "all" : "off";
+    notifyReactionsPref = value;
+    try {
+      await postNotification("/notification_reactions", { value: value });
+    } catch (e) {
+      notifyReactionsPref = previous;
+      const input = reactionToggle.querySelector("input");
+      if (input) input.checked = previous !== "off";
+    }
   });
+  overview.appendChild(settingsOpt(
+    "Reaction notification",
+    "Play a sound when someone reacts to your message.",
+    reactionToggle
+  ));
+
+  const eventsOn = !!(feedPrefs.event_invite || feedPrefs.event_created);
+  const eventsToggle = settingsToggle(eventsOn, false, async (on) => {
+    const previousInvite = !!feedPrefs.event_invite;
+    const previousCreated = !!feedPrefs.event_created;
+    feedPrefs.event_invite = on;
+    feedPrefs.event_created = on;
+    try {
+      if (typeof saveFeedAlertPrefs === "function") await saveFeedAlertPrefs(feedPrefs);
+      if (typeof applyFeedAlertPrefsLocally === "function") applyFeedAlertPrefsLocally();
+    } catch (e) {
+      feedPrefs.event_invite = previousInvite;
+      feedPrefs.event_created = previousCreated;
+      const input = eventsToggle.querySelector("input");
+      if (input) input.checked = previousInvite || previousCreated;
+    }
+  });
+  overview.appendChild(settingsOpt(
+    "Server Events",
+    "Get notified when events are created or you are invited.",
+    eventsToggle
+  ));
 
   const feedBtn = document.createElement("button");
   feedBtn.type = "button";
@@ -169,47 +217,6 @@ async function renderNotificationSettings(pane, jumpChildId) {
   sounds.appendChild(relatedSounds);
   block.appendChild(sounds);
 
-  const badges = document.createElement("div");
-  badges.className = "settings-subblock";
-  badges.id = settingsTargetId("notifications-badges");
-  const badgesTitle = document.createElement("h3");
-  badgesTitle.className = "settings-subblock-title";
-  badgesTitle.textContent = "Badges";
-  badges.appendChild(badgesTitle);
-  badges.appendChild(settingsOpt(
-    "Enable Unread Message Badge",
-    "Shows a red badge on the Oneira app icon when you have unread messages.",
-    settingsToggle(true, true),
-    settingsLaterNote("OS app badge")
-  ));
-  block.appendChild(badges);
-
-  const advanced = document.createElement("div");
-  advanced.className = "settings-subblock";
-  advanced.id = settingsTargetId("notifications-advanced");
-  const advancedTitle = document.createElement("h3");
-  advancedTitle.className = "settings-subblock-title";
-  advancedTitle.textContent = "Advanced";
-  advanced.appendChild(advancedTitle);
-  const delay = settingsSelect(
-    [
-      { value: "1", label: "1 minute" },
-      { value: "2", label: "2 minutes" },
-      { value: "10", label: "10 minutes" },
-      { value: "15", label: "15 minutes" },
-      { value: "30", label: "30 minutes" }
-    ],
-    "10",
-    true
-  );
-  advanced.appendChild(settingsOpt(
-    "Mobile Notification Delay",
-    "Sets how long you need to be away from desktop before push notifications go to your phone.",
-    delay,
-    settingsLaterNote("mobile app")
-  ));
-  block.appendChild(advanced);
-
   pane.appendChild(block);
   if (jumpChildId) {
     const target = document.getElementById(settingsTargetId(jumpChildId));
@@ -224,6 +231,7 @@ const NOTIFY_SOUND_FILES = {
   pings: ["Default.mp3"],
   calls: ["Default.mp3"]
 };
+const NOTIFY_SOUND_PREF_KEY = "oneira_notify_sounds";
 
 let notifySoundTab = "pings";
 let notifySoundDraft = null;
@@ -266,9 +274,17 @@ function playNotifySoundPreview(row) {
 let oneiraSoundMuteAll = false;
 let oneiraRingAudio = null;
 
+function notifySoundUsingSrc(kind) {
+  const state = notifySoundSaved || blankNotifySoundState();
+  const pack = state[kind] || state.pings;
+  const row = (pack.items || []).find((item) => item.id === pack.using);
+  if (row && row.src) return row.src;
+  return notifySoundSrc(kind, "Default.mp3");
+}
+
 function playOneiraAlert() {
   if (oneiraSoundMuteAll) return;
-  const audio = new Audio("sounds/alerts/Default.mp3");
+  const audio = new Audio(notifySoundUsingSrc("pings"));
   audio.play().catch(() => {});
 }
 
@@ -278,7 +294,7 @@ function startOneiraRingtone() {
     return;
   }
   if (oneiraRingAudio) return;
-  oneiraRingAudio = new Audio("sounds/ringtones/Default.mp3");
+  oneiraRingAudio = new Audio(notifySoundUsingSrc("calls"));
   oneiraRingAudio.loop = true;
   oneiraRingAudio.play().catch(() => {});
 }
@@ -330,6 +346,32 @@ function cloneNotifySoundState(state) {
     pings: copyNotifySoundPack(state.pings),
     calls: copyNotifySoundPack(state.calls)
   };
+}
+
+function persistNotifySoundSaved() {
+  if (!notifySoundSaved) return;
+  try {
+    localStorage.setItem(NOTIFY_SOUND_PREF_KEY, JSON.stringify({
+      pings: notifySoundSaved.pings.using,
+      calls: notifySoundSaved.calls.using
+    }));
+  } catch (e) {}
+}
+
+function hydrateNotifySoundSaved() {
+  const fresh = blankNotifySoundState();
+  try {
+    const raw = JSON.parse(localStorage.getItem(NOTIFY_SOUND_PREF_KEY) || "null");
+    if (raw && typeof raw === "object") {
+      ["pings", "calls"].forEach((kind) => {
+        const using = raw[kind];
+        if (using && fresh[kind].items.some((row) => row.id === using)) {
+          fresh[kind].using = using;
+        }
+      });
+    }
+  } catch (e) {}
+  notifySoundSaved = fresh;
 }
 
 function applyNotifySoundSaved(fresh) {
@@ -483,7 +525,10 @@ function bindNotifySoundSubmenu() {
   const confirm = document.getElementById("notify-sound-confirm");
   if (cancel) cancel.addEventListener("click", () => closeNotifySoundSubmenu(true));
   if (confirm) confirm.addEventListener("click", () => {
-    if (notifySoundDraft) notifySoundSaved = cloneNotifySoundState(notifySoundDraft);
+    if (notifySoundDraft) {
+      notifySoundSaved = cloneNotifySoundState(notifySoundDraft);
+      persistNotifySoundSaved();
+    }
     closeNotifySoundSubmenu(false);
   });
   document.querySelectorAll(".notify-sound-tab").forEach((btn) => {
@@ -496,4 +541,5 @@ function bindNotifySoundSubmenu() {
   }
 }
 
+hydrateNotifySoundSaved();
 bindNotifySoundSubmenu();

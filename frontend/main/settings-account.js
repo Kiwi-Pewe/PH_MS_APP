@@ -331,19 +331,6 @@ async function renderAccountSettings(pane, jumpChildId) {
       openRecoveryCodeCard(data && data.recovery_code);
     });
   }, "Oneira will never ask or show your recovery code again. if you do not remember it, you can generate a new one here."));
-  if (typeof settingsOpt === "function" && typeof settingsNote === "function") {
-    sec.appendChild(settingsOpt(
-      "Multi-Factor Authentication",
-      "",
-      null,
-      settingsNote("Not Implemented yet.", "later")
-    ));
-  } else {
-    const mfa = settingsLinkRow("Multi-Factor Authentication", "Disabled", () => {});
-    mfa.disabled = true;
-    mfa.classList.add("is-later");
-    sec.appendChild(mfa);
-  }
   sec.appendChild(settingsLinkRow("Logged-in Devices", (info.device_count || 0) + ((info.device_count === 1) ? " device" : " devices"), () => renderDeviceSettings(pane)));
   block.appendChild(sec);
   pane.appendChild(block);
@@ -620,26 +607,7 @@ async function renderProfileSettings(pane, jumpChildId) {
       jumpToSettings("display-name");
     });
   }));
-  const avatar = document.createElement("div");
-  avatar.className = "settings-subblock";
-  avatar.id = settingsTargetId("avatar");
-  const avatarTitle = document.createElement("h3");
-  avatarTitle.className = "settings-subblock-title";
-  avatarTitle.textContent = "Avatar";
-  avatar.appendChild(avatarTitle);
-  const changeAv = document.createElement("button");
-  changeAv.type = "button";
-  changeAv.className = "settings-row-btn";
-  changeAv.textContent = "Change Avatar";
-  changeAv.disabled = true;
-  avatar.appendChild(settingsOpt(
-    "Change Avatar",
-    "Choose the picture people see next to your name.",
-    changeAv,
-    settingsLaterNote("avatar upload")
-  ));
   block.appendChild(sub);
-  block.appendChild(avatar);
   pane.appendChild(block);
   if (jumpChildId) {
     const target = document.getElementById(settingsTargetId(jumpChildId));

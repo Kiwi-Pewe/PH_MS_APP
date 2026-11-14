@@ -521,7 +521,10 @@ def inherited_server_level(member, server):
     stored = clean_personal_level(getattr(member, "notify_level", None) if member else None)
     if stored:
         return stored
-    return "all"
+    if server:
+        from app.routers.servers import server_default_notifications
+        return server_default_notifications(server)
+    return "mentions"
 
 
 def notify_gate(database, server, channel_id, user_id):

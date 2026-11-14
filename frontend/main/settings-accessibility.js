@@ -174,10 +174,9 @@ function refreshAccessibilityPreview() {
   const windowEl = document.getElementById("a11y-preview-window");
   if (!windowEl || !accessibilityPrefs) return;
   const prefs = accessibilityPrefs;
-  windowEl.classList.toggle("name-styles", !!prefs.display_name_styles);
   windowEl.classList.toggle("role-off", prefs.role_colors === "off");
   windowEl.classList.toggle("still-gif", !prefs.gifs_when_focused || effectiveReducedMotion(prefs));
-  windowEl.classList.toggle("still-emoji", !prefs.animated_emoji || effectiveReducedMotion(prefs) || prefs.sticker_anim === "never");
+  windowEl.classList.toggle("still-emoji", !prefs.animated_emoji || effectiveReducedMotion(prefs));
   windowEl.style.setProperty("--preview-gap", (Number(prefs.group_spacing) || 0) + "px");
 }
 
@@ -193,11 +192,6 @@ function paintTextReadability(host, info, persist) {
     "Always underline links",
     "Make links stand out more.",
     settingsToggle(!!info.underline_links, false, (on) => persist({ underline_links: on }))
-  ));
-  host.appendChild(settingsOpt(
-    "Display Name Styles",
-    "Enable display name styles — including font, effect, and color — across Oneira.",
-    settingsToggle(!!info.display_name_styles, false, (on) => persist({ display_name_styles: on }))
   ));
 }
 
@@ -289,22 +283,6 @@ function paintColorContrast(host, info, persist) {
   const lastSelect = roleSelect[roleSelect.length - 1];
   if (lastSelect) lastSelect.addEventListener("change", () => persist({ role_colors: lastSelect.value }));
   host.appendChild(settingsOpt(
-    "Official Messages",
-    "Choose how official developer messages look on verified servers that support it.",
-    settingsSelect(
-      [
-        { value: "default", label: "Default" },
-        { value: "role", label: "Match role color" },
-        { value: "off", label: "Plain" }
-      ],
-      info.official_messages || "default",
-      false
-    )
-  ));
-  const officialSelect = host.querySelectorAll("select.settings-select");
-  const official = officialSelect[officialSelect.length - 1];
-  if (official) official.addEventListener("change", () => persist({ official_messages: official.value }));
-  host.appendChild(settingsOpt(
     "Show on/off indicators",
     "On forms, menus and settings, on/off toggles will have icons.",
     settingsToggle(!!info.toggle_indicators, false, (on) => persist({ toggle_indicators: on }))
@@ -337,9 +315,12 @@ function paintReducedMotion(host, info, persist) {
   ));
   host.appendChild(settingsOpt(
     "Play animated emoji",
-    "",
+    "Play animated custom emoji in chat and the emoji picker.",
     settingsToggle(info.animated_emoji !== false, false, (on) => persist({ animated_emoji: on }))
   ));
+}
+
+function paintStickerAnimations(host, info, persist) {
   const stickerTitle = document.createElement("div");
   stickerTitle.className = "settings-opt-title";
   stickerTitle.style.marginTop = "8px";
@@ -427,8 +408,7 @@ async function renderAccessibilitySettings(pane, jumpChildId) {
     ["text-readability", "Text Readability", paintTextReadability],
     ["visual-density", "Visual Density", paintVisualDensity],
     ["color-contrast", "Color & Contrast", paintColorContrast],
-    ["reduced-motion", "Reduced Motion", paintReducedMotion],
-    ["audio-screen-reader", "Audio & Screen Reader", paintAudioReader]
+    ["reduced-motion", "Reduced Motion", paintReducedMotion]
   ];
   sections.forEach(row => {
     const sub = document.createElement("div");

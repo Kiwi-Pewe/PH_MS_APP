@@ -14,6 +14,7 @@ from app.routers.profile import public_avatar
 from app.routers.parties import PARTY_MEMBER_CAP
 from app.privacy import blocked_from_party_owner
 from app.site_moderation import refuse_server_join
+from app.routers.servers import server_default_notifications
 from datetime import datetime, timedelta
 import asyncio
 import json
@@ -340,7 +341,7 @@ async def accept_invite(code: str, database: Session = Depends(get_db), current_
             server_id = invite.server_id,
             user_id = current_user.id,
             position = 100 if highest_position == None else highest_position + 100,
-            notify_level = "all",
+            notify_level = server_default_notifications(server),
         )
         database.add(new_member)
 

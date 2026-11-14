@@ -33,7 +33,7 @@ function cachedChannelNotifyPrefs(serverId, channelId) {
 
 function rememberServerNotifyPrefs(data) {
   if (!data || !data.server_id) return null;
-  const level = cleanNotifyLevel(data.notify_level) || "all";
+  const level = cleanNotifyLevel(data.notify_level) || cleanNotifyLevel(data.server_default_level) || "mentions";
   const prefs = {
     server_id: data.server_id,
     muted: !!data.muted,
@@ -111,8 +111,8 @@ async function loadServerNotifyPrefs(serverId) {
       server_id: serverId,
       muted: false,
       suppress_pings: false,
-      notify_level: "all",
-      notify_level_label: notifyLevelLabel("all")
+      notify_level: "mentions",
+      notify_level_label: notifyLevelLabel("mentions")
     };
   }
 }
@@ -225,7 +225,7 @@ function serverIsNotifyMuted(serverId) {
 function notifyDecision(serverId, channelId, mentioned) {
   const server = cachedServerNotifyPrefs(serverId);
   const channel = channelNotifyReady(serverId) ? cachedChannelNotifyPrefs(serverId, channelId) : null;
-  let level = cleanNotifyLevel(server && server.notify_level) || "all";
+  let level = cleanNotifyLevel(server && server.notify_level) || "mentions";
   const channelLevel = channel ? cleanNotifyLevel(channel.notify_level) : "";
   if (channelLevel && NOTIFY_RANK[channelLevel] < NOTIFY_RANK[level]) level = channelLevel;
   const muted = !!(server && server.muted) || !!(channel && channel.muted);
@@ -325,7 +325,7 @@ function notifyFlagRows(serverPrefs, flagState, onSave) {
 }
 
 function categorySharedNotify(serverId, category, serverPrefs) {
-  const serverLevel = cleanNotifyLevel(serverPrefs && serverPrefs.notify_level) || "all";
+  const serverLevel = cleanNotifyLevel(serverPrefs && serverPrefs.notify_level) || "mentions";
   const channels = categoryNotifyChannels(category);
   const flags = {};
   NOTIFY_FLAG_ROWS.forEach(([key]) => {
@@ -361,7 +361,7 @@ function buildCategoryNotifySubmenu(serverId, category, serverPrefs) {
 }
 
 function buildChannelNotifySubmenu(serverId, channelId, channelPrefs, serverPrefs) {
-  const serverLevel = cleanNotifyLevel(serverPrefs && serverPrefs.notify_level) || "all";
+  const serverLevel = cleanNotifyLevel(serverPrefs && serverPrefs.notify_level) || "mentions";
   const ownLevel = channelPrefs ? cleanNotifyLevel(channelPrefs.notify_level) : "";
   const level = ownLevel || serverLevel;
   return buildNotifyLevelRows(level, (kind) => saveChannelNotifyPrefs(serverId, channelId, { notify_level: kind }), serverLevel).concat(

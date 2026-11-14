@@ -19,6 +19,7 @@ function serverAvatarLetters(name) {
 
 function formatClockTime(date) {
   const mode = (typeof languageTimePrefs !== "undefined" && languageTimePrefs && languageTimePrefs.time_format) || "auto";
+  const locale = typeof languageTimeLocale === "function" ? languageTimeLocale() : "en-US";
   const opts = { minute: "2-digit" };
   if (mode === "24") {
     opts.hour = "2-digit";
@@ -29,7 +30,7 @@ function formatClockTime(date) {
   } else {
     opts.hour = "numeric";
   }
-  return date.toLocaleTimeString([], opts);
+  return date.toLocaleTimeString(locale, opts);
 }
 
 // "24 hours old" is relative to render time, not calendar date — a
@@ -38,7 +39,8 @@ function formatClusterTime(date) {
   const ageMs = Date.now() - date.getTime();
   const timeStr = formatClockTime(date);
   if (ageMs < 24 * 60 * 60 * 1000) return timeStr;
-  const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
+  const locale = typeof languageTimeLocale === "function" ? languageTimeLocale() : "en-US";
+  const dateStr = date.toLocaleDateString(locale, { month: "short", day: "numeric" });
   return `${dateStr} \u00b7 ${timeStr}`;
 }
 
@@ -57,11 +59,18 @@ function formatChatDateSeparator(date) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const that = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const diffDays = Math.round((today - that) / (24 * 60 * 60 * 1000));
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
+  const locale = typeof languageTimeLocale === "function" ? languageTimeLocale() : "en-US";
+  if (diffDays === 0 || diffDays === 1) {
+    try {
+      const label = new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-diffDays, "day");
+      return label.charAt(0).toUpperCase() + label.slice(1);
+    } catch (e) {
+      return diffDays === 0 ? "Today" : "Yesterday";
+    }
+  }
   const opts = { weekday: "long", month: "long", day: "numeric" };
   if (d.getFullYear() !== now.getFullYear()) opts.year = "numeric";
-  return d.toLocaleDateString([], opts);
+  return d.toLocaleDateString(locale, opts);
 }
 
 function parseUtcTimestamp(ts) {

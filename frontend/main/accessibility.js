@@ -67,13 +67,9 @@ function applyAccessibility(prefs) {
   root.classList.toggle("chat-compact", accessibilityPrefs.chat_display === "compact");
   root.classList.toggle("ui-density-compact", accessibilityPrefs.ui_density === "compact");
   root.classList.toggle("ui-density-spacious", accessibilityPrefs.ui_density === "spacious");
-  root.classList.toggle("legacy-chat-input", !!accessibilityPrefs.legacy_input);
+  root.classList.remove("legacy-chat-input");
   root.classList.remove("oneira-unfocused");
   applyAccessibilityZoom(accessibilityPrefs.zoom);
-  if (accessibilityPrefs.legacy_input) {
-    if (typeof hideMentionPicker === "function") hideMentionPicker();
-    if (typeof closeEmojiPicker === "function") closeEmojiPicker();
-  }
   if (typeof applyAppearance === "function" && appearancePrefs) applyAppearance(appearancePrefs);
   if (typeof refreshAccessibilityPreview === "function") refreshAccessibilityPreview();
   if (typeof refreshServerNameColors === "function") refreshServerNameColors();

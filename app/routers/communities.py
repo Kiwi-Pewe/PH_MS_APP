@@ -18,7 +18,7 @@ from app.routers.realtime import notify_user, presence_status, serialize_member,
 from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user, require_server_member, require_server_perm
 from app.routers.feed import notify_feed_alert
 from app.routers.profile import public_avatar, public_display_name
-from app.routers.servers import clean_server_tag, parse_application_form, parse_server_tags, server_banner_fields, server_icon_still_url, server_icon_url, server_listing_tags, server_url_slug
+from app.routers.servers import clean_server_tag, parse_application_form, parse_server_tags, server_banner_fields, server_default_notifications, server_icon_still_url, server_icon_url, server_listing_tags, server_url_slug
 from app.site_moderation import listing_blocked_ids, refuse_server_join
 
 router = APIRouter()
@@ -202,7 +202,7 @@ def add_community_member(database, server, user):
         server_id=server.id,
         user_id=user.id,
         position=100 if highest_position is None else highest_position + 100,
-        notify_level="all",
+        notify_level=server_default_notifications(server),
     ))
     assign_members_role(database, server.id, user.id)
     channel = first_server_channel(database, server.id)

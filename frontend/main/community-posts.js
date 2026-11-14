@@ -129,7 +129,13 @@ async function saveCommunityPost() {
     if (!response.ok) throw new Error(communityErrorText(data, "Could not post."));
     const post = communityPostReady(data);
     const searching = typeof communitySearchRan === "function" && communitySearchRan("post");
-    const fits = communityRow === "following" || (communityRow === "explore" && !post.followers_only);
+    const favorite = ((typeof communityPostPrefs !== "undefined" && communityPostPrefs.favorite_topics) || []).map((item) => String(item || "").trim().toLowerCase());
+    const postTopics = (post.topics || []).map((item) => String(item || "").trim().toLowerCase());
+    const topicHit = postTopics.some((item) => favorite.indexOf(item) >= 0);
+    const followHit = typeof communityFollowsUser === "function" && communityFollowsUser(post.author_id);
+    const fits = (communityRow === "following" && (post.mine || followHit))
+      || (communityRow === "timeline" && !post.followers_only && topicHit)
+      || (communityRow === "explore" && !post.followers_only);
     if (fits && !searching) communityPostRows.unshift(post);
     if (typeof closeCommunityCompose === "function") closeCommunityCompose();
     if (typeof paintCommunityPosts === "function") paintCommunityPosts();

@@ -12,7 +12,7 @@ from app.routers.youtube_link import load_youtube_card, load_youtube_video_card,
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in, Profile_chat_in
 from app.database import get_db
 from app.auth import get_current_user
-from app.privacy import accepted_friend_ids, are_friends, can_see_full_profile, drop_blocked_rows
+from app.privacy import accepted_friend_ids, are_friends, can_see_full_profile, drop_blocked_rows, shared_server_ids
 from app.routers.account import parse_display_name_history
 from app.routers.realtime import notify_user, presence_status, profile_chat_viewer_ids, watch_profile_chat
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for, still_url_for, still_url_from_public, require_message_body, store_attachment, attachment_public
@@ -58,6 +58,7 @@ PROFILE_COMMENT_PAGE = 6
 PROFILE_CHAT_MAX = 2000
 PROFILE_CHAT_KEEP = 25
 DISPLAY_SERVER_MAX = 20
+SERVER_LIST_MAX = 200
 CHAT_ROOM_MODES = {"rooms", "profile"}
 SERVER_ID_RE = re.compile(r"^[234679ACDEFGHJKLMNPQRTUVWXYZ]{10}$")
 FRIEND_PICK_MAX = 24
@@ -979,10 +980,14 @@ def normalize_display_server_props(data):
         ids.append(code)
         if len(ids) >= DISPLAY_SERVER_MAX:
             break
+    mode = str(data.get("mode") or "").strip().lower()
+    if mode not in ("all", "featured", "mutuals"):
+        mode = "featured" if ids else "all"
     title = clip_text(data.get("title"), BODY_TITLE_MAX).strip() or "Server List"
     out = normalize_text_chrome(data, 14, True)
     out["title"] = title
     out["server_ids"] = ids
+    out["mode"] = mode
     return out
 
 
@@ -2052,7 +2057,64 @@ def profile_mutuals(database: Session, owner_id, viewer_id, limit=FRIEND_LIST_MA
     return people
 
 
-def profile_payload(user, layout, limited, friends, mutuals=None):
+def profile_server_card(server):
+    key = getattr(server, "icon_key", None) if server else None
+    return {
+        "id": server.id,
+        "name": (server.name if server else None) or "Server",
+        "icon_url": public_url_for(key) if key else "",
+        "icon_still_url": still_url_for(key) if key else "",
+    }
+
+
+def profile_servers_for(database: Session, user_id, limit=SERVER_LIST_MAX):
+    rows = (
+        database.query(Server_members)
+        .filter(Server_members.user_id == user_id)
+        .order_by(Server_members.position)
+        .all()
+    )
+    ids = []
+    for row in rows:
+        code = str(row.server_id or "").strip().upper()
+        if not SERVER_ID_RE.match(code) or code in ids:
+            continue
+        ids.append(code)
+        if len(ids) >= limit:
+            break
+    if not ids:
+        return []
+    servers = {row.id: row for row in database.query(Servers).filter(Servers.id.in_(ids)).all()}
+    return [profile_server_card(servers[sid]) for sid in ids if sid in servers]
+
+
+def profile_mutual_servers(database: Session, owner_id, viewer_id, limit=SERVER_LIST_MAX):
+    if not owner_id or not viewer_id or owner_id == viewer_id:
+        return []
+    shared = shared_server_ids(database, owner_id, viewer_id)
+    if not shared:
+        return []
+    rows = (
+        database.query(Server_members)
+        .filter(Server_members.user_id == owner_id, Server_members.server_id.in_(shared))
+        .order_by(Server_members.position)
+        .all()
+    )
+    ids = []
+    for row in rows:
+        code = str(row.server_id or "").strip().upper()
+        if not SERVER_ID_RE.match(code) or code in ids:
+            continue
+        ids.append(code)
+        if len(ids) >= limit:
+            break
+    if not ids:
+        return []
+    servers = {row.id: row for row in database.query(Servers).filter(Servers.id.in_(ids)).all()}
+    return [profile_server_card(servers[sid]) for sid in ids if sid in servers]
+
+
+def profile_payload(user, layout, limited, friends, mutuals=None, servers=None, mutual_servers=None):
     return {
         "user": {
             "id": user.id,
@@ -2067,7 +2129,23 @@ def profile_payload(user, layout, limited, friends, mutuals=None):
         "layout": layout,
         "friends": friends if not limited else [],
         "mutuals": mutuals if (not limited and mutuals) else [],
+        "servers": servers if (not limited and servers) else [],
+        "mutual_servers": mutual_servers if (not limited and mutual_servers) else [],
     }
+
+
+def full_profile_payload(database, user, layout, limited=False, viewer_id=None):
+    if limited:
+        return profile_payload(user, layout, True, [])
+    owner_id = user.id
+    friends = friend_preview(database, owner_id)
+    servers = profile_servers_for(database, owner_id)
+    mutuals = None
+    mutual_servers = None
+    if viewer_id and viewer_id != owner_id:
+        mutuals = profile_mutuals(database, owner_id, viewer_id)
+        mutual_servers = profile_mutual_servers(database, owner_id, viewer_id)
+    return profile_payload(user, layout, False, friends, mutuals, servers, mutual_servers)
 
 
 @router.post("/profile_identity")
@@ -2076,7 +2154,7 @@ def update_own_profile_identity(body: Profile_identity_in, current_user: UserInf
     current_user.profile_pronouns = clip_text(body.pronouns, PRONOUNS_MAX).strip()
     database.commit()
     layout = ensure_layout(current_user, database)
-    return profile_payload(current_user, layout, False, friend_preview(database, current_user.id))
+    return full_profile_payload(database, current_user, layout)
 
 
 @router.get("/user_status/{user_id}")
@@ -2101,7 +2179,7 @@ def user_by_username(username: str, database: Session = Depends(get_db), current
 @router.get("/profile_layout")
 def get_own_profile_layout(current_user: UserInfo = Depends(get_current_user), database: Session = Depends(get_db)):
     layout = ensure_layout(current_user, database)
-    return profile_payload(current_user, layout, False, friend_preview(database, current_user.id))
+    return full_profile_payload(database, current_user, layout)
 
 
 @router.post("/profile_layout")
@@ -2109,7 +2187,7 @@ def update_own_profile_layout(body: Profile_layout_in, current_user: UserInfo = 
     layout = normalize_layout(body.model_dump())
     current_user.profile_layout = json.dumps(layout)
     database.commit()
-    return profile_payload(current_user, layout, False, friend_preview(database, current_user.id))
+    return full_profile_payload(database, current_user, layout)
 
 
 @router.get("/profile/{user_id}")
@@ -2119,16 +2197,10 @@ def get_public_profile(user_id: int, current_user: UserInfo = Depends(get_curren
         raise HTTPException(status_code=404, detail="User not found.")
     layout = ensure_layout(owner, database)
     if current_user.id == owner.id:
-        return profile_payload(owner, layout, False, friend_preview(database, owner.id))
+        return full_profile_payload(database, owner, layout)
     if not can_see_full_profile(database, current_user, owner):
-        return profile_payload(owner, identity_only_layout(layout), True, [])
-    return profile_payload(
-        owner,
-        public_pages(layout),
-        False,
-        friend_preview(database, owner.id),
-        profile_mutuals(database, owner.id, current_user.id),
-    )
+        return full_profile_payload(database, owner, identity_only_layout(layout), True)
+    return full_profile_payload(database, owner, public_pages(layout), False, current_user.id)
 
 
 def comments_wall_prop(layout, key):

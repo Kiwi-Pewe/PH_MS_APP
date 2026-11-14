@@ -16,7 +16,7 @@ from app.routers.account import public_display_name
 from app.routers.feedback import (
     REPORT_KINDS, feedback_file_count, feedback_score, clean_feedback_text, clean_report_kind,
 )
-from app.routers.profile import public_identity, public_avatar, ensure_layout, profile_payload, friend_preview, avatar_lookup
+from app.routers.profile import public_identity, public_avatar, ensure_layout, avatar_lookup, full_profile_payload
 from app.routers.mini_profiles import layout_banner_and_about
 from app.routers.servers import server_banner_fields, server_icon_url, server_type_label, join_methods_by_user
 from app.routers.mentions import decorate_history, reply_map_for
@@ -1870,7 +1870,7 @@ def admin_user_profile(user_id: int, database: Session = Depends(get_db), curren
     if not account:
         raise HTTPException(status_code=404, detail="User not found.")
     layout = ensure_layout(account, database)
-    return profile_payload(account, layout, False, friend_preview(database, account.id))
+    return full_profile_payload(database, account, layout, False, current_user.id)
 
 
 @router.post("/admin/user/{user_id}/warn")

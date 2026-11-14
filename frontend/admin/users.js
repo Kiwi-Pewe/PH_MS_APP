@@ -174,6 +174,8 @@ function applyAdminProfilePayload(data) {
   profileLimited = false;
   profileFriends = (data && data.friends) || [];
   profileMutuals = (data && data.mutuals) || [];
+  profileServers = (data && data.servers) || [];
+  profileMutualServers = (data && data.mutual_servers) || [];
   profileSavedLayout = (data && data.layout) || { pages: [] };
   if (typeof stampClockNamedTimezones === "function") stampClockNamedTimezones(profileSavedLayout);
   profileDraft = typeof cloneProfileLayout === "function" ? cloneProfileLayout(profileSavedLayout) : profileSavedLayout;

@@ -372,10 +372,10 @@ function ensureAdminProfileLayer() {
       "../shared/music-player.js?v=2",
       "../shared/embed-frame.js?v=1",
       "../shared/gallery-frame.js?v=1",
-      "profile-bridge.js?v=2",
+      "profile-bridge.js?v=3",
       "../main/profile-identity.js?v=19",
       "../main/profile-comments.js?v=9",
-      "../main/profile-board.js?v=137",
+      "../main/profile-board.js?v=154",
       "../main/mini-profile.js?v=45"
     ])).then(() => {
       if (typeof adminSyncProfileOwner === "function") adminSyncProfileOwner();

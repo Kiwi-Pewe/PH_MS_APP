@@ -897,9 +897,14 @@ function profileTilePropsBare(type, prev) {
       seen[code] = true;
       ids.push(code);
     });
+    let mode = prev.mode === "featured" || prev.mode === "mutuals" ? prev.mode : "all";
+    if (prev.mode !== "all" && prev.mode !== "featured" && prev.mode !== "mutuals") {
+      mode = ids.length ? "featured" : "all";
+    }
     return Object.assign({
       title: String(prev.title || "").trim() || "Server List",
-      server_ids: ids
+      server_ids: ids,
+      mode
     }, chrome);
   }
   if (type === "clock" || type === "countdown") {
@@ -2017,41 +2022,46 @@ function displayServerIdOk(code) {
   return /^[234679ACDEFGHJKLMNPQRTUVWXYZ]{10}$/.test(String(code || ""));
 }
 
+function profileDisplayServerMode(tile) {
+  const mode = tile && tile.props && tile.props.mode;
+  if (mode === "featured" || mode === "mutuals") return mode;
+  const ids = (tile && tile.props && tile.props.server_ids) || [];
+  if (mode !== "all" && ids.length) return "featured";
+  return "all";
+}
+
+function profileDisplayServers(tile) {
+  const mode = profileDisplayServerMode(tile);
+  if (mode === "mutuals") return typeof profileMutualServers !== "undefined" ? (profileMutualServers || []) : [];
+  if (mode === "featured") {
+    const byId = {};
+    (typeof profileServers !== "undefined" ? profileServers : []).forEach((server) => {
+      byId[String(server.id)] = server;
+    });
+    return ((tile && tile.props && tile.props.server_ids) || []).map((id) => byId[String(id)]).filter(Boolean);
+  }
+  return typeof profileServers !== "undefined" ? (profileServers || []) : [];
+}
+
 function paintProfileDisplayServer(tile, el) {
   const chrome = typeof profileTextChrome === "function" ? profileTextChrome(tile.props, tile.type) : null;
   if (chrome) applyProfileTextPaint(el, chrome);
   applyProfileWidgetSurface(el, tile);
-  const props = defaultProfileTileProps("display_server", tile.props);
   const body = document.createElement("div");
   body.className = "profile-tile-body";
-  const empty = document.createElement("div");
-  empty.className = "settings-opt-desc";
-  empty.textContent = props.server_ids.length ? "" : "No servers selected.";
-  if (!props.server_ids.length) body.appendChild(empty);
   el.appendChild(body);
-  if (!props.server_ids.length || !profileOwnerId) return;
-  const ids = props.server_ids.filter(displayServerIdOk);
-  const key = String(profileOwnerId) + ":" + ids.join(",");
-  if (profileServerCache[key]) {
-    paintProfileServerRows(body, profileServerCache[key]);
+  const rows = profileDisplayServers(tile);
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "settings-opt-desc";
+    const mode = profileDisplayServerMode(tile);
+    empty.textContent = mode === "mutuals"
+      ? "No mutual servers to show yet."
+      : (mode === "featured" ? "No servers selected yet." : "No servers to show yet.");
+    body.appendChild(empty);
     return;
   }
-  empty.textContent = "Loading servers…";
-  body.appendChild(empty);
-  const stamp = (el._displayServerStamp || 0) + 1;
-  el._displayServerStamp = stamp;
-  fetch("https://" + serverAddress + "/profile/" + encodeURIComponent(profileOwnerId) + "/pinned_servers?ids=" + encodeURIComponent(ids.join(",")), { credentials: "include" })
-    .then((res) => res.ok ? res.json() : Promise.reject())
-    .then((data) => {
-      if (el._displayServerStamp !== stamp) return;
-      const rows = (data && data.servers) || [];
-      profileServerCache[key] = rows;
-      paintProfileServerRows(body, rows);
-    })
-    .catch(() => {
-      if (el._displayServerStamp !== stamp) return;
-      empty.textContent = "Could not load those servers.";
-    });
+  paintProfileServerRows(body, rows);
 }
 
 function paintProfileVideo(tile, el) {
@@ -6482,6 +6492,7 @@ function renderProfileBoard() {
       const one = String(tile.props.server_id || "").trim().toUpperCase();
       if (one && ids.indexOf(one) < 0) ids.unshift(one);
       tile.props.server_ids = ids;
+      if (!tile.props.mode) tile.props.mode = ids.length ? "featured" : "all";
       if (!String(tile.props.title || "").trim()) tile.props.title = "Server List";
     }
     const size = clampProfileTileSize(tile.type, tile.w, tile.h, tile.x, tile);

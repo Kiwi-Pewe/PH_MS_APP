@@ -2222,60 +2222,177 @@ function fillCommentsOptions(box, draft, onChange, hintEl) {
 function fillDisplayServerOptions(box, draft, onChange, hintEl) {
   if (!Array.isArray(draft.server_ids)) draft.server_ids = [];
   else draft.server_ids = draft.server_ids.slice();
-  const heading = document.createElement("div");
-  heading.className = "profile-opt-field-label";
-  heading.textContent = "Servers";
-  profileOptHint(heading, "Pick which of your servers this tile shows. Visitors only see the ones you check.", hintEl);
-  box.appendChild(heading);
+  if (draft.mode !== "featured" && draft.mode !== "mutuals") {
+    draft.mode = draft.mode === "all" || !draft.server_ids.length ? "all" : "featured";
+  }
+  const mode = profileSelectField("Mode", [
+    { value: "all", label: "All servers" },
+    { value: "featured", label: "Featured Servers" },
+    { value: "mutuals", label: "Mutual Servers" }
+  ], draft.mode);
+  profileOptHint(mode.label, "All servers lists every server you are in. Featured Servers lets you pick which ones appear. Mutual Servers shows servers you both belong to.", hintEl);
+  const extras = document.createElement("div");
+  extras.className = "profile-friend-pick";
+  extras.hidden = draft.mode !== "featured";
+  fillDisplayServerSelectedPicker(extras, draft, onChange, hintEl);
+  mode.select.addEventListener("change", () => {
+    draft.mode = mode.select.value === "featured" || mode.select.value === "mutuals" ? mode.select.value : "all";
+    extras.hidden = draft.mode !== "featured";
+    onChange();
+  });
+  box.appendChild(mode.label);
+  box.appendChild(extras);
+}
+
+function serverPickName(server) {
+  return String((server && server.name) || "").trim();
+}
+
+function serverPickMatches(server, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return false;
+  const name = serverPickName(server).toLowerCase();
+  const slug = String((server && server.url_slug) || "").trim().toLowerCase();
+  const id = String((server && server.id) || "").trim().toLowerCase();
+  return name.indexOf(q) >= 0 || slug.indexOf(q) >= 0 || id.indexOf(q) >= 0;
+}
+
+function paintServerPickHit(server) {
+  const row = document.createElement("button");
+  row.type = "button";
+  row.className = "dm-item";
+  const dot = document.createElement("div");
+  dot.className = "avatar-dot";
+  const icon = server && (server.icon_url || server.icon);
+  if (icon) {
+    if (typeof bindAttentionGif === "function" && typeof isGifSrc === "function" && isGifSrc(icon)) {
+      const img = document.createElement("img");
+      img.alt = "";
+      bindAttentionGif(img, {
+        live: icon,
+        still: typeof iconStillOf === "function" ? iconStillOf(server) : (server.icon_still_url || ""),
+        kind: "user",
+        host: dot
+      });
+      dot.appendChild(img);
+    } else {
+      dot.style.backgroundImage = "url(" + JSON.stringify(icon) + ")";
+      dot.style.backgroundSize = "cover";
+      dot.style.backgroundPosition = "center";
+    }
+  } else {
+    dot.textContent = typeof serverAvatarLetters === "function" ? serverAvatarLetters(serverPickName(server)) : String(serverPickName(server) || "?").slice(0, 2);
+  }
+  const text = document.createElement("div");
+  text.className = "dm-item-text";
+  const who = document.createElement("div");
+  who.className = "who";
+  who.textContent = serverPickName(server) || "Server";
+  text.appendChild(who);
+  row.appendChild(dot);
+  row.appendChild(text);
+  return row;
+}
+
+function fillDisplayServerSelectedPicker(host, draft, onChange, hintEl) {
+  const searchLabel = document.createElement("label");
+  searchLabel.textContent = "Search servers";
+  const search = document.createElement("input");
+  search.type = "text";
+  search.placeholder = "Server name";
+  search.autocomplete = "off";
+  search.spellcheck = false;
+  profileOptHint(searchLabel, "Type a server name, then pick from the list.", hintEl);
+  const wrap = document.createElement("div");
+  wrap.className = "profile-friend-search";
   const list = document.createElement("div");
-  list.className = "profile-opt-server-picks";
-  list.textContent = "Loading servers…";
-  box.appendChild(list);
+  list.className = "profile-friend-search-list";
+  list.hidden = true;
+  wrap.appendChild(search);
+  wrap.appendChild(list);
+  searchLabel.appendChild(wrap);
+  const pills = document.createElement("div");
+  pills.className = "profile-friend-pills";
+  host.appendChild(searchLabel);
+  host.appendChild(pills);
+  let servers = [];
+  const cap = typeof DISPLAY_SERVER_MAX === "number" ? DISPLAY_SERVER_MAX : 20;
+  const selectedOf = () => {
+    const byId = {};
+    servers.forEach((server) => { byId[String(server.id)] = server; });
+    return (draft.server_ids || []).map((id) => byId[String(id)]).filter(Boolean);
+  };
+  const paintPills = () => {
+    pills.innerHTML = "";
+    selectedOf().forEach((server) => {
+      const pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = "profile-friend-pill";
+      const label = document.createElement("span");
+      label.textContent = serverPickName(server) || String(server.id || "");
+      const x = document.createElement("span");
+      x.className = "profile-friend-pill-x";
+      x.textContent = "×";
+      pill.appendChild(label);
+      pill.appendChild(x);
+      pill.addEventListener("click", () => {
+        draft.server_ids = (draft.server_ids || []).filter((id) => String(id) !== String(server.id));
+        paintPills();
+        paintHits();
+        onChange();
+      });
+      pills.appendChild(pill);
+    });
+  };
+  const paintHits = () => {
+    list.innerHTML = "";
+    const query = search.value;
+    if (!String(query || "").trim()) {
+      list.hidden = true;
+      return;
+    }
+    const picked = {};
+    (draft.server_ids || []).forEach((id) => { picked[String(id)] = true; });
+    const hits = servers.filter((server) => !picked[String(server.id)] && serverPickMatches(server, query)).slice(0, 12);
+    if (!hits.length) {
+      const empty = document.createElement("div");
+      empty.className = "settings-opt-desc";
+      empty.textContent = "No servers match that.";
+      list.appendChild(empty);
+      list.hidden = false;
+      return;
+    }
+    hits.forEach((server) => {
+      const row = paintServerPickHit(server);
+      row.addEventListener("click", () => {
+        if ((draft.server_ids || []).length >= cap) return;
+        if ((draft.server_ids || []).some((id) => String(id) === String(server.id))) return;
+        draft.server_ids = (draft.server_ids || []).concat([server.id]);
+        search.value = "";
+        paintPills();
+        paintHits();
+        onChange();
+      });
+      list.appendChild(row);
+    });
+    list.hidden = false;
+  };
+  list.addEventListener("mousedown", (e) => e.preventDefault());
+  search.addEventListener("input", paintHits);
+  search.addEventListener("focus", paintHits);
+  search.addEventListener("blur", () => {
+    setTimeout(() => { list.hidden = true; }, 180);
+  });
   fetch("https://" + serverAddress + "/get_servers", { credentials: "include" })
     .then((res) => res.ok ? res.json() : Promise.reject())
     .then((data) => {
-      if (!list.isConnected) return;
-      const servers = (data && data.servers) || [];
-      list.innerHTML = "";
-      if (!servers.length) {
-        const note = document.createElement("div");
-        note.className = "settings-opt-desc";
-        note.textContent = "Join a server first, then pick it here.";
-        list.appendChild(note);
-        return;
-      }
-      const cap = typeof DISPLAY_SERVER_MAX === "number" ? DISPLAY_SERVER_MAX : 20;
-      servers.forEach((server) => {
-        const row = document.createElement("label");
-        row.className = "settings-check";
-        const boxEl = document.createElement("input");
-        boxEl.type = "checkbox";
-        boxEl.checked = draft.server_ids.indexOf(server.id) >= 0;
-        const label = document.createElement("span");
-        label.textContent = server.name || "Server";
-        boxEl.addEventListener("change", () => {
-          const i = draft.server_ids.indexOf(server.id);
-          if (boxEl.checked) {
-            if (i < 0) {
-              if (draft.server_ids.length >= cap) {
-                boxEl.checked = false;
-                return;
-              }
-              draft.server_ids.push(server.id);
-            }
-          } else if (i >= 0) {
-            draft.server_ids.splice(i, 1);
-          }
-          onChange();
-        });
-        row.appendChild(boxEl);
-        row.appendChild(label);
-        list.appendChild(row);
-      });
+      servers = (data && data.servers) || [];
+      paintPills();
+      paintHits();
     })
     .catch(() => {
-      if (!list.isConnected) return;
-      list.textContent = "Could not load your servers.";
+      servers = typeof profileServers !== "undefined" ? (profileServers || []).slice() : [];
+      paintPills();
     });
 }
 

@@ -26,6 +26,15 @@ from app.routers.roles import name_color_roles_by_user, nicknames_for_users, cle
 from app.r2 import delete_attachment, post_attachments_public, attachment_public
 from app.routers.community_posts import author_map, comment_counts, pack_community_comment, pack_community_post
 from app.routers.feed import notify_feed_alert
+from app.routers.kofi import (
+    INCOME_KINDS,
+    format_kofi_money,
+    kofi_row,
+    kofi_window,
+    normalize_kofi_kind,
+    pack_kofi_stats,
+    sum_payments,
+)
 from app.routers.realtime import active_connections, presence_status
 from app.site_moderation import (
     COMMUNITY_LOCKS,
@@ -657,6 +666,54 @@ def count_rows(database, model, column, start, end=None):
     return int(query.scalar() or 0)
 
 
+def count_day_bars(database, model, column, week_start):
+    bars = []
+    total = 0
+    for offset in range(7):
+        start = week_start + timedelta(days=offset)
+        end = start + timedelta(days=1)
+        n = count_rows(database, model, column, start, end)
+        total += n
+        bars.append({
+            "label": day_label(start),
+            "value": n,
+            "hot": offset == 6,
+        })
+    return bars, total
+
+
+def empty_day_bars(week_start):
+    bars = []
+    for offset in range(7):
+        start = week_start + timedelta(days=offset)
+        bars.append({
+            "label": day_label(start),
+            "value": 0,
+            "hot": offset == 6,
+        })
+    return bars
+
+
+def kofi_day_bars(database, week_start):
+    bars = []
+    total = 0.0
+    for offset in range(7):
+        start = week_start + timedelta(days=offset)
+        end = start + timedelta(days=1)
+        chunk = [
+            item for item in kofi_window(database, start, end)
+            if normalize_kofi_kind(item.kind) in INCOME_KINDS
+        ]
+        amount = round(sum_payments(chunk), 2)
+        total += amount
+        bars.append({
+            "label": day_label(start),
+            "value": amount,
+            "hot": offset == 6,
+        })
+    return bars, round(total, 2)
+
+
 def active_server_ids(database, start, ids=None):
     query = (
         database.query(Server_categories.server_id)
@@ -885,17 +942,25 @@ def admin_overview_stats(
         "username": user.username or "",
         "created_at": str(post.created_at) if post.created_at else None,
     } for post, user in recent_post_rows]
-    week_new = count_rows(database, UserInfo, UserInfo.created_at, week_start)
     prev_week_new = count_rows(database, UserInfo, UserInfo.created_at, prev_week_start, week_start)
-    bars = []
-    for offset in range(7):
-        start = week_start + timedelta(days=offset)
-        end = start + timedelta(days=1)
-        bars.append({
-            "label": day_label(start),
-            "value": count_rows(database, UserInfo, UserInfo.created_at, start, end),
-            "hot": offset == 6,
-        })
+    bars, week_new = count_day_bars(database, UserInfo, UserInfo.created_at, week_start)
+    report_bars, report_week = count_day_bars(database, Feedback_report, Feedback_report.created_at, week_start)
+    report_prev_week = count_rows(database, Feedback_report, Feedback_report.created_at, prev_week_start, week_start)
+    server_bars, server_week = count_day_bars(database, Servers, Servers.created_at, week_start)
+    server_prev_week = count_rows(database, Servers, Servers.created_at, prev_week_start, week_start)
+    community_bars, community_week = count_day_bars(database, Community_post, Community_post.created_at, week_start)
+    community_prev_week = count_rows(database, Community_post, Community_post.created_at, prev_week_start, week_start)
+    kofi = pack_kofi_stats(database, kofi_row(database))
+    kofi_bars, kofi_week = kofi_day_bars(database, week_start)
+    kofi_prev_chunk = [
+        item for item in kofi_window(database, prev_week_start, week_start)
+        if normalize_kofi_kind(item.kind) in INCOME_KINDS
+    ]
+    kofi_prev_week = round(sum_payments(kofi_prev_chunk), 2)
+    kofi["bars"] = kofi_bars
+    kofi["week_raw"] = kofi_week
+    kofi["prev_week_raw"] = kofi_prev_week
+    kofi["week"] = format_kofi_money(kofi_week)
     active_24h = int(
         database.query(func.count(func.distinct(Active_Sessions.account_id)))
         .filter(Active_Sessions.last_active >= ago_1)
@@ -979,6 +1044,15 @@ def admin_overview_stats(
             "range": day_label(week_start) + " – " + day_label(day) + " · 7 days",
             "bars": bars,
         },
+        "series": {
+            "accounts": {"week": week_new, "prev_week": prev_week_new, "bars": bars},
+            "reports": {"week": report_week, "prev_week": report_prev_week, "bars": report_bars},
+            "automod": {"week": 0, "prev_week": 0, "bars": empty_day_bars(week_start)},
+            "servers": {"week": server_week, "prev_week": server_prev_week, "bars": server_bars},
+            "community": {"week": community_week, "prev_week": community_prev_week, "bars": community_bars},
+            "kofi": {"week": kofi_week, "prev_week": kofi_prev_week, "bars": kofi_bars},
+        },
+        "kofi": kofi,
         "pulse": {
             "active_24h": active_24h,
             "active_prev_24h": active_prev,

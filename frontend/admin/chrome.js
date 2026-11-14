@@ -13,7 +13,8 @@ const ADMIN_ICON = {
   activity: "M22 12h-4l-3 7L9 3 6 12H2",
   phone: "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z",
   calendar: "M7 3v3 M17 3v3 M4 9h16 M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",
-  lock: "M8 11V8a4 4 0 0 1 8 0v3 M7 11h10v10H7z"
+  lock: "M8 11V8a4 4 0 0 1 8 0v3 M7 11h10v10H7z",
+  kofi: "M12 2v20 M17 7.5c0-2.2-2.2-4-5-4s-5 1.8-5 4 2.2 4 5 4 5 1.8 5 4-2.2 4-5 4-5-1.8-5-4"
 };
 
 const ADMIN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -123,7 +124,7 @@ function adminBanner(htmlLead, rest) {
 }
 
 function adminStatCard(opts) {
-  const tile = adminEl("div", "overview-tile");
+  const tile = adminEl("div", "overview-tile" + (opts.selected ? " is-active" : "") + (opts.onClick ? " is-pick" : ""));
   const top = adminEl("div", "overview-tile-top");
   top.appendChild(adminEl("div", "overview-tile-label", opts.label));
   if (opts.icon) top.appendChild(adminIcon(opts.icon, "overview-tile-icon"));
@@ -133,6 +134,17 @@ function adminStatCard(opts) {
   if (opts.delta) {
     const delta = adminEl("div", "overview-delta is-" + (opts.tone || "up"), opts.delta);
     tile.appendChild(delta);
+  }
+  if (opts.chart) tile.dataset.chart = opts.chart;
+  if (opts.onClick) {
+    tile.setAttribute("role", "button");
+    tile.tabIndex = 0;
+    tile.addEventListener("click", opts.onClick);
+    tile.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      opts.onClick();
+    });
   }
   return tile;
 }
@@ -185,7 +197,7 @@ function adminBarChart(opts) {
   const max = Number(opts.max) || 1;
   (opts.bars || []).forEach((bar) => {
     const col = adminEl("div", "overview-bar-col");
-    col.appendChild(adminEl("div", "overview-bar-n", String(bar.value)));
+    col.appendChild(adminEl("div", "overview-bar-n", bar.text != null ? bar.text : String(bar.value)));
     const track = adminEl("div", "overview-bar-track");
     const fill = adminEl("div", "overview-bar" + (bar.hot ? " is-hot" : ""));
     fill.style.height = Math.max(8, Math.round((Number(bar.value) / max) * 100)) + "%";

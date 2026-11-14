@@ -1,6 +1,80 @@
 let overviewStats = null;
 let overviewStatsAt = 0;
 let overviewStatsLoading = false;
+let overviewChartKey = "accounts";
+let overviewChartOnStats = false;
+
+function overviewMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "$0.00";
+  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function overviewChartSpec(stats, key) {
+  const series = (stats && stats.series) || {};
+  const growth = (stats && stats.growth) || {};
+  const kofi = (stats && stats.kofi) || {};
+  const picked = series[key] || series.accounts || {};
+  const bars = (picked.bars && picked.bars.length) ? picked.bars : (growth.bars || []);
+  const map = {
+    accounts: { title: "Account growth", nLabel: "new accounts this week", money: false },
+    reports: { title: "Reports", nLabel: "new reports this week", money: false },
+    automod: { title: "Auto mod", nLabel: "flags this week", money: false },
+    servers: { title: "Servers", nLabel: "servers created this week", money: false },
+    community: { title: "Community", nLabel: "posts this week", money: false },
+    kofi: { title: "Ko-fi income", nLabel: "income this week", money: true }
+  };
+  const meta = map[key] || map.accounts;
+  const week = picked.week;
+  const prev = picked.prev_week;
+  return {
+    title: meta.title,
+    n: meta.money ? (kofi.week || overviewMoney(week)) : overviewNum(week),
+    nLabel: meta.nLabel,
+    delta: overviewPct(week, prev, "vs previous week"),
+    range: growth.range || "Last 7 days",
+    money: meta.money,
+    bars: bars.map((bar) => ({
+      label: bar.label,
+      value: Number(bar.value) || 0,
+      hot: !!bar.hot,
+      text: meta.money ? overviewMoney(bar.value) : String(Number(bar.value) || 0)
+    }))
+  };
+}
+
+function fillOverviewChart(panel, spec) {
+  const title = panel.querySelector(".admin-panel-title");
+  const meta = panel.querySelector(".admin-panel-meta");
+  if (title) title.textContent = spec.title;
+  if (meta) meta.textContent = spec.range;
+  const body = panel.querySelector(".admin-panel-body");
+  if (!body) return;
+  body.innerHTML = "";
+  const line = adminEl("div", "overview-growth-line");
+  const total = adminEl("div", "overview-growth-n", spec.n);
+  total.appendChild(adminEl("span", "", spec.nLabel));
+  line.appendChild(total);
+  line.appendChild(adminEl("div", "overview-delta is-" + spec.delta.tone, spec.delta.text));
+  body.appendChild(line);
+  const max = overviewMax(spec.bars);
+  body.appendChild(adminBarChart({
+    max: max,
+    scale: spec.money
+      ? [overviewMoney(max), overviewMoney(max / 2), overviewMoney(0)]
+      : [String(max), String(Math.round(max / 2)), "0"],
+    bars: spec.bars
+  }));
+}
+
+function pickOverviewChart(key, stats) {
+  overviewChartKey = key;
+  const panel = document.getElementById("overview-chart-panel");
+  if (panel) fillOverviewChart(panel, overviewChartSpec(stats, key));
+  document.querySelectorAll(".overview-kpis .overview-tile").forEach((tile) => {
+    tile.classList.toggle("is-active", tile.dataset.chart === key);
+  });
+}
 
 function overviewNum(value) {
   return Number(value || 0).toLocaleString("en-US");
@@ -39,11 +113,9 @@ function paintOverviewStatistics(main, stats) {
   const accountDelta = overviewPct(accounts.new_24h, accounts.new_prev_24h, "new vs previous day");
   const reportDelta = overviewPct(reports.new_24h, reports.new_prev_24h, "new vs previous day");
   const communityDelta = overviewPct(community.posts_24h, community.posts_prev_24h, "vs previous day");
-  const weekDelta = overviewPct(growth.week, growth.prev_week, "vs previous week");
   const activeDelta = overviewPct(pulse.active_24h, pulse.active_prev_24h, "");
   const messageDelta = overviewPct(pulse.messages_24h, pulse.messages_prev_24h, "");
   const growthWord = growth.vs_week === "below" ? "below" : growth.vs_week === "even" ? "even with" : "above";
-  const bars = growth.bars || [];
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Statistics"],
     title: "Statistics",
@@ -55,8 +127,11 @@ function paintOverviewStatistics(main, stats) {
     "All systems operational",
     overviewNum(reports.open) + " open reports. Account growth is " + growthWord + " the weekly baseline."
   ));
-  adminKpiRow(main, [
+  const kofi = (stats && stats.kofi) || {};
+  const kofiDelta = overviewPct(kofi.income_24h_raw, kofi.income_prev_raw, "vs previous day");
+  const kpiCards = [
     {
+      key: "accounts",
       label: "Accounts",
       value: overviewNum(accounts.total),
       icon: "users",
@@ -65,6 +140,7 @@ function paintOverviewStatistics(main, stats) {
       tone: accountDelta.tone
     },
     {
+      key: "reports",
       label: "Reports",
       value: overviewNum(reports.open),
       icon: "flag",
@@ -73,6 +149,7 @@ function paintOverviewStatistics(main, stats) {
       tone: reportDelta.tone
     },
     {
+      key: "automod",
       label: "Auto mod",
       value: "0",
       icon: "shield",
@@ -81,6 +158,7 @@ function paintOverviewStatistics(main, stats) {
       tone: "flat"
     },
     {
+      key: "servers",
       label: "Servers",
       value: overviewNum(servers.total),
       icon: "grid",
@@ -89,29 +167,40 @@ function paintOverviewStatistics(main, stats) {
       tone: Number(servers.created_24h) > 0 ? "up" : "flat"
     },
     {
+      key: "community",
       label: "Community",
       value: overviewNum(community.posts_24h),
       icon: "share",
       detail: "Posts submitted in the last 24h",
       delta: communityDelta.text,
       tone: communityDelta.tone
+    },
+    {
+      key: "kofi",
+      label: "Ko-fi",
+      value: kofi.income || "$0.00",
+      icon: "kofi",
+      detail: (kofi.income_24h || "$0.00") + " in the last 24h",
+      delta: kofiDelta.text,
+      tone: kofiDelta.tone
     }
-  ]);
+  ];
+  adminKpiRow(main, kpiCards.map((card) => ({
+    label: card.label,
+    value: card.value,
+    icon: card.icon,
+    detail: card.detail,
+    delta: card.delta,
+    tone: card.tone,
+    chart: card.key,
+    selected: card.key === overviewChartKey,
+    onClick: () => pickOverviewChart(card.key, stats)
+  })));
   const dash = adminEl("div", "overview-dash");
   const left = adminEl("div", "overview-stack");
   const growthPanel = adminPanel({ title: "Account growth", meta: growth.range || "Last 7 days" });
-  const line = adminEl("div", "overview-growth-line");
-  const total = adminEl("div", "overview-growth-n", overviewNum(growth.week));
-  total.appendChild(adminEl("span", "", "new accounts this week"));
-  line.appendChild(total);
-  line.appendChild(adminEl("div", "overview-delta is-" + weekDelta.tone, weekDelta.text));
-  growthPanel.body.appendChild(line);
-  const max = overviewMax(bars);
-  growthPanel.body.appendChild(adminBarChart({
-    max: max,
-    scale: [String(max), String(Math.round(max / 2)), "0"],
-    bars: bars
-  }));
+  growthPanel.panel.id = "overview-chart-panel";
+  fillOverviewChart(growthPanel.panel, overviewChartSpec(stats, overviewChartKey));
   left.appendChild(growthPanel.panel);
   const queue = adminPanel({
     title: "Report queue snapshot",
@@ -625,6 +714,11 @@ function paintOverviewCommunity(main, stats) {
 }
 
 function paintOverview(main, sectionId) {
+  if (sectionId !== "statistics") overviewChartOnStats = false;
+  if (sectionId === "statistics" && !overviewChartOnStats) {
+    overviewChartKey = "accounts";
+    overviewChartOnStats = true;
+  }
   if (sectionId === "accounts") {
     paintOverviewAccounts(main, overviewStats);
     loadOverviewStats();

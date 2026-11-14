@@ -173,6 +173,7 @@ function applyAdminProfilePayload(data) {
   profileEditing = false;
   profileLimited = false;
   profileFriends = (data && data.friends) || [];
+  profileMutuals = (data && data.mutuals) || [];
   profileSavedLayout = (data && data.layout) || { pages: [] };
   if (typeof stampClockNamedTimezones === "function") stampClockNamedTimezones(profileSavedLayout);
   profileDraft = typeof cloneProfileLayout === "function" ? cloneProfileLayout(profileSavedLayout) : profileSavedLayout;

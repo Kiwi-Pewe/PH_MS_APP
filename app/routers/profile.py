@@ -12,7 +12,7 @@ from app.routers.youtube_link import load_youtube_card, load_youtube_video_card,
 from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in, Profile_chat_in
 from app.database import get_db
 from app.auth import get_current_user
-from app.privacy import are_friends, can_see_full_profile, drop_blocked_rows
+from app.privacy import accepted_friend_ids, are_friends, can_see_full_profile, drop_blocked_rows
 from app.routers.account import parse_display_name_history
 from app.routers.realtime import notify_user, presence_status, profile_chat_viewer_ids, watch_profile_chat
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for, still_url_for, still_url_from_public, require_message_body, store_attachment, attachment_public
@@ -27,7 +27,6 @@ TILE_TYPES = {
     "divider", "rail", "link_tree",
     "spoiler", "button",
     "local_time", "details",
-    "connections", "featured_friend", "mutuals",
     "frame", "color_block", "icon", "meter", "clock", "countdown",
     "image", "video", "music", "embed", "gallery", "slideshow",
     "comments", "display_server", "server_list", "featured_server", "chat_room", "phone", "posts",
@@ -47,7 +46,7 @@ MINI_BODY_MAX = 200
 MINI_WIDGET_MAX = 3
 MINI_WIDGET_TYPES = {
     "clock", "steam_playing_now", "body", "member_since", "button", "meter",
-    "mutuals", "featured_friend", "featured_server", "connections",
+    "friends", "featured_server",
     "youtube_channel",
 }
 HEADER_MAX = 120
@@ -61,6 +60,8 @@ PROFILE_CHAT_KEEP = 25
 DISPLAY_SERVER_MAX = 20
 CHAT_ROOM_MODES = {"rooms", "profile"}
 SERVER_ID_RE = re.compile(r"^[234679ACDEFGHJKLMNPQRTUVWXYZ]{10}$")
+FRIEND_PICK_MAX = 24
+FRIEND_LIST_MAX = 200
 LINK_MAX = 12
 LINK_USER_MAX = 32
 LINK_URL_MAX = 500
@@ -108,10 +109,7 @@ WIDGET_TITLE_FALLBACK = {
     "youtube_memberships": "Memberships",
     "local_time": "Local Time",
     "details": "Local Time",
-    "featured_friend": "Featured friend",
     "featured_server": "Featured server",
-    "connections": "Connections",
-    "mutuals": "Mutuals",
     "gallery": "Gallery",
     "image": "Image",
     "icon": "Icon",
@@ -274,9 +272,6 @@ def tile_bounds(kind, props=None):
         "button": (4, 1, 16, 3),
         "local_time": (5, 2, 6, 3),
         "details": (5, 2, 6, 3),
-        "connections": (8, 4, 16, 14),
-        "featured_friend": (6, 3, 12, 8),
-        "mutuals": (6, 3, 16, 12),
         "frame": (1, 1, 32, 81),
         "color_block": (2, 2, 32, 12),
         "icon": (2, 2, 6, 6),
@@ -343,9 +338,6 @@ def default_sizes(kind):
         "button": (8, 2),
         "local_time": (6, 2),
         "details": (6, 2),
-        "connections": (10, 6),
-        "featured_friend": (8, 4),
-        "mutuals": (10, 5),
         "frame": (12, 8),
         "color_block": (8, 4),
         "icon": (3, 3),
@@ -1587,8 +1579,25 @@ def normalize_props_core(kind, data, banner_fallback):
         out["link_size"] = clamp_int(data.get("link_size"), 1, 10, 5)
         return out
     if kind == "friends":
+        mode = str(data.get("mode") or "all").strip().lower()
+        if mode not in ("all", "selected", "mutuals"):
+            mode = "all"
+        ids = []
+        raw = data.get("friend_ids")
+        if isinstance(raw, list):
+            for item in raw:
+                try:
+                    n = int(item)
+                except (TypeError, ValueError):
+                    continue
+                if n > 0 and n not in ids:
+                    ids.append(n)
+                if len(ids) >= FRIEND_PICK_MAX:
+                    break
         out = normalize_text_chrome(data, 14, True)
         out["friend_size"] = clamp_int(data.get("friend_size"), 1, 10, 5)
+        out["mode"] = mode
+        out["friend_ids"] = ids
         return out
     if kind == "icon":
         out = normalize_text_chrome(data, 14, False)
@@ -1659,23 +1668,11 @@ def normalize_props_core(kind, data, banner_fallback):
         return normalize_youtube_memberships_props(data)
     if kind.startswith("youtube_"):
         return normalize_youtube_title_props(data, "left")
-    if kind == "featured_friend":
-        try:
-            user_id = int(data.get("user_id") or 0)
-        except (TypeError, ValueError):
-            user_id = 0
-        out = normalize_text_chrome(data, 14, True)
-        out["user_id"] = user_id if user_id > 0 else 0
-        return out
     if kind == "featured_server":
         code = str(data.get("server_id") or "").strip().upper()
         out = normalize_text_chrome(data, 14, True)
         out["server_id"] = code if SERVER_ID_RE.match(code) else ""
         return out
-    if kind == "connections":
-        return normalize_connection_props(data)
-    if kind == "mutuals":
-        return normalize_text_chrome(data, 14, True)
     return normalize_text_chrome(data, 14, True)
 
 
@@ -2011,31 +2008,51 @@ def member_since_iso(user):
         return ""
 
 
-def friend_preview(database: Session, owner_id, limit=8):
-    rows = database.query(Friend_request).filter(
-        or_(Friend_request.user_1 == owner_id, Friend_request.user_2 == owner_id),
-        Friend_request.pending == False
-    ).all()
-    out = []
-    for row in rows:
-        other_id = row.user_2 if row.user_1 == owner_id else row.user_1
-        other = database.query(UserInfo).filter(UserInfo.id == other_id).first()
-        if not other:
+def friend_card(user):
+    return {
+        "id": user.id,
+        "username": user.username,
+        "display_name": public_display_name(user),
+        "avatar": public_avatar(user),
+        "status": (user.profile_status or "").strip(),
+        "presence": presence_status(user.id),
+    }
+
+
+def friend_people(database: Session, user_ids, limit=FRIEND_LIST_MAX):
+    seen = []
+    for raw in user_ids or []:
+        try:
+            n = int(raw)
+        except (TypeError, ValueError):
             continue
-        out.append({
-            "id": other.id,
-            "username": other.username,
-            "display_name": public_display_name(other),
-            "avatar": public_avatar(other),
-            "status": (other.profile_status or "").strip(),
-            "presence": presence_status(other.id),
-        })
-        if len(out) >= limit:
+        if n > 0 and n not in seen:
+            seen.append(n)
+        if len(seen) >= limit:
             break
-    return out
+    if not seen:
+        return []
+    rows = database.query(UserInfo).filter(UserInfo.id.in_(seen)).all()
+    by_id = {row.id: row for row in rows}
+    return [friend_card(by_id[uid]) for uid in seen if uid in by_id]
 
 
-def profile_payload(user, layout, limited, friends):
+def friend_preview(database: Session, owner_id, limit=FRIEND_LIST_MAX):
+    people = friend_people(database, accepted_friend_ids(database, owner_id), limit)
+    people.sort(key=lambda row: (str(row.get("display_name") or "").lower(), str(row.get("username") or "").lower()))
+    return people
+
+
+def profile_mutuals(database: Session, owner_id, viewer_id, limit=FRIEND_LIST_MAX):
+    if not owner_id or not viewer_id or owner_id == viewer_id:
+        return []
+    shared = accepted_friend_ids(database, owner_id) & accepted_friend_ids(database, viewer_id)
+    people = friend_people(database, shared, limit)
+    people.sort(key=lambda row: (str(row.get("display_name") or "").lower(), str(row.get("username") or "").lower()))
+    return people
+
+
+def profile_payload(user, layout, limited, friends, mutuals=None):
     return {
         "user": {
             "id": user.id,
@@ -2049,6 +2066,7 @@ def profile_payload(user, layout, limited, friends):
         "limited": bool(limited),
         "layout": layout,
         "friends": friends if not limited else [],
+        "mutuals": mutuals if (not limited and mutuals) else [],
     }
 
 
@@ -2104,7 +2122,13 @@ def get_public_profile(user_id: int, current_user: UserInfo = Depends(get_curren
         return profile_payload(owner, layout, False, friend_preview(database, owner.id))
     if not can_see_full_profile(database, current_user, owner):
         return profile_payload(owner, identity_only_layout(layout), True, [])
-    return profile_payload(owner, public_pages(layout), False, friend_preview(database, owner.id))
+    return profile_payload(
+        owner,
+        public_pages(layout),
+        False,
+        friend_preview(database, owner.id),
+        profile_mutuals(database, owner.id, current_user.id),
+    )
 
 
 def comments_wall_prop(layout, key):

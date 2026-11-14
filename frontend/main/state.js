@@ -224,6 +224,7 @@ let profileUser = null;
 let profileSavedLayout = null;
 let profileDraft = null;
 let profileFriends = [];
+let profileMutuals = [];
 let profileActivePageId = "profile";
 let profileEditing = false;
 let profileDirty = false;

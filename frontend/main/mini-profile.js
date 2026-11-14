@@ -17,10 +17,8 @@ const MINI_WIDGET_ADD = [
   { type: "member_since", label: "Member since" },
   { type: "button", label: "Button" },
   { type: "meter", label: "Meter" },
-  { type: "mutuals", label: "Mutuals" },
-  { type: "featured_friend", label: "Featured friend" },
-  { type: "featured_server", label: "Featured server" },
-  { type: "connections", label: "Connections" }
+  { type: "friends", label: "Friends" },
+  { type: "featured_server", label: "Featured server" }
 ];
 
 let miniProfileOpen = false;
@@ -1414,6 +1412,7 @@ function paintMiniCarryTile(el, tile) {
     id: tile.id,
     type: tile.type,
     props: tile.props || {},
+    live: tile.live || null,
     w: tile.w || 8,
     h: tile.h || 3,
     x: 0,
@@ -1469,20 +1468,8 @@ function paintMiniProfileWidgetTile(host, tile, data, editing) {
     paintMiniBody(host, tile, editing);
     return;
   }
-  if (tile.type === "mutuals") {
-    paintMiniMutuals(host, tile, live, editing, data);
-    return;
-  }
-  if (tile.type === "featured_friend") {
-    paintMiniFeaturedFriend(host, tile, live, editing);
-    return;
-  }
   if (tile.type === "featured_server") {
     paintMiniFeaturedServer(host, tile, live, editing);
-    return;
-  }
-  if (tile.type === "connections") {
-    paintMiniConnection(host, tile, live, editing, data);
     return;
   }
   if (tile.type === "member_since") {

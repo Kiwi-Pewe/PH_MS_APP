@@ -32,10 +32,7 @@ const PROFILE_PALETTE = [
     label: "Social",
     items: [
       { type: "friends", label: "Friends" },
-      { type: "link_tree", label: "Link Tree" },
-      { type: "connections", label: "Connections" },
-      { type: "featured_friend", label: "Featured friend" },
-      { type: "mutuals", label: "Mutuals" }
+      { type: "link_tree", label: "Link Tree" }
     ]
   },
   {
@@ -125,9 +122,7 @@ const MINI_PROFILE_PALETTE = [
     id: "social",
     label: "Social",
     items: [
-      { type: "connections", label: "Connections" },
-      { type: "featured_friend", label: "Featured friend" },
-      { type: "mutuals", label: "Mutuals" }
+      { type: "friends", label: "Friends" }
     ]
   },
   {
@@ -910,16 +905,9 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   if (String(tile.type || "").indexOf("youtube_") === 0) {
     return;
   }
-  if (tile.type === "featured_friend") {
-    fillMiniFriendPick(box, draft, onChange, hintEl);
-    return;
-  }
   if (tile.type === "featured_server") {
     fillMiniServerPick(box, draft, onChange, hintEl);
     return;
-  }
-  if (tile.type === "connections") {
-    fillMiniConnectionPick(box, draft, onChange, hintEl);
   }
 }
 
@@ -3573,6 +3561,28 @@ function fillButtonOptions(box, draft, onChange, hintEl) {
 
 function fillFriendsOptions(box, draft, onChange, hintEl) {
   draft.friend_size = clampProfileEntrySize(draft.friend_size);
+  if (draft.mode !== "selected" && draft.mode !== "mutuals") draft.mode = "all";
+  if (!Array.isArray(draft.friend_ids)) draft.friend_ids = [];
+  const staff = typeof isServerWidgetBoard === "function" && isServerWidgetBoard();
+  if (!staff) {
+    const mode = profileSelectField("Mode", [
+      { value: "all", label: "All friends" },
+      { value: "selected", label: "Selected friends" },
+      { value: "mutuals", label: "Mutuals" }
+    ], draft.mode);
+    profileOptHint(mode.label, "All friends lists everyone. Selected friends lets you pick who appears. Mutuals shows people you both have as friends.", hintEl);
+    const extras = document.createElement("div");
+    extras.className = "profile-friend-pick";
+    extras.hidden = draft.mode !== "selected";
+    fillFriendsSelectedPicker(extras, draft, onChange, hintEl);
+    mode.select.addEventListener("change", () => {
+      draft.mode = mode.select.value === "selected" || mode.select.value === "mutuals" ? mode.select.value : "all";
+      extras.hidden = draft.mode !== "selected";
+      onChange();
+    });
+    box.appendChild(mode.label);
+    box.appendChild(extras);
+  }
   const sizeLabel = document.createElement("div");
   sizeLabel.className = "profile-opt-field-label";
   sizeLabel.textContent = "Size";
@@ -3588,7 +3598,7 @@ function fillFriendsOptions(box, draft, onChange, hintEl) {
   const val = document.createElement("div");
   val.className = "profile-opt-slider-val";
   val.textContent = slider.value;
-  profileOptHint(slider, (typeof isServerWidgetBoard === "function" && isServerWidgetBoard())
+  profileOptHint(slider, staff
     ? "Scale the picture and name for every staff member."
     : "Scale the picture and name for every friend.", hintEl);
   slider.addEventListener("input", () => {
@@ -3600,6 +3610,139 @@ function fillFriendsOptions(box, draft, onChange, hintEl) {
   sizeRow.appendChild(val);
   box.appendChild(sizeLabel);
   box.appendChild(sizeRow);
+}
+
+function friendPickName(person) {
+  return String((person && (person.display_name || person.username)) || "").trim();
+}
+
+function friendPickHandle(person) {
+  return String((person && person.username) || "").trim();
+}
+
+function friendPickMatches(person, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return false;
+  const name = friendPickName(person).toLowerCase();
+  const handle = friendPickHandle(person).toLowerCase();
+  return name.indexOf(q) >= 0 || handle.indexOf(q) >= 0;
+}
+
+function fillFriendsSelectedPicker(host, draft, onChange, hintEl) {
+  const searchLabel = document.createElement("label");
+  searchLabel.textContent = "Search friends";
+  const search = document.createElement("input");
+  search.type = "text";
+  search.placeholder = "Display name or username";
+  search.autocomplete = "off";
+  search.spellcheck = false;
+  profileOptHint(searchLabel, "Type a display name or username, then pick from the list.", hintEl);
+  const wrap = document.createElement("div");
+  wrap.className = "profile-friend-search";
+  const list = document.createElement("div");
+  list.className = "profile-friend-search-list";
+  list.hidden = true;
+  wrap.appendChild(search);
+  wrap.appendChild(list);
+  searchLabel.appendChild(wrap);
+  const pills = document.createElement("div");
+  pills.className = "profile-friend-pills";
+  host.appendChild(searchLabel);
+  host.appendChild(pills);
+  let people = [];
+  const selectedOf = () => {
+    const byId = {};
+    people.forEach((person) => { byId[String(person.id)] = person; });
+    return (draft.friend_ids || []).map((id) => byId[String(id)]).filter(Boolean);
+  };
+  const paintPills = () => {
+    pills.innerHTML = "";
+    selectedOf().forEach((person) => {
+      const pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = "profile-friend-pill";
+      const label = document.createElement("span");
+      label.textContent = friendPickHandle(person) || friendPickName(person);
+      const x = document.createElement("span");
+      x.className = "profile-friend-pill-x";
+      x.textContent = "×";
+      pill.appendChild(label);
+      pill.appendChild(x);
+      pill.addEventListener("click", () => {
+        draft.friend_ids = (draft.friend_ids || []).filter((id) => Number(id) !== Number(person.id));
+        paintPills();
+        paintHits();
+        onChange();
+      });
+      pills.appendChild(pill);
+    });
+  };
+  const paintHits = () => {
+    list.innerHTML = "";
+    const query = search.value;
+    if (!String(query || "").trim()) {
+      list.hidden = true;
+      return;
+    }
+    const picked = {};
+    (draft.friend_ids || []).forEach((id) => { picked[String(id)] = true; });
+    const hits = people.filter((person) => !picked[String(person.id)] && friendPickMatches(person, query)).slice(0, 12);
+    if (!hits.length) {
+      const empty = document.createElement("div");
+      empty.className = "settings-opt-desc";
+      empty.textContent = "No friends match that.";
+      list.appendChild(empty);
+      list.hidden = false;
+      return;
+    }
+    hits.forEach((person) => {
+      const row = typeof paintDmPersonCard === "function"
+        ? paintDmPersonCard(person, { tag: "button" })
+        : document.createElement("button");
+      if (row.tagName === "BUTTON") row.type = "button";
+      const who = row.querySelector(".who");
+      if (who) {
+        const handle = friendPickHandle(person);
+        const shown = friendPickName(person);
+        who.textContent = shown;
+        if (handle && handle !== shown) {
+          const sub = document.createElement("div");
+          sub.className = "dm-subtitle";
+          sub.textContent = handle;
+          const text = row.querySelector(".dm-item-text");
+          if (text && !text.querySelector(".dm-subtitle")) text.appendChild(sub);
+        }
+      }
+      row.addEventListener("click", () => {
+        if ((draft.friend_ids || []).length >= 24) return;
+        if ((draft.friend_ids || []).some((id) => Number(id) === Number(person.id))) return;
+        draft.friend_ids = (draft.friend_ids || []).concat([person.id]);
+        search.value = "";
+        paintPills();
+        paintHits();
+        onChange();
+      });
+      list.appendChild(row);
+    });
+    list.hidden = false;
+  };
+  list.addEventListener("mousedown", (e) => e.preventDefault());
+  search.addEventListener("input", paintHits);
+  search.addEventListener("focus", paintHits);
+  search.addEventListener("blur", () => {
+    setTimeout(() => { list.hidden = true; }, 180);
+  });
+  fetch("https://" + serverAddress + "/get_friends", { credentials: "include" })
+    .then((res) => res.ok ? res.json() : Promise.reject())
+    .then((data) => {
+      people = [].concat(data.online_friends || [], data.offline_friends || []);
+      paintPills();
+      paintHits();
+    })
+    .catch(() => {
+      people = typeof profileFriends !== "undefined" ? (profileFriends || []).slice() : [];
+      paintPills();
+    });
 }
 
 function fillLinkTreeOptions(box, tile, hintEl) {

@@ -12,8 +12,11 @@ from app.routers.profile import (
     STATUS_MAX,
     clip_text,
     ensure_layout,
+    friend_people,
+    friend_preview,
     member_since_iso,
     normalize_identity,
+    profile_mutuals,
     public_avatar,
     public_display_name,
 )
@@ -149,19 +152,29 @@ def mini_widgets_payload(database, owner, viewer_id, layout):
             if steam_playing is None:
                 steam_playing = load_steam_playing(database, owner.id)
             live = steam_playing
-        elif kind == "mutuals":
-            if mutuals is None:
-                mutuals = mini_mutuals(database, owner.id, viewer_id)
-            live = {"people": mutuals, "total": len(mutuals)}
-        elif kind == "featured_friend":
-            live = mini_featured_friend(database, owner.id, props.get("user_id"))
+        elif kind == "friends":
+            mode = str(props.get("mode") or "all").strip().lower()
+            if mode == "mutuals":
+                if mutuals is None:
+                    mutuals = profile_mutuals(database, owner.id, viewer_id)
+                live = {"people": mutuals}
+            elif mode == "selected":
+                wanted = []
+                raw = props.get("friend_ids")
+                if isinstance(raw, list):
+                    for item in raw:
+                        try:
+                            n = int(item)
+                        except (TypeError, ValueError):
+                            continue
+                        if n > 0 and n not in wanted:
+                            wanted.append(n)
+                allowed = accepted_friend_ids(database, owner.id)
+                live = {"people": friend_people(database, [uid for uid in wanted if uid in allowed])}
+            else:
+                live = {"people": friend_preview(database, owner.id)}
         elif kind == "featured_server":
             live = mini_featured_server(database, owner.id, props.get("server_id"))
-        elif kind == "connections":
-            live = mini_connection(database, owner.id, props.get("provider"))
-            if live and str(live.get("provider") or "") == "steam":
-                live = dict(live)
-                live["steam"] = load_steam_card(database, owner.id)
         elif kind == "member_since":
             live = {"member_since": member_since_iso(owner)}
         elif kind == "youtube_channel":

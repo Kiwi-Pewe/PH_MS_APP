@@ -164,9 +164,6 @@ const PROFILE_TILE_TYPES = {
 const DISPLAY_SERVER_MAX = 20;
 
 const PROFILE_PLACEHOLDERS = {
-  connections: { label: "Connections", w: 10, h: 6, minW: 8, minH: 4, maxW: 16, maxH: 14 },
-  featured_friend: { label: "Featured friend", w: 8, h: 4, minW: 6, minH: 3, maxW: 12, maxH: 8 },
-  mutuals: { label: "Mutuals", w: 10, h: 5, minW: 6, minH: 3, maxW: 16, maxH: 12 },
   color_block: { label: "Color block", w: 8, h: 4, minW: 2, minH: 2, maxW: 32, maxH: 12 },
   gif: { label: "GIF", w: 8, h: 6, minW: 4, minH: 3, maxW: 16, maxH: 12 },
   achievements: { label: "Achievements", w: 12, h: 5, minW: 8, minH: 3, maxW: 24, maxH: 12 },
@@ -777,30 +774,23 @@ function profileTilePropsBare(type, prev) {
   }
   if (type === "friends") {
     const roles = Array.isArray(prev.role_ids) ? prev.role_ids.map((id) => String(id)).filter(Boolean) : [];
-    return Object.assign({ friend_size: clampProfileEntrySize(prev.friend_size), role_ids: roles }, chrome);
+    const mode = prev.mode === "selected" || prev.mode === "mutuals" ? prev.mode : "all";
+    const ids = [];
+    (Array.isArray(prev.friend_ids) ? prev.friend_ids : []).forEach((item) => {
+      const n = Number(item);
+      if (Number.isFinite(n) && n > 0 && ids.indexOf(n) < 0) ids.push(n);
+    });
+    return Object.assign({
+      friend_size: clampProfileEntrySize(prev.friend_size),
+      role_ids: roles,
+      mode,
+      friend_ids: ids.slice(0, 24)
+    }, chrome);
   }
   if (type === "youtube_subscriptions") return Object.assign({ channel_size: clampProfileEntrySize(prev.channel_size) }, chrome);
-  if (type === "featured_friend") {
-    const n = Number(prev.user_id);
-    return Object.assign({ user_id: Number.isFinite(n) && n > 0 ? n : 0 }, chrome);
-  }
   if (type === "featured_server") {
     return Object.assign({ server_id: String(prev.server_id || "").trim().toUpperCase() }, chrome);
   }
-  if (type === "connections") {
-    return Object.assign({
-      provider: String(prev.provider || "").trim().toLowerCase(),
-      show_name: prev.show_name !== false,
-      show_avatar: prev.show_avatar !== false,
-      show_online: prev.show_online !== false,
-      show_level: prev.show_level !== false,
-      show_xp: prev.show_xp !== false,
-      show_country: !!prev.show_country,
-      show_state: !!prev.show_state,
-      show_city: !!prev.show_city
-    }, chrome);
-  }
-  if (type === "mutuals") return Object.assign({}, chrome);
   if (type === "button") {
     const action = prev.action === "page" || prev.action === "friend" || prev.action === "create_post" ? prev.action : "link";
     return Object.assign({
@@ -988,7 +978,7 @@ function profileUsesTextChrome(type) {
 }
 
 function profileHasTextFormat(type) {
-  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "chat_room" || type === "phone" || type === "posts" || type === "display_name" || type === "meter" || type === "member_since" || type === "friends" || type === "link_tree" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "mutuals" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
+  return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "chat_room" || type === "phone" || type === "posts" || type === "display_name" || type === "meter" || type === "member_since" || type === "friends" || type === "link_tree" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "featured_server" || String(type || "").indexOf("youtube_") === 0;
 }
 
 function profileTextChrome(props, type) {
@@ -2153,14 +2143,34 @@ function paintProfileClock(tile, el) {
   syncProfileLocalTimeClock();
 }
 
+function profileFriendsPeople(tile) {
+  if (isServerWidgetPaint()) {
+    return typeof serverCustomStaffPeople === "function" ? serverCustomStaffPeople(tile) : [];
+  }
+  if (tile && tile.live && Array.isArray(tile.live.people)) return tile.live.people;
+  const mode = tile && tile.props && tile.props.mode === "selected"
+    ? "selected"
+    : (tile && tile.props && tile.props.mode === "mutuals" ? "mutuals" : "all");
+  if (mode === "mutuals") return typeof profileMutuals !== "undefined" ? (profileMutuals || []) : [];
+  if (mode === "selected") {
+    const wanted = {};
+    ((tile && tile.props && tile.props.friend_ids) || []).forEach((id) => { wanted[String(id)] = true; });
+    return (typeof profileFriends !== "undefined" ? profileFriends : []).filter((person) => wanted[String(person.id)]);
+  }
+  return typeof profileFriends !== "undefined" ? (profileFriends || []) : [];
+}
+
 function paintProfileFriends(host, tile) {
-  const people = isServerWidgetPaint()
-    ? (typeof serverCustomStaffPeople === "function" ? serverCustomStaffPeople(tile) : [])
-    : (profileFriends || []);
+  const people = profileFriendsPeople(tile);
   if (!people.length) {
     const empty = document.createElement("div");
     empty.className = "settings-opt-desc";
-    empty.textContent = isServerWidgetPaint() ? "No staff to show yet." : "No friends to show yet.";
+    const mode = tile && tile.props && tile.props.mode;
+    empty.textContent = isServerWidgetPaint()
+      ? "No staff to show yet."
+      : (mode === "mutuals"
+        ? "No mutuals to show yet."
+        : (mode === "selected" ? "No friends selected yet." : "No friends to show yet."));
     host.appendChild(empty);
     return;
   }

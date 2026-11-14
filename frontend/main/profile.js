@@ -93,6 +93,7 @@ function applyProfilePayload(data) {
   profileIsOwn = !!(profileUser && profileUser.id === myUserId);
   profileLimited = !!data.limited;
   profileFriends = data.friends || [];
+  profileMutuals = data.mutuals || [];
   profileSavedLayout = data.layout || { pages: [], grid_cols: PROFILE_COLS };
   if (typeof stampClockNamedTimezones === "function") stampClockNamedTimezones(profileSavedLayout);
   if (profileIsOwn) profileSavedLayout = ensureMiniProfilePage(profileSavedLayout);

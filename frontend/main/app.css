@@ -8902,6 +8902,28 @@ a.profile-link-row:hover { color: var(--accent); }
   min-height: 0;
   overflow: hidden;
 }
+.profile-tile.is-comments .oneira-wall {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.profile-tile.has-title-band.is-comments > .profile-tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.profile-tile.has-title-band.is-comments > .profile-tile-head .oneira-wall-title,
+.profile-tile.has-title-band.is-display_server > .profile-tile-head {
+  font-size: calc(var(--profile-text-size, 14pt) * 0.72);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.profile-tile.has-title-band.is-comments > .profile-tile-head .oneira-wall-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .profile-tile.is-editing.is-comments {
   user-select: none;
 }

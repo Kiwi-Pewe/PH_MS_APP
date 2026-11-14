@@ -574,8 +574,116 @@ function defaultTextChrome(type, prev) {
   }, defaultBorderChrome(type, row));
 }
 
+function profileTitleSpec(type) {
+  const meta = (typeof PROFILE_TILE_TYPES !== "undefined" && PROFILE_TILE_TYPES[type]) || {};
+  const staff = type === "friends" && typeof isServerWidgetPaint === "function" && isServerWidgetPaint();
+  const map = {
+    frame: { skip: true },
+    spoiler: { skip: true },
+    body: { defaultOn: false, placeholder: "About" },
+    bio: { defaultOn: true, fallback: "About" },
+    comments: { defaultOn: true, fallback: "Comments" },
+    display_server: { defaultOn: true, fallback: "Server List" },
+    member_since: { defaultOn: true, fallback: (typeof isServerWidgetPaint === "function" && isServerWidgetPaint()) ? "Creation Date" : "Member since" },
+    friends: { defaultOn: true, fallback: staff ? "Staff" : "Friends" },
+    link_tree: { defaultOn: true, fallback: "Links" },
+    chat_room: { defaultOn: true, fallback: "Chat rooms" },
+    phone: { defaultOn: true, fallback: "Phone" },
+    posts: { defaultOn: true, fallback: "Posts" },
+    meter: { defaultOn: false, fallback: "Meter", placeholder: "Meter" },
+    clock: { defaultOn: false, placeholder: "Title" },
+    steam_profile: { defaultOn: false, fallback: "Steam profile", align: "center" },
+    steam_playing_now: { defaultOn: false, fallback: "Currently playing" },
+    steam_recently_played: { defaultOn: false, fallback: "Recently played" },
+    steam_library: { defaultOn: false, fallback: "Library" },
+    steam_achievements: { defaultOn: false, fallback: "Achievements" },
+    steam_badges: { defaultOn: false, fallback: "Badges" },
+    youtube_channel: { defaultOn: false, fallback: "YouTube", align: "center" },
+    youtube_video: { defaultOn: false, fallback: "YouTube video" },
+    youtube_uploads: { defaultOn: false, fallback: "Uploads" },
+    youtube_live_now: { defaultOn: false, fallback: "Live Now" },
+    youtube_playlists: { defaultOn: false, fallback: "Playlists" },
+    youtube_liked: { defaultOn: false, fallback: "Liked videos" },
+    youtube_subscriptions: { defaultOn: true, fallback: "Subscriptions" },
+    youtube_comments: { defaultOn: false, fallback: "YouTube comments" },
+    youtube_live_chat: { defaultOn: false, fallback: "Live chat" },
+    youtube_super_chat: { defaultOn: false, fallback: "Super Chat" },
+    youtube_memberships: { defaultOn: true, fallback: "Memberships" }
+  };
+  const spec = map[type] || { defaultOn: !!meta.placeholder, fallback: meta.placeholder ? (meta.label || "") : "" };
+  if (!spec.placeholder) spec.placeholder = spec.fallback || meta.label || "Title";
+  if (!spec.fallback && meta.label && spec.defaultOn) spec.fallback = meta.label;
+  return spec;
+}
+
+function attachProfileTitle(type, prev, props) {
+  if (!props) props = {};
+  if (type === "frame" || type === "spoiler") return props;
+  const spec = profileTitleSpec(type);
+  const titleAlign = prev.title_align === "center" || prev.title_align === "right"
+    ? prev.title_align
+    : (spec.align === "center" || spec.align === "right" ? spec.align : "left");
+  let show;
+  if (prev.show_title == null) {
+    show = !!(spec.defaultOn || (type === "clock" && String(prev.label || "").trim()));
+  } else {
+    show = !!prev.show_title;
+  }
+  let title = String(prev.title || "").trim();
+  if (!title && prev.label) title = String(prev.label).trim();
+  if (!title) title = spec.fallback || "";
+  props.show_title = show;
+  props.title = title;
+  props.title_align = titleAlign;
+  return props;
+}
+
+function mountProfileTitleBand(el, tile, fallback, defaultOn, defaultAlign) {
+  if (!el) return false;
+  const props = (tile && tile.props) || {};
+  const show = props.show_title == null ? !!defaultOn : !!props.show_title;
+  const text = String(props.title || "").trim() || String(props.label || "").trim() || (fallback || "");
+  if (!show) {
+    delete el.dataset.titleAlign;
+    return false;
+  }
+  const editing = typeof profileEditing !== "undefined" && profileEditing && typeof profileIsOwn !== "undefined" && profileIsOwn;
+  if (!text && !editing) {
+    delete el.dataset.titleAlign;
+    return false;
+  }
+  const align = props.title_align === "left" || props.title_align === "center" || props.title_align === "right"
+    ? props.title_align
+    : (defaultAlign === "center" || defaultAlign === "right" ? defaultAlign : "left");
+  el.dataset.titleAlign = align;
+  el.classList.add("has-title-band");
+  const title = document.createElement("div");
+  title.className = "profile-tile-head" + (text ? "" : " is-empty");
+  title.textContent = text || "Title";
+  el.insertBefore(title, el.firstChild);
+  return true;
+}
+
+function finishProfileTitleBand(el, tile) {
+  if (!el || !tile) return;
+  if (tile.type === "frame" || tile.type === "spoiler") return;
+  if (tile.type === "chat_room" || tile.type === "phone" || tile.type === "posts") return;
+  if (el.classList.contains("has-title-band")) return;
+  const spec = profileTitleSpec(tile.type);
+  if (spec.skip) return;
+  let defaultOn = !!spec.defaultOn;
+  if (tile.type === "clock" && tile.props && String(tile.props.label || "").trim() && tile.props.show_title == null) defaultOn = true;
+  const fallback = spec.fallback || spec.placeholder || ((PROFILE_TILE_TYPES[tile.type] || {}).label) || "";
+  mountProfileTitleBand(el, tile, fallback, defaultOn, spec.align);
+}
+
 function defaultProfileTileProps(type, existing) {
   const prev = existing || {};
+  return attachProfileTitle(type, prev, profileTilePropsBare(type, prev));
+}
+
+function profileTilePropsBare(type, prev) {
+  prev = prev || {};
   const chrome = defaultTextChrome(type, prev);
   if (type === "bio") return Object.assign({ text: prev.text || "" }, chrome);
   if (type === "local_time" || type === "details") {
@@ -877,10 +985,6 @@ function profileUsesTextChrome(type) {
   return type === "header" || type === "body" || type === "footnote" || type === "list" || type === "spoiler" || type === "bio";
 }
 
-function profileHasFixedTitle(type) {
-  return type === "bio" || type === "link_tree" || type === "friends" || type === "youtube_subscriptions";
-}
-
 function profileHasTextFormat(type) {
   return profileUsesTextChrome(type) || type === "button" || type === "local_time" || type === "details" || type === "clock" || type === "comments" || type === "display_server" || type === "chat_room" || type === "phone" || type === "posts" || type === "display_name" || type === "meter" || type === "member_since" || type === "friends" || type === "link_tree" || type === "steam_profile" || type === "steam_playing_now" || type === "steam_recently_played" || type === "steam_library" || type === "steam_achievements" || type === "steam_badges" || type === "mutuals" || type === "featured_friend" || type === "featured_server" || type === "connections" || String(type || "").indexOf("youtube_") === 0;
 }
@@ -939,26 +1043,10 @@ function applyProfileTextPaint(el, chrome) {
   }
 }
 
-function mountProfileFixedTitle(el, label) {
-  el.classList.add("has-title-band");
-  const title = document.createElement("div");
-  title.className = "profile-tile-head";
-  title.textContent = label;
-  const rule = document.createElement("div");
-  rule.className = "profile-text-rule";
-  el.appendChild(title);
-  el.appendChild(rule);
-}
-
 function mountSteamTitle(el, tile, label, fallback) {
-  const props = tile.props || {};
-  if (!steamFlag(props, "show_title", false)) {
-    delete el.dataset.titleAlign;
-    return;
-  }
-  const align = props.title_align === "left" || props.title_align === "center" || props.title_align === "right" ? props.title_align : fallback;
-  el.dataset.titleAlign = align;
-  mountProfileFixedTitle(el, label);
+  const spec = typeof profileTitleSpec === "function" ? profileTitleSpec(tile && tile.type) : { defaultOn: false, align: fallback };
+  const fallbackAlign = fallback || spec.align || "left";
+  mountProfileTitleBand(el, tile, label, spec.defaultOn, fallbackAlign);
 }
 
 function profileFillPaint(chrome) {
@@ -1066,16 +1154,7 @@ function mountProfileTextChrome(el, tile) {
   applyProfileWidgetSurface(el, tile);
   const shell = document.createElement("div");
   shell.className = "profile-text-shell";
-  if (profileHasFixedTitle(tile.type)) {
-    el.classList.add("has-title-band");
-    const title = document.createElement("div");
-    title.className = "profile-text-title";
-    title.textContent = tile.type === "bio" ? "About" : ((PROFILE_TILE_TYPES[tile.type] || {}).label || tile.type);
-    const rule = document.createElement("div");
-    rule.className = "profile-text-rule";
-    shell.appendChild(title);
-    shell.appendChild(rule);
-  } else if (tile.type === "body" && tile.props && tile.props.show_title) {
+  if (tile.type === "body" && tile.props && tile.props.show_title) {
     const titleText = String(tile.props.title || "").trim();
     if (titleText || (profileEditing && profileIsOwn)) {
       el.classList.add("has-title-band");
@@ -1374,7 +1453,6 @@ function paintProfileLinkTree(tile, el) {
   applyProfileWidgetSurface(el, tile);
   applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
   applyProfileLinkSize(el, tile);
-  mountProfileFixedTitle(el, "Links");
   const body = document.createElement("div");
   body.className = "profile-tile-body";
   const links = Array.isArray(tile.props && tile.props.links) ? tile.props.links : [];
@@ -1920,22 +1998,12 @@ function paintProfileDisplayServer(tile, el) {
   if (chrome) applyProfileTextPaint(el, chrome);
   applyProfileWidgetSurface(el, tile);
   const props = defaultProfileTileProps("display_server", tile.props);
-  const head = document.createElement("div");
-  head.className = "oneira-wall-head";
-  const title = document.createElement("div");
-  title.className = "oneira-wall-title";
-  title.textContent = props.title || "Server List";
-  head.appendChild(title);
-  const rule = document.createElement("div");
-  rule.className = "oneira-wall-rule";
   const body = document.createElement("div");
   body.className = "profile-tile-body";
   const empty = document.createElement("div");
   empty.className = "settings-opt-desc";
   empty.textContent = props.server_ids.length ? "" : "No servers selected.";
   if (!props.server_ids.length) body.appendChild(empty);
-  el.appendChild(head);
-  el.appendChild(rule);
   el.appendChild(body);
   if (!props.server_ids.length || !profileOwnerId) return;
   const ids = props.server_ids.filter(displayServerIdOk);
@@ -1989,12 +2057,6 @@ function paintProfileClock(tile, el) {
   const mode = props.mode === "countdown" || props.mode === "timer" ? props.mode : "world";
   const body = document.createElement("div");
   body.className = "profile-tile-body";
-  if (props.label) {
-    const label = document.createElement("div");
-    label.className = "profile-clock-label";
-    label.textContent = props.label;
-    body.appendChild(label);
-  }
   const face = document.createElement("div");
   face.className = "profile-clock-live";
   face.dataset.mode = mode;
@@ -2263,21 +2325,15 @@ function paintProfileSpoiler(tile, el) {
 }
 
 function paintProfilePlaceholder(tile, el) {
-  const meta = PROFILE_TILE_TYPES[tile.type] || { label: "Element" };
   const emptyInView = tile.type === "color_block";
   el.classList.add("is-placeholder");
   if (emptyInView && !(profileEditing && profileIsOwn)) return;
-  el.classList.add("has-title-band");
-  const head = document.createElement("div");
-  head.className = "profile-tile-head";
-  head.textContent = meta.label;
   const body = document.createElement("div");
   body.className = "profile-tile-body";
   const note = document.createElement("div");
   note.className = "profile-placeholder-note";
   note.textContent = "Placeholder. This piece isn't wired yet.";
   body.appendChild(note);
-  el.appendChild(head);
   el.appendChild(body);
 }
 
@@ -3530,7 +3586,6 @@ function paintYoutubeSubscriptions(tile, el) {
   applyProfileWidgetSurface(el, tile);
   applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
   applyProfileSubSize(el, tile);
-  mountProfileFixedTitle(el, "Subscriptions");
   const body = document.createElement("div");
   body.className = "profile-tile-body";
   const owner = String(typeof profileOwnerId !== "undefined" ? profileOwnerId || "" : "");
@@ -3686,7 +3741,6 @@ function paintYoutubeMemberships(tile, el) {
   applyProfileWidgetSurface(el, tile);
   applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
   applyProfileMemberSize(el, tile);
-  mountProfileFixedTitle(el, "Memberships");
   const body = document.createElement("div");
   body.className = "profile-tile-body";
   const linked = typeof profileHasConnection === "function" && profileHasConnection("youtube");
@@ -5828,6 +5882,7 @@ function applyProfileSpoilerCover(el, tile) {
 
 function paintProfileTileContent(tile, el) {
   paintProfileTileFace(tile, el);
+  finishProfileTitleBand(el, tile);
   applyProfileSpoilerCover(el, tile);
 }
 
@@ -6019,10 +6074,6 @@ function paintProfileTileFace(tile, el) {
   }
   if (tile.type === "member_since") {
     applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
-    const head = document.createElement("div");
-    head.className = "profile-tile-head";
-    head.textContent = isServerWidgetPaint() ? "Creation Date" : "Member since";
-    el.appendChild(head);
     const date = document.createElement("div");
     date.className = "profile-since-date";
     date.textContent = profileOwnerMemberSince() || "—";
@@ -6131,7 +6182,6 @@ function paintProfileTileFace(tile, el) {
     return;
   }
   if (tile.type === "friends") {
-    mountProfileFixedTitle(el, isServerWidgetPaint() ? "Staff" : "Friends");
     applyProfileWidgetSurface(el, tile);
     applyProfileTextPaint(el, profileTextChrome(tile.props, tile.type));
     applyProfileFriendSize(el, tile);

@@ -673,8 +673,46 @@ function bindDraftReaders(box, draft, readValues, onChange) {
   });
 }
 
+function fillWidgetTitleOptions(box, tile, draft, onChange, hintEl) {
+  if (tile.type === "frame" || tile.type === "spoiler") return;
+  if (tile.type === "body" || tile.type === "chat_room" || tile.type === "phone" || tile.type === "posts") return;
+  if (tile.type === "youtube_channel" && typeof isMiniProfilePageId === "function" && isMiniProfilePageId(profileActivePageId)) {
+    draft.show_title = false;
+    return;
+  }
+  if (tile.type === "clock" && !String(draft.title || "").trim() && draft.label) {
+    draft.title = String(draft.label);
+    if (draft.show_title == null) draft.show_title = true;
+  }
+  const spec = typeof profileTitleSpec === "function"
+    ? profileTitleSpec(tile.type)
+    : { defaultOn: false, placeholder: "Title" };
+  fillBodyTitleOptions(box, draft, onChange, hintEl, {
+    defaultOn: spec.defaultOn,
+    placeholder: spec.placeholder || spec.fallback || "Title",
+    fallback: spec.fallback,
+    align: spec.align,
+    nameHint: "Label at the top of this tile.",
+    toggleHint: "Show the name in the top band of this widget."
+  });
+}
+
 function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   const fake = { type: tile.type, props: draft };
+  if (tile.type === "frame") {
+    const row = settingsOpt(
+      "Group drag",
+      "",
+      settingsToggle(!!draft.group_drag, false, (on) => {
+        draft.group_drag = on;
+        onChange();
+      })
+    );
+    profileOptHint(row, "Dragging this frame also moves every widget that sits fully inside it.", hintEl);
+    box.appendChild(row);
+    return;
+  }
+  fillWidgetTitleOptions(box, tile, draft, onChange, hintEl);
   if (tile.type === "banner") {
     if (typeof isServerWidgetBoard === "function" && isServerWidgetBoard()) {
       const note = document.createElement("div");
@@ -755,19 +793,6 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     fillRailOptions(box, draft, onChange, hintEl);
     return;
   }
-  if (tile.type === "frame") {
-    const row = settingsOpt(
-      "Group drag",
-      "",
-      settingsToggle(!!draft.group_drag, false, (on) => {
-        draft.group_drag = on;
-        onChange();
-      })
-    );
-    profileOptHint(row, "Dragging this frame also moves every widget that sits fully inside it.", hintEl);
-    box.appendChild(row);
-    return;
-  }
   if (tile.type === "meter") {
     fillMeterOptions(box, draft, onChange, hintEl);
     return;
@@ -815,63 +840,50 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     return;
   }
   if (tile.type === "steam_profile") {
-    fillFixedTitleOptions(box, draft, onChange, "center");
     fillSteamProfileOptions(box, draft, onChange);
     return;
   }
   if (tile.type === "steam_playing_now") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     return;
   }
   if (tile.type === "steam_recently_played") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillSteamRecentOptions(box, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "steam_library") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillSteamLibraryOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "steam_achievements") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillSteamAchievementOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "steam_badges") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillSteamBadgeOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "youtube_channel") {
     const mini = typeof isMiniProfilePageId === "function" && isMiniProfilePageId(profileActivePageId);
-    if (!mini) fillFixedTitleOptions(box, draft, onChange, "center");
-    else draft.show_title = false;
     fillYoutubeProfileOptions(box, draft, onChange, mini);
     return;
   }
   if (tile.type === "youtube_video") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillYoutubeVideoOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "youtube_uploads") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillYoutubeUploadsOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "youtube_live_now") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillYoutubeLiveOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "youtube_playlists") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillYoutubePlaylistsOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "youtube_liked") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillYoutubeLikedOptions(box, tile, draft, onChange, hintEl);
     return;
   }
@@ -880,17 +892,14 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     return;
   }
   if (tile.type === "youtube_comments") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillYoutubeCommentsOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "youtube_live_chat") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillYoutubeLiveChatOptions(box, tile, draft, onChange, hintEl);
     return;
   }
   if (tile.type === "youtube_super_chat") {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     fillYoutubeSuperChatOptions(box, tile, draft, onChange, hintEl);
     return;
   }
@@ -899,7 +908,6 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
     return;
   }
   if (String(tile.type || "").indexOf("youtube_") === 0) {
-    fillFixedTitleOptions(box, draft, onChange, "left");
     return;
   }
   if (tile.type === "featured_friend") {
@@ -912,50 +920,7 @@ function fillWidgetOptions(box, tile, draft, onChange, hintEl) {
   }
   if (tile.type === "connections") {
     fillMiniConnectionPick(box, draft, onChange, hintEl);
-    return;
   }
-  const empty = document.createElement("div");
-  empty.className = "profile-opt-empty";
-  empty.textContent = "No extra settings for this widget yet.";
-  box.appendChild(empty);
-}
-
-function fillFixedTitleOptions(box, draft, onChange, fallback) {
-  if (draft.show_title == null) draft.show_title = false;
-  if (draft.title_align !== "left" && draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = fallback;
-  const block = document.createElement("div");
-  block.className = "profile-name-opt";
-  const extras = document.createElement("div");
-  extras.className = "profile-opt-border-extras" + (draft.show_title ? " is-open" : "");
-  const alignWrap = document.createElement("div");
-  alignWrap.className = "profile-opt-align";
-  const alignLabel = document.createElement("div");
-  alignLabel.className = "profile-opt-field-label";
-  alignLabel.textContent = "Title alignment";
-  alignWrap.appendChild(alignLabel);
-  const row = document.createElement("div");
-  row.className = "profile-opt-seg";
-  [["left", "L"], ["center", "C"], ["right", "R"]].forEach(item => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.textContent = item[1];
-    btn.className = draft.title_align === item[0] ? "is-on" : "";
-    btn.addEventListener("click", () => {
-      draft.title_align = item[0];
-      Array.from(row.children).forEach(child => child.classList.toggle("is-on", child === btn));
-      onChange();
-    });
-    row.appendChild(btn);
-  });
-  alignWrap.appendChild(row);
-  extras.appendChild(alignWrap);
-  block.appendChild(settingsOpt("Title", "", settingsToggle(!!draft.show_title, false, (on) => {
-    draft.show_title = on;
-    extras.classList.toggle("is-open", on);
-    onChange();
-  })));
-  block.appendChild(extras);
-  box.appendChild(block);
 }
 
 function fillSteamRecentOptions(box, draft, onChange, hintEl) {
@@ -2269,21 +2234,6 @@ function fillCommentsOptions(box, draft, onChange, hintEl) {
 function fillDisplayServerOptions(box, draft, onChange, hintEl) {
   if (!Array.isArray(draft.server_ids)) draft.server_ids = [];
   else draft.server_ids = draft.server_ids.slice();
-  draft.title = String(draft.title || "").trim() || "Server List";
-  const nameLabel = document.createElement("label");
-  nameLabel.textContent = "Title";
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.maxLength = 48;
-  nameInput.value = draft.title;
-  nameInput.placeholder = "Server List";
-  profileOptHint(nameLabel, "Label at the top of this tile.", hintEl);
-  nameInput.addEventListener("input", () => {
-    draft.title = nameInput.value;
-    onChange();
-  });
-  nameLabel.appendChild(nameInput);
-  box.appendChild(nameLabel);
   const heading = document.createElement("div");
   heading.className = "profile-opt-field-label";
   heading.textContent = "Servers";
@@ -3064,9 +3014,6 @@ function profileSelectField(labelText, options, selected) {
 }
 
 function fillMeterOptions(box, draft, onChange, hintEl) {
-  draft.show_title = !!draft.show_title;
-  if (draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = "left";
-  draft.title = draft.title == null ? "Meter" : String(draft.title);
   draft.current = profileMeterNumber(draft.current, 0);
   draft.goal = profileMeterNumber(draft.goal, 100);
   if (!Array.isArray(draft.milestones)) draft.milestones = [];
@@ -3074,57 +3021,6 @@ function fillMeterOptions(box, draft, onChange, hintEl) {
     name: String((row && row.name) || "").slice(0, 32),
     threshold: profileMeterNumber(row && row.threshold, 0)
   }));
-
-  const extras = document.createElement("div");
-  extras.className = "profile-opt-border-extras" + (draft.show_title ? " is-open" : "");
-  const nameLabel = document.createElement("label");
-  nameLabel.textContent = "Title";
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.maxLength = 48;
-  nameInput.value = draft.title;
-  nameInput.placeholder = "Meter";
-  profileOptHint(nameLabel, "Name shown above the bar.", hintEl);
-  nameInput.addEventListener("input", () => {
-    draft.title = nameInput.value;
-    onChange();
-  });
-  nameLabel.appendChild(nameInput);
-  extras.appendChild(nameLabel);
-  const alignWrap = document.createElement("div");
-  alignWrap.className = "profile-opt-align";
-  const alignLabel = document.createElement("div");
-  alignLabel.className = "profile-opt-field-label";
-  alignLabel.textContent = "Title alignment";
-  alignWrap.appendChild(alignLabel);
-  const alignRow = document.createElement("div");
-  alignRow.className = "profile-opt-seg";
-  [["left", "L", "Put the title on the left."], ["center", "C", "Center the title."], ["right", "R", "Put the title on the right."]].forEach(item => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.textContent = item[1];
-    btn.className = draft.title_align === item[0] ? "is-on" : "";
-    profileOptHint(btn, item[2], hintEl);
-    btn.addEventListener("click", () => {
-      draft.title_align = item[0];
-      Array.from(alignRow.children).forEach(child => child.classList.toggle("is-on", child === btn));
-      onChange();
-    });
-    alignRow.appendChild(btn);
-  });
-  alignWrap.appendChild(alignRow);
-  extras.appendChild(alignWrap);
-  const titleBlock = document.createElement("div");
-  titleBlock.className = "profile-opt-border-block";
-  const titleToggle = settingsOpt("Title", "", settingsToggle(draft.show_title, false, (on) => {
-    draft.show_title = on;
-    extras.classList.toggle("is-open", on);
-    onChange();
-  }));
-  profileOptHint(titleToggle, "Show a name above the bar.", hintEl);
-  titleBlock.appendChild(titleToggle);
-  titleBlock.appendChild(extras);
-  box.appendChild(titleBlock);
 
   function numberField(labelText, key, hint) {
     const label = document.createElement("label");
@@ -3239,9 +3135,12 @@ function fillMeterOptions(box, draft, onChange, hintEl) {
 
 function fillBodyTitleOptions(box, draft, onChange, hintEl, spec) {
   spec = spec || {};
-  draft.show_title = !!draft.show_title;
-  if (draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = "left";
+  if (draft.show_title == null) draft.show_title = !!spec.defaultOn;
+  else draft.show_title = !!draft.show_title;
+  const fallbackAlign = spec.align === "center" || spec.align === "right" ? spec.align : "left";
+  if (draft.title_align !== "left" && draft.title_align !== "center" && draft.title_align !== "right") draft.title_align = fallbackAlign;
   draft.title = String(draft.title || "");
+  if (!draft.title && spec.fallback) draft.title = spec.fallback;
   const extras = document.createElement("div");
   extras.className = "profile-opt-border-extras" + (draft.show_title ? " is-open" : "");
 
@@ -3460,22 +3359,6 @@ function fillClockOptions(box, draft, onChange, hintEl) {
   draft.timezone = String(draft.timezone || "");
   draft.target_at = String(draft.target_at || "");
   draft.start_at = String(draft.start_at || "");
-
-  const titleBlock = profileOptSection(box);
-  const nameLabel = document.createElement("label");
-  nameLabel.textContent = "Title";
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.maxLength = 48;
-  nameInput.value = draft.label;
-  nameInput.placeholder = "Optional";
-  profileOptHint(nameLabel, "Small caption above the time. Leave blank to hide.", hintEl);
-  nameInput.addEventListener("input", () => {
-    draft.label = nameInput.value;
-    onChange();
-  });
-  nameLabel.appendChild(nameInput);
-  titleBlock.appendChild(nameLabel);
 
   const modeBlock = profileOptSection(box);
   const mode = profileSelectField("Mode", [

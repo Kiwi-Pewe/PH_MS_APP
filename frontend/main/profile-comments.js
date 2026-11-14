@@ -38,25 +38,40 @@ function profileCommentTime(row) {
   return String(raw);
 }
 
+function profileCommentsTitle(props) {
+  const title = String((props && props.title) || "").trim();
+  return title || "Comments";
+}
+
 function mountProfileComments(host, tile) {
   if (host && host._profileComments && host._profileComments.destroy) {
     host._profileComments.destroy();
     host._profileComments = null;
   }
   const ownerId = typeof profileOwnerId !== "undefined" ? profileOwnerId : null;
+  const props = (tile && tile.props) || {};
+  const showTitle = props.show_title == null ? true : !!props.show_title;
+  const titleText = profileCommentsTitle(props);
   const root = document.createElement("div");
   root.className = "oneira-wall";
-  const head = document.createElement("div");
-  head.className = "oneira-wall-head";
-  const title = document.createElement("div");
-  title.className = "oneira-wall-title";
-  title.textContent = "Comments";
   const topPager = document.createElement("div");
   topPager.className = "oneira-wall-pager";
-  head.appendChild(title);
-  head.appendChild(topPager);
-  const topRule = document.createElement("div");
-  topRule.className = "oneira-wall-rule";
+  if (showTitle && (titleText || (typeof profileEditing !== "undefined" && profileEditing && typeof profileIsOwn !== "undefined" && profileIsOwn))) {
+    const align = props.title_align === "center" || props.title_align === "right" ? props.title_align : "left";
+    host.classList.add("has-title-band");
+    host.dataset.titleAlign = align;
+    const head = document.createElement("div");
+    head.className = "profile-tile-head";
+    const title = document.createElement("div");
+    title.className = "oneira-wall-title";
+    title.textContent = titleText || "Title";
+    if (!titleText) title.classList.add("is-empty");
+    head.appendChild(title);
+    head.appendChild(topPager);
+    host.appendChild(head);
+  } else {
+    delete host.dataset.titleAlign;
+  }
   const compose = document.createElement("div");
   compose.className = "oneira-wall-compose";
   compose.hidden = true;
@@ -87,8 +102,6 @@ function mountProfileComments(host, tile) {
   botPager.className = "oneira-wall-pager";
   foot.appendChild(notifyLabel);
   foot.appendChild(botPager);
-  root.appendChild(head);
-  root.appendChild(topRule);
   root.appendChild(compose);
   root.appendChild(list);
   root.appendChild(empty);

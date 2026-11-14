@@ -1326,6 +1326,38 @@ function profilePlatformLetter(name) {
   return (name || "?").slice(0, 1);
 }
 
+function profileLinkFaviconUrl(url) {
+  const clean = profileCleanHttpUrl(url);
+  if (!clean) return "";
+  try {
+    const host = new URL(clean).hostname;
+    if (!host) return "";
+    return "https://www.google.com/s2/favicons?sz=64&domain=" + encodeURIComponent(host);
+  } catch (e) {
+    return "";
+  }
+}
+
+function paintProfileLinkFace(host, row) {
+  if (!host) return;
+  host.textContent = "";
+  const letter = profilePlatformLetter(row && row.platform);
+  const fav = profileLinkFaviconUrl(row && row.url);
+  if (!fav) {
+    host.textContent = letter;
+    return;
+  }
+  const img = document.createElement("img");
+  img.alt = "";
+  img.referrerPolicy = "no-referrer";
+  img.addEventListener("error", () => {
+    img.remove();
+    host.textContent = letter;
+  });
+  img.src = fav;
+  host.appendChild(img);
+}
+
 function profileStripOrientation(type, props, w, h) {
   if (type !== "divider" && type !== "rail") return "";
   if (props && props.orientation === "vertical") return "vertical";
@@ -1472,7 +1504,7 @@ function paintProfileLinkTree(tile, el) {
       }
       const icon = document.createElement("div");
       icon.className = "avatar-dot";
-      icon.textContent = profilePlatformLetter(row.platform);
+      paintProfileLinkFace(icon, row);
       const label = document.createElement("div");
       label.className = "profile-link-label";
       const site = row.platform || "Link";

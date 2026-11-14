@@ -8531,6 +8531,10 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   width: var(--profile-link-icon, 24px);
   height: var(--profile-link-icon, 24px);
   font-size: calc(var(--profile-link-icon, 24px) * 0.42);
+  overflow: hidden;
+}
+.profile-link-row .avatar-dot img {
+  object-fit: contain;
 }
 a.profile-link-row:hover { color: var(--accent); }
 .profile-link-label {

@@ -5939,6 +5939,14 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .channel-type-label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
 
 .channel-type-accordion { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 18px; }
+#channel-modal .channel-type-accordion { margin-bottom: 0; }
+.channel-modal-divider {
+  flex: 0 0 auto;
+  height: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 16px 0 12px;
+}
 .accordion-group + .accordion-group { border-top: 1px solid var(--border); }
 .accordion-header {
   width: 100%; display: flex; align-items: center; justify-content: space-between;
@@ -5969,7 +5977,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .channel-type-option.disabled:hover { background: none; }
 .channel-type-option.disabled .channel-type-name em { font-style: normal; font-weight: 500; }
 
-.channel-type-accordion + .server-modal-label { margin-top: 4px; }
+.channel-type-accordion + .server-modal-label,
+.channel-modal-divider + .server-modal-label { margin-top: 4px; }
 .page-layout-list {
   border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 18px;
 }

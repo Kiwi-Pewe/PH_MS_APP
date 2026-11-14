@@ -145,6 +145,7 @@ function openChannelModal(categoryId) {
   channelModalCategoryId = categoryId;
   document.getElementById("channel-name-input").value = "";
   document.getElementById("channel-private-toggle").checked = false;
+  document.getElementById("channel-explicit-toggle").checked = false;
   document.querySelectorAll('input[name="channel-type"]').forEach(radio => { radio.checked = false; });
   document.querySelectorAll("#channel-type-accordion .accordion-group").forEach(g => g.classList.remove("open"));
   updateChannelModalCreateState();
@@ -161,6 +162,7 @@ async function submitCreateChannel() {
   if (!selected || !name) return;
   if (selected.value === "doc") return;
   const isPrivate = document.getElementById("channel-private-toggle").checked;
+  const isExplicit = document.getElementById("channel-explicit-toggle").checked;
 
   try {
     const response = await fetch(`https://${serverAddress}/create_channel`, {
@@ -171,7 +173,8 @@ async function submitCreateChannel() {
         category_id: channelModalCategoryId,
         name,
         channel_type: selected.value,
-        is_private: isPrivate
+        is_private: isPrivate,
+        explicit: isExplicit
       })
     });
     if (!response.ok) {

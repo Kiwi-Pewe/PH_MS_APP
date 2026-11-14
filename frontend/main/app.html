@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=551">
+<link rel="stylesheet" href="app.css?v=552">
 <link rel="stylesheet" href="news.css?v=6">
 </head>
 <body>
@@ -2150,6 +2150,8 @@
 
         </div>
 
+        <div class="channel-modal-divider"></div>
+
         <label class="server-modal-label" for="channel-name-input">Channel Name</label>
         <input type="text" id="channel-name-input" class="server-name-input" maxlength="100" placeholder="new-channel">
 
@@ -2162,6 +2164,16 @@
             </label>
           </div>
           <p class="private-toggle-desc">Only you (the owner) will be able to view this channel. Member/role-based access is coming once roles exist.</p>
+        </div>
+        <div class="private-toggle-row">
+          <div class="private-toggle-label">
+            <span>Explicit Channel</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="channel-explicit-toggle">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <p class="private-toggle-desc">People confirm before this channel opens. It stays marked in the channel list.</p>
         </div>
       </div>
       <div id="channel-modal-footer">
@@ -3244,7 +3256,7 @@
 <script src="search.js?v=10"></script>
 <script src="members.js?v=30"></script>
 <script src="mini-profile.js?v=47"></script>
-<script src="server-modals.js?v=49"></script>
+<script src="server-modals.js?v=50"></script>
 <script src="announcements.js?v=72"></script>
 <script src="channel-follows.js?v=2"></script>
 <script src="comments.js?v=57"></script>

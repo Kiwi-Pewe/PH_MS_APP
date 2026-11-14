@@ -1619,7 +1619,8 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
         name = channel_info.name,
         channel_type = channel_info.channel_type,
         position = 100 if highest_position == None else highest_position + 100,
-        is_private = channel_info.is_private
+        is_private = channel_info.is_private,
+        explicit = bool(channel_info.explicit)
     )
     database.add(new_channel)
     database.flush()
@@ -1632,7 +1633,7 @@ async def create_channel(channel_info: Channel_create, database: Session = Depen
     payload = {
         "type": "channel_created",
         "server_id": server.id,
-        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "topic": "", "slowmode": 0, "user_limit": int(getattr(new_channel, "user_limit", 10) or 10), "explicit": False, "category_id": new_channel.category_id}
+        "channel": {"channel_type": new_channel.channel_type, "id": new_channel.id, "name": new_channel.name, "position": new_channel.position, "is_private": new_channel.is_private, "topic": "", "slowmode": 0, "user_limit": int(getattr(new_channel, "user_limit", 10) or 10), "explicit": bool(getattr(new_channel, "explicit", False)), "category_id": new_channel.category_id}
     }
     await server_broadcast(server_id= server.id, payload= payload, database= database, exclude_user_id= current_user.id)
     return "success"

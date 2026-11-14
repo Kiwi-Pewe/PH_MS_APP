@@ -150,7 +150,9 @@ function renderConversationList() {
   conversationList.forEach(convo => {
     const row = document.createElement("div");
     const displayName = convo.type === "party" ? convo.name : (convo.displayName || convo.username);
-    const subtitle = convo.type === "party" ? `${convo.memberCount} Members` : (convo.status || "").trim();
+    const subtitle = convo.type === "party"
+      ? `${convo.memberCount} Members`
+      : (typeof personCustomStatus === "function" ? personCustomStatus(convo) : "");
     const isActive = convo.type === openChatType && convo.id === openChatId;
 
     row.className = "dm-item" + (isActive ? " active" : "");
@@ -219,9 +221,13 @@ function renderConversationList() {
 }
 
 function applyConversationPresence(userId, status) {
-  const presence = String(status || "").toLowerCase() === "online" ? "online" : "offline";
+  const presence = typeof presencePipClass === "function" ? presencePipClass(status) : (String(status || "").toLowerCase() === "online" ? "online" : "offline");
+  let convoRef = null;
   (conversationList || []).forEach((convo) => {
-    if (convo.type === "dm" && Number(convo.id) === Number(userId)) convo.presence = presence;
+    if (convo.type === "dm" && Number(convo.id) === Number(userId)) {
+      convo.presence = presence;
+      convoRef = convo;
+    }
   });
   document.querySelectorAll("#dm-rows .dm-item[data-user-id]").forEach((row) => {
     if (Number(row.dataset.userId) !== Number(userId)) return;
@@ -233,7 +239,12 @@ function applyConversationPresence(userId, status) {
       face.appendChild(pip);
     }
     pip.className = "status-dot status-" + presence;
+    const text = row.querySelector(".dm-item-text");
+    if (text && typeof fillPersonRailSubtitle === "function") {
+      fillPersonRailSubtitle(text, convoRef || { id: userId, presence: presence, status: typeof userStatusLine === "function" ? userStatusLine(userId) : "" });
+    }
   });
+  if (typeof applyProfileFriendPresence === "function") applyProfileFriendPresence(userId, presence);
 }
 
 // type+id together identify an entry - a DM partner's id and a party's

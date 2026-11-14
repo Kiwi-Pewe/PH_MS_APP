@@ -14,7 +14,7 @@ from app.database import get_db
 from app.auth import get_current_user
 from app.privacy import are_friends, can_see_full_profile, drop_blocked_rows
 from app.routers.account import parse_display_name_history
-from app.routers.realtime import notify_user, profile_chat_viewer_ids, watch_profile_chat
+from app.routers.realtime import notify_user, presence_status, profile_chat_viewer_ids, watch_profile_chat
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for, still_url_for, still_url_from_public, require_message_body, store_attachment, attachment_public
 from app.site_moderation import mask_message_payloads
 
@@ -1943,6 +1943,7 @@ def friend_preview(database: Session, owner_id, limit=8):
             "display_name": public_display_name(other),
             "avatar": public_avatar(other),
             "status": (other.profile_status or "").strip(),
+            "presence": presence_status(other.id),
         })
         if len(out) >= limit:
             break

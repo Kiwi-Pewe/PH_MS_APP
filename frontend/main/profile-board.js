@@ -2131,30 +2131,41 @@ function paintProfileFriends(host, tile) {
     return;
   }
   people.forEach(person => {
-    const row = document.createElement("div");
-    row.className = "profile-friend-row";
-    const dot = document.createElement("div");
-    dot.className = "avatar-dot";
-    const shown = person.display_name || person.username || "?";
-    if (typeof paintUserFace === "function") paintUserFace(dot, person, { name: shown, userId: person.id });
-    else dot.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : shown.slice(0, 1);
-    const name = document.createElement("div");
-    name.className = "profile-friend-name";
-    name.textContent = shown;
-    row.appendChild(dot);
-    row.appendChild(name);
-    if (!profileEditing && person.id) {
+    const rail = typeof railPersonFrom === "function" ? railPersonFrom(person) : person;
+    const shown = (rail && (rail.display_name || rail.username)) || "?";
+    let row;
+    if (typeof paintDmPersonCard === "function") {
+      row = paintDmPersonCard(rail);
+      row.classList.add("profile-friend-row");
+      const who = row.querySelector(".who");
+      if (who) who.classList.add("profile-friend-name");
+    } else {
+      row = document.createElement("div");
+      row.className = "profile-friend-row";
+      const dot = document.createElement("div");
+      dot.className = "avatar-dot";
+      if (typeof paintUserFace === "function") paintUserFace(dot, rail, { name: shown, userId: rail && rail.id });
+      else dot.textContent = typeof avatarLetter === "function" ? avatarLetter(shown) : shown.slice(0, 1);
+      const name = document.createElement("div");
+      name.className = "profile-friend-name";
+      name.textContent = shown;
+      row.appendChild(dot);
+      row.appendChild(name);
+    }
+    if (rail && rail.id != null) row.dataset.userId = String(rail.id);
+    if (typeof rememberUserStatus === "function" && rail && rail.id != null) rememberUserStatus(rail.id, rail.status);
+    if (!profileEditing && rail && rail.id) {
       row.classList.add("is-mini-profile-target");
       row.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (typeof openMiniProfile === "function") openMiniProfile(person.id, row);
+        if (typeof openMiniProfile === "function") openMiniProfile(rail.id, row);
       });
       row.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (typeof showProfileContextMenu === "function") {
-          showProfileContextMenu(e, person.id, person.username || person.display_name, person.id === myUserId);
+          showProfileContextMenu(e, rail.id, rail.username || rail.display_name, rail.id === myUserId);
         }
       });
     }

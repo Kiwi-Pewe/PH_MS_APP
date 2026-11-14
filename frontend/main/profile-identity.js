@@ -324,6 +324,12 @@ function paintUserFace(host, source, opts) {
   if (pip) host.appendChild(pip);
 }
 
+function presencePipClass(status) {
+  const raw = String(status || "").toLowerCase();
+  if (raw === "online" || raw === "away" || raw === "dnd") return raw;
+  return "offline";
+}
+
 function personPresence(person) {
   const raw = String((person && (person.presence || person.online_status)) || "").toLowerCase();
   if (raw === "online" || raw === "away" || raw === "dnd") return raw;
@@ -331,30 +337,89 @@ function personPresence(person) {
   return "offline";
 }
 
+function railPersonFrom(person) {
+  if (!person) return person;
+  const copy = Object.assign({}, person);
+  if (!copy.presence && !copy.online_status) {
+    const raw = String(copy.status || "").toLowerCase();
+    if (raw === "online" || raw === "away" || raw === "dnd" || raw === "offline") {
+      copy.presence = raw;
+      copy.status = String(copy.status_line || "").trim();
+    }
+  }
+  return copy;
+}
+
+function personCustomStatus(person) {
+  const row = railPersonFrom(person);
+  if (personPresence(row) === "offline") return "";
+  return String((row && (row.status || row.status_line || row.profile_status)) || "").trim();
+}
+
+function fillPersonRailSubtitle(textHost, person) {
+  if (!textHost) return;
+  const line = personCustomStatus(person);
+  let sub = textHost.querySelector(".dm-subtitle");
+  if (!line) {
+    if (sub) sub.remove();
+    return;
+  }
+  if (!sub) {
+    sub = document.createElement("div");
+    sub.className = "dm-subtitle";
+    textHost.appendChild(sub);
+  }
+  sub.textContent = line;
+}
+
+function applyProfileFriendPresence(userId, status) {
+  const pipClass = presencePipClass(status);
+  if (typeof profileFriends !== "undefined" && Array.isArray(profileFriends)) {
+    profileFriends.forEach((person) => {
+      if (Number(person.id) === Number(userId)) person.presence = pipClass;
+    });
+  }
+  const people = typeof profileFriends !== "undefined" ? profileFriends : [];
+  document.querySelectorAll(".profile-tile.is-friends .profile-friend-row[data-user-id], .profile-opt-friend-picks .dm-item[data-user-id]").forEach((row) => {
+    if (Number(row.dataset.userId) !== Number(userId)) return;
+    const face = row.querySelector(".avatar-dot");
+    if (face) {
+      let pip = face.querySelector(":scope > .status-dot");
+      if (!pip) {
+        pip = document.createElement("div");
+        face.appendChild(pip);
+      }
+      pip.className = "status-dot status-" + pipClass;
+    }
+    const person = people.find((item) => Number(item.id) === Number(userId)) || {
+      id: userId,
+      presence: pipClass,
+      status: typeof userStatusLine === "function" ? userStatusLine(userId) : ""
+    };
+    fillPersonRailSubtitle(row.querySelector(".dm-item-text"), person);
+  });
+}
+
 function paintDmPersonCard(person, opts) {
   opts = opts || {};
+  const rail = railPersonFrom(person);
   const row = document.createElement(opts.tag || "div");
   row.className = "dm-item" + (opts.selected ? " active" : "");
+  if (rail && rail.id != null) row.dataset.userId = String(rail.id);
   const face = document.createElement("div");
   face.className = "avatar-dot";
   const pip = document.createElement("div");
-  pip.className = "status-dot status-" + personPresence(person);
+  pip.className = "status-dot status-" + personPresence(rail);
   face.appendChild(pip);
-  const shown = (person && (person.display_name || person.username)) || "User";
-  if (typeof paintUserFace === "function") paintUserFace(face, person, { name: shown, userId: person && person.id });
+  const shown = (rail && (rail.display_name || rail.username)) || "User";
+  if (typeof paintUserFace === "function") paintUserFace(face, rail, { name: shown, userId: rail && rail.id });
   const text = document.createElement("div");
   text.className = "dm-item-text";
   const who = document.createElement("div");
   who.className = "who";
   who.textContent = shown;
   text.appendChild(who);
-  const line = String((person && person.status) || "").trim();
-  if (line) {
-    const sub = document.createElement("div");
-    sub.className = "dm-subtitle";
-    sub.textContent = line;
-    text.appendChild(sub);
-  }
+  fillPersonRailSubtitle(text, rail);
   row.appendChild(face);
   row.appendChild(text);
   return row;

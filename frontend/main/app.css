@@ -7198,6 +7198,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .oneira-wall-text,
   .oneira-wall-time,
   .profile-friend-name,
+  .profile-friend-row .who,
+  .profile-friend-row .dm-subtitle,
   .profile-spoiler-title,
   .profile-callout-copy,
   .settings-opt-desc,
@@ -7266,6 +7268,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .oneira-wall-text,
   .oneira-wall-time,
   .profile-friend-name,
+  .profile-friend-row .who,
+  .profile-friend-row .dm-subtitle,
   .profile-spoiler-title,
   .profile-callout-copy,
   .settings-opt-desc,
@@ -7340,6 +7344,8 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   .profile-since-date,
   .profile-link-label,
   .profile-friend-name,
+  .profile-friend-row .who,
+  .profile-friend-row .dm-subtitle,
   .steam-profile-name,
   .steam-profile-status-text,
   .steam-profile-link,
@@ -7485,6 +7491,32 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .settings-form .settings-check input { width: auto; margin: 0; }
 .settings-form input[type="color"] { width: 48px; height: 32px; padding: 2px; }
 .profile-friend-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; min-width: 0; }
+.profile-tile.is-friends .profile-friend-row.dm-item {
+  height: calc(var(--profile-friend-icon, 28px) + 12px);
+  min-height: calc(var(--profile-friend-icon, 28px) + 12px);
+  padding: 0 4px;
+  gap: 10px;
+  color: inherit;
+  background: transparent;
+}
+.profile-tile.is-friends .profile-friend-row.dm-item:hover { background: var(--panel-alt); }
+.profile-tile.is-editing .profile-friend-row.dm-item,
+.profile-tile.is-editing .profile-friend-row.dm-item:hover {
+  background: transparent;
+  cursor: inherit;
+}
+.profile-tile.is-friends .profile-friend-row .who {
+  font-size: var(--profile-text-size, 14pt);
+  font-weight: 600;
+}
+.profile-tile.is-friends .profile-friend-row .dm-subtitle {
+  font-size: calc(var(--profile-text-size, 14pt) * 0.72);
+  font-weight: 600;
+}
+.profile-tile.is-friends .profile-friend-row .status-dot {
+  width: max(8px, calc(var(--profile-friend-icon, 28px) * 0.28));
+  height: max(8px, calc(var(--profile-friend-icon, 28px) * 0.28));
+}
 .profile-friend-row.is-mini-profile-target,
 .profile-friend-row.is-youtube-sub,
 .profile-friend-row.is-youtube-member { cursor: pointer; }
@@ -8183,6 +8215,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile[data-text-align="justify"] .steam-recent-copy { text-align: justify; }
 .profile-tile.is-friends[data-text-align="center"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="center"] .profile-friend-name,
+.profile-tile.is-friends[data-text-align="center"] .dm-subtitle,
 .profile-tile.is-youtube_subscriptions[data-text-align="center"] .profile-tile-head,
 .profile-tile.is-youtube_subscriptions[data-text-align="center"] .profile-friend-name,
 .profile-tile.is-youtube_memberships[data-text-align="center"] .profile-tile-head,
@@ -8236,6 +8269,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_video[data-text-align="center"] .youtube-video-who { justify-content: center; }
 .profile-tile.is-friends[data-text-align="right"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="right"] .profile-friend-name,
+.profile-tile.is-friends[data-text-align="right"] .dm-subtitle,
 .profile-tile.is-youtube_subscriptions[data-text-align="right"] .profile-tile-head,
 .profile-tile.is-youtube_subscriptions[data-text-align="right"] .profile-friend-name,
 .profile-tile.is-youtube_memberships[data-text-align="right"] .profile-tile-head,
@@ -8289,6 +8323,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-tile.is-youtube_video[data-text-align="right"] .youtube-video-who { justify-content: flex-end; }
 .profile-tile.is-friends[data-text-align="justify"] .profile-tile-head,
 .profile-tile.is-friends[data-text-align="justify"] .profile-friend-name,
+.profile-tile.is-friends[data-text-align="justify"] .dm-subtitle,
 .profile-tile.is-youtube_subscriptions[data-text-align="justify"] .profile-tile-head,
 .profile-tile.is-youtube_subscriptions[data-text-align="justify"] .profile-friend-name,
 .profile-tile.is-youtube_memberships[data-text-align="justify"] .profile-tile-head,

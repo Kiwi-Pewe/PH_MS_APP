@@ -480,10 +480,25 @@ function applyUserStatusLine(userId, status) {
     });
     if (changed && typeof renderConversationList === "function") renderConversationList();
   }
+  if (typeof profileFriends !== "undefined" && Array.isArray(profileFriends)) {
+    profileFriends.forEach((person) => {
+      if (Number(person.id) === Number(userId)) person.status = line;
+    });
+  }
+  document.querySelectorAll(".profile-tile.is-friends .profile-friend-row[data-user-id], .profile-opt-friend-picks .dm-item[data-user-id]").forEach((row) => {
+    if (Number(row.dataset.userId) !== Number(userId)) return;
+    const person = (typeof profileFriends !== "undefined" ? profileFriends : []).find((item) => Number(item.id) === Number(userId)) || {
+      id: userId,
+      presence: row.querySelector(".status-dot") && /status-online|status-away|status-dnd/.test(row.querySelector(".status-dot").className) ? "online" : "offline",
+      status: line
+    };
+    if (typeof fillPersonRailSubtitle === "function") fillPersonRailSubtitle(row.querySelector(".dm-item-text"), person);
+  });
   document.querySelectorAll(".friend-row").forEach((row) => {
     if (String(row.dataset.userId) !== String(userId)) return;
+    const show = !row.closest("#offline-rows") && !!line;
     let sub = row.querySelector(".friend-status");
-    if (!line) {
+    if (!show) {
       if (sub) sub.remove();
       return;
     }

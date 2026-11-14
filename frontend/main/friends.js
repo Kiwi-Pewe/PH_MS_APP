@@ -68,7 +68,7 @@ function renderFriendList(kind, list) {
     row.querySelector(".who").textContent = friend.username;
     row.dataset.userId = String(friend.id);
     if (typeof rememberUserStatus === "function") rememberUserStatus(friend.id, friend.status);
-    const line = String(friend.status || "").trim();
+    const line = kind === "online" ? String(friend.status || "").trim() : "";
     if (line) {
       const sub = document.createElement("div");
       sub.className = "friend-status";

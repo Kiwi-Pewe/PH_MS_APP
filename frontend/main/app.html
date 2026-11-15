@@ -29,7 +29,7 @@
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
 <link rel="stylesheet" href="app.css?v=554">
-<link rel="stylesheet" href="news.css?v=7">
+<link rel="stylesheet" href="news.css?v=9">
 </head>
 <body>
 
@@ -2472,6 +2472,98 @@
     </article>
   </div>
 
+  <div id="news-event-overlay" hidden>
+    <div id="news-event-card" role="dialog" aria-modal="true" aria-labelledby="news-event-heading">
+      <div class="news-event-head">
+        <span class="news-event-dot" id="news-event-dot"></span>
+        <span id="news-event-heading">Event</span>
+        <button type="button" class="icon-btn" id="news-event-close" title="Close">&times;</button>
+      </div>
+      <div class="news-event-body" id="news-event-view">
+        <div class="news-event-when" id="news-event-when"></div>
+        <div class="news-event-note" id="news-event-note"></div>
+      </div>
+      <div class="news-event-body" id="news-event-form" hidden>
+        <div class="news-post-field">
+          <h2 class="news-post-k">Name</h2>
+          <input id="news-detail-name" class="news-event-input" type="text" maxlength="200" placeholder="Event name">
+        </div>
+        <div class="news-post-field">
+          <h2 class="news-post-k">Date</h2>
+          <input id="news-detail-date" class="news-event-input" type="date">
+        </div>
+        <div class="news-event-times">
+          <div class="news-post-field">
+            <h2 class="news-post-k">Start</h2>
+            <input id="news-detail-start" class="news-event-input" type="time">
+          </div>
+          <div class="news-post-field">
+            <h2 class="news-post-k">End</h2>
+            <input id="news-detail-end" class="news-event-input" type="time">
+          </div>
+        </div>
+        <div class="news-post-field">
+          <h2 class="news-post-k">Description</h2>
+          <textarea id="news-detail-desc" class="news-event-desc" rows="5" maxlength="2000" placeholder="What is happening"></textarea>
+        </div>
+        <div class="news-post-field">
+          <h2 class="news-post-k">Seriousness</h2>
+          <div class="news-event-colors" id="news-detail-colors" role="listbox" aria-label="Event color">
+            <button type="button" class="news-event-swatch is-red" data-color="red" title="Red"></button>
+            <button type="button" class="news-event-swatch is-orange" data-color="orange" title="Orange"></button>
+            <button type="button" class="news-event-swatch is-yellow" data-color="yellow" title="Yellow"></button>
+            <button type="button" class="news-event-swatch is-green" data-color="green" title="Green"></button>
+          </div>
+        </div>
+      </div>
+      <div class="news-event-foot">
+        <p class="news-compose-error" id="news-event-error" hidden></p>
+        <button type="button" class="ghost-btn" id="news-event-cancel">Close</button>
+        <button type="button" class="pill-btn" id="news-event-action">Edit</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="news-edit-overlay" hidden>
+    <div id="news-edit-card" role="dialog" aria-modal="true" aria-labelledby="news-edit-title">
+      <div class="news-event-head">
+        <span id="news-edit-title">Edit Post</span>
+        <button type="button" class="icon-btn" id="news-edit-close" title="Close">&times;</button>
+      </div>
+      <div class="news-event-body">
+        <div class="news-post-field">
+          <h2 class="news-post-k">Title</h2>
+          <input id="news-edit-heading" class="news-event-input" type="text" maxlength="200" placeholder="Title">
+        </div>
+        <div class="news-post-field">
+          <h2 class="news-post-k">Body</h2>
+          <textarea id="news-edit-body" class="news-event-desc" rows="5" placeholder="Announcement"></textarea>
+        </div>
+        <p class="news-compose-error" id="news-edit-error" hidden></p>
+      </div>
+      <div class="news-event-foot">
+        <button type="button" class="ghost-btn" id="news-edit-cancel">Cancel</button>
+        <button type="button" class="pill-btn" id="news-edit-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="news-delete-overlay" hidden>
+    <div id="news-delete-card" role="dialog" aria-modal="true" aria-labelledby="news-delete-title">
+      <div class="news-event-head">
+        <span id="news-delete-title">Delete Post</span>
+        <button type="button" class="icon-btn" id="news-delete-close" title="Close">&times;</button>
+      </div>
+      <div class="news-event-body">
+        <p id="news-delete-copy">This announcement will be removed for everyone.</p>
+      </div>
+      <div class="news-event-foot">
+        <button type="button" class="ghost-btn" id="news-delete-cancel">Cancel</button>
+        <button type="button" class="deny-btn" id="news-delete-confirm">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <div id="news-donate-overlay" hidden>
     <div id="news-donate-card" role="dialog" aria-modal="true" aria-labelledby="news-donate-title">
       <div class="news-donate-head" id="news-donate-title">Leaving Oneira</div>
@@ -3173,10 +3265,10 @@
         </div>
       </div>
     </div>
-<script src="boot.js?v=163"></script>
+<script src="boot.js?v=165"></script>
 <script src="app-shell.js?v=79"></script>
 <script src="communities.js?v=53"></script>
-<script src="news.js?v=7"></script>
+<script src="news.js?v=9"></script>
 <script src="community-posts.js?v=6"></script>
 <script src="community-rooms.js?v=9"></script>
 <script src="community-search.js?v=3"></script>

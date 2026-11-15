@@ -4,13 +4,14 @@
 <meta charset="UTF-8">
 <title>Oneira — Admin Panel</title>
 <link rel="stylesheet" href="../shared/tokens.css?v=13">
+<link rel="stylesheet" href="../shared/context-menu.css?v=8">
 <link rel="stylesheet" href="app.css?v=23">
 <link rel="stylesheet" href="overview.css?v=10">
 <link rel="stylesheet" href="users.css?v=20">
 <link rel="stylesheet" href="servers.css?v=7">
 <link rel="stylesheet" href="reports.css?v=2">
 <link rel="stylesheet" href="community.css?v=1">
-<link rel="stylesheet" href="news.css?v=9">
+<link rel="stylesheet" href="news.css?v=11">
 </head>
 <body>
 
@@ -191,6 +192,75 @@
   </div>
 </div>
 
+<div id="news-event-overlay" hidden>
+  <div id="news-event-card" role="dialog" aria-modal="true" aria-labelledby="news-event-heading">
+    <div class="news-post-head">
+      <span class="news-event-dot" id="news-event-dot"></span>
+      <span id="news-event-heading">Event</span>
+      <button type="button" class="admin-mod-x" id="news-event-close" title="Close">×</button>
+    </div>
+    <div class="news-post-body" id="news-event-view">
+      <div class="news-event-when" id="news-event-when"></div>
+      <div class="news-event-note" id="news-event-note"></div>
+    </div>
+    <div class="news-post-body" id="news-event-form" hidden>
+      <div class="news-post-field">
+        <h2 class="news-post-k">Name</h2>
+        <input id="news-detail-name" class="admin-mod-input" type="text" maxlength="200" placeholder="Event name">
+      </div>
+      <div class="news-post-field">
+        <h2 class="news-post-k">Date</h2>
+        <input id="news-detail-date" class="admin-mod-input" type="date">
+      </div>
+      <div class="news-event-times">
+        <div class="news-post-field">
+          <h2 class="news-post-k">Start</h2>
+          <input id="news-detail-start" class="admin-mod-input" type="time">
+        </div>
+        <div class="news-post-field">
+          <h2 class="news-post-k">End</h2>
+          <input id="news-detail-end" class="admin-mod-input" type="time">
+        </div>
+      </div>
+      <div class="news-post-field">
+        <h2 class="news-post-k">Description</h2>
+        <textarea id="news-detail-desc" class="news-event-desc" rows="5" maxlength="2000" placeholder="What is happening"></textarea>
+      </div>
+      <div class="news-post-field">
+        <h2 class="news-post-k">Seriousness</h2>
+        <div class="news-event-colors" id="news-detail-colors" role="listbox" aria-label="Event color">
+          <button type="button" class="news-event-swatch is-red" data-color="red" title="Red"></button>
+          <button type="button" class="news-event-swatch is-orange" data-color="orange" title="Orange"></button>
+          <button type="button" class="news-event-swatch is-yellow" data-color="yellow" title="Yellow"></button>
+          <button type="button" class="news-event-swatch is-green" data-color="green" title="Green"></button>
+        </div>
+      </div>
+    </div>
+    <div class="news-post-foot">
+      <p class="news-compose-error" id="news-event-error" hidden></p>
+      <button type="button" class="admin-mod-cancel" id="news-event-cancel">Close</button>
+      <button type="button" class="admin-mod-confirm" id="news-event-action">Edit</button>
+    </div>
+  </div>
+</div>
+
+<div id="news-delete-overlay" hidden>
+  <div id="news-delete-card" role="dialog" aria-modal="true" aria-labelledby="news-delete-title">
+    <div class="news-post-head">
+      <span id="news-delete-title">Delete Post</span>
+      <button type="button" class="admin-mod-x" id="news-delete-close" title="Close">×</button>
+    </div>
+    <div class="news-post-body">
+      <p id="news-delete-copy">This announcement will be removed for everyone.</p>
+    </div>
+    <div class="news-post-foot">
+      <p class="news-compose-error" id="news-delete-error" hidden></p>
+      <button type="button" class="admin-mod-cancel" id="news-delete-cancel">Cancel</button>
+      <button type="button" class="admin-mod-confirm is-danger" id="news-delete-confirm">Delete</button>
+    </div>
+  </div>
+</div>
+
 <div id="news-donate-overlay" hidden>
   <div id="news-donate-card" role="dialog" aria-modal="true" aria-labelledby="news-donate-title">
     <div class="news-donate-head" id="news-donate-title">Leaving Oneira</div>
@@ -208,6 +278,7 @@
 </div>
 
 <script src="../shared/config.js?v=5"></script>
+<script src="../shared/context-menu.js?v=10"></script>
 <script src="../main/util.js?v=54"></script>
 <script src="../main/markdown.js?v=8"></script>
 <script src="../main/emoji-data.js?v=1"></script>
@@ -218,7 +289,7 @@
 <script src="servers.js?v=14"></script>
 <script src="reports.js?v=7"></script>
 <script src="community.js?v=3"></script>
-<script src="news.js?v=13"></script>
+<script src="news.js?v=15"></script>
 <script src="settings.js?v=7"></script>
 <script src="boot.js?v=4"></script>
 </body>

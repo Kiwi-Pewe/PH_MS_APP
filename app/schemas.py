@@ -915,6 +915,18 @@ class News_create(BaseModel):
     event: News_event_in | None = None
 
 
+class News_edit(News_create):
+    post_id: int
+
+
+class News_id(BaseModel):
+    post_id: int
+
+
+class News_event_edit(News_event_in):
+    post_id: int
+
+
 class News_broadcast(BaseModel):
     message: str = ""
 

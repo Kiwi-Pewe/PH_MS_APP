@@ -3,10 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from app.models import UserInfo, News_post, News_seen, News_settings
-from app.schemas import News_create, News_broadcast
+from app.schemas import News_create, News_edit, News_id, News_event_edit, News_broadcast
 from app.database import get_db
 from app.auth import get_current_user
-from app.r2 import normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
+from app.r2 import delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
 from app.routers.profile import public_avatar, public_display_name
 from app.routers.realtime import active_connections, notify_user
 
@@ -72,6 +72,38 @@ def parse_news_event(event):
         "event_description": (event.description or "").strip()[:2000] or None,
         "event_color": news_event_color(event.color),
     }
+
+
+def news_event_started(row):
+    starts = row.event_starts if row else None
+    if not starts:
+        return False
+    return starts <= datetime.utcnow()
+
+
+def set_news_event(row, event):
+    if not event:
+        row.event_name = None
+        row.event_starts = None
+        row.event_ends = None
+        row.event_description = None
+        row.event_color = None
+        return
+    row.event_name = event["event_name"]
+    row.event_starts = event["event_starts"]
+    row.event_ends = event["event_ends"]
+    row.event_description = event["event_description"]
+    row.event_color = event["event_color"]
+
+
+def replace_news_attachments(row, items, user):
+    old_keys = [item.get("key") for item in post_attachments_public(row.attachment) if item.get("key")]
+    packed = store_post_attachments(items, user)
+    new_keys = [item.get("key") for item in post_attachments_public(packed) if item.get("key")]
+    for key in old_keys:
+        if key not in new_keys:
+            delete_r2_object(key)
+    row.attachment = packed
 
 
 def pack_news_event(row):
@@ -243,4 +275,74 @@ async def create_news_post(
     database.refresh(row)
     packed = pack_news_post(row, current_user)
     await fanout_news({"type": "news_created", "post": packed}, exclude_user_id=current_user.id)
+    return packed
+
+
+@router.post("/news/posts/edit")
+async def edit_news_post(
+    body: News_edit,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    row = database.query(News_post).filter(News_post.id == body.post_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Post not found")
+    items = normalize_post_attachments(body.attachments)
+    require_post_body(body.title, body.body, items)
+    fields = getattr(body, "model_fields_set", None) or getattr(body, "__fields_set__", set())
+    if "event" in fields and body.event is not None and news_event_started(row):
+        raise HTTPException(status_code=400, detail="This event has already started.")
+    row.title = (body.title or "").strip()
+    row.body = (body.body or "").strip()
+    row.comments_open = bool(body.comments_open)
+    row.title_align = news_align(body.title_align)
+    row.body_align = news_align(body.body_align)
+    row.edited = True
+    replace_news_attachments(row, items, current_user)
+    if "event" in fields:
+        set_news_event(row, parse_news_event(body.event) if body.event else None)
+    database.commit()
+    database.refresh(row)
+    packed = pack_news_post(row, current_user)
+    await fanout_news({"type": "news_updated", "post": packed}, exclude_user_id=current_user.id)
+    return packed
+
+
+@router.post("/news/posts/delete")
+async def delete_news_post(
+    body: News_id,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    row = database.query(News_post).filter(News_post.id == body.post_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Post not found")
+    post_id = row.id
+    delete_attachment(row.attachment)
+    database.delete(row)
+    database.commit()
+    await fanout_news({"type": "news_deleted", "post_id": post_id}, exclude_user_id=current_user.id)
+    return {"post_id": post_id}
+
+
+@router.post("/news/events/edit")
+async def edit_news_event(
+    body: News_event_edit,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    row = database.query(News_post).filter(News_post.id == body.post_id).first()
+    if not row or not row.event_starts:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if news_event_started(row):
+        raise HTTPException(status_code=400, detail="This event has already started.")
+    event = parse_news_event(body)
+    set_news_event(row, event)
+    database.commit()
+    database.refresh(row)
+    packed = pack_news_post(row, current_user)
+    await fanout_news({"type": "news_updated", "post": packed}, exclude_user_id=current_user.id)
     return packed

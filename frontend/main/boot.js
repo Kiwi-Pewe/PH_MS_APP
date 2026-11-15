@@ -774,6 +774,14 @@ function connectSocket() {
       applyIncomingNewsPost(data.post);
     }
 
+    if (data.type === "news_updated" && typeof applyIncomingNewsUpdate === "function") {
+      applyIncomingNewsUpdate(data.post);
+    }
+
+    if (data.type === "news_deleted" && typeof applyIncomingNewsDelete === "function") {
+      applyIncomingNewsDelete(data.post_id);
+    }
+
     if (data.type === "news_broadcast" && typeof paintNewsBroadcastBanner === "function") {
       paintNewsBroadcastBanner(data.message);
     }

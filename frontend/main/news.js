@@ -8,6 +8,13 @@ let newsSearchTimer = 0;
 let newsUnread = 0;
 let newsLoaded = false;
 let newsKofiCard = null;
+let newsOverlaysBound = false;
+let newsDeleteId = 0;
+let newsEditRow = null;
+let newsDetailEvent = null;
+let newsDetailEditing = false;
+let newsDetailColor = "orange";
+let newsSaving = false;
 
 const NEWS_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const NEWS_EVENT_COLORS = {
@@ -41,6 +48,9 @@ function newsEventHex(color) {
 
 function closeNewsChrome() {
   closeNewsDonate();
+  closeNewsEventDetail();
+  closeNewsEdit();
+  closeNewsDelete();
 }
 
 function closeNewsDonate() {
@@ -237,6 +247,10 @@ function paintNewsPostCard(row) {
     chip.className = "news-event-chip is-" + (row.event.color || "orange");
     chip.style.background = newsEventHex(row.event.color);
     chip.textContent = row.event.name;
+    chip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openNewsEventDetail(row.event);
+    });
     headline.appendChild(chip);
   }
   if (row.body) {
@@ -248,6 +262,9 @@ function paintNewsPostCard(row) {
   }
   const media = typeof buildPostMedia === "function" ? buildPostMedia(row.attachment) : null;
   if (media) content.appendChild(media);
+  if (typeof isOneiraAdmin === "function" && isOneiraAdmin()) {
+    card.addEventListener("contextmenu", (e) => showNewsPostContextMenu(e, row));
+  }
   return card;
 }
 
@@ -312,6 +329,30 @@ function applyIncomingNewsPost(row) {
   if (typeof playOneiraAlert === "function") playOneiraAlert();
 }
 
+function applyIncomingNewsUpdate(row) {
+  if (!row || !row.id) return;
+  const i = newsPosts.findIndex((item) => Number(item.id) === Number(row.id));
+  if (i >= 0) newsPosts[i] = row;
+  else newsPosts.unshift(row);
+  newsEvents = newsEvents.filter((item) => Number(item.id) !== Number(row.id));
+  if (row.event && row.event.starts_at) newsEvents.push(row.event);
+  if (newsViewOpen() && newsRow === "announcements") paintNewsPostList();
+  if (newsRow === "events") paintNewsMonth();
+  if (newsDetailEvent && Number(newsDetailEvent.id) === Number(row.id) && row.event) {
+    newsDetailEvent = row.event;
+  }
+}
+
+function applyIncomingNewsDelete(postId) {
+  newsPosts = newsPosts.filter((item) => Number(item.id) !== Number(postId));
+  newsEvents = newsEvents.filter((item) => Number(item.id) !== Number(postId));
+  if (newsEditRow && Number(newsEditRow.id) === Number(postId)) closeNewsEdit();
+  if (newsDetailEvent && Number(newsDetailEvent.id) === Number(postId)) closeNewsEventDetail();
+  if (newsDeleteId && Number(newsDeleteId) === Number(postId)) closeNewsDelete();
+  if (newsViewOpen() && newsRow === "announcements") paintNewsPostList();
+  if (newsRow === "events") paintNewsMonth();
+}
+
 function paintNewsMonth() {
   const host = document.getElementById("news-calendar-grid");
   const label = document.getElementById("news-calendar-label");
@@ -356,6 +397,10 @@ function paintNewsMonth() {
       item.className = "news-cal-item is-" + (row.color || "orange");
       item.style.background = newsEventHex(row.color);
       item.textContent = row.name || "Event";
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openNewsEventDetail(row);
+      });
       cell.appendChild(item);
     });
     host.appendChild(cell);
@@ -462,3 +507,380 @@ if (newsDonateContinue) {
     closeNewsDonate();
   });
 }
+
+function newsStamp(date, time) {
+  if (!date || !time) return "";
+  const local = new Date(date + "T" + time);
+  if (Number.isNaN(local.getTime())) return "";
+  return local.toISOString();
+}
+
+function newsLocalDate(when) {
+  if (!when) return "";
+  return when.getFullYear() + "-" + String(when.getMonth() + 1).padStart(2, "0") + "-" + String(when.getDate()).padStart(2, "0");
+}
+
+function newsLocalTime(when) {
+  if (!when) return "";
+  return String(when.getHours()).padStart(2, "0") + ":" + String(when.getMinutes()).padStart(2, "0");
+}
+
+function newsEventStarted(event) {
+  const when = newsParseWhen(event && event.starts_at);
+  return !!(when && when.getTime() <= Date.now());
+}
+
+function newsEventWhenText(event) {
+  const start = newsParseWhen(event && event.starts_at);
+  const end = newsParseWhen(event && event.ends_at);
+  if (!start) return "—";
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const day = days[start.getDay()] + ", " + NEWS_MONTHS[start.getMonth()] + " " + start.getDate();
+  function clock(when) {
+    let h = when.getHours();
+    const m = String(when.getMinutes()).padStart(2, "0");
+    const am = h < 12 ? "AM" : "PM";
+    h = h % 12 || 12;
+    return h + ":" + m + " " + am;
+  }
+  return day + " · " + clock(start) + (end ? " – " + clock(end) : "");
+}
+
+function newsCanManage() {
+  return typeof isOneiraAdmin === "function" && isOneiraAdmin();
+}
+
+function showNewsPostContextMenu(e, row) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!newsCanManage() || typeof openContextMenu !== "function") return;
+  const letter = typeof avatarLetter === "function" ? avatarLetter(row.display_name || row.username) : (row.username || "?").charAt(0).toUpperCase();
+  openContextMenu(e.clientX, e.clientY, {
+    avatarText: letter,
+    title: row.display_name || row.username || "kiwi",
+    timestamp: newsWhen(row.created_at),
+    subtitle: typeof truncateForContextMenu === "function" ? truncateForContextMenu(row.title) : row.title
+  }, [
+    { label: "Edit Post", onSelect: () => openNewsEdit(row) },
+    { label: "Delete Post", danger: true, onSelect: () => openNewsDelete(row) }
+  ]);
+}
+
+function newsShowEventError(text) {
+  const err = document.getElementById("news-event-error");
+  if (!err) return;
+  err.textContent = text || "";
+  err.hidden = !text;
+}
+
+function newsSetDetailColor(value) {
+  newsDetailColor = NEWS_EVENT_COLORS[value] ? value : "orange";
+  document.querySelectorAll("#news-detail-colors .news-event-swatch").forEach((btn) => {
+    btn.classList.toggle("is-on", btn.getAttribute("data-color") === newsDetailColor);
+  });
+}
+
+function newsFillEventForm(event) {
+  const start = newsParseWhen(event && event.starts_at);
+  const end = newsParseWhen(event && event.ends_at);
+  const name = document.getElementById("news-detail-name");
+  const date = document.getElementById("news-detail-date");
+  const startEl = document.getElementById("news-detail-start");
+  const endEl = document.getElementById("news-detail-end");
+  const desc = document.getElementById("news-detail-desc");
+  if (name) name.value = (event && event.name) || "";
+  if (date) date.value = newsLocalDate(start);
+  if (startEl) startEl.value = newsLocalTime(start);
+  if (endEl) endEl.value = newsLocalTime(end);
+  if (desc) desc.value = (event && event.description) || "";
+  newsSetDetailColor((event && event.color) || "orange");
+}
+
+function newsShowEventMode(editing) {
+  newsDetailEditing = !!editing;
+  const view = document.getElementById("news-event-view");
+  const form = document.getElementById("news-event-form");
+  const cancel = document.getElementById("news-event-cancel");
+  const action = document.getElementById("news-event-action");
+  if (view) view.hidden = newsDetailEditing;
+  if (form) form.hidden = !newsDetailEditing;
+  if (cancel) cancel.textContent = newsDetailEditing ? "Cancel" : "Close";
+  if (action) action.textContent = newsDetailEditing ? "Save" : "Edit";
+}
+
+function closeNewsEventDetail() {
+  const overlay = document.getElementById("news-event-overlay");
+  if (overlay) overlay.hidden = true;
+  newsDetailEvent = null;
+  newsDetailEditing = false;
+  newsShowEventError("");
+}
+
+function openNewsEventDetail(event) {
+  if (!event) return;
+  bindNewsOverlays();
+  newsDetailEvent = event;
+  newsShowEventError("");
+  newsShowEventMode(false);
+  const overlay = document.getElementById("news-event-overlay");
+  const heading = document.getElementById("news-event-heading");
+  const when = document.getElementById("news-event-when");
+  const note = document.getElementById("news-event-note");
+  const dot = document.getElementById("news-event-dot");
+  const action = document.getElementById("news-event-action");
+  if (heading) heading.textContent = event.name || "Event";
+  if (when) when.textContent = newsEventWhenText(event);
+  if (note) {
+    const text = String(event.description || "").trim();
+    if (text) fillNewsMarkdown(note, text);
+    else note.textContent = "No additional information";
+  }
+  if (dot) dot.style.background = newsEventHex(event.color);
+  if (action) action.hidden = !newsCanManage() || newsEventStarted(event);
+  newsFillEventForm(event);
+  if (overlay) overlay.hidden = false;
+}
+
+function newsEventCancel() {
+  if (newsDetailEditing) {
+    newsShowEventError("");
+    newsFillEventForm(newsDetailEvent);
+    newsShowEventMode(false);
+    return;
+  }
+  closeNewsEventDetail();
+}
+
+function newsEventAction() {
+  if (!newsDetailEvent || !newsCanManage()) return;
+  if (!newsDetailEditing) {
+    if (newsEventStarted(newsDetailEvent)) return;
+    newsShowEventMode(true);
+    return;
+  }
+  const name = (document.getElementById("news-detail-name") || {}).value || "";
+  const date = (document.getElementById("news-detail-date") || {}).value || "";
+  const start = (document.getElementById("news-detail-start") || {}).value || "";
+  const end = (document.getElementById("news-detail-end") || {}).value || "";
+  const desc = (document.getElementById("news-detail-desc") || {}).value || "";
+  const startsAt = newsStamp(date, start);
+  const endsAt = newsStamp(date, end);
+  if (!name.trim()) {
+    newsShowEventError("Event name is required.");
+    return;
+  }
+  if (!startsAt || !endsAt) {
+    newsShowEventError("Event date and times are required.");
+    return;
+  }
+  if (new Date(endsAt) <= new Date(startsAt)) {
+    newsShowEventError("Event end must be after start.");
+    return;
+  }
+  if (newsSaving) return;
+  newsSaving = true;
+  const action = document.getElementById("news-event-action");
+  if (action) action.disabled = true;
+  newsShowEventError("");
+  fetch("https://" + serverAddress + "/news/events/edit", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      post_id: newsDetailEvent.id,
+      name: name.trim(),
+      starts_at: startsAt,
+      ends_at: endsAt,
+      description: desc.trim(),
+      color: newsDetailColor
+    })
+  }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+    newsSaving = false;
+    if (action) action.disabled = false;
+    if (!result.ok) {
+      const detail = result.data && result.data.detail;
+      newsShowEventError(typeof detail === "string" ? detail : "Could not save that event.");
+      return;
+    }
+    applyIncomingNewsUpdate(result.data);
+    openNewsEventDetail((result.data && result.data.event) || newsDetailEvent);
+  }).catch(() => {
+    newsSaving = false;
+    if (action) action.disabled = false;
+    newsShowEventError("Could not save that event.");
+  });
+}
+
+function newsShowEditError(text) {
+  const err = document.getElementById("news-edit-error");
+  if (!err) return;
+  err.textContent = text || "";
+  err.hidden = !text;
+}
+
+function closeNewsEdit() {
+  const overlay = document.getElementById("news-edit-overlay");
+  if (overlay) overlay.hidden = true;
+  newsEditRow = null;
+  newsShowEditError("");
+}
+
+function openNewsEdit(row) {
+  if (!row || !row.id || !newsCanManage()) return;
+  bindNewsOverlays();
+  newsEditRow = row;
+  newsShowEditError("");
+  const heading = document.getElementById("news-edit-heading");
+  const body = document.getElementById("news-edit-body");
+  if (heading) heading.value = row.title || "";
+  if (body) body.value = row.body || "";
+  const overlay = document.getElementById("news-edit-overlay");
+  if (overlay) overlay.hidden = false;
+  if (heading) heading.focus();
+}
+
+function saveNewsEdit() {
+  if (!newsEditRow || newsSaving) return;
+  const heading = document.getElementById("news-edit-heading");
+  const body = document.getElementById("news-edit-body");
+  const title = heading ? heading.value.trim() : "";
+  const text = body ? body.value.trim() : "";
+  const attachments = (newsEditRow.attachment || []).map((item) => ({
+    key: item.key,
+    mime: item.mime,
+    size: item.size || 0,
+    name: item.name || ""
+  }));
+  if (!title) {
+    newsShowEditError("Title is required.");
+    return;
+  }
+  if (!text && !attachments.length) {
+    newsShowEditError("Post is empty.");
+    return;
+  }
+  newsSaving = true;
+  const save = document.getElementById("news-edit-save");
+  if (save) save.disabled = true;
+  newsShowEditError("");
+  fetch("https://" + serverAddress + "/news/posts/edit", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      post_id: newsEditRow.id,
+      title: title,
+      body: text,
+      comments_open: newsEditRow.comments_open !== false,
+      title_align: newsEditRow.title_align || "left",
+      body_align: newsEditRow.body_align || "left",
+      attachments: attachments
+    })
+  }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+    newsSaving = false;
+    if (save) save.disabled = false;
+    if (!result.ok) {
+      const detail = result.data && result.data.detail;
+      newsShowEditError(typeof detail === "string" ? detail : "Could not save that announcement.");
+      return;
+    }
+    applyIncomingNewsUpdate(result.data);
+    closeNewsEdit();
+  }).catch(() => {
+    newsSaving = false;
+    if (save) save.disabled = false;
+    newsShowEditError("Could not save that announcement.");
+  });
+}
+
+function closeNewsDelete() {
+  const overlay = document.getElementById("news-delete-overlay");
+  if (overlay) overlay.hidden = true;
+  newsDeleteId = 0;
+}
+
+function openNewsDelete(row) {
+  if (!row || !row.id || !newsCanManage()) return;
+  bindNewsOverlays();
+  newsDeleteId = Number(row.id) || 0;
+  const overlay = document.getElementById("news-delete-overlay");
+  if (overlay) overlay.hidden = false;
+}
+
+function confirmNewsDelete() {
+  if (!newsDeleteId || newsSaving) return;
+  newsSaving = true;
+  const confirm = document.getElementById("news-delete-confirm");
+  if (confirm) confirm.disabled = true;
+  fetch("https://" + serverAddress + "/news/posts/delete", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ post_id: newsDeleteId })
+  }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+    newsSaving = false;
+    if (confirm) confirm.disabled = false;
+    if (!result.ok) return;
+    const gone = result.data && result.data.post_id ? result.data.post_id : newsDeleteId;
+    closeNewsDelete();
+    applyIncomingNewsDelete(gone);
+  }).catch(() => {
+    newsSaving = false;
+    if (confirm) confirm.disabled = false;
+  });
+}
+
+function bindNewsOverlays() {
+  if (newsOverlaysBound) return;
+  newsOverlaysBound = true;
+  document.querySelectorAll("#news-detail-colors .news-event-swatch").forEach((btn) => {
+    btn.addEventListener("click", () => newsSetDetailColor(btn.getAttribute("data-color")));
+  });
+  const eventOverlay = document.getElementById("news-event-overlay");
+  if (eventOverlay) eventOverlay.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "news-event-overlay") closeNewsEventDetail();
+  });
+  const eventClose = document.getElementById("news-event-close");
+  const eventCancel = document.getElementById("news-event-cancel");
+  const eventAction = document.getElementById("news-event-action");
+  if (eventClose) eventClose.addEventListener("click", closeNewsEventDetail);
+  if (eventCancel) eventCancel.addEventListener("click", newsEventCancel);
+  if (eventAction) eventAction.addEventListener("click", newsEventAction);
+  const editOverlay = document.getElementById("news-edit-overlay");
+  if (editOverlay) editOverlay.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "news-edit-overlay") closeNewsEdit();
+  });
+  const editClose = document.getElementById("news-edit-close");
+  const editCancel = document.getElementById("news-edit-cancel");
+  const editSave = document.getElementById("news-edit-save");
+  if (editClose) editClose.addEventListener("click", closeNewsEdit);
+  if (editCancel) editCancel.addEventListener("click", closeNewsEdit);
+  if (editSave) editSave.addEventListener("click", saveNewsEdit);
+  const deleteOverlay = document.getElementById("news-delete-overlay");
+  if (deleteOverlay) deleteOverlay.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "news-delete-overlay") closeNewsDelete();
+  });
+  const deleteClose = document.getElementById("news-delete-close");
+  const deleteCancel = document.getElementById("news-delete-cancel");
+  const deleteConfirm = document.getElementById("news-delete-confirm");
+  if (deleteClose) deleteClose.addEventListener("click", closeNewsDelete);
+  if (deleteCancel) deleteCancel.addEventListener("click", closeNewsDelete);
+  if (deleteConfirm) deleteConfirm.addEventListener("click", confirmNewsDelete);
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const deleteOpen = document.getElementById("news-delete-overlay");
+    if (deleteOpen && !deleteOpen.hidden) {
+      closeNewsDelete();
+      return;
+    }
+    const editOpen = document.getElementById("news-edit-overlay");
+    if (editOpen && !editOpen.hidden) {
+      closeNewsEdit();
+      return;
+    }
+    const eventOpen = document.getElementById("news-event-overlay");
+    if (eventOpen && !eventOpen.hidden) newsEventCancel();
+  });
+}
+
+bindNewsOverlays();

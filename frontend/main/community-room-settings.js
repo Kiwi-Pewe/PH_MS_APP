@@ -1,4 +1,10 @@
-const COMMUNITY_ROOM_JOIN_MAX = 5;
+function communityRoomJoinMax() {
+  return typeof communityPolicyNumber === "function" ? communityPolicyNumber("room_join_max") : 5;
+}
+
+function communityRoomPeopleCap() {
+  return typeof communityPolicyNumber === "function" ? communityPolicyNumber("room_cap") : 15;
+}
 const COMMUNITY_ROOM_SORTS = [
   { value: "newest", label: "Newest" },
   { value: "active", label: "Recently active" },
@@ -193,7 +199,7 @@ function communityRoomJoinedCount() {
 }
 
 function communityRoomJoinCapped(row) {
-  return !!(row && !row.joined && communityRoomJoinedCount() >= COMMUNITY_ROOM_JOIN_MAX);
+  return !!(row && !row.joined && communityRoomJoinedCount() >= communityRoomJoinMax());
 }
 
 function communityRoomVisibleRows() {
@@ -201,7 +207,7 @@ function communityRoomVisibleRows() {
   const rows = communityRooms.filter((row) => {
     if (!row || row.hidden) return false;
     if (row.joined) return false;
-    if (prefs.hide_full && !row.joined && Number(row.n) >= 15) return false;
+    if (prefs.hide_full && !row.joined && Number(row.n) >= communityRoomPeopleCap()) return false;
     if (prefs.blacklist_hide && communityRoomBlacklisted(row)) return false;
     return true;
   });

@@ -32,6 +32,7 @@ window.addEventListener("load", () => {
         enterApp();
       }
       connectSocket();
+      if (typeof loadCommunityPolicy === "function") loadCommunityPolicy();
       if (typeof loadCommunityPhone === "function") loadCommunityPhone();
       if (typeof loadNewsBadge === "function") loadNewsBadge();
       if (typeof loadNewsBroadcast === "function") loadNewsBroadcast();

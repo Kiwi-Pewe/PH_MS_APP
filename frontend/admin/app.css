@@ -722,6 +722,12 @@
   gap: 12px;
 }
 
+.admin-settings-opt .admin-settings-num {
+  width: 88px;
+  flex: 0 0 88px;
+  text-align: right;
+}
+
 .admin-settings-opt-copy {
   flex: 1 1 auto;
   min-width: 0;

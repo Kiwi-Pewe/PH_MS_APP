@@ -267,6 +267,22 @@ class Automod_term_in(BaseModel):
     label: str = ""
 
 
+class Community_policy_in(BaseModel):
+    post_body_max: int | None = None
+    post_emoji_max: int | None = None
+    post_topic_max: int | None = None
+    post_topic_len: int | None = None
+    room_name_max: int | None = None
+    room_about_max: int | None = None
+    room_topic_max: int | None = None
+    room_own_max: int | None = None
+    room_join_max: int | None = None
+    room_cap: int | None = None
+    phone_find_minutes: int | None = None
+    phone_idle_minutes: int | None = None
+    listing_tag_max: int | None = None
+
+
 class Community_post_create(BaseModel):
     body: str = ""
     topics: list[str] = []

@@ -24,17 +24,14 @@ from app.routers.messages import insert_system_dm, notify_system_dm, open_conver
 from app.routers.profile import public_avatar, public_display_name
 from app.routers.realtime import notify_user
 from app.automod import inspect as automod_inspect, phone_transcript, report_blacklist, report_watch
+from app.community_policy import load_policy, phone_find_fail, phone_idle_end
 from app.site_moderation import refuse_community_lock
 from app.schemas import Block_schema, Community_filter_entry, Community_phone_prefs, Community_phone_topic
 
 router = APIRouter()
 
-PHONE_FIND_MINUTES = 5
-PHONE_IDLE_MINUTES = 15
 PHONE_TOPIC_SECONDS = 60
 PHONE_TOPIC_MAX = 5
-PHONE_FIND_FAIL = "User finder failed, no user found within 5 minutes."
-PHONE_IDLE_END = "No activity within last 15 minutes."
 PHONE_FRIEND_LINE = "You both connected via Phone a User."
 PHONE_CALLER = "Caller"
 PHONE_HIDDEN_ID = -1
@@ -191,10 +188,10 @@ def finish_phone_call(database, call, kind, ended_by):
     drop_phone_requests(database, call.user_a, call.user_b)
     pair = (call.user_a, call.user_b)
     if kind == "idle":
-        text = PHONE_IDLE_END
+        text = phone_idle_end(load_policy(database)["phone_idle_minutes"])
     else:
         actor = database.query(UserInfo).filter(UserInfo.id == ended_by).first()
-        text = phone_end_line(database, actor) if actor else PHONE_IDLE_END
+        text = phone_end_line(database, actor) if actor else phone_idle_end(load_policy(database)["phone_idle_minutes"])
     for user_id in pair:
         set_phone_notice(database, user_id, text)
     database.delete(call)
@@ -204,20 +201,23 @@ def finish_phone_call(database, call, kind, ended_by):
 def sweep_phone(database):
     now = phone_now()
     ended = []
+    policy = load_policy(database)
+    find_fail = phone_find_fail(policy["phone_find_minutes"])
+    idle_end = phone_idle_end(policy["phone_idle_minutes"])
     stale = database.query(Community_phone_wait).filter(
-        Community_phone_wait.started_at <= now - timedelta(minutes=PHONE_FIND_MINUTES)
+        Community_phone_wait.started_at <= now - timedelta(minutes=policy["phone_find_minutes"])
     ).all()
     for row in stale:
-        set_phone_notice(database, row.user_id, PHONE_FIND_FAIL)
-        ended.append({"user_id": row.user_id, "warning": PHONE_FIND_FAIL})
+        set_phone_notice(database, row.user_id, find_fail)
+        ended.append({"user_id": row.user_id, "warning": find_fail})
         database.delete(row)
     idle = database.query(Community_phone_call).filter(
         Community_phone_call.status == "active",
-        Community_phone_call.active_at <= now - timedelta(minutes=PHONE_IDLE_MINUTES),
+        Community_phone_call.active_at <= now - timedelta(minutes=policy["phone_idle_minutes"]),
     ).all()
     for call in idle:
         for user_id in finish_phone_call(database, call, "idle", None):
-            ended.append({"user_id": user_id, "warning": PHONE_IDLE_END})
+            ended.append({"user_id": user_id, "warning": idle_end})
     return ended
 
 
@@ -402,7 +402,7 @@ async def end_phone_for_logout(database, user_id):
     events = []
     if call:
         user = database.query(UserInfo).filter(UserInfo.id == user_id).first()
-        text = phone_end_line(database, user) if user else PHONE_IDLE_END
+        text = phone_end_line(database, user) if user else phone_idle_end(load_policy(database)["phone_idle_minutes"])
         finish_phone_call(database, call, "user", user_id)
         events = [
             {"user_id": call.user_a, "warning": text},

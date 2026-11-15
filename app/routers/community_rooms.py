@@ -23,6 +23,7 @@ from app.routers.community_posts import (
 from app.routers.messages import mute_is_active, mute_public, mute_until_for
 from app.r2 import attachment_public, require_message_body, store_attachment
 from app.automod import inspect as automod_inspect, report_blacklist, report_watch
+from app.community_policy import load_policy, room_join_full
 from app.site_moderation import refuse_community_lock
 from app.routers.mentions import (
     accepted_reply_parent,
@@ -41,16 +42,12 @@ from app.site_moderation import mask_message_payloads
 router = APIRouter()
 
 COMMUNITY_ROOM_NAME_MAX = 15
-COMMUNITY_ROOM_OWN_MAX = 3
 ROOM_NAME_BLOCKED = "Room name cannnot but used."
 COMMUNITY_ROOM_ABOUT_MAX = 500
 COMMUNITY_ROOM_TOPIC_MAX = 3
 COMMUNITY_ROOM_TOPIC_LEN = 40
-COMMUNITY_ROOM_CAP = 15
 COMMUNITY_ROOM_PAGE = 25
 COMMUNITY_ROOM_FACE_MAX = 5
-COMMUNITY_ROOM_JOIN_MAX = 5
-ROOM_JOIN_FULL = "You can only be in 5 rooms at once."
 ROOM_FILTER_KINDS = {"word": "room_word", "topic": "room_topic"}
 ROOM_PREF_KIND = "room_pref"
 ROOM_HIDDEN_KIND = "room_hidden"
@@ -69,12 +66,13 @@ ROOM_PREF_FLAGS = {
 }
 
 
-def clean_room_name(value):
+def clean_room_name(value, name_max=None):
     name = " ".join(str(value or "").split())
+    cap = int(name_max or COMMUNITY_ROOM_NAME_MAX)
     if not name:
         raise HTTPException(status_code=400, detail="Name the room.")
-    if len(name) > COMMUNITY_ROOM_NAME_MAX:
-        raise HTTPException(status_code=400, detail="Room names can be 15 characters.")
+    if len(name) > cap:
+        raise HTTPException(status_code=400, detail="Room names can be " + str(cap) + " characters.")
     return name
 
 
@@ -116,17 +114,19 @@ def raise_if_room_name_blocked(name, database):
         raise HTTPException(status_code=400, detail=ROOM_NAME_BLOCKED)
 
 
-def clean_room_about(value):
+def clean_room_about(value, about_max=None):
     text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
     text = "\n".join(line.rstrip() for line in text.split("\n")).strip()
-    if len(text) > COMMUNITY_ROOM_ABOUT_MAX:
-        text = text[:COMMUNITY_ROOM_ABOUT_MAX].rstrip()
+    cap = int(about_max or COMMUNITY_ROOM_ABOUT_MAX)
+    if len(text) > cap:
+        text = text[:cap].rstrip()
     return text or None
 
 
-def clean_room_topics(raw):
+def clean_room_topics(raw, topic_max=None):
     topics = []
     seen = set()
+    cap = int(topic_max or COMMUNITY_ROOM_TOPIC_MAX)
     for item in raw or []:
         word = " ".join(str(item or "").split())
         if len(word) > COMMUNITY_ROOM_TOPIC_LEN:
@@ -138,7 +138,7 @@ def clean_room_topics(raw):
             continue
         seen.add(key)
         topics.append(word)
-        if len(topics) >= COMMUNITY_ROOM_TOPIC_MAX:
+        if len(topics) >= cap:
             break
     return topics
 
@@ -330,15 +330,16 @@ def create_community_room(
     current_user: UserInfo = Depends(get_current_user),
 ):
     refuse_community_lock(database, current_user, "rooms")
+    policy = load_policy(database)
     owned = database.query(func.count(Community_room.id)).filter(Community_room.owner_id == current_user.id).scalar() or 0
-    if owned >= COMMUNITY_ROOM_OWN_MAX:
-        raise HTTPException(status_code=400, detail="You can only own 3 rooms.")
-    if joined_room_total(database, current_user.id) >= COMMUNITY_ROOM_JOIN_MAX:
-        raise HTTPException(status_code=400, detail=ROOM_JOIN_FULL)
-    name = clean_room_name(body.name)
+    if owned >= policy["room_own_max"]:
+        raise HTTPException(status_code=400, detail="You can only own " + str(policy["room_own_max"]) + " rooms.")
+    if joined_room_total(database, current_user.id) >= policy["room_join_max"]:
+        raise HTTPException(status_code=400, detail=room_join_full(policy["room_join_max"]))
+    name = clean_room_name(body.name, policy["room_name_max"])
     raise_if_room_name_blocked(name, database)
-    about = clean_room_about(body.about)
-    topics = clean_room_topics(body.topics)
+    about = clean_room_about(body.about, policy["room_about_max"])
+    topics = clean_room_topics(body.topics, policy["room_topic_max"])
     texts = [name, about or "", " ".join(topics)]
     hits = automod_inspect(database, "rooms", texts)
     report_blacklist(database, current_user, "rooms", texts, hits, action="rooms_create")
@@ -378,10 +379,11 @@ def update_community_room(
     room = room_or_404(database, room_id)
     if room.owner_id != current_user.id:
         raise HTTPException(status_code=404, detail="Room not found.")
-    name = clean_room_name(body.name)
+    policy = load_policy(database)
+    name = clean_room_name(body.name, policy["room_name_max"])
     raise_if_room_name_blocked(name, database)
-    about = clean_room_about(body.about)
-    topics = clean_room_topics(body.topics)
+    about = clean_room_about(body.about, policy["room_about_max"])
+    topics = clean_room_topics(body.topics, policy["room_topic_max"])
     texts = [name, about or "", " ".join(topics)]
     hits = automod_inspect(database, "rooms", texts)
     report_blacklist(
@@ -572,10 +574,11 @@ async def join_community_room(
     room = room_or_404(database, room_id)
     if room_member(database, room.id, current_user.id):
         return pack_community_rooms(database, [room], current_user.id)[0]
-    if room_member_count(database, room.id) >= COMMUNITY_ROOM_CAP:
+    policy = load_policy(database)
+    if room_member_count(database, room.id) >= policy["room_cap"]:
         raise HTTPException(status_code=400, detail="That room is full.")
-    if joined_room_total(database, current_user.id) >= COMMUNITY_ROOM_JOIN_MAX:
-        raise HTTPException(status_code=400, detail=ROOM_JOIN_FULL)
+    if joined_room_total(database, current_user.id) >= policy["room_join_max"]:
+        raise HTTPException(status_code=400, detail=room_join_full(policy["room_join_max"]))
     database.add(Community_room_member(room_id=room.id, user_id=current_user.id))
     room.active_at = datetime.utcnow()
     database.commit()

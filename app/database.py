@@ -1010,6 +1010,31 @@ def ensure_automod_tables():
             conn.rollback()
 
 
+def ensure_community_policy_tables():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS community_policy ("
+                "id INTEGER PRIMARY KEY, "
+                "post_body_max INTEGER NOT NULL DEFAULT 1500, "
+                "post_emoji_max INTEGER NOT NULL DEFAULT 50, "
+                "post_topic_max INTEGER NOT NULL DEFAULT 4, "
+                "post_topic_len INTEGER NOT NULL DEFAULT 40, "
+                "room_name_max INTEGER NOT NULL DEFAULT 15, "
+                "room_about_max INTEGER NOT NULL DEFAULT 500, "
+                "room_topic_max INTEGER NOT NULL DEFAULT 3, "
+                "room_own_max INTEGER NOT NULL DEFAULT 3, "
+                "room_join_max INTEGER NOT NULL DEFAULT 5, "
+                "room_cap INTEGER NOT NULL DEFAULT 15, "
+                "phone_find_minutes INTEGER NOT NULL DEFAULT 5, "
+                "phone_idle_minutes INTEGER NOT NULL DEFAULT 15, "
+                "listing_tag_max INTEGER NOT NULL DEFAULT 5)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_kofi_tables():
     with engine.connect() as conn:
         try:

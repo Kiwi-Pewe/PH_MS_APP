@@ -25,6 +25,7 @@ from app.r2 import (
 )
 from app.schemas import Community_comment_create, Community_filter_entry, Community_follow_in, Community_post_create, Community_post_prefs
 from app.automod import inspect as automod_inspect, report_blacklist, report_watch
+from app.community_policy import load_policy
 from app.site_moderation import refuse_community_lock
 
 router = APIRouter()
@@ -53,24 +54,30 @@ def community_emoji_count(text):
     return count
 
 
-def clean_community_body(value):
+def clean_community_body(value, policy=None):
+    policy = policy or {}
+    body_max = int(policy.get("post_body_max") or COMMUNITY_BODY_MAX)
+    emoji_max = int(policy.get("post_emoji_max") or COMMUNITY_EMOJI_MAX)
     text = (value or "").replace("\r\n", "\n").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Write something first.")
-    if len(text) > COMMUNITY_BODY_MAX:
-        raise HTTPException(status_code=400, detail="Post is over 1500 characters.")
-    if community_emoji_count(text) > COMMUNITY_EMOJI_MAX:
-        raise HTTPException(status_code=400, detail="Post is over 50 emoji.")
+    if len(text) > body_max:
+        raise HTTPException(status_code=400, detail="Post is over " + str(body_max) + " characters.")
+    if community_emoji_count(text) > emoji_max:
+        raise HTTPException(status_code=400, detail="Post is over " + str(emoji_max) + " emoji.")
     return text
 
 
-def clean_community_topics(raw):
+def clean_community_topics(raw, policy=None):
+    policy = policy or {}
+    topic_len = int(policy.get("post_topic_len") or COMMUNITY_TOPIC_LEN)
+    topic_max = int(policy.get("post_topic_max") or COMMUNITY_TOPIC_MAX)
     topics = []
     seen = set()
     for item in raw or []:
         word = " ".join(str(item or "").split())
-        if len(word) > COMMUNITY_TOPIC_LEN:
-            word = word[:COMMUNITY_TOPIC_LEN].rstrip()
+        if len(word) > topic_len:
+            word = word[:topic_len].rstrip()
         if not word:
             continue
         key = word.lower()
@@ -78,7 +85,7 @@ def clean_community_topics(raw):
             continue
         seen.add(key)
         topics.append(word)
-        if len(topics) >= COMMUNITY_TOPIC_MAX:
+        if len(topics) >= topic_max:
             break
     return topics
 
@@ -622,8 +629,9 @@ def create_community_post(
     current_user: UserInfo = Depends(get_current_user),
 ):
     refuse_community_lock(database, current_user, "post")
-    text = clean_community_body(body.body)
-    topics = clean_community_topics(body.topics)
+    policy = load_policy(database)
+    text = clean_community_body(body.body, policy)
+    topics = clean_community_topics(body.topics, policy)
     texts = [text, " ".join(topics)]
     hits = automod_inspect(database, "posts", texts)
     report_blacklist(database, current_user, "posts", texts, hits, action="posts")
@@ -666,7 +674,8 @@ def create_community_comment(
     hidden = drop_blocked_rows(database, current_user.id, [parent], "author_id")
     if not hidden:
         raise HTTPException(status_code=404, detail="Post not found.")
-    text = clean_community_body(body.body)
+    policy = load_policy(database)
+    text = clean_community_body(body.body, policy)
     hits = automod_inspect(database, "comments", [text])
     report_blacklist(
         database,

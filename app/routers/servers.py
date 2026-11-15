@@ -39,6 +39,7 @@ from app.routers.roles import (
 from app.routers.account import public_display_name
 from app.routers.moderation import iso_dt, require_not_timed_out, timeout_until_for
 from app.automod import inspect as automod_inspect, report_blacklist, report_watch
+from app.community_policy import load_policy
 from app.site_moderation import refuse_server_lock, refuse_server_media
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, channel_notices_for, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 from app.routers.feed import notify_activity_reply
@@ -78,7 +79,7 @@ def clean_server_tag(value):
     return text
 
 
-def parse_server_tags(raw):
+def parse_server_tags(raw, tag_max=None):
     if isinstance(raw, list):
         values = raw
     else:
@@ -90,18 +91,19 @@ def parse_server_tags(raw):
             values = parsed if isinstance(parsed, list) else []
         except (TypeError, ValueError):
             values = [part.strip() for part in text.split(",")]
+    limit = SERVER_TAG_MAX if tag_max is None else int(tag_max)
     tags = []
     for value in values:
         tag = clean_server_tag(value)
         if tag and tag not in tags:
             tags.append(tag)
-        if len(tags) >= SERVER_TAG_MAX:
+        if len(tags) >= limit:
             break
     return tags
 
 
-def store_server_tags(tags):
-    return json.dumps(parse_server_tags(tags))
+def store_server_tags(tags, tag_max=None):
+    return json.dumps(parse_server_tags(tags, tag_max))
 
 
 def server_listing_texts(server, name=None, about=None, tags=None):
@@ -1156,13 +1158,14 @@ async def update_server_tags(body: Server_tags_update, database: Session = Depen
     server = require_server_member(database, body.server_id, current_user.id)
     require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
     previous = parse_server_tags(getattr(server, "tags", None))
-    tags = parse_server_tags(body.tags)
+    tag_max = load_policy(database)["listing_tag_max"]
+    tags = parse_server_tags(body.tags, tag_max)
     listing = None
     if bool(getattr(server, "discoverable", False)):
         listing = scan_public_listing(database, server, tags=tags)
         texts, hits = listing
         gate_public_listing(database, current_user, server, texts, hits, "listings_edit")
-    server.tags = store_server_tags(tags)
+    server.tags = store_server_tags(tags, tag_max)
     if previous != tags:
         write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
             "name": "Tags", "field": "Tags", "from": ", ".join(previous), "to": ", ".join(tags),

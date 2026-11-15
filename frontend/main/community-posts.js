@@ -105,8 +105,10 @@ async function saveCommunityPost() {
   const body = input ? String(input.value || "").trim() : "";
   const submit = document.getElementById("community-compose-submit");
   const count = document.getElementById("community-compose-count");
-  if (!body || body.length > 1500) return;
-  if (typeof communityEmojiCount === "function" && communityEmojiCount(body) > 50) return;
+  const bodyMax = typeof communityPolicyNumber === "function" ? communityPolicyNumber("post_body_max") : 1500;
+  const emojiMax = typeof communityPolicyNumber === "function" ? communityPolicyNumber("post_emoji_max") : 50;
+  if (!body || body.length > bodyMax) return;
+  if (typeof communityEmojiCount === "function" && communityEmojiCount(body) > emojiMax) return;
   if (submit) submit.disabled = true;
   try {
     const pending = (typeof postMediaPending !== "undefined" && postMediaPending.community && postMediaPending.community.files) || [];
@@ -118,7 +120,7 @@ async function saveCommunityPost() {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        body: body.slice(0, 1500),
+        body: body.slice(0, bodyMax),
         topics: (typeof communityComposeTopics !== "undefined" ? communityComposeTopics : []).slice(),
         attachments,
         explicit: !!(explicitBox && explicitBox.checked),
@@ -173,7 +175,7 @@ async function saveCommunityComment() {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: body.slice(0, 1500) })
+      body: JSON.stringify({ body: body.slice(0, typeof communityPolicyNumber === "function" ? communityPolicyNumber("post_body_max") : 1500) })
     });
   } catch (e) {
     return;

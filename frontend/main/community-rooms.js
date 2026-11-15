@@ -59,7 +59,10 @@ async function saveCommunityRoom() {
   const input = document.getElementById("community-room-name");
   const submit = document.getElementById("community-room-submit");
   const name = input ? String(input.value || "").trim() : "";
-  if (!name || name.length > 15) return;
+  const nameMax = typeof communityPolicyNumber === "function" ? communityPolicyNumber("room_name_max") : 15;
+  const aboutMax = typeof communityPolicyNumber === "function" ? communityPolicyNumber("room_about_max") : 500;
+  const topicMax = typeof communityPolicyNumber === "function" ? communityPolicyNumber("room_topic_max") : 3;
+  if (!name || name.length > nameMax) return;
   const editing = typeof communityRoomEditing !== "undefined" ? communityRoomEditing : null;
   if (submit) submit.disabled = true;
   showCommunityRoomSaveError("");
@@ -69,9 +72,9 @@ async function saveCommunityRoom() {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: name.slice(0, 15),
-        about: (document.getElementById("community-room-about") ? document.getElementById("community-room-about").value : "").slice(0, 500),
-        topics: (typeof communityRoomTopics !== "undefined" ? communityRoomTopics : []).slice(0, 3)
+        name: name.slice(0, nameMax),
+        about: (document.getElementById("community-room-about") ? document.getElementById("community-room-about").value : "").slice(0, aboutMax),
+        topics: (typeof communityRoomTopics !== "undefined" ? communityRoomTopics : []).slice(0, topicMax)
       })
     });
     const data = await response.json().catch(() => ({}));
@@ -192,7 +195,8 @@ async function loadCommunityRoomChat(id) {
 }
 
 async function saveCommunityRoomJoin(row) {
-  if (!row || row.joined || row.n >= 15 || communityRoomBusy) return;
+  const roomCap = typeof communityPolicyNumber === "function" ? communityPolicyNumber("room_cap") : 15;
+  if (!row || row.joined || row.n >= roomCap || communityRoomBusy) return;
   if (typeof communityRoomJoinCapped === "function" && communityRoomJoinCapped(row)) return;
   communityRoomBusy = true;
   try {

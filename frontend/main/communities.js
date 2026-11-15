@@ -37,8 +37,60 @@ const COMMUNITY_ROW_PANES = {
 
 let communityRow = "servers";
 let communityOpenPost = null;
-const COMMUNITY_TOPIC_MAX = 4;
-const COMMUNITY_ROOM_TOPIC_MAX = 3;
+const COMMUNITY_POLICY_DEFAULTS = {
+  post_body_max: 1500,
+  post_emoji_max: 50,
+  post_topic_max: 4,
+  post_topic_len: 40,
+  room_name_max: 15,
+  room_about_max: 500,
+  room_topic_max: 3,
+  room_own_max: 3,
+  room_join_max: 5,
+  room_cap: 15,
+  phone_find_minutes: 5,
+  phone_idle_minutes: 15,
+  listing_tag_max: 5
+};
+let communityPolicy = Object.assign({}, COMMUNITY_POLICY_DEFAULTS);
+
+function communityPolicyNumber(key) {
+  const fallback = COMMUNITY_POLICY_DEFAULTS[key];
+  const n = Number(communityPolicy && communityPolicy[key]);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function applyCommunityPolicy(data) {
+  if (!data) return;
+  Object.keys(COMMUNITY_POLICY_DEFAULTS).forEach((key) => {
+    const n = Number(data[key]);
+    if (Number.isFinite(n) && n > 0) communityPolicy[key] = n;
+  });
+  const compose = document.getElementById("community-compose-input");
+  if (compose) compose.maxLength = communityPolicyNumber("post_body_max");
+  const comment = document.getElementById("community-post-comment-input");
+  if (comment) comment.maxLength = communityPolicyNumber("post_body_max");
+  const roomName = document.getElementById("community-room-name");
+  if (roomName) roomName.maxLength = communityPolicyNumber("room_name_max");
+  const roomAbout = document.getElementById("community-room-about");
+  if (roomAbout) roomAbout.maxLength = communityPolicyNumber("room_about_max");
+  const roomsHelp = document.getElementById("community-rooms-help");
+  if (roomsHelp) roomsHelp.textContent = "Open Chat rooms for up to " + communityPolicyNumber("room_cap") + " people.";
+  if (!isCommunitiesOpen) return;
+  if (typeof syncCommunityCompose === "function") syncCommunityCompose();
+  if (typeof syncCommunityRoomCompose === "function") syncCommunityRoomCompose();
+  if (typeof paintCommunityComposeTopics === "function") paintCommunityComposeTopics();
+  if (typeof paintCommunityRoomTopics === "function") paintCommunityRoomTopics();
+  if (typeof paintCommunityRooms === "function") paintCommunityRooms();
+}
+
+async function loadCommunityPolicy() {
+  try {
+    const response = await fetch(`https://${serverAddress}/community_policy`, { credentials: "include" });
+    if (!response.ok) return;
+    applyCommunityPolicy(await response.json());
+  } catch (e) {}
+}
 let communityComposeTopics = [];
 let communityComposeTopicDraft = null;
 let communityRoomTopics = [];
@@ -720,14 +772,15 @@ function closeCommunityCompose() {
   resetCommunityCompose();
 }
 
-function communityComposeTopicText(raw) {
+function communityComposeTopicText(raw, maxLen) {
   let word = String(raw || "").trim().replace(/\s+/g, " ");
-  if (word.length > 40) word = word.slice(0, 40);
+  const cap = Number(maxLen) || communityPolicyNumber("post_topic_len") || 40;
+  if (word.length > cap) word = word.slice(0, cap);
   return word;
 }
 
-function communitySaveTopicList(topics, max, raw, index) {
-  const word = communityComposeTopicText(raw);
+function communitySaveTopicList(topics, max, raw, index, maxLen) {
+  const word = communityComposeTopicText(raw, maxLen);
   if (!word) return false;
   const key = word.toLowerCase();
   const taken = topics.some((item, i) => i !== index && item.toLowerCase() === key);
@@ -745,7 +798,7 @@ function communityTopicField(value, index, hooks) {
   const field = document.createElement("input");
   field.type = "text";
   field.className = "community-topic-input";
-  field.maxLength = 40;
+  field.maxLength = Number(hooks.maxLen) || communityPolicyNumber("post_topic_len") || 40;
   field.value = value || "";
   field.autocomplete = "off";
   field.spellcheck = false;
@@ -816,9 +869,10 @@ function paintCommunityComposeTopics() {
     document.getElementById("community-compose-topics"),
     communityComposeTopics,
     communityComposeTopicDraft,
-    COMMUNITY_TOPIC_MAX,
+    communityPolicyNumber("post_topic_max"),
     {
-      save: (raw, index) => communitySaveTopicList(communityComposeTopics, COMMUNITY_TOPIC_MAX, raw, index),
+      maxLen: communityPolicyNumber("post_topic_len"),
+      save: (raw, index) => communitySaveTopicList(communityComposeTopics, communityPolicyNumber("post_topic_max"), raw, index, communityPolicyNumber("post_topic_len")),
       edit: (index) => {
         communityComposeTopicDraft = { mode: "edit", index };
         paintCommunityComposeTopics();
@@ -843,9 +897,10 @@ function paintCommunityRoomTopics() {
     document.getElementById("community-room-topics"),
     communityRoomTopics,
     communityRoomTopicDraft,
-    COMMUNITY_ROOM_TOPIC_MAX,
+    communityPolicyNumber("room_topic_max"),
     {
-      save: (raw, index) => communitySaveTopicList(communityRoomTopics, COMMUNITY_ROOM_TOPIC_MAX, raw, index),
+      maxLen: 40,
+      save: (raw, index) => communitySaveTopicList(communityRoomTopics, communityPolicyNumber("room_topic_max"), raw, index, 40),
       edit: (index) => {
         communityRoomTopicDraft = { mode: "edit", index };
         paintCommunityRoomTopics();
@@ -872,9 +927,11 @@ function syncCommunityCompose() {
   const raw = input ? String(input.value || "") : "";
   const n = raw.length;
   const emoji = communityEmojiCount(raw);
-  if (count) count.textContent = emoji > 50 ? (emoji + "/50 emoji") : (n + "/1500");
+  const bodyMax = communityPolicyNumber("post_body_max");
+  const emojiMax = communityPolicyNumber("post_emoji_max");
+  if (count) count.textContent = emoji > emojiMax ? (emoji + "/" + emojiMax + " emoji") : (n + "/" + bodyMax);
   const body = raw.trim();
-  if (submit) submit.disabled = !body || n > 1500 || emoji > 50;
+  if (submit) submit.disabled = !body || n > bodyMax || emoji > emojiMax;
 }
 
 function submitCommunityPost() {
@@ -936,15 +993,16 @@ function paintCommunityRooms() {
     });
     const meta = document.createElement("div");
     meta.className = "community-room-meta";
-    meta.textContent = (Number(row.n) || 0) + "/15";
+    const roomCap = communityPolicyNumber("room_cap");
+    meta.textContent = (Number(row.n) || 0) + "/" + roomCap;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = row.joined ? "ghost-btn" : "pill-btn";
-    const full = row.n >= 15 && !row.joined;
+    const full = row.n >= roomCap && !row.joined;
     const capped = !full && typeof communityRoomJoinCapped === "function" && communityRoomJoinCapped(row);
     btn.disabled = full || capped;
     btn.textContent = full ? "Full" : (row.joined ? "Leave" : "Join");
-    if (capped) btn.title = "You can only be in 5 rooms at once.";
+    if (capped) btn.title = "You can only be in " + communityPolicyNumber("room_join_max") + " rooms at once.";
     btn.addEventListener("click", () => {
       if (row.joined) leaveCommunityRoom(row);
       else joinCommunityRoom(row);
@@ -1215,7 +1273,7 @@ function syncCommunityRoomCompose() {
   const input = document.getElementById("community-room-name");
   const submit = document.getElementById("community-room-submit");
   const name = input ? String(input.value || "").trim() : "";
-  if (submit) submit.disabled = !name || name.length > 15;
+  if (submit) submit.disabled = !name || name.length > communityPolicyNumber("room_name_max");
 }
 
 function setCommunityRoomComposeMode(editing) {
@@ -1263,7 +1321,7 @@ function openCommunityRoomCompose(row) {
     if (input) input.value = row.name || "";
     const about = document.getElementById("community-room-about");
     if (about) about.value = row.about || "";
-    communityRoomTopics = (row.topics || []).slice(0, COMMUNITY_ROOM_TOPIC_MAX);
+    communityRoomTopics = (row.topics || []).slice(0, communityPolicyNumber("room_topic_max"));
     setCommunityRoomComposeMode(true);
     paintCommunityRoomTopics();
     syncCommunityRoomCompose();
@@ -1950,6 +2008,7 @@ async function openCommunities() {
     hideMembers: true
   });
   isCommunitiesOpen = true;
+  if (typeof loadCommunityPolicy === "function") loadCommunityPolicy();
   currentServerId = null;
   currentServerOwnerId = null;
   currentChannelId = null;

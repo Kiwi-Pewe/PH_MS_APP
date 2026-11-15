@@ -1005,6 +1005,24 @@ class Automod_settings(Base):
     surfaces = Column(String, nullable=True)
 
 
+class Community_policy(Base):
+    __tablename__ = "community_policy"
+    id = Column(Integer, primary_key=True)
+    post_body_max = Column(Integer, nullable=False, default=1500)
+    post_emoji_max = Column(Integer, nullable=False, default=50)
+    post_topic_max = Column(Integer, nullable=False, default=4)
+    post_topic_len = Column(Integer, nullable=False, default=40)
+    room_name_max = Column(Integer, nullable=False, default=15)
+    room_about_max = Column(Integer, nullable=False, default=500)
+    room_topic_max = Column(Integer, nullable=False, default=3)
+    room_own_max = Column(Integer, nullable=False, default=3)
+    room_join_max = Column(Integer, nullable=False, default=5)
+    room_cap = Column(Integer, nullable=False, default=15)
+    phone_find_minutes = Column(Integer, nullable=False, default=5)
+    phone_idle_minutes = Column(Integer, nullable=False, default=15)
+    listing_tag_max = Column(Integer, nullable=False, default=5)
+
+
 class Kofi_settings(Base):
     __tablename__ = "kofi_settings"
     id = Column(Integer, primary_key=True)

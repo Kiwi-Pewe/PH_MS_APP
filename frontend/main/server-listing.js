@@ -1,4 +1,6 @@
-const SERVER_LISTING_TAG_MAX = 5;
+function serverListingTagMax() {
+  return typeof communityPolicyNumber === "function" ? communityPolicyNumber("listing_tag_max") : 5;
+}
 const SERVER_LISTING_TAG_LEN = 15;
 
 function savedServerListingTags() {
@@ -29,7 +31,7 @@ async function saveServerListingTags(tags) {
   const next = [];
   (tags || []).forEach((tag) => {
     const clean = cleanServerListingTag(tag);
-    if (clean && next.indexOf(clean) < 0 && next.length < SERVER_LISTING_TAG_MAX) next.push(clean);
+    if (clean && next.indexOf(clean) < 0 && next.length < serverListingTagMax()) next.push(clean);
   });
   const previous = savedServerListingTags();
   if (typeof applyServerTags === "function") applyServerTags(currentServerId, next);
@@ -55,8 +57,8 @@ function addServerListingTag(value) {
   if (!tag) return;
   const tags = savedServerListingTags();
   if (tags.indexOf(tag) >= 0) return;
-  if (tags.length >= SERVER_LISTING_TAG_MAX) {
-    setServerListingTagsStatus("You can use up to 5 tags.");
+  if (tags.length >= serverListingTagMax()) {
+    setServerListingTagsStatus("You can use up to " + serverListingTagMax() + " tags.");
     return;
   }
   tags.push(tag);

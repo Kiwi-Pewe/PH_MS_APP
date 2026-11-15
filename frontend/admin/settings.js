@@ -292,10 +292,152 @@ function paintSettingsAutomod(main, status) {
   main.appendChild(stack);
 }
 
+const SETTINGS_COMMUNITY_DEFAULTS = {
+  post_body_max: 1500,
+  post_emoji_max: 50,
+  post_topic_max: 4,
+  post_topic_len: 40,
+  room_name_max: 15,
+  room_about_max: 500,
+  room_topic_max: 3,
+  room_own_max: 3,
+  room_join_max: 5,
+  room_cap: 15,
+  phone_find_minutes: 5,
+  phone_idle_minutes: 15,
+  listing_tag_max: 5
+};
+
+const SETTINGS_COMMUNITY_GROUPS = [
+  {
+    title: "Posts",
+    fields: [
+      { key: "post_body_max", title: "Character max", sub: "Length of a post or comment.", min: 10, max: 5000 },
+      { key: "post_emoji_max", title: "Emoji max", sub: "Emoji in a post or comment.", min: 1, max: 200 },
+      { key: "post_topic_max", title: "Topic count", sub: "Topics on a post.", min: 1, max: 12 },
+      { key: "post_topic_len", title: "Topic length", sub: "Characters in one topic.", min: 4, max: 80 }
+    ]
+  },
+  {
+    title: "Rooms",
+    fields: [
+      { key: "room_name_max", title: "Name length", sub: "Characters in a room name.", min: 3, max: 40 },
+      { key: "room_about_max", title: "Description length", sub: "Characters in a room description.", min: 20, max: 2000 },
+      { key: "room_topic_max", title: "Topic count", sub: "Topics on a room.", min: 1, max: 12 },
+      { key: "room_own_max", title: "Own max", sub: "Rooms one account can own.", min: 1, max: 20 },
+      { key: "room_join_max", title: "Join max", sub: "Rooms one account can be in at once.", min: 1, max: 50 },
+      { key: "room_cap", title: "People cap", sub: "People in one room.", min: 2, max: 50 }
+    ]
+  },
+  {
+    title: "Phone a User",
+    fields: [
+      { key: "phone_find_minutes", title: "Find minutes", sub: "How long Find someone waits before it fails.", min: 1, max: 60 },
+      { key: "phone_idle_minutes", title: "Idle minutes", sub: "A chat ends after this long with no message.", min: 1, max: 180 }
+    ]
+  },
+  {
+    title: "Listings",
+    fields: [
+      { key: "listing_tag_max", title: "Tag count", sub: "Tags on a public server listing.", min: 1, max: 20 }
+    ]
+  }
+];
+
+function settingsCommunityDefault() {
+  return Object.assign({}, SETTINGS_COMMUNITY_DEFAULTS);
+}
+
+function settingsStillCommunity() {
+  return adminPage === "settings" && adminSection === "community";
+}
+
+function reloadSettingsCommunity() {
+  const host = document.getElementById("admin-main");
+  if (!host || !settingsStillCommunity()) return;
+  adminApi("/admin/community_policy").then((response) => response.ok ? response.json() : null).then((data) => {
+    if (!settingsStillCommunity()) return;
+    host.innerHTML = "";
+    paintSettingsCommunity(host, data || settingsCommunityDefault());
+  }).catch(() => {});
+}
+
+function saveSettingsCommunity(body) {
+  return adminApi("/admin/community_policy", { method: "POST", body: body }).then((response) => {
+    if (!response.ok) return;
+    reloadSettingsCommunity();
+  }).catch(() => {});
+}
+
+function settingsCommunityNumber(key, title, note, value, min, max) {
+  const row = adminEl("div", "admin-settings-opt");
+  const copy = adminEl("div", "admin-settings-opt-copy");
+  copy.appendChild(adminEl("div", "admin-settings-opt-name", title));
+  copy.appendChild(adminEl("div", "admin-settings-opt-sub", note));
+  row.appendChild(copy);
+  const input = adminEl("input", "admin-mod-input admin-settings-num");
+  input.type = "number";
+  input.min = String(min);
+  input.max = String(max);
+  input.step = "1";
+  input.value = String(value);
+  const save = () => {
+    let next = Math.round(Number(input.value));
+    if (!Number.isFinite(next)) next = min;
+    if (next < min) next = min;
+    if (next > max) next = max;
+    input.value = String(next);
+    if (next === Number(value)) return;
+    const payload = {};
+    payload[key] = next;
+    saveSettingsCommunity(payload);
+  };
+  input.addEventListener("change", save);
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    input.blur();
+  });
+  row.appendChild(input);
+  return row;
+}
+
+function paintSettingsCommunity(main, status) {
+  const data = Object.assign(settingsCommunityDefault(), status || {});
+  main.className = "is-fit";
+  main.appendChild(adminPageHead({
+    crumbs: ["Admin", "Settings", "Community"],
+    title: "Community",
+    note: "Caps and timers for Community posts, rooms, Phone a User, and public listings."
+  }));
+  const stack = adminEl("div", "admin-settings-stack");
+  SETTINGS_COMMUNITY_GROUPS.forEach((group) => {
+    const card = adminPanel({ title: group.title });
+    card.body.classList.add("admin-settings-fields");
+    group.fields.forEach((field) => {
+      card.body.appendChild(settingsCommunityNumber(
+        field.key,
+        field.title,
+        field.sub,
+        data[field.key],
+        field.min,
+        field.max
+      ));
+    });
+    stack.appendChild(card.panel);
+  });
+  main.appendChild(stack);
+}
+
 function paintAdminSettings(main, sectionId) {
   if (sectionId === "automod") {
     paintSettingsAutomod(main, settingsAutomodDefault());
     reloadSettingsAutomod();
+    return;
+  }
+  if (sectionId === "community") {
+    paintSettingsCommunity(main, settingsCommunityDefault());
+    reloadSettingsCommunity();
     return;
   }
   paintSettingsKofi(main, null);
@@ -314,7 +456,7 @@ registerAdminPage({
   sections: [
     { id: "kofi", label: "Ko-fi", icon: "plus" },
     { id: "automod", label: "Auto mod", icon: "shield" },
-    { id: "community", label: "Community", icon: "share", later: true },
+    { id: "community", label: "Community", icon: "share" },
     { id: "site-rules", label: "Site rules", icon: "lock", later: true }
   ],
   paint: paintAdminSettings

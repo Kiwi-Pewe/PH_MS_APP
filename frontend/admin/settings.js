@@ -276,7 +276,7 @@ function paintSettingsAutomod(main, status) {
   stack.appendChild(settingsAutomodList(
     "blacklist",
     "Blacklisted words",
-    "A match is rejected. The person sees a generic error. No Auto Report.",
+    "A match is rejected. The person sees a generic error. No Auto Report. One entry covers lowercase, capitalized, and all caps.",
     "Add a blacklisted word or phrase",
     "No blacklisted words.",
     data.blacklist || []
@@ -284,7 +284,7 @@ function paintSettingsAutomod(main, status) {
   stack.appendChild(settingsAutomodList(
     "watch",
     "Watch List",
-    "A match still posts. kiwi gets a silent Auto Report. The author is not told.",
+    "A match still posts. kiwi gets a silent Auto Report. The author is not told. One entry covers lowercase, capitalized, and all caps.",
     "Add a watch word or phrase",
     "No Watch List words.",
     data.watchlist || []

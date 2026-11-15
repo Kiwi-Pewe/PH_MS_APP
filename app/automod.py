@@ -62,13 +62,12 @@ def parse_terms(raw):
     out = []
     seen = set()
     for item in data:
-        word = " ".join(str(item or "").split())
+        word = fold_text(item)
         if not word:
             continue
-        key = word.casefold()
-        if key in seen:
+        if word in seen:
             continue
-        seen.add(key)
+        seen.add(word)
         out.append(word)
     return out
 
@@ -263,7 +262,7 @@ def report_watch(
 
 
 def clean_term(value):
-    word = " ".join(str(value or "").split())
+    word = fold_text(value)
     if len(word) > TERM_MAX:
         word = word[:TERM_MAX].rstrip()
     return word

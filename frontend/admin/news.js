@@ -1089,6 +1089,7 @@ function paintNewsBroadcast(main) {
   duration.appendChild(hours);
   durationField.appendChild(duration);
   opts.appendChild(colorField);
+  opts.appendChild(adminEl("span", "news-broadcast-opts-split", "|"));
   opts.appendChild(durationField);
   panel.body.appendChild(opts);
   const err = adminEl("p", "admin-settings-error");

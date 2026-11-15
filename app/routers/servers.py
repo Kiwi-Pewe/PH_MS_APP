@@ -38,6 +38,7 @@ from app.routers.roles import (
 )
 from app.routers.account import public_display_name
 from app.routers.moderation import iso_dt, require_not_timed_out, timeout_until_for
+from app.automod import inspect as automod_inspect, refuse_blacklist, report_watch
 from app.site_moderation import refuse_server_lock, refuse_server_media
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, channel_notices_for, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 from app.routers.feed import notify_activity_reply
@@ -101,6 +102,20 @@ def parse_server_tags(raw):
 
 def store_server_tags(tags):
     return json.dumps(parse_server_tags(tags))
+
+
+def server_listing_texts(server, name=None, about=None, tags=None):
+    shown_name = name if name is not None else (server.name or "")
+    shown_about = about if about is not None else (server.about or "")
+    shown_tags = tags if tags is not None else parse_server_tags(getattr(server, "tags", None))
+    return [shown_name, shown_about, " ".join(shown_tags)]
+
+
+def scan_public_listing(database, server, name=None, about=None, tags=None, public=False):
+    texts = server_listing_texts(server, name=name, about=about, tags=tags)
+    hits = automod_inspect(database, "listings", texts)
+    refuse_blacklist(hits, public=public)
+    return texts, hits
 
 
 APPLICATION_QUESTION_TYPES = ("multi", "choice", "text", "signature")
@@ -929,6 +944,10 @@ async def update_server_name(body: Server_name_update, database: Session = Depen
     if len(name) > SERVER_NAME_MAX:
         raise HTTPException(status_code=400, detail="Server name is too long.")
 
+    listing = None
+    if bool(getattr(server, "discoverable", False)):
+        listing = scan_public_listing(database, server, name=name)
+
     previous = server.name or ""
     server.name = name
     if previous != name:
@@ -936,6 +955,17 @@ async def update_server_name(body: Server_name_update, database: Session = Depen
             "name": server.name, "field": "Name", "from": previous, "to": name,
         })
     database.commit()
+    if listing:
+        texts, hits = listing
+        report_watch(
+            database,
+            current_user,
+            "listings",
+            texts,
+            hits.get("watch") or [],
+            server_id=server.id,
+            server_name=name,
+        )
     await server_broadcast(
         server_id=server.id,
         payload={"type": "server_name_updated", "server_id": server.id, "name": name},
@@ -956,6 +986,10 @@ async def update_server_about(body: Server_about_update, database: Session = Dep
     if len(about) > 2000:
         raise HTTPException(status_code=400, detail="About text is too long.")
 
+    listing = None
+    if bool(getattr(server, "discoverable", False)):
+        listing = scan_public_listing(database, server, about=about)
+
     previous = server.about or ""
     server.about = about
     if previous != about:
@@ -963,6 +997,17 @@ async def update_server_about(body: Server_about_update, database: Session = Dep
             "name": "About", "field": "About", "from": previous[:200], "to": about[:200],
         })
     database.commit()
+    if listing:
+        texts, hits = listing
+        report_watch(
+            database,
+            current_user,
+            "listings",
+            texts,
+            hits.get("watch") or [],
+            server_id=server.id,
+            server_name=server.name or "",
+        )
     await server_broadcast(
         server_id=server.id,
         payload={"type": "server_about_updated", "server_id": server.id, "about": about},
@@ -1090,12 +1135,26 @@ async def update_server_tags(body: Server_tags_update, database: Session = Depen
     require_server_perm(database, server, current_user.id, "update_server", "You do not have permission to update this server.")
     previous = parse_server_tags(getattr(server, "tags", None))
     tags = parse_server_tags(body.tags)
+    listing = None
+    if bool(getattr(server, "discoverable", False)):
+        listing = scan_public_listing(database, server, tags=tags)
     server.tags = store_server_tags(tags)
     if previous != tags:
         write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
             "name": "Tags", "field": "Tags", "from": ", ".join(previous), "to": ", ".join(tags),
         })
     database.commit()
+    if listing:
+        texts, hits = listing
+        report_watch(
+            database,
+            current_user,
+            "listings",
+            texts,
+            hits.get("watch") or [],
+            server_id=server.id,
+            server_name=server.name or "",
+        )
     await server_broadcast(
         server_id=server.id,
         payload={"type": "server_tags_updated", "server_id": server.id, "tags": tags},
@@ -1166,6 +1225,10 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
     explicit = bool(body.explicit)
     mode = derive_privacy_mode(discoverable, applications_enabled)
     previous = server_privacy_fields(server)
+    going_public = discoverable and not bool(previous.get("discoverable"))
+    listing = None
+    if going_public:
+        listing = scan_public_listing(database, server, public=True)
     server.privacy_mode = mode
     server.discoverable = discoverable
     server.applications_enabled = applications_enabled
@@ -1191,6 +1254,17 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
             "to": "Yes" if explicit else "No",
         })
     database.commit()
+    if listing:
+        texts, hits = listing
+        report_watch(
+            database,
+            current_user,
+            "listings",
+            texts,
+            hits.get("watch") or [],
+            server_id=server.id,
+            server_name=server.name or "",
+        )
     fields = server_privacy_fields(server)
     await server_broadcast(
         server_id=server.id,

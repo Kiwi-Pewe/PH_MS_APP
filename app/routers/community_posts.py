@@ -24,6 +24,7 @@ from app.r2 import (
     store_attachment,
 )
 from app.schemas import Community_comment_create, Community_filter_entry, Community_follow_in, Community_post_create, Community_post_prefs
+from app.automod import inspect as automod_inspect, refuse_blacklist, report_watch
 from app.site_moderation import refuse_community_lock
 
 router = APIRouter()
@@ -623,6 +624,9 @@ def create_community_post(
     refuse_community_lock(database, current_user, "post")
     text = clean_community_body(body.body)
     topics = clean_community_topics(body.topics)
+    texts = [text, " ".join(topics)]
+    hits = automod_inspect(database, "posts", texts)
+    refuse_blacklist(hits)
     attachments = store_community_attachments(body.attachments, current_user)
     row = Community_post(
         code=new_community_code(database),
@@ -636,6 +640,15 @@ def create_community_post(
     database.add(row)
     database.commit()
     database.refresh(row)
+    report_watch(
+        database,
+        current_user,
+        "posts",
+        texts,
+        hits.get("watch") or [],
+        content_id=row.id,
+        channel_name=row.code,
+    )
     return pack_with_comments(database, row, current_user.id)
 
 
@@ -652,6 +665,8 @@ def create_community_comment(
     if not hidden:
         raise HTTPException(status_code=404, detail="Post not found.")
     text = clean_community_body(body.body)
+    hits = automod_inspect(database, "comments", [text])
+    refuse_blacklist(hits)
     row = Community_comment(
         post_id=parent.id,
         author_id=current_user.id,
@@ -659,6 +674,16 @@ def create_community_comment(
     )
     database.add(row)
     database.commit()
+    database.refresh(row)
+    report_watch(
+        database,
+        current_user,
+        "comments",
+        [text],
+        hits.get("watch") or [],
+        content_id=row.id,
+        channel_name=parent.code,
+    )
     return pack_with_comments(database, parent, current_user.id)
 
 

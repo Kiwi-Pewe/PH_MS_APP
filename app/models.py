@@ -996,6 +996,15 @@ class News_broadcast(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
 
+class Automod_settings(Base):
+    __tablename__ = "automod_settings"
+    id = Column(Integer, primary_key=True)
+    enabled = Column(Boolean, nullable=False, default=True, server_default="1")
+    blacklist = Column(String, nullable=True)
+    watchlist = Column(String, nullable=True)
+    surfaces = Column(String, nullable=True)
+
+
 class Kofi_settings(Base):
     __tablename__ = "kofi_settings"
     id = Column(Integer, primary_key=True)

@@ -136,10 +136,171 @@ function paintSettingsKofi(main, status) {
   main.appendChild(stack);
 }
 
+const SETTINGS_AUTOMOD_SURFACES = [
+  { id: "posts", label: "Posts", sub: "Community post body and topics." },
+  { id: "comments", label: "Comments", sub: "Comments on Community posts." },
+  { id: "rooms", label: "Rooms", sub: "Room names, descriptions, topics, and messages." },
+  { id: "phone", label: "Phone", sub: "Phone a User messages." },
+  { id: "listings", label: "Listings", sub: "Public server names, descriptions, and topics." }
+];
+
+function settingsAutomodDefault() {
+  const surfaces = {};
+  SETTINGS_AUTOMOD_SURFACES.forEach((row) => {
+    surfaces[row.id] = true;
+  });
+  return { enabled: true, blacklist: [], watchlist: [], surfaces: surfaces };
+}
+
+function settingsStillAutomod() {
+  return adminPage === "settings" && adminSection === "automod";
+}
+
+function reloadSettingsAutomod() {
+  const host = document.getElementById("admin-main");
+  if (!host || !settingsStillAutomod()) return;
+  adminApi("/admin/automod").then((response) => response.ok ? response.json() : null).then((data) => {
+    if (!settingsStillAutomod()) return;
+    host.innerHTML = "";
+    paintSettingsAutomod(host, data || settingsAutomodDefault());
+  }).catch(() => {});
+}
+
+function saveSettingsAutomod(body) {
+  return adminApi("/admin/automod", { method: "POST", body: body }).then((response) => {
+    if (!response.ok) return;
+    reloadSettingsAutomod();
+  }).catch(() => {});
+}
+
+function settingsAutomodTerm(kind, method, label) {
+  const word = String(label || "").trim();
+  if (method === "POST" && !word) return;
+  const path = method === "DELETE"
+    ? "/admin/automod/terms?kind=" + encodeURIComponent(kind) + "&label=" + encodeURIComponent(word)
+    : "/admin/automod/terms";
+  const opts = method === "DELETE" ? { method: "DELETE" } : { method: "POST", body: { kind: kind, label: word } };
+  adminApi(path, opts).then((response) => {
+    if (!response.ok) return;
+    reloadSettingsAutomod();
+  }).catch(() => {});
+}
+
+function settingsAutomodToggle(title, note, on, onChange) {
+  const row = adminEl("div", "admin-settings-opt");
+  const copy = adminEl("div", "admin-settings-opt-copy");
+  copy.appendChild(adminEl("div", "admin-settings-opt-name", title));
+  copy.appendChild(adminEl("div", "admin-settings-opt-sub", note));
+  row.appendChild(copy);
+  const toggle = usersToggle(on);
+  toggle.input.addEventListener("change", () => onChange(!!toggle.input.checked));
+  row.appendChild(toggle.label);
+  return row;
+}
+
+function settingsAutomodList(kind, title, note, placeholder, empty, rows) {
+  const card = adminPanel({ title: title, meta: (rows || []).length ? String(rows.length) : "Empty" });
+  card.body.classList.add("admin-settings-fields");
+  card.body.appendChild(adminEl("div", "admin-settings-opt-sub", note));
+  const add = adminEl("div", "admin-settings-add");
+  const input = adminEl("input", "admin-mod-input");
+  input.type = "text";
+  input.maxLength = 40;
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.placeholder = placeholder;
+  const btn = adminEl("button", "admin-mod-confirm");
+  btn.type = "button";
+  btn.textContent = "Add";
+  const submit = () => {
+    const label = String(input.value || "").trim();
+    if (!label) return;
+    input.value = "";
+    settingsAutomodTerm(kind, "POST", label);
+  };
+  btn.addEventListener("click", submit);
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    submit();
+  });
+  add.appendChild(input);
+  add.appendChild(btn);
+  card.body.appendChild(add);
+  const pills = adminEl("div", "admin-settings-pills");
+  if (!(rows || []).length) {
+    pills.appendChild(adminEl("div", "admin-settings-opt-sub", empty));
+  }
+  (rows || []).forEach((label) => {
+    const pill = adminEl("button", "admin-settings-pill", label + " ×");
+    pill.type = "button";
+    pill.title = "Remove";
+    pill.addEventListener("click", () => settingsAutomodTerm(kind, "DELETE", label));
+    pills.appendChild(pill);
+  });
+  card.body.appendChild(pills);
+  return card.panel;
+}
+
+function paintSettingsAutomod(main, status) {
+  const data = status || settingsAutomodDefault();
+  const surfaces = data.surfaces || {};
+  main.className = "is-fit";
+  main.appendChild(adminPageHead({
+    crumbs: ["Admin", "Settings", "Auto mod"],
+    title: "Auto mod",
+    note: "Community writes and public listing copy. Blacklisted words are rejected. The Watch List files a silent Auto Report."
+  }));
+  const detection = adminPanel({ title: "Detection", meta: data.enabled ? "On" : "Off" });
+  detection.body.classList.add("admin-settings-fields");
+  detection.body.appendChild(settingsAutomodToggle(
+    "Auto mod",
+    "Off skips both lists. DMs, Parties, and private servers stay out.",
+    !!data.enabled,
+    (on) => saveSettingsAutomod({ enabled: on })
+  ));
+  SETTINGS_AUTOMOD_SURFACES.forEach((row) => {
+    detection.body.appendChild(settingsAutomodToggle(
+      row.label,
+      row.sub,
+      surfaces[row.id] !== false,
+      (on) => {
+        const next = {};
+        next[row.id] = on;
+        saveSettingsAutomod({ surfaces: next });
+      }
+    ));
+  });
+  const stack = adminEl("div", "admin-settings-stack");
+  stack.appendChild(detection.panel);
+  stack.appendChild(settingsAutomodList(
+    "blacklist",
+    "Blacklisted words",
+    "A match is rejected. The person sees a generic error. No Auto Report.",
+    "Add a blacklisted word or phrase",
+    "No blacklisted words.",
+    data.blacklist || []
+  ));
+  stack.appendChild(settingsAutomodList(
+    "watch",
+    "Watch List",
+    "A match still posts. kiwi gets a silent Auto Report. The author is not told.",
+    "Add a watch word or phrase",
+    "No Watch List words.",
+    data.watchlist || []
+  ));
+  main.appendChild(stack);
+}
+
 function paintAdminSettings(main, sectionId) {
+  if (sectionId === "automod") {
+    paintSettingsAutomod(main, settingsAutomodDefault());
+    reloadSettingsAutomod();
+    return;
+  }
   paintSettingsKofi(main, null);
   adminApi("/admin/kofi").then((response) => response.ok ? response.json() : null).then((data) => {
-    if (adminPage !== "settings") return;
+    if (adminPage !== "settings" || adminSection !== "kofi") return;
     const host = document.getElementById("admin-main");
     if (!host) return;
     host.innerHTML = "";
@@ -151,7 +312,10 @@ registerAdminPage({
   id: "settings",
   label: "Settings",
   sections: [
-    { id: "kofi", label: "Ko-fi", icon: "plus" }
+    { id: "kofi", label: "Ko-fi", icon: "plus" },
+    { id: "automod", label: "Auto mod", icon: "shield" },
+    { id: "community", label: "Community", icon: "share", later: true },
+    { id: "site-rules", label: "Site rules", icon: "lock", later: true }
   ],
   paint: paintAdminSettings
 });

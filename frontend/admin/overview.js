@@ -129,6 +129,8 @@ function paintOverviewStatistics(main, stats) {
   ));
   const kofi = (stats && stats.kofi) || {};
   const kofiDelta = overviewPct(kofi.income_24h_raw, kofi.income_prev_raw, "vs previous day");
+  const automod = (stats && stats.automod) || {};
+  const automodDelta = overviewPct(automod.events_24h, automod.events_prev_24h, "flags vs previous day");
   const kpiCards = [
     {
       key: "accounts",
@@ -151,11 +153,11 @@ function paintOverviewStatistics(main, stats) {
     {
       key: "automod",
       label: "Auto mod",
-      value: "0",
+      value: overviewNum(automod.events_24h),
       icon: "shield",
-      detail: "Flags only · never acts on accounts",
-      delta: "0% flags vs previous day",
-      tone: "flat"
+      detail: "Watch List flags · never acts on accounts",
+      delta: automodDelta.text,
+      tone: automodDelta.tone
     },
     {
       key: "servers",
@@ -249,7 +251,7 @@ function loadOverviewStats() {
     if (!response.ok) return;
     overviewStats = data;
     overviewStatsAt = Date.now();
-    if (adminPage === "overview" && (adminSection === "statistics" || adminSection === "accounts" || adminSection === "reports" || adminSection === "servers")) paintAdminMain();
+    if (adminPage === "overview" && (adminSection === "statistics" || adminSection === "accounts" || adminSection === "reports" || adminSection === "auto-mod" || adminSection === "servers" || adminSection === "community")) paintAdminMain();
   })).catch(() => {
     overviewStatsLoading = false;
   });
@@ -458,69 +460,108 @@ function paintOverviewReports(main, stats) {
   main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
-function paintOverviewAutoMod(main) {
+function overviewAutomodView(view) {
+  const key = String(view || "").toLowerCase();
+  if (key === "post" || key === "comment") return "Posts";
+  if (key === "room" || key === "room_message") return "Rooms";
+  if (key === "phone") return "Phone";
+  if (key === "listing") return "Listings";
+  return "Watch List";
+}
+
+function overviewAutomodStatus(status) {
+  const key = String(status || "new").toLowerCase();
+  if (key === "completed") return "Reviewed";
+  if (key === "review") return "In review";
+  if (key === "viewed") return "Viewed";
+  return "Flagged";
+}
+
+function paintOverviewAutoMod(main, stats) {
+  const automod = (stats && stats.automod) || {};
+  const surfaces = automod.surfaces || {};
+  const recent = (automod.recent || []).slice(0, 8);
+  const events = Number(automod.events_24h) || 0;
+  const prev = Number(automod.events_prev_24h) || 0;
+  const flagged = Number(automod.flagged) || 0;
+  const reviewed = Number(automod.reviewed) || 0;
+  const listed = Number(automod.listings) || 0;
+  const eventDelta = overviewPct(events, prev, "vs previous 24h");
+  const postN = Number(surfaces.posts) || 0;
+  const roomN = Number(surfaces.rooms) || 0;
+  const phoneN = Number(surfaces.phone) || 0;
+  const listingN = Number(surfaces.listings) || 0;
+  const surfaceTotal = postN + roomN + phoneN + listingN;
+  const outcomeTotal = flagged + reviewed;
   main.className = "is-fit";
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Overview", "Auto mod"],
     title: "Auto mod",
-    note: "Silent flags on the Community page. Auto moderation never warns, bans, hides, or deletes.",
+    note: "Watch List flags on Community and public listings. Auto mod never warns, bans, hides, or deletes accounts.",
     filter: "Last 24 hours",
     range: "compared with previous day"
   }));
   adminKpiRow(main, [
     {
       label: "Detection events",
-      value: "0",
+      value: overviewNum(events),
       icon: "shield",
-      delta: "0% vs previous 24h",
-      tone: "flat"
+      delta: eventDelta.text,
+      tone: eventDelta.tone
     },
     {
       label: "Flags reviewed",
-      value: "0",
+      value: overviewNum(reviewed),
       icon: "check",
-      detail: "0% of detection events"
+      detail: overviewShare(reviewed, outcomeTotal, "of Auto Reports")
     },
     {
       label: "Flagged for review",
-      value: "0",
+      value: overviewNum(flagged),
       icon: "flag",
-      detail: "0% of detection events"
+      detail: overviewShare(flagged, outcomeTotal, "of Auto Reports")
     },
     {
       label: "Servers affected",
-      value: "0",
+      value: overviewNum(listed),
       icon: "grid",
       detail: "Public Community listings"
     }
   ]);
   const mid = adminEl("div", "overview-mid");
   const dash = adminEl("div", "overview-dash");
-  const surfaces = adminPanel({ title: "Flags by surface", meta: "0 total" });
-  surfaces.body.appendChild(adminMeterList([
-    { label: "Posts flagged", value: 0, total: 0 },
-    { label: "Rooms flagged", value: 0, total: 0 },
-    { label: "Phone flagged", value: 0, total: 0 },
-    { label: "Listings flagged", value: 0, total: 0 }
+  const surfacePanel = adminPanel({ title: "Flags by surface", meta: overviewNum(surfaceTotal) + " total" });
+  surfacePanel.body.appendChild(adminMeterList([
+    { label: "Posts flagged", value: postN, total: surfaceTotal },
+    { label: "Rooms flagged", value: roomN, total: surfaceTotal },
+    { label: "Phone flagged", value: phoneN, total: surfaceTotal },
+    { label: "Listings flagged", value: listingN, total: surfaceTotal }
   ]));
-  dash.appendChild(surfaces.panel);
-  const outcomes = adminPanel({ title: "Detection outcomes", meta: "Last 24h" });
+  dash.appendChild(surfacePanel.panel);
+  const outcomes = adminPanel({ title: "Detection outcomes", meta: "Open vs reviewed" });
   outcomes.body.appendChild(adminMeterList([
-    { label: "Flagged for review", value: 0, total: 0 },
-    { label: "Flags reviewed", value: 0, total: 0 }
+    { label: "Flagged for review", value: flagged, total: outcomeTotal },
+    { label: "Flags reviewed", value: reviewed, total: outcomeTotal }
   ]));
   dash.appendChild(outcomes.panel);
   mid.appendChild(dash);
   main.appendChild(mid);
   const list = adminPanel({
     title: "Recent detection events",
-    meta: "Latest 0",
+    meta: "Latest " + recent.length,
     foot: "Snapshot data · Updates every 5 minutes"
   });
   list.panel.classList.add("is-fill");
+  const rows = recent.map((row) => [
+    row.id != null ? String(row.id) : "—",
+    overviewAutomodView(row.context_view),
+    row.server_name || "—",
+    overviewJoinedClock(row.created_at),
+    overviewAutomodStatus(row.status)
+  ]);
   list.body.appendChild(adminTable(
     ["Event", "Rule", "Server", "Detected", "Outcome"],
-    [["No flags", "", "", "", ""]],
+    rows.length ? rows : [["No flags", "", "", "", ""]],
     "is-start"
   ));
   main.appendChild(list.panel);
@@ -729,7 +770,11 @@ function paintOverview(main, sectionId) {
     loadOverviewStats();
     return;
   }
-  if (sectionId === "auto-mod") return paintOverviewAutoMod(main);
+  if (sectionId === "auto-mod") {
+    paintOverviewAutoMod(main, overviewStats);
+    loadOverviewStats();
+    return;
+  }
   if (sectionId === "servers") {
     paintOverviewServers(main, overviewStats);
     loadOverviewStats();

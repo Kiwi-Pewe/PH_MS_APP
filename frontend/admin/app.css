@@ -715,3 +715,58 @@
   color: var(--danger, #c45c5c);
   font-size: 13px;
 }
+
+.admin-settings-opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-settings-opt-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-settings-opt-name {
+  font-weight: 700;
+}
+
+.admin-settings-opt-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.admin-settings-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-settings-add .admin-mod-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-settings-add .admin-mod-confirm {
+  margin-left: 0;
+}
+
+.admin-settings-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-settings-pill {
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin-settings-pill:hover {
+  border-color: var(--accent);
+}

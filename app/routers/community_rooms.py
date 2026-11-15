@@ -22,6 +22,7 @@ from app.routers.community_posts import (
 )
 from app.routers.messages import mute_is_active, mute_public, mute_until_for
 from app.r2 import attachment_public, require_message_body, store_attachment
+from app.automod import inspect as automod_inspect, refuse_blacklist, report_watch
 from app.site_moderation import refuse_community_lock
 from app.routers.mentions import (
     accepted_reply_parent,
@@ -336,11 +337,15 @@ def create_community_room(
         raise HTTPException(status_code=400, detail=ROOM_JOIN_FULL)
     name = clean_room_name(body.name)
     raise_if_room_name_blocked(name, database)
+    about = clean_room_about(body.about)
     topics = clean_room_topics(body.topics)
+    texts = [name, about or "", " ".join(topics)]
+    hits = automod_inspect(database, "rooms", texts)
+    refuse_blacklist(hits)
     row = Community_room(
         owner_id=current_user.id,
         name=name,
-        about=clean_room_about(body.about),
+        about=about,
         topics=json.dumps(topics) if topics else None,
     )
     database.add(row)
@@ -348,6 +353,15 @@ def create_community_room(
     database.add(Community_room_member(room_id=row.id, user_id=current_user.id))
     database.commit()
     database.refresh(row)
+    report_watch(
+        database,
+        current_user,
+        "rooms",
+        texts,
+        hits.get("watch") or [],
+        content_id=row.id,
+        channel_name=row.name,
+    )
     return pack_community_rooms(database, [row], current_user.id)[0]
 
 
@@ -363,12 +377,25 @@ def update_community_room(
         raise HTTPException(status_code=404, detail="Room not found.")
     name = clean_room_name(body.name)
     raise_if_room_name_blocked(name, database)
-    room.name = name
-    room.about = clean_room_about(body.about)
+    about = clean_room_about(body.about)
     topics = clean_room_topics(body.topics)
+    texts = [name, about or "", " ".join(topics)]
+    hits = automod_inspect(database, "rooms", texts)
+    refuse_blacklist(hits)
+    room.name = name
+    room.about = about
     room.topics = json.dumps(topics) if topics else None
     database.commit()
     database.refresh(room)
+    report_watch(
+        database,
+        current_user,
+        "rooms",
+        texts,
+        hits.get("watch") or [],
+        content_id=room.id,
+        channel_name=room.name,
+    )
     return pack_community_rooms(database, [room], current_user.id)[0]
 
 
@@ -565,6 +592,8 @@ def save_community_room_message(database, current_user, room_id, content, attach
     if not room_member(database, room.id, current_user.id):
         raise HTTPException(status_code=404, detail="Room not found.")
     require_message_body(content, attachment)
+    hits = automod_inspect(database, "room_message", [content or ""])
+    refuse_blacklist(hits)
     parent = None
     try:
         reply_to_id = int(reply_to_id) if reply_to_id else None
@@ -601,6 +630,15 @@ def save_community_room_message(database, current_user, room_id, content, attach
     room.active_at = datetime.utcnow()
     database.commit()
     database.refresh(message)
+    report_watch(
+        database,
+        current_user,
+        "room_message",
+        [content or ""],
+        hits.get("watch") or [],
+        content_id=message.id,
+        channel_name=room.name,
+    )
     return message
 
 

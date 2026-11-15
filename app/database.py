@@ -994,6 +994,22 @@ def ensure_news_tables():
             conn.rollback()
 
 
+def ensure_automod_tables():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS automod_settings ("
+                "id INTEGER PRIMARY KEY, "
+                "enabled BOOLEAN NOT NULL DEFAULT 1, "
+                "blacklist VARCHAR, "
+                "watchlist VARCHAR, "
+                "surfaces VARCHAR)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_kofi_tables():
     with engine.connect() as conn:
         try:

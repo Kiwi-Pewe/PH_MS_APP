@@ -257,6 +257,16 @@ class Admin_server_report(BaseModel):
     locks: list[Admin_lock] = []
 
 
+class Automod_flags(BaseModel):
+    enabled: bool | None = None
+    surfaces: dict[str, bool] | None = None
+
+
+class Automod_term_in(BaseModel):
+    kind: str = ""
+    label: str = ""
+
+
 class Community_post_create(BaseModel):
     body: str = ""
     topics: list[str] = []

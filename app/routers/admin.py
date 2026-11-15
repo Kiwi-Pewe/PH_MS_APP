@@ -72,6 +72,8 @@ FEEDBACK_TYPE_LABELS = {
     "feature": "Feature Request",
     "inquiry": "General Inquiries",
     "report": "Report",
+    "auto": "Auto Report",
+    "automod": "Auto Report",
 }
 
 FEEDBACK_STATUSES = ("new", "viewed", "review", "completed", "open", "followup", "closed")
@@ -99,6 +101,8 @@ def require_oneira_admin(user):
 
 async def notify_feedback_ticket_alert(database, row, actor, previous_status):
     if not row or not row.user_id:
+        return
+    if (row.feedback_type or "").strip().lower() in ("auto", "automod"):
         return
     new_status = (row.status or "").strip().lower()
     old_status = (previous_status or "").strip().lower()
@@ -694,6 +698,46 @@ def empty_day_bars(week_start):
     return bars
 
 
+def count_auto_reports(database, start=None, end=None):
+    query = database.query(func.count()).select_from(Feedback_report).filter(
+        Feedback_report.feedback_type.in_(("auto", "automod"))
+    )
+    if start is not None:
+        query = query.filter(Feedback_report.created_at >= start)
+    if end is not None:
+        query = query.filter(Feedback_report.created_at < end)
+    return int(query.scalar() or 0)
+
+
+def count_auto_day_bars(database, week_start):
+    bars = []
+    total = 0
+    for offset in range(7):
+        start = week_start + timedelta(days=offset)
+        end = start + timedelta(days=1)
+        n = count_auto_reports(database, start, end)
+        total += n
+        bars.append({
+            "label": day_label(start),
+            "value": n,
+            "hot": offset == 6,
+        })
+    return bars, total
+
+
+def automod_surface_key(view):
+    key = (view or "").strip().lower()
+    if key in ("post", "comment"):
+        return "posts"
+    if key in ("room", "room_message"):
+        return "rooms"
+    if key == "phone":
+        return "phone"
+    if key == "listing":
+        return "listings"
+    return ""
+
+
 def kofi_day_bars(database, week_start):
     bars = []
     total = 0.0
@@ -978,6 +1022,55 @@ def admin_overview_stats(
         growth = "above"
     elif week_new < prev_week_new:
         growth = "below"
+    auto_24h = count_auto_reports(database, ago_1)
+    auto_prev = count_auto_reports(database, ago_2, ago_1)
+    auto_bars, auto_week = count_auto_day_bars(database, week_start)
+    auto_prev_week = count_auto_reports(database, prev_week_start, week_start)
+    auto_open = int(
+        database.query(func.count()).select_from(Feedback_report).filter(
+            Feedback_report.feedback_type.in_(("auto", "automod")),
+            or_(Feedback_report.status.is_(None), Feedback_report.status != "completed"),
+        ).scalar() or 0
+    )
+    auto_done = int(
+        database.query(func.count()).select_from(Feedback_report).filter(
+            Feedback_report.feedback_type.in_(("auto", "automod")),
+            Feedback_report.status == "completed",
+        ).scalar() or 0
+    )
+    auto_listings = int(
+        database.query(func.count(func.distinct(Feedback_report.server_id))).filter(
+            Feedback_report.feedback_type.in_(("auto", "automod")),
+            Feedback_report.context_view == "listing",
+            Feedback_report.server_id.isnot(None),
+        ).scalar() or 0
+    )
+    auto_surfaces = {"posts": 0, "rooms": 0, "phone": 0, "listings": 0}
+    for view, n in (
+        database.query(Feedback_report.context_view, func.count())
+        .filter(Feedback_report.feedback_type.in_(("auto", "automod")))
+        .group_by(Feedback_report.context_view)
+        .all()
+    ):
+        key = automod_surface_key(view)
+        if key:
+            auto_surfaces[key] += int(n or 0)
+    recent_auto_rows = (
+        database.query(Feedback_report)
+        .filter(Feedback_report.feedback_type.in_(("auto", "automod")))
+        .order_by(Feedback_report.created_at.desc(), Feedback_report.id.desc())
+        .limit(8)
+        .all()
+    )
+    recent_auto = [{
+        "id": row.id,
+        "username": row.username or "",
+        "display_name": row.display_name or row.username or "",
+        "context_view": row.context_view or "",
+        "server_name": row.server_name or "",
+        "status": row.status or "new",
+        "created_at": str(row.created_at) if row.created_at else None,
+    } for row in recent_auto_rows]
     return {
         "accounts": {
             "total": accounts_total,
@@ -1013,6 +1106,15 @@ def admin_overview_stats(
             "kinds": report_kinds,
             "recent": recent_reports,
         },
+        "automod": {
+            "events_24h": auto_24h,
+            "events_prev_24h": auto_prev,
+            "flagged": auto_open,
+            "reviewed": auto_done,
+            "listings": auto_listings,
+            "surfaces": auto_surfaces,
+            "recent": recent_auto,
+        },
         "servers": {
             "total": servers_total,
             "created_24h": servers_24h,
@@ -1047,7 +1149,7 @@ def admin_overview_stats(
         "series": {
             "accounts": {"week": week_new, "prev_week": prev_week_new, "bars": bars},
             "reports": {"week": report_week, "prev_week": report_prev_week, "bars": report_bars},
-            "automod": {"week": 0, "prev_week": 0, "bars": empty_day_bars(week_start)},
+            "automod": {"week": auto_week, "prev_week": auto_prev_week, "bars": auto_bars},
             "servers": {"week": server_week, "prev_week": server_prev_week, "bars": server_bars},
             "community": {"week": community_week, "prev_week": community_prev_week, "bars": community_bars},
             "kofi": {"week": kofi_week, "prev_week": kofi_prev_week, "bars": kofi_bars},

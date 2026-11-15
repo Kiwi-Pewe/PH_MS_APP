@@ -2697,9 +2697,11 @@ html.legacy-chat-input #mention-picker { display: none !important; }
   scrollbar-gutter: stable;
   line-height: 1.4; max-height: calc(1.4em * 5);
 }
-.composer-field textarea {
+.composer-field textarea,
+.composer-field input[type="text"] {
   color: transparent;
   caret-color: var(--text);
+  -webkit-text-fill-color: transparent;
   position: relative;
   z-index: 1;
 }
@@ -2715,7 +2717,11 @@ html.legacy-chat-input #channel-composer .composer-field textarea,
 html.legacy-chat-input .edit-composer .composer-field textarea {
   caret-color: var(--text);
 }
-.composer-field textarea::placeholder { color: var(--text-dim); }
+.composer-field textarea::placeholder,
+.composer-field input[type="text"]::placeholder {
+  color: var(--text-dim);
+  -webkit-text-fill-color: var(--text-dim);
+}
 .composer-field textarea:disabled,
 #composer .composer-field textarea:disabled,
 #channel-composer .composer-field textarea:disabled {

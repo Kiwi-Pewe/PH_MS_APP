@@ -440,3 +440,68 @@ function mdComposerLeaf(el, text, options) {
   }
   if (last < text.length) mdAppendHashText(el, text.slice(last));
 }
+
+const mdComposerRoleFns = new WeakMap();
+
+function mdComposerHighlightFor(input) {
+  if (!input) return null;
+  if (input.id === "composer-input") return document.getElementById("composer-highlight");
+  if (input.id === "channel-composer-input") return document.getElementById("channel-composer-highlight");
+  const field = input.closest(".composer-field");
+  return field ? field.querySelector(".composer-highlight") : null;
+}
+
+function mdEnsureComposerHighlight(input) {
+  if (!input) return null;
+  let field = input.closest(".composer-field");
+  if (!field) {
+    if (!input.parentNode) return null;
+    field = document.createElement("div");
+    field.className = "composer-field";
+    input.parentNode.insertBefore(field, input);
+    const highlight = document.createElement("div");
+    highlight.className = "composer-highlight";
+    highlight.setAttribute("aria-hidden", "true");
+    field.appendChild(highlight);
+    field.appendChild(input);
+  }
+  return field.querySelector(".composer-highlight");
+}
+
+function mdRefreshComposer(input) {
+  if (!input) return;
+  const highlight = mdComposerHighlightFor(input);
+  if (!highlight) return;
+  if (document.documentElement.classList.contains("legacy-chat-input")) return;
+  const fn = mdComposerRoleFns.get(input);
+  const allowRoles = typeof fn === "function" ? !!fn() : true;
+  mdPaintComposer(highlight, input.value, allowRoles);
+  highlight.scrollTop = input.scrollTop || 0;
+  highlight.scrollLeft = input.scrollLeft || 0;
+}
+
+function bindComposerMarkdown(input, options) {
+  if (!input || input.dataset.mdBound) return;
+  input.dataset.mdBound = "1";
+  if (options && typeof options.allowRoles === "function") mdComposerRoleFns.set(input, options.allowRoles);
+  mdEnsureComposerHighlight(input);
+  input.addEventListener("input", () => mdRefreshComposer(input));
+  input.addEventListener("click", () => mdRefreshComposer(input));
+  input.addEventListener("keyup", () => mdRefreshComposer(input));
+  input.addEventListener("scroll", () => {
+    const highlight = mdComposerHighlightFor(input);
+    if (!highlight) return;
+    highlight.scrollTop = input.scrollTop || 0;
+    highlight.scrollLeft = input.scrollLeft || 0;
+  });
+  mdRefreshComposer(input);
+}
+
+[
+  "news-title-input",
+  "news-body-input",
+  "news-event-desc",
+  "news-detail-desc",
+  "news-edit-heading",
+  "news-edit-body"
+].forEach((id) => bindComposerMarkdown(document.getElementById(id)));

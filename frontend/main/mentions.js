@@ -625,6 +625,7 @@ function renderComposerHighlight(el, text, allowRoles) {
 }
 
 function composerHighlightFor(input) {
+  if (typeof mdComposerHighlightFor === "function") return mdComposerHighlightFor(input);
   if (!input) return null;
   if (input.id === "composer-input") return document.getElementById("composer-highlight");
   if (input.id === "channel-composer-input") return document.getElementById("channel-composer-highlight");
@@ -633,6 +634,7 @@ function composerHighlightFor(input) {
 }
 
 function ensureComposerHighlight(input) {
+  if (typeof mdEnsureComposerHighlight === "function") return mdEnsureComposerHighlight(input);
   if (!input) return null;
   let field = input.closest(".composer-field");
   if (!field) {
@@ -650,15 +652,18 @@ function ensureComposerHighlight(input) {
 
 function refreshComposerMentions(input) {
   if (!input) return;
-  const highlight = composerHighlightFor(input);
-  if (highlight && !document.documentElement.classList.contains("legacy-chat-input")) {
-    renderComposerHighlight(highlight, input.value, composerAllowsMentions(input) && composerUsesRoleMentions(input));
-    highlight.scrollTop = input.scrollTop;
-    highlight.scrollLeft = input.scrollLeft;
-  } else if (highlight && composerAllowsMentions(input)) {
-    renderComposerHighlight(highlight, input.value, composerUsesRoleMentions(input));
-    highlight.scrollTop = input.scrollTop;
-    highlight.scrollLeft = input.scrollLeft;
+  if (typeof mdRefreshComposer === "function") mdRefreshComposer(input);
+  else {
+    const highlight = composerHighlightFor(input);
+    if (highlight && !document.documentElement.classList.contains("legacy-chat-input")) {
+      renderComposerHighlight(highlight, input.value, composerAllowsMentions(input) && composerUsesRoleMentions(input));
+      highlight.scrollTop = input.scrollTop;
+      highlight.scrollLeft = input.scrollLeft;
+    } else if (highlight && composerAllowsMentions(input)) {
+      renderComposerHighlight(highlight, input.value, composerUsesRoleMentions(input));
+      highlight.scrollTop = input.scrollTop;
+      highlight.scrollLeft = input.scrollLeft;
+    }
   }
   updateMentionPicker(input);
 }
@@ -949,17 +954,26 @@ function insertMentionToken(name) {
 function bindMentionComposer(input) {
   if (!input || input.dataset.mentionBound) return;
   input.dataset.mentionBound = "1";
-  ensureComposerHighlight(input);
-  input.addEventListener("input", () => refreshComposerMentions(input));
-  input.addEventListener("click", () => refreshComposerMentions(input));
-  input.addEventListener("keyup", () => refreshComposerMentions(input));
-  input.addEventListener("scroll", () => {
-    const highlight = composerHighlightFor(input);
-    if (highlight) {
-      highlight.scrollTop = input.scrollTop;
-      highlight.scrollLeft = input.scrollLeft;
-    }
-  });
+  if (typeof bindComposerMarkdown === "function") {
+    bindComposerMarkdown(input, {
+      allowRoles: () => composerAllowsMentions(input) && composerUsesRoleMentions(input)
+    });
+  } else {
+    ensureComposerHighlight(input);
+    input.addEventListener("input", () => refreshComposerMentions(input));
+    input.addEventListener("click", () => refreshComposerMentions(input));
+    input.addEventListener("keyup", () => refreshComposerMentions(input));
+    input.addEventListener("scroll", () => {
+      const highlight = composerHighlightFor(input);
+      if (highlight) {
+        highlight.scrollTop = input.scrollTop;
+        highlight.scrollLeft = input.scrollLeft;
+      }
+    });
+  }
+  input.addEventListener("input", () => updateMentionPicker(input));
+  input.addEventListener("click", () => updateMentionPicker(input));
+  input.addEventListener("keyup", () => updateMentionPicker(input));
   input.addEventListener("keydown", (e) => {
     if (mentionPickerHandleKey(e)) {
       e.stopImmediatePropagation();

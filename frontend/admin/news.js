@@ -243,6 +243,10 @@ function newsShowError(text) {
   err.hidden = !text;
 }
 
+function newsRefreshMarkdown(el) {
+  if (typeof mdRefreshComposer === "function") mdRefreshComposer(el);
+}
+
 function newsSetAlign(kind, value) {
   const align = value === "center" || value === "right" ? value : "left";
   if (kind === "title") newsTitleAlign = align;
@@ -251,7 +255,10 @@ function newsSetAlign(kind, value) {
     btn.classList.toggle("is-on", btn.getAttribute("data-align") === align);
   });
   const el = document.getElementById(kind === "title" ? "news-title-input" : "news-body-input");
-  if (el) el.style.textAlign = align;
+  if (!el) return;
+  el.style.textAlign = align;
+  const highlight = typeof mdComposerHighlightFor === "function" ? mdComposerHighlightFor(el) : null;
+  if (highlight) highlight.style.textAlign = align;
 }
 
 function newsSetEventColor(value) {
@@ -269,6 +276,7 @@ function newsInsertAt(el, text) {
   const next = start + text.length;
   el.focus();
   if (el.setSelectionRange) el.setSelectionRange(next, next);
+  el.dispatchEvent(new Event("input"));
 }
 
 function newsFocusField() {
@@ -414,6 +422,9 @@ function newsResetComposer() {
   if (desc) desc.value = "";
   if (search) search.value = "";
   if (newsCommentsInput) newsCommentsInput.checked = true;
+  newsRefreshMarkdown(title);
+  newsRefreshMarkdown(body);
+  newsRefreshMarkdown(desc);
 }
 
 function closeNewsComposer() {
@@ -483,7 +494,10 @@ function fillNewsComposer(row) {
     newsSetEventColor(event.color || "orange");
     newsSetEventOpen(true);
     if (newsEventStarted(event)) newsSetEventLock(true);
+    newsRefreshMarkdown(desc);
   }
+  newsRefreshMarkdown(title);
+  newsRefreshMarkdown(body);
 }
 
 function openNewsComposer(row) {
@@ -611,6 +625,11 @@ function bindNewsComposer() {
   });
   const title = document.getElementById("news-title-input");
   const body = document.getElementById("news-body-input");
+  if (typeof bindComposerMarkdown === "function") {
+    bindComposerMarkdown(title);
+    bindComposerMarkdown(body);
+    bindComposerMarkdown(document.getElementById("news-event-desc"));
+  }
   if (title) title.addEventListener("focus", () => { newsFocus = title; });
   if (body) body.addEventListener("focus", () => { newsFocus = body; });
   const emojiBtn = document.getElementById("news-emoji-btn");
@@ -996,7 +1015,13 @@ function paintNewsBroadcast(main) {
   area.maxLength = 500;
   area.placeholder = "Maintenance window, outage, or other site-wide notice";
   area.addEventListener("input", () => paintNewsBroadcastPreview(preview, area.value));
-  panel.body.appendChild(area);
+  const wrap = adminEl("div", "composer-field news-md-field news-broadcast-field");
+  const highlight = adminEl("div", "composer-highlight");
+  highlight.setAttribute("aria-hidden", "true");
+  wrap.appendChild(highlight);
+  wrap.appendChild(area);
+  panel.body.appendChild(wrap);
+  if (typeof bindComposerMarkdown === "function") bindComposerMarkdown(area);
   const err = adminEl("p", "admin-settings-error");
   err.id = "news-broadcast-error";
   err.hidden = true;
@@ -1015,6 +1040,7 @@ function paintNewsBroadcast(main) {
   function applyBroadcastMessage(message) {
     area.value = message || "";
     paintNewsBroadcastPreview(preview, area.value);
+    if (typeof mdRefreshComposer === "function") mdRefreshComposer(area);
   }
   clear.addEventListener("click", () => {
     showBroadcastError("");
@@ -1195,6 +1221,7 @@ function newsFillEventForm(event) {
   if (endEl) endEl.value = newsLocalTime(end);
   if (desc) desc.value = (event && event.description) || "";
   newsSetDetailColor((event && event.color) || "orange");
+  newsRefreshMarkdown(desc);
 }
 
 function newsShowEventMode(editing) {
@@ -1365,6 +1392,7 @@ function confirmNewsDelete() {
 function bindNewsOverlays() {
   if (newsOverlaysBound) return;
   newsOverlaysBound = true;
+  if (typeof bindComposerMarkdown === "function") bindComposerMarkdown(document.getElementById("news-detail-desc"));
   document.querySelectorAll("#news-detail-colors .news-event-swatch").forEach((btn) => {
     btn.addEventListener("click", () => newsSetDetailColor(btn.getAttribute("data-color")));
   });

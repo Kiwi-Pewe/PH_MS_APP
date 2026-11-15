@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="servers.css?v=7">
 <link rel="stylesheet" href="reports.css?v=2">
 <link rel="stylesheet" href="community.css?v=1">
-<link rel="stylesheet" href="news.css?v=11">
+<link rel="stylesheet" href="news.css?v=12">
 </head>
 <body>
 
@@ -88,7 +88,10 @@
               </button>
             </div>
           </div>
-          <input id="news-title-input" class="admin-mod-input" type="text" maxlength="200" placeholder="Title">
+          <div class="composer-field news-md-field news-title-field">
+            <div class="composer-highlight" aria-hidden="true"></div>
+            <input id="news-title-input" class="admin-mod-input" type="text" maxlength="200" placeholder="Title">
+          </div>
         </div>
         <div class="news-post-field">
           <div class="news-post-field-top">
@@ -107,7 +110,10 @@
           </div>
           <div class="news-compose-shell">
             <div class="news-compose-main">
-              <textarea id="news-body-input" class="news-body-input" rows="8" placeholder="Enter a message..."></textarea>
+              <div class="composer-field news-md-field news-body-field">
+                <div class="composer-highlight" aria-hidden="true"></div>
+                <textarea id="news-body-input" class="news-body-input" rows="8" placeholder="Enter a message..."></textarea>
+              </div>
               <div class="news-compose-opts">
                 <button type="button" class="news-emoji-btn" id="news-emoji-btn" title="Emoji">🙂</button>
               </div>
@@ -175,7 +181,10 @@
         </div>
         <div class="news-post-field">
           <h2 class="news-post-k">Description</h2>
-          <textarea id="news-event-desc" class="news-event-desc" rows="5" maxlength="2000" placeholder="What is happening"></textarea>
+          <div class="composer-field news-md-field news-desc-field">
+            <div class="composer-highlight" aria-hidden="true"></div>
+            <textarea id="news-event-desc" class="news-event-desc" rows="5" maxlength="2000" placeholder="What is happening"></textarea>
+          </div>
         </div>
         <div class="news-post-field">
           <h2 class="news-post-k">Seriousness</h2>
@@ -224,7 +233,10 @@
       </div>
       <div class="news-post-field">
         <h2 class="news-post-k">Description</h2>
-        <textarea id="news-detail-desc" class="news-event-desc" rows="5" maxlength="2000" placeholder="What is happening"></textarea>
+        <div class="composer-field news-md-field news-desc-field">
+          <div class="composer-highlight" aria-hidden="true"></div>
+          <textarea id="news-detail-desc" class="news-event-desc" rows="5" maxlength="2000" placeholder="What is happening"></textarea>
+        </div>
       </div>
       <div class="news-post-field">
         <h2 class="news-post-k">Seriousness</h2>
@@ -280,7 +292,7 @@
 <script src="../shared/config.js?v=5"></script>
 <script src="../shared/context-menu.js?v=10"></script>
 <script src="../main/util.js?v=54"></script>
-<script src="../main/markdown.js?v=8"></script>
+<script src="../main/markdown.js?v=9"></script>
 <script src="../main/emoji-data.js?v=1"></script>
 <script src="app-shell.js?v=10"></script>
 <script src="chrome.js?v=16"></script>
@@ -289,7 +301,7 @@
 <script src="servers.js?v=14"></script>
 <script src="reports.js?v=7"></script>
 <script src="community.js?v=3"></script>
-<script src="news.js?v=15"></script>
+<script src="news.js?v=16"></script>
 <script src="settings.js?v=7"></script>
 <script src="boot.js?v=4"></script>
 </body>

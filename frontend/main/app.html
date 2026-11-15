@@ -28,8 +28,8 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=554">
-<link rel="stylesheet" href="news.css?v=9">
+<link rel="stylesheet" href="app.css?v=555">
+<link rel="stylesheet" href="news.css?v=10">
 </head>
 <body>
 
@@ -2504,7 +2504,10 @@
         </div>
         <div class="news-post-field">
           <h2 class="news-post-k">Description</h2>
-          <textarea id="news-detail-desc" class="news-event-desc" rows="5" maxlength="2000" placeholder="What is happening"></textarea>
+          <div class="composer-field news-md-field news-desc-field">
+            <div class="composer-highlight" aria-hidden="true"></div>
+            <textarea id="news-detail-desc" class="news-event-desc" rows="5" maxlength="2000" placeholder="What is happening"></textarea>
+          </div>
         </div>
         <div class="news-post-field">
           <h2 class="news-post-k">Seriousness</h2>
@@ -2533,11 +2536,17 @@
       <div class="news-event-body">
         <div class="news-post-field">
           <h2 class="news-post-k">Title</h2>
-          <input id="news-edit-heading" class="news-event-input" type="text" maxlength="200" placeholder="Title">
+          <div class="composer-field news-md-field news-title-field">
+            <div class="composer-highlight" aria-hidden="true"></div>
+            <input id="news-edit-heading" class="news-event-input" type="text" maxlength="200" placeholder="Title">
+          </div>
         </div>
         <div class="news-post-field">
           <h2 class="news-post-k">Body</h2>
-          <textarea id="news-edit-body" class="news-event-desc" rows="5" placeholder="Announcement"></textarea>
+          <div class="composer-field news-md-field news-desc-field">
+            <div class="composer-highlight" aria-hidden="true"></div>
+            <textarea id="news-edit-body" class="news-event-desc" rows="5" placeholder="Announcement"></textarea>
+          </div>
         </div>
         <p class="news-compose-error" id="news-edit-error" hidden></p>
       </div>
@@ -3268,7 +3277,7 @@
 <script src="boot.js?v=166"></script>
 <script src="app-shell.js?v=79"></script>
 <script src="communities.js?v=53"></script>
-<script src="news.js?v=10"></script>
+<script src="news.js?v=11"></script>
 <script src="community-posts.js?v=6"></script>
 <script src="community-rooms.js?v=9"></script>
 <script src="community-search.js?v=3"></script>
@@ -3334,9 +3343,9 @@
 <script src="server-delete.js?v=2"></script>
 <script src="account-delete.js?v=1"></script>
 <script src="server-notify.js?v=7"></script>
-<script src="markdown.js?v=8"></script>
+<script src="markdown.js?v=9"></script>
 <script src="embeds.js?v=48"></script>
-<script src="mentions.js?v=24"></script>
+<script src="mentions.js?v=25"></script>
 <script src="explicit-channel.js?v=3"></script>
 <script src="servers.js?v=145"></script>
 <script src="voice.js?v=25"></script>

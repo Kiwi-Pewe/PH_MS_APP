@@ -659,6 +659,7 @@ function newsFillEventForm(event) {
   if (endEl) endEl.value = newsLocalTime(end);
   if (desc) desc.value = (event && event.description) || "";
   newsSetDetailColor((event && event.color) || "orange");
+  if (typeof mdRefreshComposer === "function") mdRefreshComposer(desc);
 }
 
 function newsShowEventMode(editing) {
@@ -799,6 +800,10 @@ function openNewsEdit(row) {
   const body = document.getElementById("news-edit-body");
   if (heading) heading.value = row.title || "";
   if (body) body.value = row.body || "";
+  if (typeof mdRefreshComposer === "function") {
+    mdRefreshComposer(heading);
+    mdRefreshComposer(body);
+  }
   const overlay = document.getElementById("news-edit-overlay");
   if (overlay) overlay.hidden = false;
   if (heading) heading.focus();
@@ -898,6 +903,11 @@ function confirmNewsDelete() {
 function bindNewsOverlays() {
   if (newsOverlaysBound) return;
   newsOverlaysBound = true;
+  if (typeof bindComposerMarkdown === "function") {
+    bindComposerMarkdown(document.getElementById("news-edit-heading"));
+    bindComposerMarkdown(document.getElementById("news-edit-body"));
+    bindComposerMarkdown(document.getElementById("news-detail-desc"));
+  }
   document.querySelectorAll("#news-detail-colors .news-event-swatch").forEach((btn) => {
     btn.addEventListener("click", () => newsSetDetailColor(btn.getAttribute("data-color")));
   });

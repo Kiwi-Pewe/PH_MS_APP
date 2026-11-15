@@ -296,6 +296,7 @@ function newsPaintStrip() {
     host.appendChild(thumb);
   });
   if (add) host.appendChild(add);
+  host.classList.toggle("has-files", newsMedia.length > 0);
   host.classList.toggle("is-full", newsMedia.length >= 4);
 }
 

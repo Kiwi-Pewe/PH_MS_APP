@@ -476,8 +476,10 @@
 .news-post-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 
 .news-post-k {
-  font-size: 16px;
+  margin: 0;
+  font-size: 20px;
   font-weight: 800;
+  line-height: 1.2;
   color: var(--text);
 }
 
@@ -554,13 +556,13 @@
 }
 
 .news-compose-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 56px;
-  gap: 8px;
-  align-items: start;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .news-compose-main {
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -604,9 +606,13 @@
 
 .news-compose-attach {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
   gap: 6px;
+  flex: 0 0 auto;
+  min-width: 56px;
+  max-width: calc(56px * 4 + 18px);
 }
 
 .news-media-add,
@@ -617,6 +623,20 @@
   overflow: hidden;
   position: relative;
   flex: 0 0 auto;
+}
+
+.news-compose-attach.has-files:not(:hover):not(:focus-within) {
+  gap: 0;
+}
+
+.news-compose-attach.has-files:not(:hover):not(:focus-within) .news-post-thumb:not(:last-of-type) {
+  margin-right: -56px;
+  pointer-events: none;
+}
+
+.news-compose-attach.has-files:not(:hover):not(:focus-within) .news-media-add,
+.news-compose-attach.has-files:not(:hover):not(:focus-within) .news-post-thumb-x {
+  display: none;
 }
 
 .news-media-add {

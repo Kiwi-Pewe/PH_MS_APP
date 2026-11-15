@@ -776,3 +776,10 @@
 .admin-settings-pill:hover {
   border-color: var(--accent);
 }
+
+.admin-settings-tos {
+  min-height: 7.25em;
+  font-size: 16px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}

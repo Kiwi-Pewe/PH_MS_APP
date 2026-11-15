@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=555">
+<link rel="stylesheet" href="app.css?v=556">
 <link rel="stylesheet" href="news.css?v=11">
 </head>
 <body>
@@ -1076,7 +1076,7 @@
               <nav class="community-feed-legal">
                 <button type="button" disabled>Community guidelines</button>
                 <button type="button" disabled>Privacy</button>
-                <button type="button" disabled>Terms</button>
+                <button type="button" id="community-feed-terms" disabled>Terms</button>
                 <button type="button" disabled>Feedback</button>
               </nav>
             </aside>
@@ -2437,6 +2437,21 @@
     </div>
   </div>
 
+  <div id="community-tos-overlay" hidden>
+    <div id="community-tos-card" class="community-compose-card" role="dialog" aria-modal="true" aria-labelledby="community-tos-title">
+      <div class="community-compose-header">
+        <span id="community-tos-title" class="community-compose-title">Terms of Service</span>
+      </div>
+      <div class="community-compose-body">
+        <p id="community-tos-copy" class="community-tos-copy"></p>
+      </div>
+      <div class="community-compose-footer">
+        <button type="button" class="ghost-btn" id="community-tos-close">Close</button>
+        <span></span>
+      </div>
+    </div>
+  </div>
+
   <div id="community-settings-overlay" hidden>
     <div id="community-settings-card" role="dialog" aria-modal="true" aria-labelledby="community-settings-heading">
       <div id="community-settings-top">
@@ -3281,7 +3296,7 @@
 <script src="community-posts.js?v=7"></script>
 <script src="community-rooms.js?v=10"></script>
 <script src="community-search.js?v=3"></script>
-<script src="community-feed.js?v=2"></script>
+<script src="community-feed.js?v=3"></script>
 <script src="community-settings.js?v=11"></script>
 <script src="community-room-settings.js?v=7"></script>
 <script src="community-phone.js?v=5"></script>

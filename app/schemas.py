@@ -8,6 +8,8 @@ class Account_login(BaseModel):
 class Account_register(BaseModel):
     username:str
     password:str
+    over_18: bool = False
+    read_tos: bool = False
 
 class Account_field_edit(BaseModel):
     value: str = ""
@@ -281,6 +283,14 @@ class Community_policy_in(BaseModel):
     phone_find_minutes: int | None = None
     phone_idle_minutes: int | None = None
     listing_tag_max: int | None = None
+
+
+class Site_rules_in(BaseModel):
+    tos: str | None = None
+
+
+class Site_rules_name_in(BaseModel):
+    label: str = ""
 
 
 class Community_post_create(BaseModel):

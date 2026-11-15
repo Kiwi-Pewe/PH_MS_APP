@@ -337,6 +337,44 @@ async function openCommunityPeopleCard() {
   });
 }
 
+let communityFeedTos = "";
+
+function communityFeedHasTos() {
+  return !!String(communityFeedTos || "").trim();
+}
+
+function syncCommunityFeedTerms() {
+  const btn = document.getElementById("community-feed-terms");
+  if (btn) btn.disabled = !communityFeedHasTos();
+}
+
+function loadCommunityFeedTos() {
+  fetch(`https://${API_HOST}/site_rules`, { credentials: "include" }).then((response) => {
+    return response.ok ? response.json() : null;
+  }).then((data) => {
+    communityFeedTos = data && data.tos ? String(data.tos) : "";
+    const copy = document.getElementById("community-tos-copy");
+    if (copy) copy.textContent = communityFeedTos;
+    syncCommunityFeedTerms();
+  }).catch(() => {
+    communityFeedTos = "";
+    syncCommunityFeedTerms();
+  });
+}
+
+function openCommunityTosCard() {
+  if (!communityFeedHasTos()) return;
+  const overlay = document.getElementById("community-tos-overlay");
+  const copy = document.getElementById("community-tos-copy");
+  if (copy) copy.textContent = communityFeedTos;
+  if (overlay) overlay.hidden = false;
+}
+
+function closeCommunityTosCard() {
+  const overlay = document.getElementById("community-tos-overlay");
+  if (overlay) overlay.hidden = true;
+}
+
 function bindCommunityFeedRail() {
   const explore = document.getElementById("community-feed-explore-topics");
   if (explore) explore.addEventListener("click", () => openCommunityTopicsCard());
@@ -346,6 +384,10 @@ function bindCommunityFeedRail() {
   if (topicsCancel) topicsCancel.addEventListener("click", () => closeCommunityTopicsCard());
   const peopleCancel = document.getElementById("community-people-cancel");
   if (peopleCancel) peopleCancel.addEventListener("click", () => closeCommunityPeopleCard());
+  const terms = document.getElementById("community-feed-terms");
+  if (terms) terms.addEventListener("click", () => openCommunityTosCard());
+  const tosClose = document.getElementById("community-tos-close");
+  if (tosClose) tosClose.addEventListener("click", () => closeCommunityTosCard());
   const topicsOverlay = document.getElementById("community-topics-overlay");
   if (topicsOverlay) topicsOverlay.addEventListener("mousedown", (e) => {
     if (e.target && e.target.id === "community-topics-overlay") closeCommunityTopicsCard();
@@ -354,8 +396,18 @@ function bindCommunityFeedRail() {
   if (peopleOverlay) peopleOverlay.addEventListener("mousedown", (e) => {
     if (e.target && e.target.id === "community-people-overlay") closeCommunityPeopleCard();
   });
+  const tosOverlay = document.getElementById("community-tos-overlay");
+  if (tosOverlay) tosOverlay.addEventListener("mousedown", (e) => {
+    if (e.target && e.target.id === "community-tos-overlay") closeCommunityTosCard();
+  });
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    const tos = document.getElementById("community-tos-overlay");
+    if (tos && !tos.hidden) {
+      closeCommunityTosCard();
+      e.stopPropagation();
+      return;
+    }
     const topics = document.getElementById("community-topics-overlay");
     if (topics && !topics.hidden) {
       closeCommunityTopicsCard();
@@ -365,6 +417,7 @@ function bindCommunityFeedRail() {
     const people = document.getElementById("community-people-overlay");
     if (people && !people.hidden) closeCommunityPeopleCard();
   }, true);
+  loadCommunityFeedTos();
 }
 
 bindCommunityFeedRail();

@@ -429,6 +429,115 @@ function paintSettingsCommunity(main, status) {
   main.appendChild(stack);
 }
 
+function settingsSiteRulesDefault() {
+  return { tos: "", reserved_names: [] };
+}
+
+function settingsStillSiteRules() {
+  return adminPage === "settings" && adminSection === "site-rules";
+}
+
+function reloadSettingsSiteRules() {
+  const host = document.getElementById("admin-main");
+  if (!host || !settingsStillSiteRules()) return;
+  adminApi("/admin/site_rules").then((response) => response.ok ? response.json() : null).then((data) => {
+    if (!settingsStillSiteRules()) return;
+    host.innerHTML = "";
+    paintSettingsSiteRules(host, data || settingsSiteRulesDefault());
+  }).catch(() => {});
+}
+
+function saveSettingsSiteRulesTos(tos) {
+  return adminApi("/admin/site_rules", { method: "POST", body: { tos: tos } }).then((response) => {
+    if (!response.ok) return;
+    reloadSettingsSiteRules();
+  }).catch(() => {});
+}
+
+function settingsSiteRulesName(method, label) {
+  const word = String(label || "").trim();
+  if (method === "POST" && !word) return;
+  const path = method === "DELETE"
+    ? "/admin/site_rules/names?label=" + encodeURIComponent(word)
+    : "/admin/site_rules/names";
+  const opts = method === "DELETE" ? { method: "DELETE" } : { method: "POST", body: { label: word } };
+  adminApi(path, opts).then((response) => {
+    if (!response.ok) return;
+    reloadSettingsSiteRules();
+  }).catch(() => {});
+}
+
+function paintSettingsSiteRules(main, status) {
+  const data = Object.assign(settingsSiteRulesDefault(), status || {});
+  const names = data.reserved_names || [];
+  main.className = "is-fit";
+  main.appendChild(adminPageHead({
+    crumbs: ["Admin", "Settings", "Site rules"],
+    title: "Site rules",
+    note: "Terms of Service and names that cannot be registered."
+  }));
+  const stack = adminEl("div", "admin-settings-stack");
+  const tos = adminPanel({ title: "Terms of Service" });
+  tos.body.classList.add("admin-settings-fields");
+  tos.body.appendChild(adminEl("div", "admin-settings-opt-sub", "Shown on Register and as Terms on the Community feed."));
+  const area = adminEl("textarea", "admin-mod-reason admin-settings-tos");
+  area.rows = 8;
+  area.wrap = "soft";
+  area.maxLength = 20000;
+  area.spellcheck = true;
+  area.placeholder = "Write the Terms of Service";
+  area.value = data.tos || "";
+  tos.body.appendChild(area);
+  const save = adminEl("button", "admin-mod-confirm");
+  save.type = "button";
+  save.textContent = "Save";
+  save.addEventListener("click", () => saveSettingsSiteRulesTos(area.value));
+  tos.body.appendChild(save);
+  stack.appendChild(tos.panel);
+  const reserved = adminPanel({ title: "Reserved names", meta: names.length ? String(names.length) : "Empty" });
+  reserved.body.classList.add("admin-settings-fields");
+  reserved.body.appendChild(adminEl("div", "admin-settings-opt-sub", "Register and username change refuse a match. Case does not matter. This does not cover server slugs."));
+  const add = adminEl("div", "admin-settings-add");
+  const input = adminEl("input", "admin-mod-input");
+  input.type = "text";
+  input.maxLength = 32;
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.placeholder = "Add a reserved username";
+  const btn = adminEl("button", "admin-mod-confirm");
+  btn.type = "button";
+  btn.textContent = "Add";
+  const submit = () => {
+    const label = String(input.value || "").trim();
+    if (!label) return;
+    input.value = "";
+    settingsSiteRulesName("POST", label);
+  };
+  btn.addEventListener("click", submit);
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    submit();
+  });
+  add.appendChild(input);
+  add.appendChild(btn);
+  reserved.body.appendChild(add);
+  const pills = adminEl("div", "admin-settings-pills");
+  if (!names.length) {
+    pills.appendChild(adminEl("div", "admin-settings-opt-sub", "No reserved names."));
+  }
+  names.forEach((label) => {
+    const pill = adminEl("button", "admin-settings-pill", label + " ×");
+    pill.type = "button";
+    pill.title = "Remove";
+    pill.addEventListener("click", () => settingsSiteRulesName("DELETE", label));
+    pills.appendChild(pill);
+  });
+  reserved.body.appendChild(pills);
+  stack.appendChild(reserved.panel);
+  main.appendChild(stack);
+}
+
 function paintAdminSettings(main, sectionId) {
   if (sectionId === "automod") {
     paintSettingsAutomod(main, settingsAutomodDefault());
@@ -438,6 +547,11 @@ function paintAdminSettings(main, sectionId) {
   if (sectionId === "community") {
     paintSettingsCommunity(main, settingsCommunityDefault());
     reloadSettingsCommunity();
+    return;
+  }
+  if (sectionId === "site-rules") {
+    paintSettingsSiteRules(main, settingsSiteRulesDefault());
+    reloadSettingsSiteRules();
     return;
   }
   paintSettingsKofi(main, null);
@@ -457,7 +571,7 @@ registerAdminPage({
     { id: "kofi", label: "Ko-fi", icon: "plus" },
     { id: "automod", label: "Auto mod", icon: "shield" },
     { id: "community", label: "Community", icon: "share" },
-    { id: "site-rules", label: "Site rules", icon: "lock", later: true }
+    { id: "site-rules", label: "Site rules", icon: "lock" }
   ],
   paint: paintAdminSettings
 });

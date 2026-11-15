@@ -86,7 +86,10 @@ def permaban_by_user_id(database, user_id):
 
 
 def username_reserved(database, username):
-    return bool(permaban_by_username(database, username))
+    if permaban_by_username(database, username):
+        return True
+    from app.site_rules import name_is_reserved
+    return name_is_reserved(database, username)
 
 
 def refuse_if_permabanned_name(database, username):

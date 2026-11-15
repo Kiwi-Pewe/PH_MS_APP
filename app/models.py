@@ -1023,6 +1023,13 @@ class Community_policy(Base):
     listing_tag_max = Column(Integer, nullable=False, default=5)
 
 
+class Site_rules(Base):
+    __tablename__ = "site_rules"
+    id = Column(Integer, primary_key=True)
+    tos = Column(String, nullable=True)
+    reserved_names = Column(String, nullable=True)
+
+
 class Kofi_settings(Base):
     __tablename__ = "kofi_settings"
     id = Column(Integer, primary_key=True)

@@ -1,13 +1,70 @@
+let registerTos = "";
+
 function hideAuthCards() {
   document.getElementById("login-card").style.display = "none";
   document.getElementById("mfa-card").style.display = "none";
   document.getElementById("recover-card").style.display = "none";
   document.getElementById("register-card").style.display = "none";
+  closeLoginTos();
+}
+
+function registerHasTos() {
+  return !!String(registerTos || "").trim();
+}
+
+function syncRegisterSubmit() {
+  const btn = document.getElementById("register-submit");
+  if (!btn) return;
+  const username = (document.getElementById("register-username").value || "").trim();
+  const password = (document.getElementById("register-password").value || "").trim();
+  const over18 = !!(document.getElementById("register-over-18") && document.getElementById("register-over-18").checked);
+  const readTos = !!(document.getElementById("register-read-tos") && document.getElementById("register-read-tos").checked);
+  btn.disabled = !(username && password && over18 && (!registerHasTos() || readTos));
+}
+
+function applyRegisterTos() {
+  const row = document.getElementById("register-tos-row");
+  const read = document.getElementById("register-read-tos");
+  const copy = document.getElementById("login-tos-copy");
+  if (row) row.hidden = !registerHasTos();
+  if (!registerHasTos() && read) read.checked = false;
+  if (copy) copy.textContent = registerTos || "";
+  syncRegisterSubmit();
+}
+
+async function loadRegisterTos() {
+  try {
+    const response = await fetch(`https://${API_HOST}/site_rules`, { credentials: "include" });
+    if (!response.ok) {
+      registerTos = "";
+      applyRegisterTos();
+      return;
+    }
+    const data = await response.json();
+    registerTos = data && data.tos ? String(data.tos) : "";
+  } catch (e) {
+    registerTos = "";
+  }
+  applyRegisterTos();
+}
+
+function openLoginTos() {
+  if (!registerHasTos()) return;
+  const overlay = document.getElementById("login-tos-overlay");
+  const copy = document.getElementById("login-tos-copy");
+  if (copy) copy.textContent = registerTos;
+  if (overlay) overlay.hidden = false;
+}
+
+function closeLoginTos() {
+  const overlay = document.getElementById("login-tos-overlay");
+  if (overlay) overlay.hidden = true;
 }
 
 function showRegister() {
   hideAuthCards();
   document.getElementById("register-card").style.display = "block";
+  loadRegisterTos();
 }
 
 function showLogin() {
@@ -67,15 +124,19 @@ function openMfa(user) {
 async function register() {
   const username = document.getElementById("register-username").value;
   const password = document.getElementById("register-password").value;
+  const over18 = !!(document.getElementById("register-over-18") && document.getElementById("register-over-18").checked);
+  const readTos = !!(document.getElementById("register-read-tos") && document.getElementById("register-read-tos").checked);
   const status = document.getElementById("register-status");
   if (!username || !password) { status.textContent = "Fill in all fields."; return; }
+  if (!over18) { status.textContent = "Confirm you are over 18."; return; }
+  if (registerHasTos() && !readTos) { status.textContent = "Confirm you have read the Terms of Service."; return; }
   status.textContent = "Registering...";
   try {
     const response = await fetch(`https://${API_HOST}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password, over_18: over18, read_tos: readTos })
     });
     if (!response.ok) {
       const err = await response.json();
@@ -185,6 +246,27 @@ document.getElementById("recover-code").addEventListener("keydown", (e) => {
 });
 document.getElementById("register-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") register();
+});
+["register-username", "register-password"].forEach((id) => {
+  const field = document.getElementById(id);
+  if (field) field.addEventListener("input", syncRegisterSubmit);
+});
+["register-over-18", "register-read-tos"].forEach((id) => {
+  const field = document.getElementById(id);
+  if (field) field.addEventListener("change", syncRegisterSubmit);
+});
+const registerTosOpen = document.getElementById("register-tos-open");
+if (registerTosOpen) registerTosOpen.addEventListener("click", openLoginTos);
+const loginTosClose = document.getElementById("login-tos-close");
+if (loginTosClose) loginTosClose.addEventListener("click", closeLoginTos);
+const loginTosOverlay = document.getElementById("login-tos-overlay");
+if (loginTosOverlay) loginTosOverlay.addEventListener("mousedown", (e) => {
+  if (e.target && e.target.id === "login-tos-overlay") closeLoginTos();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const overlay = document.getElementById("login-tos-overlay");
+  if (overlay && !overlay.hidden) closeLoginTos();
 });
 
 window.addEventListener("load", async () => {

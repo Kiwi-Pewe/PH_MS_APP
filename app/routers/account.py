@@ -10,6 +10,7 @@ from app.schemas import (
 from app.database import get_db
 from app.auth import pwd_context, create_session_id, get_current_user
 from app.site_moderation import refuse_if_permabanned_name, refuse_if_site_banned, username_reserved
+from app.site_rules import require_register_confirms
 from app.routers.appearance import appearance_payload
 from app.routers.accessibility import accessibility_payload
 from app.routers.language_time import language_time_payload
@@ -317,6 +318,7 @@ async def logout_account(response:Response, session_id: str = Cookie(None), data
 
 @router.post("/register", status_code = 201)
 def create_account(account: Account_register, request: Request, response: Response, database : Session = Depends(get_db)):
+    require_register_confirms(database, account.over_18, account.read_tos)
     username = clean_username(account.username)
     existing_username = database.query(UserInfo).filter(UserInfo.username == username).first()
 

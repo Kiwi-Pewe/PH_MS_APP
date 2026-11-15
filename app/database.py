@@ -1035,6 +1035,20 @@ def ensure_community_policy_tables():
             conn.rollback()
 
 
+def ensure_site_rules_tables():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS site_rules ("
+                "id INTEGER PRIMARY KEY, "
+                "tos VARCHAR, "
+                "reserved_names VARCHAR)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_kofi_tables():
     with engine.connect() as conn:
         try:

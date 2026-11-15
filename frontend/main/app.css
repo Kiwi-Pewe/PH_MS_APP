@@ -15111,6 +15111,11 @@ button.voice-more-row:disabled,
   opacity: 0.7;
   cursor: default;
 }
+.community-feed-legal button:not(:disabled) {
+  opacity: 1;
+  cursor: pointer;
+}
+.community-feed-legal button:not(:disabled):hover { color: var(--text); }
 .community-band-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -15213,7 +15218,8 @@ button.voice-more-row:disabled,
 #community-compose-overlay,
 #community-room-overlay,
 #community-topics-overlay,
-#community-people-overlay {
+#community-people-overlay,
+#community-tos-overlay {
   position: fixed;
   inset: 0;
   z-index: 950;
@@ -15225,7 +15231,17 @@ button.voice-more-row:disabled,
 #community-compose-overlay[hidden],
 #community-room-overlay[hidden],
 #community-topics-overlay[hidden],
-#community-people-overlay[hidden] { display: none; }
+#community-people-overlay[hidden],
+#community-tos-overlay[hidden] { display: none; }
+.community-tos-copy {
+  margin: 0;
+  min-height: 7.25em;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+}
 .community-feed-subcard { width: 520px; }
 #community-people-card.community-feed-subcard { width: 640px; }
 #community-feed-grow-list,

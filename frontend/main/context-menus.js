@@ -84,7 +84,7 @@ function canReactMessage(msg) {
   if (msg.permaban) return false;
   if (msg.deletionState === "pending" || msg.deletionState === "deleted") return false;
   if (typeof pendingIsExpired === "function" && pendingIsExpired(msg)) return false;
-  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "channel" || msg.chatKind === "forum" || msg.chatKind === "announcement" || msg.chatKind === "forum_post" || msg.chatKind === "comment" || msg.chatKind === "media_comment" || msg.chatKind === "calendar_event";
+  return msg.chatKind === "dm" || msg.chatKind === "party" || msg.chatKind === "channel" || msg.chatKind === "forum" || msg.chatKind === "announcement" || msg.chatKind === "forum_post" || msg.chatKind === "comment" || msg.chatKind === "media_comment" || msg.chatKind === "calendar_event" || msg.chatKind === "news" || msg.chatKind === "news_comment";
 }
 
 function openReactionPicker(msg, x, y) {
@@ -109,6 +109,14 @@ async function toggleReaction(msg, emoji) {
     const data = await response.json();
     if (msg.chatKind === "announcement") {
       patchAnnouncementReactions(msg.id, data.reactions || []);
+      return;
+    }
+    if (msg.chatKind === "news") {
+      if (typeof patchNewsReactions === "function") patchNewsReactions(msg.id, data.reactions || []);
+      return;
+    }
+    if (msg.chatKind === "news_comment") {
+      if (typeof patchCommentReactions === "function") patchCommentReactions(msg.id, data.reactions || []);
       return;
     }
     if (msg.chatKind === "forum_post") {

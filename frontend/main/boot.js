@@ -653,6 +653,14 @@ function connectSocket() {
       patchAnnouncementReactions(data.post_id, data.reactions || []);
     }
 
+    if (data.type === "news_reacted" && typeof patchNewsReactions === "function") {
+      patchNewsReactions(data.post_id, data.reactions || []);
+    }
+
+    if (data.type === "news_comment_reacted" && typeof patchCommentReactions === "function") {
+      patchCommentReactions(data.comment_id, data.reactions || []);
+    }
+
     if (data.type === "forum_post_reacted") {
       patchForumPostReactions(data.post_id, data.reactions || []);
     }
@@ -837,6 +845,34 @@ function connectSocket() {
     // directly in deleteCommentFromContextMenu instead.
     if (data.type === "comment_deleted") {
       removeCommentFromThread(data.post_id, data.comment_id, data.comment_count);
+    }
+
+    if (data.type === "news_comment") {
+      const key = typeof commentThreadKey === "function" ? commentThreadKey(data.post_id, "news") : data.post_id;
+      const comment = data.comment || {};
+      comment.chatKind = "news_comment";
+      comment.reactions = typeof applyReactionMe === "function" ? applyReactionMe(comment.reactions || []) : (comment.reactions || []);
+      const post = (typeof newsPosts !== "undefined" ? newsPosts : []).find((row) => Number(row.id) === Number(data.post_id));
+      if (post && comment.comment_count != null) post.comment_count = comment.comment_count;
+      const els = typeof commentThreadElements !== "undefined" ? commentThreadElements[key] : null;
+      const state = typeof commentThreadState !== "undefined" ? commentThreadState[key] : null;
+      if (els) {
+        if (els.btnEl && comment.comment_count != null) els.btnEl.textContent = comment.comment_count + " comments";
+        if (state && state.expanded && els.listEl && typeof buildCommentElement === "function") {
+          state.comments.push(comment);
+          els.listEl.appendChild(buildCommentElement(comment));
+          if (typeof syncAnnounceCommentsEmpty === "function") syncAnnounceCommentsEmpty(key);
+        }
+      }
+    }
+
+    if (data.type === "news_comment_deleted" && typeof removeCommentFromThread === "function") {
+      const key = typeof commentThreadKey === "function" ? commentThreadKey(data.post_id, "news") : data.post_id;
+      removeCommentFromThread(key, data.comment_id, data.comment_count);
+    }
+
+    if (data.type === "news_comment_edited" && typeof applyCommentEdit === "function") {
+      applyCommentEdit(data);
     }
 
     if (data.type === "comment_edited" && typeof applyCommentEdit === "function") {

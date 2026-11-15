@@ -18,7 +18,7 @@ function buildCommentElement(comment) {
   header.className = "announce-comment-header";
   const name = document.createElement("span");
   name.className = "announce-comment-name";
-  name.textContent = comment.username || "Unknown";
+  name.textContent = comment.display_name || comment.username || "Unknown";
   if (typeof applyServerNameColor === "function") applyServerNameColor(name, comment.sender_id, comment.name_role || comment.nameRole);
   const time = document.createElement("span");
   time.className = "announce-comment-time";
@@ -76,17 +76,18 @@ function showCommentContextMenu(e, comment) {
   e.preventDefault();
   e.stopPropagation();
   const isMine = comment.sender_id === myUserId;
-  const canDelete = isMine || myUserId === currentServerOwnerId;
+  const newsComment = commentKindOf(comment) === "news_comment";
+  const canDelete = isMine || (newsComment ? (typeof isOneiraAdmin === "function" && isOneiraAdmin()) : myUserId === currentServerOwnerId);
   openContextMenu(e.clientX, e.clientY, {
-    avatarText: avatarLetter(comment.username),
-    title: comment.username,
+    avatarText: avatarLetter(comment.display_name || comment.username),
+    title: comment.display_name || comment.username,
     timestamp: formatClusterTime(parseUtcTimestamp(comment.created_at)),
     subtitle: truncateForContextMenu(typeof mentionDisplayText === "function" ? mentionDisplayText(comment.content, comment.mentionUsers, comment.mentionRoles) : comment.content)
   }, [
     { label: "Copy Comment", onSelect: () => copyCommentContent(comment) },
     isMine && { label: "Edit Comment", onSelect: () => startCommentEdit(comment) },
     { label: "Add Reaction", onSelect: () => openReactionPicker(commentReactionTarget(comment), e.clientX, e.clientY) },
-    (typeof canPinMessages !== "function" || canPinMessages()) && {
+    !newsComment && (typeof canPinMessages !== "function" || canPinMessages()) && {
       label: (typeof isMessagePinned === "function" && isMessagePinned(commentKindOf(comment), comment.id)) ? "Unpin" : "Pin",
       onSelect: () => {
         if (typeof pinOrUnpinMessage === "function") {
@@ -161,7 +162,8 @@ async function confirmCommentEdit(comment, field) {
     window.alert("Write a comment first.");
     return;
   }
-  const response = await fetch(`https://${serverAddress}/edit_comment`, {
+  const path = commentKindOf(comment) === "news_comment" ? "news/comments/edit" : "edit_comment";
+  const response = await fetch(`https://${serverAddress}/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -185,8 +187,13 @@ async function confirmCommentEdit(comment, field) {
 }
 
 function applyCommentEdit(data) {
-  const state = commentThreadState[data.post_id];
-  const comment = state && (state.comments || []).find((row) => Number(row.id) === Number(data.comment_id));
+  const keys = [data.post_id, commentThreadKey(data.post_id, "news")];
+  let comment = null;
+  for (let i = 0; i < keys.length; i++) {
+    const state = commentThreadState[keys[i]];
+    comment = state && (state.comments || []).find((row) => Number(row.id) === Number(data.comment_id));
+    if (comment) break;
+  }
   if (!comment) return;
   comment.content = data.content;
   comment.edited = !!data.edited;
@@ -197,7 +204,27 @@ function applyCommentEdit(data) {
 }
 
 function commentKindOf(comment) {
-  return comment && comment.chatKind === "media_comment" ? "media_comment" : "comment";
+  if (comment && comment.chatKind === "media_comment") return "media_comment";
+  if (comment && comment.chatKind === "news_comment") return "news_comment";
+  return "comment";
+}
+
+function commentThreadKey(postId, surface) {
+  return surface === "news" ? "news:" + String(postId) : postId;
+}
+
+function parseCommentThreadKey(key) {
+  const text = String(key == null ? "" : key);
+  if (text.indexOf("news:") === 0) return { surface: "news", postId: Number(text.slice(5)) };
+  return { surface: "announcement", postId: Number(text) };
+}
+
+function commentThreadPost(key) {
+  const parsed = parseCommentThreadKey(key);
+  if (parsed.surface === "news") {
+    return (typeof newsPosts !== "undefined" ? newsPosts : []).find((row) => Number(row.id) === parsed.postId) || null;
+  }
+  return (typeof currentAnnouncementPosts !== "undefined" ? currentAnnouncementPosts : []).find((row) => Number(row.id) === parsed.postId) || null;
 }
 
 function commentReactionTarget(comment) {
@@ -260,12 +287,16 @@ async function copyCommentContent(comment) {
 // broadcast - so the deleter does its own local cleanup here instead
 // of waiting for the ws event like everyone else does.
 async function deleteCommentFromContextMenu(comment) {
-  const media = commentKindOf(comment) === "media_comment";
-  const path = media ? `delete_media_comment/${comment.id}` : `delete_comment/${comment.id}`;
+  const kind = commentKindOf(comment);
+  const news = kind === "news_comment";
+  const media = kind === "media_comment";
+  const path = media ? `delete_media_comment/${comment.id}` : (news ? "news/comments/delete" : `delete_comment/${comment.id}`);
   try {
     const response = await fetch(`https://${serverAddress}/${path}`, {
       method: "POST",
-      credentials: "include"
+      credentials: "include",
+      headers: news ? { "Content-Type": "application/json" } : undefined,
+      body: news ? JSON.stringify({ comment_id: comment.id }) : undefined
     });
     if (!response.ok) {
       console.error(`Failed to delete comment: ${response.status}`);
@@ -274,6 +305,11 @@ async function deleteCommentFromContextMenu(comment) {
     if (media) {
       const data = await response.json().catch(() => ({}));
       if (typeof removeMediaComment === "function") removeMediaComment(comment.item_id || comment.post_id, comment.id, data.comment_count);
+      return;
+    }
+    if (news) {
+      const data = await response.json().catch(() => ({}));
+      removeCommentFromThread(commentThreadKey(comment.post_id, "news"), comment.id, data.comment_count);
       return;
     }
   } catch (e) {
@@ -287,23 +323,24 @@ async function deleteCommentFromContextMenu(comment) {
 // below. authoritativeCount comes from the broadcast; the deleter's own
 // path has no response body so it falls back to a local decrement.
 function removeCommentFromThread(postId, commentId, authoritativeCount) {
-  const state = commentThreadState[postId];
+  const key = postId;
+  const state = commentThreadState[key];
   if (state) {
     state.comments = state.comments.filter(c => c.id !== commentId);
   }
-  const els = commentThreadElements[postId];
+  const els = commentThreadElements[key];
   if (els && els.listEl) {
     const rowEl = els.listEl.querySelector(`[data-comment-id="${commentId}"]`);
     if (rowEl) rowEl.remove();
   }
 
-  const post = currentAnnouncementPosts.find(p => p.id === postId);
+  const post = commentThreadPost(key);
   const newCount = typeof authoritativeCount === "number"
     ? authoritativeCount
     : (post ? Math.max(0, (post.comment_count || 0) - 1) : null);
   if (post && newCount !== null) post.comment_count = newCount;
   if (els && els.btnEl && newCount !== null) els.btnEl.textContent = `${newCount} comments`;
-  syncAnnounceCommentsEmpty(postId);
+  syncAnnounceCommentsEmpty(key);
 }
 
 // Fetch happens once, on first expand - state.comments.length check
@@ -326,7 +363,7 @@ function closeAnnounceComments() {
   currentAnnounceCommentsPostId = null;
 }
 
-function paintAnnounceCommentsSnippet(post) {
+function paintAnnounceCommentsSnippet(post, surface) {
   const host = document.getElementById("announce-comments-snippet");
   if (!host || !post) return;
   host.replaceChildren();
@@ -334,17 +371,19 @@ function paintAnnounceCommentsSnippet(post) {
   top.className = "announce-comments-snippet-top";
   const avatar = document.createElement("div");
   avatar.className = "cluster-avatar";
-  if (typeof paintUserFace === "function") paintUserFace(avatar, post, { name: post.username, userId: post.sender_id });
-  else avatar.textContent = (post.username || "?").charAt(0).toUpperCase();
+  const label = post.display_name || post.username || "Unknown";
+  if (typeof paintUserFace === "function") paintUserFace(avatar, post, { name: label, userId: post.sender_id });
+  else avatar.textContent = (label || "?").charAt(0).toUpperCase();
   const meta = document.createElement("div");
   meta.className = "announce-comments-snippet-meta";
   const name = document.createElement("div");
   name.className = "announce-post-name";
-  name.textContent = post.username || "Unknown";
-  if (typeof applyServerNameColor === "function") applyServerNameColor(name, post.sender_id, post.name_role || post.nameRole);
+  name.textContent = label;
+  if (surface !== "news" && typeof applyServerNameColor === "function") applyServerNameColor(name, post.sender_id, post.name_role || post.nameRole);
   const title = document.createElement("div");
   title.className = "announce-comments-snippet-title";
-  title.textContent = post.title || "";
+  if (surface === "news" && typeof fillNewsMarkdown === "function") fillNewsMarkdown(title, post.title || "");
+  else title.textContent = post.title || "";
   meta.appendChild(name);
   meta.appendChild(title);
   top.appendChild(avatar);
@@ -353,7 +392,8 @@ function paintAnnounceCommentsSnippet(post) {
   if (post.body) {
     const body = document.createElement("div");
     body.className = "announce-comments-snippet-body";
-    if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers, post.mentionRoles, { rich: true });
+    if (surface === "news" && typeof fillNewsMarkdown === "function") fillNewsMarkdown(body, post.body);
+    else if (typeof fillMentionText === "function") fillMentionText(body, post.body, post.mentionUsers, post.mentionRoles, { rich: true });
     else body.textContent = post.body;
     host.appendChild(body);
   }
@@ -398,12 +438,13 @@ function syncAnnounceCommentsEmpty(postId) {
   empty.hidden = !!(state && state.comments && state.comments.length);
 }
 
-async function openAnnounceComments(postId) {
-  const post = (typeof currentAnnouncementPosts !== "undefined" ? currentAnnouncementPosts : []).find((row) => Number(row.id) === Number(postId));
+async function openAnnounceComments(postId, surface) {
+  const key = commentThreadKey(postId, surface);
+  const post = commentThreadPost(key);
   if (!post) return;
   const overlay = ensureAnnounceCommentsOverlay();
   if (!overlay) return;
-  if (currentAnnounceCommentsPostId != null && Number(currentAnnounceCommentsPostId) !== Number(postId)) {
+  if (currentAnnounceCommentsPostId != null && String(currentAnnounceCommentsPostId) !== String(key)) {
     const prev = commentThreadState[currentAnnounceCommentsPostId];
     if (prev) prev.expanded = false;
     const prevEls = commentThreadElements[currentAnnounceCommentsPostId];
@@ -412,8 +453,8 @@ async function openAnnounceComments(postId) {
       prevEls.loadMoreBtn = null;
     }
   }
-  currentAnnounceCommentsPostId = postId;
-  paintAnnounceCommentsSnippet(post);
+  currentAnnounceCommentsPostId = key;
+  paintAnnounceCommentsSnippet(post, surface);
   const list = document.getElementById("announce-comments-list");
   const more = document.getElementById("announce-comments-more");
   const input = document.getElementById("announce-comments-input");
@@ -422,38 +463,39 @@ async function openAnnounceComments(postId) {
   if (composer) composer.hidden = post.comments_open === false;
   if (input) {
     input.value = "";
-    input.disabled = typeof isServerTimedOut === "function" && isServerTimedOut();
+    input.disabled = surface !== "news" && typeof isServerTimedOut === "function" && isServerTimedOut();
     input.placeholder = input.disabled
       ? "You do not have permission to send messages in this channel."
       : "Add a comment...";
   }
-  const els = commentThreadElements[postId] || (commentThreadElements[postId] = {});
+  const els = commentThreadElements[key] || (commentThreadElements[key] = {});
   els.listEl = list;
   els.loadMoreBtn = more;
-  let state = commentThreadState[postId];
+  let state = commentThreadState[key];
   if (!state) {
     state = { expanded: false, comments: [], hasMore: true };
-    commentThreadState[postId] = state;
+    commentThreadState[key] = state;
   }
   state.expanded = true;
   (state.comments || []).forEach((comment) => {
     if (list) list.appendChild(buildCommentElement(comment));
   });
   if (more) more.style.display = (state.comments.length && state.hasMore) ? "block" : "none";
-  syncAnnounceCommentsEmpty(postId);
+  syncAnnounceCommentsEmpty(key);
   overlay.hidden = false;
-  if (state.comments.length === 0 && state.hasMore) await fetchComments(postId, 25);
-  syncAnnounceCommentsEmpty(postId);
+  if (state.comments.length === 0 && state.hasMore) await fetchComments(key, 25);
+  syncAnnounceCommentsEmpty(key);
   if (input && !input.disabled) input.focus();
 }
 
-async function toggleCommentThread(postId) {
+async function toggleCommentThread(postId, surface) {
+  const key = commentThreadKey(postId, surface);
   const overlay = document.getElementById("announce-comments-overlay");
-  if (overlay && !overlay.hidden && Number(currentAnnounceCommentsPostId) === Number(postId)) {
+  if (overlay && !overlay.hidden && String(currentAnnounceCommentsPostId) === String(key)) {
     closeAnnounceComments();
     return;
   }
-  await openAnnounceComments(postId);
+  await openAnnounceComments(postId, surface);
 }
 
 // Shared by the initial 3-comment load and each "load more" click -
@@ -462,8 +504,11 @@ async function fetchComments(postId, limit) {
   const state = commentThreadState[postId];
   const els = commentThreadElements[postId];
   if (!state || !els || !els.listEl) return;
+  const parsed = parseCommentThreadKey(postId);
   const lastId = state.comments.length > 0 ? state.comments[state.comments.length - 1].id : null;
-  let url = `https://${serverAddress}/get_post_comment/${postId}?limit=${limit}`;
+  let url = parsed.surface === "news"
+    ? `https://${serverAddress}/news/comments/${parsed.postId}?limit=${limit}`
+    : `https://${serverAddress}/get_post_comment/${parsed.postId}?limit=${limit}`;
   if (lastId) url += `&after_id=${lastId}`;
 
   try {
@@ -472,6 +517,7 @@ async function fetchComments(postId, limit) {
     const data = await response.json();
     const incoming = (data.comments || []).map(c => {
       c.reactions = applyReactionMe(c.reactions || []);
+      if (parsed.surface === "news") c.chatKind = "news_comment";
       if (typeof applyMentionFields === "function") applyMentionFields(c, c);
       return c;
     });
@@ -490,15 +536,17 @@ function loadMoreComments(postId) {
 async function submitComment(postId, inputEl) {
   const content = inputEl.value.trim();
   if (!content) return;
-  if (typeof isServerTimedOut === "function" && isServerTimedOut()) return;
+  const parsed = parseCommentThreadKey(postId);
+  if (parsed.surface !== "news" && typeof isServerTimedOut === "function" && isServerTimedOut()) return;
 
   let result;
   try {
-    const response = await fetch(`https://${serverAddress}/post_comment`, {
+    const path = parsed.surface === "news" ? "news/comments" : "post_comment";
+    const response = await fetch(`https://${serverAddress}/${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ post_id: postId, content })
+      body: JSON.stringify({ post_id: parsed.postId, content })
     });
     if (!response.ok) return;
     result = await response.json();
@@ -509,11 +557,19 @@ async function submitComment(postId, inputEl) {
   if (typeof refreshComposerMentions === "function") refreshComposerMentions(inputEl);
   if (typeof hideMentionPicker === "function") hideMentionPicker();
 
-  const comment = { id: result.id, post_id: postId, sender_id: myUserId, content: result.content, created_at: result.created_at, username: myUsername, reactions: [] };
+  const comment = result.id ? result : { id: result.id, post_id: parsed.postId, sender_id: myUserId, content: result.content, created_at: result.created_at, username: myUsername, reactions: [] };
+  if (!comment.username) comment.username = myUsername;
+  if (!comment.display_name) comment.display_name = (typeof myDisplayName !== "undefined" && myDisplayName) || myUsername;
+  if (!comment.sender_id) comment.sender_id = myUserId;
+  if (!comment.post_id) comment.post_id = parsed.postId;
+  if (parsed.surface === "news") comment.chatKind = "news_comment";
+  comment.reactions = applyReactionMe(comment.reactions || []);
   if (typeof applyMentionFields === "function") applyMentionFields(comment, result);
   const state = commentThreadState[postId] || (commentThreadState[postId] = { expanded: true, comments: [], hasMore: false });
   state.comments.push(comment);
   const els = commentThreadElements[postId];
+  const post = commentThreadPost(postId);
+  if (post && result.comment_count != null) post.comment_count = result.comment_count;
   if (els) {
     if (els.listEl) els.listEl.appendChild(buildCommentElement(comment));
     if (els.btnEl) els.btnEl.textContent = `${result.comment_count} comments`;

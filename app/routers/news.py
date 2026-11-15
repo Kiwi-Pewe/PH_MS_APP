@@ -2,13 +2,15 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from app.models import UserInfo, News_post, News_seen, News_settings
-from app.schemas import News_create, News_edit, News_id, News_event_edit, News_broadcast
+from app.models import UserInfo, News_post, News_comment, News_seen, News_settings
+from app.schemas import News_create, News_edit, News_id, News_comment_id, News_event_edit, News_broadcast, Comment_create, Comment_edit
 from app.database import get_db
 from app.auth import get_current_user
 from app.r2 import delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
 from app.routers.profile import public_avatar, public_display_name
 from app.routers.realtime import active_connections, notify_user
+from app.routers.reactions import clear_reactions, reactions_for_messages, reactions_for_one
+from app.routers.feed import notify_activity_post_comment
 
 NEWS_ALIGNS = ("left", "center", "right")
 NEWS_EVENT_COLORS = ("red", "orange", "yellow", "green")
@@ -120,7 +122,7 @@ def pack_news_event(row):
     }
 
 
-def pack_news_post(row, account):
+def pack_news_post(row, account, reactions=None):
     return {
         "id": row.id,
         "title": row.title or "",
@@ -137,8 +139,31 @@ def pack_news_post(row, account):
         "title_align": news_align(row.title_align),
         "body_align": news_align(row.body_align),
         "event": pack_news_event(row),
-        "reactions": [],
+        "reactions": reactions if reactions is not None else [],
     }
+
+
+def pack_news_comment(row, account, reactions=None):
+    return {
+        "id": row.id,
+        "post_id": row.post_id,
+        "sender_id": row.sender_id,
+        "content": row.content or "",
+        "username": (account.username if account else "") or "",
+        "display_name": public_display_name(account) if account else "",
+        "avatar": public_avatar(account) if account else {},
+        "created_at": str(row.created_at) if row.created_at else None,
+        "edited": bool(row.edited),
+        "reactions": reactions if reactions is not None else [],
+        "chatKind": "news_comment",
+    }
+
+
+def news_comment_text(raw):
+    text = (raw or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Write a comment first.")
+    return text[:4000]
 
 
 async def fanout_news(payload, exclude_user_id=None):
@@ -204,7 +229,8 @@ def list_news_posts(
     rows = query.order_by(News_post.created_at.desc(), News_post.id.desc()).limit(80).all()
     ids = list({row.sender_id for row in rows if row.sender_id})
     accounts = {account.id: account for account in database.query(UserInfo).filter(UserInfo.id.in_(ids)).all()} if ids else {}
-    return {"posts": [pack_news_post(row, accounts.get(row.sender_id)) for row in rows]}
+    reaction_map = reactions_for_messages(database, "news", [row.id for row in rows], current_user.id)
+    return {"posts": [pack_news_post(row, accounts.get(row.sender_id), reaction_map.get(row.id, [])) for row in rows]}
 
 
 @router.get("/news/badge")
@@ -273,7 +299,7 @@ async def create_news_post(
     database.add(row)
     database.commit()
     database.refresh(row)
-    packed = pack_news_post(row, current_user)
+    packed = pack_news_post(row, current_user, [])
     await fanout_news({"type": "news_created", "post": packed}, exclude_user_id=current_user.id)
     return packed
 
@@ -304,7 +330,7 @@ async def edit_news_post(
         set_news_event(row, parse_news_event(body.event) if body.event else None)
     database.commit()
     database.refresh(row)
-    packed = pack_news_post(row, current_user)
+    packed = pack_news_post(row, current_user, reactions_for_one(database, "news", row.id, current_user.id))
     await fanout_news({"type": "news_updated", "post": packed}, exclude_user_id=current_user.id)
     return packed
 
@@ -320,6 +346,11 @@ async def delete_news_post(
     if not row:
         raise HTTPException(status_code=404, detail="Post not found")
     post_id = row.id
+    comments = database.query(News_comment).filter(News_comment.post_id == row.id).all()
+    for comment in comments:
+        clear_reactions(database, "news_comment", comment.id)
+        database.delete(comment)
+    clear_reactions(database, "news", row.id)
     delete_attachment(row.attachment)
     database.delete(row)
     database.commit()
@@ -343,6 +374,119 @@ async def edit_news_event(
     set_news_event(row, event)
     database.commit()
     database.refresh(row)
-    packed = pack_news_post(row, current_user)
+    packed = pack_news_post(row, current_user, reactions_for_one(database, "news", row.id, current_user.id))
     await fanout_news({"type": "news_updated", "post": packed}, exclude_user_id=current_user.id)
     return packed
+
+
+@router.get("/news/comments/{post_id}")
+def list_news_comments(
+    post_id: int,
+    after_id: int = None,
+    limit: int = 25,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    post = database.query(News_post).filter(News_post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    size = max(1, min(int(limit or 25), 50))
+    query = database.query(News_comment).filter(News_comment.post_id == post_id)
+    if after_id:
+        query = query.filter(News_comment.id > after_id)
+    rows = query.order_by(News_comment.id.asc()).limit(size).all()
+    ids = list({row.sender_id for row in rows if row.sender_id})
+    accounts = {account.id: account for account in database.query(UserInfo).filter(UserInfo.id.in_(ids)).all()} if ids else {}
+    reaction_map = reactions_for_messages(database, "news_comment", [row.id for row in rows], current_user.id)
+    return {
+        "post_id": post_id,
+        "comments": [pack_news_comment(row, accounts.get(row.sender_id), reaction_map.get(row.id, [])) for row in rows],
+    }
+
+
+@router.post("/news/comments")
+async def create_news_comment(
+    body: Comment_create,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    post = database.query(News_post).filter(News_post.id == body.post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if not post.comments_open:
+        raise HTTPException(status_code=400, detail="Comments are turned off for this post.")
+    content = news_comment_text(body.content)
+    row = News_comment(post_id=post.id, sender_id=current_user.id, content=content)
+    post.comment_count = int(post.comment_count or 0) + 1
+    database.add(row)
+    database.commit()
+    database.refresh(row)
+    packed = pack_news_comment(row, current_user, [])
+    packed["comment_count"] = int(post.comment_count or 0)
+    await fanout_news({"type": "news_comment", "post_id": post.id, "comment": packed}, exclude_user_id=current_user.id)
+    if post.sender_id:
+        await notify_activity_post_comment(
+            database,
+            receiver_id=post.sender_id,
+            actor_id=current_user.id,
+            post_kind="news",
+            post_id=post.id,
+        )
+    return packed
+
+
+@router.post("/news/comments/edit")
+async def edit_news_comment(
+    body: Comment_edit,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    row = database.query(News_comment).filter(News_comment.id == body.comment_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if row.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit comment")
+    content = news_comment_text(body.content)
+    if (row.content or "") == content:
+        return {"id": row.id, "content": row.content, "edited": bool(row.edited), "unchanged": True}
+    row.content = content
+    row.edited = True
+    database.commit()
+    await fanout_news({
+        "type": "news_comment_edited",
+        "post_id": row.post_id,
+        "comment_id": row.id,
+        "content": row.content,
+        "edited": True,
+    }, exclude_user_id=current_user.id)
+    return {"id": row.id, "content": row.content, "edited": True, "unchanged": False}
+
+
+@router.post("/news/comments/delete")
+async def delete_news_comment(
+    body: News_comment_id,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    row = database.query(News_comment).filter(News_comment.id == body.comment_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    post = database.query(News_post).filter(News_post.id == row.post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    is_admin = (current_user.username or "").strip().lower() == "kiwi"
+    if row.sender_id != current_user.id and not is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to delete comment")
+    comment_id = row.id
+    post_id = post.id
+    clear_reactions(database, "news_comment", comment_id)
+    database.delete(row)
+    post.comment_count = max(0, int(post.comment_count or 0) - 1)
+    database.commit()
+    await fanout_news({
+        "type": "news_comment_deleted",
+        "post_id": post_id,
+        "comment_id": comment_id,
+        "comment_count": int(post.comment_count or 0),
+    }, exclude_user_id=current_user.id)
+    return {"comment_id": comment_id, "comment_count": int(post.comment_count or 0)}

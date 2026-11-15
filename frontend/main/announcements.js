@@ -509,7 +509,7 @@ function fillAnnounceReactions(host, post) {
 function patchAnnouncementReactions(postId, reactions) {
   const post = currentAnnouncementPosts.find(p => p.id === postId);
   if (post) post.reactions = applyReactionMe(reactions || []);
-  const card = document.querySelector(`.announce-post[data-post-id="${postId}"]`);
+  const card = document.querySelector(`#announcements-posts .announce-post[data-post-id="${postId}"]`);
   const host = card && card.querySelector(".announce-reactions");
   if (host && post) fillAnnounceReactions(host, post);
 }

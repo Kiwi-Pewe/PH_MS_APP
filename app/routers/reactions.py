@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models import UserInfo, Message, Party_messages, Party_members, Channel_messages, Message_reaction, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Servers, Server_members, Server_categories, Server_channels, Calendar_event
+from app.models import UserInfo, Message, Party_messages, Party_members, Channel_messages, Message_reaction, Announcement_post, Announcement_comment, Forum_post, Forum_messages, Servers, Server_members, Server_categories, Server_channels, Calendar_event, News_post, News_comment
 from app.schemas import React_message
 from app.database import get_db
 from app.auth import get_current_user
@@ -395,5 +395,61 @@ async def react_message(target: React_message, database: Session = Depends(get_d
                 name=event.name or "Event",
             )
         return {"id": event.id, "reactions": reactions}
+
+    if target.kind == "news":
+        post = database.query(News_post).filter(News_post.id == target.message_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="No message found")
+        added = toggle_reaction_row(database, "news", post.id, current_user.id, emoji)
+        database.commit()
+        reactions = reactions_for_one(database, "news", post.id, current_user.id)
+        from app.routers.news import fanout_news
+        await fanout_news({
+            "type": "news_reacted",
+            "kind": "news",
+            "post_id": post.id,
+            "reactions": reactions_for_one(database, "news", post.id, None),
+        }, exclude_user_id=current_user.id)
+        if added and post.sender_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=post.sender_id,
+                actor_id=current_user.id,
+                message_kind="news",
+                message_id=post.id,
+                emoji=emoji,
+                post_id=post.id,
+            )
+        return {"id": post.id, "reactions": reactions}
+
+    if target.kind == "news_comment":
+        comment = database.query(News_comment).filter(News_comment.id == target.message_id).first()
+        if not comment:
+            raise HTTPException(status_code=404, detail="No message found")
+        post = database.query(News_post).filter(News_post.id == comment.post_id).first()
+        if not post:
+            raise HTTPException(status_code=404, detail="No message found")
+        added = toggle_reaction_row(database, "news_comment", comment.id, current_user.id, emoji)
+        database.commit()
+        reactions = reactions_for_one(database, "news_comment", comment.id, current_user.id)
+        from app.routers.news import fanout_news
+        await fanout_news({
+            "type": "news_comment_reacted",
+            "kind": "news_comment",
+            "comment_id": comment.id,
+            "post_id": comment.post_id,
+            "reactions": reactions_for_one(database, "news_comment", comment.id, None),
+        }, exclude_user_id=current_user.id)
+        if added and comment.sender_id:
+            await notify_activity_reaction(
+                database,
+                receiver_id=comment.sender_id,
+                actor_id=current_user.id,
+                message_kind="news_comment",
+                message_id=comment.id,
+                emoji=emoji,
+                post_id=comment.post_id,
+            )
+        return {"id": comment.id, "reactions": reactions}
 
     raise HTTPException(status_code=400, detail="This message type cannot be reacted to yet")

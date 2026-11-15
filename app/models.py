@@ -958,6 +958,16 @@ class News_post(Base):
     event_color = Column(String, nullable=True)
 
 
+class News_comment(Base):
+    __tablename__ = "news_comments"
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey("news_posts.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    content = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+    edited = Column(Boolean, default=False)
+
+
 class News_seen(Base):
     __tablename__ = "news_seen"
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)

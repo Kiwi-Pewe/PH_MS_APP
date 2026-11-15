@@ -193,10 +193,10 @@ function feedAlertBody(alert) {
   if (kind === "reaction") {
     const emoji = String(alert && alert.reason || "").trim();
     const reacted = emoji ? ("reacted " + emoji + " to") : "reacted to";
-    if (surface === "announcement") return who + " " + reacted + " your announcement.";
+    if (surface === "announcement" || surface === "news") return who + " " + reacted + " your announcement.";
     if (surface === "forum_post") return who + " " + reacted + " your post.";
     if (surface === "forum") return who + " " + reacted + " your comment.";
-    if (surface === "comment" || surface === "media_comment") return who + " " + reacted + " your comment.";
+    if (surface === "comment" || surface === "media_comment" || surface === "news_comment") return who + " " + reacted + " your comment.";
     if (surface === "calendar_event") {
       const eventName = feedEventName(alert);
       return eventName
@@ -214,6 +214,7 @@ function feedAlertBody(alert) {
   if (kind === "post_comment") {
     if (surface === "media") return who + " commented on your media.";
     if (surface === "forum_post") return who + " commented on your post.";
+    if (surface === "news") return who + " commented on your announcement.";
     return who + " commented on your post.";
   }
   if (kind === "event_invite") {
@@ -594,6 +595,12 @@ async function jumpFeedAlert(alert) {
   if (kind === "ban" || kind === "kick") return;
   if (kind === "application_submitted" || feedFamilyOf(alert) === "moderation") {
     if (feedJoinedServer(serverId) && typeof openServer === "function") openServer(serverId);
+    return;
+  }
+  if (surface === "news" || surface === "news_comment") {
+    if (typeof openNews === "function") await openNews();
+    const postId = ctx.post_id;
+    if (postId && typeof toggleCommentThread === "function") await toggleCommentThread(postId, "news");
     return;
   }
   if (kind === "event_invite" || kind === "event_created" || surface === "calendar_event") {

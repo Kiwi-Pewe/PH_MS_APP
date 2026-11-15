@@ -51,6 +51,9 @@ function closeNewsChrome() {
   closeNewsEventDetail();
   closeNewsEdit();
   closeNewsDelete();
+  if (typeof closeAnnounceComments === "function" && String(typeof currentAnnounceCommentsPostId !== "undefined" ? currentAnnounceCommentsPostId : "").indexOf("news:") === 0) {
+    closeAnnounceComments();
+  }
 }
 
 function closeNewsDonate() {
@@ -200,7 +203,7 @@ function paintNewsPostCard(row) {
   const divider = document.createElement("div");
   divider.className = "announce-divider";
   const reactionsRow = document.createElement("div");
-  reactionsRow.className = "announce-reactions-row is-later";
+  reactionsRow.className = "announce-reactions-row";
   const reactions = document.createElement("div");
   reactions.className = "announce-reactions";
   const add = document.createElement("button");
@@ -208,22 +211,34 @@ function paintNewsPostCard(row) {
   add.className = "announce-add-reaction-btn";
   add.title = "Add Reaction";
   add.textContent = "+";
-  add.disabled = true;
+  add.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof openReactionPicker === "function") openReactionPicker(newsReactionTarget(row), e.clientX, e.clientY);
+  });
   reactions.appendChild(add);
+  fillNewsReactions(reactions, row);
   reactionsRow.appendChild(reactions);
   mid.appendChild(content);
   mid.appendChild(divider);
   mid.appendChild(reactionsRow);
   const foot = document.createElement("div");
-  foot.className = "announce-post-foot is-later";
+  foot.className = "announce-post-foot";
   const commentsRow = document.createElement("div");
   commentsRow.className = "announce-comments-row";
   const commentsBtn = document.createElement("button");
   commentsBtn.type = "button";
   commentsBtn.className = "announce-comments-btn";
   commentsBtn.textContent = (Number(row.comment_count) || 0) + " comments";
-  commentsBtn.disabled = true;
+  commentsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof toggleCommentThread === "function") toggleCommentThread(row.id, "news");
+  });
   commentsRow.appendChild(commentsBtn);
+  if (typeof commentThreadElements !== "undefined" && typeof commentThreadKey === "function") {
+    const key = commentThreadKey(row.id, "news");
+    const els = commentThreadElements[key] || (commentThreadElements[key] = {});
+    els.btnEl = commentsBtn;
+  }
   foot.appendChild(commentsRow);
   card.appendChild(head);
   card.appendChild(mid);
@@ -262,9 +277,7 @@ function paintNewsPostCard(row) {
   }
   const media = typeof buildPostMedia === "function" ? buildPostMedia(row.attachment) : null;
   if (media) content.appendChild(media);
-  if (typeof isOneiraAdmin === "function" && isOneiraAdmin()) {
-    card.addEventListener("contextmenu", (e) => showNewsPostContextMenu(e, row));
-  }
+  card.addEventListener("contextmenu", (e) => showNewsPostContextMenu(e, row));
   return card;
 }
 
@@ -283,6 +296,7 @@ function paintNewsPostList() {
 function prependNewsPost(row) {
   if (!row || !row.id) return;
   if (newsPosts.some((item) => Number(item.id) === Number(row.id))) return;
+  row.reactions = typeof applyReactionMe === "function" ? applyReactionMe(row.reactions || []) : (row.reactions || []);
   newsPosts.unshift(row);
   if (row.event && row.event.starts_at && !newsEvents.some((item) => Number(item.id) === Number(row.id))) {
     newsEvents.push(row.event);
@@ -304,7 +318,10 @@ function loadNewsPosts() {
     if (!response.ok) return null;
     return response.json();
   }).then((data) => {
-    newsPosts = (data && data.posts) || [];
+    newsPosts = ((data && data.posts) || []).map((row) => {
+      row.reactions = typeof applyReactionMe === "function" ? applyReactionMe(row.reactions || []) : (row.reactions || []);
+      return row;
+    });
     newsLoaded = true;
     paintNewsPostList();
   }).catch(() => {
@@ -331,6 +348,7 @@ function applyIncomingNewsPost(row) {
 
 function applyIncomingNewsUpdate(row) {
   if (!row || !row.id) return;
+  row.reactions = typeof applyReactionMe === "function" ? applyReactionMe(row.reactions || []) : (row.reactions || []);
   const i = newsPosts.findIndex((item) => Number(item.id) === Number(row.id));
   if (i >= 0) newsPosts[i] = row;
   else newsPosts.unshift(row);
@@ -349,6 +367,9 @@ function applyIncomingNewsDelete(postId) {
   if (newsEditRow && Number(newsEditRow.id) === Number(postId)) closeNewsEdit();
   if (newsDetailEvent && Number(newsDetailEvent.id) === Number(postId)) closeNewsEventDetail();
   if (newsDeleteId && Number(newsDeleteId) === Number(postId)) closeNewsDelete();
+  if (typeof closeAnnounceComments === "function" && typeof commentThreadKey === "function" && String(currentAnnounceCommentsPostId) === String(commentThreadKey(postId, "news"))) {
+    closeAnnounceComments();
+  }
   if (newsViewOpen() && newsRow === "announcements") paintNewsPostList();
   if (newsRow === "events") paintNewsMonth();
 }
@@ -550,19 +571,63 @@ function newsCanManage() {
   return typeof isOneiraAdmin === "function" && isOneiraAdmin();
 }
 
+function newsReactionTarget(post) {
+  return {
+    id: post.id,
+    chatKind: "news",
+    senderId: post.sender_id,
+    reactions: post.reactions || []
+  };
+}
+
+function fillNewsReactions(host, post) {
+  if (!host) return;
+  host.querySelectorAll(".reaction-pill").forEach((el) => el.remove());
+  const addBtn = host.querySelector(".announce-add-reaction-btn");
+  (post.reactions || []).forEach((r) => {
+    const pill = document.createElement("button");
+    pill.type = "button";
+    pill.className = "reaction-pill" + (r.me ? " mine" : "");
+    const emoji = document.createElement("span");
+    emoji.className = "reaction-emoji";
+    emoji.textContent = r.emoji;
+    const count = document.createElement("span");
+    count.className = "reaction-count";
+    count.textContent = String(r.count);
+    pill.appendChild(emoji);
+    pill.appendChild(count);
+    pill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (typeof toggleReaction === "function") toggleReaction(newsReactionTarget(post), r.emoji);
+    });
+    if (addBtn) host.insertBefore(pill, addBtn);
+    else host.appendChild(pill);
+  });
+}
+
+function patchNewsReactions(postId, reactions) {
+  const post = newsPosts.find((item) => Number(item.id) === Number(postId));
+  if (post) post.reactions = typeof applyReactionMe === "function" ? applyReactionMe(reactions || []) : (reactions || []);
+  const card = document.querySelector("#news-posts .announce-post[data-post-id=\"" + postId + "\"]");
+  const host = card && card.querySelector(".announce-reactions");
+  if (host && post) fillNewsReactions(host, post);
+}
+
 function showNewsPostContextMenu(e, row) {
   e.preventDefault();
   e.stopPropagation();
-  if (!newsCanManage() || typeof openContextMenu !== "function") return;
+  if (typeof openContextMenu !== "function") return;
   const letter = typeof avatarLetter === "function" ? avatarLetter(row.display_name || row.username) : (row.username || "?").charAt(0).toUpperCase();
+  const manage = newsCanManage();
   openContextMenu(e.clientX, e.clientY, {
     avatarText: letter,
     title: row.display_name || row.username || "kiwi",
     timestamp: newsWhen(row.created_at),
     subtitle: typeof truncateForContextMenu === "function" ? truncateForContextMenu(row.title) : row.title
   }, [
-    { label: "Edit Post", onSelect: () => openNewsEdit(row) },
-    { label: "Delete Post", danger: true, onSelect: () => openNewsDelete(row) }
+    { label: "Add Reaction", onSelect: () => openReactionPicker(newsReactionTarget(row), e.clientX, e.clientY) },
+    manage && { label: "Edit Post", onSelect: () => openNewsEdit(row) },
+    manage && { label: "Delete Post", danger: true, onSelect: () => openNewsDelete(row) }
   ]);
 }
 

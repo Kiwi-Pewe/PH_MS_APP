@@ -923,6 +923,10 @@ class News_id(BaseModel):
     post_id: int
 
 
+class News_comment_id(BaseModel):
+    comment_id: int
+
+
 class News_event_edit(News_event_in):
     post_id: int
 

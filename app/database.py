@@ -944,6 +944,19 @@ def ensure_news_tables():
                 conn.rollback()
         try:
             conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS news_comments ("
+                "id INTEGER PRIMARY KEY, "
+                "post_id INTEGER, "
+                "sender_id INTEGER, "
+                "content VARCHAR, "
+                "created_at DATETIME, "
+                "edited BOOLEAN DEFAULT 0)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
                 "CREATE TABLE IF NOT EXISTS news_seen ("
                 "user_id INTEGER PRIMARY KEY, "
                 "seen_at DATETIME NOT NULL)"

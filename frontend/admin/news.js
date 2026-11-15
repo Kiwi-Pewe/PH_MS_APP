@@ -268,6 +268,7 @@ function newsClearMedia() {
 
 function newsPaintStrip() {
   const host = document.getElementById("news-post-media");
+  const add = document.getElementById("news-media-btn");
   if (!host) return;
   host.replaceChildren();
   newsMedia.forEach((item, index) => {
@@ -294,6 +295,8 @@ function newsPaintStrip() {
     thumb.appendChild(clear);
     host.appendChild(thumb);
   });
+  if (add) host.appendChild(add);
+  host.classList.toggle("is-full", newsMedia.length >= 4);
 }
 
 function newsAddFiles(list) {

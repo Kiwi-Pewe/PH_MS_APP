@@ -983,17 +983,51 @@ function paintNewsEvents(main) {
   });
 }
 
-function paintNewsBroadcastPreview(host, text) {
+function newsBroadcastColorClass(color) {
+  return NEWS_EVENT_COLORS[color] ? " is-" + color : "";
+}
+
+function paintNewsBroadcastBannerHost(host, data) {
   if (!host) return;
+  const payload = typeof data === "string" ? { message: data } : (data || {});
+  const text = String(payload.message || "").trim();
+  const color = payload.color || "";
   host.replaceChildren();
-  const source = String(text || "").trim();
-  if (!source) {
+  host.className = "news-broadcast-preview" + newsBroadcastColorClass(color) + (text ? "" : " is-later");
+  if (!text) {
     host.textContent = "Broadcast";
-    host.classList.add("is-later");
     return;
   }
-  host.classList.remove("is-later");
-  fillNewsMarkdown(host, source);
+  fillNewsMarkdown(host, text);
+}
+
+function paintNewsBroadcastHistory(host, rows) {
+  if (!host) return;
+  host.replaceChildren();
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    host.appendChild(adminEl("div", "users-empty", "No broadcasts yet."));
+    return;
+  }
+  list.forEach((row) => {
+    const item = adminEl("div", "news-broadcast-item");
+    item.appendChild(adminEl("span", "news-broadcast-dot" + newsBroadcastColorClass(row.color)));
+    const body = adminEl("div", "news-broadcast-item-body");
+    const top = adminEl("div", "news-broadcast-item-top");
+    top.appendChild(adminEl("span", "admin-pill", row.kind === "automatic" ? "Automatic" : "Manual"));
+    if (row.live) top.appendChild(adminEl("span", "admin-pill is-live", "Live"));
+    const when = newsDonateWhen(row.starts_at);
+    const until = row.cleared_at ? newsDonateWhen(row.cleared_at) : (row.ends_at ? newsDonateWhen(row.ends_at) : "");
+    top.appendChild(adminEl("span", "news-broadcast-when", until ? when + " – " + until : when));
+    body.appendChild(top);
+    if (row.event_name) body.appendChild(adminEl("div", "news-broadcast-event", row.event_name));
+    const text = adminEl("div", "news-broadcast-item-text");
+    if (row.message) fillNewsMarkdown(text, row.message);
+    else text.textContent = "—";
+    body.appendChild(text);
+    item.appendChild(body);
+    host.appendChild(item);
+  });
 }
 
 function paintNewsBroadcast(main) {
@@ -1001,20 +1035,20 @@ function paintNewsBroadcast(main) {
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "News", "Broadcast"],
     title: "Broadcast",
-    note: "Stapled to the top rail between the page tabs and Feedback. Stays up until you clear it.",
+    note: "Manual broadcasts sit on the top rail for the hours you set. Events post themselves 48 hours before they start and come down when they end.",
     clock: "est"
   }));
-  const preview = adminEl("div", "news-broadcast-preview");
+  const preview = adminEl("div", "news-broadcast-preview is-later");
   preview.id = "news-broadcast-preview";
+  preview.textContent = "Broadcast";
   main.appendChild(preview);
-  const panel = adminPanel({ title: "Alert", fill: true });
-  panel.body.appendChild(adminEl("div", "users-field-k", "Message"));
+  const panel = adminPanel({ title: "Broadcast", className: "news-broadcast-set" });
+  panel.body.appendChild(adminEl("div", "users-field-k", "Description"));
   const area = adminEl("textarea", "admin-mod-reason");
   area.id = "news-broadcast-input";
   area.rows = 5;
   area.maxLength = 500;
   area.placeholder = "Maintenance window, outage, or other site-wide notice";
-  area.addEventListener("input", () => paintNewsBroadcastPreview(preview, area.value));
   const wrap = adminEl("div", "composer-field news-md-field news-broadcast-field");
   const highlight = adminEl("div", "composer-highlight");
   highlight.setAttribute("aria-hidden", "true");
@@ -1022,6 +1056,36 @@ function paintNewsBroadcast(main) {
   wrap.appendChild(area);
   panel.body.appendChild(wrap);
   if (typeof bindComposerMarkdown === "function") bindComposerMarkdown(area);
+  panel.body.appendChild(adminEl("div", "users-field-k", "Color"));
+  const colors = adminEl("div", "news-event-colors");
+  colors.id = "news-broadcast-colors";
+  ["red", "orange", "yellow", "green"].forEach((color) => {
+    const btn = adminEl("button", "news-event-swatch is-" + color + (color === "orange" ? " is-on" : ""));
+    btn.type = "button";
+    btn.setAttribute("data-color", color);
+    btn.title = color.charAt(0).toUpperCase() + color.slice(1);
+    colors.appendChild(btn);
+  });
+  panel.body.appendChild(colors);
+  panel.body.appendChild(adminEl("div", "users-field-k", "Duration"));
+  const duration = adminEl("div", "news-broadcast-duration");
+  const hours = adminEl("input", "admin-mod-input news-broadcast-hours");
+  hours.id = "news-broadcast-hours";
+  hours.type = "number";
+  hours.min = "1";
+  hours.max = "720";
+  hours.value = "24";
+  const presets = adminEl("div", "news-broadcast-presets");
+  [1, 6, 24, 48].forEach((value) => {
+    const btn = adminEl("button", "news-align-btn" + (value === 24 ? " is-on" : ""));
+    btn.type = "button";
+    btn.setAttribute("data-hours", String(value));
+    btn.textContent = value + "h";
+    presets.appendChild(btn);
+  });
+  duration.appendChild(presets);
+  duration.appendChild(hours);
+  panel.body.appendChild(duration);
   const err = adminEl("p", "admin-settings-error");
   err.id = "news-broadcast-error";
   err.hidden = true;
@@ -1033,62 +1097,100 @@ function paintNewsBroadcast(main) {
   const save = adminEl("button", "admin-mod-confirm");
   save.type = "button";
   save.textContent = "Save";
+  row.appendChild(clear);
+  row.appendChild(save);
+  panel.body.appendChild(row);
+  main.appendChild(panel.panel);
+  const historyPanel = adminPanel({ title: "History", className: "is-fill" });
+  const history = adminEl("div", "news-broadcast-history");
+  history.id = "news-broadcast-history";
+  historyPanel.body.appendChild(history);
+  main.appendChild(historyPanel.panel);
+  let color = "orange";
   function showBroadcastError(text) {
     err.textContent = text || "";
     err.hidden = !text;
   }
-  function applyBroadcastMessage(message) {
-    area.value = message || "";
-    paintNewsBroadcastPreview(preview, area.value);
-    if (typeof mdRefreshComposer === "function") mdRefreshComposer(area);
+  function setBroadcastColor(value) {
+    color = NEWS_EVENT_COLORS[value] ? value : "orange";
+    colors.querySelectorAll(".news-event-swatch").forEach((btn) => {
+      btn.classList.toggle("is-on", btn.getAttribute("data-color") === color);
+    });
   }
+  function setBroadcastHours(value) {
+    const hoursValue = Math.max(1, Math.min(720, parseInt(value, 10) || 24));
+    hours.value = String(hoursValue);
+    presets.querySelectorAll(".news-align-btn").forEach((btn) => {
+      btn.classList.toggle("is-on", btn.getAttribute("data-hours") === String(hoursValue));
+    });
+  }
+  function applyBroadcastPage(data) {
+    const payload = data || {};
+    paintNewsBroadcastBannerHost(preview, payload.live || payload);
+    paintNewsBroadcastHistory(history, payload.broadcasts || []);
+  }
+  function busy(on) {
+    clear.disabled = !!on;
+    save.disabled = !!on;
+  }
+  function loadBroadcastPage() {
+    adminApi("/news/broadcasts").then((response) => response.ok ? response.json() : null).then((data) => {
+      if (adminPage !== "news" || adminSection !== "broadcast") return;
+      applyBroadcastPage(data || {});
+    }).catch(() => {});
+  }
+  colors.querySelectorAll(".news-event-swatch").forEach((btn) => {
+    btn.addEventListener("click", () => setBroadcastColor(btn.getAttribute("data-color")));
+  });
+  presets.querySelectorAll(".news-align-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setBroadcastHours(btn.getAttribute("data-hours")));
+  });
+  hours.addEventListener("input", () => setBroadcastHours(hours.value));
   clear.addEventListener("click", () => {
     showBroadcastError("");
-    clear.disabled = true;
-    save.disabled = true;
-    adminApi("/news/broadcast", { method: "POST", body: { message: "" } }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
-      clear.disabled = false;
-      save.disabled = false;
+    busy(true);
+    adminApi("/news/broadcast/clear", { method: "POST", body: {} }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+      busy(false);
       if (!result.ok) {
         const detail = result.data && result.data.detail;
         showBroadcastError(typeof detail === "string" ? detail : "Could not clear the broadcast.");
         return;
       }
-      applyBroadcastMessage("");
+      loadBroadcastPage();
     }).catch(() => {
-      clear.disabled = false;
-      save.disabled = false;
+      busy(false);
       showBroadcastError("Could not clear the broadcast.");
     });
   });
   save.addEventListener("click", () => {
     showBroadcastError("");
-    clear.disabled = true;
-    save.disabled = true;
-    adminApi("/news/broadcast", { method: "POST", body: { message: area.value } }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
-      clear.disabled = false;
-      save.disabled = false;
+    busy(true);
+    adminApi("/news/broadcast", {
+      method: "POST",
+      body: {
+        message: area.value,
+        color: color,
+        duration_hours: parseInt(hours.value, 10) || 24
+      }
+    }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+      busy(false);
       if (!result.ok) {
         const detail = result.data && result.data.detail;
         showBroadcastError(typeof detail === "string" ? detail : "Could not save the broadcast.");
         return;
       }
-      applyBroadcastMessage(result.data && result.data.message);
+      area.value = "";
+      if (typeof mdRefreshComposer === "function") mdRefreshComposer(area);
+      setBroadcastColor("orange");
+      setBroadcastHours(24);
+      loadBroadcastPage();
     }).catch(() => {
-      clear.disabled = false;
-      save.disabled = false;
+      busy(false);
       showBroadcastError("Could not save the broadcast.");
     });
   });
-  row.appendChild(clear);
-  row.appendChild(save);
-  panel.body.appendChild(row);
-  main.appendChild(panel.panel);
-  paintNewsBroadcastPreview(preview, "");
-  adminApi("/news/broadcast").then((response) => response.ok ? response.json() : null).then((data) => {
-    if (adminPage !== "news" || adminSection !== "broadcast") return;
-    applyBroadcastMessage(data && data.message);
-  }).catch(() => {});
+  paintNewsBroadcastHistory(history, []);
+  loadBroadcastPage();
 }
 
 function fillNewsDonateCard(disclaimer, href) {

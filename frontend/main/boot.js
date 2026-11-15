@@ -791,7 +791,7 @@ function connectSocket() {
     }
 
     if (data.type === "news_broadcast" && typeof paintNewsBroadcastBanner === "function") {
-      paintNewsBroadcastBanner(data.message);
+      paintNewsBroadcastBanner(data);
     }
 
     if (data.type === "announcement_created") {

@@ -22,6 +22,11 @@
   font-weight: 600;
 }
 
+#news-broadcast.is-red { background: #ed4245; color: #fff; }
+#news-broadcast.is-orange { background: #f26522; color: #fff; }
+#news-broadcast.is-yellow { background: #fee75c; color: #1a1a1a; }
+#news-broadcast.is-green { background: #23a559; color: #fff; }
+
 #news-broadcast .md-h1,
 #news-broadcast .md-h2,
 #news-broadcast .md-h3,

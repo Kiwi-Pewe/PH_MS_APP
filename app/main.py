@@ -20,6 +20,7 @@ from app.routers.voice import drop_voice_user, fanout_voice, notify_watchers, re
 from app.routers.invites import check_invites, release_temporary_members
 from app.routers.connections import check_steam_playing
 from app.routers.admin import sweep_completed_feedback
+from app.routers.news import sweep_news_broadcasts
 from app.routers.mentions import mentioned_user_ids, mentioned_sources, mention_allowed, mention_user_map, mention_role_map, live_reply_to
 from app.routers.deletion import sweep_pending_deletes
 from app.routers.typing import relay_typing
@@ -133,6 +134,7 @@ async def interval_tasks():
     asyncio.create_task(check_steam_playing())
     asyncio.create_task(sweep_pending_deletes())
     asyncio.create_task(sweep_completed_feedback())
+    asyncio.create_task(sweep_news_broadcasts())
 
 @app.websocket("/ws")
 async def connect_user(socket: WebSocket, session_id: str = Cookie(None), database: Session = Depends(get_db)):

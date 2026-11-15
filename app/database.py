@@ -973,6 +973,25 @@ def ensure_news_tables():
             conn.commit()
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS news_broadcasts ("
+                "id INTEGER PRIMARY KEY, "
+                "kind VARCHAR NOT NULL, "
+                "message VARCHAR NOT NULL, "
+                "color VARCHAR, "
+                "event_post_id INTEGER, "
+                "event_name VARCHAR, "
+                "event_starts DATETIME, "
+                "starts_at DATETIME NOT NULL, "
+                "ends_at DATETIME, "
+                "cleared_at DATETIME, "
+                "created_at DATETIME, "
+                "created_by INTEGER)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 
 def ensure_kofi_tables():

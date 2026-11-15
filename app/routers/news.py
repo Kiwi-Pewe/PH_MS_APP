@@ -1,11 +1,12 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from app.models import UserInfo, News_post, News_comment, News_seen, News_settings
-from app.schemas import News_create, News_edit, News_id, News_comment_id, News_event_edit, News_broadcast, Comment_create, Comment_edit
-from app.database import get_db
+from app.models import UserInfo, News_post, News_comment, News_seen, News_settings, News_broadcast
+from app.schemas import News_create, News_edit, News_id, News_comment_id, News_event_edit, News_broadcast_in, Comment_create, Comment_edit
+from app.database import get_db, SessionLocal
 from app.auth import get_current_user
+import asyncio
 from app.r2 import delete_attachment, delete_r2_object, normalize_post_attachments, post_attachments_public, require_post_body, store_post_attachments
 from app.routers.profile import public_avatar, public_display_name
 from app.routers.realtime import active_connections, notify_user
@@ -14,6 +15,10 @@ from app.routers.feed import notify_activity_post_comment
 
 NEWS_ALIGNS = ("left", "center", "right")
 NEWS_EVENT_COLORS = ("red", "orange", "yellow", "green")
+NEWS_BROADCAST_LEAD = timedelta(hours=48)
+NEWS_BROADCAST_HOURS_MIN = 1
+NEWS_BROADCAST_HOURS_MAX = 720
+_news_broadcast_sig = None
 
 router = APIRouter()
 
@@ -184,9 +189,232 @@ def news_settings_row(database):
     return row
 
 
-def pack_news_broadcast(row):
-    message = ((row.broadcast if row else "") or "").strip()
-    return {"message": message}
+def news_broadcast_is_open(row, now):
+    if not row or row.cleared_at:
+        return False
+    if row.starts_at and row.starts_at > now:
+        return False
+    if row.ends_at and row.ends_at <= now:
+        return False
+    return True
+
+
+def pack_live_news_broadcast(row):
+    if not row:
+        return {
+            "id": None,
+            "message": "",
+            "color": "",
+            "kind": None,
+            "ends_at": None,
+            "event_name": None,
+        }
+    return {
+        "id": row.id,
+        "message": (row.message or "").strip(),
+        "color": news_event_color(row.color) if row.color else "orange",
+        "kind": row.kind,
+        "ends_at": str(row.ends_at) if row.ends_at else None,
+        "event_name": row.event_name or None,
+    }
+
+
+def pack_news_broadcast_row(row, now):
+    live = news_broadcast_is_open(row, now)
+    return {
+        "id": row.id,
+        "kind": row.kind,
+        "message": (row.message or "").strip(),
+        "color": news_event_color(row.color) if row.color else "orange",
+        "event_name": row.event_name or None,
+        "starts_at": str(row.starts_at) if row.starts_at else None,
+        "ends_at": str(row.ends_at) if row.ends_at else None,
+        "cleared_at": str(row.cleared_at) if row.cleared_at else None,
+        "live": live,
+    }
+
+
+def pick_live_news_broadcast(database, now=None):
+    now = now or datetime.utcnow()
+    rows = [row for row in database.query(News_broadcast).filter(News_broadcast.cleared_at.is_(None)).all() if news_broadcast_is_open(row, now)]
+    manuals = [row for row in rows if row.kind == "manual"]
+    if manuals:
+        manuals.sort(key=lambda row: (row.starts_at or now, row.id or 0), reverse=True)
+        return manuals[0]
+    autos = [row for row in rows if row.kind == "automatic"]
+    if not autos:
+        return None
+    running = [row for row in autos if row.event_starts and row.event_starts <= now]
+    if running:
+        running.sort(key=lambda row: (row.event_starts, row.id or 0), reverse=True)
+        return running[0]
+    autos.sort(key=lambda row: (row.event_starts or row.starts_at or now, row.id or 0))
+    return autos[0]
+
+
+def close_open_news_broadcast(row, now):
+    if not news_broadcast_is_open(row, now):
+        return False
+    row.cleared_at = now
+    if not row.ends_at or row.ends_at > now:
+        row.ends_at = now
+    return True
+
+
+def migrate_legacy_news_broadcast(database):
+    settings = news_settings_row(database)
+    text = ((settings.broadcast if settings else "") or "").strip()
+    if not text:
+        return False
+    if database.query(News_broadcast).first():
+        settings.broadcast = None
+        return True
+    now = datetime.utcnow()
+    database.add(News_broadcast(
+        kind="manual",
+        message=text[:500],
+        color="orange",
+        starts_at=now,
+        created_at=now,
+    ))
+    settings.broadcast = None
+    return True
+
+
+def sync_auto_news_broadcasts(database):
+    now = datetime.utcnow()
+    changed = False
+    posts = database.query(News_post).filter(News_post.event_starts.isnot(None)).all()
+    autos = database.query(News_broadcast).filter(News_broadcast.kind == "automatic").all()
+    open_by_post = {}
+    cleared_posts = set()
+    for row in autos:
+        if not row.event_post_id:
+            continue
+        if row.cleared_at:
+            cleared_posts.add(row.event_post_id)
+            continue
+        open_by_post.setdefault(row.event_post_id, []).append(row)
+    seen = set()
+    for post in posts:
+        seen.add(post.id)
+        desc = (post.event_description or "").strip()[:2000]
+        color = news_event_color(post.event_color)
+        name = (post.event_name or "").strip()[:200] or None
+        window_start = post.event_starts - NEWS_BROADCAST_LEAD if post.event_starts else None
+        window_end = post.event_ends
+        in_window = bool(desc and window_start and window_end and window_start <= now < window_end)
+        rows = open_by_post.get(post.id) or []
+        row = max(rows, key=lambda item: item.id or 0) if rows else None
+        for extra in rows:
+            if extra is not row and news_broadcast_is_open(extra, now):
+                extra.ends_at = now
+                changed = True
+        if post.id in cleared_posts:
+            if row and news_broadcast_is_open(row, now):
+                row.ends_at = now
+                changed = True
+            continue
+        if in_window:
+            if not row:
+                database.add(News_broadcast(
+                    kind="automatic",
+                    message=desc,
+                    color=color,
+                    event_post_id=post.id,
+                    event_name=name,
+                    event_starts=post.event_starts,
+                    starts_at=window_start,
+                    ends_at=window_end,
+                    created_at=now,
+                ))
+                changed = True
+            elif (
+                row.message != desc
+                or row.color != color
+                or row.event_name != name
+                or row.event_starts != post.event_starts
+                or row.starts_at != window_start
+                or row.ends_at != window_end
+            ):
+                row.message = desc
+                row.color = color
+                row.event_name = name
+                row.event_starts = post.event_starts
+                row.starts_at = window_start
+                row.ends_at = window_end
+                changed = True
+        elif row and news_broadcast_is_open(row, now):
+            row.ends_at = now
+            changed = True
+    for post_id, rows in open_by_post.items():
+        if post_id in seen:
+            continue
+        for row in rows:
+            if news_broadcast_is_open(row, now):
+                row.ends_at = now
+                changed = True
+    return changed
+
+
+def store_live_news_broadcast(database, packed):
+    settings = news_settings_row(database)
+    message = (packed.get("message") or "").strip() or None
+    if settings.broadcast == message:
+        return False
+    settings.broadcast = message
+    return True
+
+
+def news_broadcast_sig(packed):
+    return (
+        packed.get("id"),
+        packed.get("message") or "",
+        packed.get("color") or "",
+        packed.get("kind") or "",
+        packed.get("ends_at") or "",
+    )
+
+
+def prepare_news_broadcast(database):
+    changed = migrate_legacy_news_broadcast(database)
+    if sync_auto_news_broadcasts(database):
+        changed = True
+    live = pick_live_news_broadcast(database)
+    packed = pack_live_news_broadcast(live)
+    if store_live_news_broadcast(database, packed):
+        changed = True
+    if changed:
+        database.commit()
+        live = pick_live_news_broadcast(database)
+        packed = pack_live_news_broadcast(live)
+    return packed
+
+
+async def publish_news_broadcast(database):
+    global _news_broadcast_sig
+    packed = prepare_news_broadcast(database)
+    sig = news_broadcast_sig(packed)
+    _news_broadcast_sig = sig
+    await fanout_news({"type": "news_broadcast", **packed})
+    return packed
+
+
+async def sweep_news_broadcasts():
+    global _news_broadcast_sig
+    while True:
+        await asyncio.sleep(30)
+        database = SessionLocal()
+        try:
+            packed = prepare_news_broadcast(database)
+            sig = news_broadcast_sig(packed)
+            if sig != _news_broadcast_sig:
+                _news_broadcast_sig = sig
+                await fanout_news({"type": "news_broadcast", **packed})
+        except Exception:
+            database.rollback()
+        finally:
+            database.close()
 
 
 @router.get("/news/broadcast")
@@ -194,24 +422,75 @@ def get_news_broadcast(
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
-    return pack_news_broadcast(news_settings_row(database))
+    return prepare_news_broadcast(database)
+
+
+@router.get("/news/broadcasts")
+def list_news_broadcasts(
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    now = datetime.utcnow()
+    prepare_news_broadcast(database)
+    rows = (
+        database.query(News_broadcast)
+        .order_by(News_broadcast.starts_at.desc(), News_broadcast.id.desc())
+        .limit(80)
+        .all()
+    )
+    return {
+        "live": pack_live_news_broadcast(pick_live_news_broadcast(database, now)),
+        "broadcasts": [pack_news_broadcast_row(row, now) for row in rows if not row.starts_at or row.starts_at <= now],
+    }
 
 
 @router.post("/news/broadcast")
 async def save_news_broadcast(
-    body: News_broadcast,
+    body: News_broadcast_in,
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
     require_oneira_admin(current_user)
     message = (body.message or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Broadcast is empty.")
     if len(message) > 500:
         raise HTTPException(status_code=400, detail="Broadcast is too long.")
-    row = news_settings_row(database)
-    row.broadcast = message or None
+    hours = int(body.duration_hours or 0)
+    if hours < NEWS_BROADCAST_HOURS_MIN or hours > NEWS_BROADCAST_HOURS_MAX:
+        raise HTTPException(status_code=400, detail="Duration must be between 1 and 720 hours.")
+    now = datetime.utcnow()
+    prepare_news_broadcast(database)
+    for row in database.query(News_broadcast).filter(News_broadcast.kind == "manual", News_broadcast.cleared_at.is_(None)).all():
+        close_open_news_broadcast(row, now)
+    database.add(News_broadcast(
+        kind="manual",
+        message=message,
+        color=news_event_color(body.color),
+        starts_at=now,
+        ends_at=now + timedelta(hours=hours),
+        created_at=now,
+        created_by=current_user.id,
+    ))
     database.commit()
-    packed = pack_news_broadcast(row)
-    await fanout_news({"type": "news_broadcast", "message": packed["message"]})
+    packed = await publish_news_broadcast(database)
+    return packed
+
+
+@router.post("/news/broadcast/clear")
+async def clear_news_broadcast(
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_oneira_admin(current_user)
+    now = datetime.utcnow()
+    prepare_news_broadcast(database)
+    live = pick_live_news_broadcast(database, now)
+    if live:
+        close_open_news_broadcast(live, now)
+        database.commit()
+    packed = await publish_news_broadcast(database)
     return packed
 
 
@@ -301,6 +580,7 @@ async def create_news_post(
     database.refresh(row)
     packed = pack_news_post(row, current_user, [])
     await fanout_news({"type": "news_created", "post": packed}, exclude_user_id=current_user.id)
+    await publish_news_broadcast(database)
     return packed
 
 
@@ -332,6 +612,7 @@ async def edit_news_post(
     database.refresh(row)
     packed = pack_news_post(row, current_user, reactions_for_one(database, "news", row.id, current_user.id))
     await fanout_news({"type": "news_updated", "post": packed}, exclude_user_id=current_user.id)
+    await publish_news_broadcast(database)
     return packed
 
 
@@ -352,9 +633,14 @@ async def delete_news_post(
         database.delete(comment)
     clear_reactions(database, "news", row.id)
     delete_attachment(row.attachment)
+    now = datetime.utcnow()
+    for item in database.query(News_broadcast).filter(News_broadcast.kind == "automatic", News_broadcast.event_post_id == post_id, News_broadcast.cleared_at.is_(None)).all():
+        if news_broadcast_is_open(item, now):
+            item.ends_at = now
     database.delete(row)
     database.commit()
     await fanout_news({"type": "news_deleted", "post_id": post_id}, exclude_user_id=current_user.id)
+    await publish_news_broadcast(database)
     return {"post_id": post_id}
 
 
@@ -376,6 +662,7 @@ async def edit_news_event(
     database.refresh(row)
     packed = pack_news_post(row, current_user, reactions_for_one(database, "news", row.id, current_user.id))
     await fanout_news({"type": "news_updated", "post": packed}, exclude_user_id=current_user.id)
+    await publish_news_broadcast(database)
     return packed
 
 

@@ -11,6 +11,15 @@
   margin-bottom: 12px;
 }
 
+#admin-main.is-news > .admin-panel {
+  flex: 0 0 auto;
+}
+
+#admin-main.is-news > .admin-panel.is-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .news-composer-bar {
   flex: 0 0 auto;
   display: flex;
@@ -269,10 +278,111 @@
   text-overflow: ellipsis;
 }
 
+.news-broadcast-preview.is-red,
+#news-broadcast.is-red { background: #ed4245; color: #fff; border-color: #ed4245; }
+.news-broadcast-preview.is-orange,
+#news-broadcast.is-orange { background: #f26522; color: #fff; border-color: #f26522; }
+.news-broadcast-preview.is-yellow,
+#news-broadcast.is-yellow { background: #fee75c; color: #1a1a1a; border-color: #fee75c; }
+.news-broadcast-preview.is-green,
+#news-broadcast.is-green { background: #23a559; color: #fff; border-color: #23a559; }
+
+.news-broadcast-preview.is-later {
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.news-broadcast-set .admin-panel-body {
+  gap: 8px;
+}
+
+.news-broadcast-duration {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.news-broadcast-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.news-broadcast-hours {
+  width: 96px;
+  flex: 0 0 auto;
+}
+
 .news-broadcast-actions {
   display: flex;
   gap: 10px;
   margin-top: 8px;
+}
+
+.news-broadcast-history {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.news-broadcast-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.news-broadcast-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  margin-top: 4px;
+  background: #f26522;
+}
+
+.news-broadcast-dot.is-red { background: #ed4245; }
+.news-broadcast-dot.is-orange { background: #f26522; }
+.news-broadcast-dot.is-yellow { background: #fee75c; }
+.news-broadcast-dot.is-green { background: #23a559; }
+
+.news-broadcast-item-body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.news-broadcast-item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.news-broadcast-when {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.news-broadcast-event {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.news-broadcast-item-text {
+  margin-top: 6px;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.admin-pill.is-live {
+  background: var(--accent);
+  color: #fff;
 }
 
 #news-donate-overlay {

@@ -85,13 +85,19 @@ function fillNewsDonateCard(disclaimer, href) {
   go.disabled = !(url && text);
 }
 
-function paintNewsBroadcastBanner(message) {
+function paintNewsBroadcastBanner(data) {
   const host = document.getElementById("news-broadcast");
   if (!host) return;
-  const text = String(message || "").trim();
+  const payload = typeof data === "string" ? { message: data } : (data || {});
+  const text = String(payload.message || "").trim();
   host.replaceChildren();
+  host.classList.remove("is-red", "is-orange", "is-yellow", "is-green");
   if (!text) return;
   fillNewsMarkdown(host, text);
+  const color = payload.color || "";
+  if (color === "red" || color === "orange" || color === "yellow" || color === "green") {
+    host.classList.add("is-" + color);
+  }
 }
 
 function loadNewsBroadcast() {
@@ -99,7 +105,7 @@ function loadNewsBroadcast() {
     if (!response.ok) return null;
     return response.json();
   }).then((data) => {
-    paintNewsBroadcastBanner(data && data.message);
+    paintNewsBroadcastBanner(data);
   }).catch(() => {});
 }
 

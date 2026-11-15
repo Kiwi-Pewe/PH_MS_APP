@@ -980,6 +980,22 @@ class News_settings(Base):
     broadcast = Column(String, nullable=True)
 
 
+class News_broadcast(Base):
+    __tablename__ = "news_broadcasts"
+    id = Column(Integer, primary_key=True)
+    kind = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    color = Column(String, nullable=True)
+    event_post_id = Column(Integer, nullable=True)
+    event_name = Column(String, nullable=True)
+    event_starts = Column(DateTime, nullable=True)
+    starts_at = Column(DateTime, nullable=False)
+    ends_at = Column(DateTime, nullable=True)
+    cleared_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+
 class Kofi_settings(Base):
     __tablename__ = "kofi_settings"
     id = Column(Integer, primary_key=True)

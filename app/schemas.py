@@ -931,8 +931,10 @@ class News_event_edit(News_event_in):
     post_id: int
 
 
-class News_broadcast(BaseModel):
+class News_broadcast_in(BaseModel):
     message: str = ""
+    color: str = "orange"
+    duration_hours: int
 
 
 class Kofi_connect(BaseModel):

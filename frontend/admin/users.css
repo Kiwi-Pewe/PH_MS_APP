@@ -577,6 +577,25 @@
   -webkit-box-orient: vertical;
 }
 
+.users-entry.is-open .users-entry-text {
+  display: block;
+  overflow: auto;
+  -webkit-line-clamp: unset;
+  white-space: pre-wrap;
+}
+
+button.users-entry-open {
+  font: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
 .users-entry-text.is-empty {
   color: var(--text-dim);
 }

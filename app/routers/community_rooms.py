@@ -22,7 +22,7 @@ from app.routers.community_posts import (
 )
 from app.routers.messages import mute_is_active, mute_public, mute_until_for
 from app.r2 import attachment_public, require_message_body, store_attachment
-from app.automod import inspect as automod_inspect, refuse_blacklist, report_watch
+from app.automod import inspect as automod_inspect, report_blacklist, report_watch
 from app.site_moderation import refuse_community_lock
 from app.routers.mentions import (
     accepted_reply_parent,
@@ -341,7 +341,7 @@ def create_community_room(
     topics = clean_room_topics(body.topics)
     texts = [name, about or "", " ".join(topics)]
     hits = automod_inspect(database, "rooms", texts)
-    refuse_blacklist(hits)
+    report_blacklist(database, current_user, "rooms", texts, hits, action="rooms_create")
     row = Community_room(
         owner_id=current_user.id,
         name=name,
@@ -361,6 +361,9 @@ def create_community_room(
         hits.get("watch") or [],
         content_id=row.id,
         channel_name=row.name,
+        action="rooms_create",
+        room_id=row.id,
+        room_name=row.name,
     )
     return pack_community_rooms(database, [row], current_user.id)[0]
 
@@ -381,7 +384,18 @@ def update_community_room(
     topics = clean_room_topics(body.topics)
     texts = [name, about or "", " ".join(topics)]
     hits = automod_inspect(database, "rooms", texts)
-    refuse_blacklist(hits)
+    report_blacklist(
+        database,
+        current_user,
+        "rooms",
+        texts,
+        hits,
+        action="rooms_edit",
+        room_id=room.id,
+        room_name=name,
+        channel_name=name,
+        content_id=room.id,
+    )
     room.name = name
     room.about = about
     room.topics = json.dumps(topics) if topics else None
@@ -395,6 +409,9 @@ def update_community_room(
         hits.get("watch") or [],
         content_id=room.id,
         channel_name=room.name,
+        action="rooms_edit",
+        room_id=room.id,
+        room_name=room.name,
     )
     return pack_community_rooms(database, [room], current_user.id)[0]
 
@@ -593,7 +610,17 @@ def save_community_room_message(database, current_user, room_id, content, attach
         raise HTTPException(status_code=404, detail="Room not found.")
     require_message_body(content, attachment)
     hits = automod_inspect(database, "room_message", [content or ""])
-    refuse_blacklist(hits)
+    report_blacklist(
+        database,
+        current_user,
+        "room_message",
+        [content or ""],
+        hits,
+        action="room_message",
+        room_id=room.id,
+        room_name=room.name,
+        channel_name=room.name,
+    )
     parent = None
     try:
         reply_to_id = int(reply_to_id) if reply_to_id else None
@@ -638,6 +665,9 @@ def save_community_room_message(database, current_user, room_id, content, attach
         hits.get("watch") or [],
         content_id=message.id,
         channel_name=room.name,
+        action="room_message",
+        room_id=room.id,
+        room_name=room.name,
     )
     return message
 

@@ -63,6 +63,7 @@ let communityItems = [];
 let communityOpenId = "";
 let communityEvents = [];
 let communityTimer = 0;
+let communityPendingOpen = "";
 
 function communityView() {
   return COMMUNITY_VIEWS[communityScope] || COMMUNITY_VIEWS.posts;
@@ -304,7 +305,11 @@ function openCommunityItem(id) {
     if (communityScope === "posts") {
       const post = data && data.post;
       if (post) {
-        communityItems = communityItems.map((item) => item.code === post.code ? post : item);
+        if (communityItems.some((item) => item.code === post.code)) {
+          communityItems = communityItems.map((item) => item.code === post.code ? post : item);
+        } else {
+          communityItems = [post].concat(communityItems);
+        }
         communityEvents = (post.comments || []).map((row) => ({
           actor_username: row.username,
           actor_display_name: row.display_name,
@@ -317,7 +322,11 @@ function openCommunityItem(id) {
     } else {
       communityEvents = (data && data.events) || [];
       if (communityScope === "rooms" && data && data.room) {
-        communityItems = communityItems.map((item) => item.id === data.room.id ? Object.assign({}, item, data.room) : item);
+        if (communityItems.some((item) => item.id === data.room.id)) {
+          communityItems = communityItems.map((item) => item.id === data.room.id ? Object.assign({}, item, data.room) : item);
+        } else {
+          communityItems = [data.room].concat(communityItems);
+        }
       }
     }
     paintCommunityItems();
@@ -348,6 +357,11 @@ function loadCommunityRecords(userId) {
     else communityItems = (data && data.calls) || [];
     paintCommunityItems();
     paintCommunityLog();
+    if (communityPendingOpen && communitySelectedId === userId) {
+      const id = communityPendingOpen;
+      communityPendingOpen = "";
+      openCommunityItem(id);
+    }
   }).catch(() => {
     if (communitySelectedId === userId) {
       const host = document.getElementById("community-item-list");
@@ -533,6 +547,7 @@ function paintCommunityBoard(main) {
 
 function paintCommunity(main, sectionId) {
   communityScope = COMMUNITY_VIEWS[sectionId] ? sectionId : "posts";
+  const jump = typeof takeAdminJump === "function" ? takeAdminJump("community", communityScope) : null;
   communitySelectedId = 0;
   communitySelected = null;
   communityItems = [];
@@ -541,7 +556,14 @@ function paintCommunity(main, sectionId) {
   communityRows = [];
   communityOffset = 0;
   communityHasMore = false;
+  communityPendingOpen = "";
+  if (jump && jump.userId) {
+    communityBy = "id";
+    communityQuery = String(jump.userId);
+    communityPendingOpen = jump.openId || "";
+  }
   paintCommunityBoard(main);
+  if (jump && jump.userId) selectCommunityUser(jump.userId);
 }
 
 registerAdminPage({

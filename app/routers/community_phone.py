@@ -23,7 +23,7 @@ from app.routers.feed import notify_feed_alert
 from app.routers.messages import insert_system_dm, notify_system_dm, open_conversation
 from app.routers.profile import public_avatar, public_display_name
 from app.routers.realtime import notify_user
-from app.automod import inspect as automod_inspect, refuse_blacklist, report_watch
+from app.automod import inspect as automod_inspect, phone_transcript, report_blacklist, report_watch
 from app.site_moderation import refuse_community_lock
 from app.schemas import Block_schema, Community_filter_entry, Community_phone_prefs, Community_phone_topic
 
@@ -567,7 +567,22 @@ def save_community_phone_message(database, current_user, content, attachment, re
         raise HTTPException(status_code=404, detail="No chat is open.")
     require_message_body(content, attachment)
     hits = automod_inspect(database, "phone", [content or ""])
-    refuse_blacklist(hits)
+    report_blacklist(
+        database,
+        current_user,
+        "phone",
+        [content or ""],
+        hits,
+        action="phone",
+        call_id=call.id,
+        transcript=phone_transcript(
+            database,
+            call.id,
+            extra_user=current_user,
+            extra_content=content or "",
+            blocked=True,
+        ),
+    )
     stored = store_attachment(attachment, current_user)
     parent_id = None
     if reply_to_id:
@@ -607,8 +622,11 @@ def save_community_phone_message(database, current_user, content, attachment, re
         "phone",
         [content or ""],
         hits.get("watch") or [],
-        content_id=row.id,
+        content_id=call.id,
         channel_name="phone",
+        action="phone",
+        call_id=call.id,
+        transcript=phone_transcript(database, call.id),
     )
     return row
 

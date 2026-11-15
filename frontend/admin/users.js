@@ -140,7 +140,37 @@ function usersStatusLabel(status) {
 
 function usersKindLabel(kind) {
   const row = USERS_REPORT_KINDS.find((item) => item.id === kind);
-  return row ? row.label : "";
+  if (row) return row.label;
+  if (kind === "blacklist") return "Blacklist";
+  if (kind === "watch") return "Watch List";
+  return "";
+}
+
+function autoReportJump(row) {
+  const type = String((row && row.feedback_type) || "").toLowerCase();
+  if (type !== "auto" && type !== "automod") return null;
+  const view = String((row && row.context_view) || "").toLowerCase();
+  const userId = Number(row && row.target_user_id) || 0;
+  if (view === "post" || view === "comment") {
+    const code = String((row && row.channel_name) || "").trim();
+    if (!userId || !code) return null;
+    return { page: "community", section: "posts", userId: userId, openId: code };
+  }
+  if (view === "room") {
+    if (!userId || row.channel_id == null) return null;
+    return { page: "community", section: "rooms", userId: userId, openId: String(row.channel_id) };
+  }
+  if (view === "room_message") {
+    const roomId = String((row && row.channel_type) || "").trim();
+    if (!userId || !roomId) return null;
+    return { page: "community", section: "rooms", userId: userId, openId: roomId };
+  }
+  if (view === "listing") {
+    const serverId = Number(row && row.server_id) || 0;
+    if (!serverId) return null;
+    return { page: "servers", section: "search", serverId: serverId };
+  }
+  return null;
 }
 
 function usersLine(raw, max) {
@@ -334,6 +364,7 @@ function paintUsersAccount(host, row) {
   stats.appendChild(usersStat("Banned from", adminNum(row.server_ban_count) + " servers"));
   stats.appendChild(usersStat("Reports made", adminNum(row.reports_made)));
   stats.appendChild(usersStat("Reports about", adminNum(row.reports_about)));
+  stats.appendChild(usersStat("Open Auto Reports", adminNum(row.auto_reports)));
   stats.appendChild(usersStat("Site bans", adminNum(row.site_ban_count)));
   stats.appendChild(usersStat("Ban", banned ? (until || "Banned") : "Not banned"));
   if (banned && row.ban_reason) stats.appendChild(usersStat("Ban reason", row.ban_reason));
@@ -413,6 +444,18 @@ function usersReportRow(row, open, onOpen) {
   flags.appendChild(adminEl("div", "users-entry-pill is-status is-" + status, usersStatusLabel(status)));
   flags.appendChild(adminEl("div", "users-entry-split", "|"));
   flags.appendChild(adminEl("div", "users-entry-pill is-urgency is-" + String(row.urgency || "low").toLowerCase(), usersUrgencyLabel(row.urgency)));
+  if (open) {
+    const jump = autoReportJump(row);
+    if (jump && typeof jumpAdminPage === "function") {
+      const go = adminEl("button", "users-entry-open", "Open");
+      go.type = "button";
+      go.addEventListener("click", (event) => {
+        event.stopPropagation();
+        jumpAdminPage(jump.page, jump.section, jump);
+      });
+      flags.appendChild(go);
+    }
+  }
   top.appendChild(flags);
   card.appendChild(top);
   const bottom = adminEl("div", "users-entry-bottom");
@@ -428,6 +471,9 @@ function usersReportRow(row, open, onOpen) {
   const text = String(row.report || "").trim();
   bottom.appendChild(adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information"));
   bottom.appendChild(adminEl("div", "users-entry-updates", "Updates: " + adminNum(row.update_count)));
+  if (row.auto_reports != null) {
+    bottom.appendChild(adminEl("div", "users-entry-updates", "Open Auto Reports: " + adminNum(row.auto_reports)));
+  }
   card.appendChild(bottom);
   if (!open) card.addEventListener("click", () => (onOpen || openUsersHistory)(row.id));
   return card;

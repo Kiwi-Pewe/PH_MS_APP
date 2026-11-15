@@ -10,6 +10,7 @@ const ADMIN_TRACK_KEY = "oneira-admin-tracked";
 const ADMIN_TRACK_SERVER_KEY = "oneira-admin-tracked-servers";
 const adminTrackedOpen = {};
 const adminTrackedServerOpen = {};
+let adminJump = null;
 
 function loadAdminTracked() {
   try {
@@ -260,6 +261,27 @@ function paintAdminChrome() {
   paintAdminPages();
   paintAdminLeft();
   paintAdminMain();
+}
+
+function setAdminJump(payload) {
+  adminJump = payload || null;
+}
+
+function takeAdminJump(pageId, sectionId) {
+  if (!adminJump) return null;
+  if (pageId && adminJump.page && adminJump.page !== pageId) return null;
+  if (sectionId && adminJump.section && adminJump.section !== sectionId) return null;
+  const next = adminJump;
+  adminJump = null;
+  return next;
+}
+
+function jumpAdminPage(pageId, sectionId, payload) {
+  const next = payload ? Object.assign({}, payload) : {};
+  next.page = pageId;
+  next.section = sectionId;
+  setAdminJump(next);
+  showAdminPage(pageId, sectionId);
 }
 
 function showAdminPage(id, sectionId) {

@@ -244,6 +244,11 @@ function queueServersSearch() {
 }
 
 function paintServersSearch(main) {
+  const jump = typeof takeAdminJump === "function" ? takeAdminJump("servers", "search") : null;
+  if (jump && jump.serverId) {
+    serversBy = "id";
+    serversQuery = String(jump.serverId);
+  }
   main.className = "is-users is-servers";
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Servers", "Search"],
@@ -312,6 +317,7 @@ function paintServersSearch(main) {
   main.appendChild(adminEl("div", "overview-page-foot", "Snapshot data · Updates every 5 minutes"));
   if (serversRows.length) paintServersRows(list);
   else loadServersList(false);
+  if (jump && jump.serverId) selectServersRow(jump.serverId);
 }
 
 function openServersCreateReport(row) {

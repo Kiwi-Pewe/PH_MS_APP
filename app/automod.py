@@ -1,12 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 import json
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Automod_settings, Feedback_event, Feedback_report, UserInfo
+from app.models import (
+    Automod_settings,
+    Community_lock,
+    Community_phone_message,
+    Feedback_event,
+    Feedback_report,
+    UserInfo,
+)
 from app.schemas import Automod_flags, Automod_term_in
+from app.site_moderation import is_protected_account, set_community_lock
 
 router = APIRouter()
 
@@ -31,6 +39,28 @@ SURFACE_LABELS = {
     "phone": "Phone a User",
     "listing": "Public listing",
 }
+LEAD = {
+    "posts": ("tried to post", "posted"),
+    "comments": ("tried to comment", "commented"),
+    "rooms_create": ("tried to create a room", "created a room"),
+    "rooms_edit": ("tried to edit a room", "edited a room"),
+    "room_message": ("tried to send a room message", "sent a room message"),
+    "phone": ("tried to send a Phone a User message", "sent a Phone a User message"),
+    "listings_public": ("tried to make a server public", "made a server public"),
+    "listings_edit": ("tried to update a public listing", "updated a public listing"),
+}
+TRAIL_VIEWS = {
+    "posts": "post",
+    "comments": "comment",
+    "rooms_create": "room",
+    "rooms_edit": "room",
+    "room_message": "room_message",
+    "phone": "phone",
+    "listings_public": "listing",
+    "listings_edit": "listing",
+}
+AUTO_FLAG_AT = 5
+AUTO_DONE = ("completed", "closed")
 
 
 def require_oneira_admin(user):
@@ -164,28 +194,139 @@ def author_names(user):
     return username, shown
 
 
-def snapshot_text(view, texts, terms, user):
-    username, shown = author_names(user)
-    who = shown
-    if username and shown.casefold() != username.casefold():
-        who = shown + " (@" + username + ")"
-    elif username:
-        who = "@" + username
+def phrase_words(terms):
+    return ", ".join([str(item) for item in (terms or []) if str(item).strip()])
+
+
+def lead_line(user, action, kind, terms):
+    username, _shown = author_names(user)
+    who = username or "A user"
+    pair = LEAD.get(action) or LEAD.get("posts")
+    verb = pair[0] if kind == "blacklist" else pair[1]
+    label = "blacklisted phrase" if kind == "blacklist" else "watch phrase"
+    return who + " " + verb + " with the " + label + ": " + phrase_words(terms)
+
+
+def location_lines(kind, loc):
+    loc = loc or {}
+    lines = []
+    post_code = loc.get("post_code") or ""
+    room_id = loc.get("room_id")
+    room_name = loc.get("room_name") or ""
+    server_id = loc.get("server_id")
+    server_name = loc.get("server_name") or ""
+    server_slug = loc.get("server_slug") or ""
+    call_id = loc.get("call_id")
+    if post_code:
+        lines.append("Post code: " + str(post_code))
+    if room_id is not None:
+        label = room_name + " (" + str(room_id) + ")" if room_name else str(room_id)
+        lines.append("Room: " + label)
+    if server_id:
+        label = server_name + " (" + str(server_id) + ")" if server_name else str(server_id)
+        lines.append("Server: " + label)
+    if server_slug:
+        lines.append("oneira.cc/" + str(server_slug).lstrip("/"))
+    if call_id is not None:
+        lines.append("Phone call: " + str(call_id))
+    if kind == "watch":
+        if post_code:
+            lines.append("Open: Admin → Community → Posts")
+        elif room_id is not None:
+            lines.append("Open: Admin → Community → Rooms")
+        elif server_id:
+            lines.append("Open: Admin → Servers")
+    return lines
+
+
+def auto_report_open():
+    return or_(
+        Feedback_report.status.is_(None),
+        ~Feedback_report.status.in_(AUTO_DONE),
+    )
+
+
+def paper_trail(action, kind, texts, loc, count, transcript="", terms=None):
+    view = TRAIL_VIEWS.get(action) or WATCH_VIEWS.get(action, action)
     lines = [
-        SURFACE_LABELS.get(view, view),
-        who,
-        "Matched: " + ", ".join(terms),
-        "",
-        join_texts(texts),
+        "Where: " + SURFACE_LABELS.get(view, view),
+        "Attempted:" if kind == "blacklist" else "Posted:",
+        join_texts(texts) or "(empty)",
     ]
-    return "\n".join(lines).strip()
+    lines.extend(location_lines(kind, loc))
+    matched = phrase_words(terms)
+    if matched:
+        lines.append("Matched: " + matched)
+    if transcript:
+        lines.append("")
+        lines.append(transcript)
+    lines.append("Open Auto Reports: " + str(count))
+    return "\n".join(lines)
+
+
+def snapshot_text(user, action, kind, texts, terms, loc, count, transcript=""):
+    return lead_line(user, action, kind, terms) + "\n\n" + paper_trail(action, kind, texts, loc, count, transcript, terms)
+
+
+def open_auto_count(database, user_id):
+    if not user_id:
+        return 0
+    return int(
+        database.query(func.count()).select_from(Feedback_report).filter(
+            Feedback_report.feedback_type.in_(("auto", "automod")),
+            Feedback_report.target_user_id == user_id,
+            auto_report_open(),
+        ).scalar() or 0
+    )
+
+
+def flag_if_repeat(database, user):
+    if not user or is_protected_account(user):
+        return
+    if open_auto_count(database, user.id) < AUTO_FLAG_AT:
+        return
+    found = database.query(Community_lock).filter(
+        Community_lock.user_id == user.id,
+        Community_lock.kind == "flagged",
+    ).first()
+    if found:
+        return
+    try:
+        row = set_community_lock(database, None, user, "flagged", True, None)
+        row.actor_username = "Auto mod"
+        database.commit()
+    except HTTPException:
+        database.rollback()
+
+
+def phone_transcript(database, call_id, extra_user=None, extra_content="", blocked=False):
+    lines = []
+    if call_id:
+        rows = (
+            database.query(Community_phone_message)
+            .filter(Community_phone_message.call_id == int(call_id))
+            .order_by(Community_phone_message.id.asc())
+            .all()
+        )
+        for row in rows:
+            author = database.query(UserInfo).filter(UserInfo.id == row.author_id).first()
+            name = ((author.username if author else "") or "user").strip() or "user"
+            lines.append("@" + name + ": " + (row.content or ""))
+    if extra_content:
+        username, _shown = author_names(extra_user)
+        tag = " (not sent)" if blocked else ""
+        lines.append("@" + (username or "user") + tag + ": " + extra_content)
+    if not lines:
+        return ""
+    return "Phone transcript\n" + "\n".join(lines)
 
 
 def open_watch_report(database, view, content_id, server_id):
     query = database.query(Feedback_report).filter(
         Feedback_report.feedback_type.in_(("auto", "automod")),
+        Feedback_report.report_kind == "watch",
         Feedback_report.context_view == view,
-        or_(Feedback_report.status.is_(None), Feedback_report.status != "completed"),
+        auto_report_open(),
     )
     if server_id:
         query = query.filter(Feedback_report.server_id == str(server_id))
@@ -206,6 +347,136 @@ def add_auto_event(database, report_id, kind, text=""):
     ))
 
 
+def resolve_action(surface, action):
+    if action:
+        return action
+    return {
+        "posts": "posts",
+        "comments": "comments",
+        "rooms": "rooms_create",
+        "room_message": "room_message",
+        "phone": "phone",
+        "listings": "listings_edit",
+    }.get(surface, "posts")
+
+
+def file_auto_report(
+    database,
+    user,
+    surface,
+    texts,
+    terms,
+    kind,
+    action="",
+    content_id=None,
+    channel_name="",
+    channel_type="",
+    server_id=None,
+    server_name="",
+    server_slug="",
+    post_code="",
+    room_id=None,
+    room_name="",
+    call_id=None,
+    transcript="",
+    merge=False,
+):
+    if not terms:
+        return
+    action = resolve_action(surface, action)
+    view = WATCH_VIEWS.get(surface, surface)
+    username, shown = author_names(user)
+    loc = {
+        "post_code": post_code or (channel_name if view in ("post", "comment") else ""),
+        "room_id": room_id,
+        "room_name": room_name,
+        "server_id": server_id,
+        "server_name": server_name,
+        "server_slug": server_slug,
+        "call_id": call_id,
+    }
+    open_id = None
+    if content_id is not None:
+        try:
+            open_id = int(content_id)
+        except (TypeError, ValueError):
+            open_id = None
+    extra_type = channel_type
+    if view == "room_message" and room_id is not None:
+        extra_type = str(room_id)
+    elif view == "phone" and call_id is not None:
+        extra_type = str(call_id)
+    row = None
+    created = False
+    if merge and kind == "watch":
+        row = open_watch_report(database, view, content_id, server_id)
+    count = open_auto_count(database, user.id if user else None)
+    if row:
+        count = max(count, 1)
+        body = snapshot_text(user, action, kind, texts, terms, loc, count, transcript)
+        row.report = body
+        row.username = username
+        row.display_name = shown
+        row.target_user_id = user.id if user else None
+        if channel_name:
+            row.channel_name = channel_name
+        if server_name:
+            row.server_name = server_name
+        if extra_type:
+            row.channel_type = extra_type
+        add_auto_event(database, row.id, "update", json.dumps({"report": body, "matched": terms, "surface": view, "kind": kind}))
+        database.commit()
+        return
+    count = count + 1
+    body = snapshot_text(user, action, kind, texts, terms, loc, count, transcript)
+    stored_name = channel_name or post_code or room_name or ""
+    row = Feedback_report(
+        user_id=None,
+        username=username,
+        display_name=shown,
+        feedback_type="auto",
+        report_kind=kind,
+        report_score=1,
+        report=body,
+        status="new",
+        context_view=view,
+        server_id=str(server_id) if server_id else None,
+        server_name=server_name or None,
+        channel_id=open_id,
+        channel_name=stored_name or None,
+        channel_type=extra_type or None,
+        target_user_id=user.id if user else None,
+        alert_user=False,
+        requests_info=False,
+    )
+    database.add(row)
+    database.commit()
+    database.refresh(row)
+    add_auto_event(database, row.id, "created", json.dumps({"report": body, "matched": terms, "surface": view, "kind": kind}))
+    database.commit()
+    created = True
+    if created:
+        flag_if_repeat(database, user)
+
+
+def report_blacklist(database, user, surface, texts, hits, public=False, action="", **loc):
+    terms = (hits or {}).get("blacklist") or []
+    if not terms:
+        return
+    file_auto_report(
+        database,
+        user,
+        surface,
+        texts,
+        terms,
+        kind="blacklist",
+        action=action,
+        merge=False,
+        **loc
+    )
+    refuse_blacklist(hits, public=public)
+
+
 def report_watch(
     database,
     user,
@@ -216,49 +487,26 @@ def report_watch(
     channel_name="",
     server_id=None,
     server_name="",
+    action="",
+    **loc
 ):
     if not terms:
         return
-    view = WATCH_VIEWS.get(surface, surface)
-    username, shown = author_names(user)
-    body = snapshot_text(view, texts, terms, user)
-    payload = json.dumps({"report": body, "matched": terms, "surface": view})
-    row = open_watch_report(database, view, content_id, server_id)
-    if row:
-        row.report = body
-        row.username = username
-        row.display_name = shown
-        row.target_user_id = user.id if user else None
-        if channel_name:
-            row.channel_name = channel_name
-        if server_name:
-            row.server_name = server_name
-        add_auto_event(database, row.id, "update", payload)
-        database.commit()
-        return
-    row = Feedback_report(
-        user_id=None,
-        username=username,
-        display_name=shown,
-        feedback_type="auto",
-        report_kind="watch",
-        report_score=1,
-        report=body,
-        status="new",
-        context_view=view,
-        server_id=str(server_id) if server_id else None,
-        server_name=server_name or None,
-        channel_id=int(content_id) if content_id is not None else None,
-        channel_name=channel_name or None,
-        target_user_id=user.id if user else None,
-        alert_user=False,
-        requests_info=False,
+    file_auto_report(
+        database,
+        user,
+        surface,
+        texts,
+        terms,
+        kind="watch",
+        action=action,
+        content_id=content_id,
+        channel_name=channel_name,
+        server_id=server_id,
+        server_name=server_name,
+        merge=True,
+        **loc
     )
-    database.add(row)
-    database.commit()
-    database.refresh(row)
-    add_auto_event(database, row.id, "created", payload)
-    database.commit()
 
 
 def clean_term(value):

@@ -38,7 +38,7 @@ from app.routers.roles import (
 )
 from app.routers.account import public_display_name
 from app.routers.moderation import iso_dt, require_not_timed_out, timeout_until_for
-from app.automod import inspect as automod_inspect, refuse_blacklist, report_watch
+from app.automod import inspect as automod_inspect, report_blacklist, report_watch
 from app.site_moderation import refuse_server_lock, refuse_server_media
 from app.routers.mentions import apply_channel_mentions, decorate_history, server_notice, channel_notice, channel_notices_for, stamp_channel_view, clear_mentions, seed_channel_unread, clear_channel_mentions, accepted_reply_parent, reply_map_for
 from app.routers.feed import notify_activity_reply
@@ -111,11 +111,25 @@ def server_listing_texts(server, name=None, about=None, tags=None):
     return [shown_name, shown_about, " ".join(shown_tags)]
 
 
-def scan_public_listing(database, server, name=None, about=None, tags=None, public=False):
+def scan_public_listing(database, server, name=None, about=None, tags=None):
     texts = server_listing_texts(server, name=name, about=about, tags=tags)
     hits = automod_inspect(database, "listings", texts)
-    refuse_blacklist(hits, public=public)
     return texts, hits
+
+
+def gate_public_listing(database, user, server, texts, hits, action, public=False, server_name=""):
+    report_blacklist(
+        database,
+        user,
+        "listings",
+        texts,
+        hits,
+        public=public,
+        action=action,
+        server_id=server.id,
+        server_name=server_name or (server.name or ""),
+        server_slug=server_url_slug(server),
+    )
 
 
 APPLICATION_QUESTION_TYPES = ("multi", "choice", "text", "signature")
@@ -947,6 +961,8 @@ async def update_server_name(body: Server_name_update, database: Session = Depen
     listing = None
     if bool(getattr(server, "discoverable", False)):
         listing = scan_public_listing(database, server, name=name)
+        texts, hits = listing
+        gate_public_listing(database, current_user, server, texts, hits, "listings_edit", server_name=name)
 
     previous = server.name or ""
     server.name = name
@@ -965,6 +981,8 @@ async def update_server_name(body: Server_name_update, database: Session = Depen
             hits.get("watch") or [],
             server_id=server.id,
             server_name=name,
+            action="listings_edit",
+            server_slug=server_url_slug(server),
         )
     await server_broadcast(
         server_id=server.id,
@@ -989,6 +1007,8 @@ async def update_server_about(body: Server_about_update, database: Session = Dep
     listing = None
     if bool(getattr(server, "discoverable", False)):
         listing = scan_public_listing(database, server, about=about)
+        texts, hits = listing
+        gate_public_listing(database, current_user, server, texts, hits, "listings_edit")
 
     previous = server.about or ""
     server.about = about
@@ -1007,6 +1027,8 @@ async def update_server_about(body: Server_about_update, database: Session = Dep
             hits.get("watch") or [],
             server_id=server.id,
             server_name=server.name or "",
+            action="listings_edit",
+            server_slug=server_url_slug(server),
         )
     await server_broadcast(
         server_id=server.id,
@@ -1138,6 +1160,8 @@ async def update_server_tags(body: Server_tags_update, database: Session = Depen
     listing = None
     if bool(getattr(server, "discoverable", False)):
         listing = scan_public_listing(database, server, tags=tags)
+        texts, hits = listing
+        gate_public_listing(database, current_user, server, texts, hits, "listings_edit")
     server.tags = store_server_tags(tags)
     if previous != tags:
         write_audit_log(database, server.id, current_user.id, "update_server", "server", 0, {
@@ -1154,6 +1178,8 @@ async def update_server_tags(body: Server_tags_update, database: Session = Depen
             hits.get("watch") or [],
             server_id=server.id,
             server_name=server.name or "",
+            action="listings_edit",
+            server_slug=server_url_slug(server),
         )
     await server_broadcast(
         server_id=server.id,
@@ -1228,7 +1254,9 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
     going_public = discoverable and not bool(previous.get("discoverable"))
     listing = None
     if going_public:
-        listing = scan_public_listing(database, server, public=True)
+        listing = scan_public_listing(database, server)
+        texts, hits = listing
+        gate_public_listing(database, current_user, server, texts, hits, "listings_public", public=True)
     server.privacy_mode = mode
     server.discoverable = discoverable
     server.applications_enabled = applications_enabled
@@ -1264,6 +1292,8 @@ async def update_server_privacy(body: Server_privacy_update, database: Session =
             hits.get("watch") or [],
             server_id=server.id,
             server_name=server.name or "",
+            action="listings_public",
+            server_slug=server_url_slug(server),
         )
     fields = server_privacy_fields(server)
     await server_broadcast(

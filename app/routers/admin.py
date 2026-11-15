@@ -24,6 +24,7 @@ from app.routers.moderation import iso_dt
 from app.routers.reactions import reactions_for_messages
 from app.routers.roles import name_color_roles_by_user, nicknames_for_users, clean_role_color
 from app.r2 import delete_attachment, post_attachments_public, attachment_public
+from app.automod import open_auto_count
 from app.routers.community_posts import author_map, comment_counts, pack_community_comment, pack_community_post
 from app.routers.feed import notify_feed_alert
 from app.routers.kofi import (
@@ -91,6 +92,10 @@ FEEDBACK_STATUS_LABELS = {
 ADMIN_REPORT_STATUSES = ("open", "followup", "closed")
 ADMIN_URGENCY = ("high", "medium", "low")
 ADMIN_LOCK_DAYS = (1, 3, 5, 7)
+AUTO_REPORT_KINDS = {
+    "blacklist": "Blacklist",
+    "watch": "Watch List",
+}
 
 
 def require_oneira_admin(user):
@@ -198,6 +203,7 @@ def load_admin_user(database, user_id):
         .filter(or_(Feedback_report.user_id.is_(None), Feedback_report.user_id != account.id))
         .scalar() or 0
     )
+    packed["auto_reports"] = open_auto_count(database, account.id)
     packed["community_locks"] = pack_community_locks(database, account.id)
     packed["flagged"] = "flagged" in packed["community_locks"]
     database.commit()
@@ -354,7 +360,7 @@ def pack_feedback(row, extra=None):
         "feedback_type": row.feedback_type,
         "feedback_label": FEEDBACK_TYPE_LABELS.get(row.feedback_type, row.feedback_type),
         "report_kind": row.report_kind or "",
-        "report_kind_label": REPORT_KINDS.get(row.report_kind, ""),
+        "report_kind_label": REPORT_KINDS.get(row.report_kind) or AUTO_REPORT_KINDS.get(row.report_kind, ""),
         "report_score": int(row.report_score) if row.report_score is not None else feedback_score(
             row.feedback_type, row.report, feedback_file_count(row.attachments)
         ),
@@ -376,6 +382,7 @@ def pack_feedback(row, extra=None):
         "created_at": str(row.created_at) if row.created_at else None,
         "last_interacted": extra.get("last_interacted") or (str(row.created_at) if row.created_at else None),
         "update_count": int(extra.get("update_count") or 0),
+        "auto_reports": extra.get("auto_reports"),
         "last_username": extra.get("last_username") or row.username,
         "delete_after": str(row.delete_after) if getattr(row, "delete_after", None) else None,
         "avatar": extra.get("avatar") or {},
@@ -431,6 +438,23 @@ def feedback_extras(database, rows, accounts):
         if last_ids:
             last_events = database.query(Feedback_event).filter(Feedback_event.id.in_(list(last_ids.values()))).all()
             last_handles = {item.report_id: item.actor_username or "" for item in last_events}
+    auto_open = {}
+    target_ids = list({
+        row.target_user_id
+        for row in rows
+        if row.target_user_id and (row.feedback_type or "").strip().lower() in ("auto", "automod")
+    })
+    if target_ids:
+        auto_open = dict(
+            database.query(Feedback_report.target_user_id, func.count(Feedback_report.id))
+            .filter(
+                Feedback_report.feedback_type.in_(("auto", "automod")),
+                Feedback_report.target_user_id.in_(target_ids),
+                or_(Feedback_report.status.is_(None), ~Feedback_report.status.in_(("completed", "closed"))),
+            )
+            .group_by(Feedback_report.target_user_id)
+            .all()
+        )
     extras = {}
     for row in rows:
         uid = row.user_id
@@ -444,6 +468,7 @@ def feedback_extras(database, rows, accounts):
             "last_interacted": str(touched) if touched else None,
             "update_count": max(0, int(added.get(row.id) or 0) - 1),
             "last_username": last_handles.get(row.id) or row.username,
+            "auto_reports": int(auto_open.get(row.target_user_id, 0)) if (row.feedback_type or "").strip().lower() in ("auto", "automod") else None,
         }
     return extras
 

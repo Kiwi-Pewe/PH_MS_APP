@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
 
-from app.models import UserInfo, Feed_alert, Servers
+from app.models import Community_post, UserInfo, Feed_alert, Servers
 from app.schemas import Feed_alert_prefs_in
 from app.database import get_db
 from app.auth import get_current_user
@@ -32,6 +33,9 @@ ALERT_TYPE_LABELS = {
     "feedback_status": "Feedback update",
     "report_status": "Report update",
     "application_submitted": "Application submitted",
+    "community_post": "Community post",
+    "community_follow": "New follower",
+    "community_applications": "Server applications",
 }
 
 FAMILY_FOR_TYPE = {
@@ -53,6 +57,9 @@ FAMILY_FOR_TYPE = {
     "feedback_status": "feedback",
     "report_status": "feedback",
     "application_submitted": "activity",
+    "community_post": "activity",
+    "community_follow": "profile",
+    "community_applications": "activity",
 }
 
 FEED_PREF_TYPES = (
@@ -71,6 +78,9 @@ FEED_PREF_TYPES = (
     "timeout",
     "feedback_status",
     "report_status",
+    "community_post",
+    "community_follow",
+    "community_applications",
 )
 
 
@@ -270,9 +280,20 @@ def serialize_feed_alert(row, sender=None, server=None, extra_users=None):
         "owner_display_name": None,
         "target": None,
     }
-    if kind == "application_submitted":
+    if kind == "application_submitted" or kind == "community_applications":
         face_kind = "server"
         payload["face_kind"] = "server"
+    if kind == "community_post":
+        payload["post_code"] = ctx.get("post_code")
+        payload["counts"] = {
+            "likes": int(ctx.get("likes") or 0),
+            "dislikes": int(ctx.get("dislikes") or 0),
+            "comments": int(ctx.get("comments") or 0),
+        }
+    if kind == "community_follow":
+        payload["followers"] = int(ctx.get("followers") or 0)
+    if kind == "community_applications":
+        payload["pending"] = int(ctx.get("pending") or 0)
     if face_kind == "server":
         if server:
             payload["subject_name"] = server.name or "Server"
@@ -287,7 +308,8 @@ def serialize_feed_alert(row, sender=None, server=None, extra_users=None):
     for key in (
         "kind", "message_id", "channel_id", "party_id", "post_id", "peer_id",
         "item_id", "event_id", "comment_id", "owner_id", "name", "report_id",
-        "feedback_type",
+        "feedback_type", "post_code", "likes", "dislikes", "comments",
+        "pending", "followers",
     ):
         if ctx.get(key) is not None:
             target[key] = ctx[key]
@@ -338,35 +360,70 @@ def create_feed_alert(
     return row
 
 
-async def notify_feed_alert(
-    database,
-    receiver_id,
-    alert_type,
-    sender_id=None,
-    alert_family=None,
-    server_id=None,
-    reason=None,
-    duration_seconds=None,
-    context=None,
-    force=False,
-):
-    from app.routers.realtime import notify_user
-    receiver = database.query(UserInfo).filter(UserInfo.id == receiver_id).first() if receiver_id else None
-    if receiver and not force and not feed_alert_type_enabled(receiver, alert_type):
+def find_feed_alert(database, receiver_id, alert_type, server_id=None, post_code=None):
+    kind = (alert_type or "").strip().lower()
+    if not receiver_id or not kind:
         return None
-    row = create_feed_alert(
-        database,
-        receiver_id=receiver_id,
-        alert_type=alert_type,
-        sender_id=sender_id,
-        alert_family=alert_family,
-        server_id=server_id,
-        reason=reason,
-        duration_seconds=duration_seconds,
-        context=context,
+    query = database.query(Feed_alert).filter(
+        Feed_alert.receiver_id == receiver_id,
+        Feed_alert.alert_type == kind,
     )
-    sender = database.query(UserInfo).filter(UserInfo.id == sender_id).first() if sender_id else None
-    server = database.query(Servers).filter(Servers.id == server_id).first() if server_id else None
+    if server_id:
+        query = query.filter(Feed_alert.server_id == server_id)
+    rows = query.order_by(Feed_alert.created_at.desc(), Feed_alert.id.desc()).all()
+    if post_code:
+        code = str(post_code)
+        for row in rows:
+            ctx = parse_alert_context(row.context) or {}
+            if str(ctx.get("post_code") or "") == code:
+                return row
+        return None
+    return rows[0] if rows else None
+
+
+def decorate_feed_alerts(database, alerts, viewer_id):
+    payloads = alerts or []
+    codes = []
+    for payload in payloads:
+        if str(payload.get("alert_type") or "").lower() != "community_post":
+            continue
+        code = str(payload.get("post_code") or "").strip()
+        if not code:
+            ctx = parse_alert_context(payload.get("context")) or {}
+            code = str(ctx.get("post_code") or "").strip()
+            payload["post_code"] = code or None
+        if code:
+            codes.append(code)
+    if not codes:
+        return payloads
+    from app.routers.community_posts import author_map, comment_counts, pack_community_post, votes_for
+    rows = database.query(Community_post).filter(Community_post.code.in_(list(set(codes)))).all()
+    people = author_map(database, [row.author_id for row in rows])
+    replies = comment_counts(database, [row.id for row in rows])
+    votes = votes_for(database, viewer_id, [row.id for row in rows])
+    by_code = {row.code: row for row in rows}
+    for payload in payloads:
+        if str(payload.get("alert_type") or "").lower() != "community_post":
+            continue
+        row = by_code.get(payload.get("post_code"))
+        if not row:
+            payload["post"] = None
+            continue
+        payload["post"] = pack_community_post(
+            row,
+            people,
+            viewer_id,
+            replies=replies.get(row.id, 0),
+            comments=[],
+            vote=votes.get(row.id),
+        )
+    return payloads
+
+
+async def emit_feed_alert_ws(database, row):
+    from app.routers.realtime import notify_user
+    sender = database.query(UserInfo).filter(UserInfo.id == row.sender_id).first() if row.sender_id else None
+    server = database.query(Servers).filter(Servers.id == row.server_id).first() if row.server_id else None
     extra_users = {}
     if sender:
         extra_users[sender.id] = sender
@@ -381,10 +438,105 @@ async def notify_feed_alert(
         owner = database.query(UserInfo).filter(UserInfo.id == owner_id).first()
         if owner:
             extra_users[owner.id] = owner
-    await notify_user(receiver_id, {
+    payload = serialize_feed_alert(row, sender, server, extra_users)
+    decorate_feed_alerts(database, [payload], row.receiver_id)
+    await notify_user(row.receiver_id, {
         "type": "feed_alert",
-        "alert": serialize_feed_alert(row, sender, server, extra_users),
+        "alert": payload,
     })
+
+
+async def delete_feed_alert_row(database, row):
+    if not row:
+        return
+    from app.routers.realtime import notify_user
+    receiver_id = row.receiver_id
+    alert_id = row.id
+    database.delete(row)
+    database.commit()
+    await notify_user(receiver_id, {"type": "feed_alert_removed", "id": alert_id})
+
+
+async def upsert_feed_alert(
+    database,
+    receiver_id,
+    alert_type,
+    sender_id=None,
+    alert_family=None,
+    server_id=None,
+    reason=None,
+    duration_seconds=None,
+    context=None,
+    force=False,
+    post_code=None,
+):
+    receiver = database.query(UserInfo).filter(UserInfo.id == receiver_id).first() if receiver_id else None
+    if receiver and not force and not feed_alert_type_enabled(receiver, alert_type):
+        return None
+    kind = (alert_type or "").strip().lower()
+    family = normalize_alert_family(alert_family, kind)
+    row = find_feed_alert(
+        database,
+        receiver_id,
+        kind,
+        server_id=server_id,
+        post_code=post_code,
+    )
+    if row:
+        row.sender_id = sender_id
+        row.alert_family = family
+        row.alert_type = kind
+        row.server_id = server_id
+        row.reason = (reason or "").strip() or None
+        row.duration_seconds = int(duration_seconds) if duration_seconds else None
+        row.context = context
+        row.created_at = datetime.utcnow()
+        database.add(row)
+        database.commit()
+        database.refresh(row)
+    else:
+        row = create_feed_alert(
+            database,
+            receiver_id=receiver_id,
+            alert_type=kind,
+            sender_id=sender_id,
+            alert_family=family,
+            server_id=server_id,
+            reason=reason,
+            duration_seconds=duration_seconds,
+            context=context,
+        )
+    await emit_feed_alert_ws(database, row)
+    return row
+
+
+async def notify_feed_alert(
+    database,
+    receiver_id,
+    alert_type,
+    sender_id=None,
+    alert_family=None,
+    server_id=None,
+    reason=None,
+    duration_seconds=None,
+    context=None,
+    force=False,
+):
+    receiver = database.query(UserInfo).filter(UserInfo.id == receiver_id).first() if receiver_id else None
+    if receiver and not force and not feed_alert_type_enabled(receiver, alert_type):
+        return None
+    row = create_feed_alert(
+        database,
+        receiver_id=receiver_id,
+        alert_type=alert_type,
+        sender_id=sender_id,
+        alert_family=alert_family,
+        server_id=server_id,
+        reason=reason,
+        duration_seconds=duration_seconds,
+        context=context,
+    )
+    await emit_feed_alert_ws(database, row)
     return row
 
 
@@ -530,7 +682,19 @@ def list_feed_alerts(
     if muted:
         query = query.filter(~Feed_alert.alert_type.in_(muted))
     if before_id:
-        query = query.filter(Feed_alert.id < int(before_id))
+        pivot = database.query(Feed_alert).filter(
+            Feed_alert.id == int(before_id),
+            Feed_alert.receiver_id == current_user.id,
+        ).first()
+        if pivot and pivot.created_at:
+            query = query.filter(
+                or_(
+                    Feed_alert.created_at < pivot.created_at,
+                    and_(Feed_alert.created_at == pivot.created_at, Feed_alert.id < pivot.id),
+                )
+            )
+        else:
+            query = query.filter(Feed_alert.id < int(before_id))
     rows = (
         query.order_by(Feed_alert.created_at.desc(), Feed_alert.id.desc())
         .limit(size)
@@ -569,12 +733,12 @@ def list_feed_alerts(
     if server_ids:
         for server in database.query(Servers).filter(Servers.id.in_(server_ids)).all():
             servers[server.id] = server
-    return {
-        "alerts": [
-            serialize_feed_alert(row, senders.get(row.sender_id), servers.get(row.server_id), extra_users)
-            for row in rows
-        ]
-    }
+    alerts = [
+        serialize_feed_alert(row, senders.get(row.sender_id), servers.get(row.server_id), extra_users)
+        for row in rows
+    ]
+    decorate_feed_alerts(database, alerts, current_user.id)
+    return {"alerts": alerts}
 
 
 @router.get("/feed_alert_prefs")

@@ -349,6 +349,50 @@ def pack_community_follows(database, user_id):
     return {"ids": community_follow_ids(database, user_id)}
 
 
+def community_follower_count(database, user_id):
+    return database.query(func.count(Community_edge.id)).filter(
+        Community_edge.target_id == user_id,
+        Community_edge.kind == COMMUNITY_FOLLOW_USER_KIND,
+        Community_edge.label == "",
+    ).scalar() or 0
+
+
+async def notify_community_post_engagement(database, post, actor_id):
+    from app.routers.feed import delete_feed_alert_row, find_feed_alert, pack_alert_context, upsert_feed_alert
+    if not post or not post.author_id or post.author_id == actor_id:
+        return
+    likes = int(post.likes or 0)
+    dislikes = int(post.dislikes or 0)
+    comments = int(comment_counts(database, [post.id]).get(post.id, 0) or 0)
+    found = find_feed_alert(database, post.author_id, "community_post", post_code=post.code)
+    if likes < 1 and dislikes < 1 and comments < 1:
+        if found:
+            await delete_feed_alert_row(database, found)
+        return
+    await upsert_feed_alert(
+        database,
+        receiver_id=post.author_id,
+        alert_type="community_post",
+        sender_id=actor_id,
+        alert_family="activity",
+        context=pack_alert_context({
+            "kind": "community_post",
+            "post_code": post.code,
+            "likes": likes,
+            "dislikes": dislikes,
+            "comments": comments,
+        }),
+        post_code=post.code,
+    )
+
+
+async def drop_community_post_feed(database, author_id, post_code):
+    from app.routers.feed import delete_feed_alert_row, find_feed_alert
+    found = find_feed_alert(database, author_id, "community_post", post_code=post_code)
+    if found:
+        await delete_feed_alert_row(database, found)
+
+
 def filter_word_hit(text, words):
     body = str(text or "")
     if not body or not words:
@@ -663,7 +707,7 @@ def create_community_post(
 
 
 @router.post("/community_posts/{code}/comments")
-def create_community_comment(
+async def create_community_comment(
     code: str,
     body: Community_comment_create,
     database: Session = Depends(get_db),
@@ -706,11 +750,13 @@ def create_community_comment(
         action="comments",
         post_code=parent.code,
     )
-    return pack_with_comments(database, parent, current_user.id)
+    packed = pack_with_comments(database, parent, current_user.id)
+    await notify_community_post_engagement(database, parent, current_user.id)
+    return packed
 
 
 @router.delete("/community_posts/{code}")
-def delete_community_post(
+async def delete_community_post(
     code: str,
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
@@ -718,6 +764,8 @@ def delete_community_post(
     row = root_by_code(database, code)
     if row.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only delete your own post.")
+    author_id = row.author_id
+    post_code = row.code
     children = database.query(Community_comment).filter(Community_comment.post_id == row.id).all()
     for child in children:
         database.delete(child)
@@ -728,6 +776,7 @@ def delete_community_post(
     delete_attachment(row.attachments)
     database.delete(row)
     database.commit()
+    await drop_community_post_feed(database, author_id, post_code)
     return {"ok": True}
 
 
@@ -737,25 +786,30 @@ def cast_community_vote(code, kind, database, current_user):
     if not hidden:
         raise HTTPException(status_code=404, detail="Post not found.")
     apply_community_vote(database, row, current_user.id, kind)
-    return pack_with_comments(database, row, current_user.id)
+    packed = pack_with_comments(database, row, current_user.id)
+    return packed, row
 
 
 @router.post("/community_posts/{code}/like")
-def like_community_post(
+async def like_community_post(
     code: str,
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
-    return cast_community_vote(code, "like", database, current_user)
+    packed, row = cast_community_vote(code, "like", database, current_user)
+    await notify_community_post_engagement(database, row, current_user.id)
+    return packed
 
 
 @router.post("/community_posts/{code}/dislike")
-def dislike_community_post(
+async def dislike_community_post(
     code: str,
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
-    return cast_community_vote(code, "dislike", database, current_user)
+    packed, row = cast_community_vote(code, "dislike", database, current_user)
+    await notify_community_post_engagement(database, row, current_user.id)
+    return packed
 
 
 def filter_edge_kind(kind):
@@ -905,11 +959,12 @@ def list_community_follows(
 
 
 @router.post("/community_follow")
-def add_community_follow(
+async def add_community_follow(
     body: Community_follow_in,
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    from app.routers.feed import notify_feed_alert, pack_alert_context
     user_id = int(body.user_id or 0)
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="You already see your own posts.")
@@ -922,6 +977,7 @@ def add_community_follow(
         Community_edge.target_id == user_id,
         Community_edge.label == "",
     ).first()
+    created = False
     if not existing:
         database.add(Community_edge(
             user_id=current_user.id,
@@ -930,6 +986,20 @@ def add_community_follow(
             label="",
         ))
         database.commit()
+        created = True
+    if created:
+        followers = community_follower_count(database, user_id)
+        await notify_feed_alert(
+            database,
+            receiver_id=user_id,
+            alert_type="community_follow",
+            sender_id=current_user.id,
+            alert_family="profile",
+            context=pack_alert_context({
+                "kind": "community_follow",
+                "followers": int(followers),
+            }),
+        )
     return pack_community_follows(database, current_user.id)
 
 

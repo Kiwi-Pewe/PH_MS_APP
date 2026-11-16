@@ -632,6 +632,10 @@ function connectSocket() {
       if (data.alert && typeof noteIncomingFeedAlert === "function") noteIncomingFeedAlert(data.alert);
     }
 
+    if (data.type === "feed_alert_removed") {
+      if (typeof dropFeedAlertLocally === "function") dropFeedAlertLocally(data.id);
+    }
+
     if (data.type === "member_timeout") {
       if (typeof applyMemberTimeout === "function") {
         applyMemberTimeout(data.server_id, data.user_id, data.timeout_until || null, data.timeout_reason || "");

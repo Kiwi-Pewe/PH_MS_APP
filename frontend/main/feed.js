@@ -24,6 +24,9 @@ const FEED_TYPE_LABELS = {
   feedback_status: "Feedback update",
   report_status: "Report update",
   application_submitted: "Application submitted",
+  community_post: "Community post",
+  community_follow: "New follower",
+  community_applications: "Server applications",
 };
 
 const FEED_MOD_VERBS = {
@@ -172,6 +175,20 @@ function feedAlertBody(alert) {
     return server
       ? ("Your application was successfully submitted to " + feedQuote(server) + ".")
       : "Your application was successfully submitted.";
+  }
+  if (kind === "community_post") {
+    const stats = feedCommunityPostStats(alert);
+    return stats ? ("Your post now has " + stats + ".") : "Your post was updated.";
+  }
+  if (kind === "community_follow") {
+    const count = feedCommunityFollowers(alert);
+    const total = count === 1 ? "1 follower" : (count + " followers");
+    return who + " started following you. you now have " + total + ".";
+  }
+  if (kind === "community_applications") {
+    const pending = feedCommunityPending(alert);
+    const noun = pending === 1 ? "open application" : "open applications";
+    return "Your server now has " + pending + " " + noun + ".";
   }
   if (kind === "friend_accept") {
     return who + " accepted your friend request.";
@@ -454,28 +471,40 @@ function pushMailSessionAlert(alert) {
   if (mailTrayOpen) paintMailTray();
 }
 
+function dropFeedAlertLocally(alertId) {
+  if (alertId == null) return;
+  const id = Number(alertId);
+  const mailRow = mailSessionItems.find((row) => Number(row.id) === id);
+  if (mailRow && !mailRow.read && mailUnseenCount > 0) mailUnseenCount -= 1;
+  mailSessionItems = mailSessionItems.filter((row) => Number(row.id) !== id);
+  feedAlertRows = feedAlertRows.filter((row) => Number(row.id) !== id);
+  paintMailBadge();
+  if (mailTrayOpen) paintMailTray();
+  const feedView = document.getElementById("view-feed");
+  if (feedView && feedView.classList.contains("active")) {
+    paintFeedPosts({ preserveScroll: true });
+  }
+}
+
 function noteIncomingFeedAlert(alert) {
   if (!alert || alert.id == null) return;
   const kind = String(alert.alert_type || "").toLowerCase();
   const listed = kind === "dm_request" || typeof feedAlertTypeEnabled !== "function" || feedAlertTypeEnabled(alert.alert_type);
+  const existed = feedAlertRows.some((row) => row.id === alert.id) || mailSessionItems.some((row) => row.id === alert.id);
   if (listed) {
     pushMailSessionAlert(alert);
-    if (feedAlertRows.some((row) => row.id === alert.id)) {
-      feedAlertRows = feedAlertRows.map((row) => (row.id === alert.id ? alert : row));
-    } else {
-      feedAlertRows = [alert].concat(feedAlertRows);
-    }
+    feedAlertRows = [alert].concat(feedAlertRows.filter((row) => row.id !== alert.id));
     const feedView = document.getElementById("view-feed");
     if (feedView && feedView.classList.contains("active")) {
       paintFeedPosts({ preserveScroll: true });
     }
-    if (typeof showMailToast === "function") showMailToast(alert);
+    if (!existed && typeof showMailToast === "function") showMailToast(alert);
   }
   if (kind === "reaction") {
     if (typeof reactionNotifySoundOn !== "function" || reactionNotifySoundOn()) {
       if (typeof playOneiraAlert === "function") playOneiraAlert();
     }
-  } else if (listed) {
+  } else if (listed && !existed) {
     if (typeof playOneiraAlert === "function") playOneiraAlert();
   }
 }
@@ -511,12 +540,73 @@ function feedJoinedServer(serverId) {
   return list.some((row) => row && String(row.id) === String(serverId));
 }
 
+function feedCommunityPostCounts(alert) {
+  const counts = alert && alert.counts;
+  if (counts && typeof counts === "object") {
+    return {
+      likes: Number(counts.likes) || 0,
+      dislikes: Number(counts.dislikes) || 0,
+      comments: Number(counts.comments) || 0,
+    };
+  }
+  const ctx = feedAlertContext(alert);
+  return {
+    likes: Number(ctx.likes) || 0,
+    dislikes: Number(ctx.dislikes) || 0,
+    comments: Number(ctx.comments) || 0,
+  };
+}
+
+function feedJoinCountParts(parts) {
+  if (!parts.length) return "";
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return parts[0] + " and " + parts[1];
+  return parts.slice(0, -1).join(", ") + ", and " + parts[parts.length - 1];
+}
+
+function feedCommunityPostStats(alert) {
+  const counts = feedCommunityPostCounts(alert);
+  const parts = [];
+  [
+    ["comments", "comment", "comments"],
+    ["likes", "like", "likes"],
+    ["dislikes", "dislike", "dislikes"],
+  ].forEach((item) => {
+    const n = Number(counts[item[0]]) || 0;
+    if (n < 1) return;
+    parts.push(n + " " + (n === 1 ? item[1] : item[2]));
+  });
+  return feedJoinCountParts(parts);
+}
+
+function feedCommunityFollowers(alert) {
+  if (alert && alert.followers != null) return Math.max(0, Number(alert.followers) || 0);
+  const ctx = feedAlertContext(alert);
+  return Math.max(0, Number(ctx.followers) || 0);
+}
+
+function feedCommunityPending(alert) {
+  if (alert && alert.pending != null) return Math.max(0, Number(alert.pending) || 0);
+  const ctx = feedAlertContext(alert);
+  return Math.max(0, Number(ctx.pending) || 0);
+}
+
+function feedCommunityPostCode(alert) {
+  if (alert && alert.post_code) return String(alert.post_code);
+  if (alert && alert.post && alert.post.code) return String(alert.post.code);
+  const ctx = feedAlertContext(alert);
+  return String(ctx.post_code || "").trim();
+}
+
 function feedAlertCanJump(alert) {
   if (!alert) return false;
   const kind = String(alert.alert_type || "").toLowerCase();
   const ctx = feedAlertContext(alert);
   const surface = String((ctx && ctx.kind) || "").toLowerCase();
   if (kind === "widget_comment") return alert.owner_id != null || ctx.owner_id != null;
+  if (kind === "community_post") return !!feedCommunityPostCode(alert);
+  if (kind === "community_follow") return !!alert.sender_id;
+  if (kind === "community_applications") return feedJoinedServer(alert.server_id);
   if (kind === "friend_accept" || kind === "friend_deny" || kind === "dm_request" || kind === "dm_request_accept") return !!alert.sender_id;
   if (kind === "feedback_status" || kind === "report_status") return true;
   if (kind === "ban" || kind === "kick") return false;
@@ -572,6 +662,23 @@ async function jumpFeedAlert(alert) {
   const ownerId = alert.owner_id != null ? alert.owner_id : ctx.owner_id;
   if (kind === "widget_comment") {
     if (ownerId != null && typeof openUserProfile === "function") openUserProfile(ownerId);
+    return;
+  }
+  if (kind === "community_post") {
+    const code = feedCommunityPostCode(alert);
+    if (code && typeof openCommunityPostByCode === "function") await openCommunityPostByCode(code);
+    return;
+  }
+  if (kind === "community_follow") {
+    if (alert.sender_id && typeof openUserProfile === "function") openUserProfile(alert.sender_id);
+    return;
+  }
+  if (kind === "community_applications") {
+    if (!feedJoinedServer(serverId)) return;
+    if (typeof currentServerId === "undefined" || String(currentServerId) !== String(serverId)) {
+      if (typeof openServer === "function") await openServer(serverId);
+    }
+    if (typeof openServerApplicationsSection === "function") await openServerApplicationsSection();
     return;
   }
   if (kind === "friend_accept" || kind === "friend_deny") {
@@ -698,7 +805,7 @@ function buildFeedAlertCard(alert) {
   if (canJump) {
     card.classList.add("is-jumpable");
     card.addEventListener("click", (e) => {
-      if (e.target.closest(".is-mini-profile-target, .feed-alert-actions, button, a")) return;
+      if (e.target.closest(".is-mini-profile-target, .feed-alert-actions, button, a, .community-post-face, .community-post-name, .community-post-cover, .md-explicit, .md-explicit-media")) return;
       jumpFeedAlert(alert);
     });
   }
@@ -740,23 +847,40 @@ function buildFeedAlertCard(alert) {
 
   const content = document.createElement("div");
   content.className = "announce-post-content";
-  const titleRow = document.createElement("div");
-  titleRow.className = "announce-post-title-row";
-  const title = document.createElement("div");
-  title.className = "announce-post-title";
-  title.textContent = feedTypeLabel(alert);
-  titleRow.appendChild(title);
-  content.appendChild(titleRow);
-
-  const bodyText = feedAlertBody(alert);
-  if (bodyText) {
+  const kind = String(alert && alert.alert_type || "").toLowerCase();
+  if (kind === "community_post") {
+    const post = alert && alert.post;
+    if (post && typeof paintCommunityPostCard === "function") {
+      const frame = document.createElement("div");
+      frame.className = "feed-alert-post-frame";
+      const ready = typeof communityPostReady === "function" ? communityPostReady(post) : post;
+      frame.appendChild(paintCommunityPostCard(ready, { embed: true }));
+      content.appendChild(frame);
+    }
+    const stats = feedCommunityPostStats(alert);
     const body = document.createElement("div");
     body.className = "announce-post-body";
-    body.textContent = bodyText;
+    body.textContent = stats ? ("Your post now has " + stats + ".") : "Your post was updated.";
     content.appendChild(body);
+  } else {
+    const titleRow = document.createElement("div");
+    titleRow.className = "announce-post-title-row";
+    const title = document.createElement("div");
+    title.className = "announce-post-title";
+    title.textContent = feedTypeLabel(alert);
+    titleRow.appendChild(title);
+    content.appendChild(titleRow);
+
+    const bodyText = feedAlertBody(alert);
+    if (bodyText) {
+      const body = document.createElement("div");
+      body.className = "announce-post-body";
+      body.textContent = bodyText;
+      content.appendChild(body);
+    }
+    const actions = buildDmRequestActions(alert);
+    if (actions) content.appendChild(actions);
   }
-  const actions = buildDmRequestActions(alert);
-  if (actions) content.appendChild(actions);
 
   const date = document.createElement("div");
   date.className = "announce-post-date";

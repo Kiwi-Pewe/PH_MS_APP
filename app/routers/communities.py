@@ -16,7 +16,7 @@ from app.routers.deletion import write_audit_log
 from app.routers.moderation import active_ban, iso_dt
 from app.routers.realtime import notify_user, presence_status, serialize_member, server_broadcast
 from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user, require_server_member, require_server_perm
-from app.routers.feed import notify_feed_alert
+from app.routers.feed import delete_feed_alert_row, find_feed_alert, notify_feed_alert, pack_alert_context, upsert_feed_alert
 from app.routers.profile import public_avatar, public_display_name
 from app.routers.servers import clean_server_tag, parse_application_form, parse_server_tags, server_banner_fields, server_default_notifications, server_icon_still_url, server_icon_url, server_listing_tags, server_url_slug
 from app.site_moderation import listing_blocked_ids, refuse_server_join
@@ -587,6 +587,38 @@ def validate_application_answers(form, answers, username):
     return packed
 
 
+async def sync_owner_application_feed(database, server):
+    if not server or not server.owner_id:
+        return
+    pending = database.query(func.count(Server_applications.id)).filter(
+        Server_applications.server_id == server.id,
+        Server_applications.status == "pending",
+    ).scalar() or 0
+    found = find_feed_alert(
+        database,
+        server.owner_id,
+        "community_applications",
+        server_id=server.id,
+    )
+    if pending < 1:
+        if found:
+            await delete_feed_alert_row(database, found)
+        return
+    await upsert_feed_alert(
+        database,
+        receiver_id=server.owner_id,
+        alert_type="community_applications",
+        sender_id=None,
+        alert_family="activity",
+        server_id=server.id,
+        reason=server.name or "Server",
+        context=pack_alert_context({
+            "kind": "community_applications",
+            "pending": int(pending),
+        }),
+    )
+
+
 @router.post("/apply_community")
 async def apply_community(
     body: Community_apply_in,
@@ -635,6 +667,7 @@ async def apply_community(
         force=True,
     )
     database.commit()
+    await sync_owner_application_feed(database, server)
     await server_broadcast(
         server_id=server.id,
         payload={"type": "server_application_updated", "server_id": server.id},
@@ -725,6 +758,7 @@ async def review_server_application(
             "server_id": server.id,
             "server_name": server.name or "Server",
         })
+    await sync_owner_application_feed(database, server)
     await server_broadcast(
         server_id=server.id,
         payload={"type": "server_application_updated", "server_id": server.id},

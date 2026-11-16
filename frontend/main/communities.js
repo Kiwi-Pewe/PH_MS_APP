@@ -414,13 +414,15 @@ function fillCommunityPostHead(host, post, opts) {
   names.appendChild(meta);
   who.appendChild(face);
   who.appendChild(names);
-  const more = document.createElement("button");
-  more.type = "button";
-  more.className = "icon-btn community-post-more";
-  more.title = "More";
-  more.innerHTML = "&#8942;";
-  more.addEventListener("click", (e) => openCommunityPostMenu(e, post));
-  who.appendChild(more);
+  if (opts.menu !== false) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "icon-btn community-post-more";
+    more.title = "More";
+    more.innerHTML = "&#8942;";
+    more.addEventListener("click", (e) => openCommunityPostMenu(e, post));
+    who.appendChild(more);
+  }
   host.appendChild(who);
   if (post && post.topics && post.topics.length) {
     const row = document.createElement("div");
@@ -541,7 +543,12 @@ function fillCommunityPostActs(host, post, opts) {
       count.textContent = String(Number(post && post[key]) || 0);
       btn.appendChild(count);
     }
-    if (key === "likes" || key === "dislikes") {
+    if (opts.readonly) {
+      btn.disabled = true;
+      if (key === "likes" || key === "dislikes") {
+        btn.classList.toggle("is-on", !!(post && (key === "likes" ? post.liked : post.disliked)));
+      }
+    } else if (key === "likes" || key === "dislikes") {
       btn.classList.toggle("is-on", !!(post && (key === "likes" ? post.liked : post.disliked)));
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -565,26 +572,29 @@ function fillCommunityPostActs(host, post, opts) {
   });
 }
 
-function paintCommunityPostCard(post) {
+function paintCommunityPostCard(post, opts) {
+  opts = opts || {};
   const card = document.createElement("article");
-  card.className = "community-post";
+  card.className = "community-post" + (opts.embed ? " is-embed" : "");
   const head = document.createElement("div");
   head.className = "community-post-head";
-  fillCommunityPostHead(head, post);
+  fillCommunityPostHead(head, post, { menu: !opts.embed && opts.menu !== false });
   const mid = document.createElement("div");
   mid.className = "community-post-mid";
   fillCommunityPostMid(mid, post);
   const foot = document.createElement("div");
   foot.className = "community-post-foot";
-  fillCommunityPostActs(foot, post);
+  fillCommunityPostActs(foot, post, { detail: !!opts.detail, readonly: !!opts.embed });
   card.appendChild(head);
   card.appendChild(mid);
   card.appendChild(foot);
-  card.addEventListener("click", (e) => {
-    if (e.target.closest("button, .md-explicit, .md-explicit-media, .community-post-cover, .post-media, .oneira-music, .community-post-music, .community-post-face, .community-post-name")) return;
-    openCommunityPost(post);
-  });
-  card.addEventListener("contextmenu", (e) => openCommunityPostMenu(e, post));
+  if (!opts.embed) {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("button, .md-explicit, .md-explicit-media, .community-post-cover, .post-media, .oneira-music, .community-post-music, .community-post-face, .community-post-name")) return;
+      openCommunityPost(post);
+    });
+    card.addEventListener("contextmenu", (e) => openCommunityPostMenu(e, post));
+  }
   return card;
 }
 

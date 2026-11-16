@@ -8,6 +8,8 @@ const FEED_PREF_GROUPS = [
       { type: "post_comment", label: "Post comments" },
       { type: "event_invite", label: "Event invites" },
       { type: "event_created", label: "New events" },
+      { type: "community_post", label: "Community posts" },
+      { type: "community_applications", label: "Server applications" },
     ],
   },
   {
@@ -15,6 +17,7 @@ const FEED_PREF_GROUPS = [
     label: "Profile",
     kinds: [
       { type: "widget_comment", label: "Profile comments" },
+      { type: "community_follow", label: "Follows" },
       { type: "friend_accept", label: "Friend request accepted" },
       { type: "friend_deny", label: "Friend request declined" },
       { type: "dm_request", label: "Message requests" },

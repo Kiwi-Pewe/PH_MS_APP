@@ -377,6 +377,15 @@ function loadCommunityFeedTos() {
   });
 }
 
+function fillCommunityLegalCopy(el, text) {
+  if (!el) return;
+  el.replaceChildren();
+  const source = String(text || "");
+  if (!source) return;
+  if (typeof mdAppend === "function") mdAppend(el, source);
+  else el.textContent = source;
+}
+
 function openCommunityLegalCard(kind) {
   const text = communityFeedLegalText(kind);
   if (!text) return;
@@ -384,7 +393,7 @@ function openCommunityLegalCard(kind) {
   const title = document.getElementById("community-tos-title");
   const copy = document.getElementById("community-tos-copy");
   if (title) title.textContent = COMMUNITY_FEED_LEGAL_TITLES[kind] || "Site Rules";
-  if (copy) copy.textContent = communityFeedLegal[kind] || "";
+  fillCommunityLegalCopy(copy, communityFeedLegal[kind] || "");
   if (overlay) overlay.hidden = false;
 }
 

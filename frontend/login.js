@@ -22,13 +22,22 @@ function syncRegisterSubmit() {
   btn.disabled = !(username && password && over18 && (!registerHasTos() || readTos));
 }
 
+function fillLoginTosCopy(text) {
+  const copy = document.getElementById("login-tos-copy");
+  if (!copy) return;
+  copy.replaceChildren();
+  const source = String(text || "");
+  if (!source) return;
+  if (typeof mdAppend === "function") mdAppend(copy, source);
+  else copy.textContent = source;
+}
+
 function applyRegisterTos() {
   const row = document.getElementById("register-tos-row");
   const read = document.getElementById("register-read-tos");
-  const copy = document.getElementById("login-tos-copy");
   if (row) row.hidden = !registerHasTos();
   if (!registerHasTos() && read) read.checked = false;
-  if (copy) copy.textContent = registerTos || "";
+  fillLoginTosCopy(registerTos);
   syncRegisterSubmit();
 }
 
@@ -51,8 +60,7 @@ async function loadRegisterTos() {
 function openLoginTos() {
   if (!registerHasTos()) return;
   const overlay = document.getElementById("login-tos-overlay");
-  const copy = document.getElementById("login-tos-copy");
-  if (copy) copy.textContent = registerTos;
+  fillLoginTosCopy(registerTos);
   if (overlay) overlay.hidden = false;
 }
 

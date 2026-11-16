@@ -458,6 +458,9 @@ function settingsSiteRulesDoc(title, note, placeholder, key, value) {
   const card = adminPanel({ title: title });
   card.body.classList.add("admin-settings-fields");
   card.body.appendChild(adminEl("div", "admin-settings-opt-sub", note));
+  const wrap = adminEl("div", "composer-field news-md-field admin-settings-md");
+  const highlight = adminEl("div", "composer-highlight");
+  highlight.setAttribute("aria-hidden", "true");
   const area = adminEl("textarea", "admin-mod-reason admin-settings-tos");
   area.rows = 8;
   area.wrap = "soft";
@@ -465,7 +468,10 @@ function settingsSiteRulesDoc(title, note, placeholder, key, value) {
   area.spellcheck = true;
   area.placeholder = placeholder;
   area.value = value || "";
-  card.body.appendChild(area);
+  wrap.appendChild(highlight);
+  wrap.appendChild(area);
+  card.body.appendChild(wrap);
+  if (typeof bindComposerMarkdown === "function") bindComposerMarkdown(area);
   const save = adminEl("button", "admin-mod-confirm");
   save.type = "button";
   save.textContent = "Save";

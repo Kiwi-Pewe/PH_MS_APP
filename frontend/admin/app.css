@@ -777,6 +777,18 @@
   border-color: var(--accent);
 }
 
+.admin-settings-md {
+  display: block;
+  width: 100%;
+  min-height: 7.25em;
+}
+.admin-settings-md .composer-highlight,
+.admin-settings-md .admin-settings-tos {
+  min-height: 7.25em;
+  font-size: 16px;
+  line-height: 1.45;
+  padding: 11px 14px;
+}
 .admin-settings-tos {
   min-height: 7.25em;
   font-size: 16px;

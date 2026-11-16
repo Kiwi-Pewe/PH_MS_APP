@@ -345,36 +345,18 @@ const COMMUNITY_FEED_LEGAL_TITLES = {
 
 let communityFeedLegal = { tos: "", guidelines: "", privacy: "" };
 
-function communityFeedLegalText(kind) {
-  return String((communityFeedLegal && communityFeedLegal[kind]) || "").trim();
-}
-
-function syncCommunityFeedLegal() {
-  const map = {
-    "community-feed-guidelines": "guidelines",
-    "community-feed-privacy": "privacy",
-    "community-feed-terms": "tos"
-  };
-  Object.keys(map).forEach((id) => {
-    const btn = document.getElementById(id);
-    if (btn) btn.disabled = !communityFeedLegalText(map[id]);
-  });
-}
-
 function loadCommunityFeedTos() {
-  fetch(`https://${API_HOST}/site_rules`, { credentials: "include" }).then((response) => {
+  return fetch(`https://${API_HOST}/site_rules`, { credentials: "include" }).then((response) => {
     return response.ok ? response.json() : null;
   }).then((data) => {
+    if (!data) return communityFeedLegal;
     communityFeedLegal = {
-      tos: data && data.tos ? String(data.tos) : "",
-      guidelines: data && data.guidelines ? String(data.guidelines) : "",
-      privacy: data && data.privacy ? String(data.privacy) : ""
+      tos: data.tos ? String(data.tos) : "",
+      guidelines: data.guidelines ? String(data.guidelines) : "",
+      privacy: data.privacy ? String(data.privacy) : ""
     };
-    syncCommunityFeedLegal();
-  }).catch(() => {
-    communityFeedLegal = { tos: "", guidelines: "", privacy: "" };
-    syncCommunityFeedLegal();
-  });
+    return communityFeedLegal;
+  }).catch(() => communityFeedLegal);
 }
 
 function fillCommunityLegalCopy(el, text) {
@@ -386,15 +368,17 @@ function fillCommunityLegalCopy(el, text) {
   else el.textContent = source;
 }
 
-function openCommunityLegalCard(kind) {
-  const text = communityFeedLegalText(kind);
-  if (!text) return;
+function showCommunityLegalCard(kind) {
   const overlay = document.getElementById("community-tos-overlay");
   const title = document.getElementById("community-tos-title");
   const copy = document.getElementById("community-tos-copy");
   if (title) title.textContent = COMMUNITY_FEED_LEGAL_TITLES[kind] || "Site Rules";
   fillCommunityLegalCopy(copy, communityFeedLegal[kind] || "");
   if (overlay) overlay.hidden = false;
+}
+
+function openCommunityLegalCard(kind) {
+  loadCommunityFeedTos().then(() => showCommunityLegalCard(kind)).catch(() => showCommunityLegalCard(kind));
 }
 
 function closeCommunityTosCard() {

@@ -971,6 +971,9 @@ button.users-entry-open {
 .users-stat:last-child { border-bottom: none; }
 .users-stat-k { color: var(--text-dim); }
 .users-stat-v { color: var(--text); font-weight: 700; text-align: right; }
+.users-stat-v.is-up { color: #23c55e; }
+.users-stat-v.is-down { color: #ed4245; }
+.users-stat-v.is-zero { color: #fff; }
 
 .users-note-list {
   flex: 1 1 auto;

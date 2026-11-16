@@ -314,10 +314,10 @@ function usersSelectEmpty(host) {
   host.appendChild(adminEl("div", "users-empty", "Select a user."));
 }
 
-function usersStat(label, value) {
+function usersStat(label, value, valueClass) {
   const row = adminEl("div", "users-stat");
   row.appendChild(adminEl("div", "users-stat-k", label));
-  row.appendChild(adminEl("div", "users-stat-v", value));
+  row.appendChild(adminEl("div", "users-stat-v" + (valueClass ? " " + valueClass : ""), value));
   return row;
 }
 
@@ -358,6 +358,12 @@ function paintUsersAccount(host, row) {
   const until = usersBanUntil(row.banned_until);
   const summary = usersCard({ title: "Moderation summary", className: "users-summary", fill: true });
   const stats = adminEl("div", "users-stats");
+  const rating = row.rating || {};
+  const score = Number(rating.votes) || 0;
+  const scoreClass = score > 0 ? "is-up" : score < 0 ? "is-down" : "is-zero";
+  const ratingRow = usersStat("Rating", String(score), scoreClass);
+  ratingRow.title = (Number(rating.vote_up) || 0) + " up · " + (Number(rating.vote_down) || 0) + " down";
+  stats.appendChild(ratingRow);
   stats.appendChild(usersStat("Friends", adminNum(row.friend_count)));
   stats.appendChild(usersStat("Warns", adminNum(row.warn_count)));
   stats.appendChild(usersStat("Blocked by", adminNum(row.blocked_by) + " users"));

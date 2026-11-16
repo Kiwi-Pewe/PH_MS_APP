@@ -16,7 +16,7 @@ from app.routers.account import public_display_name
 from app.routers.feedback import (
     REPORT_KINDS, feedback_file_count, feedback_score, clean_feedback_text, clean_report_kind,
 )
-from app.routers.profile import public_identity, public_avatar, ensure_layout, avatar_lookup, full_profile_payload
+from app.routers.profile import public_identity, public_avatar, ensure_layout, avatar_lookup, full_profile_payload, profile_votes_for
 from app.routers.mini_profiles import layout_banner_and_about
 from app.routers.servers import server_banner_fields, server_icon_url, server_type_label, join_methods_by_user
 from app.routers.mentions import decorate_history, reply_map_for
@@ -206,6 +206,7 @@ def load_admin_user(database, user_id):
     packed["auto_reports"] = open_auto_count(database, account.id)
     packed["community_locks"] = pack_community_locks(database, account.id)
     packed["flagged"] = "flagged" in packed["community_locks"]
+    packed["rating"] = profile_votes_for(database, account.id)
     database.commit()
     return packed
 

@@ -15221,7 +15221,13 @@ button.voice-more-row:disabled,
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
   background: rgba(0, 0, 0, 0.6);
+}
+#community-tos-card {
+  min-height: 0;
+  max-height: calc(100vh - 48px);
 }
 #community-compose-overlay[hidden],
 #community-room-overlay[hidden],

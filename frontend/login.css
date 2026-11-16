@@ -119,6 +119,7 @@ body { display: flex; align-items: center; justify-content: center; }
 #login-tos-overlay[hidden] { display: none; }
 #login-tos-card {
   width: min(520px, 100%);
+  min-height: 0;
   max-height: calc(100vh - 48px);
   display: grid;
   grid-template-rows: auto 1fr auto;

@@ -154,13 +154,42 @@
 }
 .feed-alert-card .announce-divider { margin: 0 0 12px; }
 .feed-alert-post-frame {
-  margin: 0 0 12px;
+  margin: 0;
   border: 1px solid var(--border);
   border-radius: 16px;
   overflow: hidden;
   max-height: 420px;
   overflow-y: auto;
   background: var(--panel);
+}
+#feed-posts .announce-post {
+  padding: 0;
+  overflow: hidden;
+  gap: 0;
+  flex: 0 0 auto;
+}
+#feed-posts .announce-post-head,
+#feed-posts .announce-post-foot {
+  flex: 0 0 auto;
+  padding: 12px 16px;
+}
+#feed-posts .announce-post-mid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  background: var(--rail);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+#feed-posts .announce-post-head { background: var(--panel-alt); }
+#feed-posts .announce-post-foot { background: var(--panel); }
+#feed-posts .announce-post-top { margin-bottom: 8px; }
+#feed-posts .announce-post-date { margin-top: 0; }
+#feed-posts .announce-post-content {
+  font-size: 14px;
+  line-height: 1.5;
 }
 .feed-alert-post-frame .community-post,
 .feed-alert-post-frame .community-post:hover {

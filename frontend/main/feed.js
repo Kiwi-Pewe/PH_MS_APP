@@ -24,7 +24,7 @@ const FEED_TYPE_LABELS = {
   feedback_status: "Feedback update",
   report_status: "Report update",
   application_submitted: "Application submitted",
-  community_post: "Community post",
+  community_post: "Your post received engagement",
   community_follow: "New follower",
   community_applications: "Server applications",
 };
@@ -87,8 +87,20 @@ function feedFamilyOf(alert) {
   return "activity";
 }
 
+function feedIsCommunityKind(alert) {
+  const kind = String(alert && alert.alert_type || "").toLowerCase();
+  return kind === "community_post" || kind === "community_follow" || kind === "community_applications";
+}
+
+function feedRoleLabel(alert) {
+  if (feedIsCommunityKind(alert)) return "Community";
+  const family = feedFamilyOf(alert);
+  return FEED_FAMILY_LABELS[family] || family;
+}
+
 function feedTypeLabel(alert) {
   const kind = String(alert && alert.alert_type || "").toLowerCase();
+  if (kind === "community_post") return "Your post received engagement";
   if (alert && alert.alert_type_label) return alert.alert_type_label;
   return FEED_TYPE_LABELS[kind] || kind || "Alert";
 }
@@ -323,7 +335,7 @@ function buildMailAlertRow(alert) {
   head.className = "mail-tray-item-head";
   const chip = document.createElement("span");
   chip.className = "feed-family-chip is-" + family;
-  chip.textContent = FEED_FAMILY_LABELS[family] || family;
+  chip.textContent = feedRoleLabel(alert);
   const title = document.createElement("div");
   title.className = "mail-tray-item-title";
   title.textContent = feedTypeLabel(alert);
@@ -796,6 +808,7 @@ function showFeedAlertMenu(e, alert) {
 
 function buildFeedAlertCard(alert) {
   const family = feedFamilyOf(alert);
+  const kind = String(alert && alert.alert_type || "").toLowerCase();
   const card = document.createElement("div");
   card.className = "announce-post feed-alert-card is-" + family;
   card.dataset.alertId = String(alert.id);
@@ -824,7 +837,7 @@ function buildFeedAlertCard(alert) {
   name.textContent = feedSubjectLabel(alert);
   const role = document.createElement("div");
   role.className = "announce-post-role";
-  role.textContent = FEED_FAMILY_LABELS[family] || family;
+  role.textContent = feedRoleLabel(alert);
   meta.appendChild(name);
   meta.appendChild(role);
 
@@ -836,18 +849,29 @@ function buildFeedAlertCard(alert) {
 
   const chip = document.createElement("span");
   chip.className = "feed-family-chip is-" + family;
-  chip.textContent = FEED_FAMILY_LABELS[family] || family;
+  chip.textContent = feedRoleLabel(alert);
 
   top.appendChild(face);
   top.appendChild(meta);
   top.appendChild(chip);
 
-  const divider = document.createElement("div");
-  divider.className = "announce-divider";
+  const headline = document.createElement("div");
+  headline.className = "announce-post-headline";
+  const titleRow = document.createElement("div");
+  titleRow.className = "announce-post-title-row";
+  const title = document.createElement("div");
+  title.className = "announce-post-title";
+  title.textContent = feedTypeLabel(alert);
+  titleRow.appendChild(title);
+  headline.appendChild(titleRow);
 
-  const content = document.createElement("div");
-  content.className = "announce-post-content";
-  const kind = String(alert && alert.alert_type || "").toLowerCase();
+  const head = document.createElement("div");
+  head.className = "announce-post-head";
+  head.appendChild(top);
+  head.appendChild(headline);
+
+  const mid = document.createElement("div");
+  mid.className = "announce-post-mid";
   if (kind === "community_post") {
     const post = alert && alert.post;
     if (post && typeof paintCommunityPostCard === "function") {
@@ -855,22 +879,11 @@ function buildFeedAlertCard(alert) {
       frame.className = "feed-alert-post-frame";
       const ready = typeof communityPostReady === "function" ? communityPostReady(post) : post;
       frame.appendChild(paintCommunityPostCard(ready, { embed: true }));
-      content.appendChild(frame);
+      mid.appendChild(frame);
     }
-    const stats = feedCommunityPostStats(alert);
-    const body = document.createElement("div");
-    body.className = "announce-post-body";
-    body.textContent = stats ? ("Your post now has " + stats + ".") : "Your post was updated.";
-    content.appendChild(body);
   } else {
-    const titleRow = document.createElement("div");
-    titleRow.className = "announce-post-title-row";
-    const title = document.createElement("div");
-    title.className = "announce-post-title";
-    title.textContent = feedTypeLabel(alert);
-    titleRow.appendChild(title);
-    content.appendChild(titleRow);
-
+    const content = document.createElement("div");
+    content.className = "announce-post-content";
     const bodyText = feedAlertBody(alert);
     if (bodyText) {
       const body = document.createElement("div");
@@ -878,18 +891,21 @@ function buildFeedAlertCard(alert) {
       body.textContent = bodyText;
       content.appendChild(body);
     }
-    const actions = buildDmRequestActions(alert);
-    if (actions) content.appendChild(actions);
+    mid.appendChild(content);
   }
 
+  const foot = document.createElement("div");
+  foot.className = "announce-post-foot";
   const date = document.createElement("div");
   date.className = "announce-post-date";
   date.textContent = feedAlertTime(alert);
+  foot.appendChild(date);
+  const actions = buildDmRequestActions(alert);
+  if (actions) foot.appendChild(actions);
 
-  card.appendChild(top);
-  card.appendChild(divider);
-  card.appendChild(content);
-  card.appendChild(date);
+  card.appendChild(head);
+  card.appendChild(mid);
+  card.appendChild(foot);
   return card;
 }
 

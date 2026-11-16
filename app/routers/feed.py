@@ -33,7 +33,7 @@ ALERT_TYPE_LABELS = {
     "feedback_status": "Feedback update",
     "report_status": "Report update",
     "application_submitted": "Application submitted",
-    "community_post": "Community post",
+    "community_post": "Your post received engagement",
     "community_follow": "New follower",
     "community_applications": "Server applications",
 }

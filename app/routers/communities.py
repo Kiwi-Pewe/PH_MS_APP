@@ -16,6 +16,7 @@ from app.routers.deletion import write_audit_log
 from app.routers.moderation import active_ban, iso_dt
 from app.routers.realtime import notify_user, presence_status, serialize_member, server_broadcast
 from app.routers.roles import assign_members_role, hoist_role_for_user, name_color_role_for_user, require_server_member, require_server_perm
+from app.privacy import blocked_user_ids
 from app.routers.feed import delete_feed_alert_row, find_feed_alert, notify_feed_alert, pack_alert_context, upsert_feed_alert
 from app.routers.profile import public_avatar, public_display_name
 from app.routers.servers import clean_server_tag, parse_application_form, parse_server_tags, server_banner_fields, server_default_notifications, server_icon_still_url, server_icon_url, server_listing_tags, server_url_slug
@@ -67,11 +68,15 @@ def listed_server(server):
     return bool(server and getattr(server, "discoverable", False))
 
 
-def listed_servers_query(database):
+def listed_servers_query(database, viewer_id=None):
     rows = database.query(Servers).filter(Servers.discoverable == True)
     blocked = listing_blocked_ids(database)
     if blocked:
         rows = rows.filter(~Servers.id.in_(blocked))
+    if viewer_id:
+        people = blocked_user_ids(database, viewer_id)
+        if people:
+            rows = rows.filter(~Servers.owner_id.in_(people))
     return rows
 
 
@@ -86,12 +91,12 @@ def community_filter_tags(raw):
     return tags
 
 
-def community_facets(database):
+def community_facets(database, viewer_id=None):
     tags = []
     seen_tags = set()
     zones = []
     seen_zones = set()
-    rows = listed_servers_query(database).all()
+    rows = listed_servers_query(database, viewer_id).all()
     for server in rows:
         for tag in parse_server_tags(getattr(server, "tags", None)):
             if tag in seen_tags:
@@ -461,7 +466,7 @@ def community_servers(
     current_user: UserInfo = Depends(get_current_user),
 ):
     page = max(1, int(page or 1))
-    query = listed_servers_query(database)
+    query = listed_servers_query(database, current_user.id)
     needle = (q or "").strip().lower()
     if needle:
         like = "%" + needle + "%"
@@ -531,7 +536,7 @@ def community_servers(
         "page": page,
         "pages": pages,
         "total": total,
-        "facets": community_facets(database),
+        "facets": community_facets(database, current_user.id),
     }
 
 
@@ -543,6 +548,8 @@ async def join_community(
 ):
     server = database.query(Servers).filter(Servers.id == body.server_id).first()
     if not listed_server(server) or active_ban(database, body.server_id, current_user.id):
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id in blocked_user_ids(database, current_user.id):
         raise HTTPException(status_code=404, detail="Server not found")
     if bool(getattr(server, "applications_enabled", False)):
         raise HTTPException(status_code=400, detail="This server requires an application.")
@@ -627,6 +634,8 @@ async def apply_community(
 ):
     server = database.query(Servers).filter(Servers.id == body.server_id).first()
     if not listed_server(server) or active_ban(database, body.server_id, current_user.id):
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id in blocked_user_ids(database, current_user.id):
         raise HTTPException(status_code=404, detail="Server not found")
     if not bool(getattr(server, "applications_enabled", False)):
         raise HTTPException(status_code=400, detail="This server is not taking applications.")
@@ -804,6 +813,8 @@ def community_vote(
 ):
     server = database.query(Servers).filter(Servers.id == body.server_id).first()
     if not listed_server(server):
+        raise HTTPException(status_code=404, detail="Server not found")
+    if server.owner_id in blocked_user_ids(database, current_user.id):
         raise HTTPException(status_code=404, detail="Server not found")
     next_vote = 1 if body.vote > 0 else -1 if body.vote < 0 else 0
     row = database.query(Server_votes).filter(

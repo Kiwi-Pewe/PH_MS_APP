@@ -39,6 +39,7 @@ const FEED_PREF_GROUPS = [
     kinds: [
       { type: "feedback_status", label: "Feedback updates" },
       { type: "report_status", label: "Report updates" },
+      { type: "requests_info", label: "Information requested" },
     ],
   },
 ];

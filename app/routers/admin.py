@@ -504,13 +504,38 @@ def feedback_for_user(user_id, username=""):
 
 
 def add_feedback_event(database, report_id, actor, kind, text=""):
-    database.add(Feedback_event(
+    item = Feedback_event(
         report_id=report_id,
         actor_id=actor.id if actor else None,
         actor_username=((actor.username if actor else "") or ""),
         kind=kind,
         text=text or "",
-    ))
+    )
+    database.add(item)
+    database.flush()
+    return item
+
+
+async def send_requests_info_alert(database, row, actor, admin_text, event_id):
+    owner_id = row.user_id if row else None
+    if not owner_id or (actor and owner_id == actor.id):
+        return
+    await notify_feed_alert(
+        database,
+        receiver_id=owner_id,
+        alert_type="requests_info",
+        sender_id=actor.id if actor else None,
+        alert_family="feedback",
+        reason="Information requested",
+        context=json.dumps({
+            "report_id": row.id,
+            "feedback_type": (row.feedback_type or "").strip().lower() or None,
+            "event_id": event_id,
+            "admin_text": admin_text or "",
+            "original": (row.report or "").strip(),
+        }),
+        force=True,
+    )
 
 
 def pack_event_payload(row):
@@ -532,7 +557,7 @@ def pack_feedback_event(row, extra=None):
     message = ""
     changes = []
     if payload:
-        message = (payload.get("report") or "").strip()
+        message = (payload.get("report") or payload.get("request") or "").strip()
         for key in ("status", "urgency", "assign", "alert_user", "requests_info"):
             pair = payload.get(key)
             if isinstance(pair, list) and len(pair) == 2 and pair[0] != pair[1]:
@@ -1885,7 +1910,12 @@ async def admin_update_user_report(
             assign_id = current_user.id
     note = clip_admin_note(body.report, required=False)
     payload = {}
-    if note and note != (row.report or "").strip():
+    old_info = bool(row.requests_info)
+    new_info = bool(body.requests_info)
+    if new_info and not note and not old_info:
+        raise HTTPException(status_code=400, detail="Write what you need from the user.")
+    ask_info = bool(new_info and note)
+    if note and not ask_info and note != (row.report or "").strip():
         payload["report"] = note
         row.report = note
     old_status = (row.status or "").strip().lower()
@@ -1906,16 +1936,20 @@ async def admin_update_user_report(
     if new_alert != old_alert:
         payload["alert_user"] = ["On" if old_alert else "Off", "On" if new_alert else "Off"]
         row.alert_user = new_alert
-    old_info = bool(row.requests_info)
-    new_info = bool(body.requests_info)
     if new_info != old_info:
         payload["requests_info"] = ["On" if old_info else "Off", "On" if new_info else "Off"]
         row.requests_info = new_info
+    elif ask_info:
+        row.requests_info = True
+    if ask_info:
+        payload["request"] = note
     if not payload:
         raise HTTPException(status_code=400, detail="Change something before updating.")
-    add_feedback_event(database, row.id, current_user, "update", json.dumps(payload))
+    event = add_feedback_event(database, row.id, current_user, "requests_info" if ask_info else "update", json.dumps(payload))
     database.commit()
     database.refresh(row)
+    if ask_info:
+        await send_requests_info_alert(database, row, current_user, note, event.id)
     if new_alert and not old_alert:
         account_id = row.target_user_id or row.channel_id
         if account_id:

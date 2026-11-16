@@ -195,6 +195,11 @@ class Feedback_status(BaseModel):
     status: str
 
 
+class Feedback_reply_in(BaseModel):
+    text: str = ""
+    alert_id: int | None = None
+
+
 class Admin_warn(BaseModel):
     reason: str = ""
 

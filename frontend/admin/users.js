@@ -635,6 +635,11 @@ function paintUsersUpdateForm(host, row, onSaved) {
   save.type = "button";
   save.addEventListener("click", () => {
     err.hidden = true;
+    if (infoToggle.input.checked && !String(info.value || "").trim() && !row.requests_info) {
+      err.textContent = "Write what you need from the user.";
+      err.hidden = false;
+      return;
+    }
     adminApi("/admin/feedback/" + row.id + "/update", {
       method: "POST",
       body: {

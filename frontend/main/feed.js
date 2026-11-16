@@ -23,6 +23,7 @@ const FEED_TYPE_LABELS = {
   timeout: "Timed out",
   feedback_status: "Feedback update",
   report_status: "Report update",
+  requests_info: "Information requested",
   application_submitted: "Application submitted",
   community_post: "Your post received engagement",
   community_follow: "New follower",
@@ -219,6 +220,11 @@ function feedAlertBody(alert) {
     const noun = kind === "report_status" ? "report" : "feedback";
     return who + " updated your " + noun + " to " + feedQuote(status) + ".";
   }
+  if (kind === "requests_info") {
+    const pack = feedRequestPack(alert);
+    const asked = String(pack.admin_text || "").trim();
+    return asked || (who + " requested more information.");
+  }
   if (kind === "reaction") {
     const emoji = String(alert && alert.reason || "").trim();
     const reacted = emoji ? ("reacted " + emoji + " to") : "reacted to";
@@ -324,10 +330,111 @@ function paintMailBadge() {
   }
 }
 
+function feedRequestPack(alert) {
+  const pack = alert && alert.request;
+  if (pack && typeof pack === "object") return pack;
+  const ctx = typeof feedAlertContext === "function" ? feedAlertContext(alert) : {};
+  return {
+    report_id: ctx.report_id,
+    event_id: ctx.event_id,
+    original: ctx.original || "",
+    admin_text: ctx.admin_text || "",
+    reply_text: ctx.reply_text || "",
+    can_reply: false
+  };
+}
+
+async function sendFeedRequestReply(alert, box, send) {
+  const pack = feedRequestPack(alert);
+  const text = String(box && box.value || "").trim();
+  if (!text || !pack.report_id) return;
+  if (send) send.disabled = true;
+  try {
+    const response = await fetch("https://" + serverAddress + "/feedback/" + encodeURIComponent(pack.report_id) + "/reply", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text, alert_id: alert.id })
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data) {
+      if (send) send.disabled = false;
+      return;
+    }
+    const next = (data && data.alert) || Object.assign({}, alert, {
+      request: Object.assign({}, pack, { can_reply: false, reply_text: text })
+    });
+    feedAlertRows = feedAlertRows.map((row) => row.id === alert.id ? next : row);
+    mailSessionItems = mailSessionItems.map((row) => row.id === alert.id ? Object.assign({}, row, next, { read: row.read }) : row);
+    paintFeedPosts({ preserveScroll: true });
+    if (mailTrayOpen) paintMailTray();
+  } catch (e) {
+    if (send) send.disabled = false;
+  }
+}
+
+function paintFeedRequestMid(mid, alert) {
+  const pack = feedRequestPack(alert);
+  const original = String(pack.original || "").trim();
+  if (original) {
+    const frame = document.createElement("div");
+    frame.className = "feed-request-original";
+    frame.textContent = original;
+    mid.appendChild(frame);
+  }
+  const admin = document.createElement("div");
+  admin.className = "feed-request-admin";
+  admin.textContent = String(pack.admin_text || "").trim();
+  mid.appendChild(admin);
+  const replyText = String(pack.reply_text || "").trim();
+  if (replyText) {
+    const sent = document.createElement("div");
+    sent.className = "feed-request-sent";
+    sent.textContent = replyText;
+    mid.appendChild(sent);
+    return;
+  }
+  if (!pack.can_reply) return;
+  const actions = document.createElement("div");
+  actions.className = "feed-request-actions";
+  const openBtn = document.createElement("button");
+  openBtn.type = "button";
+  openBtn.className = "feed-request-toggle";
+  openBtn.textContent = "Reply";
+  const box = document.createElement("textarea");
+  box.className = "feed-request-box";
+  box.rows = 5;
+  box.hidden = true;
+  box.placeholder = "Write a reply";
+  const send = document.createElement("button");
+  send.type = "button";
+  send.className = "feed-request-send";
+  send.textContent = "Send";
+  send.hidden = true;
+  openBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openBtn.hidden = true;
+    box.hidden = false;
+    send.hidden = false;
+    box.focus();
+  });
+  send.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    sendFeedRequestReply(alert, box, send);
+  });
+  actions.appendChild(openBtn);
+  actions.appendChild(box);
+  actions.appendChild(send);
+  mid.appendChild(actions);
+}
+
 function buildMailAlertRow(alert) {
   const family = feedFamilyOf(alert);
+  const kind = String(alert && alert.alert_type || "").toLowerCase();
   const row = document.createElement("div");
-  row.className = "mail-tray-item is-" + family + (alert.read ? " is-read" : "");
+  row.className = "mail-tray-item is-" + family + (alert.read ? " is-read" : "") + (kind === "requests_info" ? " is-requests-info" : "");
   row.dataset.alertId = String(alert.id);
   row.dataset.alertFamily = family;
 
@@ -620,7 +727,7 @@ function feedAlertCanJump(alert) {
   if (kind === "community_follow") return !!alert.sender_id;
   if (kind === "community_applications") return feedJoinedServer(alert.server_id);
   if (kind === "friend_accept" || kind === "friend_deny" || kind === "dm_request" || kind === "dm_request_accept") return !!alert.sender_id;
-  if (kind === "feedback_status" || kind === "report_status") return true;
+  if (kind === "feedback_status" || kind === "report_status" || kind === "requests_info") return true;
   if (kind === "ban" || kind === "kick") return false;
   if (kind === "application_submitted" || feedFamilyOf(alert) === "moderation") return feedJoinedServer(alert.server_id);
   if (kind === "event_invite" || kind === "event_created") {
@@ -709,6 +816,11 @@ async function jumpFeedAlert(alert) {
   }
   if (kind === "feedback_status" || kind === "report_status") {
     if (typeof openFeedbackCard === "function") openFeedbackCard();
+    return;
+  }
+  if (kind === "requests_info") {
+    if (typeof closeMailTray === "function") closeMailTray();
+    openFeedView();
     return;
   }
   if (kind === "ban" || kind === "kick") return;
@@ -810,15 +922,15 @@ function buildFeedAlertCard(alert) {
   const family = feedFamilyOf(alert);
   const kind = String(alert && alert.alert_type || "").toLowerCase();
   const card = document.createElement("div");
-  card.className = "announce-post feed-alert-card is-" + family;
+  card.className = "announce-post feed-alert-card is-" + family + (kind === "requests_info" ? " is-requests-info" : "");
   card.dataset.alertId = String(alert.id);
   card.dataset.alertFamily = family;
   card.addEventListener("contextmenu", (e) => showFeedAlertMenu(e, alert));
-  const canJump = feedAlertCanJump(alert);
+  const canJump = feedAlertCanJump(alert) && kind !== "requests_info";
   if (canJump) {
     card.classList.add("is-jumpable");
     card.addEventListener("click", (e) => {
-      if (e.target.closest(".is-mini-profile-target, .feed-alert-actions, button, a, .community-post-face, .community-post-name, .community-post-cover, .md-explicit, .md-explicit-media")) return;
+      if (e.target.closest(".is-mini-profile-target, .feed-alert-actions, button, a, textarea, .community-post-face, .community-post-name, .community-post-cover, .md-explicit, .md-explicit-media")) return;
       jumpFeedAlert(alert);
     });
   }
@@ -881,6 +993,8 @@ function buildFeedAlertCard(alert) {
       frame.appendChild(paintCommunityPostCard(ready, { embed: true }));
       mid.appendChild(frame);
     }
+  } else if (kind === "requests_info") {
+    paintFeedRequestMid(mid, alert);
   } else {
     const content = document.createElement("div");
     content.className = "announce-post-content";

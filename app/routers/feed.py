@@ -32,6 +32,7 @@ ALERT_TYPE_LABELS = {
     "timeout": "Timed out",
     "feedback_status": "Feedback update",
     "report_status": "Report update",
+    "requests_info": "Information requested",
     "application_submitted": "Application submitted",
     "community_post": "Your post received engagement",
     "community_follow": "New follower",
@@ -56,6 +57,7 @@ FAMILY_FOR_TYPE = {
     "timeout": "moderation",
     "feedback_status": "feedback",
     "report_status": "feedback",
+    "requests_info": "feedback",
     "application_submitted": "activity",
     "community_post": "activity",
     "community_follow": "profile",
@@ -78,6 +80,7 @@ FEED_PREF_TYPES = (
     "timeout",
     "feedback_status",
     "report_status",
+    "requests_info",
     "community_post",
     "community_follow",
     "community_applications",
@@ -309,7 +312,7 @@ def serialize_feed_alert(row, sender=None, server=None, extra_users=None):
         "kind", "message_id", "channel_id", "party_id", "post_id", "peer_id",
         "item_id", "event_id", "comment_id", "owner_id", "name", "report_id",
         "feedback_type", "post_code", "likes", "dislikes", "comments",
-        "pending", "followers",
+        "pending", "followers", "admin_text", "original", "reply_text",
     ):
         if ctx.get(key) is not None:
             target[key] = ctx[key]
@@ -381,6 +384,102 @@ def find_feed_alert(database, receiver_id, alert_type, server_id=None, post_code
     return rows[0] if rows else None
 
 
+def _event_message(row):
+    raw = row.text or ""
+    if raw.startswith("{") or raw.startswith("["):
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                return (data.get("report") or data.get("request") or "").strip()
+        except (TypeError, ValueError):
+            pass
+    return (raw or "").strip()
+
+
+def decorate_request_info_alerts(database, payloads, viewer_id):
+    from app.models import Feedback_event, Feedback_report
+    needed = []
+    for payload in payloads or []:
+        if str(payload.get("alert_type") or "").lower() != "requests_info":
+            continue
+        ctx = parse_alert_context(payload.get("context")) or {}
+        try:
+            rid = int(ctx.get("report_id") or 0)
+        except (TypeError, ValueError):
+            rid = 0
+        try:
+            eid = int(ctx.get("event_id") or 0)
+        except (TypeError, ValueError):
+            eid = 0
+        if rid:
+            needed.append((payload, rid, eid, ctx))
+    if not needed:
+        return payloads
+    report_ids = list({item[1] for item in needed})
+    reports = {
+        row.id: row
+        for row in database.query(Feedback_report).filter(Feedback_report.id.in_(report_ids)).all()
+    }
+    events = (
+        database.query(Feedback_event)
+        .filter(
+            Feedback_event.report_id.in_(report_ids),
+            Feedback_event.kind.in_(("requests_info", "user_reply")),
+        )
+        .order_by(Feedback_event.id.asc())
+        .all()
+    )
+    by_report = {}
+    for ev in events:
+        by_report.setdefault(ev.report_id, []).append(ev)
+    for payload, rid, eid, ctx in needed:
+        row = reports.get(rid)
+        original = str(ctx.get("original") or "").strip()
+        admin_text = str(ctx.get("admin_text") or "").strip()
+        reply_text = str(ctx.get("reply_text") or "").strip()
+        if row and not original:
+            original = (row.report or "").strip()
+        chain = by_report.get(rid) or []
+        latest_req = None
+        for ev in chain:
+            if (ev.kind or "").strip().lower() == "requests_info":
+                latest_req = ev
+                if not admin_text and eid and ev.id == eid:
+                    admin_text = _event_message(ev)
+        saw = False
+        if not reply_text:
+            for ev in chain:
+                kind = (ev.kind or "").strip().lower()
+                if kind == "requests_info":
+                    if eid and ev.id == eid:
+                        saw = True
+                        continue
+                    if saw:
+                        break
+                elif saw and kind == "user_reply":
+                    reply_text = _event_message(ev)
+                    break
+        can_reply = bool(
+            row
+            and viewer_id
+            and row.user_id == viewer_id
+            and row.requests_info
+            and latest_req
+            and eid
+            and latest_req.id == eid
+            and not reply_text
+        )
+        payload["request"] = {
+            "report_id": rid,
+            "event_id": eid,
+            "original": original,
+            "admin_text": admin_text,
+            "reply_text": reply_text,
+            "can_reply": can_reply,
+        }
+    return payloads
+
+
 def decorate_feed_alerts(database, alerts, viewer_id):
     payloads = alerts or []
     codes = []
@@ -394,29 +493,29 @@ def decorate_feed_alerts(database, alerts, viewer_id):
             payload["post_code"] = code or None
         if code:
             codes.append(code)
-    if not codes:
-        return payloads
-    from app.routers.community_posts import author_map, comment_counts, pack_community_post, votes_for
-    rows = database.query(Community_post).filter(Community_post.code.in_(list(set(codes)))).all()
-    people = author_map(database, [row.author_id for row in rows])
-    replies = comment_counts(database, [row.id for row in rows])
-    votes = votes_for(database, viewer_id, [row.id for row in rows])
-    by_code = {row.code: row for row in rows}
-    for payload in payloads:
-        if str(payload.get("alert_type") or "").lower() != "community_post":
-            continue
-        row = by_code.get(payload.get("post_code"))
-        if not row:
-            payload["post"] = None
-            continue
-        payload["post"] = pack_community_post(
-            row,
-            people,
-            viewer_id,
-            replies=replies.get(row.id, 0),
-            comments=[],
-            vote=votes.get(row.id),
-        )
+    if codes:
+        from app.routers.community_posts import author_map, comment_counts, pack_community_post, votes_for
+        rows = database.query(Community_post).filter(Community_post.code.in_(list(set(codes)))).all()
+        people = author_map(database, [row.author_id for row in rows])
+        replies = comment_counts(database, [row.id for row in rows])
+        votes = votes_for(database, viewer_id, [row.id for row in rows])
+        by_code = {row.code: row for row in rows}
+        for payload in payloads:
+            if str(payload.get("alert_type") or "").lower() != "community_post":
+                continue
+            row = by_code.get(payload.get("post_code"))
+            if not row:
+                payload["post"] = None
+                continue
+            payload["post"] = pack_community_post(
+                row,
+                people,
+                viewer_id,
+                replies=replies.get(row.id, 0),
+                comments=[],
+                vote=votes.get(row.id),
+            )
+    decorate_request_info_alerts(database, payloads, viewer_id)
     return payloads
 
 

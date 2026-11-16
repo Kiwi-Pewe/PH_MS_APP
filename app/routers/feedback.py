@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.models import UserInfo, Feedback_report
-from app.schemas import Feedback_submit
+from app.models import UserInfo, Feedback_report, Feedback_event, Feed_alert
+from app.schemas import Feedback_submit, Feedback_reply_in
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app.routers.account import public_display_name
@@ -200,3 +200,77 @@ def submit_feedback(body: Feedback_submit, database: Session = Depends(get_db), 
     database.commit()
     database.refresh(row)
     return {"id": row.id, "status": row.status}
+
+
+@router.post("/feedback/{report_id}/reply")
+async def reply_feedback_request(
+    report_id: int,
+    body: Feedback_reply_in,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    from app.routers.feed import emit_feed_alert_ws, parse_alert_context, serialize_feed_alert, decorate_feed_alerts
+    text = (body.text or "").replace("\r\n", "\n").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Write a reply.")
+    if len(text) > FEEDBACK_TEXT_MAX:
+        raise HTTPException(status_code=400, detail="Reply is over the character limit.")
+    row = database.query(Feedback_report).filter(Feedback_report.id == report_id).first()
+    if not row or row.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    if not row.requests_info:
+        raise HTTPException(status_code=400, detail="This request is closed.")
+    latest = (
+        database.query(Feedback_event)
+        .filter(Feedback_event.report_id == row.id, Feedback_event.kind == "requests_info")
+        .order_by(Feedback_event.id.desc())
+        .first()
+    )
+    if not latest:
+        raise HTTPException(status_code=400, detail="This request is closed.")
+    later = (
+        database.query(Feedback_event)
+        .filter(
+            Feedback_event.report_id == row.id,
+            Feedback_event.kind == "user_reply",
+            Feedback_event.id > latest.id,
+        )
+        .first()
+    )
+    if later:
+        raise HTTPException(status_code=400, detail="This request is closed.")
+    alert = None
+    if body.alert_id:
+        alert = database.query(Feed_alert).filter(
+            Feed_alert.id == body.alert_id,
+            Feed_alert.receiver_id == current_user.id,
+            Feed_alert.alert_type == "requests_info",
+        ).first()
+        ctx = parse_alert_context(alert.context) if alert else {}
+        try:
+            event_id = int((ctx or {}).get("event_id") or 0)
+        except (TypeError, ValueError):
+            event_id = 0
+        if not alert or event_id != latest.id:
+            raise HTTPException(status_code=400, detail="This request is closed.")
+    database.add(Feedback_event(
+        report_id=row.id,
+        actor_id=current_user.id,
+        actor_username=current_user.username or "",
+        kind="user_reply",
+        text=json.dumps({"report": text}),
+    ))
+    row.requests_info = False
+    if alert:
+        ctx = parse_alert_context(alert.context) or {}
+        ctx["reply_text"] = text
+        alert.context = json.dumps(ctx)
+    database.commit()
+    packed = None
+    if alert:
+        database.refresh(alert)
+        await emit_feed_alert_ws(database, alert)
+        sender = database.query(UserInfo).filter(UserInfo.id == alert.sender_id).first() if alert.sender_id else None
+        packed = serialize_feed_alert(alert, sender)
+        decorate_feed_alerts(database, [packed], current_user.id)
+    return {"ok": True, "alert": packed}

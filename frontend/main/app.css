@@ -15227,7 +15227,8 @@ button.voice-more-row:disabled,
   inset: 0;
   z-index: 950;
   display: flex;
-  align-items: safe center;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
@@ -15235,13 +15236,24 @@ button.voice-more-row:disabled,
   background: rgba(0, 0, 0, 0.6);
 }
 #community-tos-card.community-compose-card {
+  flex: 0 1 auto;
+  align-self: center;
+  width: 600px;
+  max-width: 100%;
   min-height: 0;
-  max-height: calc(100dvh - 48px);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#community-tos-card .community-compose-header,
+#community-tos-card .community-compose-footer {
+  flex: 0 0 auto;
 }
 #community-tos-card .community-compose-body {
+  flex: 1 1 auto;
   min-height: 0;
-  max-height: calc(100dvh - 180px);
+  max-height: none;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -15254,7 +15266,8 @@ button.voice-more-row:disabled,
 .community-tos-copy {
   margin: 0;
   min-height: 0;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
+  white-space: pre-wrap;
   word-break: break-word;
   font-size: 15px;
   line-height: 1.5;

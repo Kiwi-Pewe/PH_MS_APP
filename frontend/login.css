@@ -111,22 +111,30 @@ body { display: flex; align-items: center; justify-content: center; }
   inset: 0;
   z-index: 40;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  box-sizing: border-box;
+  overflow: hidden;
   background: rgba(0, 0, 0, 0.6);
 }
 #login-tos-overlay[hidden] { display: none; }
 #login-tos-card {
+  flex: 0 1 auto;
   width: min(520px, 100%);
   min-height: 0;
-  max-height: calc(100dvh - 48px);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
   background: var(--panel-alt);
   border: 1px solid var(--accent);
   border-radius: 10px;
   overflow: hidden;
+}
+.login-tos-header,
+.login-tos-footer {
+  flex: 0 0 auto;
 }
 .login-tos-header {
   padding: 16px 18px;
@@ -139,8 +147,9 @@ body { display: flex; align-items: center; justify-content: center; }
   color: var(--text);
 }
 .login-tos-body {
+  flex: 1 1 auto;
   min-height: 7.25em;
-  max-height: calc(100dvh - 180px);
+  max-height: none;
   overflow-y: auto;
   padding: 16px 18px;
   scrollbar-width: thin;
@@ -151,6 +160,7 @@ body { display: flex; align-items: center; justify-content: center; }
 .login-tos-body::-webkit-scrollbar-thumb { background: #3a3d49; border-radius: 4px; }
 #login-tos-copy {
   margin: 0;
+  white-space: pre-wrap;
   word-break: break-word;
   font-size: 14px;
   line-height: 1.5;

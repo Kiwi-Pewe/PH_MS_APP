@@ -396,6 +396,18 @@ def _event_message(row):
     return (raw or "").strip()
 
 
+def _request_line(user, event, text=""):
+    when = event.created_at.isoformat() + "Z" if event and event.created_at else None
+    return {
+        "id": user.id if user else (event.actor_id if event else None),
+        "username": ((user.username if user else None) or (event.actor_username if event else "") or ""),
+        "display_name": (public_display_name(user) if user else "") or ((event.actor_username if event else "") or ""),
+        "avatar": public_avatar(user) if user else {},
+        "created_at": when,
+        "text": (text or "").strip() or (_event_message(event) if event else ""),
+    }
+
+
 def decorate_request_info_alerts(database, payloads, viewer_id):
     from app.models import Feedback_event, Feedback_report
     needed = []
@@ -432,33 +444,44 @@ def decorate_request_info_alerts(database, payloads, viewer_id):
     by_report = {}
     for ev in events:
         by_report.setdefault(ev.report_id, []).append(ev)
+    actor_ids = {ev.actor_id for ev in events if ev.actor_id}
+    for report in reports.values():
+        if report.user_id:
+            actor_ids.add(report.user_id)
+    people = {}
+    if actor_ids:
+        people = {
+            account.id: account
+            for account in database.query(UserInfo).filter(UserInfo.id.in_(list(actor_ids))).all()
+        }
     for payload, rid, eid, ctx in needed:
         row = reports.get(rid)
         original = str(ctx.get("original") or "").strip()
-        admin_text = str(ctx.get("admin_text") or "").strip()
-        reply_text = str(ctx.get("reply_text") or "").strip()
         if row and not original:
             original = (row.report or "").strip()
         chain = by_report.get(rid) or []
         latest_req = None
-        for ev in chain:
-            if (ev.kind or "").strip().lower() == "requests_info":
-                latest_req = ev
-                if not admin_text and eid and ev.id == eid:
-                    admin_text = _event_message(ev)
+        admin_event = None
+        user_event = None
         saw = False
-        if not reply_text:
-            for ev in chain:
-                kind = (ev.kind or "").strip().lower()
-                if kind == "requests_info":
-                    if eid and ev.id == eid:
-                        saw = True
-                        continue
-                    if saw:
-                        break
-                elif saw and kind == "user_reply":
-                    reply_text = _event_message(ev)
+        for ev in chain:
+            kind = (ev.kind or "").strip().lower()
+            if kind == "requests_info":
+                latest_req = ev
+                if eid and ev.id == eid:
+                    admin_event = ev
+                    saw = True
+                    user_event = None
+                    continue
+                if saw:
                     break
+            elif saw and kind == "user_reply":
+                user_event = ev
+                break
+        if not admin_event:
+            admin_event = latest_req
+        admin_text = _event_message(admin_event) if admin_event else str(ctx.get("admin_text") or "").strip()
+        reply_text = _event_message(user_event) if user_event else str(ctx.get("reply_text") or "").strip()
         can_reply = bool(
             row
             and viewer_id
@@ -469,12 +492,19 @@ def decorate_request_info_alerts(database, payloads, viewer_id):
             and latest_req.id == eid
             and not reply_text
         )
+        admin_user = people.get(admin_event.actor_id) if admin_event and admin_event.actor_id else people.get(payload.get("sender_id"))
+        reply_user = people.get(user_event.actor_id) if user_event and user_event.actor_id else (people.get(row.user_id) if row else None)
+        admin = _request_line(admin_user, admin_event, admin_text)
+        if not admin.get("created_at"):
+            admin["created_at"] = payload.get("created_at")
+        if not admin.get("avatar") and payload.get("sender_avatar"):
+            admin["avatar"] = payload.get("sender_avatar")
         payload["request"] = {
             "report_id": rid,
             "event_id": eid,
             "original": original,
-            "admin_text": admin_text,
-            "reply_text": reply_text,
+            "admin": admin,
+            "user": _request_line(reply_user, user_event, reply_text) if reply_text else None,
             "can_reply": can_reply,
         }
     return payloads

@@ -222,7 +222,7 @@ function feedAlertBody(alert) {
   }
   if (kind === "requests_info") {
     const pack = feedRequestPack(alert);
-    const asked = String(pack.admin_text || "").trim();
+    const asked = String((pack.admin && pack.admin.text) || pack.admin_text || "").trim();
     return asked || (who + " requested more information.");
   }
   if (kind === "reaction") {
@@ -334,12 +334,21 @@ function feedRequestPack(alert) {
   const pack = alert && alert.request;
   if (pack && typeof pack === "object") return pack;
   const ctx = typeof feedAlertContext === "function" ? feedAlertContext(alert) : {};
+  const adminText = ctx.admin_text || "";
+  const replyText = ctx.reply_text || "";
   return {
     report_id: ctx.report_id,
     event_id: ctx.event_id,
     original: ctx.original || "",
-    admin_text: ctx.admin_text || "",
-    reply_text: ctx.reply_text || "",
+    admin: {
+      id: alert && alert.sender_id,
+      username: alert && alert.sender_username,
+      display_name: alert && alert.sender_display_name,
+      avatar: alert && alert.sender_avatar,
+      created_at: alert && alert.created_at,
+      text: adminText
+    },
+    user: replyText ? { text: replyText } : null,
     can_reply: false
   };
 }
@@ -373,6 +382,63 @@ async function sendFeedRequestReply(alert, box, send) {
   }
 }
 
+function feedRequestName(row) {
+  return (row && (row.display_name || row.username)) || "Someone";
+}
+
+function paintFeedRequestFace(host, row) {
+  if (!host) return;
+  if (typeof paintUserFace === "function") {
+    paintUserFace(host, {
+      avatar: row && row.avatar,
+      username: row && row.username,
+      display_name: row && row.display_name
+    }, { name: feedRequestName(row), userId: row && row.id });
+    return;
+  }
+  host.textContent = feedRequestName(row).charAt(0).toUpperCase();
+}
+
+function paintFeedRequestLine(row) {
+  const item = document.createElement("div");
+  item.className = "feed-request-line";
+  const face = document.createElement("div");
+  face.className = "cluster-avatar feed-request-face";
+  paintFeedRequestFace(face, row);
+  const body = document.createElement("div");
+  body.className = "feed-request-copy";
+  const top = document.createElement("div");
+  top.className = "feed-request-top";
+  const name = document.createElement("span");
+  name.className = "feed-request-name";
+  name.textContent = feedRequestName(row);
+  top.appendChild(name);
+  top.appendChild(document.createTextNode(" | "));
+  const when = document.createElement("span");
+  when.className = "feed-request-when";
+  when.textContent = feedAlertTime({ created_at: row && row.created_at });
+  top.appendChild(when);
+  body.appendChild(top);
+  const text = String(row && row.text || "").trim();
+  if (text) {
+    const message = document.createElement("div");
+    message.className = "feed-request-text";
+    message.textContent = text;
+    body.appendChild(message);
+  }
+  if (row && row.id) {
+    if (typeof bindMiniProfileTarget === "function") {
+      bindMiniProfileTarget(face, row.id);
+      bindMiniProfileTarget(name, row.id);
+    }
+    face.classList.add("is-mini-profile-target");
+    name.classList.add("is-mini-profile-target");
+  }
+  item.appendChild(face);
+  item.appendChild(body);
+  return item;
+}
+
 function paintFeedRequestMid(mid, alert) {
   const pack = feedRequestPack(alert);
   const original = String(pack.original || "").trim();
@@ -382,16 +448,22 @@ function paintFeedRequestMid(mid, alert) {
     frame.textContent = original;
     mid.appendChild(frame);
   }
-  const admin = document.createElement("div");
-  admin.className = "feed-request-admin";
-  admin.textContent = String(pack.admin_text || "").trim();
-  mid.appendChild(admin);
-  const replyText = String(pack.reply_text || "").trim();
+  const admin = pack.admin || {
+    id: alert && alert.sender_id,
+    username: alert && alert.sender_username,
+    display_name: alert && alert.sender_display_name,
+    avatar: alert && alert.sender_avatar,
+    created_at: alert && alert.created_at,
+    text: pack.admin_text || ""
+  };
+  mid.appendChild(paintFeedRequestLine(admin));
+  const userLine = pack.user;
+  const replyText = String((userLine && userLine.text) || pack.reply_text || "").trim();
   if (replyText) {
-    const sent = document.createElement("div");
-    sent.className = "feed-request-sent";
-    sent.textContent = replyText;
-    mid.appendChild(sent);
+    const split = document.createElement("div");
+    split.className = "feed-request-split";
+    mid.appendChild(split);
+    mid.appendChild(paintFeedRequestLine(userLine || { text: replyText }));
     return;
   }
   if (!pack.can_reply) return;

@@ -79,6 +79,7 @@ FEEDBACK_TYPE_LABELS = {
 }
 
 FEEDBACK_STATUSES = ("new", "viewed", "review", "completed", "open", "followup", "closed")
+FEEDBACK_DONE_STATUSES = ("completed", "closed")
 FEEDBACK_CHANGE_STATUSES = ("viewed", "review", "open", "followup")
 FEEDBACK_COMPLETE_DAYS = 30
 FEEDBACK_STATUS_LABELS = {
@@ -649,6 +650,10 @@ def clip_admin_note(text, required=True):
     return value
 
 
+def feedback_open_clause():
+    return or_(Feedback_report.status.is_(None), ~Feedback_report.status.in_(FEEDBACK_DONE_STATUSES))
+
+
 def apply_feedback_status(row, status):
     key = (status or "").strip().lower()
     if key in ("completed", "closed"):
@@ -965,7 +970,7 @@ def admin_overview_stats(
     } for row in recent_rows]
     reports_open = int(
         database.query(func.count()).select_from(Feedback_report).filter(
-            or_(Feedback_report.status.is_(None), Feedback_report.status != "completed")
+            feedback_open_clause()
         ).scalar() or 0
     )
     reports_24h = count_rows(database, Feedback_report, Feedback_report.created_at, ago_1)
@@ -977,7 +982,7 @@ def admin_overview_stats(
     report_types = {key: 0 for key in FEEDBACK_TYPE_LABELS}
     for kind, n in (
         database.query(Feedback_report.feedback_type, func.count())
-        .filter(or_(Feedback_report.status.is_(None), Feedback_report.status != "completed"))
+        .filter(feedback_open_clause())
         .group_by(Feedback_report.feedback_type)
         .all()
     ):
@@ -994,7 +999,7 @@ def admin_overview_stats(
         database.query(Feedback_report.report_kind, func.count())
         .filter(
             Feedback_report.feedback_type == "report",
-            or_(Feedback_report.status.is_(None), Feedback_report.status != "completed"),
+            feedback_open_clause(),
         )
         .group_by(Feedback_report.report_kind)
         .all()
@@ -1208,7 +1213,7 @@ def admin_overview_stats(
             "new_24h": reports_24h,
             "new_prev_24h": reports_prev,
             "review": report_status["review"],
-            "completed": report_status["completed"],
+            "completed": report_status["completed"] + report_status["closed"],
             "user_server": report_types["report"],
             "status": report_status,
             "types": report_types,

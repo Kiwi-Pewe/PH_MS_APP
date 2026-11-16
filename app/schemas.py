@@ -187,6 +187,10 @@ class Profile_identity_in(BaseModel):
     status: str = ""
     pronouns: str = ""
 
+
+class Profile_vote_in(BaseModel):
+    vote: int = 0
+
 class Feedback_status(BaseModel):
     status: str
 

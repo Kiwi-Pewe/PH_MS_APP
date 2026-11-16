@@ -1,22 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, case, or_, func
 import json
 import re
 import uuid
 import random
 import colorsys
-from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Profile_chat, Block_user, Servers, Server_members, Community_room, Community_room_member
+from app.models import UserInfo, Friend_request, Profile_comment, Profile_comment_watch, Profile_comment_notice, Profile_chat, Profile_votes, Block_user, Servers, Server_members, Community_room, Community_room_member
 from app.routers.connections import load_steam_achievements, load_steam_badges, load_steam_card, load_steam_playing, load_steam_recent, load_steam_library
 from app.routers.youtube_link import load_youtube_card, load_youtube_video_card, load_youtube_live_card, load_youtube_playlists_card, load_youtube_playlist_start, load_youtube_liked_card, load_youtube_subscriptions_card, load_youtube_comments_card, load_youtube_live_chat_card, load_youtube_super_chat_card
-from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in, Profile_chat_in
+from app.schemas import Profile_layout_in, Profile_identity_in, Profile_comment_in, Profile_comment_watch_in, Profile_chat_in, Profile_vote_in
 from app.database import get_db
 from app.auth import get_current_user
 from app.privacy import accepted_friend_ids, are_friends, can_see_full_profile, drop_blocked_rows, shared_server_ids
 from app.routers.account import parse_display_name_history
 from app.routers.realtime import notify_user, presence_status, profile_chat_viewer_ids, watch_profile_chat
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for, still_url_for, still_url_from_public, require_message_body, store_attachment, attachment_public
-from app.site_moderation import mask_message_payloads
+from app.site_moderation import account_warn_count, mask_message_payloads
 
 router = APIRouter()
 
@@ -2144,6 +2144,40 @@ def profile_mutual_servers(database: Session, owner_id, viewer_id, limit=SERVER_
     return [profile_server_card(servers[sid]) for sid in ids if sid in servers]
 
 
+def empty_profile_vote_pack():
+    return {"votes": 0, "vote_up": 0, "vote_down": 0, "my_vote": 0}
+
+
+def profile_votes_for(database, owner_id, viewer_id=None):
+    if not owner_id:
+        return empty_profile_vote_pack()
+    row = (
+        database.query(
+            func.coalesce(func.sum(case((Profile_votes.value > 0, 1), else_=0)), 0),
+            func.coalesce(func.sum(case((Profile_votes.value < 0, 1), else_=0)), 0),
+        )
+        .filter(Profile_votes.owner_id == owner_id)
+        .first()
+    )
+    up = int(row[0] or 0) if row else 0
+    down = int(row[1] or 0) if row else 0
+    mine = 0
+    if viewer_id:
+        found = database.query(Profile_votes.value).filter(
+            Profile_votes.owner_id == owner_id,
+            Profile_votes.user_id == viewer_id,
+        ).first()
+        if found:
+            mine = int(found[0] or 0)
+    return {"votes": up - down, "vote_up": up, "vote_down": down, "my_vote": mine}
+
+
+def attach_profile_rail(database, payload, owner_id, viewer_id=None):
+    payload["warn_count"] = account_warn_count(database, owner_id)
+    payload["rating"] = profile_votes_for(database, owner_id, viewer_id)
+    return payload
+
+
 def profile_payload(user, layout, limited, friends, mutuals=None, servers=None, mutual_servers=None):
     return {
         "user": {
@@ -2165,8 +2199,9 @@ def profile_payload(user, layout, limited, friends, mutuals=None, servers=None, 
 
 
 def full_profile_payload(database, user, layout, limited=False, viewer_id=None):
+    viewer = viewer_id if viewer_id is not None else user.id
     if limited:
-        return profile_payload(user, layout, True, [])
+        return attach_profile_rail(database, profile_payload(user, layout, True, []), user.id, viewer)
     owner_id = user.id
     friends = friend_preview(database, owner_id)
     servers = profile_servers_for(database, owner_id)
@@ -2175,7 +2210,12 @@ def full_profile_payload(database, user, layout, limited=False, viewer_id=None):
     if viewer_id and viewer_id != owner_id:
         mutuals = profile_mutuals(database, owner_id, viewer_id)
         mutual_servers = profile_mutual_servers(database, owner_id, viewer_id)
-    return profile_payload(user, layout, False, friends, mutuals, servers, mutual_servers)
+    return attach_profile_rail(
+        database,
+        profile_payload(user, layout, False, friends, mutuals, servers, mutual_servers),
+        owner_id,
+        viewer,
+    )
 
 
 @router.post("/profile_identity")
@@ -2227,10 +2267,41 @@ def get_public_profile(user_id: int, current_user: UserInfo = Depends(get_curren
         raise HTTPException(status_code=404, detail="User not found.")
     layout = ensure_layout(owner, database)
     if current_user.id == owner.id:
-        return full_profile_payload(database, owner, layout)
+        return full_profile_payload(database, owner, layout, False, current_user.id)
     if not can_see_full_profile(database, current_user, owner):
-        return full_profile_payload(database, owner, identity_only_layout(layout), True)
+        return full_profile_payload(database, owner, identity_only_layout(layout), True, current_user.id)
     return full_profile_payload(database, owner, public_pages(layout), False, current_user.id)
+
+
+@router.post("/profile/{user_id}/vote")
+def vote_public_profile(
+    user_id: int,
+    body: Profile_vote_in,
+    database: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    owner = database.query(UserInfo).filter(UserInfo.id == user_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if owner.id == current_user.id:
+        raise HTTPException(status_code=400, detail="You can't rate your own profile.")
+    if users_are_blocked(database, current_user.id, owner.id):
+        raise HTTPException(status_code=403, detail="You cannot rate this profile.")
+    next_vote = 1 if body.vote > 0 else -1 if body.vote < 0 else 0
+    row = database.query(Profile_votes).filter(
+        Profile_votes.owner_id == owner.id,
+        Profile_votes.user_id == current_user.id,
+    ).first()
+    current = int(row.value) if row else 0
+    if next_vote == 0 or next_vote == current:
+        if row:
+            database.delete(row)
+    elif row:
+        row.value = next_vote
+    else:
+        database.add(Profile_votes(owner_id=owner.id, user_id=current_user.id, value=next_vote))
+    database.commit()
+    return {"ok": True, "id": owner.id, **profile_votes_for(database, owner.id, current_user.id)}
 
 
 def comments_wall_prop(layout, key):

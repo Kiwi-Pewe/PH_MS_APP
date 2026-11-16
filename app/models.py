@@ -183,6 +183,14 @@ class Server_votes(Base):
     value = Column(Integer)
     __table_args__ = (UniqueConstraint("server_id", "user_id", name="uq_server_vote"),)
 
+class Profile_votes(Base):
+    __tablename__ = "profile_votes"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    value = Column(Integer)
+    __table_args__ = (UniqueConstraint("owner_id", "user_id", name="uq_profile_vote"),)
+
 class Server_applications(Base):
     __tablename__ = "server_applications"
     id = Column(Integer, primary_key=True)

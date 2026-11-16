@@ -96,6 +96,10 @@ function applyProfilePayload(data) {
   if (typeof clearProfileServerCache === "function") clearProfileServerCache();
   profileIsOwn = !!(profileUser && profileUser.id === myUserId);
   profileLimited = !!data.limited;
+  profileWarnCount = Number(data.warn_count) || 0;
+  profileRating = data.rating && typeof data.rating === "object"
+    ? data.rating
+    : { votes: 0, vote_up: 0, vote_down: 0, my_vote: 0 };
   profileFriends = data.friends || [];
   profileMutuals = data.mutuals || [];
   profileServers = data.servers || [];
@@ -380,11 +384,111 @@ function renderProfilePages() {
   });
 }
 
+function profileWarnsText(count, own) {
+  const n = Math.max(0, Number(count) || 0);
+  const noun = n === 1 ? "warn" : "warns";
+  if (own) return "You have " + n + " " + noun + ".";
+  return "This user has " + n + " " + noun + ".";
+}
+
+function profileRatingTip(rating) {
+  const up = Number(rating && rating.vote_up) || 0;
+  const down = Number(rating && rating.vote_down) || 0;
+  return up + " up · " + down + " down";
+}
+
+function paintProfileWarns() {
+  const host = document.getElementById("profile-warns");
+  if (!host) return;
+  const n = Math.max(0, Number(profileWarnCount) || 0);
+  if (!profileUser || n < 1) {
+    host.hidden = true;
+    host.textContent = "";
+    return;
+  }
+  host.hidden = false;
+  host.textContent = profileWarnsText(n, profileIsOwn);
+}
+
+function paintProfileVotes() {
+  const host = document.getElementById("profile-votes");
+  if (!host) return;
+  host.replaceChildren();
+  if (!profileUser) return;
+  const rating = profileRating || { votes: 0, vote_up: 0, vote_down: 0, my_vote: 0 };
+  const own = !!profileIsOwn;
+  const up = document.createElement("button");
+  up.type = "button";
+  up.className = "community-vote community-vote-up" + ((Number(rating.my_vote) || 0) > 0 ? " is-on" : "");
+  up.textContent = "\u25B2";
+  up.disabled = own;
+  if (!own) {
+    up.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      voteProfileUser(1);
+    });
+  }
+  const count = document.createElement("span");
+  count.className = "community-vote-count";
+  count.textContent = String(rating.votes != null ? rating.votes : 0);
+  const down = document.createElement("button");
+  down.type = "button";
+  down.className = "community-vote community-vote-down" + ((Number(rating.my_vote) || 0) < 0 ? " is-on" : "");
+  down.textContent = "\u25BC";
+  down.disabled = own;
+  if (!own) {
+    down.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      voteProfileUser(-1);
+    });
+  }
+  const tip = document.createElement("div");
+  tip.className = "community-vote-tip";
+  tip.textContent = profileRatingTip(rating);
+  host.appendChild(up);
+  host.appendChild(count);
+  host.appendChild(down);
+  host.appendChild(tip);
+}
+
+async function voteProfileUser(next) {
+  if (!profileOwnerId || profileIsOwn || profileRatingBusy) return;
+  const current = Number(profileRating && profileRating.my_vote) || 0;
+  const vote = current === next ? 0 : next;
+  profileRatingBusy = true;
+  try {
+    const response = await profileApi("/profile/" + encodeURIComponent(profileOwnerId) + "/vote", {
+      method: "POST",
+      body: JSON.stringify({ vote: vote })
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data) return;
+    profileRating = {
+      votes: data.votes,
+      vote_up: data.vote_up,
+      vote_down: data.vote_down,
+      my_vote: data.my_vote
+    };
+    if (typeof placeCache !== "undefined" && placeCache.profiles && placeCache.profiles[String(profileOwnerId)]) {
+      placeCache.profiles[String(profileOwnerId)].rating = profileRating;
+    }
+    paintProfileVotes();
+  } catch (e) {
+    return;
+  } finally {
+    profileRatingBusy = false;
+  }
+}
+
 function paintProfileChrome() {
   const editBtn = document.getElementById("profile-edit-btn");
   const actions = document.getElementById("profile-edit-actions");
   const label = document.getElementById("profile-owner-label");
   const note = document.getElementById("profile-limited-note");
+  paintProfileVotes();
+  paintProfileWarns();
   if (editBtn) editBtn.hidden = !(profileIsOwn && !profileEditing);
   if (actions) {
     if (profileIsOwn && profileEditing) actions.removeAttribute("hidden");

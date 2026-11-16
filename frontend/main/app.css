@@ -15213,21 +15213,38 @@ button.voice-more-row:disabled,
 #community-compose-overlay,
 #community-room-overlay,
 #community-topics-overlay,
-#community-people-overlay,
-#community-tos-overlay {
+#community-people-overlay {
   position: fixed;
   inset: 0;
   z-index: 950;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  box-sizing: border-box;
   background: rgba(0, 0, 0, 0.6);
 }
-#community-tos-card {
+#community-tos-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: flex;
+  align-items: safe center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.6);
+}
+#community-tos-card.community-compose-card {
   min-height: 0;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+#community-tos-card .community-compose-body {
+  min-height: 0;
+  max-height: calc(100dvh - 180px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 #community-compose-overlay[hidden],
 #community-room-overlay[hidden],
@@ -15236,7 +15253,8 @@ button.voice-more-row:disabled,
 #community-tos-overlay[hidden] { display: none; }
 .community-tos-copy {
   margin: 0;
-  min-height: 7.25em;
+  min-height: 0;
+  flex: 0 1 auto;
   word-break: break-word;
   font-size: 15px;
   line-height: 1.5;

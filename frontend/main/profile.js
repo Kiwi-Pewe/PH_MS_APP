@@ -430,7 +430,8 @@ function paintProfileVotes() {
     });
   }
   const count = document.createElement("span");
-  count.className = "community-vote-count";
+  const score = Number(rating.votes) || 0;
+  count.className = "community-vote-count" + (score > 0 ? " is-up" : score < 0 ? " is-down" : "");
   count.textContent = String(rating.votes != null ? rating.votes : 0);
   const down = document.createElement("button");
   down.type = "button";

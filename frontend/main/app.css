@@ -6603,8 +6603,12 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 }
 .profile-votes { flex: 0 0 auto; }
 .profile-votes .community-vote:disabled { opacity: 0.45; cursor: default; }
+.profile-votes .community-vote-count { color: #fff; }
+.profile-votes .community-vote-count.is-up { color: #23c55e; }
+.profile-votes .community-vote-count.is-down { color: #ed4245; }
 #profile-warns {
-  flex: 1 1 auto;
+  flex: 0 1 50%;
+  max-width: 50%;
   min-width: 0;
   height: 32px;
   display: flex;

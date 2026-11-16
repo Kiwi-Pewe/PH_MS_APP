@@ -1010,6 +1010,22 @@ def ensure_automod_tables():
             conn.rollback()
 
 
+def ensure_profile_vote_tables():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS profile_votes ("
+                "id INTEGER PRIMARY KEY, "
+                "owner_id INTEGER, "
+                "user_id INTEGER, "
+                "value INTEGER, "
+                "CONSTRAINT uq_profile_vote UNIQUE (owner_id, user_id))"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_community_policy_tables():
     with engine.connect() as conn:
         try:

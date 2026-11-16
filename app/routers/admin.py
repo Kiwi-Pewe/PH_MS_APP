@@ -1328,6 +1328,8 @@ def admin_user(
     sort: str = "id",
     order: str = "asc",
     flagged: int = 0,
+    warned: int = 0,
+    banned: int = 0,
     locked: int = 0,
     lock: str = "",
     offset: int = 0,
@@ -1354,6 +1356,12 @@ def admin_user(
             Community_lock,
             and_(Community_lock.user_id == UserInfo.id, Community_lock.kind == "flagged"),
         )
+    if warned:
+        query = query.filter(
+            UserInfo.id.in_(database.query(Account_warn.user_id))
+        )
+    if banned:
+        query = query.filter(UserInfo.banned_until > datetime.utcnow())
     if locked:
         kinds = COMMUNITY_LOCKS
         lock_kind = (lock or "").strip().lower()

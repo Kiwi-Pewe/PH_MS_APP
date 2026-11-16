@@ -38,6 +38,8 @@ const USERS_LOCKS = [
 let usersBy = "id";
 let usersQuery = "";
 let usersFlaggedOnly = false;
+let usersWarnedOnly = false;
+let usersBannedOnly = false;
 let usersOffset = 0;
 let usersHasMore = false;
 let usersLoading = false;
@@ -103,14 +105,20 @@ function usersRowName(text, flagged) {
 }
 
 function usersSearchFlagged(label, on, onChange) {
+  return usersSearchFilterGroup([{ label: label, on: on, onChange: onChange }]);
+}
+
+function usersSearchFilterGroup(rows) {
   const wrap = adminEl("div", "users-search-extra");
   wrap.appendChild(adminEl("div", "admin-report-rule"));
-  const line = adminEl("div", "admin-report-check");
-  line.appendChild(adminEl("span", "", label));
-  const toggle = usersToggle(on);
-  toggle.input.addEventListener("change", () => onChange(!!toggle.input.checked));
-  line.appendChild(toggle.label);
-  wrap.appendChild(line);
+  (rows || []).forEach((item) => {
+    const line = adminEl("div", "admin-report-check");
+    line.appendChild(adminEl("span", "", item.label));
+    const toggle = usersToggle(!!item.on);
+    toggle.input.addEventListener("change", () => item.onChange(!!toggle.input.checked));
+    line.appendChild(toggle.label);
+    wrap.appendChild(line);
+  });
   return wrap;
 }
 
@@ -1148,7 +1156,7 @@ function openUsersCreateReport(row) {
         usersRows = usersRows.map((item) => item.id === usersSelected.id ? Object.assign({}, item, { flagged: true }) : item);
       }
       const list = document.getElementById("users-search-list");
-      if (usersFlaggedOnly) loadUsersList(false);
+      if (usersFlaggedOnly || usersWarnedOnly || usersBannedOnly) loadUsersList(false);
       else if (list) paintUsersRows(list);
     }).catch(() => usersReportError("Could not create the report."));
   }
@@ -1225,6 +1233,8 @@ function loadUsersList(more) {
   params.set("offset", String(usersOffset));
   params.set("limit", String(USERS_PAGE));
   params.set("flagged", usersFlaggedOnly ? "1" : "0");
+  params.set("warned", usersWarnedOnly ? "1" : "0");
+  params.set("banned", usersBannedOnly ? "1" : "0");
   adminApi("/admin/user?" + params.toString()).then((response) => {
     if (!response.ok) return null;
     return response.json();
@@ -1289,10 +1299,20 @@ function paintUsersSearch(main) {
   filter.appendChild(adminEl("span", "", "Filters"));
   filter.appendChild(adminIcon("down"));
   fields.appendChild(filter);
-  fields.appendChild(usersSearchFlagged("Flagged Users", usersFlaggedOnly, (on) => {
-    usersFlaggedOnly = on;
-    loadUsersList(false);
-  }));
+  fields.appendChild(usersSearchFilterGroup([
+    { label: "Flagged Users", on: usersFlaggedOnly, onChange: (on) => {
+      usersFlaggedOnly = on;
+      loadUsersList(false);
+    } },
+    { label: "Warned Users", on: usersWarnedOnly, onChange: (on) => {
+      usersWarnedOnly = on;
+      loadUsersList(false);
+    } },
+    { label: "Banned Users", on: usersBannedOnly, onChange: (on) => {
+      usersBannedOnly = on;
+      loadUsersList(false);
+    } }
+  ]));
   search.appendChild(fields);
   left.appendChild(search);
   const entries = usersCard({ title: "Account entries", fill: true });

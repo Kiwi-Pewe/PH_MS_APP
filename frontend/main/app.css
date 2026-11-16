@@ -6606,25 +6606,6 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 .profile-votes .community-vote-count { color: #fff; }
 .profile-votes .community-vote-count.is-up { color: #23c55e; }
 .profile-votes .community-vote-count.is-down { color: #ed4245; }
-#profile-warns {
-  flex: 0 1 50%;
-  max-width: 50%;
-  min-width: 0;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 14px;
-  border-radius: 8px;
-  background: #ed4245;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-}
-#profile-warns[hidden] { display: none; }
 #profile-edit-btn {
   background: var(--panel-alt); color: var(--text);
   font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 6px;

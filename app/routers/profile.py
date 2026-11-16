@@ -16,7 +16,7 @@ from app.privacy import accepted_friend_ids, are_friends, can_see_full_profile, 
 from app.routers.account import parse_display_name_history
 from app.routers.realtime import notify_user, presence_status, profile_chat_viewer_ids, watch_profile_chat
 from app.r2 import ALLOWED_MIME, PROFILE_IMAGE_BYTES, PROFILE_KEY_RE, PROFILE_MUSIC_BYTES, PROFILE_MUSIC_KEY_RE, PROFILE_VIDEO_BYTES, PROFILE_VIDEO_KEY_RE, normalize_mime, public_url_for, still_url_for, still_url_from_public, require_message_body, store_attachment, attachment_public
-from app.site_moderation import account_warn_count, mask_message_payloads
+from app.site_moderation import mask_message_payloads
 
 router = APIRouter()
 
@@ -2173,7 +2173,6 @@ def profile_votes_for(database, owner_id, viewer_id=None):
 
 
 def attach_profile_rail(database, payload, owner_id, viewer_id=None):
-    payload["warn_count"] = account_warn_count(database, owner_id)
     payload["rating"] = profile_votes_for(database, owner_id, viewer_id)
     return payload
 

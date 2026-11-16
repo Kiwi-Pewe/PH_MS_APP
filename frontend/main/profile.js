@@ -96,7 +96,6 @@ function applyProfilePayload(data) {
   if (typeof clearProfileServerCache === "function") clearProfileServerCache();
   profileIsOwn = !!(profileUser && profileUser.id === myUserId);
   profileLimited = !!data.limited;
-  profileWarnCount = Number(data.warn_count) || 0;
   profileRating = data.rating && typeof data.rating === "object"
     ? data.rating
     : { votes: 0, vote_up: 0, vote_down: 0, my_vote: 0 };
@@ -384,30 +383,10 @@ function renderProfilePages() {
   });
 }
 
-function profileWarnsText(count, own) {
-  const n = Math.max(0, Number(count) || 0);
-  const noun = n === 1 ? "warn" : "warns";
-  if (own) return "You have " + n + " " + noun + ".";
-  return "This user has " + n + " " + noun + ".";
-}
-
 function profileRatingTip(rating) {
   const up = Number(rating && rating.vote_up) || 0;
   const down = Number(rating && rating.vote_down) || 0;
   return up + " up · " + down + " down";
-}
-
-function paintProfileWarns() {
-  const host = document.getElementById("profile-warns");
-  if (!host) return;
-  const n = Math.max(0, Number(profileWarnCount) || 0);
-  if (!profileUser || n < 1) {
-    host.hidden = true;
-    host.textContent = "";
-    return;
-  }
-  host.hidden = false;
-  host.textContent = profileWarnsText(n, profileIsOwn);
 }
 
 function paintProfileVotes() {
@@ -489,7 +468,6 @@ function paintProfileChrome() {
   const label = document.getElementById("profile-owner-label");
   const note = document.getElementById("profile-limited-note");
   paintProfileVotes();
-  paintProfileWarns();
   if (editBtn) editBtn.hidden = !(profileIsOwn && !profileEditing);
   if (actions) {
     if (profileIsOwn && profileEditing) actions.removeAttribute("hidden");

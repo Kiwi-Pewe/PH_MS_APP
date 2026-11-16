@@ -129,7 +129,7 @@ async function register() {
   const status = document.getElementById("register-status");
   if (!username || !password) { status.textContent = "Fill in all fields."; return; }
   if (!over18) { status.textContent = "Confirm you are over 18."; return; }
-  if (registerHasTos() && !readTos) { status.textContent = "Confirm you have read the Terms of Service."; return; }
+  if (registerHasTos() && !readTos) { status.textContent = "Confirm you have read the Site Rules."; return; }
   status.textContent = "Registering...";
   try {
     const response = await fetch(`https://${API_HOST}/register`, {

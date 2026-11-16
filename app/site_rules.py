@@ -100,7 +100,7 @@ def require_register_confirms(database, over_18, read_tos):
         raise HTTPException(status_code=400, detail="Confirm you are over 18.")
     tos = (load_public(database)["tos"] or "").strip()
     if tos and not read_tos:
-        raise HTTPException(status_code=400, detail="Confirm you have read the Terms of Service.")
+        raise HTTPException(status_code=400, detail="Confirm you have read the Site Rules.")
 
 
 @router.get("/site_rules")

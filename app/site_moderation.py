@@ -477,6 +477,16 @@ def refuse_server_media(database, server_id, content=None, attachment=None, atta
     refuse_server_lock(database, server_id, "images")
 
 
+def unban_account(database, actor, target):
+    refuse_moderate(actor, target)
+    if not site_ban_active(target):
+        return False
+    target.banned_until = None
+    target.ban_reason = None
+    write_admin_audit(database, actor, "unban", target)
+    return True
+
+
 def ban_account_until(database, actor, target, until, reason, permanent=False):
     refuse_moderate(actor, target)
     text = clip_reason(reason, required=False)

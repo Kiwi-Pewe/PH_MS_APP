@@ -1030,10 +1030,11 @@ function openUsersCreateReport(row) {
   });
   const banLine = adminEl("div", "admin-report-check");
   banLine.appendChild(adminEl("span", "", "Ban"));
-  const banToggle = usersToggle(false);
+  const alreadyBanned = !!row.site_banned;
+  const banToggle = usersToggle(alreadyBanned);
   banLine.appendChild(banToggle.label);
   const banDuration = usersDurationControls();
-  banDuration.host.hidden = true;
+  banDuration.host.hidden = !alreadyBanned;
   banToggle.input.addEventListener("change", () => {
     banDuration.host.hidden = !banToggle.input.checked;
   });

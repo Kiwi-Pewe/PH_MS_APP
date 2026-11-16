@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, and_, cast, String
 from app.models import (
     UserInfo, Feedback_report, Feedback_event, Admin_user_note, Servers, Server_members,
-    Server_bans, Friend_request, Account_warn, Site_ban, Active_Sessions, Message,
+    Server_bans, Friend_request, Account_warn, Active_Sessions, Message,
     Community_lock, Server_lock,
     Channel_messages, Server_channels, Server_categories, Server_roles, Server_role_members, Community_post, Community_comment, Community_room,
     Community_room_member, Community_room_message, Community_phone_wait, Community_phone_call, Community_phone_message,
@@ -44,6 +44,7 @@ from app.site_moderation import (
     account_warn_count,
     ban_account,
     ban_account_until,
+    unban_account,
     delete_account_to_permaban,
     friend_count,
     is_protected_account,
@@ -1768,14 +1769,19 @@ async def admin_create_user_report(
             raise HTTPException(status_code=400, detail="Assign to kiwi.")
         assign_id = current_user.id
     locks = body.locks or []
-    need_action = bool(body.warn or body.ban or body.flag or any(not item.allowed for item in locks))
+    currently_banned = site_ban_active(account)
+    lift_ban = bool(mode == "moderation" and currently_banned and not body.ban)
+    need_action = bool(body.warn or body.ban or lift_ban or body.flag or any(not item.allowed for item in locks))
     if need_action:
         refuse_moderate(current_user, account)
     if mode == "moderation" and body.warn:
         warn_account(database, current_user, account, body.warn_reason)
     if mode == "moderation" and body.ban:
-        until, permanent = parse_admin_until(body.ban_until, body.ban_days, body.ban_permanent)
-        ban_account_until(database, current_user, account, until, "", permanent)
+        if not currently_banned:
+            until, permanent = parse_admin_until(body.ban_until, body.ban_days, body.ban_permanent)
+            ban_account_until(database, current_user, account, until, "", permanent)
+    elif lift_ban:
+        unban_account(database, current_user, account)
     if mode == "moderation" and body.flag:
         set_community_lock(database, current_user, account, "flagged", True, None)
     for item in locks:
@@ -2039,38 +2045,6 @@ def admin_user_warns(user_id: int, database: Session = Depends(get_db), current_
             "created_at": str(row.created_at) if row.created_at else None,
         } for row in rows]
     }
-
-
-@router.get("/admin/user/{user_id}/bans")
-def admin_user_bans(user_id: int, database: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    require_oneira_admin(current_user)
-    site_rows = database.query(Site_ban).filter(Site_ban.user_id == user_id).order_by(Site_ban.id.desc()).limit(100).all()
-    server_rows = database.query(Server_bans).filter(Server_bans.user_id == user_id).order_by(Server_bans.id.desc()).limit(100).all()
-    server_ids = [row.server_id for row in server_rows]
-    servers = database.query(Servers).filter(Servers.id.in_(server_ids)).all() if server_ids else []
-    names = {row.id: row.name for row in servers}
-    bans = []
-    for row in site_rows:
-        bans.append({
-            "kind": "site",
-            "id": row.id,
-            "reason": row.reason or "",
-            "actor_username": row.actor_username or "",
-            "created_at": str(row.created_at) if row.created_at else None,
-            "expires_at": str(row.expires_at) if row.expires_at else None,
-            "label": "Oneira",
-        })
-    for row in server_rows:
-        bans.append({
-            "kind": "server",
-            "id": row.id,
-            "reason": row.reason or "",
-            "actor_username": "",
-            "created_at": str(row.created_at) if row.created_at else None,
-            "expires_at": str(row.expires_at) if row.expires_at else None,
-            "label": names.get(row.server_id) or row.server_id,
-        })
-    return {"bans": bans}
 
 
 @router.get("/admin/user/{user_id}/profile")

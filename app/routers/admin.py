@@ -719,6 +719,13 @@ OVERVIEW_WINDOW_SPANS = {
     "1m": timedelta(days=30),
 }
 
+OVERVIEW_WINDOW_STEPS = {
+    "1h": 6,
+    "1d": 6,
+    "1w": 7,
+    "1m": 6,
+}
+
 OVERVIEW_WINDOW_COPY = {
     "1h": {
         "id": "1h",
@@ -727,6 +734,7 @@ OVERVIEW_WINDOW_COPY = {
         "short": "the last 1 hour",
         "prev": "previous hour",
         "pulse": "Last 1 hour",
+        "chart": "this hour",
     },
     "1d": {
         "id": "1d",
@@ -735,6 +743,7 @@ OVERVIEW_WINDOW_COPY = {
         "short": "the last 1 day",
         "prev": "previous day",
         "pulse": "Last 1 day",
+        "chart": "this day",
     },
     "1w": {
         "id": "1w",
@@ -743,6 +752,7 @@ OVERVIEW_WINDOW_COPY = {
         "short": "the last 1 week",
         "prev": "previous week",
         "pulse": "Last 1 week",
+        "chart": "this week",
     },
     "1m": {
         "id": "1m",
@@ -751,6 +761,7 @@ OVERVIEW_WINDOW_COPY = {
         "short": "the last 1 month",
         "prev": "previous month",
         "pulse": "Last 1 month",
+        "chart": "this month",
     },
 }
 
@@ -768,6 +779,34 @@ def utc_day(when):
 
 def day_label(when):
     return str(when.day).zfill(2) + " " + MONTH_SHORT[when.month - 1]
+
+
+def clock_label(when):
+    return str(when.hour).zfill(2) + ":" + str(when.minute).zfill(2)
+
+
+def bar_label(when, window_id):
+    if window_id in ("1h", "1d"):
+        return clock_label(when)
+    return day_label(when)
+
+
+def overview_chart_range(start, now, window_id):
+    names = {"1h": "1 hour", "1d": "1 day", "1w": "1 week", "1m": "1 month"}
+    if window_id == "1h":
+        return clock_label(start) + " – " + clock_label(now) + " · 1 hour"
+    return day_label(start) + " – " + day_label(now) + " · " + names.get(window_id, "1 day")
+
+
+def iter_window_buckets(start, window_id, now):
+    steps = OVERVIEW_WINDOW_STEPS[window_id]
+    span = OVERVIEW_WINDOW_SPANS[window_id] / steps
+    for offset in range(steps):
+        begin = start + span * offset
+        end = start + span * (offset + 1)
+        if offset == steps - 1:
+            end = now
+        yield begin, end, offset == steps - 1
 
 
 def count_rows(database, model, column, start, end=None):
@@ -830,6 +869,52 @@ def count_auto_day_bars(database, week_start):
             "hot": offset == 6,
         })
     return bars, total
+
+
+def count_span_bars(database, model, column, start, window_id, now):
+    bars = []
+    total = 0
+    for begin, end, hot in iter_window_buckets(start, window_id, now):
+        n = count_rows(database, model, column, begin, end)
+        total += n
+        bars.append({
+            "label": bar_label(begin, window_id),
+            "value": n,
+            "hot": hot,
+        })
+    return bars, total
+
+
+def count_auto_span_bars(database, start, window_id, now):
+    bars = []
+    total = 0
+    for begin, end, hot in iter_window_buckets(start, window_id, now):
+        n = count_auto_reports(database, begin, end)
+        total += n
+        bars.append({
+            "label": bar_label(begin, window_id),
+            "value": n,
+            "hot": hot,
+        })
+    return bars, total
+
+
+def kofi_span_bars(database, start, window_id, now):
+    bars = []
+    total = 0.0
+    for begin, end, hot in iter_window_buckets(start, window_id, now):
+        chunk = [
+            item for item in kofi_window(database, begin, end)
+            if normalize_kofi_kind(item.kind) in INCOME_KINDS
+        ]
+        amount = round(sum_payments(chunk), 2)
+        total += amount
+        bars.append({
+            "label": bar_label(begin, window_id),
+            "value": amount,
+            "hot": hot,
+        })
+    return bars, round(total, 2)
 
 
 def automod_surface_key(view):
@@ -925,8 +1010,6 @@ def admin_overview_stats(
     ago_1 = now - span
     ago_2 = ago_1 - span
     hour_24 = now - timedelta(hours=24)
-    week_start = day - timedelta(days=6)
-    prev_week_start = week_start - timedelta(days=7)
     accounts_total = int(database.query(func.count()).select_from(UserInfo).scalar() or 0)
     accounts_24h = count_rows(database, UserInfo, UserInfo.created_at, ago_1)
     accounts_prev = count_rows(database, UserInfo, UserInfo.created_at, ago_2, ago_1)
@@ -1099,21 +1182,17 @@ def admin_overview_stats(
         "username": user.username or "",
         "created_at": str(post.created_at) if post.created_at else None,
     } for post, user in recent_post_rows]
-    prev_week_new = count_rows(database, UserInfo, UserInfo.created_at, prev_week_start, week_start)
-    bars, week_new = count_day_bars(database, UserInfo, UserInfo.created_at, week_start)
-    report_bars, report_week = count_day_bars(database, Feedback_report, Feedback_report.created_at, week_start)
-    report_prev_week = count_rows(database, Feedback_report, Feedback_report.created_at, prev_week_start, week_start)
-    server_bars, server_week = count_day_bars(database, Servers, Servers.created_at, week_start)
-    server_prev_week = count_rows(database, Servers, Servers.created_at, prev_week_start, week_start)
-    community_bars, community_week = count_day_bars(database, Community_post, Community_post.created_at, week_start)
-    community_prev_week = count_rows(database, Community_post, Community_post.created_at, prev_week_start, week_start)
+    bars, week_new = count_span_bars(database, UserInfo, UserInfo.created_at, ago_1, window_id, now)
+    prev_week_new = accounts_prev
+    report_bars, report_week = count_span_bars(database, Feedback_report, Feedback_report.created_at, ago_1, window_id, now)
+    report_prev_week = reports_prev
+    server_bars, server_week = count_span_bars(database, Servers, Servers.created_at, ago_1, window_id, now)
+    server_prev_week = servers_prev
+    community_bars, community_week = count_span_bars(database, Community_post, Community_post.created_at, ago_1, window_id, now)
+    community_prev_week = posts_prev
     kofi = pack_kofi_stats(database, kofi_row(database), now=now, start=ago_1)
-    kofi_bars, kofi_week = kofi_day_bars(database, week_start)
-    kofi_prev_chunk = [
-        item for item in kofi_window(database, prev_week_start, week_start)
-        if normalize_kofi_kind(item.kind) in INCOME_KINDS
-    ]
-    kofi_prev_week = round(sum_payments(kofi_prev_chunk), 2)
+    kofi_bars, kofi_week = kofi_span_bars(database, ago_1, window_id, now)
+    kofi_prev_week = round(float(kofi.get("income_prev_raw") or 0), 2)
     kofi["bars"] = kofi_bars
     kofi["week_raw"] = kofi_week
     kofi["prev_week_raw"] = kofi_prev_week
@@ -1137,8 +1216,8 @@ def admin_overview_stats(
         growth = "below"
     auto_24h = count_auto_reports(database, ago_1)
     auto_prev = count_auto_reports(database, ago_2, ago_1)
-    auto_bars, auto_week = count_auto_day_bars(database, week_start)
-    auto_prev_week = count_auto_reports(database, prev_week_start, week_start)
+    auto_bars, auto_week = count_auto_span_bars(database, ago_1, window_id, now)
+    auto_prev_week = auto_prev
     auto_open = int(
         database.query(func.count()).select_from(Feedback_report).filter(
             Feedback_report.feedback_type.in_(("auto", "automod")),
@@ -1257,7 +1336,7 @@ def admin_overview_stats(
             "week": week_new,
             "prev_week": prev_week_new,
             "vs_week": growth,
-            "range": day_label(week_start) + " – " + day_label(day) + " · 7 days",
+            "range": overview_chart_range(ago_1, now, window_id),
             "bars": bars,
         },
         "series": {

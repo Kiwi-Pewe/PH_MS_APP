@@ -20,7 +20,8 @@ function overviewWindowInfo(stats) {
     compare: win.compare || "compared with previous day",
     short: win.short || "the last 1 day",
     prev: win.prev || "previous day",
-    pulse: win.pulse || win.label || "Last 1 day"
+    pulse: win.pulse || win.label || "Last 1 day",
+    chart: win.chart || "this day"
   };
 }
 
@@ -70,18 +71,19 @@ function overviewMoney(value) {
 }
 
 function overviewChartSpec(stats, key) {
+  const win = overviewWindowInfo(stats);
   const series = (stats && stats.series) || {};
   const growth = (stats && stats.growth) || {};
   const kofi = (stats && stats.kofi) || {};
   const picked = series[key] || series.accounts || {};
   const bars = (picked.bars && picked.bars.length) ? picked.bars : (growth.bars || []);
   const map = {
-    accounts: { title: "Account growth", nLabel: "new accounts this week", money: false },
-    reports: { title: "Reports", nLabel: "new reports this week", money: false },
-    automod: { title: "Auto mod", nLabel: "flags this week", money: false },
-    servers: { title: "Servers", nLabel: "servers created this week", money: false },
-    community: { title: "Community", nLabel: "posts this week", money: false },
-    kofi: { title: "Ko-fi income", nLabel: "income this week", money: true }
+    accounts: { title: "Account growth", nLabel: "new accounts " + win.chart, money: false },
+    reports: { title: "Reports", nLabel: "new reports " + win.chart, money: false },
+    automod: { title: "Auto mod", nLabel: "flags " + win.chart, money: false },
+    servers: { title: "Servers", nLabel: "servers created " + win.chart, money: false },
+    community: { title: "Community", nLabel: "posts " + win.chart, money: false },
+    kofi: { title: "Ko-fi income", nLabel: "income " + win.chart, money: true }
   };
   const meta = map[key] || map.accounts;
   const week = picked.week;
@@ -90,8 +92,8 @@ function overviewChartSpec(stats, key) {
     title: meta.title,
     n: meta.money ? (kofi.week || overviewMoney(week)) : overviewNum(week),
     nLabel: meta.nLabel,
-    delta: overviewPct(week, prev, "vs previous week"),
-    range: growth.range || "Last 7 days",
+    delta: overviewPct(week, prev, "vs " + win.prev),
+    range: growth.range || win.last,
     money: meta.money,
     bars: bars.map((bar) => ({
       label: bar.label,
@@ -183,7 +185,7 @@ function paintOverviewStatistics(main, stats) {
   }));
   main.appendChild(adminBanner(
     "All systems operational",
-    overviewNum(reports.open) + " open reports. Account growth is " + growthWord + " the weekly baseline."
+    overviewNum(reports.open) + " open reports. Account growth is " + growthWord + " " + win.prev + "."
   ));
   const kofi = (stats && stats.kofi) || {};
   const kofiDelta = overviewPct(kofi.income_24h_raw, kofi.income_prev_raw, "vs " + win.prev);
@@ -258,7 +260,7 @@ function paintOverviewStatistics(main, stats) {
   })));
   const dash = adminEl("div", "overview-dash");
   const left = adminEl("div", "overview-stack");
-  const growthPanel = adminPanel({ title: "Account growth", meta: growth.range || "Last 7 days" });
+  const growthPanel = adminPanel({ title: "Account growth", meta: growth.range || win.last });
   growthPanel.panel.id = "overview-chart-panel";
   fillOverviewChart(growthPanel.panel, overviewChartSpec(stats, overviewChartKey));
   left.appendChild(growthPanel.panel);

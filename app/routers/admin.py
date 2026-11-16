@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, and_, cast, String
 from app.models import (
@@ -707,6 +707,56 @@ def utc_now():
     return datetime.utcnow()
 
 
+OVERVIEW_WINDOW_SPANS = {
+    "1h": timedelta(hours=1),
+    "1d": timedelta(days=1),
+    "1w": timedelta(days=7),
+    "1m": timedelta(days=30),
+}
+
+OVERVIEW_WINDOW_COPY = {
+    "1h": {
+        "id": "1h",
+        "label": "Last 1 hour",
+        "compare": "compared with previous hour",
+        "short": "the last 1 hour",
+        "prev": "previous hour",
+        "pulse": "Last 1 hour",
+    },
+    "1d": {
+        "id": "1d",
+        "label": "Last 1 day",
+        "compare": "compared with previous day",
+        "short": "the last 1 day",
+        "prev": "previous day",
+        "pulse": "Last 1 day",
+    },
+    "1w": {
+        "id": "1w",
+        "label": "Last 1 week",
+        "compare": "compared with previous week",
+        "short": "the last 1 week",
+        "prev": "previous week",
+        "pulse": "Last 1 week",
+    },
+    "1m": {
+        "id": "1m",
+        "label": "Last 1 month",
+        "compare": "compared with previous month",
+        "short": "the last 1 month",
+        "prev": "previous month",
+        "pulse": "Last 1 month",
+    },
+}
+
+
+def parse_overview_window(raw):
+    key = (raw or "1d").strip().lower()
+    if key not in OVERVIEW_WINDOW_SPANS:
+        key = "1d"
+    return key
+
+
 def utc_day(when):
     return when.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -857,14 +907,19 @@ def admin_me(current_user: UserInfo = Depends(get_current_user)):
 
 @router.get("/admin/overview/stats")
 def admin_overview_stats(
+    window: str = Query("1d"),
     database: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
     require_oneira_admin(current_user)
     now = utc_now()
+    window_id = parse_overview_window(window)
+    span = OVERVIEW_WINDOW_SPANS[window_id]
+    window_copy = OVERVIEW_WINDOW_COPY[window_id]
     day = utc_day(now)
-    ago_1 = now - timedelta(hours=24)
-    ago_2 = now - timedelta(hours=48)
+    ago_1 = now - span
+    ago_2 = ago_1 - span
+    hour_24 = now - timedelta(hours=24)
     week_start = day - timedelta(days=6)
     prev_week_start = week_start - timedelta(days=7)
     accounts_total = int(database.query(func.count()).select_from(UserInfo).scalar() or 0)
@@ -873,9 +928,10 @@ def admin_overview_stats(
     accounts_today = count_rows(database, UserInfo, UserInfo.created_at, day)
     ago_7 = now - timedelta(days=7)
     ago_30 = now - timedelta(days=30)
-    age_1_7d = count_rows(database, UserInfo, UserInfo.created_at, ago_7, ago_1)
+    age_h24 = count_rows(database, UserInfo, UserInfo.created_at, hour_24)
+    age_1_7d = count_rows(database, UserInfo, UserInfo.created_at, ago_7, hour_24)
     age_8_30d = count_rows(database, UserInfo, UserInfo.created_at, ago_30, ago_7)
-    age_older = max(0, accounts_total - accounts_24h - age_1_7d - age_8_30d)
+    age_older = max(0, accounts_total - age_h24 - age_1_7d - age_8_30d)
     banned_ids = database.query(UserInfo.id).filter(
         UserInfo.banned_until != None,
         UserInfo.banned_until > now,
@@ -1046,7 +1102,7 @@ def admin_overview_stats(
     server_prev_week = count_rows(database, Servers, Servers.created_at, prev_week_start, week_start)
     community_bars, community_week = count_day_bars(database, Community_post, Community_post.created_at, week_start)
     community_prev_week = count_rows(database, Community_post, Community_post.created_at, prev_week_start, week_start)
-    kofi = pack_kofi_stats(database, kofi_row(database))
+    kofi = pack_kofi_stats(database, kofi_row(database), now=now, start=ago_1)
     kofi_bars, kofi_week = kofi_day_bars(database, week_start)
     kofi_prev_chunk = [
         item for item in kofi_window(database, prev_week_start, week_start)
@@ -1124,6 +1180,7 @@ def admin_overview_stats(
         "created_at": str(row.created_at) if row.created_at else None,
     } for row in recent_auto_rows]
     return {
+        "window": window_copy,
         "accounts": {
             "total": accounts_total,
             "new_24h": accounts_24h,
@@ -1139,7 +1196,7 @@ def admin_overview_stats(
                 "banned": banned,
             },
             "age": {
-                "h24": accounts_24h,
+                "h24": age_h24,
                 "d7": age_1_7d,
                 "d30": age_8_30d,
                 "older": age_older,

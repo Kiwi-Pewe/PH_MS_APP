@@ -3,6 +3,65 @@ let overviewStatsAt = 0;
 let overviewStatsLoading = false;
 let overviewChartKey = "accounts";
 let overviewChartOnStats = false;
+let overviewWindow = "1d";
+
+const OVERVIEW_WINDOW_OPTIONS = [
+  { id: "1h", label: "1 hour" },
+  { id: "1d", label: "1 day" },
+  { id: "1w", label: "1 week" },
+  { id: "1m", label: "1 month" }
+];
+
+function overviewWindowInfo(stats) {
+  const win = (stats && stats.window) || {};
+  return {
+    id: win.id || overviewWindow,
+    last: win.label || "Last 1 day",
+    compare: win.compare || "compared with previous day",
+    short: win.short || "the last 1 day",
+    prev: win.prev || "previous day",
+    pulse: win.pulse || win.label || "Last 1 day"
+  };
+}
+
+function overviewPageHead(opts) {
+  const win = overviewWindowInfo(overviewStats);
+  opts.filter = win.last;
+  opts.range = win.compare;
+  opts.onFilter = openOverviewWindowMenu;
+  return adminPageHead(opts);
+}
+
+function openOverviewWindowMenu() {
+  const body = adminEl("div");
+  const chips = adminEl("div", "admin-mod-chips");
+  let picked = overviewWindow;
+  const buttons = OVERVIEW_WINDOW_OPTIONS.map((opt) => {
+    const chip = adminEl("button", "admin-mod-chip" + (opt.id === picked ? " is-on" : ""));
+    chip.type = "button";
+    chip.textContent = opt.label;
+    chip.addEventListener("click", () => {
+      picked = opt.id;
+      buttons.forEach((btn, i) => btn.classList.toggle("is-on", OVERVIEW_WINDOW_OPTIONS[i].id === picked));
+    });
+    chips.appendChild(chip);
+    return chip;
+  });
+  body.appendChild(chips);
+  openAdminMod({
+    title: "Filters",
+    confirm: "Apply",
+    body: body,
+    onConfirm: () => {
+      closeAdminMod();
+      if (picked === overviewWindow) return;
+      overviewWindow = picked;
+      overviewStats = null;
+      overviewStatsAt = 0;
+      loadOverviewStats(true);
+    }
+  });
+}
 
 function overviewMoney(value) {
   const n = Number(value);
@@ -104,40 +163,39 @@ function overviewMax(bars) {
 
 function paintOverviewStatistics(main, stats) {
   main.className = "is-fit";
+  const win = overviewWindowInfo(stats);
   const accounts = (stats && stats.accounts) || {};
   const reports = (stats && stats.reports) || {};
   const servers = (stats && stats.servers) || {};
   const community = (stats && stats.community) || {};
   const growth = (stats && stats.growth) || {};
   const pulse = (stats && stats.pulse) || {};
-  const accountDelta = overviewPct(accounts.new_24h, accounts.new_prev_24h, "new vs previous day");
-  const reportDelta = overviewPct(reports.new_24h, reports.new_prev_24h, "new vs previous day");
-  const communityDelta = overviewPct(community.posts_24h, community.posts_prev_24h, "vs previous day");
+  const accountDelta = overviewPct(accounts.new_24h, accounts.new_prev_24h, "new vs " + win.prev);
+  const reportDelta = overviewPct(reports.new_24h, reports.new_prev_24h, "new vs " + win.prev);
+  const communityDelta = overviewPct(community.posts_24h, community.posts_prev_24h, "vs " + win.prev);
   const activeDelta = overviewPct(pulse.active_24h, pulse.active_prev_24h, "");
   const messageDelta = overviewPct(pulse.messages_24h, pulse.messages_prev_24h, "");
   const growthWord = growth.vs_week === "below" ? "below" : growth.vs_week === "even" ? "even with" : "above";
-  main.appendChild(adminPageHead({
+  main.appendChild(overviewPageHead({
     crumbs: ["Admin", "Overview", "Statistics"],
     title: "Statistics",
-    note: "Oneira at a glance. Activity, growth, and signals worth knowing about.",
-    filter: "Last 24 hours",
-    range: "compared with previous day"
+    note: "Oneira at a glance. Activity, growth, and signals worth knowing about."
   }));
   main.appendChild(adminBanner(
     "All systems operational",
     overviewNum(reports.open) + " open reports. Account growth is " + growthWord + " the weekly baseline."
   ));
   const kofi = (stats && stats.kofi) || {};
-  const kofiDelta = overviewPct(kofi.income_24h_raw, kofi.income_prev_raw, "vs previous day");
+  const kofiDelta = overviewPct(kofi.income_24h_raw, kofi.income_prev_raw, "vs " + win.prev);
   const automod = (stats && stats.automod) || {};
-  const automodDelta = overviewPct(automod.events_24h, automod.events_prev_24h, "flags vs previous day");
+  const automodDelta = overviewPct(automod.events_24h, automod.events_prev_24h, "flags vs " + win.prev);
   const kpiCards = [
     {
       key: "accounts",
       label: "Accounts",
       value: overviewNum(accounts.total),
       icon: "users",
-      detail: overviewNum(accounts.new_24h) + " new in the last 24h",
+      detail: overviewNum(accounts.new_24h) + " new in " + win.short,
       delta: accountDelta.text,
       tone: accountDelta.tone
     },
@@ -164,8 +222,8 @@ function paintOverviewStatistics(main, stats) {
       label: "Servers",
       value: overviewNum(servers.total),
       icon: "grid",
-      detail: overviewNum(servers.active_24h) + " active in the last 24h",
-      delta: "+" + overviewNum(servers.created_24h) + " created in the last 24h",
+      detail: overviewNum(servers.active_24h) + " active in " + win.short,
+      delta: "+" + overviewNum(servers.created_24h) + " created in " + win.short,
       tone: Number(servers.created_24h) > 0 ? "up" : "flat"
     },
     {
@@ -173,7 +231,7 @@ function paintOverviewStatistics(main, stats) {
       label: "Community",
       value: overviewNum(community.posts_24h),
       icon: "share",
-      detail: "Posts submitted in the last 24h",
+      detail: "Posts submitted in " + win.short,
       delta: communityDelta.text,
       tone: communityDelta.tone
     },
@@ -182,7 +240,7 @@ function paintOverviewStatistics(main, stats) {
       label: "Ko-fi",
       value: kofi.income || "$0.00",
       icon: "kofi",
-      detail: (kofi.income_24h || "$0.00") + " in the last 24h",
+      detail: (kofi.income_24h || "$0.00") + " in " + win.short,
       delta: kofiDelta.text,
       tone: kofiDelta.tone
     }
@@ -219,7 +277,7 @@ function paintOverviewStatistics(main, stats) {
   ));
   left.appendChild(queue.panel);
   const right = adminEl("div", "overview-stack");
-  const pulsePanel = adminPanel({ title: "Site pulse", meta: "Last 24h" });
+  const pulsePanel = adminPanel({ title: "Site pulse", meta: win.pulse });
   pulsePanel.body.appendChild(adminPulse(
     [
       { label: "Platform availability", pill: "Operational" },
@@ -232,7 +290,7 @@ function paintOverviewStatistics(main, stats) {
         tone: Number(pulse.servers_today) > 0 ? "up" : "flat"
       }
     ],
-    "No service incidents in the last 24 hours."
+    "No service incidents in " + win.short + "."
   ));
   right.appendChild(pulsePanel.panel);
   right.appendChild(adminPanel({ title: "Worth noting", meta: "Today" }).panel);
@@ -242,11 +300,11 @@ function paintOverviewStatistics(main, stats) {
   main.appendChild(adminEl("div", "overview-page-foot", "All times UTC · Site-wide"));
 }
 
-function loadOverviewStats() {
+function loadOverviewStats(force) {
   if (overviewStatsLoading) return;
-  if (overviewStats && Date.now() - overviewStatsAt < 30000) return;
+  if (!force && overviewStats && overviewStats.window && overviewStats.window.id === overviewWindow && Date.now() - overviewStatsAt < 30000) return;
   overviewStatsLoading = true;
-  adminApi("/admin/overview/stats").then((response) => response.json().then((data) => {
+  adminApi("/admin/overview/stats?window=" + encodeURIComponent(overviewWindow)).then((response) => response.json().then((data) => {
     overviewStatsLoading = false;
     if (!response.ok) return;
     overviewStats = data;
@@ -273,6 +331,7 @@ function overviewJoinedClock(raw) {
 
 function paintOverviewAccounts(main, stats) {
   main.className = "is-fit";
+  const win = overviewWindowInfo(stats);
   const accounts = (stats && stats.accounts) || {};
   const pulse = (stats && stats.pulse) || {};
   const standing = accounts.standing || {};
@@ -284,13 +343,11 @@ function paintOverviewAccounts(main, stats) {
   const clear = Number(standing.clear) || 0;
   const warned = Number(standing.warned) || 0;
   const banned = Number(standing.banned) || 0;
-  const newDelta = overviewPct(accounts.new_24h, accounts.new_prev_24h, "vs previous 24h");
-  main.appendChild(adminPageHead({
+  const newDelta = overviewPct(accounts.new_24h, accounts.new_prev_24h, "vs " + win.prev);
+  main.appendChild(overviewPageHead({
     crumbs: ["Admin", "Overview", "Accounts"],
     title: "Accounts",
-    note: "Account growth and recent registrations across the site.",
-    filter: "Last 24 hours",
-    range: "compared with previous day"
+    note: "Account growth and recent registrations across the site."
   }));
   adminKpiRow(main, [
     {
@@ -316,7 +373,7 @@ function paintOverviewAccounts(main, stats) {
       label: "Active accounts",
       value: overviewNum(active),
       icon: "activity",
-      detail: "Signed in during the last 24h"
+      detail: "Signed in during " + win.short
     }
   ]);
   const mid = adminEl("div", "overview-mid");
@@ -379,15 +436,14 @@ function paintOverviewReports(main, stats) {
   const recent = (reports.recent || []).slice(0, 5);
   const open = Number(reports.open) || 0;
   const userServer = Number(reports.user_server) || 0;
+  const win = overviewWindowInfo(stats);
   const fresh = Number(reports.new_24h) || 0;
-  const newDelta = overviewPct(reports.new_24h, reports.new_prev_24h, "vs previous 24h");
+  const newDelta = overviewPct(reports.new_24h, reports.new_prev_24h, "vs " + win.prev);
   const share = open > 0 ? ((userServer * 1000) / open / 10).toFixed(1) + "% of the open queue" : "0% of the open queue";
-  main.appendChild(adminPageHead({
+  main.appendChild(overviewPageHead({
     crumbs: ["Admin", "Overview", "Reports"],
     title: "Reports",
-    note: "Queue volume and incoming tickets. Completing a ticket happens on Reports.",
-    filter: "Last 24 hours",
-    range: "compared with previous day"
+    note: "Queue volume and incoming tickets. Completing a ticket happens on Reports."
   }));
   adminKpiRow(main, [
     {
@@ -408,7 +464,7 @@ function paintOverviewReports(main, stats) {
       icon: "plus",
       delta: newDelta.text.replace("↑ ", "+").replace("↓ ", "−"),
       tone: newDelta.tone,
-      detail: "Submitted in the last 24h"
+      detail: "Submitted in " + win.short
     },
     {
       label: "Completed",
@@ -486,7 +542,8 @@ function paintOverviewAutoMod(main, stats) {
   const flagged = Number(automod.flagged) || 0;
   const reviewed = Number(automod.reviewed) || 0;
   const listed = Number(automod.listings) || 0;
-  const eventDelta = overviewPct(events, prev, "vs previous 24h");
+  const win = overviewWindowInfo(stats);
+  const eventDelta = overviewPct(events, prev, "vs " + win.prev);
   const postN = Number(surfaces.posts) || 0;
   const roomN = Number(surfaces.rooms) || 0;
   const phoneN = Number(surfaces.phone) || 0;
@@ -494,12 +551,10 @@ function paintOverviewAutoMod(main, stats) {
   const surfaceTotal = postN + roomN + phoneN + listingN;
   const outcomeTotal = flagged + reviewed;
   main.className = "is-fit";
-  main.appendChild(adminPageHead({
+  main.appendChild(overviewPageHead({
     crumbs: ["Admin", "Overview", "Auto mod"],
     title: "Auto mod",
-    note: "Watch List flags on Community and public listings. Auto mod never warns, bans, hides, or deletes accounts.",
-    filter: "Last 24 hours",
-    range: "compared with previous day"
+    note: "Watch List flags on Community and public listings. Auto mod never warns, bans, hides, or deletes accounts."
   }));
   adminKpiRow(main, [
     {
@@ -577,6 +632,7 @@ function overviewShare(part, whole, suffix) {
 
 function paintOverviewServers(main, stats) {
   main.className = "is-fit";
+  const win = overviewWindowInfo(stats);
   const servers = (stats && stats.servers) || {};
   const recent = (servers.recent || []).slice(0, 5);
   const total = Number(servers.total) || 0;
@@ -585,12 +641,10 @@ function paintOverviewServers(main, stats) {
   const listed = Number(servers.public) || 0;
   const hidden = Math.max(0, total - listed);
   const quiet = Math.max(0, total - active);
-  main.appendChild(adminPageHead({
+  main.appendChild(overviewPageHead({
     crumbs: ["Admin", "Overview", "Servers"],
     title: "Servers",
-    note: "Server growth, visibility and activity across the network.",
-    filter: "Last 24 hours",
-    range: "compared with previous day"
+    note: "Server growth, visibility and activity across the network."
   }));
   adminKpiRow(main, [
     {
@@ -603,13 +657,13 @@ function paintOverviewServers(main, stats) {
       label: "Active servers",
       value: overviewNum(active),
       icon: "activity",
-      detail: overviewShare(active, total, "active in the last 24h")
+      detail: overviewShare(active, total, "active in " + win.short)
     },
     {
       label: "New servers",
       value: overviewNum(fresh),
       icon: "plus",
-      detail: "Created in the last 24h"
+      detail: "Created in " + win.short
     },
     {
       label: "Public servers",
@@ -626,7 +680,7 @@ function paintOverviewServers(main, stats) {
     { label: "Private", value: hidden, total: total }
   ]));
   dash.appendChild(visibility.panel);
-  const activity = adminPanel({ title: "Activity distribution", meta: "Last 24h" });
+  const activity = adminPanel({ title: "Activity distribution", meta: win.pulse });
   activity.body.appendChild(adminMeterList([
     { label: "Active", value: active, total: total },
     { label: "No recorded activity", value: quiet, total: total }
@@ -636,7 +690,7 @@ function paintOverviewServers(main, stats) {
   main.appendChild(mid);
   const list = adminPanel({
     title: "Recently created servers",
-    meta: "Latest " + recent.length + (fresh ? " of " + overviewNum(fresh) : "") + " · Last 24h",
+    meta: "Latest " + recent.length + (fresh ? " of " + overviewNum(fresh) : "") + " · " + win.pulse,
     foot: "Snapshot data · Updates every 5 minutes"
   });
   list.panel.classList.add("is-fill");
@@ -679,20 +733,19 @@ function paintOverviewCommunity(main, stats) {
   const onPhone = Number(community.on_phone) || 0;
   const listings = Number(community.listings) || 0;
   const live = inRooms + inCall + waiting;
-  const postDelta = overviewPct(community.posts_24h, community.posts_prev_24h, "vs previous 24h");
-  main.appendChild(adminPageHead({
+  const win = overviewWindowInfo(stats);
+  const postDelta = overviewPct(community.posts_24h, community.posts_prev_24h, "vs " + win.prev);
+  main.appendChild(overviewPageHead({
     crumbs: ["Admin", "Overview", "Community"],
     title: "Community",
-    note: "Posts, rooms, Phone a User, and finder listings.",
-    filter: "Last 24 hours",
-    range: "compared with previous day"
+    note: "Posts, rooms, Phone a User, and finder listings."
   }));
   adminKpiRow(main, [
     {
       label: "Posts",
       value: overviewNum(posts),
       icon: "share",
-      detail: "Submitted in the last 24h",
+      detail: "Submitted in " + win.short,
       delta: postDelta.text,
       tone: postDelta.tone
     },
@@ -736,7 +789,7 @@ function paintOverviewCommunity(main, stats) {
   main.appendChild(mid);
   const list = adminPanel({
     title: "Recent posts",
-    meta: "Latest " + recent.length + (posts ? " of " + overviewNum(posts) : "") + " · Last 24h",
+    meta: "Latest " + recent.length + (posts ? " of " + overviewNum(posts) : "") + " · " + win.pulse,
     foot: "Snapshot data · Updates every 5 minutes"
   });
   list.panel.classList.add("is-fill");

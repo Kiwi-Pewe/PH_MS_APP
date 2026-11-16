@@ -204,18 +204,19 @@ def kofi_window(database, start, end):
     return income_query(database).filter(Kofi_payment.paid_at >= start, Kofi_payment.paid_at < end).all()
 
 
-def pack_kofi_stats(database, row):
+def pack_kofi_stats(database, row, now=None, start=None):
     connected = bool(row and (row.verification_token or "").strip())
-    now = datetime.utcnow()
-    day = now - timedelta(hours=24)
-    prev = now - timedelta(hours=48)
+    now = now or datetime.utcnow()
+    if start is None:
+        start = now - timedelta(hours=24)
+    prev = start - (now - start)
     week = now - timedelta(days=7)
     prev_week = now - timedelta(days=14)
     def income_only(rows):
         return [item for item in rows if normalize_kofi_kind(item.kind) in INCOME_KINDS]
     all_rows = income_only(income_query(database).order_by(Kofi_payment.paid_at.desc(), Kofi_payment.id.desc()).all())
-    day_rows = income_only(kofi_window(database, day, now))
-    prev_day_rows = income_only(kofi_window(database, prev, day))
+    day_rows = income_only(kofi_window(database, start, now))
+    prev_day_rows = income_only(kofi_window(database, prev, start))
     week_rows = income_only(kofi_window(database, week, now))
     prev_week_rows = income_only(kofi_window(database, prev_week, week))
     donations = [item for item in all_rows if normalize_kofi_kind(item.kind) == "Donation"]

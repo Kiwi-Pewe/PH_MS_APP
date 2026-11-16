@@ -98,9 +98,10 @@ function adminPageHead(opts) {
   if (opts.filter) {
     const filter = adminEl("button", "admin-filter-pill");
     filter.type = "button";
-    filter.disabled = true;
+    filter.disabled = !opts.onFilter;
     filter.appendChild(adminEl("span", "", opts.filter));
     filter.appendChild(adminIcon("down"));
+    if (opts.onFilter) filter.addEventListener("click", opts.onFilter);
     meta.appendChild(filter);
   }
   if (opts.badge) {

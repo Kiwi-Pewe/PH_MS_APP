@@ -56,7 +56,7 @@ def clean_name(value):
     return word
 
 
-def clip_tos(value):
+def clip_doc(value):
     text = str(value or "").replace("\r\n", "\n")
     if len(text) > TOS_MAX:
         return text[:TOS_MAX]
@@ -67,7 +67,7 @@ def rules_row(database):
     row = database.query(Site_rules).filter(Site_rules.id == 1).first()
     if row:
         return row
-    row = Site_rules(id=1, tos="", reserved_names="[]")
+    row = Site_rules(id=1, tos="", guidelines="", privacy="", reserved_names="[]")
     database.add(row)
     database.commit()
     database.refresh(row)
@@ -76,13 +76,20 @@ def rules_row(database):
 
 def pack_rules(row):
     return {
-        "tos": clip_tos(row.tos if row else ""),
+        "tos": clip_doc(row.tos if row else ""),
+        "guidelines": clip_doc(getattr(row, "guidelines", None) if row else ""),
+        "privacy": clip_doc(getattr(row, "privacy", None) if row else ""),
         "reserved_names": parse_names(row.reserved_names if row else "[]"),
     }
 
 
 def load_public(database):
-    return {"tos": pack_rules(rules_row(database))["tos"]}
+    packed = pack_rules(rules_row(database))
+    return {
+        "tos": packed["tos"],
+        "guidelines": packed["guidelines"],
+        "privacy": packed["privacy"],
+    }
 
 
 def name_is_reserved(database, username):
@@ -126,7 +133,11 @@ def admin_site_rules_save(
     require_oneira_admin(current_user)
     row = rules_row(database)
     if body.tos is not None:
-        row.tos = clip_tos(body.tos)
+        row.tos = clip_doc(body.tos)
+    if body.guidelines is not None:
+        row.guidelines = clip_doc(body.guidelines)
+    if body.privacy is not None:
+        row.privacy = clip_doc(body.privacy)
     database.commit()
     database.refresh(row)
     return pack_rules(row)

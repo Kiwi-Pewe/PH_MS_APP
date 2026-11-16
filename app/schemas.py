@@ -287,6 +287,8 @@ class Community_policy_in(BaseModel):
 
 class Site_rules_in(BaseModel):
     tos: str | None = None
+    guidelines: str | None = None
+    privacy: str | None = None
 
 
 class Site_rules_name_in(BaseModel):

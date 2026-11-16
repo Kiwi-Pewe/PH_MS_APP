@@ -337,42 +337,64 @@ async function openCommunityPeopleCard() {
   });
 }
 
-let communityFeedTos = "";
+const COMMUNITY_FEED_LEGAL_TITLES = {
+  guidelines: "Community guidelines",
+  privacy: "Privacy",
+  tos: "Site Rules"
+};
 
-function communityFeedHasTos() {
-  return !!String(communityFeedTos || "").trim();
+let communityFeedLegal = { tos: "", guidelines: "", privacy: "" };
+
+function communityFeedLegalText(kind) {
+  return String((communityFeedLegal && communityFeedLegal[kind]) || "").trim();
 }
 
-function syncCommunityFeedTerms() {
-  const btn = document.getElementById("community-feed-terms");
-  if (btn) btn.disabled = !communityFeedHasTos();
+function syncCommunityFeedLegal() {
+  const map = {
+    "community-feed-guidelines": "guidelines",
+    "community-feed-privacy": "privacy",
+    "community-feed-terms": "tos"
+  };
+  Object.keys(map).forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = !communityFeedLegalText(map[id]);
+  });
 }
 
 function loadCommunityFeedTos() {
   fetch(`https://${API_HOST}/site_rules`, { credentials: "include" }).then((response) => {
     return response.ok ? response.json() : null;
   }).then((data) => {
-    communityFeedTos = data && data.tos ? String(data.tos) : "";
-    const copy = document.getElementById("community-tos-copy");
-    if (copy) copy.textContent = communityFeedTos;
-    syncCommunityFeedTerms();
+    communityFeedLegal = {
+      tos: data && data.tos ? String(data.tos) : "",
+      guidelines: data && data.guidelines ? String(data.guidelines) : "",
+      privacy: data && data.privacy ? String(data.privacy) : ""
+    };
+    syncCommunityFeedLegal();
   }).catch(() => {
-    communityFeedTos = "";
-    syncCommunityFeedTerms();
+    communityFeedLegal = { tos: "", guidelines: "", privacy: "" };
+    syncCommunityFeedLegal();
   });
 }
 
-function openCommunityTosCard() {
-  if (!communityFeedHasTos()) return;
+function openCommunityLegalCard(kind) {
+  const text = communityFeedLegalText(kind);
+  if (!text) return;
   const overlay = document.getElementById("community-tos-overlay");
+  const title = document.getElementById("community-tos-title");
   const copy = document.getElementById("community-tos-copy");
-  if (copy) copy.textContent = communityFeedTos;
+  if (title) title.textContent = COMMUNITY_FEED_LEGAL_TITLES[kind] || "Site Rules";
+  if (copy) copy.textContent = communityFeedLegal[kind] || "";
   if (overlay) overlay.hidden = false;
 }
 
 function closeCommunityTosCard() {
   const overlay = document.getElementById("community-tos-overlay");
   if (overlay) overlay.hidden = true;
+}
+
+function openCommunityFeedFeedback() {
+  if (typeof openFeedbackCard === "function") openFeedbackCard();
 }
 
 function bindCommunityFeedRail() {
@@ -384,8 +406,14 @@ function bindCommunityFeedRail() {
   if (topicsCancel) topicsCancel.addEventListener("click", () => closeCommunityTopicsCard());
   const peopleCancel = document.getElementById("community-people-cancel");
   if (peopleCancel) peopleCancel.addEventListener("click", () => closeCommunityPeopleCard());
+  const guidelines = document.getElementById("community-feed-guidelines");
+  if (guidelines) guidelines.addEventListener("click", () => openCommunityLegalCard("guidelines"));
+  const privacy = document.getElementById("community-feed-privacy");
+  if (privacy) privacy.addEventListener("click", () => openCommunityLegalCard("privacy"));
   const terms = document.getElementById("community-feed-terms");
-  if (terms) terms.addEventListener("click", () => openCommunityTosCard());
+  if (terms) terms.addEventListener("click", () => openCommunityLegalCard("tos"));
+  const feedback = document.getElementById("community-feed-feedback");
+  if (feedback) feedback.addEventListener("click", () => openCommunityFeedFeedback());
   const tosClose = document.getElementById("community-tos-close");
   if (tosClose) tosClose.addEventListener("click", () => closeCommunityTosCard());
   const topicsOverlay = document.getElementById("community-topics-overlay");

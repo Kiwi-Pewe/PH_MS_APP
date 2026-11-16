@@ -1042,11 +1042,19 @@ def ensure_site_rules_tables():
                 "CREATE TABLE IF NOT EXISTS site_rules ("
                 "id INTEGER PRIMARY KEY, "
                 "tos VARCHAR, "
+                "guidelines VARCHAR, "
+                "privacy VARCHAR, "
                 "reserved_names VARCHAR)"
             ))
             conn.commit()
         except Exception:
             conn.rollback()
+        for column in ("guidelines", "privacy"):
+            try:
+                conn.execute(text("ALTER TABLE site_rules ADD COLUMN " + column + " VARCHAR"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
 
 
 def ensure_kofi_tables():

@@ -430,7 +430,7 @@ function paintSettingsCommunity(main, status) {
 }
 
 function settingsSiteRulesDefault() {
-  return { tos: "", reserved_names: [] };
+  return { tos: "", guidelines: "", privacy: "", reserved_names: [] };
 }
 
 function settingsStillSiteRules() {
@@ -447,11 +447,35 @@ function reloadSettingsSiteRules() {
   }).catch(() => {});
 }
 
-function saveSettingsSiteRulesTos(tos) {
-  return adminApi("/admin/site_rules", { method: "POST", body: { tos: tos } }).then((response) => {
+function saveSettingsSiteRulesDoc(body) {
+  return adminApi("/admin/site_rules", { method: "POST", body: body }).then((response) => {
     if (!response.ok) return;
     reloadSettingsSiteRules();
   }).catch(() => {});
+}
+
+function settingsSiteRulesDoc(title, note, placeholder, key, value) {
+  const card = adminPanel({ title: title });
+  card.body.classList.add("admin-settings-fields");
+  card.body.appendChild(adminEl("div", "admin-settings-opt-sub", note));
+  const area = adminEl("textarea", "admin-mod-reason admin-settings-tos");
+  area.rows = 8;
+  area.wrap = "soft";
+  area.maxLength = 20000;
+  area.spellcheck = true;
+  area.placeholder = placeholder;
+  area.value = value || "";
+  card.body.appendChild(area);
+  const save = adminEl("button", "admin-mod-confirm");
+  save.type = "button";
+  save.textContent = "Save";
+  save.addEventListener("click", () => {
+    const payload = {};
+    payload[key] = area.value;
+    saveSettingsSiteRulesDoc(payload);
+  });
+  card.body.appendChild(save);
+  return card.panel;
 }
 
 function settingsSiteRulesName(method, label) {
@@ -474,26 +498,30 @@ function paintSettingsSiteRules(main, status) {
   main.appendChild(adminPageHead({
     crumbs: ["Admin", "Settings", "Site rules"],
     title: "Site rules",
-    note: "Terms of Service and names that cannot be registered."
+    note: "Community guidelines, Privacy, and Site Rules on the feed. Site Rules also on Register."
   }));
   const stack = adminEl("div", "admin-settings-stack");
-  const tos = adminPanel({ title: "Terms of Service" });
-  tos.body.classList.add("admin-settings-fields");
-  tos.body.appendChild(adminEl("div", "admin-settings-opt-sub", "Shown on Register and as Terms on the Community feed."));
-  const area = adminEl("textarea", "admin-mod-reason admin-settings-tos");
-  area.rows = 8;
-  area.wrap = "soft";
-  area.maxLength = 20000;
-  area.spellcheck = true;
-  area.placeholder = "Write the Terms of Service";
-  area.value = data.tos || "";
-  tos.body.appendChild(area);
-  const save = adminEl("button", "admin-mod-confirm");
-  save.type = "button";
-  save.textContent = "Save";
-  save.addEventListener("click", () => saveSettingsSiteRulesTos(area.value));
-  tos.body.appendChild(save);
-  stack.appendChild(tos.panel);
+  stack.appendChild(settingsSiteRulesDoc(
+    "Community guidelines",
+    "Following, Timeline, and Explore footer.",
+    "Write the Community guidelines",
+    "guidelines",
+    data.guidelines
+  ));
+  stack.appendChild(settingsSiteRulesDoc(
+    "Privacy",
+    "Following, Timeline, and Explore footer.",
+    "Write the Privacy policy",
+    "privacy",
+    data.privacy
+  ));
+  stack.appendChild(settingsSiteRulesDoc(
+    "Site Rules",
+    "Register and the Following, Timeline, and Explore footer.",
+    "Write the Site Rules",
+    "tos",
+    data.tos
+  ));
   const reserved = adminPanel({ title: "Reserved names", meta: names.length ? String(names.length) : "Empty" });
   reserved.body.classList.add("admin-settings-fields");
   reserved.body.appendChild(adminEl("div", "admin-settings-opt-sub", "Register and username change refuse a match. Case does not matter. This does not cover server slugs."));

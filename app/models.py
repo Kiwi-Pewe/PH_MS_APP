@@ -1027,6 +1027,8 @@ class Site_rules(Base):
     __tablename__ = "site_rules"
     id = Column(Integer, primary_key=True)
     tos = Column(String, nullable=True)
+    guidelines = Column(String, nullable=True)
+    privacy = Column(String, nullable=True)
     reserved_names = Column(String, nullable=True)
 
 

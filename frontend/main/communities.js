@@ -550,10 +550,15 @@ function fillCommunityPostActs(host, post, opts) {
       }
     } else if (key === "likes" || key === "dislikes") {
       btn.classList.toggle("is-on", !!(post && (key === "likes" ? post.liked : post.disliked)));
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (typeof voteCommunityPost === "function") voteCommunityPost(post, key === "likes" ? "like" : "dislike");
-      });
+      const mine = !!(post && (post.mine || (typeof myUserId !== "undefined" && Number(post.author_id) === Number(myUserId))));
+      if (mine) {
+        btn.disabled = true;
+      } else {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (typeof voteCommunityPost === "function") voteCommunityPost(post, key === "likes" ? "like" : "dislike");
+        });
+      }
     } else if (key === "replies") {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();

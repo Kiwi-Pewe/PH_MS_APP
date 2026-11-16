@@ -194,6 +194,7 @@ async function saveCommunityComment() {
 
 async function voteCommunityPost(post, kind) {
   if (!post || !post.code || (kind !== "like" && kind !== "dislike") || post._voting) return;
+  if (post.mine || (typeof myUserId !== "undefined" && Number(post.author_id) === Number(myUserId))) return;
   post._voting = true;
   try {
     const response = await fetch(`https://${serverAddress}/community_posts/${encodeURIComponent(post.code)}/${kind}`, {

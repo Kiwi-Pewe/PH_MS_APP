@@ -785,6 +785,8 @@ def cast_community_vote(code, kind, database, current_user):
     hidden = drop_blocked_rows(database, current_user.id, [row], "author_id")
     if not hidden:
         raise HTTPException(status_code=404, detail="Post not found.")
+    if row.author_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You can't like or dislike your own post.")
     apply_community_vote(database, row, current_user.id, kind)
     packed = pack_with_comments(database, row, current_user.id)
     return packed, row

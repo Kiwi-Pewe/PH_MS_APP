@@ -24,7 +24,7 @@ from app.routers.moderation import iso_dt
 from app.routers.reactions import reactions_for_messages
 from app.routers.roles import name_color_roles_by_user, nicknames_for_users, clean_role_color
 from app.r2 import delete_attachment, post_attachments_public, attachment_public
-from app.automod import open_auto_count
+from app.automod import AUTO_ACTOR, open_auto_count
 from app.routers.community_posts import author_map, comment_counts, pack_community_comment, pack_community_post
 from app.routers.feed import notify_feed_alert
 from app.routers.kofi import (
@@ -355,11 +355,12 @@ def take_page(query, offset, limit):
 
 def pack_feedback(row, extra=None):
     extra = extra or {}
+    is_auto = (row.feedback_type or "").strip().lower() in ("auto", "automod")
     return {
         "id": row.id,
         "user_id": row.user_id,
-        "username": row.username,
-        "display_name": extra.get("display_name") or row.display_name,
+        "username": AUTO_ACTOR if is_auto else row.username,
+        "display_name": AUTO_ACTOR if is_auto else (extra.get("display_name") or row.display_name),
         "feedback_type": row.feedback_type,
         "feedback_label": FEEDBACK_TYPE_LABELS.get(row.feedback_type, row.feedback_type),
         "report_kind": row.report_kind or "",
@@ -392,10 +393,21 @@ def pack_feedback(row, extra=None):
         "joined_at": extra.get("joined_at"),
         "reports_made": int(extra.get("reports_made") or 0),
         "ban_count": int(extra.get("ban_count") or 0),
+        "target": extra.get("target") or {},
     }
 
 
 def feedback_extras(database, rows, accounts):
+    by_id = {account.id: account for account in (accounts or []) if account}
+    missing = []
+    for row in rows:
+        for uid in (row.user_id, row.target_user_id):
+            if uid and uid not in by_id:
+                missing.append(uid)
+    if missing:
+        for account in database.query(UserInfo).filter(UserInfo.id.in_(list(set(missing)))).all():
+            by_id[account.id] = account
+    accounts = list(by_id.values())
     ids = [row.user_id for row in rows if row.user_id]
     faces = {account.id: public_identity(account).get("avatar") or {} for account in accounts}
     joined = {account.id: str(account.created_at) if account.created_at else None for account in accounts}
@@ -462,6 +474,16 @@ def feedback_extras(database, rows, accounts):
     for row in rows:
         uid = row.user_id
         touched = last.get(row.id) or row.created_at
+        tid = row.target_user_id
+        target = {}
+        if tid and tid in by_id:
+            target_account = by_id[tid]
+            target = {
+                "id": tid,
+                "username": target_account.username or "",
+                "display_name": names.get(tid) or public_display_name(target_account),
+                "avatar": faces.get(tid) or {},
+            }
         extras[row.id] = {
             "avatar": faces.get(uid) or {},
             "joined_at": joined.get(uid),
@@ -472,6 +494,7 @@ def feedback_extras(database, rows, accounts):
             "update_count": max(0, int(added.get(row.id) or 0) - 1),
             "last_username": last_handles.get(row.id) or row.username,
             "auto_reports": int(auto_open.get(row.target_user_id, 0)) if (row.feedback_type or "").strip().lower() in ("auto", "automod") else None,
+            "target": target,
         }
     return extras
 

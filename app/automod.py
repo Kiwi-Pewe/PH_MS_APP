@@ -20,6 +20,7 @@ router = APIRouter()
 
 REJECT_POST = "This can't be posted."
 REJECT_PUBLIC = "This server can't be made public."
+AUTO_ACTOR = "Auto Mod"
 SURFACES = ("posts", "comments", "rooms", "phone", "listings")
 TERM_MAX = 40
 TERM_LIST_MAX = 100
@@ -30,34 +31,6 @@ WATCH_VIEWS = {
     "room_message": "room_message",
     "phone": "phone",
     "listings": "listing",
-}
-SURFACE_LABELS = {
-    "post": "Community post",
-    "comment": "Community comment",
-    "room": "Community room",
-    "room_message": "Community room message",
-    "phone": "Phone a User",
-    "listing": "Public listing",
-}
-LEAD = {
-    "posts": ("tried to post", "posted"),
-    "comments": ("tried to comment", "commented"),
-    "rooms_create": ("tried to create a room", "created a room"),
-    "rooms_edit": ("tried to edit a room", "edited a room"),
-    "room_message": ("tried to send a room message", "sent a room message"),
-    "phone": ("tried to send a Phone a User message", "sent a Phone a User message"),
-    "listings_public": ("tried to make a server public", "made a server public"),
-    "listings_edit": ("tried to update a public listing", "updated a public listing"),
-}
-TRAIL_VIEWS = {
-    "posts": "post",
-    "comments": "comment",
-    "rooms_create": "room",
-    "rooms_edit": "room",
-    "room_message": "room_message",
-    "phone": "phone",
-    "listings_public": "listing",
-    "listings_edit": "listing",
 }
 AUTO_FLAG_AT = 5
 AUTO_DONE = ("completed", "closed")
@@ -194,51 +167,6 @@ def author_names(user):
     return username, shown
 
 
-def phrase_words(terms):
-    return ", ".join([str(item) for item in (terms or []) if str(item).strip()])
-
-
-def lead_line(user, action, kind, terms):
-    username, _shown = author_names(user)
-    who = username or "A user"
-    pair = LEAD.get(action) or LEAD.get("posts")
-    verb = pair[0] if kind == "blacklist" else pair[1]
-    label = "blacklisted phrase" if kind == "blacklist" else "watch phrase"
-    return who + " " + verb + " with the " + label + ": " + phrase_words(terms)
-
-
-def location_lines(kind, loc):
-    loc = loc or {}
-    lines = []
-    post_code = loc.get("post_code") or ""
-    room_id = loc.get("room_id")
-    room_name = loc.get("room_name") or ""
-    server_id = loc.get("server_id")
-    server_name = loc.get("server_name") or ""
-    server_slug = loc.get("server_slug") or ""
-    call_id = loc.get("call_id")
-    if post_code:
-        lines.append("Post code: " + str(post_code))
-    if room_id is not None:
-        label = room_name + " (" + str(room_id) + ")" if room_name else str(room_id)
-        lines.append("Room: " + label)
-    if server_id:
-        label = server_name + " (" + str(server_id) + ")" if server_name else str(server_id)
-        lines.append("Server: " + label)
-    if server_slug:
-        lines.append("oneira.cc/" + str(server_slug).lstrip("/"))
-    if call_id is not None:
-        lines.append("Phone call: " + str(call_id))
-    if kind == "watch":
-        if post_code:
-            lines.append("Open: Admin → Community → Posts")
-        elif room_id is not None:
-            lines.append("Open: Admin → Community → Rooms")
-        elif server_id:
-            lines.append("Open: Admin → Servers")
-    return lines
-
-
 def auto_report_open():
     return or_(
         Feedback_report.status.is_(None),
@@ -246,26 +174,13 @@ def auto_report_open():
     )
 
 
-def paper_trail(action, kind, texts, loc, count, transcript="", terms=None):
-    view = TRAIL_VIEWS.get(action) or WATCH_VIEWS.get(action, action)
-    lines = [
-        "Where: " + SURFACE_LABELS.get(view, view),
-        "Attempted:" if kind == "blacklist" else "Posted:",
-        join_texts(texts) or "(empty)",
-    ]
-    lines.extend(location_lines(kind, loc))
-    matched = phrase_words(terms)
-    if matched:
-        lines.append("Matched: " + matched)
+def snapshot_text(texts, transcript=""):
+    body = join_texts(texts)
     if transcript:
-        lines.append("")
-        lines.append(transcript)
-    lines.append("Open Auto Reports: " + str(count))
-    return "\n".join(lines)
-
-
-def snapshot_text(user, action, kind, texts, terms, loc, count, transcript=""):
-    return lead_line(user, action, kind, terms) + "\n\n" + paper_trail(action, kind, texts, loc, count, transcript, terms)
+        if body:
+            return body + "\n\n" + transcript
+        return transcript
+    return body
 
 
 def open_auto_count(database, user_id):
@@ -293,7 +208,7 @@ def flag_if_repeat(database, user):
         return
     try:
         row = set_community_lock(database, None, user, "flagged", True, None)
-        row.actor_username = "Auto mod"
+        row.actor_username = AUTO_ACTOR
         database.commit()
     except HTTPException:
         database.rollback()
@@ -341,7 +256,7 @@ def add_auto_event(database, report_id, kind, text=""):
     database.add(Feedback_event(
         report_id=report_id,
         actor_id=None,
-        actor_username="Auto mod",
+        actor_username=AUTO_ACTOR,
         kind=kind,
         text=text or "",
     ))
@@ -385,7 +300,6 @@ def file_auto_report(
         return
     action = resolve_action(surface, action)
     view = WATCH_VIEWS.get(surface, surface)
-    username, shown = author_names(user)
     loc = {
         "post_code": post_code or (channel_name if view in ("post", "comment") else ""),
         "room_id": room_id,
@@ -413,10 +327,10 @@ def file_auto_report(
     count = open_auto_count(database, user.id if user else None)
     if row:
         count = max(count, 1)
-        body = snapshot_text(user, action, kind, texts, terms, loc, count, transcript)
+        body = snapshot_text(texts, transcript)
         row.report = body
-        row.username = username
-        row.display_name = shown
+        row.username = AUTO_ACTOR
+        row.display_name = AUTO_ACTOR
         row.target_user_id = user.id if user else None
         if channel_name:
             row.channel_name = channel_name
@@ -428,12 +342,12 @@ def file_auto_report(
         database.commit()
         return
     count = count + 1
-    body = snapshot_text(user, action, kind, texts, terms, loc, count, transcript)
+    body = snapshot_text(texts, transcript)
     stored_name = channel_name or post_code or room_name or ""
     row = Feedback_report(
         user_id=None,
-        username=username,
-        display_name=shown,
+        username=AUTO_ACTOR,
+        display_name=AUTO_ACTOR,
         feedback_type="auto",
         report_kind=kind,
         report_score=1,

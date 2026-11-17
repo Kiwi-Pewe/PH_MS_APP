@@ -678,7 +678,7 @@ def create_community_post(
     topics = clean_community_topics(body.topics, policy)
     texts = [text, " ".join(topics)]
     hits = automod_inspect(database, "posts", texts)
-    report_blacklist(database, current_user, "posts", texts, hits, action="posts")
+    report_blacklist(database, current_user, "posts", [text], hits, action="posts")
     attachments = store_community_attachments(body.attachments, current_user)
     row = Community_post(
         code=new_community_code(database),
@@ -696,7 +696,7 @@ def create_community_post(
         database,
         current_user,
         "posts",
-        texts,
+        [text],
         hits.get("watch") or [],
         content_id=row.id,
         channel_name=row.code,

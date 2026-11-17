@@ -154,6 +154,51 @@ function usersKindLabel(kind) {
   return "";
 }
 
+function usersIsAuto(row) {
+  const type = String((row && row.feedback_type) || "").toLowerCase();
+  return type === "auto" || type === "automod";
+}
+
+function usersAutoView(row) {
+  return String((row && row.context_view) || "").toLowerCase();
+}
+
+function usersAutoAttemptedText(raw) {
+  const text = String(raw || "").replace(/\r\n/g, "\n");
+  const block = text.match(/(?:Attempted|Posted):\s*\n?([\s\S]*?)(?=\n(?:Post code:|Room:|Server:|Matched:|Open:|Open Auto Reports:|Phone call:)|$)/i);
+  if (block) return String(block[1] || "").trim();
+  return text.trim();
+}
+
+function usersAutoPostFrame(row) {
+  const target = (row && row.target) || {};
+  const name = target.display_name || target.username || "User";
+  const handle = target.username || "";
+  const frame = adminEl("div", "users-auto-post-frame");
+  const card = adminEl("div", "users-auto-post");
+  const head = adminEl("div", "users-auto-post-head");
+  const who = adminEl("div", "users-auto-post-who");
+  const face = adminEl("div", "users-auto-post-face");
+  usersFace(face, target, name);
+  const names = adminEl("div", "users-auto-post-names");
+  names.appendChild(adminEl("div", "users-auto-post-name", name));
+  const meta = adminEl("div", "users-auto-post-meta");
+  if (handle) meta.appendChild(adminEl("span", "users-auto-post-handle", "@" + handle));
+  if (handle && row.created_at) meta.appendChild(adminEl("span", "users-auto-post-dot", "·"));
+  if (row.created_at) meta.appendChild(adminEl("span", "users-auto-post-time", usersWhen(row.created_at)));
+  names.appendChild(meta);
+  who.appendChild(face);
+  who.appendChild(names);
+  head.appendChild(who);
+  const mid = adminEl("div", "users-auto-post-mid");
+  const body = adminEl("div", "users-auto-post-body", usersAutoAttemptedText(row.report));
+  mid.appendChild(body);
+  card.appendChild(head);
+  card.appendChild(mid);
+  frame.appendChild(card);
+  return frame;
+}
+
 function autoReportJump(row) {
   const type = String((row && row.feedback_type) || "").toLowerCase();
   if (type !== "auto" && type !== "automod") return null;
@@ -448,10 +493,10 @@ function usersReportRow(row, open, onOpen) {
   const card = adminEl("div", "users-entry" + (open ? " is-open" : ""));
   const top = adminEl("div", "users-entry-top");
   const face = adminEl("div", "users-entry-face");
-  usersFace(face, row, row.display_name || row.username);
+  usersFace(face, usersIsAuto(row) ? {} : row, usersIsAuto(row) ? "Auto Mod" : (row.display_name || row.username));
   top.appendChild(face);
   const names = adminEl("div", "users-entry-copy");
-  names.appendChild(adminEl("div", "users-entry-name", row.display_name || row.username || "—"));
+  names.appendChild(adminEl("div", "users-entry-name", usersIsAuto(row) ? "Auto Mod" : (row.display_name || row.username || "—")));
   names.appendChild(usersReportStamp("Created", row.created_at));
   top.appendChild(names);
   const flags = adminEl("div", "users-entry-flags");
@@ -477,16 +522,22 @@ function usersReportRow(row, open, onOpen) {
   pills.appendChild(adminEl("div", "users-entry-pill", usersReportCategory(row)));
   pills.appendChild(adminEl("div", "users-entry-pill", usersReportSubject(row)));
   bottom.appendChild(pills);
-  const post = adminEl("div", "users-entry-post");
-  post.appendChild(adminEl("span", "users-entry-user", row.last_username || row.username || row.display_name || "—"));
-  post.appendChild(document.createTextNode(" | "));
-  post.appendChild(adminEl("span", "users-entry-when", usersWhen(row.last_interacted || row.created_at)));
-  bottom.appendChild(post);
-  const text = String(row.report || "").trim();
-  bottom.appendChild(adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information"));
-  bottom.appendChild(adminEl("div", "users-entry-updates", "Updates: " + adminNum(row.update_count)));
-  if (row.auto_reports != null) {
-    bottom.appendChild(adminEl("div", "users-entry-updates", "Open Auto Reports: " + adminNum(row.auto_reports)));
+  const auto = usersIsAuto(row);
+  const view = usersAutoView(row);
+  if (auto && (view === "post" || view === "comment")) {
+    bottom.appendChild(usersAutoPostFrame(row));
+  } else if (auto) {
+    const text = usersAutoAttemptedText(row.report);
+    bottom.appendChild(adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information"));
+  } else {
+    const post = adminEl("div", "users-entry-post");
+    post.appendChild(adminEl("span", "users-entry-user", row.last_username || row.username || row.display_name || "—"));
+    post.appendChild(document.createTextNode(" | "));
+    post.appendChild(adminEl("span", "users-entry-when", usersWhen(row.last_interacted || row.created_at)));
+    bottom.appendChild(post);
+    const text = String(row.report || "").trim();
+    bottom.appendChild(adminEl("div", "users-entry-text" + (text ? "" : " is-empty"), text || "No additional information"));
+    bottom.appendChild(adminEl("div", "users-entry-updates", "Updates: " + adminNum(row.update_count)));
   }
   card.appendChild(bottom);
   if (!open) card.addEventListener("click", () => (onOpen || openUsersHistory)(row.id));

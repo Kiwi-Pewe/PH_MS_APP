@@ -984,6 +984,10 @@ class News_broadcast_in(BaseModel):
     duration_hours: int
 
 
+class Gif_connect(BaseModel):
+    api_key: str
+
+
 class Kofi_connect(BaseModel):
     verification_token: str
 

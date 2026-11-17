@@ -6596,6 +6596,61 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   font-size: 14px;
   font-family: ui-monospace, Consolas, monospace;
 }
+#emoji-gif-pane {
+  display: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+#emoji-picker.is-gifs #emoji-cat-rail,
+#emoji-picker.is-gifs #emoji-picker-main {
+  display: none;
+}
+#emoji-picker.is-gifs #emoji-gif-pane {
+  display: flex;
+}
+#emoji-picker.is-gifs .emoji-add-btn {
+  display: none;
+}
+#emoji-gif-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 10px;
+  align-content: start;
+}
+.emoji-gif-empty {
+  grid-column: 1 / -1;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 28px 16px;
+  text-align: center;
+}
+#emoji-picker .emoji-gif-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+}
+#emoji-picker .emoji-gif-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+#emoji-picker.is-gifs #emoji-picker-footer {
+  font-family: inherit;
+  font-size: 12px;
+}
 .msg-custom-emoji {
   display: inline-block;
   vertical-align: -0.2em;

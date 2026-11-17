@@ -201,6 +201,15 @@ let emojiReactionTarget = null;
 let emojiSearchSaved = "";
 let emojiHovering = false;
 let emojiScrollLock = false;
+let emojiPickerTab = "emoji";
+let gifSearchSaved = "";
+let gifConnected = null;
+let gifRows = [];
+let gifNext = null;
+let gifBusy = false;
+let gifQuery = "";
+let gifTimer = null;
+let gifSeq = 0;
 
 function emojiFreqMap() {
   try { return JSON.parse(localStorage.getItem("oneira_emoji_freq") || "{}"); }
@@ -536,6 +545,166 @@ function paintEmojiAddButton() {
   btn.title = allowed ? "Add emoji" : "You do not have permission to add emoji here.";
 }
 
+function gifMarkdown(url) {
+  return "![gif](" + url + ")";
+}
+
+function paintGifEmpty(text) {
+  const list = document.getElementById("emoji-gif-list");
+  if (!list) return;
+  list.innerHTML = "";
+  const empty = document.createElement("div");
+  empty.className = "emoji-gif-empty";
+  empty.textContent = text;
+  list.appendChild(empty);
+}
+
+function paintGifFooter(text) {
+  const foot = document.getElementById("emoji-picker-footer");
+  if (!foot) return;
+  foot.textContent = text || (gifConnected ? "Powered by GIPHY" : "");
+}
+
+function pickGif(row) {
+  if (emojiReactionTarget) return;
+  if (!emojiPickerTarget || emojiPickerTarget.disabled) return;
+  if (emojiPickerTarget.dataset.emojiReplace === "1") return;
+  const url = (row && row.url) || "";
+  if (!url) return;
+  const el = emojiPickerTarget;
+  const insert = gifMarkdown(url);
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  el.value = el.value.slice(0, start) + insert + el.value.slice(end);
+  el.selectionStart = el.selectionEnd = start + insert.length;
+  el.focus();
+  el.dispatchEvent(new Event("input"));
+  closeEmojiPicker();
+}
+
+function appendGifCells(rows) {
+  const list = document.getElementById("emoji-gif-list");
+  if (!list) return;
+  rows.forEach((row) => {
+    if (!row || !row.url) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "emoji-gif-cell";
+    btn.title = row.title || "GIF";
+    const img = document.createElement("img");
+    img.alt = row.title || "";
+    img.src = row.preview || row.url;
+    img.draggable = false;
+    btn.appendChild(img);
+    btn.addEventListener("mousedown", (e) => e.preventDefault());
+    btn.addEventListener("mouseenter", () => paintGifFooter(row.title || "Powered by GIPHY"));
+    btn.addEventListener("mouseleave", () => paintGifFooter("Powered by GIPHY"));
+    btn.addEventListener("click", () => pickGif(row));
+    list.appendChild(btn);
+  });
+}
+
+async function loadGifPage(reset) {
+  if (!gifConnected || gifBusy) return;
+  if (!reset && gifNext == null) return;
+  const list = document.getElementById("emoji-gif-list");
+  if (!list) return;
+  const seq = ++gifSeq;
+  gifBusy = true;
+  const offset = reset ? 0 : gifNext;
+  const query = gifQuery;
+  try {
+    const response = await fetch(
+      "https://" + serverAddress + "/gifs/search?q=" + encodeURIComponent(query) + "&offset=" + encodeURIComponent(offset || 0),
+      { credentials: "include" }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (seq !== gifSeq) return;
+    if (!response.ok) {
+      if (reset) paintGifEmpty(typeof data.detail === "string" ? data.detail : "GIF search is not connected.");
+      return;
+    }
+    const rows = data.gifs || [];
+    if (reset) {
+      gifRows = rows;
+      list.innerHTML = "";
+      if (!rows.length) {
+        paintGifEmpty(query ? "No GIFs matched that search." : "No trending GIFs right now.");
+        gifNext = data.next == null ? null : data.next;
+        return;
+      }
+    } else {
+      gifRows = gifRows.concat(rows);
+    }
+    appendGifCells(rows);
+    gifNext = data.next == null ? null : data.next;
+    paintGifFooter("Powered by GIPHY");
+  } catch (e) {
+    if (seq === gifSeq && reset) paintGifEmpty("Could not load GIFs.");
+  } finally {
+    if (seq === gifSeq) gifBusy = false;
+  }
+}
+
+function scheduleGifSearch() {
+  window.clearTimeout(gifTimer);
+  gifTimer = window.setTimeout(() => {
+    gifQuery = gifSearchSaved.trim();
+    loadGifPage(true);
+  }, 250);
+}
+
+async function ensureGifStatus() {
+  try {
+    const response = await fetch("https://" + serverAddress + "/gifs/status", { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    gifConnected = !!(response.ok && data && data.connected);
+  } catch (e) {
+    gifConnected = false;
+  }
+  return gifConnected;
+}
+
+async function openGifPane() {
+  paintGifFooter("");
+  if (gifConnected === null) paintGifEmpty("Loading GIFs.");
+  const connected = await ensureGifStatus();
+  if (emojiPickerTab !== "gifs") return;
+  if (!connected) {
+    gifRows = [];
+    gifNext = null;
+    paintGifEmpty("GIF search is not connected. Add a GIPHY API key in Admin Settings.");
+    paintGifFooter("");
+    return;
+  }
+  gifQuery = gifSearchSaved.trim();
+  paintGifFooter("Powered by GIPHY");
+  loadGifPage(true);
+}
+
+function showEmojiPickerTab(tab) {
+  const picker = document.getElementById("emoji-picker");
+  const search = document.getElementById("emoji-picker-search");
+  const gifTab = picker.querySelector('.emoji-tab[data-tab="gifs"]');
+  if (gifTab) gifTab.style.display = emojiReactionTarget ? "none" : "";
+  emojiPickerTab = tab === "gifs" && !emojiReactionTarget ? "gifs" : "emoji";
+  picker.classList.toggle("is-gifs", emojiPickerTab === "gifs");
+  picker.querySelectorAll(".emoji-tab").forEach((btn) => {
+    if (btn.disabled) return;
+    btn.classList.toggle("active", btn.getAttribute("data-tab") === emojiPickerTab);
+  });
+  if (emojiPickerTab === "gifs") {
+    if (document.activeElement !== search) search.value = gifSearchSaved;
+    search.placeholder = "Search GIFs";
+    openGifPane();
+    return;
+  }
+  if (document.activeElement !== search) search.value = emojiSearchSaved;
+  search.placeholder = "Find the perfect emoji";
+  paintGifFooter("");
+  document.getElementById("emoji-picker-footer").textContent = "";
+}
+
 function openEmojiSettingsFromPicker() {
   const btn = document.querySelector("#emoji-picker .emoji-add-btn");
   if (!btn || btn.disabled) return;
@@ -567,7 +736,9 @@ function openEmojiPicker(btn, input, clientX, clientY) {
   document.getElementById("emoji-picker-search").value = "";
   document.getElementById("emoji-picker-footer").textContent = "";
   emojiSearchSaved = "";
+  gifSearchSaved = "";
   emojiHovering = false;
+  showEmojiPickerTab("emoji");
   filterEmojiPicker("");
   const firstServer = customEmojiPacks[0];
   highlightEmojiRail(firstServer ? ("server-" + firstServer.server_id) : "frequent");
@@ -586,6 +757,9 @@ function closeEmojiPicker() {
   emojiReactionTarget = null;
   clearEmojiPreview();
   emojiSearchSaved = "";
+  gifSearchSaved = "";
+  gifSeq += 1;
+  window.clearTimeout(gifTimer);
 }
 
 function openEmojiPickerForReaction(x, y, msg) {
@@ -596,7 +770,9 @@ function openEmojiPickerForReaction(x, y, msg) {
   document.getElementById("emoji-picker-search").value = "";
   document.getElementById("emoji-picker-footer").textContent = "";
   emojiSearchSaved = "";
+  gifSearchSaved = "";
   emojiHovering = false;
+  showEmojiPickerTab("emoji");
   filterEmojiPicker("");
   highlightEmojiRail("frequent");
   loadCustomEmojiPacks(false).then(() => {
@@ -637,9 +813,28 @@ document.addEventListener("keydown", (e) => {
 document.getElementById("emoji-picker-main").addEventListener("scroll", syncEmojiRailFromScroll);
 
 document.getElementById("emoji-picker-search").addEventListener("input", (e) => {
+  if (emojiPickerTab === "gifs") {
+    gifSearchSaved = e.target.value;
+    scheduleGifSearch();
+    return;
+  }
   emojiSearchSaved = e.target.value;
   filterEmojiPicker(e.target.value);
 });
+document.querySelectorAll("#emoji-picker .emoji-tab").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (btn.disabled) return;
+    showEmojiPickerTab(btn.getAttribute("data-tab") || "emoji");
+  });
+});
+const emojiGifList = document.getElementById("emoji-gif-list");
+if (emojiGifList) {
+  emojiGifList.addEventListener("scroll", () => {
+    if (emojiPickerTab !== "gifs" || gifBusy || gifNext == null) return;
+    if (emojiGifList.scrollTop + emojiGifList.clientHeight < emojiGifList.scrollHeight - 80) return;
+    loadGifPage(false);
+  });
+}
 
 document.getElementById("composer-input").addEventListener("input", () => {
   applyEmojiShortcodesToInput(document.getElementById("composer-input"));

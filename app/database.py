@@ -1073,6 +1073,20 @@ def ensure_site_rules_tables():
                 conn.rollback()
 
 
+def ensure_gif_tables():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS gif_settings ("
+                "id INTEGER PRIMARY KEY, "
+                "api_key VARCHAR, "
+                "connected_at DATETIME)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_kofi_tables():
     with engine.connect() as conn:
         try:

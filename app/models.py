@@ -1040,6 +1040,13 @@ class Site_rules(Base):
     reserved_names = Column(String, nullable=True)
 
 
+class Gif_settings(Base):
+    __tablename__ = "gif_settings"
+    id = Column(Integer, primary_key=True)
+    api_key = Column(String, nullable=True)
+    connected_at = Column(DateTime, nullable=True)
+
+
 class Kofi_settings(Base):
     __tablename__ = "kofi_settings"
     id = Column(Integer, primary_key=True)

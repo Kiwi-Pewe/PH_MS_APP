@@ -572,7 +572,92 @@ function paintSettingsSiteRules(main, status) {
   main.appendChild(stack);
 }
 
+function openSettingsGifsConnect() {
+  const body = adminEl("div", "admin-settings-fields");
+  body.appendChild(adminEl("div", "users-field-k", "GIPHY API key"));
+  const key = adminEl("input", "admin-mod-input");
+  key.type = "text";
+  key.placeholder = "From developers.giphy.com";
+  body.appendChild(key);
+  openAdminMod({
+    title: "Connect GIFs",
+    cancel: "Cancel",
+    confirm: "Connect",
+    body: body,
+    onConfirm: function () {
+      const value = (key.value || "").trim();
+      if (!value) {
+        adminModError("API key is required.");
+        return;
+      }
+      const save = document.getElementById("admin-mod-confirm");
+      if (save) save.disabled = true;
+      adminApi("/admin/gifs/connect", {
+        method: "POST",
+        body: { api_key: value }
+      }).then((response) => response.json().then((data) => ({ ok: response.ok, data: data }))).then((result) => {
+        if (save) save.disabled = false;
+        if (!result.ok) {
+          const detail = result.data && result.data.detail;
+          adminModError(typeof detail === "string" ? detail : "Could not connect GIPHY.");
+          return;
+        }
+        closeAdminMod();
+        if (adminPage === "settings") paintAdminMain();
+      }).catch(() => {
+        if (save) save.disabled = false;
+        adminModError("Could not connect GIPHY.");
+      });
+    }
+  });
+  window.setTimeout(() => key.focus(), 0);
+}
+
+function disconnectSettingsGifs() {
+  adminApi("/admin/gifs/disconnect", { method: "POST" }).then((response) => {
+    if (!response.ok) return;
+    if (adminPage === "settings") paintAdminMain();
+  }).catch(() => {});
+}
+
+function paintSettingsGifs(main, status) {
+  const connected = !!(status && status.connected);
+  main.className = "is-fit";
+  main.appendChild(adminPageHead({
+    crumbs: ["Admin", "Settings", "GIFs"],
+    title: "GIFs",
+    note: "GIF search in the emoji picker. Paste a GIPHY API key. The key stays on the server."
+  }));
+  const link = adminPanel({ title: "Connection", meta: connected ? "Connected" : "Not connected" });
+  link.body.classList.add("admin-settings-fields");
+  const row = adminEl("div", "admin-settings-connect");
+  const copy = adminEl("div", "admin-settings-connect-copy");
+  copy.appendChild(adminEl("div", "admin-settings-connect-name", "GIPHY"));
+  copy.appendChild(adminEl("div", "admin-settings-connect-sub", connected ? "GIF search is on. The picker GIFs tab will search GIPHY." : "Create an app at developers.giphy.com and paste the API key."));
+  row.appendChild(copy);
+  const action = adminEl("button", connected ? "admin-mod-cancel" : "admin-mod-confirm");
+  action.type = "button";
+  action.textContent = connected ? "Disconnect" : "Connect";
+  action.addEventListener("click", connected ? disconnectSettingsGifs : openSettingsGifsConnect);
+  row.appendChild(action);
+  link.body.appendChild(row);
+  const stack = adminEl("div", "admin-settings-stack");
+  stack.appendChild(link.panel);
+  main.appendChild(stack);
+}
+
 function paintAdminSettings(main, sectionId) {
+  if (sectionId === "gifs") {
+    paintSettingsGifs(main, null);
+    adminApi("/admin/gifs").then((response) => response.ok ? response.json() : null).then((data) => {
+      if (adminPage !== "settings" || adminSection !== "gifs") return;
+      const host = document.getElementById("admin-main");
+      if (!host) return;
+      host.innerHTML = "";
+      paintSettingsGifs(host, data || { connected: false });
+    }).catch(() => {});
+    return;
+  }
   if (sectionId === "automod") {
     paintSettingsAutomod(main, settingsAutomodDefault());
     reloadSettingsAutomod();
@@ -603,6 +688,7 @@ registerAdminPage({
   label: "Settings",
   sections: [
     { id: "kofi", label: "Ko-fi", icon: "plus" },
+    { id: "gifs", label: "GIFs", icon: "gif" },
     { id: "automod", label: "Auto mod", icon: "shield" },
     { id: "community", label: "Community", icon: "share" },
     { id: "site-rules", label: "Site rules", icon: "lock" }

@@ -6663,9 +6663,7 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
 #emoji-picker .emoji-gif-section {
   position: relative;
   width: 100%;
-  min-width: 0;
-  min-height: 0;
-  aspect-ratio: 16 / 10;
+  height: 92px;
   padding: 0;
   border-radius: 10px;
   overflow: hidden;

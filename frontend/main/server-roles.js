@@ -157,7 +157,7 @@ const SERVER_ROLE_PERMS = [
   {
     title: "Customization permissions",
     rows: [
-      { id: "manage_emoji", title: "Manage emoji", desc: "Allows the creation and management of server emoji." },
+      { id: "manage_emoji", title: "Manage emoji", desc: "Allows the creation and management of server emoji and stickers." },
       { id: "change_nickname", title: "Change Nickname", desc: "Members with this permission can change their own nickname." },
       { id: "manage_nicknames", title: "Manage Nicknames", desc: "Members with this permission can change the nicknames of other members." }
     ]
@@ -1531,6 +1531,9 @@ async function showServerSettingsTab(tab) {
   if (tab === "emojis" && typeof canOpenServerEmojis === "function" && !canOpenServerEmojis()) {
     tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
   }
+  if (tab === "stickers" && typeof canOpenServerEmojis === "function" && !canOpenServerEmojis()) {
+    tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
+  }
   if (tab === "integrations" && typeof canOpenServerIntegrations === "function" && !canOpenServerIntegrations()) {
     tab = typeof defaultServerSettingsTab === "function" ? defaultServerSettingsTab() : "overview";
   }
@@ -1544,6 +1547,7 @@ async function showServerSettingsTab(tab) {
   const bans = document.getElementById("server-settings-bans");
   const privacy = document.getElementById("server-settings-discovery");
   const emojis = document.getElementById("server-settings-emojis");
+  const stickers = document.getElementById("server-settings-stickers");
   const integrations = document.getElementById("server-settings-integrations");
   const audit = document.getElementById("server-settings-audit");
   const custom = document.getElementById("server-settings-custom");
@@ -1554,6 +1558,7 @@ async function showServerSettingsTab(tab) {
   if (bans) bans.hidden = tab !== "bans";
   if (privacy) privacy.hidden = tab !== "discovery";
   if (emojis) emojis.hidden = tab !== "emojis";
+  if (stickers) stickers.hidden = tab !== "stickers";
   if (integrations) integrations.hidden = tab !== "integrations";
   if (audit) audit.hidden = tab !== "audit";
   if (custom) custom.hidden = true;
@@ -1586,6 +1591,10 @@ async function showServerSettingsTab(tab) {
   }
   if (tab === "emojis" && typeof loadServerEmojisPage === "function") {
     await loadServerEmojisPage();
+    return;
+  }
+  if (tab === "stickers" && typeof loadServerStickersPage === "function") {
+    await loadServerStickersPage();
     return;
   }
   if (tab === "integrations" && typeof loadServerIntegrationsPage === "function") {

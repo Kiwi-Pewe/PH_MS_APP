@@ -232,6 +232,7 @@ function paintServerSettingsAccess() {
   const bansBtn = document.querySelector('#server-settings-nav [data-tab="bans"]');
   const privacyBtn = document.querySelector('#server-settings-nav [data-tab="discovery"]');
   const emojisBtn = document.querySelector('#server-settings-nav [data-tab="emojis"]');
+  const stickersBtn = document.querySelector('#server-settings-nav [data-tab="stickers"]');
   const integrationsBtn = document.querySelector('#server-settings-nav [data-tab="integrations"]');
   const auditBtn = document.querySelector('#server-settings-nav [data-tab="audit"]');
   const customBtn = document.getElementById("server-settings-custom-open");
@@ -245,6 +246,7 @@ function paintServerSettingsAccess() {
   const allowBans = canOpenServerBans();
   const allowPrivacy = canOpenServerPrivacy();
   const allowEmojis = canOpenServerEmojis();
+  const allowStickers = allowEmojis;
   const allowIntegrations = canOpenServerIntegrations();
   const allowAudit = canOpenServerAudit();
   const allowCustom = canUpdateServer();
@@ -277,6 +279,10 @@ function paintServerSettingsAccess() {
     emojisBtn.disabled = !allowEmojis;
     emojisBtn.classList.toggle("is-later", !allowEmojis);
   }
+  if (stickersBtn) {
+    stickersBtn.disabled = !allowStickers;
+    stickersBtn.classList.toggle("is-later", !allowStickers);
+  }
   if (integrationsBtn) {
     integrationsBtn.disabled = !allowIntegrations;
     integrationsBtn.classList.toggle("is-later", !allowIntegrations);
@@ -306,6 +312,7 @@ function paintServerSettingsAccess() {
   const bans = document.getElementById("server-settings-bans");
   const privacy = document.getElementById("server-settings-discovery");
   const emojis = document.getElementById("server-settings-emojis");
+  const stickers = document.getElementById("server-settings-stickers");
   const integrations = document.getElementById("server-settings-integrations");
   const audit = document.getElementById("server-settings-audit");
   if (!allowOverview && overview && !overview.hidden) {
@@ -321,6 +328,8 @@ function paintServerSettingsAccess() {
   } else if (!allowPrivacy && privacy && !privacy.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowEmojis && emojis && !emojis.hidden) {
+    if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
+  } else if (!allowStickers && stickers && !stickers.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());
   } else if (!allowIntegrations && integrations && !integrations.hidden) {
     if (typeof showServerSettingsTab === "function") showServerSettingsTab(defaultServerSettingsTab());

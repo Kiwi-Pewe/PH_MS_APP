@@ -39,6 +39,7 @@ PROFILE_IMAGE_BYTES = 5 * 1024 * 1024
 PROFILE_VIDEO_BYTES = 20 * 1024 * 1024
 PROFILE_MUSIC_BYTES = 20 * 1024 * 1024
 EMOJI_UPLOAD_BYTES = 256 * 1024
+STICKER_UPLOAD_BYTES = 512 * 1024
 
 ALLOWED_MIME = {
     "image/jpeg": (".jpg", "image"),
@@ -83,6 +84,9 @@ FEEDBACK_KEY_RE = re.compile(
 EMOJI_KEY_RE = re.compile(
     r"^emoji/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp)$"
 )
+STICKER_KEY_RE = re.compile(
+    r"^sticker/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(jpg|png|gif|webp)$"
+)
 PROFILE_VIDEO_KEY_RE = re.compile(
     r"^profile/\d{4}/\d{2}/\d{2}/[0-9a-f]{32}\.(mp4|webm)$"
 )
@@ -96,6 +100,8 @@ def max_upload_bytes(user=None, purpose="chat", mime=""):
         return PROFILE_IMAGE_BYTES
     if purpose == "emoji":
         return EMOJI_UPLOAD_BYTES
+    if purpose == "sticker":
+        return STICKER_UPLOAD_BYTES
     if purpose == "feedback":
         kind = ALLOWED_MIME.get(normalize_mime(mime), ("", ""))[1]
         return PROFILE_VIDEO_BYTES if kind == "video" else PROFILE_IMAGE_BYTES
@@ -159,6 +165,8 @@ def new_object_key(mime, purpose="chat"):
         folder = "feedback"
     elif purpose == "emoji":
         folder = "emoji"
+    elif purpose == "sticker":
+        folder = "sticker"
     if folder == "chat" and kind == "audio":
         raise HTTPException(status_code=400, detail="Chat cannot take mp3 files yet.")
     if folder == "feedback" and kind == "audio":
@@ -169,6 +177,8 @@ def new_object_key(mime, purpose="chat"):
         raise HTTPException(status_code=400, detail="Server icons must be jpeg, png, gif, or webp.")
     if folder == "emoji" and kind != "image":
         raise HTTPException(status_code=400, detail="Emojis must be jpeg, png, gif, or webp.")
+    if folder == "sticker" and kind != "image":
+        raise HTTPException(status_code=400, detail="Stickers must be jpeg, png, gif, or webp.")
     now = datetime.utcnow()
     key = f"{folder}/{now.year:04d}/{now.month:02d}/{now.day:02d}/{uuid.uuid4().hex}{ext}"
     return key, kind

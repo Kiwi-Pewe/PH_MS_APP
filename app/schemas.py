@@ -554,6 +554,24 @@ class Server_emoji_delete(BaseModel):
     server_id: str
     emoji_id: int
 
+
+class Server_sticker_create(BaseModel):
+    server_id: str
+    name: str = ""
+    image_key: str
+    filename: str = ""
+
+
+class Server_sticker_rename(BaseModel):
+    server_id: str
+    sticker_id: int
+    name: str
+
+
+class Server_sticker_delete(BaseModel):
+    server_id: str
+    sticker_id: int
+
 class Server_role_in(BaseModel):
     id: int | None = None
     client_id: str = ""

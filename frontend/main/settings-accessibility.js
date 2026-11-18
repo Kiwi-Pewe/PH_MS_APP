@@ -318,6 +318,7 @@ function paintReducedMotion(host, info, persist) {
     "Play animated custom emoji in chat and the emoji picker.",
     settingsToggle(info.animated_emoji !== false, false, (on) => persist({ animated_emoji: on }))
   ));
+  paintStickerAnimations(host, info, persist);
 }
 
 function paintStickerAnimations(host, info, persist) {

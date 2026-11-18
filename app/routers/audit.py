@@ -40,6 +40,9 @@ ACTION_LABELS = {
     "create_emoji": "Emoji Created",
     "rename_emoji": "Emoji Updated",
     "delete_emoji": "Emoji Deleted",
+    "create_sticker": "Sticker Created",
+    "rename_sticker": "Sticker Updated",
+    "delete_sticker": "Sticker Deleted",
     "transfer_owner": "Ownership Transferred",
     "update_nickname": "Nickname Updated",
     "update_channel_perms": "Channel Permissions Updated",
@@ -142,7 +145,7 @@ def detail_summary(action, target_type, detail):
     if action == "voice_move":
         name = d.get("username") or "member"
         return f"{name}: {d.get('from') or 'Voice'} → {d.get('to') or 'Voice'}"
-    if action in ("delete_channel", "delete_category", "create_channel", "create_category", "update_channel", "update_category", "create_emoji", "rename_emoji", "delete_emoji", "create_webhook", "update_webhook", "delete_webhook"):
+    if action in ("delete_channel", "delete_category", "create_channel", "create_category", "update_channel", "update_category", "create_emoji", "rename_emoji", "delete_emoji", "create_sticker", "rename_sticker", "delete_sticker", "create_webhook", "update_webhook", "delete_webhook"):
         return d.get("name") or target_type or ""
     if action in ("update_server", "update_privacy"):
         return d.get("field") or d.get("name") or "Server"

@@ -8,7 +8,7 @@ from app.models import (
     Dm_server_pref, Doc_page, Forum_messages, Forum_post, Friend_request, Invite_model,
     Message, Message_mention, Party_members, Party_messages, Perma_ban, Profile_comment,
     Profile_comment_notice, Profile_comment_watch, Server_bans, Server_categories,
-    Server_channels, Server_emojis, Server_members, Server_notifications, Server_notify_prefs, Server_role_members,
+    Server_channels, Server_emojis, Server_stickers, Server_members, Server_notifications, Server_notify_prefs, Server_role_members,
     Server_roles, Servers, Site_ban, User_notes, UserInfo,
 )
 from app.r2 import delete_attachment, delete_r2_object
@@ -241,6 +241,10 @@ def wipe_owned_server(database, server):
         if emoji.image_key:
             delete_r2_object(emoji.image_key)
         database.delete(emoji)
+    for sticker in database.query(Server_stickers).filter(Server_stickers.server_id == server.id).all():
+        if sticker.image_key:
+            delete_r2_object(sticker.image_key)
+        database.delete(sticker)
     if server.icon_key:
         delete_r2_object(server.icon_key)
     if server.banner_key:

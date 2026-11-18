@@ -391,12 +391,25 @@ function mdLeaf(el, text, options) {
   }
   if (typeof CUSTOM_EMOJI_TOKEN_RE !== "undefined" && typeof appendCustomEmojiNode === "function") {
     let last = 0;
+    const stickerRe = typeof STICKER_TOKEN_RE !== "undefined" ? STICKER_TOKEN_RE : null;
     CUSTOM_EMOJI_TOKEN_RE.lastIndex = 0;
-    let match;
-    while ((match = CUSTOM_EMOJI_TOKEN_RE.exec(source))) {
+    if (stickerRe) stickerRe.lastIndex = 0;
+    while (last < source.length) {
+      CUSTOM_EMOJI_TOKEN_RE.lastIndex = last;
+      if (stickerRe) stickerRe.lastIndex = last;
+      const emojiMatch = CUSTOM_EMOJI_TOKEN_RE.exec(source);
+      const stickerMatch = stickerRe && typeof appendStickerNode === "function" ? stickerRe.exec(source) : null;
+      let match = emojiMatch;
+      let kind = "emoji";
+      if (stickerMatch && (!emojiMatch || stickerMatch.index < emojiMatch.index)) {
+        match = stickerMatch;
+        kind = "sticker";
+      }
+      if (!match) break;
       if (match.index > last && typeof appendAutoLinks === "function") appendAutoLinks(el, source.slice(last, match.index));
       else if (match.index > last) el.appendChild(document.createTextNode(source.slice(last, match.index)));
-      appendCustomEmojiNode(el, match[1], match[2]);
+      if (kind === "sticker") appendStickerNode(el, match[1], match[2]);
+      else appendCustomEmojiNode(el, match[1], match[2]);
       last = match.index + match[0].length;
     }
     if (last < source.length && typeof appendAutoLinks === "function") appendAutoLinks(el, source.slice(last));

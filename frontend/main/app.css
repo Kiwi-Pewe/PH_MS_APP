@@ -6688,6 +6688,31 @@ html.ui-density-spacious .channel-row.event-rail-row { padding-left: 36px; }
   font-family: inherit;
   font-size: 12px;
 }
+#emoji-picker.is-stickers .emoji-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+#emoji-picker.is-stickers .emoji-cell {
+  aspect-ratio: 1;
+}
+#emoji-picker.is-stickers .emoji-cell-img {
+  width: 56px;
+  height: 56px;
+}
+.msg-sticker {
+  display: block;
+  width: 160px;
+  max-width: 100%;
+  margin: 4px 0;
+  line-height: 0;
+}
+.msg-sticker-img {
+  width: 160px;
+  height: 160px;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+}
 .msg-custom-emoji {
   display: inline-block;
   vertical-align: -0.2em;
@@ -12350,7 +12375,8 @@ body.is-mini-dragging {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-#emoji-edit-overlay {
+#emoji-edit-overlay,
+#sticker-edit-overlay {
   position: fixed; inset: 0; z-index: 960;
   background: rgba(0, 0, 0, 0.6);
   display: flex; align-items: center; justify-content: center;
@@ -12378,6 +12404,14 @@ body.is-mini-dragging {
   height: 56px;
   object-fit: contain;
   flex: 0 0 auto;
+}
+.server-emojis-preview.is-sticker {
+  width: 40px;
+  height: 40px;
+}
+.emoji-edit-preview.is-sticker {
+  width: 80px;
+  height: 80px;
 }
 .emoji-edit-names { min-width: 0; }
 .emoji-edit-heading {

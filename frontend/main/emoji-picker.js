@@ -17,6 +17,10 @@ let customEmojiPacksPromise = null;
 function isEmojiOnlyContent(text) {
   let rest = (text || "").trim();
   if (!rest) return false;
+  if (typeof STICKER_TOKEN_RE !== "undefined") {
+    STICKER_TOKEN_RE.lastIndex = 0;
+    if (STICKER_TOKEN_RE.test(rest)) return false;
+  }
   rest = rest.replace(CUSTOM_EMOJI_TOKEN_RE, "");
   EMOJI_CHARS_DESC.forEach(ch => {
     if (ch && rest.indexOf(ch) !== -1) rest = rest.split(ch).join("");
@@ -178,13 +182,28 @@ function appendTextWithCustomEmoji(el, text) {
   const source = text || "";
   let last = 0;
   CUSTOM_EMOJI_TOKEN_RE.lastIndex = 0;
+  if (typeof STICKER_TOKEN_RE !== "undefined") STICKER_TOKEN_RE.lastIndex = 0;
   let match;
-  while ((match = CUSTOM_EMOJI_TOKEN_RE.exec(source))) {
+  while (last < source.length) {
+    CUSTOM_EMOJI_TOKEN_RE.lastIndex = last;
+    if (typeof STICKER_TOKEN_RE !== "undefined") STICKER_TOKEN_RE.lastIndex = last;
+    const emojiMatch = CUSTOM_EMOJI_TOKEN_RE.exec(source);
+    const stickerMatch = typeof STICKER_TOKEN_RE !== "undefined" && typeof appendStickerNode === "function"
+      ? STICKER_TOKEN_RE.exec(source)
+      : null;
+    match = emojiMatch;
+    let kind = "emoji";
+    if (stickerMatch && (!emojiMatch || stickerMatch.index < emojiMatch.index)) {
+      match = stickerMatch;
+      kind = "sticker";
+    }
+    if (!match) break;
     if (match.index > last) {
       if (typeof renderMessageText === "function") renderMessageText(el, source.slice(last, match.index));
       else el.appendChild(document.createTextNode(source.slice(last, match.index)));
     }
-    appendCustomEmojiNode(el, match[1], match[2]);
+    if (kind === "sticker") appendStickerNode(el, match[1], match[2]);
+    else appendCustomEmojiNode(el, match[1], match[2]);
     last = match.index + match[0].length;
   }
   if (last < source.length) {
@@ -540,10 +559,14 @@ async function refreshEmojiPickerPacks() {
 function paintEmojiAddButton() {
   const btn = document.querySelector("#emoji-picker .emoji-add-btn");
   if (!btn) return;
+  const stickers = emojiPickerTab === "stickers";
   const allowed = !!currentServerId && typeof canOpenServerEmojis === "function" && canOpenServerEmojis();
   btn.disabled = !allowed;
   btn.classList.toggle("disabled", !allowed);
-  btn.title = allowed ? "Add emoji" : "You do not have permission to add emoji here.";
+  btn.textContent = stickers ? "Add sticker" : "Add emoji";
+  btn.title = allowed
+    ? (stickers ? "Add sticker" : "Add emoji")
+    : (stickers ? "You do not have permission to add stickers here." : "You do not have permission to add emoji here.");
 }
 
 function gifMarkdown(url) {
@@ -806,23 +829,40 @@ function showEmojiPickerTab(tab) {
   const picker = document.getElementById("emoji-picker");
   const search = document.getElementById("emoji-picker-search");
   const gifTab = picker.querySelector('.emoji-tab[data-tab="gifs"]');
+  const stickerTab = picker.querySelector('.emoji-tab[data-tab="stickers"]');
   if (gifTab) gifTab.style.display = emojiReactionTarget ? "none" : "";
-  emojiPickerTab = tab === "gifs" && !emojiReactionTarget ? "gifs" : "emoji";
+  if (stickerTab) stickerTab.style.display = emojiReactionTarget ? "none" : "";
+  if (emojiReactionTarget) emojiPickerTab = "emoji";
+  else if (tab === "gifs") emojiPickerTab = "gifs";
+  else if (tab === "stickers") emojiPickerTab = "stickers";
+  else emojiPickerTab = "emoji";
   picker.classList.toggle("is-gifs", emojiPickerTab === "gifs");
+  picker.classList.toggle("is-stickers", emojiPickerTab === "stickers");
   picker.querySelectorAll(".emoji-tab").forEach((btn) => {
     if (btn.disabled) return;
     btn.classList.toggle("active", btn.getAttribute("data-tab") === emojiPickerTab);
   });
+  paintEmojiAddButton();
   if (emojiPickerTab === "gifs") {
     if (document.activeElement !== search) search.value = gifSearchSaved;
     search.placeholder = "Search GIFs";
     openGifPane();
     return;
   }
+  if (emojiPickerTab === "stickers") {
+    if (document.activeElement !== search) search.value = emojiSearchSaved;
+    search.placeholder = "Find the perfect sticker";
+    paintGifFooter("");
+    document.getElementById("emoji-picker-footer").textContent = "";
+    if (typeof openStickerPane === "function") openStickerPane();
+    return;
+  }
   if (document.activeElement !== search) search.value = emojiSearchSaved;
   search.placeholder = "Find the perfect emoji";
   paintGifFooter("");
   document.getElementById("emoji-picker-footer").textContent = "";
+  buildEmojiPickerBody();
+  filterEmojiPicker(search.value || "");
 }
 
 function openEmojiSettingsFromPicker() {
@@ -831,7 +871,9 @@ function openEmojiSettingsFromPicker() {
   closeEmojiPicker();
   if (typeof openServerSettings !== "function") return;
   openServerSettings();
-  if (typeof showServerSettingsTab === "function") showServerSettingsTab("emojis");
+  if (typeof showServerSettingsTab === "function") {
+    showServerSettingsTab(emojiPickerTab === "stickers" ? "stickers" : "emojis");
+  }
 }
 
 function openEmojiPicker(btn, input, clientX, clientY) {
@@ -940,6 +982,10 @@ document.getElementById("emoji-picker-search").addEventListener("input", (e) => 
     return;
   }
   emojiSearchSaved = e.target.value;
+  if (emojiPickerTab === "stickers" && typeof filterStickerPicker === "function") {
+    filterStickerPicker(e.target.value);
+    return;
+  }
   filterEmojiPicker(e.target.value);
 });
 document.querySelectorAll("#emoji-picker .emoji-tab").forEach((btn) => {

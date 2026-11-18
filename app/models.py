@@ -821,6 +821,17 @@ class Server_emojis(Base):
     created_at = Column(DateTime, server_default=func.now())
     __table_args__ = (UniqueConstraint("server_id", "name", name="uq_server_emoji_name"),)
 
+
+class Server_stickers(Base):
+    __tablename__ = "server_stickers"
+    id = Column(Integer, primary_key=True)
+    server_id = Column(String(10), ForeignKey("servers.id"))
+    name = Column(String)
+    image_key = Column(String)
+    uploader_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, server_default=func.now())
+    __table_args__ = (UniqueConstraint("server_id", "name", name="uq_server_sticker_name"),)
+
 class Account_connection(Base):
     __tablename__ = "account_connections"
     id = Column(Integer, primary_key=True)

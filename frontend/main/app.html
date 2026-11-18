@@ -28,7 +28,7 @@
 <link rel="stylesheet" href="../shared/music-player.css?v=3">
 <link rel="stylesheet" href="../shared/embed-frame.css?v=1">
 <link rel="stylesheet" href="../shared/gallery-frame.css?v=1">
-<link rel="stylesheet" href="app.css?v=573">
+<link rel="stylesheet" href="app.css?v=574">
 <link rel="stylesheet" href="news.css?v=11">
 </head>
 <body>
@@ -1249,6 +1249,7 @@
         <button type="button" class="server-settings-nav-item" data-tab="bans">Bans</button>
         <button type="button" class="server-settings-nav-item" data-tab="discovery">Discovery</button>
         <button type="button" class="server-settings-nav-item" data-tab="emojis">Emojis</button>
+        <button type="button" class="server-settings-nav-item" data-tab="stickers">Stickers</button>
         <button type="button" class="server-settings-nav-item" data-tab="integrations">Integrations</button>
         <button type="button" class="server-settings-nav-item" data-tab="audit">Audit Log</button>
         <button type="button" class="server-settings-nav-item" id="server-settings-custom-open">Custom Sections</button>
@@ -1574,6 +1575,31 @@
         </div>
         <p id="server-emojis-empty" class="server-settings-help" hidden>No emojis yet.</p>
         <p id="server-emojis-status" class="server-settings-help" hidden></p>
+      </div>
+
+      <div id="server-settings-stickers" class="server-emojis-page" hidden>
+        <h2 class="server-settings-page-title">Stickers</h2>
+        <button type="button" id="server-stickers-upload" class="ghost-btn server-emojis-upload">Upload sticker</button>
+        <input type="file" id="server-stickers-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+        <p class="server-settings-help">Names must only contain alphanumeric characters and underscores. Max 50 per server, 512 KB each.</p>
+        <div class="server-emojis-toolbar">
+          <input id="server-stickers-search" class="server-settings-input server-emojis-search" type="search" placeholder="Search stickers" autocomplete="off" spellcheck="false">
+          <div id="server-stickers-count" class="server-emojis-count">0 stickers</div>
+        </div>
+        <div class="server-emojis-table-wrap">
+          <table class="server-emojis-table">
+            <thead>
+              <tr>
+                <th class="server-emojis-col-name">Name</th>
+                <th class="server-emojis-col-by">Added by</th>
+                <th class="server-emojis-col-at">Added at</th>
+              </tr>
+            </thead>
+            <tbody id="server-stickers-body"></tbody>
+          </table>
+        </div>
+        <p id="server-stickers-empty" class="server-settings-help" hidden>No stickers yet.</p>
+        <p id="server-stickers-status" class="server-settings-help" hidden></p>
       </div>
 
       <div id="server-settings-integrations" class="server-settings-page server-integrations-page" hidden>
@@ -2763,6 +2789,38 @@
     </div>
   </div>
 
+  <div id="sticker-edit-overlay" style="display:none;">
+    <div id="sticker-edit-modal" class="emoji-edit-card" role="dialog" aria-modal="true" aria-labelledby="sticker-edit-heading">
+      <div class="emoji-edit-top">
+        <img id="sticker-edit-preview" class="emoji-edit-preview is-sticker" alt="">
+        <div class="emoji-edit-names">
+          <div id="sticker-edit-heading" class="emoji-edit-heading"></div>
+        </div>
+      </div>
+      <div class="emoji-edit-main">
+        <label class="emoji-edit-label" for="sticker-edit-name">Name</label>
+        <input id="sticker-edit-name" class="emoji-edit-name" type="text" maxlength="32" autocomplete="off" spellcheck="false">
+        <div class="emoji-edit-field">
+          <div class="emoji-edit-label">Added by</div>
+          <div class="emoji-edit-by">
+            <div id="sticker-edit-by-face" class="avatar-dot emoji-edit-by-avatar"></div>
+            <div id="sticker-edit-by-name" class="emoji-edit-by-name"></div>
+          </div>
+        </div>
+        <div class="emoji-edit-field">
+          <div class="emoji-edit-label">Added on</div>
+          <div id="sticker-edit-when" class="emoji-edit-value"></div>
+        </div>
+      </div>
+      <div class="emoji-edit-bottom">
+        <p id="sticker-edit-error" class="emoji-edit-error" hidden></p>
+        <button type="button" id="sticker-edit-delete">Delete</button>
+        <button type="button" id="sticker-edit-cancel">Cancel</button>
+        <button type="button" id="sticker-edit-save">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div id="remove-role-overlay" style="display:none;">
     <div id="remove-role-modal" class="remove-role-card" role="dialog" aria-modal="true" aria-labelledby="remove-role-title">
       <div class="remove-role-top">
@@ -3212,7 +3270,7 @@
   <div class="emoji-picker-top">
     <div class="emoji-picker-tabs">
       <button type="button" class="emoji-tab" data-tab="gifs">GIFs</button>
-      <button type="button" class="emoji-tab disabled" disabled title="Coming soon" data-tab="stickers">Stickers</button>
+      <button type="button" class="emoji-tab" data-tab="stickers">Stickers</button>
       <button type="button" class="emoji-tab active" data-tab="emoji">Emoji</button>
       <button type="button" class="emoji-add-btn disabled" disabled title="Coming soon">Add emoji</button>
     </div>
@@ -3243,7 +3301,7 @@
 <script src="state.js?v=75"></script>
 <script src="appearance.js?v=16"></script>
 <script src="accessibility.js?v=13"></script>
-<script src="gifs.js?v=7"></script>
+<script src="gifs.js?v=8"></script>
 <script src="language-time.js?v=3"></script>
 <script src="util.js?v=54"></script>
 <script src="media.js?v=64"></script>
@@ -3308,9 +3366,9 @@
 <script src="community-finder-settings.js?v=4"></script>
 <script src="feed.js?v=31"></script>
 <script src="settings.js?v=38"></script>
-<script src="server-settings.js?v=56"></script>
+<script src="server-settings.js?v=57"></script>
 <script src="server-listing.js?v=4"></script>
-<script src="server-roles.js?v=43"></script>
+<script src="server-roles.js?v=44"></script>
 <script src="server-moderation.js?v=7"></script>
 <script src="server-members.js?v=12"></script>
 <script src="settings-account.js?v=11"></script>
@@ -3326,7 +3384,7 @@
 <script src="settings-activity.js?v=3"></script>
 <script src="settings-overlay.js?v=3"></script>
 <script src="settings-apps.js?v=8"></script>
-<script src="settings-accessibility.js?v=8"></script>
+<script src="settings-accessibility.js?v=9"></script>
 <script src="../shared/media-player.js?v=6"></script>
 <script src="../shared/music-player.js?v=2"></script>
 <script src="../shared/embed-frame.js?v=1"></script>
@@ -3348,7 +3406,8 @@
 <script src="chat-compose.js?v=68"></script>
 <script src="typing.js?v=4"></script>
 <script src="emoji-data.js?v=1"></script>
-<script src="emoji-picker.js?v=61"></script>
+<script src="emoji-picker.js?v=62"></script>
+<script src="sticker-picker.js?v=1"></script>
 <script src="online-toast.js?v=2"></script>
 <script src="friends.js?v=51"></script>
 <script src="parties.js?v=47"></script>
@@ -3357,12 +3416,13 @@
 <script src="server-bans.js?v=3"></script>
 <script src="server-privacy.js?v=9"></script>
 <script src="server-emojis.js?v=4"></script>
+<script src="server-stickers.js?v=1"></script>
 <script src="server-integrations.js?v=2"></script>
-<script src="server-audit.js?v=12"></script>
+<script src="server-audit.js?v=13"></script>
 <script src="server-delete.js?v=2"></script>
 <script src="account-delete.js?v=1"></script>
 <script src="server-notify.js?v=7"></script>
-<script src="markdown.js?v=9"></script>
+<script src="markdown.js?v=10"></script>
 <script src="embeds.js?v=48"></script>
 <script src="mentions.js?v=25"></script>
 <script src="explicit-channel.js?v=3"></script>

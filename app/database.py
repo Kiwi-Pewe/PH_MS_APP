@@ -1073,6 +1073,31 @@ def ensure_site_rules_tables():
                 conn.rollback()
 
 
+def ensure_sticker_tables():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS server_stickers ("
+                "id INTEGER PRIMARY KEY, "
+                "server_id VARCHAR(10), "
+                "name VARCHAR, "
+                "image_key VARCHAR, "
+                "uploader_id INTEGER, "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_server_sticker_name "
+                "ON server_stickers (server_id, name)"
+            ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+
 def ensure_gif_tables():
     with engine.connect() as conn:
         try:

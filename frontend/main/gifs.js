@@ -41,6 +41,23 @@ function shouldPlayAnimatedEmoji() {
   return true;
 }
 
+function shouldPlayAnimatedSticker(entry) {
+  const mode = (typeof accessibilityPrefs !== "undefined" && accessibilityPrefs && accessibilityPrefs.sticker_anim) || "always";
+  if (mode === "never") return false;
+  if (reduceMotionOn()) return false;
+  if (mode === "interaction") return !!(entry && entry.hovering);
+  return true;
+}
+
+function bindAnimatedSticker(img, url) {
+  if (!img || !url) return;
+  if (isGifSrc(url)) {
+    bindAttentionGif(img, { live: url, kind: "sticker", host: img });
+    return;
+  }
+  img.src = url;
+}
+
 function bindAnimatedEmoji(img, url) {
   if (!img || !url) return;
   if (isGifSrc(url)) {
@@ -246,6 +263,9 @@ function attentionWantsLive(entry) {
   if (entry.kind === "emoji") {
     if (reduceMotionOn()) return false;
     return shouldPlayAnimatedEmoji();
+  }
+  if (entry.kind === "sticker") {
+    return shouldPlayAnimatedSticker(entry);
   }
   if (entry.hovering) return true;
   if (reduceMotionOn() && entry.kind !== "profile") return false;

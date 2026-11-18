@@ -210,6 +210,7 @@ let gifBusy = false;
 let gifQuery = "";
 let gifTimer = null;
 let gifSeq = 0;
+let gifMode = "home";
 
 function emojiFreqMap() {
   try { return JSON.parse(localStorage.getItem("oneira_emoji_freq") || "{}"); }
@@ -549,8 +550,19 @@ function gifMarkdown(url) {
   return "![gif](" + url + ")";
 }
 
+function gifListEl() {
+  return document.getElementById("emoji-gif-list");
+}
+
+function setGifListMode(mode) {
+  const list = gifListEl();
+  if (!list) return list;
+  list.className = "emoji-gif-list is-" + (mode === "home" ? "home" : "results");
+  return list;
+}
+
 function paintGifEmpty(text) {
-  const list = document.getElementById("emoji-gif-list");
+  const list = setGifListMode(gifMode === "home" ? "home" : "results");
   if (!list) return;
   list.innerHTML = "";
   const empty = document.createElement("div");
@@ -563,6 +575,15 @@ function paintGifFooter(text) {
   const foot = document.getElementById("emoji-picker-footer");
   if (!foot) return;
   foot.textContent = text || (gifConnected ? "Powered by GIPHY" : "");
+}
+
+function gifFavRows() {
+  try {
+    const rows = JSON.parse(localStorage.getItem("oneira_gif_fav") || "[]");
+    return Array.isArray(rows) ? rows : [];
+  } catch (e) {
+    return [];
+  }
 }
 
 function pickGif(row) {
@@ -583,7 +604,7 @@ function pickGif(row) {
 }
 
 function appendGifCells(rows) {
-  const list = document.getElementById("emoji-gif-list");
+  const list = gifListEl();
   if (!list) return;
   rows.forEach((row) => {
     if (!row || !row.url) return;
@@ -597,17 +618,106 @@ function appendGifCells(rows) {
     img.draggable = false;
     btn.appendChild(img);
     btn.addEventListener("mousedown", (e) => e.preventDefault());
-    btn.addEventListener("mouseenter", () => paintGifFooter(row.title || "Powered by GIPHY"));
     btn.addEventListener("mouseleave", () => paintGifFooter("Powered by GIPHY"));
+    btn.addEventListener("mouseenter", () => paintGifFooter(row.title || "Powered by GIPHY"));
     btn.addEventListener("click", () => pickGif(row));
     list.appendChild(btn);
   });
 }
 
+function paintGifSection(name, preview, onClick) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "emoji-gif-section";
+  if (preview) {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.src = preview;
+    img.draggable = false;
+    btn.appendChild(img);
+  }
+  const label = document.createElement("span");
+  label.className = "emoji-gif-section-label";
+  label.textContent = name;
+  btn.appendChild(label);
+  btn.addEventListener("mousedown", (e) => e.preventDefault());
+  btn.addEventListener("click", onClick);
+  return btn;
+}
+
+function openGifTopic(name) {
+  const search = document.getElementById("emoji-picker-search");
+  gifMode = "search";
+  gifSearchSaved = name || "";
+  gifQuery = gifSearchSaved.trim();
+  if (search) search.value = gifSearchSaved;
+  loadGifPage(true);
+}
+
+function openGifTrending() {
+  const search = document.getElementById("emoji-picker-search");
+  gifMode = "trending";
+  gifSearchSaved = "";
+  gifQuery = "";
+  if (search) search.value = "";
+  loadGifPage(true);
+}
+
+function openGifFavorites() {
+  gifMode = "favorites";
+  gifNext = null;
+  const list = setGifListMode("results");
+  if (!list) return;
+  const rows = gifFavRows().filter((row) => row && row.url);
+  list.innerHTML = "";
+  if (!rows.length) {
+    paintGifEmpty("Favorite GIFs will show up here.");
+    paintGifFooter("Powered by GIPHY");
+    return;
+  }
+  gifRows = rows;
+  appendGifCells(rows);
+  paintGifFooter("Powered by GIPHY");
+}
+
+function paintGifHome(data) {
+  const list = setGifListMode("home");
+  if (!list) return;
+  list.innerHTML = "";
+  const favs = gifFavRows();
+  list.appendChild(paintGifSection("Favorites", (favs[0] && (favs[0].preview || favs[0].url)) || "", openGifFavorites));
+  const trending = (data && data.trending) || {};
+  list.appendChild(paintGifSection(trending.name || "Trending GIFs", trending.preview || "", openGifTrending));
+  ((data && data.sections) || []).forEach((row) => {
+    if (!row || !row.name) return;
+    list.appendChild(paintGifSection(row.name, row.preview || "", () => openGifTopic(row.name)));
+  });
+  paintGifFooter("Powered by GIPHY");
+}
+
+async function loadGifHome() {
+  gifMode = "home";
+  gifNext = null;
+  const seq = ++gifSeq;
+  paintGifEmpty("Loading GIFs.");
+  try {
+    const response = await fetch("https://" + serverAddress + "/gifs/home", { credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (seq !== gifSeq || emojiPickerTab !== "gifs") return;
+    if (!response.ok) {
+      paintGifEmpty(typeof data.detail === "string" ? data.detail : "Could not load GIFs.");
+      return;
+    }
+    paintGifHome(data);
+  } catch (e) {
+    if (seq === gifSeq) paintGifEmpty("Could not load GIFs.");
+  }
+}
+
 async function loadGifPage(reset) {
   if (!gifConnected || gifBusy) return;
-  if (!reset && gifNext == null) return;
-  const list = document.getElementById("emoji-gif-list");
+  if (!reset && (gifMode === "home" || gifMode === "favorites" || gifNext == null)) return;
+  const list = setGifListMode("results");
   if (!list) return;
   const seq = ++gifSeq;
   gifBusy = true;
@@ -650,6 +760,11 @@ function scheduleGifSearch() {
   window.clearTimeout(gifTimer);
   gifTimer = window.setTimeout(() => {
     gifQuery = gifSearchSaved.trim();
+    if (!gifQuery) {
+      loadGifHome();
+      return;
+    }
+    gifMode = "search";
     loadGifPage(true);
   }, 250);
 }
@@ -679,6 +794,11 @@ async function openGifPane() {
   }
   gifQuery = gifSearchSaved.trim();
   paintGifFooter("Powered by GIPHY");
+  if (!gifQuery) {
+    loadGifHome();
+    return;
+  }
+  gifMode = "search";
   loadGifPage(true);
 }
 
@@ -758,6 +878,7 @@ function closeEmojiPicker() {
   clearEmojiPreview();
   emojiSearchSaved = "";
   gifSearchSaved = "";
+  gifMode = "home";
   gifSeq += 1;
   window.clearTimeout(gifTimer);
 }
@@ -830,7 +951,7 @@ document.querySelectorAll("#emoji-picker .emoji-tab").forEach((btn) => {
 const emojiGifList = document.getElementById("emoji-gif-list");
 if (emojiGifList) {
   emojiGifList.addEventListener("scroll", () => {
-    if (emojiPickerTab !== "gifs" || gifBusy || gifNext == null) return;
+    if (emojiPickerTab !== "gifs" || gifMode === "home" || gifMode === "favorites" || gifBusy || gifNext == null) return;
     if (emojiGifList.scrollTop + emojiGifList.clientHeight < emojiGifList.scrollHeight - 80) return;
     loadGifPage(false);
   });

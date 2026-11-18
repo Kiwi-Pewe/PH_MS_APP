@@ -329,12 +329,13 @@ async function loadProfileWidgetRoomMessages(roomId) {
   });
 }
 
-async function sendProfileChatRoomMessage(state, input) {
-  const content = input ? String(input.value || "").trim() : "";
+async function sendProfileChatRoomMessage(state, input, forcedContent) {
+  const stickerOnly = forcedContent != null && String(forcedContent).trim() !== "";
+  const content = stickerOnly ? String(forcedContent).trim() : (input ? String(input.value || "").trim() : "");
   if ((!content && !pendingAttach) || !state.roomId || !ws || ws.readyState !== 1) return;
-  if (pendingAttach && pendingAttach.busy) return;
+  if (!stickerOnly && pendingAttach && pendingAttach.busy) return;
   let attachment = null;
-  if (pendingAttach && typeof uploadPendingIfNeeded === "function") {
+  if (!stickerOnly && pendingAttach && typeof uploadPendingIfNeeded === "function") {
     try {
       attachment = await uploadPendingIfNeeded();
     } catch (err) {
@@ -375,24 +376,25 @@ async function sendProfileChatRoomMessage(state, input) {
     communityRoomMessages.push(mapped);
     if (typeof paintCommunityRoomChat === "function") paintCommunityRoomChat();
   }
-  if (input) input.value = "";
-  if (typeof clearPendingAttach === "function") clearPendingAttach();
+  if (!stickerOnly && input) input.value = "";
+  if (!stickerOnly && typeof clearPendingAttach === "function") clearPendingAttach();
 }
 
-async function sendProfileChatMessage(state, input) {
-  const content = input ? String(input.value || "").trim() : "";
+async function sendProfileChatMessage(state, input, forcedContent) {
+  const stickerOnly = forcedContent != null && String(forcedContent).trim() !== "";
+  const content = stickerOnly ? String(forcedContent).trim() : (input ? String(input.value || "").trim() : "");
   const ownerId = profileChatOwnerId();
   if ((!content && !pendingAttach) || !ownerId) return;
-  if (pendingAttach && pendingAttach.busy) return;
+  if (!stickerOnly && pendingAttach && pendingAttach.busy) return;
   let attachment = null;
-  if (pendingAttach && typeof uploadPendingIfNeeded === "function") {
+  if (!stickerOnly && pendingAttach && typeof uploadPendingIfNeeded === "function") {
     try {
       attachment = await uploadPendingIfNeeded();
     } catch (err) {
       return;
     }
   }
-  if (input) input.value = "";
+  if (!stickerOnly && input) input.value = "";
   try {
     const response = await profileApi("/profile/" + encodeURIComponent(ownerId) + "/chat", {
       method: "POST",
@@ -400,7 +402,7 @@ async function sendProfileChatMessage(state, input) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) return;
-    if (typeof clearPendingAttach === "function") clearPendingAttach();
+    if (!stickerOnly && typeof clearPendingAttach === "function") clearPendingAttach();
     applyProfileChatMessage({ owner_id: ownerId, message: data });
   } catch (err) {
     return;

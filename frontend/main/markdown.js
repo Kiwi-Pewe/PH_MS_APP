@@ -96,6 +96,12 @@ function mdParseInline(text) {
       i += emoji[0].length;
       continue;
     }
+    const sticker = text.slice(i).match(/^<(?:sticker|s):([a-zA-Z0-9_]{2,32}):(\d+)>/);
+    if (sticker) {
+      nodes.push({ type: "sticker", name: sticker[1], id: sticker[2], raw: sticker[0] });
+      i += sticker[0].length;
+      continue;
+    }
     const mention = text.slice(i).match(/^<@((?:everyone|here|&\d+|\d+))>/);
     if (mention) {
       nodes.push({ type: "mention", id: mention[1], raw: mention[0] });
@@ -282,6 +288,11 @@ function mdRenderNode(el, node, options) {
   if (node.type === "emoji") {
     if (!options.composer && typeof appendCustomEmojiNode === "function") appendCustomEmojiNode(el, node.name, node.id);
     else mdLeaf(el, node.raw, options);
+    return;
+  }
+  if (node.type === "sticker") {
+    if (typeof appendStickerNode === "function") appendStickerNode(el, node.name, node.id);
+    else if (!options.composer) mdLeaf(el, node.raw, options);
     return;
   }
   if (node.type === "image") {

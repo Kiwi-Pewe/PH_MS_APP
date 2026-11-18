@@ -282,13 +282,14 @@ function applyCommunityRoomClosed(data) {
   dropCommunityRoom(data.room_id);
 }
 
-async function sendCommunityRoomMessage() {
+async function sendCommunityRoomMessage(forcedContent) {
   const input = document.getElementById("composer-input");
-  const content = input ? input.value.trim() : "";
+  const stickerOnly = forcedContent != null && String(forcedContent).trim() !== "";
+  const content = stickerOnly ? String(forcedContent).trim() : (input ? input.value.trim() : "");
   if ((!content && !pendingAttach) || !communityOpenRoom || !ws || ws.readyState !== 1) return;
-  if (pendingAttach && pendingAttach.busy) return;
+  if (!stickerOnly && pendingAttach && pendingAttach.busy) return;
   let attachment = null;
-  if (pendingAttach) {
+  if (!stickerOnly && pendingAttach) {
     try {
       attachment = await uploadPendingIfNeeded();
     } catch (err) {
@@ -326,11 +327,11 @@ async function sendCommunityRoomMessage() {
     mention_users: typeof mentionUsersFromText === "function" ? mentionUsersFromText(stored) : {}
   }));
   if (typeof paintCommunityRoomChat === "function") paintCommunityRoomChat();
-  if (input) input.value = "";
-  if (typeof clearPendingAttach === "function") clearPendingAttach();
+  if (!stickerOnly && input) input.value = "";
+  if (!stickerOnly && typeof clearPendingAttach === "function") clearPendingAttach();
   if (typeof clearPendingReply === "function") clearPendingReply();
   if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
-  if (typeof autoGrowComposer === "function") autoGrowComposer();
-  if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
+  if (!stickerOnly && typeof autoGrowComposer === "function") autoGrowComposer();
+  if (!stickerOnly && typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   if (typeof hideMentionPicker === "function") hideMentionPicker();
 }

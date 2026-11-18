@@ -1,4 +1,4 @@
-const STICKER_TOKEN_RE = /<s:([a-zA-Z0-9_]{2,32}):(\d+)>/g;
+const STICKER_TOKEN_RE = /<(?:sticker|s):([a-zA-Z0-9_]{2,32}):(\d+)>/g;
 
 let customStickerPacks = [];
 let customStickerById = {};
@@ -6,7 +6,7 @@ let customStickerPacksLoadedAt = 0;
 let customStickerPacksPromise = null;
 
 function stickerToken(item) {
-  return "<s:" + item.name + ":" + item.id + ">";
+  return "<sticker:" + item.name + ":" + item.id + ">";
 }
 
 function rememberSticker(row) {
@@ -132,18 +132,42 @@ function appendStickerNode(el, name, id) {
   el.appendChild(wrap);
 }
 
+function sendStickerNow(token, el) {
+  if (!token) return;
+  if (el && el.classList && el.classList.contains("profile-chat-room-input")) {
+    const tile = el.closest(".profile-tile");
+    const chatState = tile && tile._profileChat;
+    if (chatState) {
+      if (chatState.mode === "profile") {
+        if (typeof sendProfileChatMessage === "function") sendProfileChatMessage(chatState, el, token);
+        return;
+      }
+      if (typeof sendProfileChatRoomMessage === "function") sendProfileChatRoomMessage(chatState, el, token);
+      return;
+    }
+    if (tile && tile._profilePhone && typeof sendCommunityPhoneMessage === "function") {
+      sendCommunityPhoneMessage(el, false, token);
+      return;
+    }
+  }
+  if (el && el.id === "channel-composer-input") {
+    if (typeof sendChannelMessage === "function") sendChannelMessage(token);
+    return;
+  }
+  if (el && el.id === "composer-input") {
+    if (typeof sendChatMessage === "function") sendChatMessage(token);
+    return;
+  }
+}
+
 function pickSticker(item) {
   if (emojiReactionTarget) return;
   if (!emojiPickerTarget || emojiPickerTarget.disabled) return;
   if (emojiPickerTarget.dataset.emojiReplace === "1") return;
   const el = emojiPickerTarget;
-  const insert = stickerToken(item);
-  const start = el.selectionStart;
-  const end = el.selectionEnd;
-  el.value = el.value.slice(0, start) + insert + el.value.slice(end);
-  el.selectionStart = el.selectionEnd = start + insert.length;
-  el.focus();
-  el.dispatchEvent(new Event("input"));
+  const token = stickerToken(item);
+  if (typeof closeEmojiPicker === "function") closeEmojiPicker();
+  sendStickerNow(token, el);
 }
 
 function buildStickerGrid(items) {

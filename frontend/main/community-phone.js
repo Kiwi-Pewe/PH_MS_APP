@@ -642,15 +642,16 @@ function openCommunityPhoneMenu(e) {
   }, rows);
 }
 
-async function sendCommunityPhoneMessage(fromInput, textOnly) {
+async function sendCommunityPhoneMessage(fromInput, textOnly, forcedContent) {
   const input = fromInput || document.getElementById("composer-input");
-  const content = input ? input.value.trim() : "";
+  const stickerOnly = forcedContent != null && String(forcedContent).trim() !== "";
+  const content = stickerOnly ? String(forcedContent).trim() : (input ? input.value.trim() : "");
   if (textOnly) {
     if (!content || !communityPhoneCall || !ws || ws.readyState !== 1) return;
   } else if ((!content && !pendingAttach) || !communityPhoneCall || !ws || ws.readyState !== 1) return;
-  if (!textOnly && pendingAttach && pendingAttach.busy) return;
+  if (!stickerOnly && !textOnly && pendingAttach && pendingAttach.busy) return;
   let attachment = null;
-  if (!textOnly && pendingAttach) {
+  if (!stickerOnly && !textOnly && pendingAttach) {
     try {
       attachment = await uploadPendingIfNeeded();
     } catch (err) {
@@ -688,12 +689,14 @@ async function sendCommunityPhoneMessage(fromInput, textOnly) {
     communityPhoneCall.active_at = new Date().toISOString();
     armCommunityPhoneTimer({ call: communityPhoneCall });
   }
-  if (input) input.value = "";
-  if (!textOnly) {
+  if (!stickerOnly && input) input.value = "";
+  if (!stickerOnly && !textOnly) {
     if (typeof clearPendingAttach === "function") clearPendingAttach();
     if (typeof clearPendingReply === "function") clearPendingReply();
     if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
     if (typeof autoGrowComposer === "function") autoGrowComposer();
+  } else if (stickerOnly) {
+    if (typeof clearPendingReply === "function") clearPendingReply();
   }
 }
 

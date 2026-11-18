@@ -157,22 +157,23 @@ function paintSlowmodeIndicator() {
   if (composer) composer.classList.toggle("has-slowmode", !!showChannel);
 }
 
-async function sendChatMessage() {
+async function sendChatMessage(forcedContent) {
   if (typeof communityPhoneComposerOpen === "function" && communityPhoneComposerOpen()) {
-    if (typeof sendCommunityPhoneMessage === "function") return sendCommunityPhoneMessage();
+    if (typeof sendCommunityPhoneMessage === "function") return sendCommunityPhoneMessage(undefined, false, forcedContent);
     return;
   }
   if (typeof communityRoomComposerOpen === "function" && communityRoomComposerOpen()) {
-    if (typeof sendCommunityRoomMessage === "function") return sendCommunityRoomMessage();
+    if (typeof sendCommunityRoomMessage === "function") return sendCommunityRoomMessage(forcedContent);
     return;
   }
   const input = document.getElementById("composer-input");
-  const content = input.value.trim();
+  const stickerOnly = forcedContent != null && String(forcedContent).trim() !== "";
+  const content = stickerOnly ? String(forcedContent).trim() : ((input && input.value) || "").trim();
   if ((!content && !pendingAttach) || openChatId === null || !ws) return;
-  if (pendingAttach && pendingAttach.busy) return;
+  if (!stickerOnly && pendingAttach && pendingAttach.busy) return;
 
   let attachment = null;
-  if (pendingAttach) {
+  if (!stickerOnly && pendingAttach) {
     try {
       attachment = await uploadPendingIfNeeded();
     } catch (err) {
@@ -213,13 +214,15 @@ async function sendChatMessage() {
   });
   renderMessages({ jumpToLatest: true });
   bumpConversation(openChatType, openChatId, openChatName, false);
-  input.value = "";
-  clearPendingAttach();
+  if (!stickerOnly) {
+    if (input) input.value = "";
+    clearPendingAttach();
+  }
   clearPendingReply();
   if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
-  autoGrowComposer();
+  if (!stickerOnly) autoGrowComposer();
   if (typeof pinChatToBottom === "function") pinChatToBottom(document.getElementById("chat-body"));
-  if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
+  if (!stickerOnly && typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   if (typeof hideMentionPicker === "function") hideMentionPicker();
 }
 
@@ -246,14 +249,15 @@ document.getElementById("composer-input").addEventListener("keydown", (e) => {
 
 // sender_id isn't in the payload - backend fills it from the verified
 // session (never trust the client for identity).
-async function sendChannelMessage() {
+async function sendChannelMessage(forcedContent) {
   const input = document.getElementById("channel-composer-input");
-  const content = input.value.trim();
+  const stickerOnly = forcedContent != null && String(forcedContent).trim() !== "";
+  const content = stickerOnly ? String(forcedContent).trim() : ((input && input.value) || "").trim();
   if ((!content && !pendingAttach) || !ws) return;
-  if (pendingAttach && pendingAttach.busy) return;
+  if (!stickerOnly && pendingAttach && pendingAttach.busy) return;
 
   let attachment = null;
-  if (pendingAttach) {
+  if (!stickerOnly && pendingAttach) {
     try {
       attachment = await uploadPendingIfNeeded();
     } catch (err) {
@@ -305,13 +309,15 @@ async function sendChannelMessage() {
     } : null
   });
   renderChannelMessages({ jumpToLatest: true });
-  input.value = "";
-  clearPendingAttach();
+  if (!stickerOnly) {
+    if (input) input.value = "";
+    clearPendingAttach();
+  }
   clearPendingReply();
   if (typeof stopOutgoingTyping === "function") stopOutgoingTyping();
-  autoGrowChannelComposer();
+  if (!stickerOnly) autoGrowChannelComposer();
   if (typeof pinChatToBottom === "function") pinChatToBottom(document.getElementById("channel-body"));
-  if (typeof refreshComposerMentions === "function") refreshComposerMentions(input);
+  if (!stickerOnly && typeof refreshComposerMentions === "function") refreshComposerMentions(input);
   if (typeof hideMentionPicker === "function") hideMentionPicker();
 }
 
